@@ -7,9 +7,9 @@ description: "Share one LLM interaction without giving someone access to your Lo
 
 Send someone a focused view of one LLM interaction without giving them access to your Logfire project or the rest of the trace.
 
-!!! note "Early access"
+!!! note "Early Access availability"
 
-    Public Conversations is available in early access. Enable it in **Settings → Early access** in the browser where you use Logfire. Early access choices are stored in that browser and apply across the organizations you use there.
+    Early Access is available to Growth and Enterprise customers. Public Conversations is an Early Access feature. Enable it in **Settings → Early access** in the browser where you use Logfire. Early Access choices are stored in that browser and apply across the organizations you use there.
 
 A public conversation starts from one LLM span (one model call, with a start and a duration). The default **Bubbles only** view presents its user, assistant, and tool messages as a chat. The public page also shows the share title and the Logfire organization and project names. Its data response keeps the span identifiers and timing needed to render the page, but excludes system and developer instructions, tool definitions, span events, raw provider attributes, and service, process, resource, and HTTP metadata.
 
@@ -21,6 +21,8 @@ Use a public conversation when someone needs the model exchange itself, for exam
 2. Find **Public conversations** under **Observability** or **AI Agent Optimization**.
 3. Turn on the switch. The first Early Access feature you enable asks you to accept the Early Access terms.
 
+![The Early Access settings page showing the Growth and Enterprise availability notice and the enabled Public conversations switch](../../../images/guide/public-conversations/early-access-settings.png)
+
 The switch only controls where the sharing controls appear in your browser. Project permissions still decide whether you can create, rename, or revoke a public link.
 
 ## Share one conversation
@@ -31,6 +33,8 @@ The switch only controls where the sharing controls appear in your browser. Proj
 4. Select **Share** to copy or send the link, or **Share & open** to inspect the public page first.
 
 Anyone with the link can open it without signing in. Treat the link as a credential and send it only to people who should see the conversation.
+
+![A shared public conversation showing only the selected exchange in a chat-style view](../../../images/guide/public-conversations/public-conversation.png)
 
 !!! warning "Advanced views expose the full span"
 
@@ -54,7 +58,7 @@ Deleting a link does not delete the original span or conversation from your proj
 
 | Symptom | Cause and fix |
 | --- | --- |
-| **Share conversation** is missing | Enable **Public conversations** in **Settings → Early access** in this browser. |
+| **Share conversation** is missing | Enable **Public conversations** in **Settings → Early access** in this browser. Early Access is available to Growth and Enterprise customers. |
 | The control says the conversation is not shared publicly | Your project role does not have permission to create public conversation links. Ask a project administrator to share it or update your role. |
 | The public link returns **Not found** | The link expired, someone revoked it, or the underlying span aged out of data retention. Create a new link if the span is still available. |
 | Messages are missing | Logfire could not reconstruct those messages from the attributes recorded by your LLM instrumentation. Open the original span and check which message attributes it contains. |
