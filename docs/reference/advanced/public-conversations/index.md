@@ -7,9 +7,9 @@ description: "Share one LLM interaction without giving someone access to your Lo
 
 Send someone a focused view of one LLM interaction without giving them access to your Logfire project or the rest of the trace.
 
-!!! note "Early Access availability"
+!!! note "Plan availability"
 
-    Some Early Access features require Growth or Enterprise. Public Conversations is an Early Access feature. Enable it in **Settings → Early access** in the browser where you use Logfire. Early Access choices are stored in that browser and apply across the organizations you use there.
+    On Logfire Cloud, Public Conversations requires a Growth or Enterprise plan. It is an Early Access feature: enable it in **Settings → Early access** in the browser where you use Logfire. Early Access choices are stored in that browser and apply across the organizations you use there.
 
 A public conversation starts from one LLM span (one model call, with a start and a duration). The default **Bubbles only** view presents its user, assistant, and tool messages as a chat. The public page also shows the share title and the Logfire organization and project names. Its data response keeps the span identifiers and timing needed to render the page, but excludes system and developer instructions, tool definitions, span events, raw provider attributes, and service, process, resource, and HTTP metadata.
 
