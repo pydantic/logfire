@@ -7,9 +7,9 @@ description: "Share one LLM interaction without giving someone access to your Lo
 
 Send someone a focused view of one LLM interaction without giving them access to your Logfire project or the rest of the trace.
 
-!!! note "Plan availability"
+!!! note "Early Access availability"
 
-    On Logfire Cloud, Public Conversations requires a Growth or Enterprise plan. It is an Early Access feature: enable it in **Settings → Early access** in the browser where you use Logfire. Early Access choices are stored in that browser and apply across the organizations you use there.
+    On Logfire Cloud, Early Access is available on Growth and Enterprise plans. Enable it in **Settings → Early access** in the browser where you use Logfire. Early Access choices are stored in that browser and apply across the organizations you use there.
 
 A public conversation starts from one LLM span (one model call, with a start and a duration). The default **Bubbles only** view presents its user, assistant, and tool messages as a chat. The public page also shows the share title and the Logfire organization and project names. Its data response keeps the span identifiers and timing needed to render the page, but excludes system and developer instructions, tool definitions, span events, raw provider attributes, and service, process, resource, and HTTP metadata.
 
@@ -21,7 +21,7 @@ Use a public conversation when someone needs the model exchange itself, for exam
 2. Find **Public conversations** under **Observability** or **AI Agent Optimization**.
 3. Turn on the switch. The first Early Access feature you enable asks you to accept the Early Access terms.
 
-![The Early Access settings page showing the Growth and Enterprise plan-requirements notice and the enabled Public conversations switch](../../../images/guide/public-conversations/early-access-settings.png)
+![The Early Access settings page showing its availability notice and the enabled Public conversations switch](../../../images/guide/public-conversations/early-access-settings.png)
 
 The switch only controls where the sharing controls appear in your browser. Project permissions still decide whether you can create, rename, or revoke a public link.
 
