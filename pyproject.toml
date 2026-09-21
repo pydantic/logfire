@@ -62,6 +62,7 @@ dev = [
     "opentelemetry-instrumentation-mysql>=0.42b0",
     "opentelemetry-instrumentation-sqlite3>=0.42b0",
     "opentelemetry-instrumentation-aws-lambda>=0.42b0",
+    "opentelemetry-instrumentation-urllib3>=0.42b0",
     "eval-type-backport >= 0.2.0",
     "requests-mock >= 1.12.1",
     "inline-snapshot >= 0.32.5",
