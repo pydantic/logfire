@@ -739,16 +739,22 @@ def test_extra_patterns_numeric_backreferences():
     # the group from (a), so 'bb' would not be scrubbed.
     scrubber = Scrubber(['(a)', r'(b)\1'])
 
+    # Use values where the match is a *substring*, not the whole string.  The scrubber
+    # has a "whole-string safe" short-circuit: if the entire value matches the pattern
+    # it is considered to be the key name itself (e.g. the literal word "password"),
+    # not sensitive data, and is left unchanged.  Embedding the match in a longer string
+    # bypasses that short-circuit and lets us verify that the pattern actually fires.
+
     # 'bb' must be scrubbed because (b)\1 correctly refers to the 'b' group.
-    result, scrubbed = scrubber.scrub_value(('attributes', 'x'), 'bb')
-    assert result != 'bb', "expected 'bb' to be scrubbed by (b)\\1, but it was not"
+    result, scrubbed = scrubber.scrub_value(('attributes', 'x'), 'value=bb')
+    assert result != 'value=bb', "expected 'bb' to be scrubbed by (b)\\1, but it was not"
     assert len(scrubbed) == 1
 
     # 'aa' must be scrubbed because (a) matches 'a' inside 'aa'.
-    result_aa, scrubbed_aa = scrubber.scrub_value(('attributes', 'x'), 'aa')
-    assert result_aa != 'aa', "expected 'aa' to be scrubbed by (a), but it was not"
+    result_aa, scrubbed_aa = scrubber.scrub_value(('attributes', 'x'), 'value=aa')
+    assert result_aa != 'value=aa', "expected 'aa' to be scrubbed by (a), but it was not"
     assert len(scrubbed_aa) == 1
 
     # Verify that a single extra_pattern using a backreference also works in isolation.
-    result_single, _ = Scrubber([r'(x)\1']).scrub_value(('attributes', 'x'), 'xx')
-    assert result_single != 'xx', "expected 'xx' to be scrubbed by (x)\\1 in isolation"
+    result_single, _ = Scrubber([r'(x)\1']).scrub_value(('attributes', 'x'), 'value=xx')
+    assert result_single != 'value=xx', "expected 'xx' to be scrubbed by (x)\\1 in isolation"
