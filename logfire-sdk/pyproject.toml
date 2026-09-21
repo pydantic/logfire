@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire-sdk"
-version = "6.0.0b3"
+version = "6.0.0b4"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.10"
 authors = [
