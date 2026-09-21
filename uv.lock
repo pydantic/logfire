@@ -2967,6 +2967,9 @@ system-metrics = [
 urllib = [
     { name = "logfire-sdk", extra = ["urllib"] },
 ]
+urllib3 = [
+    { name = "logfire-sdk", extra = ["urllib3"] },
+]
 variables = [
     { name = "logfire-sdk", extra = ["variables"] },
 ]
@@ -3006,10 +3009,11 @@ requires-dist = [
     { name = "logfire-sdk", extras = ["starlette"], marker = "extra == 'starlette'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["system-metrics"], marker = "extra == 'system-metrics'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["urllib"], marker = "extra == 'urllib'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["urllib3"], marker = "extra == 'urllib3'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["variables"], marker = "extra == 'variables'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["wsgi"], marker = "extra == 'wsgi'", editable = "logfire-sdk" },
 ]
-provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "urllib3", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
 
 [[package]]
 name = "logfire-api"
