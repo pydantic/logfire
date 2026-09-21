@@ -103,6 +103,7 @@ INSTRUMENTATION_TO_EXTRA: dict[str, str] = {
     'opentelemetry-instrumentation-sqlite3': 'sqlite3',
     'opentelemetry-instrumentation-starlette': 'starlette',
     'opentelemetry-instrumentation-urllib': 'urllib',
+    'opentelemetry-instrumentation-urllib3': 'urllib3',
 }
 
 
