@@ -765,7 +765,7 @@ def test_metric_counter_drops_invalid_attribute_and_warns(metrics_reader: InMemo
     counter = logfire.metric_counter('counter')
 
     with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
-        counter.add(1, {'bad': object(), 'good': 'yes', 'n': 3})
+        counter.add(1, {'bad': object(), 'good': 'yes', 'n': 3})  # type: ignore[arg-type]
 
     assert get_collected_metrics(metrics_reader) == snapshot(
         [
@@ -795,7 +795,7 @@ def test_metric_histogram_drops_invalid_attribute_and_warns(metrics_reader: InMe
     histogram = logfire.metric_histogram('histogram')
 
     with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
-        histogram.record(50, {'bad': object(), 'good': 'yes'})
+        histogram.record(50, {'bad': object(), 'good': 'yes'})  # type: ignore[arg-type]
 
     [metric] = get_collected_metrics(metrics_reader)
     [data_point] = metric['data']['data_points']
@@ -806,7 +806,7 @@ def test_metric_up_down_counter_drops_invalid_attribute_and_warns(metrics_reader
     up_down_counter = logfire.metric_up_down_counter('up_down_counter')
 
     with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
-        up_down_counter.add(1, {'bad': object(), 'good': 'yes'})
+        up_down_counter.add(1, {'bad': object(), 'good': 'yes'})  # type: ignore[arg-type]
 
     [metric] = get_collected_metrics(metrics_reader)
     [data_point] = metric['data']['data_points']
@@ -817,7 +817,7 @@ def test_metric_gauge_drops_invalid_attribute_and_warns(metrics_reader: InMemory
     gauge = logfire.metric_gauge('gauge')
 
     with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
-        gauge.set(1, {'bad': object(), 'good': 'yes'})
+        gauge.set(1, {'bad': object(), 'good': 'yes'})  # type: ignore[arg-type]
 
     [metric] = get_collected_metrics(metrics_reader)
     [data_point] = metric['data']['data_points']
@@ -828,7 +828,7 @@ def test_metric_attributes_with_invalid_sequence_element_are_dropped(metrics_rea
     counter = logfire.metric_counter('counter')
 
     with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type tuple"):
-        counter.add(1, {'seq': (1, object()), 'good_seq': ('a', 'b')})
+        counter.add(1, {'seq': (1, object()), 'good_seq': ('a', 'b')})  # type: ignore[arg-type]
 
     [metric] = get_collected_metrics(metrics_reader)
     [data_point] = metric['data']['data_points']
