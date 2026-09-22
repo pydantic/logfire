@@ -44,7 +44,7 @@ To manage targets as code, use the experimental `logfire_slo` resource of the Te
 
 **Records** measure rows such as requests, remote procedure calls (RPCs), background jobs, and LLM calls. Define the total population and bad subset with SQL boolean conditions. The setup wizard previews matching records before you save.
 
-**Metrics** measure a count or other additive value, a gauge fraction, a cumulative counter, or the share of histogram observations on the good side of a threshold, such as request latency below a cutoff. Their burn-rate history appears after you save the target.
+**Metrics** measure a count or other additive value, a gauge fraction, a cumulative counter, or the share of histogram observations on the good side of a threshold. For a histogram, choose **Below is good** for values such as request latency, or **Above is good** when higher values are better. Their burn-rate history appears after you save the target.
 
 You can restrict either source to selected deployment environments. Set the target percentage and window, then choose notification channels for its generated alerts.
 
