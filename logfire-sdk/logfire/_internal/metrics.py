@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from threading import Lock
@@ -27,6 +28,55 @@ from opentelemetry.util.types import Attributes
 
 from .tracer import _LogfireWrappedSpan  # pyright: ignore[reportPrivateUsage]
 from .utils import handle_internal_errors
+
+# Types that a metric data point attribute value may have.
+# A value must be encodable by the OTLP exporter AND hashable, because the metrics SDK keys
+# aggregations on frozenset(attributes.items()). So the accepted set is a primitive, or a
+# tuple (hashable) of primitives. Unlike span attributes, metric attributes are not passed
+# through logfire's prepare_otlp_attribute, and neither the metrics SDK nor the exporter
+# cleans them, so an unsupported value only fails later: either inside the exporter thread
+# (dropping the whole batch, with no pointer to the offending call) or during aggregation
+# with a raw TypeError. See https://github.com/pydantic/logfire/issues/782.
+_VALID_METRIC_ATTRIBUTE_TYPES = (bool, str, bytes, int, float)
+
+
+def _sanitize_metric_attributes(attributes: Attributes | None) -> Attributes | None:
+    """Drop metric attribute values that break the exporter or aggregation, warning for each.
+
+    A single bad value otherwise either raises inside `PeriodicExportingMetricReader`'s
+    background thread (dropping the whole batch, with no pointer to the offending call) or
+    raises a raw TypeError during aggregation for unhashable values. Warning and dropping the
+    individual attribute keeps the metric and its other attributes instead.
+    """
+    if not attributes:
+        return attributes
+
+    cleaned: dict[str, Any] | None = None
+    for key, value in attributes.items():
+        if not _metric_attribute_value_is_valid(value):
+            warnings.warn(
+                f'Dropping metric attribute {key!r} with invalid type {type(value).__name__}. '
+                f'Metric attribute values must be one of '
+                f'{[t.__name__ for t in _VALID_METRIC_ATTRIBUTE_TYPES]}, or a tuple of those.',
+                UserWarning,
+                stacklevel=3,
+            )
+            if cleaned is None:
+                cleaned = dict(attributes)
+            del cleaned[key]
+
+    return cleaned if cleaned is not None else attributes
+
+
+def _metric_attribute_value_is_valid(value: Any) -> bool:
+    if isinstance(value, _VALID_METRIC_ATTRIBUTE_TYPES):
+        return True
+    # A tuple of primitives is hashable and OTLP-encodable; a list is a valid OTLP attribute
+    # value in general but is unhashable and crashes the metrics SDK's aggregation keying
+    # (frozenset(attributes.items())), so only tuples are accepted here.
+    if isinstance(value, tuple):
+        return all(element is None or isinstance(element, _VALID_METRIC_ATTRIBUTE_TYPES) for element in value)
+    return False
 
 
 # The following proxy classes are adapted from OTEL's SDK
@@ -216,7 +266,7 @@ class _ProxyCounter(_ProxyInstrument[Counter], Counter):
         **kwargs: Any,
     ) -> None:
         self._increment_span_metric(amount, attributes)
-        self._instrument.add(amount, attributes, *args, **kwargs)
+        self._instrument.add(amount, _sanitize_metric_attributes(attributes), *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Counter:
         return meter.create_counter(**self._kwargs)
@@ -231,7 +281,7 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
         **kwargs: Any,
     ) -> None:
         self._increment_span_metric(amount, attributes)
-        self._instrument.record(amount, attributes, *args, **kwargs)
+        self._instrument.record(amount, _sanitize_metric_attributes(attributes), *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Histogram:
         return meter.create_histogram(**self._kwargs)
@@ -260,7 +310,7 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        self._instrument.add(amount, attributes, *args, **kwargs)
+        self._instrument.add(amount, _sanitize_metric_attributes(attributes), *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> UpDownCounter:
         return meter.create_up_down_counter(**self._kwargs)
@@ -274,7 +324,8 @@ class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        self._instrument.set(amount, attributes, *args, **kwargs)
+        self._instrument.set(amount, _sanitize_metric_attributes(attributes), *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter):
         return meter.create_gauge(**self._kwargs)
+
