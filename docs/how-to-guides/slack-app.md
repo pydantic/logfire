@@ -19,6 +19,9 @@ The Logfire Slack app brings your observability notifications into Slack. Instal
 
 The app never posts anywhere it has not been invited, and it does not join channels by itself.
 
+!!! warning "AI-generated content can be inaccurate"
+    Some notifications include content that Logfire generates with AI, such as a summary of what changed or a suggested cause. AI-generated content can be inaccurate, incomplete, or misleading. Treat it as a starting point for your investigation, and verify it against the linked traces and query results in Logfire before acting on it. Those are the notifications that ask for feedback: your 👍 / 👎 helps us improve them.
+
 ### Permissions it requests
 
 | Permission | Why the app needs it |
