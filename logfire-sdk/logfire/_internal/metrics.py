@@ -75,7 +75,10 @@ def _metric_attribute_value_is_valid(value: Any) -> bool:
     # value in general but is unhashable and crashes the metrics SDK's aggregation keying
     # (frozenset(attributes.items())), so only tuples are accepted here.
     if isinstance(value, tuple):
-        return all(element is None or isinstance(element, _VALID_METRIC_ATTRIBUTE_TYPES) for element in value)
+        element_tuple: tuple[Any, ...] = value
+        return all(
+            element is None or isinstance(element, _VALID_METRIC_ATTRIBUTE_TYPES) for element in element_tuple
+        )
     return False
 
 
