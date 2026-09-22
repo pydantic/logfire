@@ -328,4 +328,3 @@ class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
 
     def _create_real_instrument(self, meter: Meter):
         return meter.create_gauge(**self._kwargs)
-
