@@ -64,9 +64,9 @@ Route alerts from the target detail page. See [Alerts](alerts.md) for notificati
 
 ## Track the budget and investigate failures
 
-The target detail page shows **Current service level**, **Target**, and **Error budget remaining**. **Reliability history** has two views: **Error budget** shows the remaining budget over time, and **Burn rate** shows the hourly burn rate. Both views start with the full rolling window of the target. When the window is longer, you can choose a shorter span of 24 hours or 7 days.
+The target detail page shows **Current service level**, **Target**, and **Error budget remaining**. **Reliability history** has two views: **Error budget** shows the remaining budget over time, and **Burn rate** shows the hourly burn rate. Both views start with the full rolling window of the target. To look at a shorter span, choose 24 hours, or 7 days when the window is longer than 7 days.
 
-To investigate failures, drag across the chart to select a time range. Then select **Open in SQL Workbench** to query the failing events in the [SQL Workbench](explore.md). For a target that measures records, **Open in Live view** shows the same events in [Live view](live.md). Without a selection, these links use the range that the chart shows. On a burn-rate alert row, select **Investigate** to open the chart at the time range around the alert's most recent firing.
+To investigate failures, drag across the chart to select a time range. Then select **Open in SQL Workbench** to query that range in the [SQL Workbench](explore.md): the failing records for a target that measures records, or the metric rows for a target that measures metrics. For a target that measures records, **Open in Live view** shows the same failing records in [Live view](live.md). Without a selection, these links use the range that the chart shows. If a burn-rate alert has fired, its row has an **Investigate** link. Select it to open the chart at the time range around the most recent firing of the alert.
 
 The **How it's measured** panel records the scope and exact conditions.
 
