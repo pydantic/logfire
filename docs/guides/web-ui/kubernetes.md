@@ -54,11 +54,11 @@ Every detail page links into the [Live View](live.md) for the trace investigatio
 
 ## Setting up
 
-Follow [Kubernetes monitoring with the OTel Collector](../../how-to-guides/otel-collector/kubernetes-monitoring.md) to install the upstream `opentelemetry-kube-stack` Helm chart and connect it to your Logfire project. The standard setup collects the full data set this view uses: cluster state, node and pod metrics, host metrics, pod logs, Kubernetes Events, and Kubernetes identity on telemetry.
+Follow [Kubernetes monitoring with the OTel Collector](../../how-to-guides/otel-collector/kubernetes-monitoring.md) to install the upstream `opentelemetry-kube-stack` Helm chart and connect it to your Logfire project. The balanced setup collects the full data set this view uses: cluster state, node, pod, and container metrics, pod logs, Kubernetes Events, and Kubernetes identity on telemetry.
 
 Data starts flowing within a minute or two of the daemon pods reaching `Ready`. The chart wires the `k8s_attributes` processor into the daemon's trace pipeline so the **drill-down from a pod to the spans that pod emitted** in the [Live View](live.md) works out of the box.
 
-This default setup keeps the chart's standard collection intervals, all four kubelet metric groups, and its default Prometheus scrapes for kubelet cAdvisor and annotated pods. It also keeps the node conditions used by the findings summary. After the standard setup works, you can [collect more Kubernetes data](../../how-to-guides/otel-collector/kubernetes-collect-more.md) or [reduce Kubernetes monitoring volume](../../how-to-guides/otel-collector/kubernetes-reduce-volume.md) without breaking this page.
+The setup collects Kubernetes metrics once per minute, omits the kubelet volume group and broad Prometheus scrapes, and keeps the node conditions used by the findings summary. Host metrics are optional because the Kubernetes view gets node CPU and memory from kubelet metrics. After the standard setup works, you can [collect more Kubernetes data](../../how-to-guides/otel-collector/kubernetes-collect-more.md) or [measure and control Kubernetes monitoring volume](../../how-to-guides/otel-collector/kubernetes-reduce-volume.md) without breaking this page.
 
 For the full per-piece breakdown (RBAC, both collector configs, the `k8s_attributes` processor's pod association chain, and a kind walkthrough), see the [custom Collector setup](../../how-to-guides/otel-collector/kubernetes-manual-setup.md). For an end-to-end article including a real application sending traces and unified dashboards, see [Full-stack Kubernetes observability with Logfire](https://pydantic.dev/articles/kubernetes-cluster-observability-logfire).
 
