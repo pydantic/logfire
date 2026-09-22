@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings
+
 from typing import Any
 
 import pytest
@@ -752,3 +754,108 @@ def test_replace_default_views(metrics_reader: InMemoryMetricReader, config_kwar
             },
         ]
     )
+
+
+def test_metric_counter_drops_invalid_attribute_and_warns(metrics_reader: InMemoryMetricReader) -> None:
+    """Invalid metric attribute values are dropped with a warning instead of crashing the exporter.
+
+    Regression test for https://github.com/pydantic/logfire/issues/782: an attribute value the
+    OTLP exporter cannot encode (here an arbitrary ``object()``) previously reached the export
+    thread and failed there, dropping the whole batch with no pointer to the offending call.
+    """
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+        counter.add(1, {'bad': object(), 'good': 'yes', 'n': 3})
+
+    assert get_collected_metrics(metrics_reader) == snapshot(
+        [
+            {
+                'name': 'counter',
+                'description': '',
+                'unit': '',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {'good': 'yes', 'n': 3},
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'value': 1,
+                            'exemplars': [],
+                        }
+                    ],
+                    'aggregation_temporality': 1,
+                    'is_monotonic': True,
+                },
+            }
+        ]
+    )
+
+
+def test_metric_histogram_drops_invalid_attribute_and_warns(metrics_reader: InMemoryMetricReader) -> None:
+    histogram = logfire.metric_histogram('histogram')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+        histogram.record(50, {'bad': object(), 'good': 'yes'})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_up_down_counter_drops_invalid_attribute_and_warns(metrics_reader: InMemoryMetricReader) -> None:
+    up_down_counter = logfire.metric_up_down_counter('up_down_counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+        up_down_counter.add(1, {'bad': object(), 'good': 'yes'})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_gauge_drops_invalid_attribute_and_warns(metrics_reader: InMemoryMetricReader) -> None:
+    gauge = logfire.metric_gauge('gauge')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+        gauge.set(1, {'bad': object(), 'good': 'yes'})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_attributes_with_invalid_sequence_element_are_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type tuple"):
+        counter.add(1, {'seq': (1, object()), 'good_seq': ('a', 'b')})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good_seq': ['a', 'b']}
+
+
+def test_metric_list_attribute_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    # A list is a valid OTLP attribute value in general but is unhashable and crashes the
+    # metrics SDK during aggregation, so it must be dropped for metrics specifically.
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'lst' with invalid type list"):
+        counter.add(1, {'lst': [1, 2, 3], 'good': 'yes'})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_valid_metric_attributes_do_not_warn(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('counter')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        counter.add(1, {'s': 'a', 'b': True, 'i': 1, 'f': 1.5, 'seq': (1, 2, 3)})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'s': 'a', 'b': True, 'i': 1, 'f': 1.5, 'seq': [1, 2, 3]}
