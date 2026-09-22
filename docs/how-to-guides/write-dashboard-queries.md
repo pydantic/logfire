@@ -194,7 +194,7 @@ FROM records
 GROUP BY x
 ```
 
-Here the `time_bucket($resolution, start_timestamp)` is essential. [`$resolution` is a special variable that exists in all dashboards](../guides/web-ui/dashboards.md#resolution-variable) and adjusts automatically based on the time range. You can adjust it while viewing the dashboard using the dropdown in the top left corner. It doesn't exist in SQL Workbench, so you have to use a concrete interval like `time_bucket('1 hour', start_timestamp)` there. Tick **Show rendered query** in the panel editor to fill in the resolution and other variables so that you can copy the query to SQL Workbench.
+Here the `time_bucket($resolution, start_timestamp)` is essential. [`$resolution` is a special variable that exists in all dashboards](../guides/web-ui/dashboards.md#resolution-variable) and adjusts automatically based on the time range. It doesn't exist in SQL Workbench, so you have to use a concrete interval like `time_bucket('1 hour', start_timestamp)` there. Tick **Show rendered query** in the panel editor to fill in the resolution and other variables so that you can copy the query to SQL Workbench.
 
 !!! warning
     If you're querying `metrics`, use `recorded_timestamp` instead of `start_timestamp`.
