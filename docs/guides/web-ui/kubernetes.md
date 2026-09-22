@@ -12,7 +12,7 @@ Switch to the **Pods** tab to drop into individual pod state: restart counts, CP
 
 ## What's in the view
 
-The top of the page shows clusters, nodes, namespaces, workloads, pods, and unique container images reporting to the project in the last 2 minutes.
+The top of the page shows clusters, nodes, namespaces, workloads, pods, and unique container images observed in the latest 15 minutes of the selected time range. The page also checks the full selected range for Kubernetes data, so an older resource does not make the project look unconfigured when its current snapshot is empty.
 
 Below the cards, six tabs let you browse by level:
 
@@ -37,7 +37,7 @@ The **Nodes**, **Workloads**, and **Pods** tabs show current finding counts. Ope
 
 ![Kubernetes node findings and full-fleet filter](../../images/kubernetes/findings-overview.png)
 
-Kubernetes findings use telemetry received in the last 2 minutes, rather than the selected historical range, so they describe what is happening now. One resource can have more than one condition, which means the condition counts can overlap. A missing metric means Logfire cannot evaluate that condition, not that the resource is healthy.
+Kubernetes findings use telemetry received in the latest 15 minutes, rather than every sample in the selected historical range, so they describe the current state. One resource can have more than one condition, which means the condition counts can overlap. A missing metric means Logfire cannot evaluate that condition, not that the resource is healthy.
 
 Kubernetes Events remain separate log records. An image-pull failure, scheduling event, or `OOMKilled` event can explain a finding, but it is not itself counted as one.
 
