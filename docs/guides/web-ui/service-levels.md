@@ -44,7 +44,7 @@ From a service detail page, select **Reliability**, then **New target** and choo
 
 **Metrics** measure a count or other additive value, a gauge fraction, a cumulative counter, or values below a histogram latency threshold. Their burn-rate history appears after you save the target.
 
-You can restrict either source to selected deployment environments. Set the target percentage and window, then choose notification channels for its three generated alerts.
+You can restrict either source to selected deployment environments. Set the target percentage and window, then choose the starting notification channels for its three generated alerts. You can change the channels of each alert later.
 
 ## Let Logfire watch the burn rate
 
