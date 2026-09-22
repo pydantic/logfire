@@ -21,7 +21,7 @@ A target combines:
 2. The subset that counts as bad.
 3. The percentage that should be good over a rolling time window.
 
-The resulting good-event ratio is the service level indicator (SLI). Percentage presets range from **99%** to **99.99%**, with **99.9%** as the default. Window presets are **1, 7, 28, 30, and 90 days**.
+The resulting good-event ratio is the service level indicator (SLI). Enter any target percentage below 100%, or choose a preset from **99%** to **99.99%**. The default is **99.9%**. Window presets are **1, 7, 28, 30, and 90 days**.
 
 Two derived values show whether the goal is at risk:
 
