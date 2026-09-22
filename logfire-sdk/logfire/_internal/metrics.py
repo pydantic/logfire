@@ -5,7 +5,7 @@ import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from threading import Lock
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 from weakref import WeakSet
 
 from opentelemetry.metrics import (
@@ -75,10 +75,8 @@ def _metric_attribute_value_is_valid(value: Any) -> bool:
     # value in general but is unhashable and crashes the metrics SDK's aggregation keying
     # (frozenset(attributes.items())), so only tuples are accepted here.
     if isinstance(value, tuple):
-        element_tuple: tuple[Any, ...] = value
-        return all(
-            element is None or isinstance(element, _VALID_METRIC_ATTRIBUTE_TYPES) for element in element_tuple
-        )
+        elements = cast('tuple[Any, ...]', value)
+        return all(element is None or isinstance(element, _VALID_METRIC_ATTRIBUTE_TYPES) for element in elements)
     return False
 
 
