@@ -849,6 +849,23 @@ def test_metric_attributes_with_none_sequence_element_are_dropped(metrics_reader
     assert data_point['attributes'] == {'good_seq': ['a', 'b']}
 
 
+def test_metric_multiple_invalid_attributes_are_all_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    # Two invalid attributes in one call: the second reuses the already-copied ``cleaned`` dict
+    # (the ``cleaned is None`` guard is False on the second drop) rather than copying again.
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning) as records:
+        counter.add(1, {'bad1': object(), 'bad2': [1, 2], 'good': 'yes'})  # type: ignore[arg-type]
+
+    messages = [str(r.message) for r in records]
+    assert any("Dropping metric attribute 'bad1'" in m for m in messages)
+    assert any("Dropping metric attribute 'bad2'" in m for m in messages)
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
 def test_metric_list_attribute_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
     # A list is a valid OTLP attribute value in general but is unhashable and crashes the
     # metrics SDK during aggregation, so it must be dropped for metrics specifically.
