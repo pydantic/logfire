@@ -84,6 +84,30 @@ def _metric_attribute_value_is_valid(value: Any) -> bool:
     return False
 
 
+def _span_safe_metric_attributes(attributes: Attributes | None) -> Attributes | None:
+    """Drop attribute values the in-span metric collection cannot serialize.
+
+    `_LogfireWrappedSpan` stores these in `SpanMetric` and `json.dumps`es them at span
+    end, which `bytes` fails even though OTLP encodes it happily as `bytes_value`. Since
+    that failure is swallowed and takes the whole `logfire.metrics` attribute with it,
+    `bytes` is dropped here rather than from `_VALID_METRIC_ATTRIBUTE_TYPES` - the
+    exported metric keeps it.
+    """
+    if not attributes:
+        return attributes
+
+    cleaned: dict[str, Any] | None = None
+    for key, value in attributes.items():
+        if isinstance(value, bytes) or (
+            isinstance(value, tuple) and any(isinstance(el, bytes) for el in cast('tuple[Any, ...]', value))
+        ):
+            if cleaned is None:
+                cleaned = dict(attributes)
+            del cleaned[key]
+
+    return cleaned if cleaned is not None else attributes
+
+
 def _metric_scalar_is_valid(value: Any) -> bool:
     if not isinstance(value, _VALID_METRIC_ATTRIBUTE_TYPES):
         return False
@@ -268,7 +292,7 @@ class _ProxyInstrument(ABC, Generic[InstrumentT]):
     def _increment_span_metric(self, amount: float, attributes: Attributes | None = None):
         span = get_current_span()
         if isinstance(span, _LogfireWrappedSpan):
-            span.increment_metric(self._kwargs['name'], attributes or {}, amount)
+            span.increment_metric(self._kwargs['name'], _span_safe_metric_attributes(attributes) or {}, amount)
 
 
 class _ProxyCounter(_ProxyInstrument[Counter], Counter):
