@@ -21,3 +21,18 @@ def test_connect_proxy_allows_headers_to_arrive_in_multiple_packets() -> None:
                 assert client.recv(4096).startswith(b'HTTP/1.1 200 Connection Established\r\n')
         finally:
             proxy.close()
+
+
+def test_close_during_a_partial_connect_request_stops_promptly() -> None:
+    with socket.socket() as upstream:
+        upstream.bind(('127.0.0.1', 0))
+        upstream.listen()
+        proxy = StaleConnectionProxy('127.0.0.1', upstream.getsockname()[1], accept_connect=True)
+        with socket.create_connection(('127.0.0.1', int(proxy.endpoint.rsplit(':', 1)[1]))) as client:
+            client.sendall(b'CONNECT localhost:443 HTTP/1.1\r\n')
+            time.sleep(0.15)
+
+            start = time.monotonic()
+            proxy.close()
+
+            assert time.monotonic() - start < 1
