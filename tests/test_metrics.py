@@ -1016,6 +1016,26 @@ def test_metric_bytes_attribute_kept_in_export_but_dropped_from_span_collection(
     assert data_point.value == 100
 
 
+def test_metric_multiple_bytes_attributes_all_dropped_from_span_collection(
+    exporter: TestExporter,
+) -> None:
+    # Two bytes attributes in one call: the second reuses the already-copied `cleaned`
+    # dict, i.e. the `cleaned is None` guard is False on the second drop. Without this the
+    # 104->106 branch in `_span_safe_metric_attributes` stays partial and the repo's
+    # `coverage report --fail-under 100` fails.
+    counter = logfire.metric_counter('tokens')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        with logfire.span('span'):
+            counter.add(100, {'raw1': b'abc', 'raw2': b'def', 'model': 'gpt4'})
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
+
+
 def test_metric_bytes_in_sequence_dropped_from_span_collection(exporter: TestExporter) -> None:
     counter = logfire.metric_counter('tokens')
 
