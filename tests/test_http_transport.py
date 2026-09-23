@@ -122,7 +122,8 @@ def test_connected_socket_has_tuned_tcp_keepalive() -> None:
         try:
             client_socket = connection.sock
             assert client_socket is not None
-            assert client_socket.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE) == 1
+            # Linux reports an enabled flag as 1 and macOS as the option's own value.
+            assert client_socket.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE) != 0
 
             idle_option = getattr(socket, 'TCP_KEEPIDLE', None) or getattr(socket, 'TCP_KEEPALIVE', None)
             if idle_option is not None:
