@@ -16,6 +16,7 @@ from opentelemetry.sdk.metrics.export import (
     MetricExporter,
     MetricExportResult,
     MetricsData,
+    Sum,
 )
 from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
 
@@ -1008,7 +1009,9 @@ def test_metric_bytes_attribute_kept_in_export_but_dropped_from_span_collection(
     [resource_metrics] = data.resource_metrics
     [scope_metrics] = resource_metrics.scope_metrics
     [metric] = scope_metrics.metrics
-    [data_point] = metric.data.data_points
+    metric_data = metric.data
+    assert isinstance(metric_data, Sum)
+    [data_point] = metric_data.data_points
     assert dict(data_point.attributes or {}) == {'raw': b'abc', 'model': 'gpt4'}
     assert data_point.value == 100
 
@@ -1019,7 +1022,7 @@ def test_metric_bytes_in_sequence_dropped_from_span_collection(exporter: TestExp
     with warnings.catch_warnings():
         warnings.simplefilter('error')
         with logfire.span('span'):
-            counter.add(100, {'raws': (b'a', b'b'), 'model': 'gpt4'})
+            counter.add(100, {'raws': (b'a', b'b'), 'model': 'gpt4'})  # type: ignore[arg-type]
 
     [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
     assert span['attributes']['logfire.metrics'] == {
