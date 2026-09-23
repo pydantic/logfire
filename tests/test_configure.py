@@ -549,6 +549,19 @@ def test_logfire_invalid_config_dir(tmp_path: Path):
         LogfireConfig(config_dir=tmp_path)
 
 
+def test_logfire_config_dir_permission_denied(tmp_path: Path):
+    original_exists = Path.exists
+
+    def exists(self: Path, *args: Any, **kwargs: Any) -> bool:
+        if self.name == 'pyproject.toml':
+            raise PermissionError(13, 'Permission denied', str(self))
+        return original_exists(self, *args, **kwargs)
+
+    with patch.object(Path, 'exists', exists):
+        with pytest.warns(UserWarning, match='Unable to access config file'):
+            LogfireConfig(config_dir=tmp_path)
+
+
 def test_logfire_config_console_options() -> None:
     assert LogfireConfig().console == ConsoleOptions()
     assert LogfireConfig(console=False).console is False
