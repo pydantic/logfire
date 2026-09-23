@@ -979,3 +979,49 @@ def test_metric_in_range_int_attributes_are_kept(metrics_reader: InMemoryMetricR
         'flag': True,
         'seq': [2**63 - 1, -(2**63)],
     }
+
+
+def test_metric_bytes_attribute_kept_in_export_but_dropped_from_span_collection(
+    exporter: TestExporter, metrics_reader: InMemoryMetricReader
+) -> None:
+    # `bytes` is a legal OTLP attribute value (the proto encoder emits `bytes_value`), so
+    # the exported metric must keep it. But `SpanMetric.dump()` is JSON-serialized at span
+    # end and `json.dumps` cannot encode `bytes`, which would take the whole
+    # `logfire.metrics` attribute down with it. So the span path filters `bytes` and the
+    # export path does not.
+    counter = logfire.metric_counter('tokens')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        with logfire.span('span'):
+            counter.add(100, {'raw': b'abc', 'model': 'gpt4'})
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
+
+    # Read the metric off the reader directly rather than through
+    # `get_collected_metrics`, whose `MetricsData.to_json()` cannot encode `bytes` either.
+    data = metrics_reader.get_metrics_data()
+    assert data is not None
+    [resource_metrics] = data.resource_metrics
+    [scope_metrics] = resource_metrics.scope_metrics
+    [metric] = scope_metrics.metrics
+    [data_point] = metric.data.data_points
+    assert dict(data_point.attributes or {}) == {'raw': b'abc', 'model': 'gpt4'}
+    assert data_point.value == 100
+
+
+def test_metric_bytes_in_sequence_dropped_from_span_collection(exporter: TestExporter) -> None:
+    counter = logfire.metric_counter('tokens')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        with logfire.span('span'):
+            counter.add(100, {'raws': (b'a', b'b'), 'model': 'gpt4'})
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
