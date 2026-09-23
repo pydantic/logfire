@@ -97,6 +97,7 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [Stripe](stripe.md)                       | Payment Gateway         | N/A (requires other instrumentations)                                                                                                                                  |
 | [Structlog](structlog.md)                 | Logging                 | See documentation                                                                                                                                                      |
 | [System Metrics](system-metrics.md)       | System Metrics          | [`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics]                                                                                     |
+| [urllib3](http-clients/urllib3.md)        | HTTP Client             | [`logfire.instrument_urllib3()`][logfire.Logfire.instrument_urllib3]                                                                                                   |
 | [WSGI](web-frameworks/wsgi.md)            | Web Framework Interface | [`logfire.instrument_wsgi()`][logfire.Logfire.instrument_wsgi]                                                                                                         |
 
 If you are using Logfire with a web application, we also recommend reviewing
