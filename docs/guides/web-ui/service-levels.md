@@ -21,7 +21,7 @@ A target combines:
 2. The subset that counts as bad.
 3. The percentage that should be good over a rolling time window.
 
-The resulting good-event ratio is the service level indicator (SLI). Percentage presets range from **99%** to **99.99%**, with **99.9%** as the default. Window presets are **1, 7, 28, 30, and 90 days**.
+The resulting good-event ratio is the service level indicator (SLI). Enter any target percentage below 100%, or choose a preset from **99%** to **99.99%**. The default is **99.9%**. Window presets are **1, 7, 28, 30, and 90 days**.
 
 Two derived values show whether the goal is at risk:
 
@@ -46,11 +46,11 @@ To manage targets as code, use the experimental `logfire_slo` resource of the Te
 
 **Metrics** measure a count or other additive value, a gauge fraction, a cumulative counter, or the share of histogram observations on the good side of a threshold. For a histogram, choose **Below is good** for values such as request latency, or **Above is good** when higher values are better. Their burn-rate history appears after you save the target.
 
-You can restrict either source to selected deployment environments. Set the target percentage and window, then choose notification channels for its generated alerts.
+You can restrict either source to selected deployment environments. Set the target percentage and window, then choose the starting notification channels for its three generated alerts. You can change the channels of each alert later.
 
 ## Let Logfire watch the burn rate
 
-Each target generates up to three alerts:
+Each target generates three alerts, one for each burn-rate tier:
 
 | Tier | Windows | Threshold | Severity |
 |------|---------|-----------|----------|
@@ -58,7 +58,11 @@ Each target generates up to three alerts:
 | **Medium burn** | 6 hours and 30 minutes | 6x | page |
 | **Slow burn** | 3 days and 6 hours | 1x | ticket |
 
-These tiers follow the multiwindow, multi-burn-rate method in the [Google Site Reliability Engineering (SRE) Workbook](https://sre.google/workbook/alerting-on-slos/). Checking two windows keeps a brief spike from firing an alert meant for a sustained regression. Logfire omits a tier when the target is too low for that tier to fire meaningfully.
+These tiers follow the multiwindow, multi-burn-rate method in the [Google Site Reliability Engineering (SRE) Workbook](https://sre.google/workbook/alerting-on-slos/). Checking two windows keeps a brief spike from firing an alert meant for a sustained regression.
+
+A low target can make a tier unable to fire. The highest possible burn rate is reached when every event is bad: at a 90% target, that is 10x, which is below the fast burn threshold of 14.4x. The fast burn tier can fire only at a target of about 93.06% or higher, and the medium burn tier only at about 83.34% or higher.
+
+Logfire keeps the alert for a tier that cannot fire, but does not evaluate it. The target detail page shows the tier as **Disabled** with **Target too low to fire**, and the alert page says that the reliability target is too low for the alert to fire. A disabled tier does not count as an active alert. If you raise the target enough, the same alert runs again, with its notification channels.
 
 Route alerts from the target detail page. See [Alerts](alerts.md) for notification-channel setup.
 
