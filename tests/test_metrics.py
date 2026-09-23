@@ -889,3 +889,91 @@ def test_valid_metric_attributes_do_not_warn(metrics_reader: InMemoryMetricReade
     [metric] = get_collected_metrics(metrics_reader)
     [data_point] = metric['data']['data_points']
     assert data_point['attributes'] == {'s': 'a', 'b': True, 'i': 1, 'f': 1.5, 'seq': [1, 2, 3]}
+def test_metric_invalid_attribute_does_not_reach_span_collection(exporter: TestExporter) -> None:
+    # An attribute the sanitizer rejects must be dropped before the span metric too, not
+    # only before the exported instrument. `SpanMetric` keys its details dict on the
+    # attributes and `_LogfireWrappedSpan.end` JSON-serializes them, so an unserializable
+    # value reaching that path makes the serialization fail inside `handle_internal_errors`
+    # and the whole `logfire.metrics` span attribute silently disappears.
+    counter = logfire.metric_counter('tokens')
+
+    with logfire.span('span'):
+        with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+            counter.add(100, {'bad': object(), 'model': 'gpt4'})  # type: ignore[arg-type]
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
+
+
+def test_metric_unhashable_attribute_does_not_reach_span_collection(exporter: TestExporter) -> None:
+    # Same path as above with an unhashable value, which raises where `SpanMetric.increment`
+    # builds its dict key rather than at serialization time.
+    counter = logfire.metric_counter('tokens')
+
+    with logfire.span('span'):
+        with pytest.warns(UserWarning, match=r"Dropping metric attribute 'lst' with invalid type list"):
+            counter.add(100, {'lst': [1, 2], 'model': 'gpt4'})
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
+
+
+def test_metric_histogram_invalid_attribute_does_not_reach_span_collection(exporter: TestExporter) -> None:
+    histogram = logfire.metric_histogram('durations')
+
+    with logfire.span('span'):
+        with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+            histogram.record(50, {'bad': object(), 'model': 'gpt4'})  # type: ignore[arg-type]
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'durations': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 50}], 'total': 50}
+    }
+
+
+def test_metric_oversized_int_attribute_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    # OTLP carries signed 64-bit integers. A larger `int` is hashable and aggregates fine,
+    # so it survives the metrics SDK and only raises in the exporter's protobuf encoding -
+    # the same export-thread batch drop this sanitization exists to prevent.
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'big' with invalid type int"):
+        counter.add(1, {'big': 2**63, 'good': 'yes'})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_oversized_int_in_sequence_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type tuple"):
+        counter.add(1, {'seq': (1, 2**63), 'good': 'yes'})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_in_range_int_attributes_are_kept(metrics_reader: InMemoryMetricReader) -> None:
+    # The int bound must not reject values OTLP can carry, including the boundary itself
+    # and `bool` (an `int` subclass that is always in range).
+    counter = logfire.metric_counter('counter')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        counter.add(1, {'max': 2**63 - 1, 'min': -(2**63), 'flag': True, 'seq': (2**63 - 1, -(2**63))})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {
+        'max': 2**63 - 1,
+        'min': -(2**63),
+        'flag': True,
+        'seq': [2**63 - 1, -(2**63)],
+    }
