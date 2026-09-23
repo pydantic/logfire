@@ -14,15 +14,20 @@ import requests
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from opentelemetry.proto.common.v1.common_pb2 import KeyValue
 
+from logfire._internal import http_transport
 from logfire._internal.exporters.otlp import DiskRetryer, OTLPExporterHttpSession
-from logfire._internal.http_transport import (
-    LogfireHTTPAdapter,
-    install_connection_policy,
-)
+from logfire._internal.http_transport import LogfireHTTPAdapter
 from tests.otel_collector.conftest import CaptureStore, CollectorHarness
 from tests.otel_collector.faults import StaleConnectionProxy
 
 pytestmark = pytest.mark.otel_collector
+
+RECYCLE_SECONDS = 0.1
+
+
+@pytest.fixture
+def short_recycle_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(http_transport, 'IDLE_CONNECTION_RECYCLE_SECONDS', RECYCLE_SECONDS)
 
 
 def _string_attribute(attributes: Iterable[KeyValue], key: str) -> str | None:
@@ -174,6 +179,7 @@ def test_https_pool_can_export_to_a_tls_collector(collector_harness: CollectorHa
     assert response.status_code == 200
 
 
+@pytest.mark.usefixtures('short_recycle_window')
 def test_an_idle_stale_connection_is_recycled_before_reuse(stale_connection_proxy: StaleConnectionProxy) -> None:
     # Negative control: a normal requests session reuses the silently orphaned connection and
     # stalls until its read timeout. This proves the fixture distinguishes the regression.
@@ -183,21 +189,20 @@ def test_an_idle_stale_connection_is_recycled_before_reuse(stale_connection_prox
         with pytest.raises(requests.exceptions.ReadTimeout):
             _post_empty_trace(control, stale_connection_proxy.endpoint, timeout=0.2)
 
-    recycle_seconds = 0.1
     with OTLPExporterHttpSession() as session:
-        install_connection_policy(session, idle_recycle_seconds=recycle_seconds)
         assert (
             _post_empty_trace_without_application_retry(session, stale_connection_proxy.endpoint, timeout=1).status_code
             == 200
         )
         stale_connection_proxy.orphan_existing_connections()
-        time.sleep(recycle_seconds + 0.05)
+        time.sleep(RECYCLE_SECONDS + 0.05)
 
         response = _post_empty_trace_without_application_retry(session, stale_connection_proxy.endpoint, timeout=1)
 
     assert response.status_code == 200
 
 
+@pytest.mark.usefixtures('short_recycle_window')
 def test_disk_retryer_session_recycles_an_idle_stale_connection(
     stale_connection_proxy: StaleConnectionProxy,
 ) -> None:
@@ -205,12 +210,10 @@ def test_disk_retryer_session_recycles_an_idle_stale_connection(
     try:
         adapter = retryer.session.get_adapter(stale_connection_proxy.endpoint)
         assert isinstance(adapter, LogfireHTTPAdapter)
-        for pool_class in adapter.poolmanager.pool_classes_by_scheme.values():
-            pool_class.idle_recycle_seconds = 0.1
 
         assert _post_empty_trace(retryer.session, stale_connection_proxy.endpoint, timeout=1).status_code == 200
         stale_connection_proxy.orphan_existing_connections()
-        time.sleep(0.15)
+        time.sleep(RECYCLE_SECONDS + 0.05)
 
         response = _post_empty_trace(retryer.session, stale_connection_proxy.endpoint, timeout=1)
     finally:
@@ -219,6 +222,7 @@ def test_disk_retryer_session_recycles_an_idle_stale_connection(
     assert response.status_code == 200
 
 
+@pytest.mark.usefixtures('short_recycle_window')
 def test_idle_stale_connection_is_recycled_through_a_forward_proxy(
     collector_harness: CollectorHarness, stale_connection_proxy: StaleConnectionProxy
 ) -> None:
@@ -233,20 +237,19 @@ def test_idle_stale_connection_is_recycled_through_a_forward_proxy(
         with pytest.raises(requests.exceptions.ReadTimeout):
             _post_empty_trace(control, target, timeout=0.2, proxies=proxies)
 
-    recycle_seconds = 0.1
     with OTLPExporterHttpSession() as session:
-        install_connection_policy(session, idle_recycle_seconds=recycle_seconds)
         assert (
             _post_empty_trace_without_application_retry(session, target, timeout=1, proxies=proxies).status_code == 200
         )
         stale_connection_proxy.orphan_existing_connections()
-        time.sleep(recycle_seconds + 0.05)
+        time.sleep(RECYCLE_SECONDS + 0.05)
 
         response = _post_empty_trace_without_application_retry(session, target, timeout=1, proxies=proxies)
 
     assert response.status_code == 200
 
 
+@pytest.mark.usefixtures('short_recycle_window')
 def test_idle_stale_tls_tunnel_is_recycled_through_a_connect_proxy(
     collector_harness: CollectorHarness,
 ) -> None:
@@ -266,9 +269,7 @@ def test_idle_stale_tls_tunnel_is_recycled_through_a_connect_proxy(
             with pytest.raises(requests.exceptions.ReadTimeout):
                 _post_empty_trace(control, collector_harness.tls_endpoint, timeout=0.2, proxies=proxies, verify=verify)
 
-        recycle_seconds = 0.1
         with OTLPExporterHttpSession() as session:
-            install_connection_policy(session, idle_recycle_seconds=recycle_seconds)
             assert (
                 _post_empty_trace_without_application_retry(
                     session, collector_harness.tls_endpoint, timeout=1, proxies=proxies, verify=verify
@@ -276,7 +277,7 @@ def test_idle_stale_tls_tunnel_is_recycled_through_a_connect_proxy(
                 == 200
             )
             proxy.orphan_existing_connections()
-            time.sleep(recycle_seconds + 0.05)
+            time.sleep(RECYCLE_SECONDS + 0.05)
 
             response = _post_empty_trace_without_application_retry(
                 session, collector_harness.tls_endpoint, timeout=1, proxies=proxies, verify=verify
@@ -287,11 +288,10 @@ def test_idle_stale_tls_tunnel_is_recycled_through_a_connect_proxy(
     assert response.status_code == 200
 
 
+@pytest.mark.usefixtures('short_recycle_window')
 def test_concurrent_idle_stale_connections_are_recycled(stale_connection_proxy: StaleConnectionProxy) -> None:
     concurrency = 8
-    recycle_seconds = 0.1
     with OTLPExporterHttpSession() as session:
-        install_connection_policy(session, idle_recycle_seconds=recycle_seconds)
 
         def request_wave() -> list[requests.Response]:
             barrier = threading.Barrier(concurrency)
@@ -306,6 +306,6 @@ def test_concurrent_idle_stale_connections_are_recycled(stale_connection_proxy: 
         assert all(response.status_code == 200 for response in request_wave())
         assert stale_connection_proxy.connection_count > 1
         stale_connection_proxy.orphan_existing_connections()
-        time.sleep(recycle_seconds + 0.05)
+        time.sleep(RECYCLE_SECONDS + 0.05)
 
         assert all(response.status_code == 200 for response in request_wave())
