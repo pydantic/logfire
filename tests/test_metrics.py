@@ -889,6 +889,8 @@ def test_valid_metric_attributes_do_not_warn(metrics_reader: InMemoryMetricReade
     [metric] = get_collected_metrics(metrics_reader)
     [data_point] = metric['data']['data_points']
     assert data_point['attributes'] == {'s': 'a', 'b': True, 'i': 1, 'f': 1.5, 'seq': [1, 2, 3]}
+
+
 def test_metric_invalid_attribute_does_not_reach_span_collection(exporter: TestExporter) -> None:
     # An attribute the sanitizer rejects must be dropped before the span metric too, not
     # only before the exported instrument. `SpanMetric` keys its details dict on the
