@@ -835,6 +835,20 @@ def test_metric_attributes_with_invalid_sequence_element_are_dropped(metrics_rea
     assert data_point['attributes'] == {'good_seq': ['a', 'b']}
 
 
+def test_metric_attributes_with_none_sequence_element_are_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    # `None` is not a valid element of a metric attribute sequence: the supported exporter logs
+    # an error and omits the attribute, and newer versions encode it inconsistently, so a tuple
+    # containing `None` must be dropped rather than forwarded.
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type tuple"):
+        counter.add(1, {'seq': (1, None), 'good_seq': ('a', 'b')})  # type: ignore[arg-type]
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good_seq': ['a', 'b']}
+
+
 def test_metric_list_attribute_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
     # A list is a valid OTLP attribute value in general but is unhashable and crashes the
     # metrics SDK during aggregation, so it must be dropped for metrics specifically.
