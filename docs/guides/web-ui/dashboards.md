@@ -157,8 +157,6 @@ A Values panel shows one or more single numbers, such as a request count or an e
 
 To show at a glance whether a number is healthy, set a **warning** and a **critical** threshold in the panel settings. A status bar above the value turns green, yellow, or red as the value crosses them. If the critical threshold is lower than the warning threshold, Logfire treats lower values as worse, which suits a cache hit rate or a free memory percentage.
 
-<!-- TODO screenshot: a row of Values panels with status bars in green, yellow, and red -->
-
 ---
 
 ### Variables
