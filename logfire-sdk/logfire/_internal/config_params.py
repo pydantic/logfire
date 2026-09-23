@@ -3,6 +3,7 @@ from __future__ import annotations as _annotations
 import os
 import sys
 import typing
+import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
@@ -316,7 +317,12 @@ def normalize_token(value: str | Sequence[str] | None) -> str | list[str] | None
 
 def _load_config_from_file(config_dir: Path) -> dict[str, Any]:
     config_file = config_dir / 'pyproject.toml'
-    if not config_file.exists():
+    try:
+        if not config_file.exists():
+            return {}
+    except OSError as exc:
+        # PermissionError when the directory can't be accessed; treat it like a missing file
+        warnings.warn(f'Unable to access config file {config_file}: {exc}', stacklevel=2)
         return {}
     try:
         data = read_toml_file(config_file)
