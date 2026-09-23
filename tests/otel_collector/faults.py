@@ -44,10 +44,9 @@ class StaleConnectionProxy:
                 return
             with self._lock:
                 self._sockets.append(client)
-            # CONNECT headers can arrive over multiple packets. Give the proxy a
-            # realistic handshake deadline, then switch to short polling once the
-            # tunnel is established so shutdown remains responsive.
-            client.settimeout(2 if self._accept_connect else 0.1)
+            # Poll with a short timeout so shutdown stays responsive even when `close()` misses
+            # this socket or the platform does not wake a blocked `recv()` on `shutdown()`.
+            client.settimeout(0.1)
             upstream: socket.socket | None = None
             try:
                 initial_upstream_data = self._read_connect_request(client) if self._accept_connect else b''
@@ -59,7 +58,6 @@ class StaleConnectionProxy:
                     client.sendall(b'HTTP/1.1 200 Connection Established\r\n\r\n')
                 if initial_upstream_data:
                     upstream.sendall(initial_upstream_data)
-                client.settimeout(0.1)
             except (OSError, ValueError):
                 client.close()
                 if upstream is not None:
@@ -83,9 +81,16 @@ class StaleConnectionProxy:
                 thread.start()
 
     def _read_connect_request(self, client: socket.socket) -> bytes:
+        # CONNECT headers can arrive over multiple packets, so allow a realistic handshake deadline.
+        deadline = time.monotonic() + 2
         request = b''
         while b'\r\n\r\n' not in request:
-            chunk = client.recv(65536)
+            try:
+                chunk = client.recv(65536)
+            except TimeoutError:
+                if self._closed.is_set() or time.monotonic() > deadline:
+                    raise ValueError('CONNECT request was not completed') from None
+                continue
             if not chunk:
                 raise ValueError('client closed before completing CONNECT request')
             request += chunk
