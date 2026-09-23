@@ -51,6 +51,7 @@ from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
 from pydantic_evals.reporting import EvaluationReport
 from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
+from snowflake.connector.connection import SnowflakeConnection
 from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.applications import Starlette
@@ -440,16 +441,37 @@ class Logfire:
                 Pass a connection class to instrument all instances of that class.
                 By default, all connection classes are instrumented.
         """
+    def instrument_snowflake(self, conn_or_module: ModuleType | SnowflakeConnection | None = None, *, capture_parameters: bool = False) -> None:
+        """Instrument the [Snowflake Connector for Python](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector) so that a span is created for each query.
+
+        Calls to `execute_async()` create a `snowflake execute async` span that measures query submission,
+        not server-side execution.
+
+        Args:
+            conn_or_module: Pass a single connection instance to instrument only that connection.
+                By default (`None`), all connections are instrumented, including ones created later.
+            capture_parameters: Set to `True` to capture query parameters as span attributes.
+                Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
+                Instrumenting the same target again has no effect; the first call determines this setting,
+                and a later call with a different value emits a warning.
+                A connection keeps the setting it was instrumented with, even if the module is instrumented later.
+        """
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
         """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
 
         Instruments both the client and server side. If possible, calling this in both the client and server
         processes is recommended for nice distributed traces.
 
+        This is only needed with mcp 1.x. Version 2 of the SDK (which fastmcp 4 depends on) emits
+        OpenTelemetry spans and propagates the trace context via `_meta` by itself, so with it
+        `logfire.configure()` is all that's needed. Calling this method there does nothing
+        except emit a `UserWarning` saying so.
+
         Args:
             propagate_otel_context: Whether to enable propagation of the OpenTelemetry context
                 for distributed tracing.
                 Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+                Ignored with mcp 2, which always propagates the context.
         """
     def instrument_claude_agent_sdk(self) -> AbstractContextManager[None]:
         """Instrument the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview).
@@ -488,6 +510,16 @@ class Logfire:
     def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3, 4, 5] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> None: ...
     @overload
     def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3, 4, 5] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
+    def instrument_monty(self) -> None:
+        """Instrument Pydantic Monty.
+
+        Call this once after [`configure()`][logfire.configure] and before creating a Monty pool.
+        The first call selects the Logfire instance and its settings for the whole process;
+        subsequent calls do not replace them.
+
+        It records Monty sessions, executed code, inputs, outputs, external calls,
+        exceptions, printed text, and pool metrics. Recorded values are subject to Logfire's configured scrubbing.
+        """
     def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 

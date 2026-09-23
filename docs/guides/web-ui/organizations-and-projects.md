@@ -21,7 +21,23 @@ are working alone or in a small team), we strongly encourage using a normal orga
 at a larger company and want to create a more "official" Logfire org for that company. This also means you don't have
 to share your personal org's projects (which you may wish to keep private) with any colleagues.
 
-**See the [step-by-step guide to converting your personal account to an organization](../../how-to-guides/convert-to-organization.md) for screenshots and detailed instructions.**
+**See the [step-by-step guide to creating a team from your personal account](../../how-to-guides/convert-to-organization.md) for screenshots and detailed instructions.**
+
+## Invite someone to your organization
+
+Send an invitation directly to someone by email.
+
+1. Open **Org settings**, then select **Members**.
+2. Select **Invite team member**.
+3. Enter the person's email address, choose their organization role, and select **Send invitation**.
+
+Logfire sends a single-use invitation that expires after seven days. Only a Logfire account with the invited email address can accept it. The recipient can sign in or create an account from the invitation page.
+
+To share a reusable URL instead, select **Use an invite link** in the invitation dialog. Choose how many times the link can be used and when it expires, then select **Create link**. Copy and share the generated URL.
+
+Open the **Past/pending invites** tab to confirm that the invitation appears. You can revoke an invitation there before someone accepts it.
+
+If Logfire cannot send the email, check that the address is valid and try again. Organization administrators can also use an invite link while email delivery is unavailable.
 
 ## Roles
 

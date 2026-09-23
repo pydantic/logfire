@@ -3,7 +3,7 @@ name: Check Changelog
 on:
   pull_request:
     paths:
-      - 'pyproject.toml'
+      - 'logfire-sdk/pyproject.toml'
       - 'CHANGELOG.md'
 
 permissions: {}
@@ -16,7 +16,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Python
@@ -25,10 +25,12 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies and check for file changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          for file in pyproject.toml CHANGELOG.md; do
+          for file in logfire-sdk/pyproject.toml CHANGELOG.md; do
               base_name=$(basename $file .${file##*.} | tr '[:upper:]' '[:lower:]')
-              if git diff --name-only HEAD^ | grep -q "^$file$"; then
+              if git diff --name-only "$BASE_SHA" HEAD | grep -q "^$file$"; then
                 echo "${base_name}_changed=true" >> $GITHUB_ENV
               else
                 echo "${base_name}_changed=false" >> $GITHUB_ENV
@@ -37,18 +39,25 @@ jobs:
 
       - name: Verify version change and CHANGELOG.md update
         if: env.pyproject_changed == 'true'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          VERSION_BEFORE=$(git show HEAD^:pyproject.toml | python -c "import tomllib, sys; print(tomllib.loads(sys.stdin.read())['project']['version'])")
-          VERSION_AFTER=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-          if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$history_changed" == "false" ]; then
-            echo "Version changed in pyproject.toml but no changes in CHANGELOG.md"
+          if git cat-file -e "$BASE_SHA:logfire-sdk/pyproject.toml" 2>/dev/null; then
+            VERSION_FILE_BEFORE=logfire-sdk/pyproject.toml
+          else
+            VERSION_FILE_BEFORE=pyproject.toml
+          fi
+          VERSION_BEFORE=$(git show "$BASE_SHA:$VERSION_FILE_BEFORE" | python -c "import tomllib, sys; print(tomllib.loads(sys.stdin.read())['project']['version'])")
+          VERSION_AFTER=$(python -c "import tomllib; print(tomllib.load(open('logfire-sdk/pyproject.toml', 'rb'))['project']['version'])")
+          if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$changelog_changed" == "false" ]; then
+            echo "Version changed in logfire-sdk/pyproject.toml but no changes in CHANGELOG.md"
             exit 1
-          elif [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$history_changed" == "true" ]; then
+          elif [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$changelog_changed" == "true" ]; then
             echo "Version changed and CHANGELOG.md updated."
           else
             echo "Version did not change. Changes to CHANGELOG.md not required."
           fi
 
       - name: No changes detected
-        if: env.pyproject_changed == 'false' && env.history_changed == 'false'
-        run: echo "No changes detected in pyproject.toml or CHANGELOG.md. Everything is fine."
+        if: env.pyproject_changed == 'false' && env.changelog_changed == 'false'
+        run: echo "No changes detected in logfire-sdk/pyproject.toml or CHANGELOG.md. Everything is fine."

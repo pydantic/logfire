@@ -21,7 +21,7 @@ A target combines:
 2. The subset that counts as bad.
 3. The percentage that should be good over a rolling time window.
 
-The resulting good-event ratio is the service level indicator (SLI). Percentage presets range from **99%** to **99.99%**, with **99.9%** as the default. Window presets are **1, 7, 28, 30, and 90 days**.
+The resulting good-event ratio is the service level indicator (SLI). Enter any target percentage below 100%, or choose a preset from **99%** to **99.99%**. The default is **99.9%**. Window presets are **1, 7, 28, 30, and 90 days**.
 
 Two derived values show whether the goal is at risk:
 
@@ -38,17 +38,19 @@ From a service detail page, select **Reliability**, then **New target** and choo
 - **AI quality (eval score)** for records that reach an evaluation threshold. An evaluation (eval) is a repeatable test of model or agent behavior. This template uses `gen_ai.evaluation.score.value`, which [Pydantic Evals](../../evaluate/overview.md) can populate.
 - **Custom SQL**, using Structured Query Language conditions, when the preset conditions do not fit.
 
+To manage targets as code, use the experimental `logfire_slo` resource of the Terraform and Pulumi providers. See [Infrastructure as Code](../../how-to-guides/infrastructure-as-code.md).
+
 ## Choose records or metrics
 
 **Records** measure rows such as requests, remote procedure calls (RPCs), background jobs, and LLM calls. Define the total population and bad subset with SQL boolean conditions. The setup wizard previews matching records before you save.
 
-**Metrics** measure a count or other additive value, a gauge fraction, a cumulative counter, or values below a histogram latency threshold. Their burn-rate history appears after you save the target.
+**Metrics** measure a count or other additive value, a gauge fraction, a cumulative counter, or the share of histogram observations on the good side of a threshold. For a histogram, choose **Below is good** for values such as request latency, or **Above is good** when higher values are better. Their burn-rate history appears after you save the target.
 
-You can restrict either source to selected deployment environments. Set the target percentage and window, then choose notification channels for its generated alerts.
+You can restrict either source to selected deployment environments. Set the target percentage and window, then choose the starting notification channels for its three generated alerts. You can change the channels of each alert later.
 
 ## Let Logfire watch the burn rate
 
-Each target generates up to three alerts:
+Each target generates three alerts, one for each burn-rate tier:
 
 | Tier | Windows | Threshold | Severity |
 |------|---------|-----------|----------|
@@ -56,15 +58,21 @@ Each target generates up to three alerts:
 | **Medium burn** | 6 hours and 30 minutes | 6x | page |
 | **Slow burn** | 3 days and 6 hours | 1x | ticket |
 
-These tiers follow the multiwindow, multi-burn-rate method in the [Google Site Reliability Engineering (SRE) Workbook](https://sre.google/workbook/alerting-on-slos/). Checking two windows keeps a brief spike from firing an alert meant for a sustained regression. Logfire omits a tier when the target is too low for that tier to fire meaningfully.
+These tiers follow the multiwindow, multi-burn-rate method in the [Google Site Reliability Engineering (SRE) Workbook](https://sre.google/workbook/alerting-on-slos/). Checking two windows keeps a brief spike from firing an alert meant for a sustained regression.
+
+A low target can make a tier unable to fire. The highest possible burn rate is reached when every event is bad: at a 90% target, that is 10x, which is below the fast burn threshold of 14.4x. The fast burn tier can fire only at a target of about 93.06% or higher, and the medium burn tier only at about 83.34% or higher.
+
+Logfire keeps the alert for a tier that cannot fire, but does not evaluate it. The target detail page shows the tier as **Disabled** with **Target too low to fire**, and the alert page says that the reliability target is too low for the alert to fire. A disabled tier does not count as an active alert. If you raise the target enough, the same alert runs again, with its notification channels.
 
 Route alerts from the target detail page. See [Alerts](alerts.md) for notification-channel setup.
 
 ## Track the budget and investigate failures
 
-The target detail page shows **Current service level**, **Target**, and **Error budget remaining**. **Reliability history** defaults to hourly error-budget history for the last 24 hours; switch to **Burn rate** and choose a time span to inspect budget consumption.
+The target detail page shows **Current service level**, **Target**, and **Error budget remaining**. **Reliability history** has two views: **Error budget** shows the remaining budget over time, and **Burn rate** shows the hourly burn rate. Both views start with the full rolling window of the target. To look at a shorter span, choose 24 hours, or 7 days when the window is longer than 7 days.
 
-The **How it's measured** panel records the scope and exact conditions. Select **Investigate failing events** to open the matching records in [Explore](explore.md).
+To investigate failures, drag across the chart to select a time range. Then select **Open in SQL Workbench** to query that range in the [SQL Workbench](explore.md): the failing records for a target that measures records, or the metric rows for a target that measures metrics. For a target that measures records, **Open in Live view** shows the same failing records in [Live view](live.md). Without a selection, these links use the range that the chart shows. If a burn-rate alert has fired, its row has an **Investigate** link. Select it to open the chart at the time range around the most recent firing of the alert.
+
+The **How it's measured** panel records the scope and exact conditions.
 
 ## Monitor an LLM provider
 

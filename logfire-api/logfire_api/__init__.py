@@ -153,6 +153,8 @@ except ImportError:
 
             def instrument_pydantic_ai(self, *args, **kwargs) -> None: ...
 
+            def instrument_monty(self, *args, **kwargs) -> None: ...
+
             def instrument_pymongo(self, *args, **kwargs) -> None: ...
 
             def instrument_sqlalchemy(self, *args, **kwargs) -> None: ...
@@ -175,6 +177,8 @@ except ImportError:
             def instrument_psycopg(self, *args, **kwargs) -> None: ...
 
             def instrument_surrealdb(self, *args, **kwargs) -> None: ...
+
+            def instrument_snowflake(self, *args, **kwargs) -> None: ...
 
             def instrument_requests(self, *args, **kwargs) -> None: ...
 
@@ -242,6 +246,7 @@ except ImportError:
         instrument_wsgi = DEFAULT_LOGFIRE_INSTANCE.instrument_wsgi
         instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
         instrument_pydantic_ai = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic_ai
+        instrument_monty = DEFAULT_LOGFIRE_INSTANCE.instrument_monty
         instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
         instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
         instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
@@ -255,6 +260,7 @@ except ImportError:
         instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
         instrument_requests = DEFAULT_LOGFIRE_INSTANCE.instrument_requests
         instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb
+        instrument_snowflake = DEFAULT_LOGFIRE_INSTANCE.instrument_snowflake
         instrument_psycopg = DEFAULT_LOGFIRE_INSTANCE.instrument_psycopg
         instrument_django = DEFAULT_LOGFIRE_INSTANCE.instrument_django
         instrument_flask = DEFAULT_LOGFIRE_INSTANCE.instrument_flask
