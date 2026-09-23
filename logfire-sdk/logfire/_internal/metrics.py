@@ -26,6 +26,7 @@ from opentelemetry.sdk.metrics import MeterProvider as SDKMeterProvider
 from opentelemetry.trace import get_current_span
 from opentelemetry.util.types import Attributes
 
+from .constants import OTLP_MAX_INT_SIZE
 from .tracer import _LogfireWrappedSpan  # pyright: ignore[reportPrivateUsage]
 from .utils import handle_internal_errors
 
@@ -69,7 +70,7 @@ def _sanitize_metric_attributes(attributes: Attributes | None) -> Attributes | N
 
 
 def _metric_attribute_value_is_valid(value: Any) -> bool:
-    if isinstance(value, _VALID_METRIC_ATTRIBUTE_TYPES):
+    if _metric_scalar_is_valid(value):
         return True
     # A tuple of primitives is hashable and OTLP-encodable; a list is a valid OTLP attribute
     # value in general but is unhashable and crashes the metrics SDK's aggregation keying
@@ -79,8 +80,19 @@ def _metric_attribute_value_is_valid(value: Any) -> bool:
     # rejected here too.
     if isinstance(value, tuple):
         elements = cast('tuple[Any, ...]', value)
-        return all(isinstance(element, _VALID_METRIC_ATTRIBUTE_TYPES) for element in elements)
+        return all(_metric_scalar_is_valid(element) for element in elements)
     return False
+
+
+def _metric_scalar_is_valid(value: Any) -> bool:
+    if not isinstance(value, _VALID_METRIC_ATTRIBUTE_TYPES):
+        return False
+    # OTLP carries signed 64-bit integers, so an oversized `int` raises in the exporter's
+    # protobuf encoding just like an un-encodable type does, taking the whole batch with it.
+    # `bool` is an `int` subclass but is always in range.
+    if isinstance(value, int) and not isinstance(value, bool):
+        return -OTLP_MAX_INT_SIZE - 1 <= value <= OTLP_MAX_INT_SIZE
+    return True
 
 
 # The following proxy classes are adapted from OTEL's SDK
@@ -269,8 +281,14 @@ class _ProxyCounter(_ProxyInstrument[Counter], Counter):
         *args: Any,
         **kwargs: Any,
     ) -> None:
+        # Sanitize before the span metric, not only before the instrument: the span
+        # collection in `_LogfireWrappedSpan` uses these attributes as a dict key and
+        # JSON-serializes them at span end, so an unhashable or unserializable value
+        # would silently drop the span metric (and with it the whole `logfire.metrics`
+        # attribute) even though the exported metric itself was protected.
+        attributes = _sanitize_metric_attributes(attributes)
         self._increment_span_metric(amount, attributes)
-        self._instrument.add(amount, _sanitize_metric_attributes(attributes), *args, **kwargs)
+        self._instrument.add(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Counter:
         return meter.create_counter(**self._kwargs)
@@ -284,8 +302,11 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
         *args: Any,
         **kwargs: Any,
     ) -> None:
+        # See the note in `_ProxyCounter.add`: the span metric needs the cleaned
+        # attributes too, not only the exported instrument.
+        attributes = _sanitize_metric_attributes(attributes)
         self._increment_span_metric(amount, attributes)
-        self._instrument.record(amount, _sanitize_metric_attributes(attributes), *args, **kwargs)
+        self._instrument.record(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Histogram:
         return meter.create_histogram(**self._kwargs)
