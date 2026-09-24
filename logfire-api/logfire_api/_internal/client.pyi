@@ -1,5 +1,6 @@
 from .auth import UserToken as UserToken, UserTokenCollection as UserTokenCollection
 from .constants import HTTP_CONNECT_TIMEOUT as HTTP_CONNECT_TIMEOUT
+from .http_transport import install_connection_policy as install_connection_policy
 from .server_response import ServerResponseCallback as ServerResponseCallback, install_logfire_response_hook as install_logfire_response_hook
 from .utils import UnexpectedResponse as UnexpectedResponse
 from _typeshed import Incomplete
