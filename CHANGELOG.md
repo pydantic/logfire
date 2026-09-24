@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v6.0.0b5] (2026-09-24)
+
+* Enable TCP keepalive and recycle idle connections in Logfire's HTTP sessions by @adriangb in [#2309](https://github.com/pydantic/logfire/pull/2309)
+
 ## [v6.0.0b4] (2026-09-21)
 
 * Make `instrument_mcp()` work with mcp 2 / fastmcp 4 by @samuelcolvin in [#2439](https://github.com/pydantic/logfire/pull/2439)
@@ -1325,3 +1329,4 @@ First release from new repo!
 [v6.0.0b2]: https://github.com/pydantic/logfire/compare/v6.0.0b1...v6.0.0b2
 [v6.0.0b3]: https://github.com/pydantic/logfire/compare/v6.0.0b2...v6.0.0b3
 [v6.0.0b4]: https://github.com/pydantic/logfire/compare/v6.0.0b3...v6.0.0b4
+[v6.0.0b5]: https://github.com/pydantic/logfire/compare/v6.0.0b4...v6.0.0b5
