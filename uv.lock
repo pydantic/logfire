@@ -25,14 +25,14 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P4D"
 
 [options.exclude-newer-package]
+pydantic-graph = false
+pydantic-ai-slim = false
+pydantic-evals = false
+pydantic-handlebars = false
 genai-prices = false
 logfire-cli = false
 pydantic = false
-pydantic-ai-slim = false
 pydantic-core = false
-pydantic-evals = false
-pydantic-graph = false
-pydantic-handlebars = false
 
 [manifest]
 members = [
@@ -2875,7 +2875,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "6.0.0b4"
+version = "6.0.0b5"
 source = { editable = "logfire" }
 dependencies = [
     { name = "logfire-cli" },
@@ -3013,7 +3013,7 @@ provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aioh
 
 [[package]]
 name = "logfire-api"
-version = "6.0.0b4"
+version = "6.0.0b5"
 source = { editable = "logfire-api" }
 
 [package.metadata]
@@ -3282,7 +3282,7 @@ editor-tests = [
 
 [[package]]
 name = "logfire-sdk"
-version = "6.0.0b4"
+version = "6.0.0b5"
 source = { editable = "logfire-sdk" }
 dependencies = [
     { name = "executing" },

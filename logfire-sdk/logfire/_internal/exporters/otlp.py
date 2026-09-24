@@ -33,6 +33,7 @@ from ..constants import (
     OTLP_MAX_INT_SIZE,
     log_level_attributes,
 )
+from ..http_transport import install_connection_policy
 from ..stack_info import STACK_INFO_KEYS
 from ..utils import logger, platform_is_emscripten, truncate_string
 from .wrapper import WrapperLogExporter, WrapperSpanExporter
@@ -80,6 +81,10 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
 
 class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        install_connection_policy(self)
 
     @staticmethod
     def _configure_timeout(kwargs: dict[str, Any]) -> None:
@@ -179,6 +184,7 @@ class DiskRetryer:
         # because thread safety of Session is questionable.
         # This assumes that the only important state is the headers.
         self.session = Session()
+        install_connection_policy(self.session)
         self.session.headers.update(headers)
 
         # The directory where the export files are stored.

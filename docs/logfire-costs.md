@@ -47,8 +47,8 @@ The page is divided into these tabs:
   cycle. For eligible paid organizations, it also shows the estimated invoice.
 * **Seats:** available on Team organizations. See the subscribed and used seat counts, then change the subscription's
   seat count.
-* **Spending controls:** see whether a monthly spending cap is active, how much has been used, and what happens when
-  the cap is reached.
+* **Spending controls:** see whether a monthly spending cap is active, what this cycle has spent against it, and what
+  happens when the cap is reached. Where a cap is already set, you can also change the amount here.
 * **Invoices:** see the invoice building up this cycle, review invoice history, and open Stripe to manage payment and
   billing details.
 
@@ -126,8 +126,34 @@ Enterprise plans support native extended retention. Email `sales@logfire.dev` if
 ## Set or change a spending cap
 
 Team and Growth organizations can use a monthly spending cap to limit what usage beyond the included amount adds to
-an invoice. Open **Org settings → Billing & usage → Spending controls** to see the current cap and how much of it has
-been used.
+an invoice. Open **Org settings → Billing & usage → Spending controls** to see the cap, what this billing cycle has
+spent against it, and how much is left.
 
-To set, change, or remove the cap, email `accounts@pydantic.dev`. When the cap is reached, Logfire keeps accepting
-data, but new data stays hidden in the app until the cap is raised.
+Your first cap is set up by us: email `accounts@pydantic.dev` to ask for one. Once your organization has a cap, the
+amount is yours to change whenever you need to, without contacting us again.
+
+When the cap is reached, Logfire keeps accepting your data, but new data stays hidden in the app until the cap is
+raised. Nothing is discarded, so raising the cap brings the hidden data back into view.
+
+### Change a cap you already have
+
+!!! note "Changing your own cap is in Beta"
+    Every organization with a cap can change the amount without contacting us. The Spending controls card marks this
+    **Beta** while we gather feedback on it.
+
+1. Open **Org settings → Billing & usage → Spending controls**.
+2. Select **Change cap**.
+3. Enter the new monthly cap in dollars, then select **Save cap**.
+
+You need an organization role holding the `write_payment` permission, which Admin has by default. See
+[Organizations and projects](./guides/web-ui/organizations-and-projects.md) for roles and permissions. Without it the
+card shows the cap but offers no editor.
+
+You can raise the cap to any amount. You can lower it to $20 above what the cycle has already charged, and never
+below $25, so a new cap cannot land under a bill that has already been run up. The card names the lowest amount you
+can enter right now, and that floor rises as the cycle spends.
+
+### Set up your first cap, or remove one
+
+Turning a cap on for the first time, and taking one away, are both done by us: email `accounts@pydantic.dev`.
+Removing a cap means usage is billed with no ceiling again, which is why it is not self-serve.
