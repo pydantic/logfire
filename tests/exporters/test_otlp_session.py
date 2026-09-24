@@ -280,8 +280,12 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
 
     # Wait for the retryer to finish.
     # time.sleep has been mocked to return 0 so this shouldn't take long.
-    assert session.retryer.thread
-    session.retryer.thread.join()
+    # The thread may have already drained the queue and reset `retryer.thread` to None.
+    # No more tasks can be added now, so a None thread means the retryer is done.
+    with session.retryer.lock:
+        thread = session.retryer.thread
+    if thread:  # pragma: no branch
+        thread.join()
 
     # Check that everything is cleaned up after succeeding.
     assert not session.retryer.tasks
