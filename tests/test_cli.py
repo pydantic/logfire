@@ -1788,6 +1788,53 @@ def test_projects_new_with_project_name_multiple_organizations(
         }
 
 
+@pytest.mark.parametrize(
+    ('default_organization', 'expected_remedies'),
+    [
+        (None, '  logfire projects new PROJECT_NAME --org ORGANIZATION'),
+        (
+            {'organization_name': 'fake_default_org'},
+            '  logfire projects new PROJECT_NAME --org ORGANIZATION\n  logfire projects new PROJECT_NAME --default-org',
+        ),
+    ],
+)
+def test_projects_new_non_interactive_multiple_organizations_guidance(
+    default_credentials: Path,
+    capsys: pytest.CaptureFixture[str],
+    default_organization: dict[str, str] | None,
+    expected_remedies: str,
+) -> None:
+    with (
+        patch(
+            'logfire._internal.auth.UserTokenCollection.get_token',
+            return_value=UserToken(
+                token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+            ),
+        ),
+        requests_mock.Mocker() as m,
+    ):
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
+        )
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/account/me',
+            json={'default_organization': default_organization},
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['--non-interactive', 'projects', 'new', 'myproject'])
+
+    assert exc_info.value.code == 1
+    assert capsys.readouterr().err == (
+        'Several organizations are available and none was selected: fake_org, fake_default_org\n'
+        'Cannot prompt because --non-interactive was passed.\n'
+        'Supply it instead with:\n'
+        f'{expected_remedies}\n'
+    )
+
+
 def test_projects_new_with_project_name_and_default_org_multiple_organizations(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

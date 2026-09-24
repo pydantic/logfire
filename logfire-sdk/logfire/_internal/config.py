@@ -2060,11 +2060,12 @@ class LogfireCredentials:
                 if default_organization and user_default_organization_name:
                     organization = user_default_organization_name
                 else:
-                    require_answer(
-                        'Several organizations are available and none was selected: ' + ', '.join(organizations),
-                        'logfire projects new PROJECT_NAME --org ORGANIZATION',
-                        'logfire projects new PROJECT_NAME --default-org',
-                    )
+                    question = 'Several organizations are available and none was selected: ' + ', '.join(organizations)
+                    org_remedy = 'logfire projects new PROJECT_NAME --org ORGANIZATION'
+                    if user_default_organization_name:
+                        require_answer(question, org_remedy, 'logfire projects new PROJECT_NAME --default-org')
+                    else:
+                        require_answer(question, org_remedy)
                     org_default = user_default_organization_name or organizations[0]
                     organization = ask_or_default(
                         lambda: Prompt.ask(
