@@ -12,10 +12,10 @@ jobs:
   post-coverage-comment:
     name: Push coverage comment
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    if: github.event.workflow_run.event == 'pull_request' && contains(fromJSON('["success", "failure"]'), github.event.workflow_run.conclusion)
     permissions:
       pull-requests: write
-      contents: write
+      contents: read
       actions: read
     steps:
       # DO NOT run actions/checkout here, for security reasons

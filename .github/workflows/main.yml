@@ -239,6 +239,8 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     needs: [ test ]
+    outputs:
+      data-uploaded: ${{ steps.store-coverage-data.outcome == 'success' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
@@ -265,6 +267,7 @@ jobs:
       - run: uv run coverage html --title "logfire coverage for ${{ github.sha }}"
 
       - name: Store coverage data
+        id: store-coverage-data
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
         with:
           name: coverage-data
@@ -282,10 +285,14 @@ jobs:
   coverage-pr-comment:
     needs: [ coverage ]
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    # Also comment when the 100% gate fails, since that is when the missing lines matter most.
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.coverage.outputs.data-uploaded == 'true' }}
+    concurrency:
+      group: coverage-pr-comment-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     permissions:
       pull-requests: write
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
