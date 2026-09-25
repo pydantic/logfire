@@ -17,9 +17,12 @@ CLI.
 The wizard has already authenticated, selected the project, and saved the local
 SDK credential. Treat that target as confirmed. Do not rerun `auth`, `signup`,
 `init`, `mcp context`, or `project current` merely because a public setup guide
-would normally start with login. Never read or display the credential. If an
-instrumented application rejects it, recover through the exact CLI and target
-in the handoff; ask the user before choosing a different project.
+would normally start with login. Never display the credential or read it merely
+to inspect it. A selected bundled skill may narrowly read it programmatically
+to configure a non-native SDK or Collector without printing it; follow only that
+skill's documented handoff. If an instrumented application rejects the
+credential, recover through the exact CLI and target in the handoff; ask the
+user before choosing a different project.
 
 Read the repository instructions and inspect the application. Follow the
 handoff's task, or default to instrumenting one representative application
@@ -35,7 +38,10 @@ with `skill prompt <name> --no-input --output json`; pass the handoff's target
 and organization as global flags and follow `data.prompt`. Use `skill read` for
 references named by that release-bound skill. The CLI's embedded instructions,
 not the older public Python or JavaScript CLI examples, govern command names
-and credential handling.
+and credential handling. Start CLI and application subprocesses without ambient
+`LOGFIRE_API_KEY`, `LOGFIRE_TOKEN`, or `LOGFIRE_MCP_TOKEN` unless the handoff
+explicitly confirms headless access for this exact origin. Remove these only
+from child environments; do not alter the user's shell or reveal their values.
 
 For instrumentation, run the application and check fresh telemetry in the exact
 project. A successful process exit or browser visit alone does not prove
