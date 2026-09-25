@@ -35,7 +35,7 @@ If you prefer to wire things up yourself, **Manual setup** just turns the gatewa
 !!! note "Prerequisites"
     - You need to be an **organization admin** to enable the gateway and manage providers, gateway endpoints, and spending. Non-admin members see the **Connect** and **API Keys** tabs only.
     - The organization needs at least one **project**: API keys and telemetry are scoped to a project.
-    - On the Personal, Team, and Growth plans, built-in providers are billed against a prepaid balance and require a payment method; the exact fees and initial balance are shown during activation. You can skip this entirely by adding your own provider credentials instead (see [Providers](#providers)).
+    - On the Personal, Team, and Growth plans, built-in providers are billed against a prepaid balance and require a payment method; the exact fees and initial balance are shown during activation. You can skip this entirely by adding your own provider credentials instead (see [Providers](#providers)). On the Personal plan, your own credentials must be for a supported vendor at its standard endpoint; custom endpoints require a paid plan.
 
 Once enabled, the Gateway page has these tabs: **Overview**, **Connect**, **API Keys**, **Providers**, **Endpoints**, **Spending**, and **Settings**.
 
@@ -125,7 +125,12 @@ Use the Connect tab as the source of truth for your organization: it substitutes
 A provider is an upstream LLM service the gateway can forward requests to. Each provider has a **slug** which becomes the route segment in your request URL. There are two kinds:
 
 - **Built-in providers** are managed by Logfire: no upstream account or API key needed. Usage is billed to your organization through a prepaid gateway balance (with configurable auto-recharge). Activation is a separate step from enabling the gateway and, on card-based plans, requires a payment method.
-- **Bring-your-own-key (BYOK) providers** use credentials you supply on the **Providers** tab. Supported types include OpenAI, Anthropic, Google Vertex AI, Azure Foundry, AWS Bedrock, Groq, Hugging Face, Mistral, Ollama, Doubleword, and custom OpenAI-compatible endpoints. Upstream usage is billed directly by your provider.
+- **Bring-your-own-key (BYOK) providers** use credentials you supply on the **Providers** tab. Supported types include OpenAI, Anthropic, Google Vertex AI, Azure Foundry, AWS Bedrock, Groq, Hugging Face, Mistral, Ollama, Doubleword, and custom OpenAI- or Anthropic-compatible endpoints. Upstream usage is billed directly by your provider.
+
+!!! note "Custom endpoints require a paid plan"
+    On the Team, Growth, and Enterprise plans, and on self-hosted Logfire, you can point a BYOK provider at any HTTPS endpoint, including your own OpenAI- or Anthropic-compatible server.
+
+    On the Personal plan, each BYOK provider must use its vendor's endpoint. Vendors with a single public API, such as OpenAI, Anthropic, or Groq, use that API's standard base URL. Vendors with per-account endpoints, such as Azure Foundry, Google Vertex AI, and AWS Bedrock, accept only that vendor's own endpoint hosts. Custom OpenAI- and Anthropic-compatible providers are not available.
 
 ### API keys
 
