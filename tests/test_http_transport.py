@@ -289,6 +289,61 @@ def test_a_reused_proxy_manager_is_handed_back_as_is() -> None:
     assert first.pool_classes_by_scheme is classes
 
 
+def test_proxied_requests_recycle_idle_connections(server_url: str, clock: list[float]) -> None:
+    """A proxied session reuses a fresh connection to the proxy and replaces an idle one.
+
+    The test server doubles as the proxy: `urllib3` sends it the absolute URL, and it replies
+    with the port of the connection the request arrived on, as it does for a direct request.
+    """
+    with requests.Session() as session:
+        session.trust_env = False
+        session.proxies = {'http': server_url}
+        install_connection_policy(session)
+        url = 'http://example.invalid/'
+
+        first_port = session.get(url).text
+
+        clock[0] += IDLE_CONNECTION_RECYCLE_SECONDS - 1
+        assert session.get(url).text == first_port
+
+        clock[0] += IDLE_CONNECTION_RECYCLE_SECONDS + 1
+        assert session.get(url).text != first_port
+
+
+def test_a_proxy_manager_is_not_handed_out_before_it_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`requests` caches a new proxy manager before `LogfireHTTPAdapter` configures it.
+
+    A second thread asking for the same proxy in that window must wait for the configured
+    manager rather than take the cached one, or its pools would never recycle idle connections.
+    """
+    adapter = LogfireHTTPAdapter()
+    proxy = 'http://proxy.example.com'
+    seen_by_other_thread: list[type[HTTPConnectionPool]] = []
+
+    def other_thread() -> None:
+        manager = adapter.proxy_manager_for(proxy)
+        seen_by_other_thread.append(manager.pool_classes_by_scheme['http'])
+
+    thread = threading.Thread(target=other_thread)
+
+    def install_while_another_thread_asks(manager: PoolManager) -> None:
+        # The new manager is already in the `requests` cache at this point.
+        assert adapter.proxy_manager[proxy] is manager
+        thread.start()
+        # Give the other thread the chance to take the unconfigured manager, if it can.
+        thread.join(timeout=0.2)
+        _install_recycling_pools(manager)
+
+    monkeypatch.setattr('logfire._internal.http_transport._install_recycling_pools', install_while_another_thread_asks)
+
+    manager = adapter.proxy_manager_for(proxy)
+    thread.join()
+
+    assert issubclass(manager.pool_classes_by_scheme['http'], _IdleRecyclingPoolMixin)
+    assert len(seen_by_other_thread) == 1
+    assert issubclass(seen_by_other_thread[0], _IdleRecyclingPoolMixin)
+
+
 def test_install_connection_policy_mounts_both_schemes() -> None:
     session = requests.Session()
     install_connection_policy(session)

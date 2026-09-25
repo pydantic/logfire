@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import functools
 import socket
+import threading
 import time
 from typing import Any
 
@@ -168,12 +169,30 @@ class LogfireHTTPAdapter(HTTPAdapter):
         # `init_poolmanager`, so the policy has to be applied again as each one appears.
         # `requests` calls this for every proxied request and caches the managers it builds, so
         # one it has already built, and we have already configured, is handed straight back.
-        if proxy in self.proxy_manager:
-            return self.proxy_manager[proxy]
-        proxy_kwargs.setdefault('socket_options', keepalive_socket_options())
-        manager = super().proxy_manager_for(proxy, **proxy_kwargs)
-        _install_recycling_pools(manager)
-        return manager
+        manager = self.proxy_manager.get(proxy)
+        if getattr(manager, '_logfire_policy_installed', False):
+            return manager
+        # `requests` puts a new manager in its cache before handing it back to us, so another
+        # thread could pick it up and open a pool before the recycling classes are installed.
+        # Building and configuring under a lock, and trusting only a manager that carries the
+        # marker, makes those two steps one as far as any other caller can see.
+        with _proxy_manager_lock:
+            manager = self.proxy_manager.get(proxy)
+            if not getattr(manager, '_logfire_policy_installed', False):
+                proxy_kwargs.setdefault('socket_options', keepalive_socket_options())
+                manager = super().proxy_manager_for(proxy, **proxy_kwargs)
+                _install_recycling_pools(manager)
+                manager._logfire_policy_installed = True
+            return manager
+
+
+_proxy_manager_lock = threading.Lock()
+"""Serializes building proxy managers.
+
+Module level rather than per adapter because `HTTPAdapter` pickles only the attributes it names
+itself, so one set in `__init__` would be missing after unpickling. Held only while a manager is
+first built, which happens once per proxy, so sharing it costs nothing.
+"""
 
 
 def install_connection_policy(session: Session) -> None:
