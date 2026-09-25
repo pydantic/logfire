@@ -127,7 +127,7 @@ A provider is an upstream LLM service the gateway can forward requests to. Each 
 - **Built-in providers** are managed by Logfire: no upstream account or API key needed. Usage is billed to your organization through a prepaid gateway balance (with configurable auto-recharge). Activation is a separate step from enabling the gateway and, on card-based plans, requires a payment method.
 - **Bring-your-own-key (BYOK) providers** use credentials you supply on the **Providers** tab. Supported types include OpenAI, Anthropic, Google Vertex AI, Azure Foundry, AWS Bedrock, Groq, Hugging Face, Mistral, Ollama, Doubleword, and custom OpenAI- or Anthropic-compatible endpoints. Upstream usage is billed directly by your provider.
 
-!!! note "Custom endpoints require a paid plan"
+!!! note "Custom endpoints require a paid plan or self-hosted Logfire"
     On the Team, Growth, and Enterprise plans, and on self-hosted Logfire, you can point a BYOK provider at any HTTPS endpoint, including your own OpenAI- or Anthropic-compatible server.
 
     On the Personal plan, each BYOK provider must use its vendor's endpoint. Vendors with a single public API, such as OpenAI, Anthropic, or Groq, use that API's standard base URL. Vendors with per-account endpoints, such as Azure Foundry, Google Vertex AI, and AWS Bedrock, accept only that vendor's own endpoint hosts. Custom OpenAI- and Anthropic-compatible providers are not available.
