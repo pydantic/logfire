@@ -41,7 +41,8 @@ def assert_sdk(expected_version: str, *, meta: bool, cli: bool) -> None:
     assert distribution_version('logfire-sdk') == expected_version
     assert (distribution_version('logfire-cli') is not None) is cli
     assert distribution_version('opentelemetry-instrumentation-sqlite3') is not None
-    assert console_scripts('logfire') == ({'logfire_cli:main'} if cli else set())
+    assert console_scripts('logfire') == ({'logfire_cli:main'} if meta else set())
+    assert console_scripts('logfire-cli') == ({'logfire_cli:main'} if cli else set())
 
     if meta:
         meta_files = metadata.files('logfire')

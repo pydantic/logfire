@@ -47,7 +47,7 @@ classifiers = [
 ]
 dependencies = ["logfire-sdk==6.0.0b5", "logfire-cli>=0.1.7"]
 
-# This deliberately duplicates the script owned by logfire-cli for the v6 migration.
+# The meta-package owns `logfire`; the standalone logfire-cli package owns `logfire-cli`.
 # Pip installs dependencies before uninstalling monolithic logfire v5, whose uninstall
 # removes the newly installed launcher. Installing this meta-package last restores it.
 [project.scripts]
