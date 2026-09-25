@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import functools
 import socket
-import threading
 import time
 from typing import Any
 
@@ -148,9 +147,13 @@ def _install_recycling_pools(manager: PoolManager) -> None:
     a SOCKS proxy manager brings its own, and Pyodide swaps in others again. Installed on the
     manager rather than passed through `connection_pool_kw`, because `urllib3` feeds that mapping
     to its pool-key normalizer, which rejects keys it does not know.
+
+    Idempotent, so that threads racing to configure the same proxy manager all end up with the
+    same classes rather than wrapping them twice.
     """
     manager.pool_classes_by_scheme = {
-        scheme: _recycling_pool_class(cls) for scheme, cls in manager.pool_classes_by_scheme.items()
+        scheme: cls if issubclass(cls, _IdleRecyclingPoolMixin) else _recycling_pool_class(cls)
+        for scheme, cls in manager.pool_classes_by_scheme.items()
     }
 
 
@@ -173,26 +176,14 @@ class LogfireHTTPAdapter(HTTPAdapter):
         if getattr(manager, '_logfire_policy_installed', False):
             return manager
         # `requests` puts a new manager in its cache before handing it back to us, so another
-        # thread could pick it up and open a pool before the recycling classes are installed.
-        # Building and configuring under a lock, and trusting only a manager that carries the
-        # marker, makes those two steps one as far as any other caller can see.
-        with _proxy_manager_lock:
-            manager = self.proxy_manager.get(proxy)
-            if not getattr(manager, '_logfire_policy_installed', False):
-                proxy_kwargs.setdefault('socket_options', keepalive_socket_options())
-                manager = super().proxy_manager_for(proxy, **proxy_kwargs)
-                _install_recycling_pools(manager)
-                manager._logfire_policy_installed = True
-            return manager
-
-
-_proxy_manager_lock = threading.Lock()
-"""Serializes building proxy managers.
-
-Module level rather than per adapter because `HTTPAdapter` pickles only the attributes it names
-itself, so one set in `__init__` would be missing after unpickling. Held only while a manager is
-first built, which happens once per proxy, so sharing it costs nothing.
-"""
+        # thread can get it from there before the recycling classes are installed. Every caller
+        # that sees a manager without the marker therefore installs them itself before using it.
+        # No lock is needed because installing is idempotent.
+        proxy_kwargs.setdefault('socket_options', keepalive_socket_options())
+        manager = super().proxy_manager_for(proxy, **proxy_kwargs)
+        _install_recycling_pools(manager)
+        manager._logfire_policy_installed = True
+        return manager
 
 
 def install_connection_policy(session: Session) -> None:

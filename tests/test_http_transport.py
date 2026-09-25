@@ -313,35 +313,42 @@ def test_proxied_requests_recycle_idle_connections(server_url: str, clock: list[
 def test_a_proxy_manager_is_not_handed_out_before_it_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     """`requests` caches a new proxy manager before `LogfireHTTPAdapter` configures it.
 
-    A second thread asking for the same proxy in that window must wait for the configured
-    manager rather than take the cached one, or its pools would never recycle idle connections.
+    Another caller asking for the same proxy in that window, such as a request on another thread,
+    must get a configured manager rather than the cached one, or its pools would never recycle
+    idle connections. The second call is made from inside the window, so the race is exact.
     """
     adapter = LogfireHTTPAdapter()
     proxy = 'http://proxy.example.com'
-    seen_by_other_thread: list[type[HTTPConnectionPool]] = []
+    real_install = _install_recycling_pools
+    seen_by_other_caller: list[type[HTTPConnectionPool]] = []
+    in_window = False
 
-    def other_thread() -> None:
-        manager = adapter.proxy_manager_for(proxy)
-        seen_by_other_thread.append(manager.pool_classes_by_scheme['http'])
+    def install_while_another_caller_asks(manager: PoolManager) -> None:
+        nonlocal in_window
+        if not in_window:
+            in_window = True
+            # The new manager is already in the `requests` cache at this point.
+            assert adapter.proxy_manager[proxy] is manager
+            seen_by_other_caller.append(adapter.proxy_manager_for(proxy).pool_classes_by_scheme['http'])
+        real_install(manager)
 
-    thread = threading.Thread(target=other_thread)
-
-    def install_while_another_thread_asks(manager: PoolManager) -> None:
-        # The new manager is already in the `requests` cache at this point.
-        assert adapter.proxy_manager[proxy] is manager
-        thread.start()
-        # Give the other thread the chance to take the unconfigured manager, if it can.
-        thread.join(timeout=0.2)
-        _install_recycling_pools(manager)
-
-    monkeypatch.setattr('logfire._internal.http_transport._install_recycling_pools', install_while_another_thread_asks)
+    monkeypatch.setattr('logfire._internal.http_transport._install_recycling_pools', install_while_another_caller_asks)
 
     manager = adapter.proxy_manager_for(proxy)
-    thread.join()
 
-    assert issubclass(manager.pool_classes_by_scheme['http'], _IdleRecyclingPoolMixin)
-    assert len(seen_by_other_thread) == 1
-    assert issubclass(seen_by_other_thread[0], _IdleRecyclingPoolMixin)
+    assert issubclass(seen_by_other_caller[0], _IdleRecyclingPoolMixin)
+    # Configured once, not wrapped again by the outer call.
+    assert manager.pool_classes_by_scheme['http'] is seen_by_other_caller[0]
+
+
+def test_installing_recycling_pools_twice_does_not_wrap_them_again() -> None:
+    manager = PoolManager()
+    _install_recycling_pools(manager)
+    classes = dict(manager.pool_classes_by_scheme)
+
+    _install_recycling_pools(manager)
+
+    assert manager.pool_classes_by_scheme == classes
 
 
 def test_install_connection_policy_mounts_both_schemes() -> None:
