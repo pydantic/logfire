@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v5.1.1] (2026-09-25)
+
+### Fixes
+
+* Handle project setup for accounts without organizations by @strawgate in [#2470](https://github.com/pydantic/logfire/pull/2470)
+* Enable TCP keepalive and recycle idle connections in Logfire's HTTP sessions by @adriangb in [#2476](https://github.com/pydantic/logfire/pull/2476)
+
 ## [v5.1.0] (2026-09-11)
 
 ### Integrations
@@ -1302,3 +1309,4 @@ First release from new repo!
 [v4.41.0]: https://github.com/pydantic/logfire/compare/v4.40.0...v4.41.0
 [v5.0.0]: https://github.com/pydantic/logfire/compare/v4.41.0...v5.0.0
 [v5.1.0]: https://github.com/pydantic/logfire/compare/v5.0.0...v5.1.0
+[v5.1.1]: https://github.com/pydantic/logfire/compare/v5.1.0...v5.1.1
