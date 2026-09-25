@@ -209,9 +209,16 @@ class Scrubber(BaseScrubber):
     """Redacts potentially sensitive data."""
 
     def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
-        # See ScrubbingOptions for more info on these parameters.
-        patterns = [_DEFAULT_PATTERN, *(patterns or [])]
-        self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
+        # Compile the default pattern and each extra pattern separately so that
+        # numeric backreferences in extra_patterns refer to groups within the same
+        # pattern rather than to groups in a preceding pattern.  When all patterns
+        # were joined with "|", the shared capture-group numbering space broke any
+        # extra_pattern that used a backreference (the reference always pointed at
+        # a group in a different pattern, so it silently never matched).
+        self._default_pattern = re.compile(_DEFAULT_PATTERN, re.IGNORECASE | re.DOTALL)
+        self._extra_patterns: list[re.Pattern[str]] = [
+            re.compile(p, re.IGNORECASE | re.DOTALL) for p in (patterns or [])
+        ]
         self._callback = callback
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
@@ -251,10 +258,26 @@ class SpanScrubber:
     """
 
     def __init__(self, parent: Scrubber):
-        self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
+        self._default_pattern = parent._default_pattern  # pyright: ignore[reportPrivateUsage]
+        self._extra_patterns = parent._extra_patterns  # pyright: ignore[reportPrivateUsage]
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.did_scrub = False
+
+    def _search(self, value: str) -> re.Match[str] | None:
+        """Return the leftmost match across the default pattern and all extra patterns.
+
+        Each pattern is searched independently so that numeric backreferences inside
+        an extra_pattern refer to that pattern's own capture groups, not to groups
+        in a preceding pattern.  The leftmost match wins; ties go to the default
+        pattern, preserving the original "default first" semantics.
+        """
+        best = self._default_pattern.search(value)
+        for p in self._extra_patterns:
+            m = p.search(value)
+            if m is not None and (best is None or m.start() < best.start()):
+                best = m
+        return best
 
     def scrub_span(self, span: ReadableSpanDict):
         # We need to use BoundedAttributes because:
@@ -315,7 +338,7 @@ class SpanScrubber:
         Similar to the truncation code, it should use the field names in the frontend, e.g. `otel_events`.
         """
         if isinstance(value, str):
-            if match := self._pattern.search(value):
+            if match := self._search(value):
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
@@ -333,7 +356,7 @@ class SpanScrubber:
             for k, v in cast('Mapping[str, Any]', value).items():
                 if k in BaseScrubber.SAFE_KEYS:
                     result[k] = v
-                elif match := self._pattern.search(k):
+                elif match := self._search(k):
                     redacted = self._redact(ScrubMatch(path + (k,), v, match))
                     if isinstance(redacted, str) and isinstance(v, Sequence) and not isinstance(v, str):
                         redacted = [redacted]
