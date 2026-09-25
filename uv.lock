@@ -2976,7 +2976,7 @@ wsgi = [
 
 [package.metadata]
 requires-dist = [
-    { name = "logfire-cli", specifier = ">=0.1.7" },
+    { name = "logfire-cli", specifier = ">=0.1.8" },
     { name = "logfire-sdk", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["aiohttp"], marker = "extra == 'aiohttp'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["aiohttp-client"], marker = "extra == 'aiohttp-client'", editable = "logfire-sdk" },

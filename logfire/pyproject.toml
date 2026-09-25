@@ -45,11 +45,11 @@ classifiers = [
     "Framework :: OpenTelemetry :: Exporters",
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
-dependencies = ["logfire-sdk==6.0.0b5", "logfire-cli>=0.1.7"]
+dependencies = ["logfire-sdk==6.0.0b5", "logfire-cli>=0.1.8"]
 
-# This deliberately duplicates the script owned by logfire-cli for the v6 migration.
-# Pip installs dependencies before uninstalling monolithic logfire v5, whose uninstall
-# removes the newly installed launcher. Installing this meta-package last restores it.
+# This package owns the `logfire` command; logfire-cli 0.1.8+ installs only `logfire-cli`.
+# Pip uninstalls monolithic logfire v5, which also owned `logfire`, immediately before
+# installing this package, so the launcher is restored during the upgrade.
 [project.scripts]
 logfire = "logfire_cli:main"
 
