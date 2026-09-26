@@ -15,6 +15,8 @@ A public conversation starts from one LLM span (one model call, with a start and
 
 Use a public conversation when someone needs the model exchange itself, for example in a support ticket or a review. Use a [public trace](../../../guides/web-ui/public-traces.md) when they need the full journey of one request, made of nested spans.
 
+{{ video("92816bb3c362697ad85bb79ca6bdb609", 64, 56) }}
+
 ## Enable Public Conversations
 
 1. Open **Settings → Early access**.

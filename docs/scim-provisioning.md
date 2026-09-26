@@ -22,8 +22,19 @@ This is not a complete user and group lifecycle API. If your identity provider r
 Before configuring your identity provider:
 
 1. [Configure single sign-on](how-to-guides/sso-setup.md), then add the group mappings that assign organization and project roles as described below.
-2. In Logfire, go to **Organization settings → API keys**, create an organization API key, and grant it only the **SCIM provisioning** (`organization:scim`) scope. See [Using API Keys to Access Public APIs](reference/advanced/use-api-keys.md).
+2. In Logfire, go to **Organization settings → API keys**, create an API key, and grant it only the SCIM provisioning scope for your deployment. See [Using API Keys to Access Public APIs](reference/advanced/use-api-keys.md).
+
+    - **Enterprise Cloud**: create the key in the organization you are provisioning, and grant it **SCIM provisioning** (`organization:scim`). Each key provisions its own organization.
+    - **Enterprise Self-Hosted**: create the key in the organization that has the admin panel, and grant it **SCIM provisioning across every organization in the self-hosted instance** (`instance:scim`). A self-hosted SCIM request provisions into every organization your group mappings name, so it takes an instance-level key rather than one bound to a single organization. Only an organization with the admin panel can be granted this scope.
+
 3. Copy the API key when Logfire displays it. You cannot view it again.
+
+!!! warning "Self-hosted deployments configured before `instance:scim` existed"
+    Self-hosted SCIM endpoints still accept a key holding `organization:scim`, so an
+    integration configured before this scope existed keeps working. That compatibility is
+    temporary and will be removed in a future release, after which such a key is rejected
+    with `403`. Replace it with an `instance:scim` key created from the organization that
+    has the admin panel.
 
 For an Enterprise Cloud deployment, go to **Organization settings → Single sign-on** to find the provider name and manage its group mappings. The identity provider must already exist before its SCIM endpoint is available. The group identifier must exactly match the group name or ID sent by your identity provider.
 
@@ -118,7 +129,7 @@ After a `204 No Content` response, open **Organization settings → Members** an
 
 ### The API returns `401` or `403`
 
-Check that you used an organization API key with the **SCIM provisioning** (`organization:scim`) scope and sent it in the `Authorization` header. Also check that the URL matches your deployment type and region. Enterprise Cloud endpoints reject keys for organizations that are not on an Enterprise plan, even if the scope was available when the key was created. A non-self-hosted deployment rejects requests to the self-hosted route, and a self-hosted deployment rejects managed-provider routes.
+Check that you used an API key carrying the SCIM provisioning scope for your deployment, `organization:scim` on Enterprise Cloud or `instance:scim` on Enterprise Self-Hosted, and sent it in the `Authorization` header. On a self-hosted deployment, `instance:scim` can only be granted to the organization that has the admin panel, so a key created in another organization cannot carry it. Also check that the URL matches your deployment type and region. Enterprise Cloud endpoints reject keys for organizations that are not on an Enterprise plan, even if the scope was available when the key was created. A non-self-hosted deployment rejects requests to the self-hosted route, and a self-hosted deployment rejects managed-provider routes.
 
 ### An Enterprise Cloud endpoint returns `404` for the identity provider
 
