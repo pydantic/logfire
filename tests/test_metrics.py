@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import pytest
@@ -15,6 +16,7 @@ from opentelemetry.sdk.metrics.export import (
     MetricExporter,
     MetricExportResult,
     MetricsData,
+    Sum,
 )
 from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
 
@@ -752,3 +754,297 @@ def test_replace_default_views(metrics_reader: InMemoryMetricReader, config_kwar
             },
         ]
     )
+
+
+def test_metric_counter_drops_invalid_attribute_and_warns(metrics_reader: InMemoryMetricReader) -> None:
+    """Invalid metric attribute values are dropped with a warning instead of crashing the exporter.
+
+    Regression test for https://github.com/pydantic/logfire/issues/782: an attribute value the
+    OTLP exporter cannot encode (here an arbitrary ``object()``) previously reached the export
+    thread and failed there, dropping the whole batch with no pointer to the offending call.
+    """
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+        counter.add(1, {'bad': object(), 'good': 'yes', 'n': 3})  # type: ignore[arg-type]
+
+    assert get_collected_metrics(metrics_reader) == snapshot(
+        [
+            {
+                'name': 'counter',
+                'description': '',
+                'unit': '',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {'good': 'yes', 'n': 3},
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'value': 1,
+                            'exemplars': [],
+                        }
+                    ],
+                    'aggregation_temporality': 1,
+                    'is_monotonic': True,
+                },
+            }
+        ]
+    )
+
+
+def test_metric_histogram_drops_invalid_attribute_and_warns(metrics_reader: InMemoryMetricReader) -> None:
+    histogram = logfire.metric_histogram('histogram')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+        histogram.record(50, {'bad': object(), 'good': 'yes'})  # type: ignore[arg-type]
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_up_down_counter_drops_invalid_attribute_and_warns(metrics_reader: InMemoryMetricReader) -> None:
+    up_down_counter = logfire.metric_up_down_counter('up_down_counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+        up_down_counter.add(1, {'bad': object(), 'good': 'yes'})  # type: ignore[arg-type]
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_gauge_drops_invalid_attribute_and_warns(metrics_reader: InMemoryMetricReader) -> None:
+    gauge = logfire.metric_gauge('gauge')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+        gauge.set(1, {'bad': object(), 'good': 'yes'})  # type: ignore[arg-type]
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_attributes_with_invalid_sequence_element_are_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type tuple"):
+        counter.add(1, {'seq': (1, object()), 'good_seq': ('a', 'b')})  # type: ignore[arg-type]
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good_seq': ['a', 'b']}
+
+
+def test_metric_attributes_with_none_sequence_element_are_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    # `None` is not a valid element of a metric attribute sequence: the supported exporter logs
+    # an error and omits the attribute, and newer versions encode it inconsistently, so a tuple
+    # containing `None` must be dropped rather than forwarded.
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type tuple"):
+        counter.add(1, {'seq': (1, None), 'good_seq': ('a', 'b')})  # type: ignore[arg-type]
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good_seq': ['a', 'b']}
+
+
+def test_metric_multiple_invalid_attributes_are_all_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    # Two invalid attributes in one call: the second reuses the already-copied ``cleaned`` dict
+    # (the ``cleaned is None`` guard is False on the second drop) rather than copying again.
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning) as records:
+        counter.add(1, {'bad1': object(), 'bad2': [1, 2], 'good': 'yes'})  # type: ignore[arg-type]
+
+    messages = [str(r.message) for r in records]
+    assert any("Dropping metric attribute 'bad1'" in m for m in messages)
+    assert any("Dropping metric attribute 'bad2'" in m for m in messages)
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_list_attribute_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    # A list is a valid OTLP attribute value in general but is unhashable and crashes the
+    # metrics SDK during aggregation, so it must be dropped for metrics specifically.
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'lst' with invalid type list"):
+        counter.add(1, {'lst': [1, 2, 3], 'good': 'yes'})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_valid_metric_attributes_do_not_warn(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('counter')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        counter.add(1, {'s': 'a', 'b': True, 'i': 1, 'f': 1.5, 'seq': (1, 2, 3)})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'s': 'a', 'b': True, 'i': 1, 'f': 1.5, 'seq': [1, 2, 3]}
+
+
+def test_metric_invalid_attribute_does_not_reach_span_collection(exporter: TestExporter) -> None:
+    # An attribute the sanitizer rejects must be dropped before the span metric too, not
+    # only before the exported instrument. `SpanMetric` keys its details dict on the
+    # attributes and `_LogfireWrappedSpan.end` JSON-serializes them, so an unserializable
+    # value reaching that path makes the serialization fail inside `handle_internal_errors`
+    # and the whole `logfire.metrics` span attribute silently disappears.
+    counter = logfire.metric_counter('tokens')
+
+    with logfire.span('span'):
+        with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+            counter.add(100, {'bad': object(), 'model': 'gpt4'})  # type: ignore[arg-type]
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
+
+
+def test_metric_unhashable_attribute_does_not_reach_span_collection(exporter: TestExporter) -> None:
+    # Same path as above with an unhashable value, which raises where `SpanMetric.increment`
+    # builds its dict key rather than at serialization time.
+    counter = logfire.metric_counter('tokens')
+
+    with logfire.span('span'):
+        with pytest.warns(UserWarning, match=r"Dropping metric attribute 'lst' with invalid type list"):
+            counter.add(100, {'lst': [1, 2], 'model': 'gpt4'})
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
+
+
+def test_metric_histogram_invalid_attribute_does_not_reach_span_collection(exporter: TestExporter) -> None:
+    histogram = logfire.metric_histogram('durations')
+
+    with logfire.span('span'):
+        with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+            histogram.record(50, {'bad': object(), 'model': 'gpt4'})  # type: ignore[arg-type]
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'durations': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 50}], 'total': 50}
+    }
+
+
+def test_metric_oversized_int_attribute_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    # OTLP carries signed 64-bit integers. A larger `int` is hashable and aggregates fine,
+    # so it survives the metrics SDK and only raises in the exporter's protobuf encoding -
+    # the same export-thread batch drop this sanitization exists to prevent.
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'big' with invalid type int"):
+        counter.add(1, {'big': 2**63, 'good': 'yes'})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_oversized_int_in_sequence_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type tuple"):
+        counter.add(1, {'seq': (1, 2**63), 'good': 'yes'})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_in_range_int_attributes_are_kept(metrics_reader: InMemoryMetricReader) -> None:
+    # The int bound must not reject values OTLP can carry, including the boundary itself
+    # and `bool` (an `int` subclass that is always in range).
+    counter = logfire.metric_counter('counter')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        counter.add(1, {'max': 2**63 - 1, 'min': -(2**63), 'flag': True, 'seq': (2**63 - 1, -(2**63))})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {
+        'max': 2**63 - 1,
+        'min': -(2**63),
+        'flag': True,
+        'seq': [2**63 - 1, -(2**63)],
+    }
+
+
+def test_metric_bytes_attribute_kept_in_export_but_dropped_from_span_collection(
+    exporter: TestExporter, metrics_reader: InMemoryMetricReader
+) -> None:
+    # `bytes` is a legal OTLP attribute value (the proto encoder emits `bytes_value`), so
+    # the exported metric must keep it. But `SpanMetric.dump()` is JSON-serialized at span
+    # end and `json.dumps` cannot encode `bytes`, which would take the whole
+    # `logfire.metrics` attribute down with it. So the span path filters `bytes` and the
+    # export path does not.
+    counter = logfire.metric_counter('tokens')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        with logfire.span('span'):
+            counter.add(100, {'raw': b'abc', 'model': 'gpt4'})
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
+
+    # Read the metric off the reader directly rather than through
+    # `get_collected_metrics`, whose `MetricsData.to_json()` cannot encode `bytes` either.
+    data = metrics_reader.get_metrics_data()
+    assert data is not None
+    [resource_metrics] = data.resource_metrics
+    [scope_metrics] = resource_metrics.scope_metrics
+    [metric] = scope_metrics.metrics
+    metric_data = metric.data
+    assert isinstance(metric_data, Sum)
+    [data_point] = metric_data.data_points
+    assert dict(data_point.attributes or {}) == {'raw': b'abc', 'model': 'gpt4'}
+    assert data_point.value == 100
+
+
+def test_metric_multiple_bytes_attributes_all_dropped_from_span_collection(
+    exporter: TestExporter,
+) -> None:
+    # Two bytes attributes in one call: the second reuses the already-copied `cleaned`
+    # dict, i.e. the `cleaned is None` guard is False on the second drop. Without this the
+    # 104->106 branch in `_span_safe_metric_attributes` stays partial and the repo's
+    # `coverage report --fail-under 100` fails.
+    counter = logfire.metric_counter('tokens')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        with logfire.span('span'):
+            counter.add(100, {'raw1': b'abc', 'raw2': b'def', 'model': 'gpt4'})
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
+
+
+def test_metric_bytes_in_sequence_dropped_from_span_collection(exporter: TestExporter) -> None:
+    counter = logfire.metric_counter('tokens')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        with logfire.span('span'):
+            counter.add(100, {'raws': (b'a', b'b'), 'model': 'gpt4'})  # type: ignore[arg-type]
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
