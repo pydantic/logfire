@@ -32,6 +32,10 @@ typecheck:
 test:
 	uv run --no-sync pytest -n logical --dist=loadgroup
 
+.PHONY: test-otel-collector
+test-otel-collector:
+	LOGFIRE_OTEL_COLLECTOR_TESTS=1 uv run --no-sync pytest -n 0 tests/otel_collector
+
 .PHONY: test-update-examples  # Update the examples in the documentation
 test-update-examples:
 	uv run pytest --update-examples -k test_docs
