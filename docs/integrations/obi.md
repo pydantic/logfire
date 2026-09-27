@@ -110,17 +110,92 @@ when you need to select workloads by executable, container, namespace, or Kubern
 
 ## Deploy OBI on Kubernetes
 
-Use the official [OBI Helm chart](https://opentelemetry.io/docs/zero-code/obi/setup/helm/) or
-[Kubernetes deployment guide](https://opentelemetry.io/docs/zero-code/obi/setup/kubernetes/).
-Run OBI as a DaemonSet, which places one OBI pod on each node, to observe selected workloads across
-the cluster. Run it as a sidecar to limit it to one pod.
+Use the official
+[OBI Helm chart](https://opentelemetry.io/docs/zero-code/obi/setup/kubernetes-helm/) to run OBI as a
+DaemonSet, which places one OBI pod on each node. The chart's application preset discovers workloads
+across the cluster and configures the required host process namespace, privileges, trace filesystem
+mount, service account, and role-based access control (RBAC).
 
-Configure its exporter from a Kubernetes Secret rather than placing a token in a workload manifest:
+Create a Secret containing only the Logfire write token:
+
+```bash
+kubectl create namespace obi
+kubectl --namespace obi create secret generic logfire-otlp \
+  --from-literal=token="$LOGFIRE_TOKEN"
+```
+
+Save these chart overrides as `obi-values.yaml`. They replace the chart's default exporters with
+OTLP over HTTP exporters that send traces and metrics directly to Logfire:
+
+```yaml
+image:
+  registry: docker.io
+  repository: otel/ebpf-instrument
+  tag: v0.13.0
+  digest: sha256:5e89d7478b5feeb8ee73881c58bfe5bb0ccb6dcd4f8cd62e30457aa6e6426adb
+
+envValueFrom:
+  LOGFIRE_TOKEN:
+    secretKeyRef:
+      name: logfire-otlp
+      key: token
+
+config:
+  data:
+    file_format: "1.0"
+    tracer_provider:
+      processors:
+        - batch:
+            exporter:
+              otlp_http:
+                endpoint: https://logfire-us.pydantic.dev
+                encoding: protobuf
+                headers:
+                  - name: Authorization
+                    value: ${LOGFIRE_TOKEN}
+    meter_provider:
+      readers:
+        - periodic:
+            interval: 60000
+            exporter:
+              otlp_http:
+                endpoint: https://logfire-us.pydantic.dev
+                encoding: protobuf
+                headers:
+                  - name: Authorization
+                    value: ${LOGFIRE_TOKEN}
+                default_histogram_aggregation: explicit_bucket_histogram
+    extensions:
+      obi:
+        version: "2.0"
+```
+
+Install the chart:
+
+```bash
+helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+helm repo update
+helm install obi open-telemetry/opentelemetry-ebpf-instrumentation \
+  --version 0.14.0 \
+  --namespace obi \
+  --values obi-values.yaml
+```
+
+Change both endpoints to `https://logfire-eu.pydantic.dev` for an EU project. The application
+preset instruments applications cluster-wide by default. Add OBI v2
+[capture rules](https://opentelemetry.io/docs/zero-code/obi/configure/config-v2/#select-workloads)
+under `config.data.extensions.obi.capture` when you need to limit discovery to particular
+namespaces, labels, ports, or executables.
+
+To observe only one workload, follow OBI's
+[manual Kubernetes deployment guide](https://opentelemetry.io/docs/zero-code/obi/setup/kubernetes/)
+and add OBI as a sidecar. A sidecar needs `shareProcessNamespace: true` on the pod, the required
+security context, and the host's `/sys/kernel/tracing` directory mounted at the same path. Configure
+the same OTLP endpoint, protocol, and authorization header on that OBI container. Create the Secret
+in the workload's namespace:
 
 ```yaml
 env:
-  - name: OTEL_EBPF_KUBE_METADATA_ENABLE
-    value: "true"
   - name: OTEL_EXPORTER_OTLP_ENDPOINT
     value: https://logfire-us.pydantic.dev
   - name: OTEL_EXPORTER_OTLP_PROTOCOL
@@ -132,9 +207,8 @@ env:
         key: headers
 ```
 
-Set the `headers` secret value to `Authorization=your-write-token`. Grant OBI the service account
-and RBAC permissions from the official deployment guide. Use standard workload labels so service
-names remain stable when pods are replaced.
+For this manual manifest, set the `headers` secret value to `Authorization=your-write-token`. Use
+standard workload labels so service names remain stable when pods are replaced.
 
 ## Verify the telemetry
 
