@@ -17,12 +17,12 @@ The Gateway **Connect** tab gives you a working request for your region, provide
 
 *Connect after selecting an OpenAI-compatible provider.*
 
-If **Connect** offers no route, choose **Add a payment method** to activate built-in providers or **Add your own provider** to [bring your own key](byok-providers.md). If it says **Built-in provider access needs activation**, use **Providers** to activate one or add your own.
+If **Connect** offers no route, ask an organization admin to choose **Add a payment method** to activate built-in providers or **Add your own provider** to [bring your own key](byok-providers.md). If it says **Built-in provider access needs activation**, ask an admin to use **Providers** to activate a built-in provider or add a BYOK provider.
 
 !!! note "Who pays for model calls?"
     Built-in calls draw from a Logfire prepaid balance. Activation may ask for a payment method and set up auto-recharge; eligible promotional credit may allow activation without one. Review the amounts and terms in the UI. With your own provider, that provider bills you directly and no Logfire payment method is needed for the route.
 
-If you only want to observe calls sent directly to a model provider, [instrument your application](../../../integrations/llms/index.md) instead. Gateway forwards calls through itself.
+If you only want to observe calls sent directly to a model provider, [instrument your application](../../../integrations/llms/index.md) instead. The Gateway sits in the request path and forwards each call to the provider.
 
 ## Get a credential and send a request
 
