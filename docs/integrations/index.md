@@ -34,11 +34,12 @@ If a package you are using is not listed in this documentation, please let us kn
 - _AI Agent Frameworks_ (Python, TypeScript, Go, Rust, .NET): CrewAI, AutoGen, Google ADK, smolagents, Strands, Agno, Haystack, Semantic Kernel, Vercel AI SDK, Mastra, Rig, and more. See [Agent Frameworks](agent-frameworks/index.md).
 - _No-code AI and workflow platforms_: Dify, Flowise, Goose, Langflow, LobeChat, n8n, and Open WebUI ([setup guides](no-code/index.md))
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
-- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery, Elasticsearch
+- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery, Elasticsearch, Snowflake
 - _HTTP Clients_: HTTPX, HTTPX2, Requests, AIOHTTP
 - _Task Queues and Schedulers_: Airflow, FastStream, Celery
 - _Logging Libraries_: Standard Library Logging, Loguru, Structlog
 - _Testing_: Pytest
+- _Sandboxed code execution_: Pydantic Monty
 - and more, such as Stripe, AWS Lambda, and system metrics.
 
 The below table lists these integrations and any corresponding `logfire.instrument_<package>()` calls:
@@ -47,6 +48,7 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | ----------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Pydantic Validation](pydantic.md)        | Data Validation         | [`logfire.instrument_pydantic()`][logfire.Logfire.instrument_pydantic]                                                                                                 |
 | [Pydantic AI](llms/pydanticai.md)         | AI                      | [`logfire.instrument_pydantic_ai()`][logfire.Logfire.instrument_pydantic_ai]                                                                                           |
+| [Pydantic Monty](monty.md)                | Sandboxed Code Execution | [`logfire.instrument_monty()`][logfire.Logfire.instrument_monty]                                                                                                      |
 | [AIOHTTP](http-clients/aiohttp.md)        | HTTP Client             | [`logfire.instrument_aiohttp_client()`,][logfire.Logfire.instrument_aiohttp_client] [`logfire.instrument_aiohttp_server()`][logfire.Logfire.instrument_aiohttp_server] |
 | [Airflow](event-streams/airflow.md)       | Task Scheduler          | N/A (built in, config needed)                                                                                                                                          |
 | [Anthropic](llms/anthropic.md)            | AI                      | [`logfire.instrument_anthropic()`][logfire.Logfire.instrument_anthropic]                                                                                               |
@@ -88,6 +90,7 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [Requests](http-clients/requests.md)      | HTTP Client             | [`logfire.instrument_requests()`][logfire.Logfire.instrument_requests]                                                                                                 |
 | [SQLAlchemy](databases/sqlalchemy.md)     | Database                | [`logfire.instrument_sqlalchemy()`][logfire.Logfire.instrument_sqlalchemy]                                                                                             |
 | [SQLite3](databases/sqlite3.md)           | Database                | [`logfire.instrument_sqlite3()`][logfire.Logfire.instrument_sqlite3]                                                                                                   |
+| [Snowflake](databases/snowflake.md)       | Database                | [`logfire.instrument_snowflake()`][logfire.Logfire.instrument_snowflake]                                                                                               |
 | [Standard Library Logging](logging.md)    | Logging                 | See documentation                                                                                                                                                      |
 | [Starlette](web-frameworks/starlette.md)  | Web Framework           | [`logfire.instrument_starlette()`][logfire.Logfire.instrument_starlette]                                                                                               |
 | [Litestar](web-frameworks/litestar.md)    | Web Framework           | [`logfire.instrument_litestar()`][logfire.Logfire.instrument_litestar]                                                                                                 |

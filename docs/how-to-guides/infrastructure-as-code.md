@@ -23,6 +23,7 @@ Resources include:
 - `logfire_channel` (webhook and Opsgenie)
 - `logfire_alert`
 - `logfire_dashboard`
+- `logfire_slo` (reliability targets, experimental)
 - `logfire_write_token`
 - `logfire_read_token`
 - `logfire_organization` (self-hosted only)

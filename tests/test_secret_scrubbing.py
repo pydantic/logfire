@@ -671,7 +671,7 @@ def test_default_patterns_match_docs():
         docs.write_text(content[: match.start(2)] + expected_block + content[match.end(2) :])
         pytest.fail(
             f'The scrubbing patterns documented in {docs} were out of sync with `DEFAULT_PATTERNS` '
-            'in logfire/_internal/scrubbing.py. The docs have been updated to match; re-run to confirm.'
+            'in logfire-sdk/logfire/_internal/scrubbing.py. The docs have been updated to match; re-run to confirm.'
         )
 
 

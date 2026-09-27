@@ -15,6 +15,7 @@ from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
 from .exporters.test import TestExporter as TestExporter
 from .forwarding import OTLPForwardingManager as OTLPForwardingManager
+from .http_transport import install_connection_policy as install_connection_policy
 from .integrations.executors import instrument_executors as instrument_executors
 from .interactive import ask_or_default as ask_or_default, ask_required as ask_required, require_answer as require_answer
 from .logs import ProxyLoggerProvider as ProxyLoggerProvider

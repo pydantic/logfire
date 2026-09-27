@@ -335,7 +335,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
-        if not (pydantic_pre_2_5 and member == 'instrument_pydantic'):
+        if member == 'instrument_monty' and module_name == 'logfire.':
+            # Monty's native instrumentation is process-global and one-shot.
+            pass
+        elif not (pydantic_pre_2_5 and member == 'instrument_pydantic'):
             # skip pydantic instrumentation (which uses the plugin) for versions prior to v2.5
             getattr(logfire_api, member)()
         # just remove the member unconditionally to pass future asserts
@@ -424,7 +427,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 def test_match_version_on_pyproject() -> None:
     import tomllib
 
-    logfire_pyproject = (Path(__file__).parent.parent / 'pyproject.toml').read_text()
+    logfire_pyproject = (Path(__file__).parent.parent / 'logfire-sdk' / 'pyproject.toml').read_text()
     logfire_api_pyproject = (Path(__file__).parent.parent / 'logfire-api' / 'pyproject.toml').read_text()
 
     logfire_pyproject_content = tomllib.loads(logfire_pyproject)

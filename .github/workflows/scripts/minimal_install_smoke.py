@@ -17,6 +17,15 @@ def assert_not_available(package: str) -> None:
         raise AssertionError(f'{package} should not be installed')
 
 
+def assert_distribution_not_installed(distribution: str) -> None:
+    """Assert that an installable distribution is absent."""
+    try:
+        metadata.version(distribution)
+    except metadata.PackageNotFoundError:
+        return
+    raise AssertionError(f'{distribution} should not be installed')
+
+
 def assert_import_error(label: str, func: Callable[[], object], expected_message: str) -> None:
     """Assert that an optional feature fails without its extra dependencies."""
     try:
@@ -40,6 +49,18 @@ def main() -> None:
         assert_not_available(package)
 
     import logfire
+
+    assert_distribution_not_installed('logfire')
+    assert_distribution_not_installed('logfire-cli')
+    if any(entry_point.name == 'logfire' for entry_point in metadata.entry_points(group='console_scripts')):
+        raise AssertionError('The SDK-only install should not provide the Logfire CLI')
+
+    sdk_files = metadata.files('logfire-sdk')
+    if sdk_files is None:
+        raise AssertionError('The SDK distribution has no file manifest')
+    for package_init in ('logfire/__init__.py', '_logfire_sdk/logfire/__init__.py'):
+        if not any(str(path) == package_init for path in sdk_files):
+            raise AssertionError(f'The SDK distribution is missing {package_init}')
 
     for package in optional_packages:
         assert_not_available(package)
