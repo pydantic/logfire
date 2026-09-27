@@ -1,0 +1,29 @@
+---
+title: "Optimize AI Gateway requests"
+description: "Install or write Gateway optimizations and choose the endpoints, models, and agents they affect."
+---
+
+# Optimize Gateway requests
+
+An **optimization** adds an instruction to matching Gateway requests. It can encourage shorter replies, change tool-use behavior, or apply another prompt rule without editing each application. Optimizations affect model input and may change output, cost, and behavior, so test them on a non-production route first.
+
+**AI Gateway optimizations** is an early-access feature on Growth, Enterprise, and self-hosted Logfire. If its tab is absent, turn it on under **Settings → Early access**. Early-access choices apply to your account in this browser.
+
+## Install a recommended optimization
+
+1. Open **AI Engineering → Gateway → Optimizations** and click **New optimization**. From an endpoint with no optimizations, **Create optimization** opens the same catalog.
+2. On **New optimization**, choose a **Recommended set** for your provider or model, or an individual rule. Provider sets contain model-scoped rules; a model-line or version set is a narrower subset. Install the broadest set that matches what you actually run, rather than stacking overlapping sets without a reason.
+3. In the install panel, review the rules, continue to endpoint selection, choose the endpoints that should use them, and confirm. A rule with no endpoint binding does not run.
+4. Open the rule and review its **Targeting**. Narrow it to a model or agent where appropriate.
+
+To write your own rule, choose **Custom rule** on **New optimization**, give it a name and **Instruction**, then set its targeting. **Advanced settings** include a trigger pattern, message roles, priority, failure mode, and an **Observe** or **Transform** action. **Observe** is useful for testing match behavior without modifying the request; **Transform** injects the instruction into matching requests.
+
+## Verify it worked
+
+Send the same small test prompt through an endpoint with and without the optimization. Confirm its binding under **Endpoints → your endpoint → Optimizations**, then inspect the request's trace and the optimization's usage. A difference in the model's prose alone is not proof of which rule ran; inspect the recorded match or transformed input.
+
+## Troubleshooting
+
+If the optimization appears but has no effect, check that the rule is enabled, bound to the endpoint, and that model, agent, message role, and optional trigger pattern all match the request. If a model provider rejects the transformed prompt, disable the rule and test it in a narrower scope before re-enabling it.
+
+Use [Guardrails](protect-data.md) for sensitive-data detection and blocking. Optimizations change instructions; they are not a data-loss-prevention control.

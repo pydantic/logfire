@@ -22,26 +22,34 @@ The gateway is configured per **organization** and is available on the Personal,
 
 ## Getting started
 
+For the shortest path to a working call, follow [Send your first Gateway request](first-request.md). It covers the provider choice, credential, Connect snippet, and a check that the request arrived. Then add only the controls you need:
+
+- [Add your own provider](byok-providers.md) to use an existing upstream account.
+- [Route across providers](endpoints.md) for traffic sharing or failover behind one URL.
+- [Protect request data](protect-data.md) with prebuilt or custom Guardrails.
+- [Optimize requests](optimizations.md) with endpoint-scoped instructions.
+- [Control spending](spending-policies.md) with reusable, attached budgets.
+
 ### Enable the gateway
 
 1. Open Logfire and select your organization.
 2. In the sidebar, under **AI Engineering**, click **Gateway**.
 3. Click **Enable recommended setup**.
 
-The recommended setup runs the whole onboarding in one go: it enables the gateway, activates built-in providers, turns on telemetry for a project, and creates your first API key (named **Quick Start**). When it finishes, click **Open Connect** to land on the Connect tab with a working snippet.
+The recommended setup enables the gateway, checks built-in providers, turns on telemetry for a project, installs recommended guardrails, and creates your first API key (named **Quick Start**). If built-in providers require a payment method, setup can finish without activating them; add a payment method or [bring your own provider](byok-providers.md) before sending a request. When a route is ready, open **Connect** for a working snippet.
 
 If you prefer to wire things up yourself, **Manual setup** just turns the gateway on and leaves providers, telemetry, and keys to you.
 
 !!! note "Prerequisites"
     - You need to be an **organization admin** to enable the gateway and manage providers, gateway endpoints, and spending. Non-admin members see the **Connect** and **API Keys** tabs only.
     - The organization needs at least one **project**: API keys and telemetry are scoped to a project.
-    - On the Personal, Team, and Growth plans, built-in providers are billed against a prepaid balance and require a payment method; the exact fees and initial balance are shown during activation. You can skip this entirely by adding your own provider credentials instead (see [Providers](#providers)). On the Personal plan, your own credentials must be for a supported vendor at its standard endpoint; custom endpoints require a paid plan.
+    - Built-in providers draw from a prepaid balance. Activation may require a payment method and set up auto-recharge; an eligible promotional credit can provide balance-backed access without a saved payment method. Review the amounts and terms shown during activation. You can instead add your own provider credentials (see [Providers](#providers)). On the Personal plan, your own credentials must be for a supported vendor at its permitted endpoint; custom endpoints require a paid plan.
 
-Once enabled, the Gateway page has these tabs: **Overview**, **Connect**, **API Keys**, **Providers**, **Endpoints**, **Spending**, and **Settings**.
+Once enabled, the Gateway page has tabs for **Overview**, **Connect**, **API Keys**, **Providers**, **Endpoints**, **Spending**, and **Settings**. Other controls, including **Guardrails** and **Optimizations**, appear when available to your organization.
 
 ### Connect an SDK
 
-The **Connect** tab generates ready-to-run snippets: pick a provider, model, project, and API key, then copy the snippet for your SDK (curl, Pydantic AI, Python or TypeScript OpenAI SDK, Python Anthropic SDK, Google GenAI SDKs). You can also click **Try in playground** to test the same configuration in the Logfire Playground.
+The **Connect** tab generates ready-to-run snippets: choose a route, get or select a project API key, then copy the snippet for your SDK (curl, Pydantic AI, Python or TypeScript OpenAI SDK, Python Anthropic SDK, Google GenAI SDKs). You can change the model under **Customize connection** or click **Try in playground** to test the same configuration in the Logfire Playground. See the [step-by-step Connect guide](first-request.md) for payment, credential, verification, and troubleshooting paths.
 
 The gateway base URL depends on your Logfire region:
 
@@ -124,8 +132,8 @@ Use the Connect tab as the source of truth for your organization: it substitutes
 
 A provider is an upstream LLM service the gateway can forward requests to. Each provider has a **slug** which becomes the route segment in your request URL. There are two kinds:
 
-- **Built-in providers** are managed by Logfire: no upstream account or API key needed. Usage is billed to your organization through a prepaid gateway balance (with configurable auto-recharge). Activation is a separate step from enabling the gateway and, on card-based plans, requires a payment method.
-- **Bring-your-own-key (BYOK) providers** use credentials you supply on the **Providers** tab. Supported types include OpenAI, Anthropic, Google Vertex AI, Azure Foundry, AWS Bedrock, Groq, Hugging Face, Mistral, Ollama, Doubleword, and custom OpenAI- or Anthropic-compatible endpoints. Upstream usage is billed directly by your provider.
+- **Built-in providers** are managed by Logfire: no upstream account or API key needed. Usage draws from your organization's prepaid gateway balance. Activation is separate from enabling Gateway; it may require a payment method, while eligible promotional credit can allow activation without one. Auto-recharge is configurable when a payment method is on file.
+- **Bring-your-own-key (BYOK) providers** use credentials you supply on the **Providers** tab. The current provider picker includes OpenAI, Anthropic, Google AI Studio, Google Vertex AI, Azure Foundry, AWS Bedrock, Groq, Hugging Face, Mistral, Ollama, Doubleword, Modal, TypeSafe AI, and custom OpenAI- or Anthropic-compatible endpoints. Upstream usage is billed directly by your provider.
 
 !!! note "Custom endpoints require a paid plan or self-hosted Logfire"
     On the Team, Growth, and Enterprise plans, and on self-hosted Logfire, you can point a BYOK provider at any HTTPS endpoint, including your own OpenAI- or Anthropic-compatible server.
@@ -143,7 +151,7 @@ Each key can have an expiry date and its own **spending limits**: daily, weekly,
 
 ### Gateway endpoints
 
-A gateway endpoint routes requests across one or more providers under a single slug. Manage gateway endpoints on the **Endpoints** tab. Each provider assigned to a gateway endpoint has a **priority** (failover order) and a **weight** (load balancing between providers at the same priority level). Use the gateway endpoint's slug in place of a provider slug in your request URL.
+A gateway endpoint routes requests across one or more providers under a single slug. Manage gateway endpoints on the **Endpoints** tab. Higher-priority provider groups are tried first; weights share traffic within a group. Use the endpoint's slug in place of a provider slug in your request URL. See [Route across providers](endpoints.md) for the setup steps.
 
 ### Spending limits and balance
 
@@ -152,6 +160,7 @@ The **Spending** tab shows usage analytics for the organization, broken down by 
 - **Per-key limits**: daily, weekly, monthly, and total caps set on each API key.
 - **Per-member limits**: daily, weekly, and monthly caps that admins can set for individual organization members.
 - **Prepaid balance and auto-recharge**: built-in provider usage draws from a prepaid balance. You can enable auto-recharge with a threshold and a top-up target so the balance refills automatically before it runs out.
+- **Spending policies (experimental)**: reusable provider- and model-scoped budgets, attached to an organization, project, member, or API key. Choose whether a rule blocks or only records an overage. See [Control Gateway spending](spending-policies.md) for availability and setup.
 
 ### Telemetry
 
