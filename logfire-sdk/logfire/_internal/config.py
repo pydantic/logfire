@@ -186,9 +186,10 @@ class ConsoleOptions:
     output: TextIO | None = None
     """The output stream to write console output to (default: stdout)."""
     include_attributes: bool | None = None
-    """Whether to show span and log attributes. Defaults to the value of `verbose`.
+    """Whether to show formatted Logfire attributes beneath span and log messages. Defaults to `verbose`.
 
     Set to `True` with `verbose=False` to show attributes without the filename, line number, or log level.
+    This uses Logfire's formatting metadata and does not change the message itself.
     """
 
 

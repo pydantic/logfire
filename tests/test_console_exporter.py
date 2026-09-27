@@ -140,6 +140,22 @@ def test_console_include_attributes_otel_logs(
     assert capsys.readouterr().out == ('loaded\n│ num_users=13070\n' if include_attributes else 'loaded\n')
 
 
+@pytest.mark.parametrize('include_attributes', [None, True, False])
+@pytest.mark.parametrize('body', ['loaded', None])
+def test_console_include_attributes_preserves_otel_log_messages(
+    config_kwargs: dict[str, Any],
+    capsys: pytest.CaptureFixture[str],
+    include_attributes: bool | None,
+    body: str | None,
+) -> None:
+    config_kwargs['console'] = ConsoleOptions(
+        include_attributes=include_attributes, include_timestamps=False, colors='never'
+    )
+    logfire.configure(**config_kwargs)
+    get_logger('logs').emit(LogRecord(body=body, attributes={'num_users': 13070}))
+    assert capsys.readouterr().out == ("{'num_users': 13070}\n" if body is None else 'loaded\n')
+
+
 @pytest.fixture
 def simple_spans() -> list[ReadableSpan]:
     trace_id = 0
