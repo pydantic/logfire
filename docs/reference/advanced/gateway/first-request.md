@@ -13,13 +13,13 @@ The Gateway **Connect** tab gives you a working request for your region, provide
 2. If Gateway is not enabled, ask an organization admin to choose **Enable recommended setup**. This enables Gateway, configures telemetry and recommended protections, and creates a first API key.
 3. Open **Connect** and select a provider under **Connect through**. A direct provider is enough for a first request; you can [add an endpoint](endpoints.md) later.
 
-<div align="center">
+   <div align="center">
 
-![The Connect tab with a selected provider and the Get your credential actions](../../../images/guide/ai-gateway/connect-route.png)
+   ![The Connect tab with a selected provider and the Get your credential actions](../../../images/guide/ai-gateway/connect-route.png)
 
-*Connect after selecting an OpenAI-compatible provider.*
+   *Connect after selecting an OpenAI-compatible provider.*
 
-</div>
+   </div>
 
 If **Connect** offers no route, ask an organization admin to choose **Add a payment method** to activate built-in providers or **Add your own provider** to [bring your own key](byok-providers.md). If it says **Built-in provider access needs activation**, ask an admin to use **Providers** to activate a built-in provider or add a BYOK provider.
 

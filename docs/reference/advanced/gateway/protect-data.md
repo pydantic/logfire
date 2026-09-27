@@ -62,7 +62,7 @@ A flagged response includes the `x-pydantic-gateway-guardrails-flagged` header.
 
 {{ video("092ff2523f07687e69ae31b088addad0", 30, 56) }}
 
-[Watch the AI Gateway data-loss prevention tutorial in a new tab](https://customer-nmegqx24430okhaq.cloudflarestream.com/092ff2523f07687e69ae31b088addad0/watch).
+[Watch the AI Gateway data-loss prevention tutorial](https://customer-nmegqx24430okhaq.cloudflarestream.com/092ff2523f07687e69ae31b088addad0/watch).
 
 ## Troubleshooting
 
