@@ -7,13 +7,13 @@ description: "Create a Gateway endpoint and configure provider traffic sharing a
 
 A Gateway endpoint gives your application one route while you change its upstream providers in Logfire. Start with a single provider; add another only when you need traffic sharing or a fallback. You need organization-admin access to edit endpoints.
 
-Adding a BYOK provider normally creates an endpoint with the same route name. You can use that endpoint as-is or create a separate one:
+[Adding a bring-your-own-key (BYOK) provider](byok-providers.md) normally creates an endpoint with the same route name. You can use that endpoint as-is or create a separate one:
 
 1. Open **AI Engineering → Gateway → Endpoints** and click **New endpoint**.
 2. Enter a **Route** slug, such as `production-chat`, and an optional description. Click **Create endpoint**.
 3. Open the endpoint and select **Routing**. Click **Add provider**, choose a configured provider, and leave **Available for routing** on.
 4. For a second provider, choose whether it should share a group or be a fallback. **Routing priority** uses higher numbers first. Providers with the same priority share a group; **Traffic weight** sets their relative share within that group. A weight of `0` makes a provider fallback-only within its group. A lower-priority group is tried after higher-priority providers return retryable errors.
-5. Open **Connect** and select the endpoint. Copy the generated snippet: your application's URL uses the endpoint slug, not a provider slug. Send a test request and confirm which provider handled it in Gateway telemetry.
+5. Open **Connect** and select the endpoint. Copy the generated snippet: your application's URL uses the endpoint slug, not a provider slug. Send a test request. If Gateway telemetry is enabled, inspect its trace to confirm which provider handled it.
 
 Before combining providers, confirm they support the request format and model identifier your application sends. Failover does not translate an unsupported model or API format into one another. A paused provider stays configured but receives no requests.
 

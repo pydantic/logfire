@@ -31,13 +31,15 @@ You need organization-admin access. **AI Gateway guardrails** is an early-access
 
 ## Use a custom detector
 
-If no prebuilt template covers your data, **Custom pattern** accepts a regular expression and offers sample previews. **Presidio protection** uses a Presidio server you connect; you choose an entity type, confidence threshold, and what happens if Presidio is unavailable. Presidio availability and enforcement actions depend on your plan.
+If no prebuilt template covers your data, **Custom pattern** accepts a regular expression and offers sample previews.
+
+For **Presidio protection**, first run a self-hosted Presidio service. In **New protection**, select **Presidio protection**, then click **New connection** beside **Connection**. Enter its name, base URL, and, if needed, a bearer token. Click **Test and enable** to verify the Presidio endpoints before using the connection. Then choose the **Entity type** to detect. Under **Advanced**, you can set a confidence threshold and decide whether to allow or block requests if Presidio is unavailable. Presidio availability and enforcement actions depend on your plan.
 
 Start with a narrow detector and an **Observe** action, inspect its matches, then move to **Redact** or **Block** where supported. A broad regular expression can alter ordinary prompts or reject legitimate requests. Do not paste real credentials or personal data into the test samples.
 
 ## Verify it worked
 
-Send a test request through an endpoint where the protection applies. Use a synthetic sample that should match and another that should not. Check the Gateway response and the project's trace or Guardrails activity: **Observe** and **Flag response** should not change the prompt, **Redact** should replace the match, and **Block** should reject the matching request. For **Flag response**, the Gateway adds a response header; inspect headers if your client does not display it.
+Send a test request through an endpoint where the protection applies. Use a synthetic sample that should match and another that should not. **Redact** should replace the match, and **Block** should reject the matching request. **Observe** and **Flag response** leave the prompt unchanged; enable Gateway telemetry to inspect those matches in the project's trace. For **Flag response**, inspect response headers if your client does not display them.
 
 A flagged response includes the `x-pydantic-gateway-guardrails-flagged` header.
 

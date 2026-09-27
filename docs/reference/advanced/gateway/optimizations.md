@@ -9,6 +9,8 @@ An **optimization** adds an instruction to matching Gateway requests. It can enc
 
 **AI Gateway optimizations** is an early-access feature on Growth, Enterprise, and self-hosted Logfire. If its tab is absent, turn it on under **Settings → Early access**. Early-access choices apply to your account in this browser.
 
+You need organization-admin access to create optimizations and change their targeting.
+
 ## Install a recommended optimization
 
 1. Open **AI Engineering → Gateway → Optimizations** and click **New optimization**. From an endpoint with no optimizations, **Create optimization** opens the same catalog.
@@ -20,10 +22,10 @@ To write your own rule, choose **Custom rule** on **New optimization**, give it 
 
 ## Verify it worked
 
-Send the same small test prompt through an endpoint with and without the optimization. Confirm its binding under **Endpoints → your endpoint → Optimizations**, then inspect the request's trace and the optimization's usage. A difference in the model's prose alone is not proof of which rule ran; inspect the recorded match or transformed input.
+Send the same small test prompt through an endpoint with and without the optimization. Confirm its binding under **Endpoints → your endpoint → Optimizations**. If Gateway telemetry is enabled, inspect the request's trace and the optimization's usage to confirm a match. A difference in the model's prose alone is not proof of which rule ran.
 
 ## Troubleshooting
 
-If the optimization appears but has no effect, check that the rule is enabled, bound to the endpoint, and that model, agent, message role, and optional trigger pattern all match the request. If a model provider rejects the transformed prompt, disable the rule and test it in a narrower scope before re-enabling it.
+If the optimization appears but does not change the request, first check its action: **Observe** records a match but does not inject the instruction; choose **Transform** when you want to modify requests. Then check that the rule is enabled, bound to the endpoint, and that model, agent, message role, and optional trigger pattern all match. If a model provider rejects the transformed prompt, disable the rule and test it in a narrower scope before re-enabling it.
 
 Use [Guardrails](protect-data.md) for sensitive-data detection and blocking. Optimizations change instructions; they are not a data-loss-prevention control.
