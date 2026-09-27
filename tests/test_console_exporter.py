@@ -9,7 +9,8 @@ import re
 import sys
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from pathlib import Path
+from typing import Any, Literal
 from unittest import mock
 
 import pytest
@@ -44,6 +45,99 @@ else:  # pragma: no cover
 tracer = trace.get_tracer('test')
 
 NANOSECONDS_PER_SECOND = int(1e9)
+
+
+@pytest.mark.parametrize('span_style', ['simple', 'indented', 'show-parents'])
+@pytest.mark.parametrize('colors', ['never', 'always'])
+@pytest.mark.parametrize(
+    'verbose,include_attributes,expect_attributes',
+    [
+        (False, None, False),
+        (True, None, True),
+        (False, True, True),
+        (True, True, True),
+        (False, False, False),
+        (True, False, False),
+    ],
+)
+def test_console_include_attributes(
+    config_kwargs: dict[str, Any],
+    span_style: Literal['simple', 'indented', 'show-parents'],
+    colors: Literal['never', 'always'],
+    verbose: bool,
+    include_attributes: bool | None,
+    expect_attributes: bool,
+) -> None:
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output,
+        colors=colors,
+        span_style=span_style,
+        include_timestamps=False,
+        verbose=verbose,
+        include_attributes=include_attributes,
+    )
+    logfire.configure(**config_kwargs)
+    with logfire.span('loading_users', num_users=13070):
+        logfire.info('loaded', result={'count': 13070})
+
+    text = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', output.getvalue())
+    assert 'loading_users' in text
+    assert 'loaded' in text
+    assert ('num_users=13070' in text) is expect_attributes
+    assert ('result={' in text) is expect_attributes
+    assert ("'count': 13070" in text) is expect_attributes
+    assert ('test_console_exporter.py:' in text) is verbose
+    assert (' info' in text) is verbose
+
+
+@pytest.mark.parametrize('source', ['file', 'environment', 'options'])
+@pytest.mark.parametrize('include_attributes', [True, False])
+def test_console_include_attributes_config_sources(
+    config_kwargs: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    source: str,
+    include_attributes: bool,
+) -> None:
+    file_value = include_attributes if source == 'file' else not include_attributes
+    (tmp_path / 'pyproject.toml').write_text(
+        f'[tool.logfire]\nconsole_include_attributes = {str(file_value).lower()}\n'
+    )
+    config_kwargs.update(console=None, config_dir=tmp_path)
+    if source != 'file':
+        env_value = include_attributes if source == 'environment' else not include_attributes
+        monkeypatch.setenv('LOGFIRE_CONSOLE_INCLUDE_ATTRIBUTES', str(env_value).lower())
+    if source == 'options':
+        config_kwargs['console'] = ConsoleOptions(include_attributes=include_attributes)
+
+    logfire.configure(**config_kwargs)
+    logfire.info('loaded', num_users=13070)
+    assert ('num_users=13070' in capsys.readouterr().out) is include_attributes
+
+
+@pytest.mark.parametrize('include_attributes', [True, False])
+def test_console_include_attributes_otel_logs(
+    config_kwargs: dict[str, Any], capsys: pytest.CaptureFixture[str], include_attributes: bool
+) -> None:
+    config_kwargs['console'] = ConsoleOptions(
+        include_attributes=include_attributes, include_timestamps=False, colors='never'
+    )
+    logfire.configure(**config_kwargs)
+    get_logger('logs').emit(
+        LogRecord(
+            body='loaded',
+            severity_number=SeverityNumber.INFO,
+            attributes={
+                'num_users': 13070,
+                'code.filepath': 'example.py',
+                'code.lineno': 42,
+                'logfire.json_schema': '{"type":"object","properties":{"num_users":{}}}',
+            },
+        )
+    )
+    assert capsys.readouterr().out == ('loaded\n│ num_users=13070\n' if include_attributes else 'loaded\n')
 
 
 @pytest.fixture

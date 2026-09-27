@@ -14,6 +14,29 @@ The order of precedence is as above.
 
 For more details, please refer to our [API documentation][logfire.configure].
 
+To show span and log attributes in the console without source locations or log levels, set `include_attributes=True`:
+
+```python
+import logfire
+
+logfire.configure(
+    send_to_logfire=False,
+    console=logfire.ConsoleOptions(include_attributes=True, include_timestamps=False),
+)
+
+with logfire.span('loading_users', num_users=13070):
+    pass
+```
+
+This prints:
+
+```text
+loading_users
+│ num_users=13070
+```
+
+By default, `include_attributes=None` follows `verbose`. Set it to `False` to hide attributes even when `verbose=True`.
+
 ## Using environment variables
 
 You can use the following environment variables to configure **Logfire**:
