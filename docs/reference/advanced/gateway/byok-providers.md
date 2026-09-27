@@ -13,9 +13,13 @@ You need organization-admin access and a credential for a supported provider. Se
 
 1. Open **AI Engineering → Gateway → Providers** and click **New BYOK provider** (or **Create BYOK provider** if the list is empty). From an empty **Connect** tab, you can also click **Add your own provider**.
 
+   <div align="center">
+
    ![The provider type choices in the Add BYOK provider flow](../../../images/guide/ai-gateway/provider-types.png)
 
    *The picker also has a search field for other provider types.*
+
+   </div>
 
 2. Choose a **Provider type**. Use a named provider when possible; select a custom OpenAI- or Anthropic-compatible provider only if your plan permits custom endpoints.
 3. Under **Connect provider**, enter the credential and any vendor-specific endpoint details. The default base URL is filled in for providers that have one.

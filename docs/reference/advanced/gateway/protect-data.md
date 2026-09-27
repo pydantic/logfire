@@ -16,9 +16,13 @@ You need organization-admin access. **AI Gateway guardrails** is an early-access
 1. Open **AI Engineering → Gateway → Guardrails → Protections** and choose **New protection**. From an endpoint with no guardrails, **Create guardrail** takes you to the same flow.
 2. Under **Start with**, choose **Prebuilt protection**. Select a **Template**, such as an API-key or email-address detector.
 
+   <div align="center">
+
    ![A prebuilt OpenAI API key protection with its endpoint targeting and action choices](../../../images/guide/ai-gateway/prebuilt-protection.png)
 
    *A prebuilt API-key detector in Observe mode across all endpoints.*
+
+   </div>
 
 3. Under **Apply to**, select **All endpoints** or **Specific endpoints**. If you choose specific endpoints, select the action for each one; **Off** means this protection does not run there.
 4. Under **Action**, choose what should happen on a match:
@@ -53,6 +57,12 @@ Start with a narrow detector and an **Observe** action, inspect its matches, the
 Send a test request through an endpoint where the protection applies. Use a synthetic sample that should match and another that should not. **Redact** should replace the match, and **Block** should reject the matching request. **Observe** and **Flag response** leave the prompt unchanged; enable Gateway telemetry to inspect those matches in the project's trace. For **Flag response**, inspect response headers if your client does not display them.
 
 A flagged response includes the `x-pydantic-gateway-guardrails-flagged` header.
+
+## Watch the DLP tutorial
+
+{{ video("092ff2523f07687e69ae31b088addad0", 30, 56) }}
+
+[Watch the AI Gateway data-loss prevention tutorial in a new tab](https://customer-nmegqx24430okhaq.cloudflarestream.com/092ff2523f07687e69ae31b088addad0/watch).
 
 ## Troubleshooting
 
