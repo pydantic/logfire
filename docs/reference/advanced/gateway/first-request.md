@@ -40,7 +40,7 @@ For an EU organization, use `https://gateway-eu.pydantic.dev/proxy` instead. Do 
 
 ## Verify it worked
 
-For a key created in this Connect session, the page waits for its first request and updates when it is used. You can also open **Gateway → Overview** for usage and, if telemetry is enabled, open the selected Logfire project to inspect the trace. Gateway telemetry can include request and response content; review your [protections](protect-data.md) and telemetry settings before sending sensitive production data.
+For a key created in this Connect session, the page shows **Waiting for your first Gateway request** until that key is used. You can also open **Gateway → Overview** for usage and, if telemetry is enabled, open the selected Logfire project to inspect the trace. Gateway telemetry can include request and response content; review your [protections](protect-data.md) and telemetry settings before sending sensitive production data.
 
 ## Troubleshooting
 
