@@ -33,7 +33,13 @@ You need organization-admin access. **AI Gateway guardrails** is an early-access
 
 If no prebuilt template covers your data, **Custom pattern** accepts a regular expression and offers sample previews.
 
-For **Presidio protection**, first run a Presidio service reachable from your Gateway. Hosted Logfire requires a public HTTPS domain; `localhost`, private IPs, and HTTP are rejected. With self-hosted Logfire, a private HTTP or HTTPS URL can be used if the Gateway deployment can reach it. In **New protection**, select **Presidio protection**, then click **New connection** beside **Connection**. Enter its name, service-root base URL (not `/analyze`), and, if needed, a bearer token. Click **Test and enable** to verify the Presidio endpoints before using the connection. Then choose the **Entity type** to detect. Under **Advanced**, you can set a confidence threshold and decide whether to allow or block requests if Presidio is unavailable. Presidio availability and enforcement actions depend on your plan.
+For **Presidio protection**, first run a Presidio service reachable from your Gateway. Hosted Logfire requires a public HTTPS domain; `localhost`, private IPs, and HTTP are rejected. Self-hosted Logfire can use a private endpoint reachable from the Gateway deployment, but use HTTPS for production. Private HTTP is suitable only for trusted development networks without bearer authentication and with synthetic test data: prompt content is unencrypted in transit.
+
+1. In **New protection**, select **Presidio protection**, then click **New connection** beside **Connection**.
+2. Enter a name, the service-root base URL (not `/analyze`), and, if needed, a bearer token. Click **Test and enable** to verify the Presidio endpoints before using the connection.
+3. Choose the **Entity type** to detect. Under **Advanced**, you can set a confidence threshold and decide whether to allow or block requests if Presidio is unavailable.
+
+Presidio availability and enforcement actions depend on your plan.
 
 Start with a narrow detector and an **Observe** action, inspect its matches, then move to **Redact** or **Block** where supported. A broad regular expression can alter ordinary prompts or reject legitimate requests. Do not paste real credentials or personal data into the test samples.
 
