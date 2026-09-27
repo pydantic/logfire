@@ -6,7 +6,6 @@ from collections.abc import Iterator
 import httpx
 import openai
 import pytest
-from httpx._transports.mock import MockTransport
 
 import logfire
 from logfire.testing import TestExporter
@@ -39,7 +38,7 @@ def test_chat_completions_stream_failure_records_model_error(exporter: TestExpor
             stream=FailingChatStream(chunks_before_error=chunks_before_error),
         )
 
-    with httpx.Client(transport=MockTransport(handle)) as httpx_client:
+    with httpx.Client(transport=httpx.MockTransport(handle)) as httpx_client:
         client = openai.Client(
             api_key='unused', base_url='https://example.invalid/v1', http_client=httpx_client, max_retries=0
         )
@@ -55,3 +54,6 @@ def test_chat_completions_stream_failure_records_model_error(exporter: TestExpor
     assert model_log['attributes']['error.type'] == 'APIError'
     assert model_log['attributes']['logfire.level_num'] == 17
     assert [event['name'] for event in model_log['events']] == ['exception']
+    event = model_log['events'][0]
+    assert event['attributes']['exception.type'] == 'openai.APIError'
+    assert 'stream failed' in event['attributes']['exception.message']
