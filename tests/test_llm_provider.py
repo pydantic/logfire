@@ -239,6 +239,7 @@ def test_falsey_streaming_exception_records_event(exporter: TestExporter) -> Non
 
     streaming = next(s for s in exporter.exported_spans_as_dict() if 'streaming response' in s['name'])
     assert streaming['attributes']['error.type'] == 'FalseyError'
+    assert streaming['attributes']['logfire.level_num'] == 17
     assert [event['name'] for event in streaming['events']] == ['exception']
 
 
