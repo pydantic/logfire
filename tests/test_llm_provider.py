@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 from typing import Any
@@ -209,15 +210,49 @@ def test_streaming_failure_records_error_without_masking_it(exporter: TestExport
     assert [event['name'] for event in streaming['events']] == ['exception']
 
 
-async def test_async_streaming_failure_records_error(exporter: TestExporter) -> None:
+def test_falsey_streaming_exception_records_event(exporter: TestExporter) -> None:
+    class FalseyError(RuntimeError):
+        def __bool__(self) -> bool:
+            return False
+
+    original_error = FalseyError('falsey stream interrupted')
+
+    class BrokenStream(MockSyncStream):
+        def __stream__(self) -> Iterator[str]:
+            raise original_error
+            yield 'unreachable'
+
+    client = MockSyncClient()
+    instrument_llm_provider(
+        logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
+        client=client,
+        suppress_otel=False,
+        scope_suffix='test',
+        get_endpoint_config_fn=get_endpoint_config,
+        on_response_fn=on_response,
+        is_async_client_fn=is_async_client,
+    )
+    stream = client.request(options=MockOptions(), stream=True, stream_cls=BrokenStream)
+    with pytest.raises(FalseyError) as caught:
+        list(stream.__stream__())
+    assert caught.value is original_error
+
+    streaming = next(s for s in exporter.exported_spans_as_dict() if 'streaming response' in s['name'])
+    assert streaming['attributes']['error.type'] == 'FalseyError'
+    assert [event['name'] for event in streaming['events']] == ['exception']
+
+
+@pytest.mark.parametrize('chunks', [[], ['first']])
+async def test_async_streaming_failure_records_error(exporter: TestExporter, chunks: list[str]) -> None:
     original_error = RuntimeError('async stream interrupted')
 
     class BrokenStream(MockAsyncStream):
         async def __stream__(self) -> AsyncIterator[str]:
-            yield 'first'
+            for chunk in self._chunks:
+                yield chunk
             raise original_error
 
-    client = MockAsyncClient(chunks=[])
+    client = MockAsyncClient(chunks=chunks)
     instrument_llm_provider(
         logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
         client=client,
@@ -236,5 +271,36 @@ async def test_async_streaming_failure_records_error(exporter: TestExporter) -> 
     records = exporter.exported_spans_as_dict()
     streaming = next(s for s in records if 'streaming response' in s['name'])
     assert streaming['attributes']['error.type'] == 'RuntimeError'
+    assert streaming['attributes']['logfire.level_num'] == 17
+    assert [event['name'] for event in streaming['events']] == ['exception']
+
+
+async def test_async_streaming_cancellation_records_error(exporter: TestExporter) -> None:
+    cancellation = asyncio.CancelledError('stream cancelled')
+
+    class CancelledStream(MockAsyncStream):
+        async def __stream__(self) -> AsyncIterator[str]:
+            yield 'first'
+            raise cancellation
+
+    client = MockAsyncClient()
+    instrument_llm_provider(
+        logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
+        client=client,
+        suppress_otel=False,
+        scope_suffix='test',
+        get_endpoint_config_fn=get_endpoint_config,
+        on_response_fn=on_response,
+        is_async_client_fn=is_async_client,
+    )
+    stream = await client.request(options=MockOptions(), stream=True, stream_cls=CancelledStream)
+    with pytest.raises(asyncio.CancelledError) as caught:
+        async for _ in stream.__stream__():
+            pass
+    assert caught.value is cancellation
+
+    records = exporter.exported_spans_as_dict()
+    streaming = next(s for s in records if 'streaming response' in s['name'])
+    assert streaming['attributes']['error.type'] == 'CancelledError'
     assert streaming['attributes']['logfire.level_num'] == 17
     assert [event['name'] for event in streaming['events']] == ['exception']
