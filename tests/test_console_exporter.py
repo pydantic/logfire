@@ -101,6 +101,7 @@ def test_console_include_attributes_config_sources(
     source: str,
     include_attributes: bool,
 ) -> None:
+    monkeypatch.delenv('LOGFIRE_CONSOLE_INCLUDE_ATTRIBUTES', raising=False)
     file_value = include_attributes if source == 'file' else not include_attributes
     (tmp_path / 'pyproject.toml').write_text(
         f'[tool.logfire]\nconsole_include_attributes = {str(file_value).lower()}\n'
