@@ -18,6 +18,11 @@ You need organization-admin access to manage spending policies.
 1. Open **AI Engineering → Gateway → Spending Policies** and click **New Spending Policy**. **Spending** shows usage charts; it is a separate tab.
 2. Give the policy a name. Under **Budgets**, choose a **Provider** and **Model**, or leave them at **All providers** and **All models**.
 3. Enter at least one **Daily**, **Weekly**, or **Monthly** dollar limit. Choose **Block** or **Alert only**. Add another row only when a different provider or model needs a different limit.
+
+   ![A sample monthly $20 blocking budget in the New spending policy form](../../../images/guide/ai-gateway/spending-policy-budget.png)
+
+   *A $20 monthly budget in Block mode, before attaching the policy.*
+
 4. Click **Create Spending Policy**. In the policy list, click **Attach**. Choose its target: **Whole organization**, **Project**, **Member**, or **API key**.
 5. Choose whether the target shares one budget or gets a separate budget **Per key** or **Per user**, where available. Review the description of the chosen split, then click **Attach policy**. A shared organization budget is different from the same dollar limit granted independently to every key.
 

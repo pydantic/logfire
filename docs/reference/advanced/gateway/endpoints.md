@@ -13,6 +13,11 @@ A Gateway endpoint gives your application one route while you change its upstrea
 2. Enter a **Route** slug, such as `production-chat`, and an optional description. Click **Create endpoint**.
 3. Open the endpoint and select **Routing**. Click **Add provider**, choose a configured provider, and leave **Available for routing** on.
 4. For a second provider, choose whether it should share a group or be a fallback. **Routing priority** uses higher numbers first. Providers with the same priority share a group; **Traffic weight** sets their relative share within that group. A weight of `0` makes a provider fallback-only within its group. A lower-priority group is tried after higher-priority providers return retryable errors.
+
+   ![The routing editor showing priority, weight, availability, and the first-attempt preview for a sample provider](../../../images/guide/ai-gateway/routing-priority-weight.png)
+
+   *Routing controls for one provider in the first-choice group.*
+
 5. Open **Connect** and select the endpoint. Copy the generated snippet: your application's URL uses the endpoint slug, not a provider slug. Send a test request. If Gateway telemetry is enabled, inspect its trace to confirm which provider handled it.
 
 Before combining providers, confirm they support the request format and model identifier your application sends. Failover does not translate an unsupported model or API format into one another. A paused provider stays configured but receives no requests.

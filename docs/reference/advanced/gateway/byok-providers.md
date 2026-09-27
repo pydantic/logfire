@@ -5,13 +5,18 @@ description: "Connect an upstream model provider with your own credentials and t
 
 # Add your own provider to AI Gateway
 
-Bring your own key (BYOK) when you already have a model-provider account, want its billing to stay with that provider, or do not want to activate Logfire's built-in providers. A BYOK provider is available to Gateway requests once it has an active route. Your upstream provider bills you for the calls.
+Use an existing model-provider account with Gateway. Your provider bills you directly; you do not need to activate Logfire's built-in providers.
 
 ## Add a provider
 
-You need organization-admin access and credentials for a supported provider. Have the provider's API key or other requested credential ready; Logfire stores it for forwarding requests, so use a credential with the access and spending limits you want at the upstream provider.
+You need organization-admin access and a credential for a supported provider. Set any access and spending limits you want at that provider; Logfire stores the credential to forward requests.
 
 1. Open **AI Engineering → Gateway → Providers** and click **New BYOK provider** (or **Create BYOK provider** if the list is empty). From an empty **Connect** tab, you can also click **Add your own provider**.
+
+   ![The provider type choices in the Add BYOK provider flow](../../../images/guide/ai-gateway/provider-types.png)
+
+   *The picker also has a search field for other provider types.*
+
 2. Choose a **Provider type**. Use a named provider when possible; select a custom OpenAI- or Anthropic-compatible provider only if your plan permits custom endpoints.
 3. Under **Connect provider**, enter the credential and any vendor-specific endpoint details. The default base URL is filled in for providers that have one.
 4. Click **Test & continue**. This asks the provider for its models using the supplied configuration. A successful check confirms this connection test, not that every model or future request will work. If the check is unsupported or unavailable, the form offers **Continue without a passing check**; do that only if you can verify the route with a real request afterward.

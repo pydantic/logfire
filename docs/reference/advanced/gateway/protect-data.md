@@ -5,9 +5,9 @@ description: "Detect secrets and personal data in Gateway requests, then observe
 
 # Protect Gateway requests
 
-Gateway **Guardrails** can detect sensitive values before a request reaches a model provider. A protection combines what to detect, where to apply it, and what to do on a match. This is data loss prevention (DLP) for traffic you send through Gateway; it does not inspect calls that bypass Gateway.
+Gateway **Guardrails** can detect sensitive values before a request reaches a model provider. Choose what to detect, where the protection applies, and whether to observe, flag, redact, or block matches. Calls that bypass Gateway are not inspected.
 
-For a first protection, use a prebuilt template for a secret or personal-data type you expect in your application's prompts. Test it with representative, non-sensitive sample text before enforcing it broadly.
+Start with a prebuilt secret or personal-data template. Test it with non-sensitive sample text before enforcing it broadly.
 
 ## Install a prebuilt protection
 
@@ -15,6 +15,11 @@ You need organization-admin access. **AI Gateway guardrails** is an early-access
 
 1. Open **AI Engineering → Gateway → Guardrails → Protections** and choose **New protection**. From an endpoint with no guardrails, **Create guardrail** takes you to the same flow.
 2. Under **Start with**, choose **Prebuilt protection**. Select a **Template**, such as an API-key or email-address detector.
+
+   ![A prebuilt OpenAI API key protection with its endpoint targeting and action choices](../../../images/guide/ai-gateway/prebuilt-protection.png)
+
+   *A prebuilt API-key detector in Observe mode across all endpoints.*
+
 3. Under **Apply to**, select **All endpoints** or **Specific endpoints**. If you choose specific endpoints, select the action for each one; **Off** means this protection does not run there.
 4. Under **Action**, choose what should happen on a match:
 

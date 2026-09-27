@@ -14,6 +14,11 @@ You need organization-admin access to create optimizations and change their targ
 ## Install a recommended optimization
 
 1. Open **AI Engineering → Gateway → Optimizations** and click **New optimization**. From an endpoint with no optimizations, **Create optimization** opens the same catalog.
+
+   ![Recommended optimization sets for Anthropic, OpenAI, and Google models](../../../images/guide/ai-gateway/recommended-optimizations.png)
+
+   *Provider-specific sets in the New optimization catalog.*
+
 2. On **New optimization**, choose a **Recommended set** for your provider or model, or an individual rule. Provider sets contain model-scoped rules; a model-line or version set is a narrower subset. Install the broadest set that matches what you actually run, rather than stacking overlapping sets without a reason.
 3. In the install panel, review the rules, continue to endpoint selection, choose the endpoints that should use them, and confirm. A rule with no endpoint binding does not run.
 4. Open the rule and review its **Targeting**. Narrow it to a model or agent where appropriate.
