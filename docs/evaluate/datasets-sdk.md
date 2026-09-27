@@ -23,6 +23,11 @@ This installs `httpx` and `pydantic-evals` as additional dependencies.
 
 ## Creating a Client
 
+!!! note "API key project and permissions"
+    Create an API key scoped to the project that contains your datasets. In the Logfire UI, select **Project** as the key type and choose the target project. See [Creating API Keys](../reference/advanced/use-api-keys.md#creating-api-keys).
+
+    The key needs `project:read_datasets` to read datasets and `project:write_datasets` to create, update, or delete datasets and cases. The client has no project selector, so use a separate key and client for each project.
+
 ```python skip-run="true" skip-reason="external-connection"
 from logfire.experimental.api_client import LogfireAPIClient
 
@@ -35,9 +40,6 @@ The client can also be used as a context manager to ensure the underlying HTTP c
 with LogfireAPIClient(api_key='your-api-key') as client:
     ...
 ```
-
-!!! note "API key scopes"
-    The API key must have the `project:read_datasets` scope to read datasets, and `project:write_datasets` to create, update, or delete datasets and cases. You can create API keys with these scopes under **Settings > API Keys** in the Logfire UI.
 
 The `base_url` is automatically inferred from the API key. You can override it if needed (e.g., for self-hosters):
 
@@ -224,6 +226,10 @@ client.delete_case('qa-golden-set', case_id='some-case-uuid')
 # Delete an entire dataset and all its cases
 client.delete_dataset('qa-golden-set')
 ```
+
+## Troubleshooting
+
+If a request returns `403` with `API token must be scoped to a specific project`, create an API key scoped to the target project and pass it as `api_key`. Dataset permissions on an organization-wide key do not select a project for the client.
 
 ## What's Next?
 
