@@ -203,6 +203,12 @@ navigation:
                 aliases:
                   - "typescript-sdk/packages/cloudflare"
                   - "integrations/javascript/cloudflare"
+          - page: "Frontend Custom Domain"
+            path: "frontend-custom-domain.md"
+            source: "typescript"
+            slug: "instrument/typescript/frontend-custom-domain"
+            aliases:
+              - "typescript-sdk/frontend-custom-domain"
           - section: "Frameworks & Runtimes"
             contents:
               - page: "Express"
