@@ -120,8 +120,8 @@ Create a Secret containing only the Logfire write token:
 
 ```bash
 kubectl create namespace obi
-kubectl --namespace obi create secret generic logfire-otlp \
-  --from-literal=token="$LOGFIRE_TOKEN"
+printf '%s' "$LOGFIRE_TOKEN" | kubectl --namespace obi create secret generic logfire-otlp \
+  --from-file=token=/dev/stdin
 ```
 
 Save these chart overrides as `obi-values.yaml`. They replace the chart's default exporters with
