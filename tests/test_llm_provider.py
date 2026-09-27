@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import Mock
 
+import pytest
 from opentelemetry import trace
 
 import logfire
@@ -175,3 +176,65 @@ async def test_async_streaming_preserves_original_context(exporter: TestExporter
     assert streaming['context']['trace_id'] == expected_trace_id
     assert request['parent']['span_id'] == expected_span_id
     assert streaming['parent']['span_id'] == expected_span_id
+
+
+@pytest.mark.parametrize('chunks', [[], ['first']])
+def test_streaming_failure_records_error_without_masking_it(exporter: TestExporter, chunks: list[str]) -> None:
+    original_error = RuntimeError('stream interrupted')
+
+    class BrokenStream(MockSyncStream):
+        def __stream__(self) -> Iterator[str]:
+            yield from self._chunks
+            raise original_error
+
+    client = MockSyncClient(chunks=chunks)
+    instrument_llm_provider(
+        logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
+        client=client,
+        suppress_otel=False,
+        scope_suffix='test',
+        get_endpoint_config_fn=get_endpoint_config,
+        on_response_fn=on_response,
+        is_async_client_fn=is_async_client,
+    )
+    stream = client.request(options=MockOptions(), stream=True, stream_cls=BrokenStream)
+    with pytest.raises(RuntimeError) as caught:
+        list(stream.__stream__())
+    assert caught.value is original_error
+
+    records = exporter.exported_spans_as_dict()
+    streaming = next(s for s in records if 'streaming response' in s['name'])
+    assert streaming['attributes']['error.type'] == 'RuntimeError'
+    assert streaming['attributes']['logfire.level_num'] == 17
+    assert [event['name'] for event in streaming['events']] == ['exception']
+
+
+async def test_async_streaming_failure_records_error(exporter: TestExporter) -> None:
+    original_error = RuntimeError('async stream interrupted')
+
+    class BrokenStream(MockAsyncStream):
+        async def __stream__(self) -> AsyncIterator[str]:
+            yield 'first'
+            raise original_error
+
+    client = MockAsyncClient(chunks=[])
+    instrument_llm_provider(
+        logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
+        client=client,
+        suppress_otel=False,
+        scope_suffix='test',
+        get_endpoint_config_fn=get_endpoint_config,
+        on_response_fn=on_response,
+        is_async_client_fn=is_async_client,
+    )
+    stream = await client.request(options=MockOptions(), stream=True, stream_cls=BrokenStream)
+    with pytest.raises(RuntimeError) as caught:
+        async for _ in stream.__stream__():
+            pass
+    assert caught.value is original_error
+
+    records = exporter.exported_spans_as_dict()
+    streaming = next(s for s in records if 'streaming response' in s['name'])
+    assert streaming['attributes']['error.type'] == 'RuntimeError'
+    assert streaming['attributes']['logfire.level_num'] == 17
+    assert [event['name'] for event in streaming['events']] == ['exception']
