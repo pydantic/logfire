@@ -7,56 +7,61 @@ REPO_ROOT = Path(__file__).parent.parent
 BASH_FENCE = re.compile(r'```(?:bash|sh)\n(.*?)```', re.DOTALL)
 
 
-def extract_agent_setup_prompt(path: Path, component: str) -> str:
+def extract_agent_setup_command(path: Path, component: str) -> str:
     content = path.read_text(encoding='utf-8')
-    opening_tag = f'<{component}>'
     closing_tag = f'</{component}>'
-    assert content.count(opening_tag) == 1
+    opening_tags = re.findall(rf'<{component}\b[^>]*>', content)
+    assert len(opening_tags) == 1
     assert content.count(closing_tag) == 1
 
-    component_content = content.split(opening_tag, 1)[1].split(closing_tag, 1)[0]
+    component_content = content.split(opening_tags[0], 1)[1].split(closing_tag, 1)[0]
     lines = component_content.strip().splitlines()
+    assert len(lines) == 3
     opening_fence = lines[0]
-    assert opening_fence.endswith('text')
-    fence = opening_fence.removesuffix('text')
-    assert len(fence) >= 3 and set(fence) == {'`'}
+    fence_match = re.fullmatch(r'(`{3,})(?:bash|sh)', opening_fence)
+    assert fence_match is not None
+    fence = fence_match.group(1)
     assert lines[-1] == fence
 
-    # If the prompt embeds its own code fence (it doesn't, currently -- this is a short
-    # prompt with no code block of its own), the outer fence must outrun it, or the inner
-    # fence closes the outer block early.
-    embedded_fence_lengths = [len(line) - len(line.lstrip('`')) for line in lines[1:-1] if line.startswith('`')]
-    if embedded_fence_lengths:
-        assert len(fence) > max(embedded_fence_lengths)
-
-    prompt = '\n'.join(lines[1:-1])
-    assert prompt
-    return prompt
+    command = '\n'.join(lines[1:-1])
+    assert command
+    return command
 
 
-def test_agent_setup_prompts_match() -> None:
-    index_prompt = extract_agent_setup_prompt(REPO_ROOT / 'docs' / 'index.md', 'AgentSetup')
-    first_trace_prompt = extract_agent_setup_prompt(REPO_ROOT / 'docs' / 'first-trace.md', 'CopyPrompt')
+def extract_first_bash_command_after_heading(path: Path, heading: str) -> str:
+    content = path.read_text(encoding='utf-8')
+    section = content.split(heading, 1)[1]
+    match = BASH_FENCE.search(section)
+    assert match is not None
+    return match.group(1).strip()
 
-    assert index_prompt == first_trace_prompt
+
+def test_agent_setup_commands_match() -> None:
+    index_command = extract_agent_setup_command(REPO_ROOT / 'docs' / 'index.md', 'AgentSetup')
+    first_trace_command = extract_agent_setup_command(REPO_ROOT / 'docs' / 'first-trace.md', 'AgentSetup')
+
+    assert index_command == first_trace_command
 
 
-def test_agent_setup_prompt_states_the_load_bearing_content() -> None:
-    """Pins content, not just cross-file symmetry -- a future edit that drops the
-    auth-first gate or the skill fetch would leave both pages agreeing with each
-    other but silently wrong; this fails independently of that comparison.
-    """
-    prompt = extract_agent_setup_prompt(REPO_ROOT / 'docs' / 'index.md', 'AgentSetup')
+def test_agent_setup_command_uses_the_published_cli() -> None:
+    """Pin the public, one-off CLI entry point independently of cross-file symmetry."""
+    command = extract_agent_setup_command(REPO_ROOT / 'docs' / 'index.md', 'AgentSetup')
+    skills_command = extract_first_bash_command_after_heading(
+        REPO_ROOT / 'docs' / 'how-to-guides' / 'skills.md', '## Set up Logfire from your project'
+    )
 
-    assert 'https://pydantic.dev/.well-known/agent-skills/logfire-setup/SKILL.md' in prompt
-    assert 'raw.githubusercontent.com' not in prompt
-    assert 'Authenticate first, confirmed via `whoami`, before opening or running any application file' in prompt
+    assert command == 'uvx logfire-cli wizard'
+    assert skills_command == command
+    assert 'http' not in command
+    assert '--print-prompt' not in command
+    for path in (REPO_ROOT / 'docs' / 'index.md', REPO_ROOT / 'docs' / 'first-trace.md'):
+        assert '<AgentSetup command="uvx logfire-cli wizard">' in path.read_text()
 
 
 def test_setup_skills_prioritize_one_service_reaching_first_data() -> None:
-    hub = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
+    hub = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
     instrumentation = (
-        REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'SKILL.md'
+        REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'SKILL.md'
     ).read_text()
 
     assert 'get one representative application service to verified first data' in hub
@@ -68,11 +73,11 @@ def test_setup_skills_prioritize_one_service_reaching_first_data() -> None:
 
 
 def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> None:
-    skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation'
+    skill_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation'
     instrumentation = (skill_root / 'SKILL.md').read_text()
     auth = (skill_root / 'references' / 'auth.md').read_text()
     integrations = (skill_root / 'references' / 'python' / 'integrations.md').read_text()
-    offline = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup-offline.md').read_text()
+    offline = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-setup-offline.md').read_text()
     npm_exec = (
         'env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ '
         '--cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options=\'\' '
@@ -163,7 +168,7 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
 
 
 def test_setup_hub_routes_each_surface_to_its_skill() -> None:
-    hub = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
+    hub = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
 
     for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals', 'logfire-query', 'logfire-ui'):
         assert f'[`{skill}`](https://pydantic.dev/.well-known/agent-skills/{skill}/SKILL.md)' in hub
@@ -174,7 +179,7 @@ def test_setup_hub_routes_each_surface_to_its_skill() -> None:
 
 
 def test_separately_published_setup_skills_use_public_cross_skill_links() -> None:
-    skills_root = REPO_ROOT / 'logfire' / '.agents' / 'skills'
+    skills_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills'
     auth_url = 'https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md'
 
     for skill in ('logfire-setup', 'logfire-infrastructure', 'logfire-evals'):
@@ -184,7 +189,7 @@ def test_separately_published_setup_skills_use_public_cross_skill_links() -> Non
 
 
 def test_setup_skill_entrypoints_delegate_target_aware_whoami_to_auth_reference() -> None:
-    skills_root = REPO_ROOT / 'logfire' / '.agents' / 'skills'
+    skills_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills'
 
     for skill in ('logfire-setup', 'logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
         content = (skills_root / skill / 'SKILL.md').read_text()
@@ -195,7 +200,7 @@ def test_setup_skill_entrypoints_delegate_target_aware_whoami_to_auth_reference(
 
 
 def test_offline_setup_bundle_keeps_inlined_skill_links_local() -> None:
-    skills_root = REPO_ROOT / 'logfire' / '.agents' / 'skills'
+    skills_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills'
     offline = (skills_root / 'logfire-setup-offline.md').read_text()
 
     for skill in ('logfire-setup', 'logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
@@ -220,7 +225,7 @@ def test_gunicorn_docs_instrument_the_loaded_worker_application() -> None:
 
 
 def test_ai_sdk_guidance_matches_the_installed_major_and_patch_version() -> None:
-    skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation'
+    skill_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation'
     ai_sdk = (skill_root / 'references' / 'javascript' / 'ai-sdk.md').read_text()
     troubleshooting = (skill_root / 'references' / 'javascript' / 'verification-troubleshooting.md').read_text()
 
@@ -244,7 +249,7 @@ def test_ai_sdk_guidance_matches_the_installed_major_and_patch_version() -> None
 
 
 def test_browser_guidance_uses_restricted_frontend_application_direct_ingest() -> None:
-    references = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
+    references = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
     skill = (references.parent / 'SKILL.md').read_text()
     nextjs = (references / 'javascript' / 'nextjs.md').read_text()
     react = (references / 'javascript' / 'react-browser.md').read_text()
@@ -258,22 +263,37 @@ def test_browser_guidance_uses_restricted_frontend_application_direct_ingest() -
         assert 'Browser code must use a proxy URL' not in source
 
     for source in (nextjs, react):
-        assert '<generated-regional-trace-url>' in source
-        assert "Authorization: 'Bearer <frontend-application-token>'" in source
-        assert 'autoInstrumentations: true' in source
-        assert 'rum: { webVitals: true }' in source
+        guidance = ' '.join(source.split())
+        assert 'logfire.configureFrontend({' in source
+        assert "baseUrl: '<generated-regional-base-url>'" in source
+        assert "token: '<frontend-application-token>'" in source
+        assert 'Replace both placeholders before deploying' in source
+        assert 'Frontend → Applications' in source
+        assert '0.21.0 or later' in source
+        assert 'auto-instrumentation and Web Vitals metrics by default' in source
+        assert '`autoInstrumentations: false` to disable automatic instrumentation' in source
+        assert '`rum: { webVitals: false }` to disable Web Vitals spans and metrics' in source
+        assert '`rum: { webVitals: { metrics: false } }` to keep Web Vitals spans without metrics' in source
+        assert 'LOGFIRE_PROXY_ALLOWED_ORIGIN' in source
+        assert 'Reject requests when that configuration is absent' in guidance
+        assert 'the `Origin` header is missing, or it does not match' in source
+        assert 'Do not derive the allowed origin from the incoming request' in guidance
+        assert (
+            'https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#optional-backend-proxy' in source
+        )
+        assert 'traceExporterHeaders:' not in source
         assert '@opentelemetry/auto-instrumentations-web' not in source
 
     assert 'optional-proxy contract' in nextjs
     assert 'Optional Backend Proxy' in react
-    assert 'restricted public token and regional trace URL generated for a frontend application' in skill
+    assert 'restricted public token and regional base URL generated for a frontend application' in skill
     assert 'restricted public token' in installation
     assert 'Never reuse `LOGFIRE_TOKEN` or another ordinary write token in the browser' in installation
-    assert 'generated regional `/v1/traces` URL' in troubleshooting
+    assert '`/v1/traces` URL derived from the regional `baseUrl`' in troubleshooting
 
 
 def test_browser_framework_examples_configure_once_without_strict_mode_shutdown() -> None:
-    references = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
+    references = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
     for browser_doc in ('javascript/nextjs.md', 'javascript/react-browser.md'):
         browser = (references / browser_doc).read_text()
         assert 'useRef(false)' in browser
@@ -287,6 +307,7 @@ def test_browser_framework_examples_configure_once_without_strict_mode_shutdown(
 def test_python_logging_guidance_preserves_existing_configuration() -> None:
     logging = (
         REPO_ROOT
+        / 'logfire-sdk'
         / 'logfire'
         / '.agents'
         / 'skills'
@@ -305,7 +326,7 @@ def test_python_logging_guidance_preserves_existing_configuration() -> None:
 
 
 def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() -> None:
-    skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-infrastructure'
+    skill_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-infrastructure'
     reference = (skill_root / 'references' / 'collector' / 'host-and-infra-metrics.md').read_text()
 
     assert "Authorization: '${env:LOGFIRE_TOKEN}'" in reference
@@ -331,21 +352,21 @@ def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() 
 
 
 def test_evals_skill_explains_how_to_restore_custom_evaluators() -> None:
-    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+    evals = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
 
     assert 'custom_evaluator_types=[MyEvaluator]' in evals
     assert 'custom_report_evaluator_types=[...]' in evals
 
 
 def test_evals_skill_keeps_local_runs_local_and_smoke_tests_report_evaluators() -> None:
-    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+    evals = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
 
     assert 'For an explicitly local-only run without span evaluators' in evals
     assert 'report_evaluators=dataset.report_evaluators' in evals
 
 
 def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
-    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+    evals = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
 
     assert 'Add `pydantic-evals[logfire]` with the detected Python manager' in evals
     assert "uv add 'logfire[datasets]'" not in evals
@@ -373,7 +394,7 @@ def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
 
 
 def test_braintrust_skill_and_guide_require_the_working_api_key_scopes() -> None:
-    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+    evals = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
     guide = (REPO_ROOT / 'docs' / 'comparisons' / 'migrate-from-braintrust.md').read_text()
 
     for content in (evals, guide):
@@ -383,29 +404,26 @@ def test_braintrust_skill_and_guide_require_the_working_api_key_scopes() -> None
     assert '<your-logfire-write-token>' not in guide
 
 
-def _wrap(component: str, prompt_lines: list[str]) -> str:
-    return f'<{component}>\n\n````text\n' + '\n'.join(prompt_lines) + f'\n````\n\n</{component}>\n'
-
-
-def test_extract_agent_setup_prompt_accepts_an_embedded_fence_shorter_than_the_outer_one(tmp_path: Path) -> None:
-    path = tmp_path / 'with-embedded-fence.md'
-    path.write_text(
-        _wrap('AgentSetup', ['Some setup text with an example:', '', '```', 'inner content', '```', '', 'More text.'])
+def _wrap(component: str, command_lines: list[str]) -> str:
+    return (
+        f'<{component} command="uvx logfire-cli wizard">\n\n```bash\n'
+        + '\n'.join(command_lines)
+        + f'\n```\n\n</{component}>\n'
     )
 
-    prompt = extract_agent_setup_prompt(path, 'AgentSetup')
 
-    assert 'inner content' in prompt
+def test_extract_agent_setup_command_accepts_one_shell_command(tmp_path: Path) -> None:
+    path = tmp_path / 'setup-command.md'
+    path.write_text(_wrap('AgentSetup', ['uvx logfire-cli wizard']))
+
+    command = extract_agent_setup_command(path, 'AgentSetup')
+
+    assert command == 'uvx logfire-cli wizard'
 
 
-def test_extract_agent_setup_prompt_rejects_an_embedded_fence_as_long_as_the_outer_one(tmp_path: Path) -> None:
-    # The outer fence is 4 backticks (opened by `_wrap` as ````text); an inner fence of
-    # the same length would close the outer block early in real markdown rendering, so
-    # this must fail loudly rather than silently accept malformed content.
-    path = tmp_path / 'bad-embedded-fence.md'
-    path.write_text(
-        _wrap('AgentSetup', ['Some setup text with an example:', '', '````', 'inner content', '````', '', 'More text.'])
-    )
+def test_extract_agent_setup_command_rejects_multiline_shell(tmp_path: Path) -> None:
+    path = tmp_path / 'multiline-setup-command.md'
+    path.write_text(_wrap('AgentSetup', ['uvx logfire-cli wizard', 'echo unexpected']))
 
     with pytest.raises(AssertionError):
-        extract_agent_setup_prompt(path, 'AgentSetup')
+        extract_agent_setup_command(path, 'AgentSetup')

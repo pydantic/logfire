@@ -2638,7 +2638,7 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
                         'resource_detectors': 0,
                         'additional_span_processors': 1,
                     },
-                    'logfire.package_versions': IsPartialDict({'logfire': IsStr()}),
+                    'logfire.package_versions': IsPartialDict({'logfire-sdk': IsStr()}),
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {

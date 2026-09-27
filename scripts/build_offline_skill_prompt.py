@@ -29,7 +29,7 @@ import sys
 from pathlib import Path, PurePosixPath
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SKILLS_ROOT = REPO_ROOT / 'logfire' / '.agents' / 'skills'
+SKILLS_ROOT = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills'
 PUBLIC_SKILLS_ROOT = 'https://pydantic.dev/.well-known/agent-skills'
 AUTH_REFERENCE_PATH = 'logfire-instrumentation/references/auth.md'
 AUTH_REFERENCE_ANCHOR = '#authenticate-and-select-the-exact-project'

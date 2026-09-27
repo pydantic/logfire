@@ -1,85 +1,76 @@
 ---
-title: "Logfire Account Conversion: Personal to Org"
-description: Convert your Logfire Personal account to an Organization account. Benefit from dedicated teams and clearly defined user and access roles.
----
-# How to Convert a Personal Account to an Organization
-
-Logfire allows you to convert your personal account into an organization, making it easier to collaborate with a team and manage projects at scale.
-Converting to an organization requires selecting a [paid plan](https://pydantic.dev/pricing). You will have _5 days_ to chose a plan once you
-converted your account, before the organization gets locked.
-
+title: Create a team from a personal account
+description: Create a paid Team or Growth organization and optionally move your personal Logfire projects into it.
 ---
 
-## 1. Open Plan & Usage Page
+# Create a team from a personal account
 
-Navigate to your account home page, and go under the _Plan & Usage_ page.
+Create a team from your personal Logfire account so colleagues can share projects, data, alerts, and dashboards. Your personal account remains available, and you can choose whether to move its existing projects and data into the new team.
 
-![Plan and usage page upgrade plan](../images/guide/convert-to-org-usage-page.png)
+You need permission to manage billing for the personal account. You will choose a paid plan before naming the team, then finish the purchase in checkout.
 
----
+## Choose the team's plan
 
-## 2. Start the Conversion
+1. Open **Org settings**.
+2. Select **Billing & usage**, then open the **Plan** tab.
+3. Select **Team** or **Growth** to compare what it adds to your Personal plan.
+4. Select **Upgrade to Team** or **Upgrade to Growth**.
 
-Click **Upgrade plan**. A modal will appear, asking you to either convert your account or create a new organization. Choose the first option.
+![Choose Team or Growth and compare what the plan adds](../images/guide/convert-to-org-plan-selection.png)
 
-A new modal will appear, outlining the main points of the conversion:
+## Name the team
 
-- All existing **projects, members, alerts, dashboards, and settings** will be moved to the new organization.
-- **Write tokens** will continue to work; you do not need to change any ingest URLs.
-- You'll define your new organization's **handle** and **display name**.
-- You can optionally edit the username and display name for your new personal account.
+Enter the name you want to use for the team. This name also appears in the team's Logfire URLs, and you can change it later in settings.
 
-![Convert to org modal with main points](../images/guide/convert-to-org-modal-main-points.png)
+Leave **Bring existing projects and data into the new team** selected to move the personal account's projects, data, alerts, dashboards, and write tokens. Existing write tokens continue to work after the move.
 
-Click **Acknowledge & continue** to proceed.
+Clear the option if you want an empty team instead. Your personal account and everything in it will remain unchanged.
 
----
+![Name the team and choose whether to move existing projects and data](../images/guide/convert-to-org-create-team.png)
 
-## 3. Set Up Your Organization
+## Free the current account name
 
-In the next modal, you can:
+You only see this step when both of these are true:
 
-- Upload an **organization avatar**.
-- Specify the **organization handle** (used in URLs).
-- Set the **organization display name**.
+- The team name matches your personal account's current name.
+- You chose to move the existing projects and data.
 
-On the right, you'll see a summary of the migration:
+Enter a new name for the personal account. For example, if your personal account is `bill` and you keep `bill` as the team name, you could rename the personal account to `bill-personal`. The team keeps the original `bill` URLs.
 
-- All your projects and members will be moved to the new organization.
-- The project URLs will change from:
-  `https://logfire-eu.pydantic.dev/your-username/project-name`
-  to
-  `https://logfire-eu.pydantic.dev/your-org-handle/project-name`.
+![Rename the personal account so its current name can become the team name](../images/guide/convert-to-org-rename-personal.png)
 
-![Set up new organization modal](../images/guide/convert-to-org-setup-org.png)
+If the team name is different from your personal account's name, Logfire keeps the personal account's current name and skips this step.
 
----
+## Create the team and complete checkout
 
-## 4. Confirm New Personal Account
+Select **Create team & continue to checkout**. Logfire creates the team, moves the selected content, and sends you to checkout for the plan you chose.
 
-After setting up the organization, you'll be prompted to create a new (empty) personal account with the same name as before. You can confirm and complete the conversion, or go back if you wish to make changes.
+!!! warning "The team is created before checkout"
+    If checkout is interrupted, the team still exists. Open that team's **Org settings → Billing & usage → Plan** page, choose Team or Growth again, and start a new checkout.
 
-![Confirm new personal account modal](../images/guide/convert-to-org-new-personal.png)
+Complete checkout to activate the Team or Growth subscription.
 
----
+## Verify the conversion
 
-## 5. Complete the Conversion
+Return to **Org settings → Billing & usage → Plan** in the team. The plan card should show Team or Growth as the current plan.
 
-Click **Confirm & convert**. The conversion process will complete, and you'll be redirected to the *Manage plans* page, to select a paid plan.
+If you moved existing projects and data, open one of those projects and confirm that its data, alerts, dashboards, and write tokens are still available.
 
-![Manage plans page](../images/guide/convert-to-org-manage-plans.png)
+## Troubleshooting
 
-You can still make use of your new organization, but you will have _5 days_ to select a paid plan before the organization gets disabled.
+### The team name is unavailable
 
----
+Another account or team already uses that URL name. Choose a different team name.
 
-## Summary
+### You do not want to rename the personal account
 
-- All your data, projects, and settings are preserved during the migration.
-- Only the URL changes to reflect the new organization handle.
-- The new organization needs to be under a paid plan.
-- Your new personal account will be empty, ready for individual use if needed.
+Go back and use a different team name. You can also clear **Bring existing projects and data into the new team** to create an empty team without changing the personal account.
 
----
+### Checkout did not finish
 
-**See also:** [Organization Structure Reference](../guides/web-ui/organizations-and-projects.md)
+Open the new team, then go to **Org settings → Billing & usage → Plan**, choose Team or Growth again, and start a new checkout.
+
+## Next steps
+
+- [Invite colleagues and assign roles](../guides/web-ui/organizations-and-projects.md).
+- [Review your usage and costs](../logfire-costs.md).
