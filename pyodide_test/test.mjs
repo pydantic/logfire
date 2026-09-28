@@ -39,9 +39,14 @@ import micropip
 from importlib.metadata import version
 
 await micropip.install(['file:${wheelPath}'], reinstall=True)
+from packaging.version import Version
 api_version = version('opentelemetry-api')
 sdk_version = version('opentelemetry-sdk')
 assert api_version == sdk_version, (api_version, sdk_version)
+instrumentation_version = version('opentelemetry-instrumentation')
+assert Version(instrumentation_version) < Version('0.66b0'), instrumentation_version
+conventions_version = version('opentelemetry-semantic-conventions')
+assert Version(conventions_version) < Version('0.66b0'), conventions_version
 import logfire
 logfire.configure(token='unknown', inspect_arguments=False)
 logfire.info('hello {name}', name='world')
