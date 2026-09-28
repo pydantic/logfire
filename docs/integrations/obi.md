@@ -1,6 +1,7 @@
 ---
 title: Observe services without code changes using OBI
 description: "Send request traces and application metrics from OpenTelemetry eBPF Instrumentation directly to Logfire."
+integration: otel
 ---
 # Observe services without code changes using OBI
 
@@ -192,7 +193,15 @@ To observe only one workload, follow OBI's
 and add OBI as a sidecar. A sidecar needs `shareProcessNamespace: true` on the pod, the required
 security context, and the host's `/sys/kernel/tracing` directory mounted at the same path. Configure
 the same OTLP endpoint, protocol, and authorization header on that OBI container. Create the Secret
-in the workload's namespace:
+in the workload's namespace, replacing `checkout` with that namespace:
+
+```bash
+export WORKLOAD_NAMESPACE=checkout
+printf 'Authorization=%s' "$LOGFIRE_TOKEN" | kubectl --namespace "$WORKLOAD_NAMESPACE" \
+  create secret generic logfire-otlp --from-file=headers=/dev/stdin
+```
+
+Then reference that Secret from the sidecar:
 
 ```yaml
 env:
@@ -207,8 +216,7 @@ env:
         key: headers
 ```
 
-For this manual manifest, set the `headers` secret value to `Authorization=your-write-token`. Use
-standard workload labels so service names remain stable when pods are replaced.
+Use standard workload labels so service names remain stable when pods are replaced.
 
 ## Verify the telemetry
 
@@ -238,10 +246,10 @@ http.server.request.duration
 target.info
 ```
 
-OBI places the discovered workload's service name and instance ID on each `target.info` datapoint
-instead of its enclosing OpenTelemetry resource. Logfire promotes those values into its core
-`service_name` and `service_instance_id` fields so the metadata metric appears under the same
-service as its request traces and metrics.
+OBI places the discovered workload's identity values on each `target.info` datapoint instead of its
+enclosing OpenTelemetry resource. Logfire promotes those values into its core `service_name`,
+`service_namespace`, `service_version`, `service_instance_id`, and `deployment_environment` fields
+so the metadata metric appears under the same service as its request traces and metrics.
 
 ## Troubleshoot the setup
 
