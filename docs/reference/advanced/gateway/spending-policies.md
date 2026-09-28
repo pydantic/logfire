@@ -11,7 +11,7 @@ These limits apply to requests routed through Gateway, not calls made directly t
 
 ## Limit a specific API key
 
-1. Open **AI Engineering → Gateway → API Keys** and select the key you want to limit.
+1. Open [**AI Engineering → Gateway → API Keys**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/api-keys), check the selected organization, and select the key you want to limit.
 2. Click **Edit**. Under **Spending Limits**, enter a **Daily**, **Weekly**, **Monthly**, or **Total** limit in whole US dollars, then click **Save Changes**. You can also set these limits when creating a key.
 3. Return to the key's details and check **Usage & Spending Limits** to confirm the saved values and current spending.
 
@@ -21,9 +21,9 @@ Leave a field empty for no limit at that level. A limit of `0` blocks requests; 
 
 You need organization-admin access to change organization-wide limits.
 
-1. Open **AI Engineering → Gateway → Settings**.
+1. Open [**AI Engineering → Gateway → Settings**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/settings) and check the selected organization.
 2. Under **Organization Spending Limits**, enter a **Daily**, **Weekly**, or **Monthly** limit in whole US dollars and click **Save**.
-3. Reopen **Settings** to confirm the saved limits. Use **Spending** to review the organization's usage.
+3. Reopen **Settings** to confirm the saved limits. Use [**Spending**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/spending) to review the organization's usage.
 
 This budget is shared across the organization, not granted separately to each key. For example, a $100 monthly organization limit and a $20 monthly key limit restrict that key to $20 while it also contributes to the shared $100 budget. Reaching either applicable limit blocks further requests until that window resets or an admin changes the limit.
 
@@ -32,13 +32,13 @@ For finer control without spending policies, use **Project Spending Limits** on 
 ## Create and attach an advanced spending policy
 
 !!! note "Experimental: Growth, Enterprise, or self-hosted"
-    Spending policies provide reusable, provider- and model-specific budgets beyond the included limits above. Access to **Settings → Early access** requires membership in a Growth or Enterprise organization, or a self-hosted deployment. Choose **Show experimental features** and turn on **AI Gateway spending policies**. These choices apply to your account in this browser.
+    Spending policies provide reusable, provider- and model-specific budgets beyond the included limits above. Access to [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access) requires membership in a Growth or Enterprise organization, or a self-hosted deployment. Choose **Show experimental features** and turn on **AI Gateway spending policies**. These choices apply to your account in this browser.
 
 A **spending policy** does nothing until you **attach** it to an organization, project, member, or API key. Use **Block** to reject requests after a limit is reached, or **Alert only** to record an overage without stopping requests. Policies work alongside the included limits; they do not replace them, upstream quotas, or the built-in balance.
 
 You need organization-admin access to manage spending policies.
 
-1. Open **AI Engineering → Gateway → Spending Policies** and click **New Spending Policy**. **Spending** shows usage charts; it is a separate tab.
+1. Open [**AI Engineering → Gateway → Spending Policies**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/spending-policies), check the selected organization, and click **New Spending Policy**. **Spending** shows usage charts; it is a separate tab.
 2. Give the policy a name. Under **Budgets**, choose a **Provider** and **Model**, or leave them at **All providers** and **All models**.
 3. Enter at least one **Daily**, **Weekly**, or **Monthly** dollar limit. Choose **Block** or **Alert only**. Add another row only when a different provider or model needs a different limit.
 

@@ -16,7 +16,7 @@ Use an existing model-provider account with Gateway. Your provider bills you dir
 
 You need organization-admin access and a credential for a supported provider. Set any access and spending limits you want at that provider; Logfire stores the credential to forward requests.
 
-1. Open **AI Engineering → Gateway → Providers** and click **New BYOK provider** (or **Create BYOK provider** if the list is empty). From an empty **Connect** tab, you can also click **Add your own provider**.
+1. Open [**AI Engineering → Gateway → Providers**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/providers), check the selected organization, and click **New BYOK provider** (or **Create BYOK provider** if the list is empty). From an empty **Connect** tab, you can also click **Add your own provider**.
 
    <div align="center">
 

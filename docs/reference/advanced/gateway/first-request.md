@@ -11,7 +11,7 @@ This flow is available on every Gateway plan, including Personal. [Per-key and o
 
 ## Choose a route
 
-1. In Logfire, select your organization and open **AI Engineering → Gateway**.
+1. Open [**AI Engineering → Gateway → Connect**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect) and check that the selected organization is the one you want to use.
 2. If Gateway is not enabled, ask an organization admin to choose **Enable recommended setup**. This enables Gateway, configures telemetry and recommended protections, and creates a first API key.
 3. Open **Connect** and select a provider under **Connect through**. A direct provider is enough for a first request; you can [add an endpoint](endpoints.md) later.
 

@@ -8,13 +8,13 @@ description: "Install or write Gateway optimizations and choose the endpoints, m
 An **optimization** adds an instruction to matching Gateway requests. It can encourage shorter replies, change tool-use behavior, or apply another prompt rule without editing each application. Optimizations affect model input and may change output, cost, and behavior, so test them on a non-production route first.
 
 !!! note "Early Access: Growth, Enterprise, or self-hosted"
-    To enable **AI Gateway optimizations**, open **Settings → Early access**. Access to these settings requires membership in a Growth or Enterprise organization, or a self-hosted deployment. Early-access choices apply to your account in this browser. Optimizations are not needed to connect a provider or send Gateway requests.
+    To enable **AI Gateway optimizations**, open [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access). Access to these settings requires membership in a Growth or Enterprise organization, or a self-hosted deployment. Early-access choices apply to your account in this browser. Optimizations are not needed to connect a provider or send Gateway requests.
 
 You need organization-admin access to create optimizations and change their targeting.
 
 ## Install a recommended optimization
 
-1. Open **AI Engineering → Gateway → Optimizations** and click **New optimization**. From an endpoint with no optimizations, **Create optimization** opens the same catalog.
+1. Open [**AI Engineering → Gateway → Optimizations**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/optimizations), check the selected organization, and click **New optimization**. From an endpoint with no optimizations, **Create optimization** opens the same catalog.
 
    <div align="center">
 
