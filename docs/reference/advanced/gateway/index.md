@@ -18,7 +18,7 @@ The gateway gives you:
 - **Failover and load balancing**: gateway endpoints route requests across one or more providers, using priorities and weights.
 - **Observability**: with telemetry enabled, every gateway request is traced into a Logfire project of your choice.
 
-The gateway is configured per **organization** and is available on the Personal, Team, Growth, and Enterprise Cloud plans.
+The gateway is configured per **organization** and is available on the Personal, Team, Growth, and Enterprise Cloud plans, and on self-hosted Logfire.
 
 ## Getting started
 
