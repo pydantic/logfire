@@ -34,6 +34,12 @@ To write your own rule, choose **Custom rule** on **New optimization**, give it 
 
 Send the same small test prompt through an endpoint with and without the optimization. Confirm its binding under **Endpoints → your endpoint → Optimizations**. If Gateway telemetry is enabled, inspect the request's trace and the optimization's usage to confirm a match. A difference in the model's prose alone is not proof of which rule ran.
 
+## Watch the Gateway optimizations tutorial
+
+{{ video("fb82f2910e1330b4295e75270d569d65", 30, 56) }}
+
+[Watch the AI Gateway optimizations tutorial](https://customer-nmegqx24430okhaq.cloudflarestream.com/fb82f2910e1330b4295e75270d569d65/watch).
+
 ## Troubleshooting
 
 If the optimization appears but does not change the request, first check its action: **Observe** records a match but does not inject the instruction; choose **Transform** when you want to modify requests. Then check that the rule is enabled, bound to the endpoint, and that model, agent, message role, and optional trigger pattern all match. If a model provider rejects the transformed prompt, disable the rule and test it in a narrower scope before re-enabling it.

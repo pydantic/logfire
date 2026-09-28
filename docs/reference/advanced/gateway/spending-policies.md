@@ -67,6 +67,12 @@ New keys and members under an attached target can inherit its policy. Review any
 
 Back on **Spending policies**, confirm the **Attached to** value. Send a small test request, then inspect **Spending** usage for the relevant project, member, or key. For a blocking rule, test with a deliberately low limit in a non-production environment and confirm that subsequent requests are rejected; restore the intended limit afterward.
 
+## Watch the advanced spending controls tutorial
+
+{{ video("0d17a4f999744cae4bafd7ce2dac8e7e", 30, 56) }}
+
+[Watch the advanced AI Gateway spending controls tutorial](https://customer-nmegqx24430okhaq.cloudflarestream.com/0d17a4f999744cae4bafd7ce2dac8e7e/watch).
+
 ## Troubleshooting
 
 - **Policy has no effect:** confirm it is attached to the right target and that the provider, model, time window, and budget split match the request.
