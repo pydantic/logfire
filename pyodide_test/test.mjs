@@ -36,8 +36,12 @@ async function runTest() {
     await pyodide.runPythonAsync(`
 import sys
 import micropip
+from importlib.metadata import version
 
 await micropip.install(['file:${wheelPath}'], reinstall=True)
+api_version = version('opentelemetry-api')
+sdk_version = version('opentelemetry-sdk')
+assert api_version == sdk_version, (api_version, sdk_version)
 import logfire
 logfire.configure(token='unknown', inspect_arguments=False)
 logfire.info('hello {name}', name='world')
