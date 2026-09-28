@@ -15,7 +15,7 @@ The Gateway **Connect** tab gives you a working request for your region, provide
 
    <div align="center">
 
-   ![The Connect tab with a selected provider and the Get your credential actions](../../../images/guide/ai-gateway/connect-route.png)
+   [![The Connect tab with a selected provider and the Get your credential actions](../../../images/guide/ai-gateway/connect-route.png)](../../../images/guide/ai-gateway/connect-route.png)
 
    *Connect after selecting an OpenAI-compatible provider.*
 

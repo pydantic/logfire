@@ -16,7 +16,7 @@ A Gateway endpoint gives your application one route while you change its upstrea
 
    <div align="center">
 
-   ![The routing editor showing priority, weight, availability, and the first-attempt preview for a sample provider](../../../images/guide/ai-gateway/routing-priority-weight.png)
+   [![The routing editor showing priority, weight, availability, and the first-attempt preview for a sample provider](../../../images/guide/ai-gateway/routing-priority-weight.png)](../../../images/guide/ai-gateway/routing-priority-weight.png)
 
    *Routing controls for one provider in the first-choice group.*
 

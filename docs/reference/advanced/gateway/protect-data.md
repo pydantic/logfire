@@ -18,7 +18,7 @@ You need organization-admin access. **AI Gateway guardrails** is an early-access
 
    <div align="center">
 
-   ![A prebuilt OpenAI API key protection with its endpoint targeting and action choices](../../../images/guide/ai-gateway/prebuilt-protection.png)
+   [![A prebuilt OpenAI API key protection with its endpoint targeting and action choices](../../../images/guide/ai-gateway/prebuilt-protection.png)](../../../images/guide/ai-gateway/prebuilt-protection.png)
 
    *A prebuilt API-key detector in Observe mode across all endpoints.*
 
