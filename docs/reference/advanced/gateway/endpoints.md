@@ -7,6 +7,8 @@ description: "Create a Gateway endpoint and configure provider traffic sharing a
 
 A Gateway endpoint gives your application one route while you change its upstream providers in Logfire. Start with a single provider; add another only when you need traffic sharing or a fallback. You need organization-admin access to edit endpoints.
 
+Endpoint priorities and weights are included on every Gateway plan. Your plan's [BYOK provider limit](byok-providers.md) still applies when adding providers to use in a route.
+
 [Adding a bring-your-own-key (BYOK) provider](byok-providers.md) normally creates an endpoint with the same route name. You can use that endpoint as-is or create a separate one:
 
 1. Open **AI Engineering → Gateway → Endpoints** and click **New endpoint**.
@@ -37,4 +39,4 @@ The endpoint's **Routing** tab shows each provider's priority, weight, and avail
 - **Fallback not used:** check the priority order and the error returned by the first provider. Fallback is for retryable failures, not every unsuccessful response.
 - **Unexpected model error:** test the model on each provider you put into a shared or fallback path.
 
-Once routing works, you can attach [data protections](protect-data.md), [optimizations](optimizations.md), and [spending policies](spending-policies.md).
+Once routing works, [set included spending limits](spending-policies.md). [Data protections](protect-data.md), [optimizations](optimizations.md), and advanced spending policies have separate [plan and Early Access requirements](index.md#plan-availability).

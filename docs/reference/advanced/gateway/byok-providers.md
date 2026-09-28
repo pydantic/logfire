@@ -7,6 +7,11 @@ description: "Connect an upstream model provider with your own credentials and t
 
 Use an existing model-provider account with Gateway. Your provider bills you directly; you do not need to activate Logfire's built-in providers.
 
+!!! note "Plan availability"
+    Personal and Team include up to **3 BYOK providers** per organization. Growth, Enterprise, and self-hosted Logfire have no BYOK provider-count limit.
+
+    Custom base URLs and custom OpenAI- or Anthropic-compatible providers require **Team, Growth, Enterprise, or self-hosted Logfire**. On Personal, supported vendors must use their own permitted endpoint hosts. For example, an Azure or Vertex account-specific vendor endpoint can be valid, but an arbitrary proxy URL is not.
+
 ## Add a provider
 
 You need organization-admin access and a credential for a supported provider. Set any access and spending limits you want at that provider; Logfire stores the credential to forward requests.
@@ -28,9 +33,6 @@ You need organization-admin access and a credential for a supported provider. Se
 6. Save, then open **Connect**, select the new route, and [send a test request](first-request.md).
 
 The provider's credential is different from the **Gateway API key** that your application sends to Logfire. Never put the upstream provider credential in a Gateway request or a public client.
-
-!!! note "Custom endpoint restrictions"
-    Custom base URLs and custom OpenAI- or Anthropic-compatible providers require Team, Growth, Enterprise, or self-hosted Logfire. On Personal, supported vendors must use their own permitted endpoint hosts. For example, an Azure or Vertex account-specific vendor endpoint can be valid, but an arbitrary proxy URL is not.
 
 ## Verify it worked
 

@@ -1,17 +1,40 @@
 ---
 title: "Control AI Gateway spending"
-description: "Create and attach reusable budgets for an organization, project, member, or API key."
+description: "Set included per-key and organization-wide spending limits, or use advanced spending policies through Early Access."
 ---
 
 # Control Gateway spending
 
-A **spending policy** is a reusable budget with rules for a provider, model, and time window. It does nothing until you **attach** it to an organization, project, member, or API key. Use **Block** to reject requests after a limit is reached, or **Alert only** to record an overage without stopping requests.
+Every Gateway plan, including Personal, includes **per-key limits** and an **organization-wide limit**. You do not need spending policies or Early Access to use them. Start with these controls to limit one application's usage or the combined usage of your organization.
 
-Gateway also offers per-key limits and a prepaid balance for built-in providers. These are separate controls: a policy attachment does not replace upstream provider quotas or the built-in balance.
+These limits apply to requests routed through Gateway, not calls made directly to your provider. Built-in providers also draw from a prepaid balance; adding balance does not raise a spending limit, and raising a limit does not add balance.
 
-**AI Gateway spending policies** is experimental. On Growth, Enterprise, or self-hosted Logfire, open **Settings → Early access**, choose **Show experimental features**, and turn it on. If the **Spending Policies** tab is absent, use the generally available per-key limits under **API Keys** instead. Early-access choices apply to your account in this browser.
+## Limit a specific API key
 
-## Create and attach a policy
+1. Open **AI Engineering → Gateway → API Keys** and select the key you want to limit.
+2. Click **Edit**. Under **Spending Limits**, enter a **Daily**, **Weekly**, **Monthly**, or **Total** limit in whole US dollars, then click **Save Changes**. You can also set these limits when creating a key.
+3. Return to the key's details and check **Usage & Spending Limits** to confirm the saved values and current spending.
+
+Leave a field empty for no limit at that level. A limit of `0` blocks requests; it does not mean unlimited. The total limit covers the key's lifetime and does not reset with a new day, week, or month. Admins can manage project keys; members can manage their own personal keys.
+
+## Set a global limit for your organization
+
+You need organization-admin access to change organization-wide limits.
+
+1. Open **AI Engineering → Gateway → Settings**.
+2. Under **Organization Spending Limits**, enter a **Daily**, **Weekly**, or **Monthly** limit in whole US dollars and click **Save**.
+3. Reopen **Settings** to confirm the saved limits. Use **Spending** to review the organization's usage.
+
+This budget is shared across the organization, not granted separately to each key. For example, a $100 monthly organization limit and a $20 monthly key limit restrict that key to $20 while it also contributes to the shared $100 budget. Reaching either applicable limit blocks further requests until that window resets or an admin changes the limit.
+
+For finer control without spending policies, use **Project Spending Limits** on the same Settings page for a selected project. Admins can also set per-member limits in **Spending → Organization**, under **Spending by Member**. Both offer daily, weekly, and monthly limits.
+
+## Create and attach an advanced spending policy
+
+!!! note "Experimental: available through Growth and Enterprise Early Access"
+    Spending policies provide reusable, provider- and model-specific budgets beyond the included limits above. Access to **Settings → Early access** requires membership in a Growth or Enterprise organization, or a self-hosted deployment. Choose **Show experimental features** and turn on **AI Gateway spending policies**. These choices apply to your account in this browser.
+
+A **spending policy** does nothing until you **attach** it to an organization, project, member, or API key. Use **Block** to reject requests after a limit is reached, or **Alert only** to record an overage without stopping requests. Policies work alongside the included limits; they do not replace them, upstream quotas, or the built-in balance.
 
 You need organization-admin access to manage spending policies.
 
@@ -40,7 +63,7 @@ You need organization-admin access to manage spending policies.
 
 New keys and members under an attached target can inherit its policy. Review any exceptions you configure for an organization or project attachment.
 
-## Verify it worked
+### Verify the policy
 
 Back on **Spending policies**, confirm the **Attached to** value. Send a small test request, then inspect **Spending** usage for the relevant project, member, or key. For a blocking rule, test with a deliberately low limit in a non-production environment and confirm that subsequent requests are rejected; restore the intended limit afterward.
 
@@ -48,6 +71,6 @@ Back on **Spending policies**, confirm the **Attached to** value. Send a small t
 
 - **Policy has no effect:** confirm it is attached to the right target and that the provider, model, time window, and budget split match the request.
 - **Requests still succeed over budget:** check whether the rule is **Alert only** rather than **Block**, and which target's budget the request uses.
-- **Requests stop before the policy limit:** check per-key limits, other attached policies, upstream quotas, and (for built-in providers) the prepaid balance.
+- **Requests stop before the policy limit:** check key, member, project, and organization limits, other attached policies, upstream quotas, and (for built-in providers) the prepaid balance.
 
 To set up the first route and credential, return to [your first Gateway request](first-request.md).

@@ -7,6 +7,8 @@ description: "Choose a provider, get a project API key, and verify a request thr
 
 The Gateway **Connect** tab gives you a working request for your region, provider, model, and project. You can use your existing SDK. You need a Logfire organization with a project.
 
+This flow is available on every Gateway plan, including Personal. [Per-key and organization-wide spending limits](spending-policies.md) are included too. Advanced controls have [separate plan and Early Access requirements](index.md#plan-availability).
+
 ## Choose a route
 
 1. In Logfire, select your organization and open **AI Engineering → Gateway**.
@@ -55,4 +57,4 @@ For a key created in this Connect session, the page shows **Waiting for your fir
 - **No pricing data:** a BYOK provider with **Require pricing data** enabled rejects unpriced requests. Add a price in provider settings, choose a priced model, or change that setting if you accept requests without a known price. This setting is separate from whether the upstream provider charges you.
 - **No trace:** check that Gateway telemetry is enabled for the project in **Gateway → Settings**. A successful request does not imply telemetry was configured.
 
-Next, [add an endpoint](endpoints.md) for failover, [protect request data](protect-data.md), or [set a spending policy](spending-policies.md).
+Next, [set included spending limits](spending-policies.md), [add an endpoint](endpoints.md) for failover, or [protect request data](protect-data.md).
