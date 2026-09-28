@@ -5,7 +5,7 @@ description: "Set included per-key and organization-wide spending limits, or use
 
 # Control Gateway spending
 
-Every Gateway plan, including Personal, includes **per-key limits** and an **organization-wide limit**. You do not need spending policies or Early Access to use them. Start with these controls to limit one application's usage or the combined usage of your organization.
+Every Gateway plan, including Personal, includes **per-key**, **organization-wide**, **per-project**, and **per-member** spending limits. You do not need spending policies or Early Access to use them. Start with a key or organization limit to control one application's usage or your organization's combined usage.
 
 These limits apply to requests routed through Gateway, not calls made directly to your provider. Built-in providers also draw from a prepaid balance; adding balance does not raise a spending limit, and raising a limit does not add balance.
 
@@ -31,7 +31,7 @@ For finer control without spending policies, use **Project Spending Limits** on 
 
 ## Create and attach an advanced spending policy
 
-!!! note "Experimental: available through Growth and Enterprise Early Access"
+!!! note "Experimental: Growth, Enterprise, or self-hosted"
     Spending policies provide reusable, provider- and model-specific budgets beyond the included limits above. Access to **Settings → Early access** requires membership in a Growth or Enterprise organization, or a self-hosted deployment. Choose **Show experimental features** and turn on **AI Gateway spending policies**. These choices apply to your account in this browser.
 
 A **spending policy** does nothing until you **attach** it to an organization, project, member, or API key. Use **Block** to reject requests after a limit is reached, or **Alert only** to record an overage without stopping requests. Policies work alongside the included limits; they do not replace them, upstream quotas, or the built-in balance.
