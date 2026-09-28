@@ -43,13 +43,12 @@ You do not need a paid plan to send Gateway requests or set basic spending limit
 | Spending policies | Experimental, enabled through the same Early Access settings. Not required for the included spending limits. |
 | Presidio protections | Enterprise Cloud or self-hosted Logfire, with Guardrails enabled. |
 
-**Settings → Early access** is available when your account belongs to an eligible organization. Its feature choices apply to your account in this browser, not automatically to every member. Individual guides explain which option to enable. For pricing and Enterprise contract details, see [Logfire plans](https://pydantic.dev/pricing).
+[**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access) is available when your account belongs to an eligible organization. Its feature choices apply to your account in this browser, not automatically to every member. Individual guides explain which option to enable. For pricing and Enterprise contract details, see [Logfire plans](https://pydantic.dev/pricing).
 
 ### Enable the gateway
 
-1. Open Logfire and select your organization.
-2. In the sidebar, under **AI Engineering**, click **Gateway**.
-3. Click **Enable recommended setup**.
+1. Open [**AI Engineering → Gateway**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway) and check the selected organization.
+2. Click **Enable recommended setup**.
 
 The recommended setup enables the gateway, checks built-in providers, turns on telemetry for a project, installs recommended guardrails, and creates your first API key (named **Quick Start**). If built-in providers require a payment method, setup can finish without activating them; add a payment method or [bring your own provider](byok-providers.md) before sending a request. When a route is ready, open **Connect** for a working snippet.
 
@@ -62,9 +61,11 @@ If you prefer to wire things up yourself, **Manual setup** just turns the gatewa
 
 Once enabled, the Gateway page has tabs for **Overview**, **Connect**, **API Keys**, **Providers**, **Endpoints**, **Spending**, and **Settings**. Other controls, including **Guardrails** and **Optimizations**, appear when available to your organization.
 
+Gateway links open your default organization in the hosted app. Switch organizations if needed before changing settings. On self-hosted Logfire, use the same navigation in your own deployment.
+
 ### Connect an SDK
 
-The **Connect** tab generates ready-to-run snippets: choose a route, get or select a project API key, then copy the snippet for your SDK (curl, Pydantic AI, Python or TypeScript OpenAI SDK, Python Anthropic SDK, Google GenAI SDKs). You can change the model under **Customize connection** or click **Try in playground** to test the same configuration in the Logfire Playground. See the [step-by-step Connect guide](first-request.md) for payment, credential, verification, and troubleshooting paths.
+The [**Connect** tab](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect) generates ready-to-run snippets: choose a route, get or select a project API key, then copy the snippet for your SDK (curl, Pydantic AI, Python or TypeScript OpenAI SDK, Python Anthropic SDK, Google GenAI SDKs). You can change the model under **Customize connection** or click **Try in playground** to test the same configuration in the Logfire Playground. See the [step-by-step Connect guide](first-request.md) for payment, credential, verification, and troubleshooting paths.
 
 The gateway base URL depends on your Logfire region:
 

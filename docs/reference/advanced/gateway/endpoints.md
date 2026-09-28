@@ -11,7 +11,7 @@ Endpoint priorities and weights are included on every Gateway plan. Your plan's 
 
 [Adding a bring-your-own-key (BYOK) provider](byok-providers.md) normally creates an endpoint with the same route name. You can use that endpoint as-is or create a separate one:
 
-1. Open **AI Engineering → Gateway → Endpoints** and click **New endpoint**.
+1. Open [**AI Engineering → Gateway → Endpoints**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/endpoints), check the selected organization, and click **New endpoint**.
 2. Enter a **Route** slug, such as `production-chat`, and an optional description. Click **Create endpoint**.
 3. Open the endpoint and select **Routing**. Click **Add provider**, choose a configured provider, and leave **Available for routing** on.
 4. For a second provider, choose whether it should share a group or be a fallback. **Routing priority** uses higher numbers first. Providers with the same priority share a group; **Traffic weight** sets their relative share within that group. A weight of `0` makes a provider fallback-only within its group. A lower-priority group is tried after higher-priority providers return retryable errors.
