@@ -203,6 +203,12 @@ navigation:
                 aliases:
                   - "typescript-sdk/packages/cloudflare"
                   - "integrations/javascript/cloudflare"
+          - page: "Frontend Custom Domain"
+            path: "frontend-custom-domain.md"
+            source: "typescript"
+            slug: "instrument/typescript/frontend-custom-domain"
+            aliases:
+              - "typescript-sdk/frontend-custom-domain"
           - section: "Frameworks & Runtimes"
             contents:
               - page: "Express"
@@ -324,6 +330,9 @@ navigation:
       - page: "Integrations"
         path: "integrations/index.md"
         slug: "integrations"
+      - page: "OpenTelemetry eBPF Instrumentation"
+        path: "integrations/obi.md"
+        slug: "integrations/obi"
       - section: "Web Frameworks"
         contents:
           - page: "Web Frameworks"
