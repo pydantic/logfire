@@ -130,7 +130,8 @@ Logfire guarantees this: after `created_at` is more than 5 minutes in the past, 
 1. Keep the upper bound of the last read. On the first read, choose a start time.
 2. Set the new upper bound to 5 minutes before the current time.
 3. Read the records with `created_at` after the last upper bound and not after the new upper bound.
-4. Save the new upper bound for the next read.
+4. Make sure that you got all of the records. The query API returns at most `limit` rows. If the result has `limit` rows, some records are missing. Move the new upper bound earlier, for example to the middle of the range, and read again.
+5. Save the new upper bound for the next read.
 
 For example:
 
@@ -139,11 +140,12 @@ SELECT *
 FROM records
 WHERE created_at > '2026-01-01T12:00:00Z'  -- the last upper bound
   AND created_at <= '2026-01-01T12:10:00Z' -- 5 minutes before the current time
+ORDER BY created_at
 ```
 
 With the query API, `min_timestamp` and `max_timestamp` filter on `start_timestamp`, not on `created_at`. Set `min_timestamp` early enough to include the records that you want, and do not set `max_timestamp`.
 
-Each record is in exactly one read. Records do not appear in more than one read, and no record is missed. Records are available to a script 5 minutes after Logfire stores them.
+If you follow these steps, each record is in exactly one read. Records do not appear in more than one read, and no record is missed. Records are available to a script 5 minutes after Logfire stores them.
 
 ### Get higher limits
 
