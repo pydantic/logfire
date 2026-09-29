@@ -125,34 +125,29 @@ If a script reads your data again and again, do not read the same time range eac
 
 Each record has a `created_at` column. `created_at` is the time when Logfire stored the record. This is not the same as `start_timestamp`, which is the time when your application started the span.
 
-Logfire guarantees this: after `created_at` is more than 5 minutes in the past, no more records get that `created_at` value. Thus you can use `created_at` as a cursor. A cursor is the position of the last record that you read.
+Logfire guarantees this: after `created_at` is more than 5 minutes in the past, no more records get that `created_at` value. Thus you can use `created_at` as a cursor. A cursor is the point in time up to which you have read all records.
 
-Many records can have the same `created_at` value. For this reason, the cursor also uses `trace_id` and `span_id`, and the records are sorted by all three columns. Then each record has one position in the order.
-
-1. On the first read, set the cursor to a start time, an empty `trace_id`, and an empty `span_id`.
+1. On the first read, set the cursor to a start time.
 2. Set the upper bound to 5 minutes before the current time.
-3. Read the records after the cursor and not after the upper bound, sorted by the cursor columns. Use `LIMIT` to set the maximum number of rows.
-4. Process the rows. Then set the cursor to the `created_at`, `trace_id`, and `span_id` of the last row.
-5. If the result has the `LIMIT` number of rows, there can be more records. Go to step 3. If the result has fewer rows, wait until the next read, and then go to step 2.
+3. Read the records with `created_at` after the cursor and not after the upper bound.
+4. Set the cursor to the upper bound.
 
 For example:
 
 ```sql
-SELECT *
+SELECT created_at, start_timestamp, service_name, span_name, message
 FROM records
-WHERE created_at <= '2026-01-01T12:10:00Z'  -- the upper bound
-  AND (
-    created_at > '2026-01-01T12:00:00Z'  -- the cursor
-    OR (created_at = '2026-01-01T12:00:00Z' AND (trace_id > '<cursor trace_id>'
-      OR (trace_id = '<cursor trace_id>' AND span_id > '<cursor span_id>')))
-  )
-ORDER BY created_at, trace_id, span_id
-LIMIT 1000
+WHERE created_at > '2026-01-01T12:00:00Z'  -- the cursor
+  AND created_at <= '2026-01-01T12:10:00Z' -- the upper bound
 ```
+
+Select only the columns that you need. Each column that you select makes the query read more data.
 
 With the query API, `min_timestamp` and `max_timestamp` filter on `start_timestamp`, not on `created_at`. Set `min_timestamp` early enough to include the records that you want, and do not set `max_timestamp`.
 
-If you follow these steps, each record is in exactly one read. No record is read two times, and no record is missed. Records are available to a script 5 minutes after Logfire stores them.
+The query API returns at most `limit` rows. The default is 100 and the maximum is 10,000. Set `limit` in the request. If a read returns `limit` rows, some records are missing. Do not use that result. Read the same range again in two smaller parts, and do not move the cursor until each part returns fewer than `limit` rows. To make this less frequent, read more often, so that each range has fewer records.
+
+If you follow these steps, each record is in exactly one read. Records are available to a script 5 minutes after Logfire stores them.
 
 ### Get higher limits
 
