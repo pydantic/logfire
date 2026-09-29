@@ -78,7 +78,7 @@ def _metric_attribute_value_is_valid(value: Any) -> bool:
     # element of a metric attribute sequence: the supported exporter logs an error and omits the
     # attribute, and newer versions encode it inconsistently, so a tuple containing `None` is
     # rejected here too.
-    if isinstance(value, tuple):
+    if type(value) is tuple:
         elements = cast('tuple[Any, ...]', value)
         return all(_metric_scalar_is_valid(element) for element in elements)
     return False
@@ -109,7 +109,11 @@ def _span_safe_metric_attributes(attributes: Attributes | None) -> Attributes | 
 
 
 def _metric_scalar_is_valid(value: Any) -> bool:
-    if not isinstance(value, _VALID_METRIC_ATTRIBUTE_TYPES):
+    # Exact-type check on purpose: an unhashable subclass (e.g. a ``str`` subclass
+    # overriding ``__hash__``) passes ``isinstance`` but then raises inside the
+    # OpenTelemetry SDK when it builds ``frozenset(attributes.items())`` as the
+    # aggregation key. ``bool`` is an ``int`` subclass and is intentionally kept.
+    if type(value) not in _VALID_METRIC_ATTRIBUTE_TYPES:
         return False
     # OTLP carries signed 64-bit integers, so an oversized `int` raises in the exporter's
     # protobuf encoding just like an un-encodable type does, taking the whole batch with it.
