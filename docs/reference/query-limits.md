@@ -17,7 +17,7 @@ A query source is the place that a query comes from. Each query source has its o
 | --- | --- |
 | Web UI | Queries from the Logfire web application. For example, [Explore](../guides/web-ui/explore.md), [dashboards](../guides/web-ui/dashboards.md), and the [Live view](../guides/web-ui/live.md). |
 | Read tokens | Queries that use a [read token](../how-to-guides/query-api.md). For example, the query API, the Python query clients, and the DB API. |
-| MCP | Queries from the [Logfire MCP server](../how-to-guides/mcp-server.md). |
+| MCP | Queries from the [Logfire MCP server](../how-to-guides/mcp-server.md). MCP (Model Context Protocol) lets an AI agent query your data. |
 | Public API | Requests to the [public API](advanced/use-api-keys.md) with an API key. |
 
 When one query source reaches a limit, the other query sources continue to work. For example, if your scripts use all of the read token budget, you can still use the web UI.
@@ -80,18 +80,28 @@ If a script sends queries, make it read `Retry-After` and wait before it tries a
 
 ```python skip-run="true" skip-reason="external-connection"
 import time
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
-url = 'https://logfire-us.pydantic.dev/v1/query'
+url = 'https://logfire-us.pydantic.dev/v2/query'  # or https://logfire-eu.pydantic.dev/v2/query
 headers = {'Authorization': 'Bearer <your read token>'}
-params = {'sql': 'SELECT count(*) FROM records'}
+body = {
+    'sql': 'SELECT count(*) FROM records',
+    'min_timestamp': (datetime.now(tz=UTC) - timedelta(hours=1)).isoformat(),
+}
 
-response = httpx.get(url, params=params, headers=headers)
-if response.status_code == 429:
+for attempt in range(3):
+    response = httpx.post(url, json=body, headers=headers)
+    if response.status_code != 429:
+        break
     time.sleep(int(response.headers.get('Retry-After', '60')))
-    response = httpx.get(url, params=params, headers=headers)
+
+response.raise_for_status()
+print(response.json())
 ```
+
+The Python query clients in `logfire.query_client` raise `UnexpectedResponseError` when Logfire refuses a query. That error does not include the `Retry-After` value. If you use these clients, read the time in the error message, or wait at least one minute before you try again.
 
 ### Make each query do less work
 

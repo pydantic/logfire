@@ -17,7 +17,7 @@ The API can return data in various formats, including JSON, Apache Arrow, and CS
 See [here](#additional-configuration) for more details about the available response formats.
 
 !!! note "Query limits"
-    Logfire limits the queries that each organization can send with read tokens. There is a limit on the number of queries that run at the same time, and a daily budget. The limits depend on your plan. If your organization reaches a limit, the API sends back `429 Too Many Requests` and a `Retry-After` header. The header gives the number of seconds to wait. See [Query limits](../reference/query-limits.md).
+    On Logfire Cloud, Logfire limits the queries that each organization can send with read tokens. There is a limit on the number of queries that run at the same time, and a daily budget. The limits depend on your plan. When too many queries run at the same time, Logfire puts new queries in a queue. When a query waits too long, or when the daily budget is used, the API sends back `429 Too Many Requests` and a `Retry-After` header. The header gives the number of seconds to wait. See [Query limits](../reference/query-limits.md).
 
 ## How to Create a Read Token
 
