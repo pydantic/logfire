@@ -969,7 +969,7 @@ class _UnhashableStr(str):
     __hash__ = None  # type: ignore[assignment]
 
 
-class _UnhashableTuple(tuple):
+class _UnhashableTuple(tuple[Any, ...]):
     # Same for a tuple subclass: isinstance(x, tuple) is True but it is unhashable.
     __hash__ = None  # type: ignore[assignment]
 
@@ -978,7 +978,7 @@ def test_metric_unhashable_str_subclass_attribute_is_dropped(metrics_reader: InM
     counter = logfire.metric_counter('counter')
 
     with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type _UnhashableStr"):
-        counter.add(1, {'bad': _UnhashableStr('x'), 'good': 'yes'})  # type: ignore[dict-item]
+        counter.add(1, {'bad': _UnhashableStr('x'), 'good': 'yes'})
 
     [metric] = get_collected_metrics(metrics_reader)
     [data_point] = metric['data']['data_points']
@@ -989,40 +989,7 @@ def test_metric_unhashable_tuple_subclass_attribute_is_dropped(metrics_reader: I
     counter = logfire.metric_counter('counter')
 
     with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type _UnhashableTuple"):
-        counter.add(1, {'seq': _UnhashableTuple((1, 2)), 'good_seq': ('a', 'b')})  # type: ignore[dict-item]
-
-    [metric] = get_collected_metrics(metrics_reader)
-    [data_point] = metric['data']['data_points']
-    assert data_point['attributes'] == {'good_seq': ['a', 'b']}
-
-
-class _UnhashableStr(str):
-    # isinstance(x, str) is True but hashing raises: such a value crashes the OpenTelemetry
-    # SDK's frozenset(attributes.items()) aggregation key, so it must be rejected by exact type.
-    __hash__ = None  # type: ignore[assignment]
-
-
-class _UnhashableTuple(tuple):
-    # Same for a tuple subclass: isinstance(x, tuple) is True but it is unhashable.
-    __hash__ = None  # type: ignore[assignment]
-
-
-def test_metric_unhashable_str_subclass_attribute_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
-    counter = logfire.metric_counter('counter')
-
-    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type _UnhashableStr"):
-        counter.add(1, {'bad': _UnhashableStr('x'), 'good': 'yes'})  # type: ignore[dict-item]
-
-    [metric] = get_collected_metrics(metrics_reader)
-    [data_point] = metric['data']['data_points']
-    assert data_point['attributes'] == {'good': 'yes'}
-
-
-def test_metric_unhashable_tuple_subclass_attribute_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
-    counter = logfire.metric_counter('counter')
-
-    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type _UnhashableTuple"):
-        counter.add(1, {'seq': _UnhashableTuple((1, 2)), 'good_seq': ('a', 'b')})  # type: ignore[dict-item]
+        counter.add(1, {'seq': _UnhashableTuple((1, 2)), 'good_seq': ('a', 'b')})
 
     [metric] = get_collected_metrics(metrics_reader)
     [data_point] = metric['data']['data_points']
