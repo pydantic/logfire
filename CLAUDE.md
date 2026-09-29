@@ -20,6 +20,10 @@ the same PR. Its public schema provides editor validation; contributors do not n
 checkout. Verify the page and any anchor in a rendered preview, and never include the
 deployment-specific `/docs` prefix in source links.
 
+The TypeScript subtree under Instrument is imported from
+`pydantic/logfire-js/docs/navigation.yml`. Change its page order, labels, slugs,
+and aliases in logfire-js; this manifest owns only the subtree's placement.
+
 ## Writing standard
 
 **The full documentation style guide is [`dev-docs/documentation-style-guide.md`](dev-docs/documentation-style-guide.md)** — page templates, the terminology glossary, the pre-publish checklist, the anti-pattern catalog, and the rules for AI-assisted authoring. Read it before writing or substantially editing a docs page.
@@ -33,21 +37,23 @@ This is about _introducing_ terms, not avoiding them — give the real word plus
 # Core Structure
 
 ```
-logfire/
-├── __init__.py              # Public API via DEFAULT_LOGFIRE_INSTANCE
-├── _internal/               # Internal implementation
-│   ├── main.py              # Logfire and LogfireSpan classes
-│   ├── config.py            # LogfireConfig, configuration setup
-│   ├── config_params.py     # Environment variable and config file handling
-│   ├── tracer.py            # ProxyTracerProvider, tracer wrapping
-│   ├── metrics.py           # ProxyMeterProvider, metrics handling
-│   ├── exporters/           # OTLP, console, test exporters and processors
-│   ├── integrations/        # Framework-specific instrumentation
-│   ├── auto_trace/          # AST rewriting for auto-instrumentation
-│   └── ...
-├── integrations/            # Public integration APIs
-└── experimental/            # Experimental features
+logfire-sdk/
+└── logfire/
+    ├── __init__.py              # Public API via DEFAULT_LOGFIRE_INSTANCE
+    ├── _internal/               # Internal implementation
+    │   ├── main.py              # Logfire and LogfireSpan classes
+    │   ├── config.py            # LogfireConfig, configuration setup
+    │   ├── config_params.py     # Environment variable and config file handling
+    │   ├── tracer.py            # ProxyTracerProvider, tracer wrapping
+    │   ├── metrics.py           # ProxyMeterProvider, metrics handling
+    │   ├── exporters/           # OTLP, console, test exporters and processors
+    │   ├── integrations/        # Framework-specific instrumentation
+    │   ├── auto_trace/          # AST rewriting for auto-instrumentation
+    │   └── ...
+    ├── integrations/            # Public integration APIs
+    └── experimental/            # Experimental features
 
+logfire/                     # Compatibility package that installs the SDK and CLI
 logfire-api/                 # No-op shim package for libraries
 tests/                       # Test suite
 docs/                        # Documentation source for unified docs

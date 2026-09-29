@@ -9,7 +9,7 @@ The AI Gateway proxies embedding requests the same way it proxies chat: point an
 
 ## Which providers can serve embeddings
 
-Embeddings are available for provider types whose `/embeddings` endpoint the gateway proxies as an OpenAI-compatible request: **OpenAI**, **Azure Foundry**, **OVHcloud**, **Doubleword**, **Ollama**, and **custom** OpenAI-compatible providers. These carry an **Embeddings** badge on the **Providers** tab.
+Embeddings are available for provider types whose `/embeddings` endpoint the gateway proxies as an OpenAI-compatible request: **OpenAI**, **Azure Foundry**, **OVHcloud**, **Doubleword**, **Ollama**, and **custom** OpenAI-compatible providers (custom providers require a paid plan or self-hosted Logfire; see [Providers](index.md#providers)). These carry an **Embeddings** badge on the **Providers** tab.
 
 Anthropic and Google Vertex AI don't expose an OpenAI-compatible embeddings API, so they're chat-only and show no badge.
 
@@ -19,7 +19,7 @@ The badge means the provider *can* serve embeddings; which embedding models are 
 
 Each route reports its chat and embedding models separately. List them with `GET /proxy/models`.
 
-The requests on this page need two values. Create or reveal a gateway API key on the **API Keys** tab and use it in place of `<YOUR_GATEWAY_API_KEY>`; for the route, use a provider slug from the **Providers** tab (or a routing group slug from **Routing**). The examples below use `openai`.
+The requests on this page need two values. Create or reveal a gateway API key on the **API Keys** tab and use it in place of `<YOUR_GATEWAY_API_KEY>`; for the route, use a provider slug from the **Providers** tab or a gateway endpoint slug from **Endpoints**. The examples below use `openai`.
 
 ```bash
 curl "https://gateway-us.pydantic.dev/proxy/models?route=openai" \

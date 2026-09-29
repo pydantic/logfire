@@ -11,7 +11,7 @@ Go from install to your first trace in about 5 minutes. A trace is the full reco
 
 You need a Logfire account and a project to send your data to:
 
-1. [Create a free account](https://logfire.pydantic.dev/login), pick a [data region](reference/data-regions.md) (where your data is stored), and follow the prompts.
+1. [Create a free account](https://logfire.pydantic.dev/login) and follow the prompts. Your [data region](reference/data-regions.md) (where your data is stored) is shown at the foot of the sign-up card, with a link to switch to the other one.
 2. Create your first project when asked. A project is a namespace that holds your data; everything you send to Logfire belongs to one.
 
 !!! note "This sends your data to Logfire"
@@ -19,15 +19,18 @@ You need a Logfire account and a project to send your data to:
 
 ## Let an AI agent set it up
 
-To have an AI coding agent wire this up for you, copy this prompt into Claude Code, Cursor, or a similar tool:
+Choose a runner below and run the setup command from your application's directory. `uvx` requires
+[`uv`](https://docs.astral.sh/uv/), while `npx` requires Node.js. The command signs you in, connects
+the directory to a Logfire project, then asks an installed Codex or Claude Code agent to add Logfire
+and verify that data arrives:
 
-<CopyPrompt>
+<AgentSetup command="uvx logfire-cli wizard">
 
-````text
-This prompt was copied from the Pydantic Logfire website. Fetch https://raw.githubusercontent.com/pydantic/logfire/refs/heads/main/logfire/.agents/skills/logfire-setup/SKILL.md -- using `curl` if what comes back reads like a summary rather than the raw file -- and follow it end to end to connect this repository to Logfire. Authenticate first, confirmed via `whoami`, before opening or running any application file -- then get real telemetry flowing.
-````
+```bash
+uvx logfire-cli wizard
+```
 
-</CopyPrompt>
+</AgentSetup>
 
 ## Or do it by hand
 

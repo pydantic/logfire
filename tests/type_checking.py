@@ -1,9 +1,12 @@
-from typing import assert_type
+from typing import TYPE_CHECKING, Any, assert_type, reveal_type
 
 from pydantic import BaseModel
 
 import logfire
 from logfire.variables import TemplateVariable, Variable
+
+if TYPE_CHECKING:
+    from logfire.experimental.api_client import LogfireAPIClient
 
 # Documenting the current behavior: including a default of an incompatible type extends the union rather than producing
 # a type error. This is arguably a feature, not a bug — the `type` is only used for validating provider values, not the
@@ -27,3 +30,14 @@ my_template_variable = logfire.template_var(
 )
 assert_type(my_template_variable, TemplateVariable[str, PromptInputs])
 assert_type(my_template_variable.get(PromptInputs(name='Alice')).value, str)
+
+if TYPE_CHECKING:
+    dataset_client = LogfireAPIClient()
+    reveal_type(
+        dataset_client.get_dataset('dataset', input_type=PromptInputs),
+        expected_text='Dataset[PromptInputs, Any, Any]',
+    )
+    reveal_type(
+        dataset_client.get_dataset('dataset', input_type=PromptInputs, output_type=Any, metadata_type=Any),
+        expected_text='Dataset[PromptInputs, Any, Any]',
+    )

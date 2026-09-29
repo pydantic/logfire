@@ -1,6 +1,6 @@
 ---
 title: "Logfire SDK CLI: SDK Command Line Interface Guide"
-description: "Use the Logfire CLI to simplify project management. Use commands to authenticate, logfire login, create new projects, and manage read/write tokens."
+description: "Use the Logfire CLI to simplify project management. Use commands to authenticate, create new projects, and manage read/write tokens."
 ---
 # SDK Command Line Interface
 
@@ -249,7 +249,15 @@ To run a Python script or module with **Logfire** instrumentation enabled automa
 logfire run script.py
 # or run a module, forwarding any arguments after it:
 logfire run -m my_module --my-arg
+# or run an installed Python console command:
+logfire run pytest tests/
 ```
+
+Console commands are resolved from the selected Python environment's installed
+`console_scripts` metadata, which maps each command name to the Python function
+that runs it. This keeps automatic instrumentation in the same
+Python process on macOS, Linux, and Windows, including platforms where package
+installers generate native launcher executables.
 
 By default a summary box is printed to stderr showing which packages were instrumented; disable it with `--no-summary`. Use `--exclude` to skip instrumenting specific packages:
 

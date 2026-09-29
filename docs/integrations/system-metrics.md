@@ -54,9 +54,9 @@ table (see the [SQL reference](../reference/sql.md)).
 
 ## Verify it worked
 
-Run your program and leave it running for a few seconds, then open the
+Run your program and leave it running for at least a minute, then open the
 [Metrics explorer](../guides/web-ui/metrics-explorer.md) or the [Hosts](../guides/web-ui/hosts.md)
-view. Within a few seconds you'll see your machine appear with CPU and memory charts.
+view. After the next export you'll see your machine appear with CPU and memory charts.
 
 ## Troubleshooting
 
@@ -74,6 +74,8 @@ as `process.*` or cloud metadata). See the [SQL reference](../reference/sql.md#r
 and query resource attributes.
 
 ### Choosing which metrics to collect
+
+By default, Logfire uses OpenTelemetry's 60-second metrics export interval. Keep that interval unless you have a specific need for finer resolution. Exporting every 10 seconds sends six times as many datapoints from every instrumented process, while host trends are usually clear at one-minute resolution.
 
 By default, `instrument_system_metrics` collects only the metrics it needs to display the 'Basic System Metrics (Logfire)' dashboard. You can choose exactly which metrics to collect and how much data to collect about each metric. The default is equivalent to this:
 
@@ -106,6 +108,8 @@ To collect lots of detailed data about all available metrics, use `logfire.instr
     The most expensive metrics are `system.cpu.utilization/time` which collect data for each core and each mode,
     and `system.disk.*` which collect data for each disk device. The exact number depends on the machine hardware,
     but this can result in hundreds of data points per minute from each instrumented host.
+
+    The `process.*` metrics in this integration describe only the instrumented Python process. They do not scan every process ID on the host. The Collector's singular `hostmetrics.process` scraper does scan every process and has a much higher volume risk; see [Cardinality and cost](../how-to-guides/otel-collector/host-monitoring.md#cardinality-and-cost).
 
 `logfire.instrument_system_metrics(base='full')` is equivalent to:
 

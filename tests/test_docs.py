@@ -2,6 +2,9 @@
 
 import gc
 import os
+import re
+from collections.abc import Iterator
+from pathlib import Path
 
 import pydantic
 import pytest
@@ -35,6 +38,16 @@ SKIP_RUN_TAGS = ['skip', 'skip-run']
 SKIP_LINT_TAGS = ['skip', 'skip-lint']
 """Tags to skip linting the example with pytest-examples."""
 
+COLLECTION_INTERVAL_PATTERN = re.compile(r'\bcollection_interval:\s*["\']?(\d+(?:\.\d+)?)(ms|s|m)\b')
+MILLISECOND_METRIC_INTERVAL_PATTERNS = (
+    re.compile(r'\botel_interval_milliseconds\s*=\s*(\d+)\b'),
+    re.compile(r'\bOTEL_METRICS?_EXPORT(?:ER)?_INTERVAL(?:_MILLIS)?=(\d+)\b'),
+)
+SENSITIVE_FROM_LITERAL_PATTERN = re.compile(
+    r"""--from-literal(?:=|[ \t]+)["']?(?:[A-Z0-9_.-]*(?:TOKEN|PASSWORD|SECRET|[_.-]KEY)|KEY)=""",
+    re.IGNORECASE,
+)
+
 
 def set_eval_config(eval_example: EvalExample):
     """Set the evaluation configuration."""
@@ -47,13 +60,19 @@ def set_eval_config(eval_example: EvalExample):
     )
 
 
-def test_formatting(eval_example: EvalExample):
+def _iter_documentation_sources() -> Iterator[tuple[Path, str]]:
+    for path in Path('docs').rglob('*.md'):
+        yield path, path.read_text()
+
+
+def test_formatting(eval_example: EvalExample, monkeypatch: pytest.MonkeyPatch):
     """Ensure examples in documentation are formatted correctly."""
     examples = find_examples('docs/', 'README.md')
     # Filter out skipped examples
     examples = [ex for ex in examples if not any(ex.prefix_settings().get(key) == 'true' for key in SKIP_LINT_TAGS)]
 
     set_eval_config(eval_example)
+    monkeypatch.chdir('logfire-sdk')
 
     for example in examples:
         if eval_example.update_examples:  # pragma: no cover
@@ -62,9 +81,73 @@ def test_formatting(eval_example: EvalExample):
             eval_example.lint_ruff(example)
 
 
+def test_documented_metric_intervals_are_at_least_one_minute():
+    """Prevent examples from accidentally recommending high-volume metric intervals."""
+    short_intervals: list[str] = []
+
+    for path, source in _iter_documentation_sources():
+        matches_with_seconds = [
+            (
+                match,
+                float(match.group(1)) * {'ms': 0.001, 's': 1, 'm': 60}[match.group(2)],
+            )
+            for match in COLLECTION_INTERVAL_PATTERN.finditer(source)
+        ]
+        for pattern in MILLISECOND_METRIC_INTERVAL_PATTERNS:
+            matches_with_seconds.extend((match, int(match.group(1)) / 1000) for match in pattern.finditer(source))
+
+        for match, seconds in matches_with_seconds:
+            if seconds < 60:
+                line_number = source.count('\n', 0, match.start()) + 1
+                short_intervals.append(f'{path}:{line_number}: {match.group(0)}')
+
+    assert not short_intervals, 'Metric examples must use intervals of at least 60 seconds:\n' + '\n'.join(
+        short_intervals
+    )
+
+
+def test_documented_secrets_do_not_use_shell_arguments():
+    """Prevent examples from placing sensitive values in process arguments or shell history."""
+    unsafe_literals: list[str] = []
+
+    for path, source in _iter_documentation_sources():
+        for match in SENSITIVE_FROM_LITERAL_PATTERN.finditer(source):
+            line_number = source.count('\n', 0, match.start()) + 1
+            unsafe_literals.append(f'{path}:{line_number}: {match.group(0)}')
+
+    assert not unsafe_literals, 'Read documented secrets from stdin instead of --from-literal:\n' + '\n'.join(
+        unsafe_literals
+    )
+
+
+@pytest.mark.parametrize(
+    ('name', 'is_sensitive'),
+    [
+        ('LOGFIRE_TOKEN', True),
+        ('USER_PASSWORD', True),
+        ('SECRET', True),
+        ('SECRET_KEY', True),
+        ('LOGFIRE_WRITE_KEY', True),
+        ('API_KEY', True),
+        ('logfire-token', True),
+        ('secret.key', True),
+        ('write-key', True),
+        ('KEY', True),
+        ('TOKEN_EXPIRY_DAYS', False),
+        ('MONKEY', False),
+        ('USERNAME', False),
+    ],
+)
+@pytest.mark.parametrize('separator', ['=', ' ', '\t'])
+@pytest.mark.parametrize('quote', ['', '"', "'"])
+def test_sensitive_from_literal_pattern(name: str, is_sensitive: bool, separator: str, quote: str):
+    argument = f'--from-literal{separator}{quote}{name}=value{quote}'
+    assert bool(SENSITIVE_FROM_LITERAL_PATTERN.match(argument)) is is_sensitive
+
+
 def _get_runnable_examples():
     """Get examples that should be run, filtering out skipped ones."""
-    examples = find_examples('logfire/', 'docs/', 'README.md')
+    examples = find_examples('logfire-sdk/logfire/', 'docs/', 'README.md')
     return [
         ex
         for ex in examples
@@ -74,7 +157,7 @@ def _get_runnable_examples():
 
 def test_skill_examples_formatting(eval_example: EvalExample):
     """Ensure skill examples are formatted, without running instrumentation snippets."""
-    examples = find_examples('logfire/.agents')
+    examples = find_examples('logfire-sdk/logfire/.agents')
     examples = [ex for ex in examples if not any(ex.prefix_settings().get(key) == 'true' for key in SKIP_LINT_TAGS)]
 
     eval_example.set_config(
