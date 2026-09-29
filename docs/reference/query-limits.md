@@ -78,10 +78,14 @@ Wait for the number of seconds in the `Retry-After` header, then send the query 
 
 If a script sends queries, make it read `Retry-After` and wait before it tries again. For example:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import time
 
 import httpx
+
+url = 'https://logfire-us.pydantic.dev/v1/query'
+headers = {'Authorization': 'Bearer <your read token>'}
+params = {'sql': 'SELECT count(*) FROM records'}
 
 response = httpx.get(url, params=params, headers=headers)
 if response.status_code == 429:
@@ -104,6 +108,32 @@ A query that reads less data uses less compute time and less of the data scanned
 - **Keep the results.** If you need the same result again, keep it in your script. Do not send the same query again.
 - **Send queries less frequently.** If a script checks for new data, do not check more frequently than the data changes. For example, if you need a value each hour, send the query one time each hour, not each minute.
 - **Divide large jobs across the day.** A daily budget refills all through the day. A job that sends many queries at one time uses the budget quickly and must then wait.
+
+### Read only new data
+
+If a script reads your data again and again, do not read the same time range each time. Read only the records that Logfire stored after the last read.
+
+Each record has a `created_at` column. `created_at` is the time when Logfire stored the record. This is not the same as `start_timestamp`, which is the time when your application started the span.
+
+Logfire guarantees this: after `created_at` is more than 5 minutes in the past, no more records get that `created_at` value. Thus you can use `created_at` as a cursor:
+
+1. Keep the upper bound of the last read. On the first read, choose a start time.
+2. Set the new upper bound to 5 minutes before the current time.
+3. Read the records with `created_at` after the last upper bound and not after the new upper bound.
+4. Save the new upper bound for the next read.
+
+For example:
+
+```sql
+SELECT *
+FROM records
+WHERE created_at > '2026-01-01T12:00:00Z'  -- the last upper bound
+  AND created_at <= '2026-01-01T12:10:00Z' -- 5 minutes before the current time
+```
+
+With the query API, `min_timestamp` and `max_timestamp` filter on `start_timestamp`, not on `created_at`. Set `min_timestamp` early enough to include the records that you want, and do not set `max_timestamp`.
+
+Each record is in exactly one read. Records do not appear in more than one read, and no record is missed. Records are available to a script 5 minutes after Logfire stores them.
 
 ### Get higher limits
 
