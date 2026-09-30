@@ -151,6 +151,13 @@ def _metric_scalar_is_valid(value: Any) -> bool:
     return True
 
 
+# The wrappers ``_sanitize_observable_callbacks`` has already produced. A proxy instrument
+# re-creates its real instrument whenever a meter provider is set, so the same callbacks come
+# back through the sanitizer; recognizing its own wrapper keeps the caller's generator primed
+# once rather than advanced again on every reconfiguration.
+_SANITIZED_OBSERVABLE_CALLBACKS: WeakSet[Any] = WeakSet()
+
+
 def _sanitize_observable_callbacks(
     callbacks: Sequence[CallbackT] | None,
 ) -> Sequence[CallbackT] | None:
@@ -187,6 +194,13 @@ def _sanitize_observable_callbacks(
         # cycle with ``send(options)``. Prime it here and expose an equivalent plain callable so
         # both arms flow through the same sanitizing wrapper instead of handing the generator
         # (which the SDK would treat via ``send``) straight through unsanitized.
+        #
+        # A proxy instrument re-creates its real instrument every time a meter provider is set,
+        # so an already-wrapped callback comes back through here. Priming advances the caller's
+        # generator, so an existing wrapper is reused as it is instead of priming again.
+        if callback in _SANITIZED_OBSERVABLE_CALLBACKS:
+            return callback
+
         if isinstance(callback, Generator):
             # The ``isinstance`` leaves the generator's type parameters unknown, so narrow it
             # explicitly before priming it with ``next`` (mirroring the SDK) and pulling each
@@ -197,6 +211,7 @@ def _sanitize_observable_callbacks(
             def wrapped_generator(options: CallbackOptions) -> Sequence[Observation]:
                 return _sanitize_observations(generator.send(options))
 
+            _SANITIZED_OBSERVABLE_CALLBACKS.add(wrapped_generator)
             return wrapped_generator
 
         # After the generator arm is excluded, ``callback`` is narrowed to the plain callable
@@ -204,6 +219,7 @@ def _sanitize_observable_callbacks(
         def wrapped(options: CallbackOptions) -> Sequence[Observation]:
             return _sanitize_observations(callback(options))
 
+        _SANITIZED_OBSERVABLE_CALLBACKS.add(wrapped)
         return wrapped
 
     return tuple(wrap(c) for c in callbacks)
@@ -428,23 +444,21 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
 
 class _ProxyObservableCounter(_ProxyInstrument[ObservableCounter], ObservableCounter):
     def _create_real_instrument(self, meter: Meter) -> ObservableCounter:
-        kwargs = dict(self._kwargs)
-        kwargs['callbacks'] = _sanitize_observable_callbacks(kwargs.get('callbacks'))
-        return meter.create_observable_counter(**kwargs)
+        # Keep the sanitized callbacks on the instrument so a re-creation reuses them.
+        self._kwargs['callbacks'] = _sanitize_observable_callbacks(self._kwargs.get('callbacks'))
+        return meter.create_observable_counter(**self._kwargs)
 
 
 class _ProxyObservableGauge(_ProxyInstrument[ObservableGauge], ObservableGauge):
     def _create_real_instrument(self, meter: Meter) -> ObservableGauge:
-        kwargs = dict(self._kwargs)
-        kwargs['callbacks'] = _sanitize_observable_callbacks(kwargs.get('callbacks'))
-        return meter.create_observable_gauge(**kwargs)
+        self._kwargs['callbacks'] = _sanitize_observable_callbacks(self._kwargs.get('callbacks'))
+        return meter.create_observable_gauge(**self._kwargs)
 
 
 class _ProxyObservableUpDownCounter(_ProxyInstrument[ObservableUpDownCounter], ObservableUpDownCounter):
     def _create_real_instrument(self, meter: Meter) -> ObservableUpDownCounter:
-        kwargs = dict(self._kwargs)
-        kwargs['callbacks'] = _sanitize_observable_callbacks(kwargs.get('callbacks'))
-        return meter.create_observable_up_down_counter(**kwargs)
+        self._kwargs['callbacks'] = _sanitize_observable_callbacks(self._kwargs.get('callbacks'))
+        return meter.create_observable_up_down_counter(**self._kwargs)
 
 
 class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
