@@ -43,6 +43,17 @@ MILLISECOND_METRIC_INTERVAL_PATTERNS = (
     re.compile(r'\botel_interval_milliseconds\s*=\s*(\d+)\b'),
     re.compile(r'\bOTEL_METRICS?_EXPORT(?:ER)?_INTERVAL(?:_MILLIS)?=(\d+)\b'),
 )
+YAML_BLOCK_PATTERN = re.compile(r'```yaml[^\n]*\n(.*?)^```', re.S | re.M)
+"""Fenced YAML blocks in a documentation page."""
+
+HOSTMETRICS_SCRAPER_UTILIZATION = {
+    'cpu': 'system.cpu.utilization',
+    'memory': 'system.memory.utilization',
+    'filesystem': 'system.filesystem.utilization',
+}
+"""Scrapers whose `*.utilization` metric the Hosts page reads, and which the `hostmetrics`
+receiver leaves disabled by default."""
+
 SENSITIVE_FROM_LITERAL_PATTERN = re.compile(
     r"""--from-literal(?:=|[ \t]+)["']?(?:[A-Z0-9_.-]*(?:TOKEN|PASSWORD|SECRET|[_.-]KEY)|KEY)=""",
     re.IGNORECASE,
@@ -103,6 +114,41 @@ def test_documented_metric_intervals_are_at_least_one_minute():
 
     assert not short_intervals, 'Metric examples must use intervals of at least 60 seconds:\n' + '\n'.join(
         short_intervals
+    )
+
+
+def test_hostmetrics_examples_enable_the_metrics_the_hosts_page_reads():
+    """Keep documented `hostmetrics` configs able to populate the Hosts page.
+
+    The receiver leaves `system.cpu.utilization`, `system.memory.utilization` and
+    `system.filesystem.utilization` disabled by default, but the Hosts page reads them to
+    fill its CPU, Memory and disk columns. A config that enables one of those scrapers
+    without its utilization metric produces a host with blank columns, which is very hard
+    to diagnose from the UI. Three documented configs had drifted this way.
+    """
+    missing: list[str] = []
+
+    for path, source in _iter_documentation_sources():
+        for block_match in YAML_BLOCK_PATTERN.finditer(source):
+            block = block_match.group(1)
+            if 'hostmetrics:' not in block or 'scrapers:' not in block:
+                continue
+            # Only configs that intend hosts to appear in Logfire. `resourcedetection` supplies
+            # `host.name`, without which the Hosts page has nothing to group by, so a config
+            # omitting it is illustrating something else and is not held to this rule.
+            if 'resourcedetection' not in block:
+                continue
+            scrapers = block.split('scrapers:', 1)[1]
+            for scraper, metric in HOSTMETRICS_SCRAPER_UTILIZATION.items():
+                if not re.search(rf'^\s+{scraper}:\s*$', scrapers, re.M):
+                    continue
+                if metric not in scrapers:
+                    line_number = source.count('\n', 0, block_match.start()) + 1
+                    missing.append(f'{path}:{line_number}: `{scraper}` scraper without `{metric}`')
+
+    assert not missing, (
+        'A hostmetrics example enables a scraper without the utilization metric the Hosts '
+        'page reads, so those columns render blank:\n' + '\n'.join(missing)
     )
 
 

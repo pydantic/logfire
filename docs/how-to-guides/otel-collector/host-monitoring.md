@@ -6,6 +6,9 @@ description: "Ship CPU, memory, disk, filesystem, network, and process metrics f
 
 The OpenTelemetry Collector's [`hostmetrics` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver) reads CPU, memory, disk, filesystem, network, paging and process metrics from the machine the Collector is running on and ships them to Logfire: no SDK required, no application changes. Hosts reporting these metrics show up on the **Hosts** page in Logfire, and the metric series are queryable in **Metrics**, **SQL Workbench**, and any dashboard you build on top of them.
 
+!!! tip
+    If the machine runs a Python application that already uses Logfire, you may not need a Collector at all. [`logfire.instrument_system_metrics()`](../../integrations/system-metrics.md) reports the same CPU, memory, disk and network metrics from inside the process, and the host appears on the Hosts page without another program to run. Use the Collector when you want metrics from a machine whose workload is not Python, or from several processes at once.
+
 This is also the smallest possible working Collector configuration. The same shape works whether the Collector runs as a daemon on a bare VM, a sidecar next to your app, or a DaemonSet in Kubernetes; only the deployment wrapper changes.
 
 ## Minimal configuration
@@ -14,6 +17,8 @@ This is also the smallest possible working Collector configuration. The same sha
 receivers:
   hostmetrics:
     collection_interval: 60s
+    # Set root_path: /hostfs when running the Collector inside a container
+    # with the host filesystem bind-mounted at /hostfs (Linux only).
     scrapers:
       cpu:
         metrics:
@@ -24,6 +29,7 @@ receivers:
           system.memory.utilization:
             enabled: true
       load:
+        cpu_average: true
       disk:
         exclude:
           devices: ['^(loop|ram)[0-9]+$']
@@ -41,15 +47,18 @@ receivers:
       processes:
 
 processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
   resourcedetection:
-    detectors: [env, system]
-    system:
-      hostname_sources: [os]
+    detectors: [env, system, ec2, gcp, azure]
+    override: false
   batch:
 
 exporters:
   otlphttp:
-    endpoint: "https://logfire-eu.pydantic.dev"  # or https://logfire-us.pydantic.dev for the US region
+    endpoint: "https://logfire-us.pydantic.dev"  # or https://logfire-eu.pydantic.dev
     headers:
       Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
 
@@ -57,7 +66,7 @@ service:
   pipelines:
     metrics:
       receivers: [hostmetrics]
-      processors: [resourcedetection, batch]
+      processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlphttp]
 ```
 
@@ -168,7 +177,13 @@ receivers:
     root_path: /host
     scrapers:
       cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
       memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
       load:
       disk:
         exclude:
@@ -176,6 +191,9 @@ receivers:
           match_type: regexp
       filesystem:
         include_virtual_filesystems: false
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
       network:
         exclude:
           interfaces: [lo, 'veth.*']
@@ -204,67 +222,67 @@ service:
       exporters: [otlphttp]
 ```
 
-And the DaemonSet that runs it:
+??? note "The DaemonSet that runs it"
 
-```yaml title="otel-collector-daemonset.yaml"
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: otel-collector-hostmetrics
-  namespace: observability
-spec:
-  selector:
-    matchLabels:
-      app: otel-collector-hostmetrics
-  template:
+    ```yaml title="otel-collector-daemonset.yaml"
+    apiVersion: apps/v1
+    kind: DaemonSet
     metadata:
-      labels:
-        app: otel-collector-hostmetrics
+      name: otel-collector-hostmetrics
+      namespace: observability
     spec:
-      hostNetwork: true
-      hostPID: true
-      dnsPolicy: ClusterFirstWithHostNet
-      containers:
-        - name: otel-collector
-          image: otel/opentelemetry-collector-contrib:latest
-          args: ["--config=/etc/otel/config.yaml"]
-          env:
-            - name: LOGFIRE_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: logfire
-                  key: write-token
-            - name: K8S_NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-          volumeMounts:
+      selector:
+        matchLabels:
+          app: otel-collector-hostmetrics
+      template:
+        metadata:
+          labels:
+            app: otel-collector-hostmetrics
+        spec:
+          hostNetwork: true
+          hostPID: true
+          dnsPolicy: ClusterFirstWithHostNet
+          containers:
+            - name: otel-collector
+              image: otel/opentelemetry-collector-contrib:latest
+              args: ["--config=/etc/otel/config.yaml"]
+              env:
+                - name: LOGFIRE_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: logfire
+                      key: write-token
+                - name: K8S_NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+              volumeMounts:
+                - name: config
+                  mountPath: /etc/otel
+                - name: hostfs-proc
+                  mountPath: /host/proc
+                  readOnly: true
+                - name: hostfs-sys
+                  mountPath: /host/sys
+                  readOnly: true
+                - name: hostfs-root
+                  mountPath: /host
+                  readOnly: true
+                  mountPropagation: HostToContainer
+          volumes:
             - name: config
-              mountPath: /etc/otel
+              configMap:
+                name: otel-collector-hostmetrics
             - name: hostfs-proc
-              mountPath: /host/proc
-              readOnly: true
+              hostPath:
+                path: /proc
             - name: hostfs-sys
-              mountPath: /host/sys
-              readOnly: true
+              hostPath:
+                path: /sys
             - name: hostfs-root
-              mountPath: /host
-              readOnly: true
-              mountPropagation: HostToContainer
-      volumes:
-        - name: config
-          configMap:
-            name: otel-collector-hostmetrics
-        - name: hostfs-proc
-          hostPath:
-            path: /proc
-        - name: hostfs-sys
-          hostPath:
-            path: /sys
-        - name: hostfs-root
-          hostPath:
-            path: /
-```
+              hostPath:
+                path: /
+    ```
 
 A couple of things to be deliberate about:
 

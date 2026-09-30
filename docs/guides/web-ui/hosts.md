@@ -58,29 +58,38 @@ Hosts populate from the standard OpenTelemetry [`hostmetricsreceiver`](https://g
 
 A working setup for a single host (Linux VM, container host, or laptop), exporting straight to Logfire:
 
-```yaml
+```yaml title="otel-collector-config.yaml"
 receivers:
   hostmetrics:
     collection_interval: 60s
-    # Set root_path: /hostfs when running the collector inside a container
+    # Set root_path: /hostfs when running the Collector inside a container
     # with the host filesystem bind-mounted at /hostfs (Linux only).
     scrapers:
-      cpu: {}
-      memory: {}
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
       load:
-        cpu_average: true         # normalise load across CPUs
+        cpu_average: true
       disk:
         exclude:
           devices: ['^(loop|ram)[0-9]+$']
           match_type: regexp
       filesystem:
         include_virtual_filesystems: false
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
       network:
         exclude:
-          interfaces: [lo, "veth.*"]
+          interfaces: [lo, 'veth.*']
           match_type: regexp
-      paging: {}
-      processes: {}
+      paging:
+      processes:
 
 processors:
   memory_limiter:
@@ -88,22 +97,22 @@ processors:
     limit_percentage: 80
     spike_limit_percentage: 25
   resourcedetection:
-    detectors: [env, system, ec2, gcp, azure]    # add `docker` only if you bind-mount /var/run/docker.sock into the collector
-    override: false               # SDK-supplied attributes win
-  batch: {}
+    detectors: [env, system, ec2, gcp, azure]
+    override: false
+  batch:
 
 exporters:
-  otlphttp/logfire:
-    endpoint: https://logfire-us.pydantic.dev   # or https://logfire-eu.pydantic.dev
+  otlphttp:
+    endpoint: "https://logfire-us.pydantic.dev"  # or https://logfire-eu.pydantic.dev
     headers:
-      Authorization: ${env:LOGFIRE_TOKEN}
+      Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
 
 service:
   pipelines:
     metrics:
       receivers: [hostmetrics]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [otlphttp/logfire]
+      exporters: [otlphttp]
 ```
 
 Keep the collection interval at 60 seconds unless you have a specific need for finer resolution. Some Collector deployment presets use 10 seconds, which sends six times as many datapoints. The `processes` scraper above is inexpensive because it reports aggregate counts. Do not confuse it with the singular `process` scraper, which reports CPU, memory, and disk metrics for every process ID. Leave `process` off, or filter it to a small set of stable process names. See [Cardinality and cost](../../how-to-guides/otel-collector/host-monitoring.md#cardinality-and-cost) for details.

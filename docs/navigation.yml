@@ -739,11 +739,6 @@ navigation:
         slug: "observe/detect-service-is-down"
         aliases:
           - "how-to-guides/detect-service-is-down"
-      - page: "Collect Cloud Provider Metrics"
-        path: "how-to-guides/cloud-metrics.md"
-        slug: "guides/cloud-metrics"
-        aliases:
-          - "how-to-guides/cloud-metrics"
       - section: "OpenTelemetry Collector"
         contents:
           - page: "Overview"
@@ -788,6 +783,12 @@ navigation:
             path: "how-to-guides/otel-collector/control-volume-and-cost.md"
             slug: "guides/otel-collector/control-volume-and-cost"
             title: "Control volume and cost"
+          - page: "Collect Cloud Provider Metrics"
+            path: "how-to-guides/cloud-metrics.md"
+            slug: "guides/otel-collector/cloud-metrics"
+            aliases:
+              - "guides/cloud-metrics"
+              - "how-to-guides/cloud-metrics"
           - page: "Route to Multiple Projects"
             path: "how-to-guides/otel-collector/route-to-multiple-projects.md"
             slug: "guides/otel-collector/route-to-multiple-projects"
