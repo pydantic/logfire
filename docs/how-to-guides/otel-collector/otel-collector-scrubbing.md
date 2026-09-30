@@ -4,7 +4,7 @@ description: "Data scrubbing with the Logfire OTel Collector: Remove attributes 
 ---
 # Scrub sensitive data in the Collector
 
-The Logfire SDK [scrubs sensitive data](../scrubbing.md) from the telemetry it sends, before it leaves your machine. For most cases, adding `extra_patterns` or a `callback` is all you need. Telemetry that reaches Logfire by another route, such as a service exporting OTLP directly, is not covered by it.
+The Logfire SDK [scrubs sensitive data](../scrubbing.md) from the spans and logs it sends, before they leave your machine. For most cases, adding `extra_patterns` or a `callback` is all you need. Two things fall outside it: metric attributes, which the SDK does not scrub, and telemetry that reaches Logfire by another route, such as a service exporting OTLP directly.
 
 As your system grows, you may want one set of rules that applies to every service, or rules that depend on the data itself. The [OpenTelemetry Collector](./otel-collector-overview.md) applies them centrally, before the data reaches Logfire, without adding work to your applications.
 

@@ -211,6 +211,12 @@ service:
     traces/internal:
       receivers: [routing]
       exporters: [otlphttp/internal]
+    metrics:
+      receivers: [otlp]
+      exporters: [otlphttp/internal]
+    logs:
+      receivers: [otlp]
+      exporters: [otlphttp/internal]
 ```
 
 Set that attribute from the application with [`logfire.configure(environment=...)`](../environments.md) or the `OTEL_RESOURCE_ATTRIBUTES` environment variable. Resource attributes are evaluated per emitting process, so every span from one process goes to the same place. A trace crossing services whose values differ is still split across projects.
