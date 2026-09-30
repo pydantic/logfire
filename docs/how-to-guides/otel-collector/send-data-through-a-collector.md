@@ -55,7 +55,7 @@ The endpoint must be the region your project lives in. The `batch` processor gro
 ```bash
 docker run --rm \
   -p 4318:4318 \
-  -e LOGFIRE_TOKEN=<your-write-token> \
+  -e LOGFIRE_TOKEN='<your-write-token>' \
   -v "$(pwd)/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro" \
   otel/opentelemetry-collector-contrib:latest
 ```

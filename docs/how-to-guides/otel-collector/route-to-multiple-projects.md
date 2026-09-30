@@ -58,12 +58,14 @@ Point the application at the Collector and turn off sending straight to Logfire,
 ```python
 import os
 
-os.environ['OTEL_EXPORTER_OTLP_TRACES_ENDPOINT'] = 'http://collector:4318/v1/traces'
+os.environ['OTEL_EXPORTER_OTLP_ENDPOINT'] = 'http://collector:4318'
 
 import logfire
 
 logfire.configure(send_to_logfire=False)
 ```
+
+Set the base endpoint rather than only `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`. With `send_to_logfire=False` and a traces-only endpoint, the SDK has nowhere to send metrics and logs and drops them silently.
 
 If you leave `send_to_logfire=True`, the application keeps sending a full copy to the project its own token points at, in addition to whatever the Collector does.
 
@@ -119,7 +121,15 @@ service:
     traces/internal:
       receivers: [routing]
       exporters: [otlphttp/internal]
+    metrics:
+      receivers: [otlp]
+      exporters: [otlphttp/internal]
+    logs:
+      receivers: [otlp]
+      exporters: [otlphttp/internal]
 ```
+
+The routing connector works on spans, so the metrics and logs pipelines above are not routed: they go to one project. Give them their own destination if that is not what you want, and leave them out only if your applications send neither.
 
 Set the endpoint to the region your projects live in: `https://logfire-us.pydantic.dev` or `https://logfire-eu.pydantic.dev`. All destination projects must be in the same region as the endpoint you give their exporter.
 
@@ -129,9 +139,6 @@ Points worth knowing about this config:
 - **`default_pipelines`** catches everything that matches no condition. Without it, unmatched spans are dropped. Sending them to an internal project makes missing data visible rather than silent.
 - **`error_mode: ignore`** keeps a span whose attribute is absent or the wrong type flowing to the default pipeline instead of failing the batch.
 - **A pipeline per destination** means the connector groups spans before export, so each project receives one request per batch rather than a shared batch being filtered several times.
-
-!!! note
-    Newer Collector versions warn at startup that the `otlphttp` exporter name is deprecated in favor of `otlp_http`. Both names work and the configuration is otherwise identical.
 
 ## Verify the split
 
@@ -206,7 +213,7 @@ service:
       exporters: [otlphttp/internal]
 ```
 
-Set that attribute from the application with [`logfire.configure(environment=...)`](../environments.md) or the `OTEL_RESOURCE_ATTRIBUTES` environment variable. This form cannot split one trace across projects, because every span in a batch from one process shares its resource.
+Set that attribute from the application with [`logfire.configure(environment=...)`](../environments.md) or the `OTEL_RESOURCE_ATTRIBUTES` environment variable. Resource attributes are evaluated per emitting process, so every span from one process goes to the same place. A trace crossing services whose values differ is still split across projects.
 
 ## Send the same data to two projects
 

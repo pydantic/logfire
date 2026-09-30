@@ -105,7 +105,7 @@ Enable only the metrics and attributes you actually query.
 
 Restart the Collector and watch two things.
 
-The Collector reports its own counters at `http://localhost:8888/metrics`. Compare what came in against what went out: the gap is what filtering and sampling removed.
+The Collector reports its own counters at `http://localhost:8888/metrics`. Compare what came in against what went out. The gap is mostly what filtering and sampling removed, but failed exports and full queues land in it too, so check the exporter failure counters before reading the whole gap as a successful reduction.
 
 ```bash
 curl -s http://localhost:8888/metrics | grep -E 'otelcol_(receiver_accepted|exporter_sent)_spans'

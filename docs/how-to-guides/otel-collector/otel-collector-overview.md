@@ -35,7 +35,7 @@ service:
   pipelines: # which receivers feed which processors feed which exporters
 ```
 
-A component you define but do not list in a pipeline does nothing at all. That is the most common reason a configuration that looks correct sends no data.
+A receiver, processor, or exporter you define but do not list in a pipeline does nothing at all. That is the most common reason a configuration that looks correct sends no data. Extensions are the exception: they are activated under `service.extensions` instead.
 
 Pipelines are per signal. Traces, metrics, and logs each get their own, and they can share components:
 
@@ -49,6 +49,15 @@ receivers:
     collection_interval: 60s
     scrapers:
       cpu:
+
+processors:
+  batch:
+
+exporters:
+  otlphttp:
+    endpoint: "https://logfire-us.pydantic.dev"
+    headers:
+      Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
 
 service:
   pipelines:
@@ -64,7 +73,7 @@ service:
 
 ## The Logfire exporter
 
-Every guide in this section ends in the same exporter block:
+Wherever a guide in this section sends data to Logfire, it ends in the same exporter block. The [S3 backup guide](s3-backup.md) is the exception: there the Collector writes only to S3, and the SDK keeps sending to Logfire directly.
 
 ```yaml title="otel-collector-config.yaml"
 exporters:
@@ -80,6 +89,9 @@ Two things have to match your project:
 - **The token is a write token**, the credential a deployed app uses to send data to a Logfire project. Pass it through the environment rather than writing it into the file.
 
 The Collector appends `/v1/traces`, `/v1/metrics`, and `/v1/logs` to that endpoint on its own.
+
+!!! note
+    Newer Collector versions warn at startup that the `otlphttp` exporter name is deprecated in favor of `otlp_http`. Both names work. These guides use `otlphttp` so that one name is used across the whole set.
 
 ## Sending from the SDK to the Collector
 
