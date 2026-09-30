@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any
+from collections.abc import Callable, Iterable
+from typing import Any, cast
 
 import pytest
 import requests
 from dirty_equals import IsInt
 from inline_snapshot import Is, snapshot
 from opentelemetry import metrics
-from opentelemetry.metrics import CallbackOptions, Observation
+from opentelemetry.context import Context
+from opentelemetry.metrics import CallbackOptions, CallbackT, Observation
 from opentelemetry.sdk.metrics import Counter, Histogram
 from opentelemetry.sdk.metrics.export import (
     AggregationTemporality,
@@ -24,6 +26,9 @@ import logfire
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.test import TestExporter
+from logfire._internal.metrics import (
+    _sanitize_observable_callbacks,  # pyright: ignore[reportPrivateUsage]
+)
 from logfire.testing import get_collected_metrics
 
 meter = metrics.get_meter('global_test_meter')
@@ -1167,3 +1172,63 @@ def test_metric_observable_callback_attributes_are_sanitized(metrics_reader: InM
     [metric] = get_collected_metrics(metrics_reader)
     [data_point] = metric['data']['data_points']
     assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_observable_callback_without_callbacks_reports_nothing(metrics_reader: InMemoryMetricReader) -> None:
+    # `_sanitize_observable_callbacks` returns early when there is nothing to wrap: an
+    # observable instrument created with an empty callback list must still be accepted and
+    # report nothing. Without this the `if not callbacks:` early return stays uncovered for
+    # the repo's `coverage report --fail-under 100`.
+    logfire.metric_counter_callback('counter_callback_without_callbacks', callbacks=[])
+
+    metrics_reader.collect()
+
+    # With no callbacks to invoke there are no observations at all, so nothing is reported.
+    data = metrics_reader.get_metrics_data()
+    assert data is None or not data.resource_metrics
+
+
+def test_metric_observable_generator_object_callback_attributes_are_sanitized(
+    metrics_reader: InMemoryMetricReader,
+) -> None:
+    # `CallbackT` also accepts a *generator object* (not just a generator function): the wrapper
+    # must prime it once with ``next()`` and pull each collection cycle with ``send(options)``,
+    # exactly like the SDK, while sanitizing each yielded observation's attributes. An indefinite
+    # generator models a real observable callback polled on every collection cycle. The SDK's
+    # generator protocol yields an *iterable* of observations and receives each CallbackOptions
+    # via ``send``, so it is primed with an initial empty yield.
+    def make_generator():
+        yield []
+        while True:
+            yield [Observation(1, attributes={'bad': _UnhashableStr('x'), 'good': 'yes'})]
+
+    generator = cast('CallbackT', make_generator())
+    logfire.metric_counter_callback('counter_callback_generator', callbacks=[generator])
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type _UnhashableStr"):
+        metrics_reader.collect()
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_sanitized_observable_callback_preserves_observation_context() -> None:
+    # The wrapper rebuilds every `Observation` to sanitize its attributes, so it must carry the
+    # original `context` over rather than silently dropping it.
+    context = Context()
+
+    def callback(options: CallbackOptions):
+        yield Observation(1, attributes={'good': 'yes'}, context=context)
+
+    sanitized = _sanitize_observable_callbacks([callback])
+    assert sanitized is not None
+    [wrapped_callback] = sanitized
+
+    # `CallbackT` is `Callable[...] | Generator[...]`; only the callable arm is invocable.
+    wrapped_callable = cast('Callable[[CallbackOptions], Iterable[Observation]]', wrapped_callback)
+    [observation] = wrapped_callable(CallbackOptions())
+
+    assert observation.value == 1
+    assert observation.attributes == {'good': 'yes'}
+    assert observation.context is context
