@@ -62,10 +62,13 @@ docker run --rm \
 
 The `contrib` build includes every component the other guides in this section use. The core build is smaller but does not have them.
 
-To check the file before starting anything:
+To check the file before starting anything, run `validate` in the same image:
 
 ```bash
-otelcol-contrib validate --config=file:otel-collector-config.yaml
+docker run --rm \
+  -v "$(pwd)/otel-collector-config.yaml:/tmp/config.yaml:ro" \
+  otel/opentelemetry-collector-contrib:latest \
+  validate --config=file:/tmp/config.yaml
 ```
 
 ## Point your application at it
@@ -87,7 +90,7 @@ with logfire.span('hello from the collector'):
 
 The SDK appends `/v1/traces`, `/v1/metrics`, and `/v1/logs` to that endpoint on its own.
 
-Non-Python applications need no Logfire-specific setup, but the receiver above accepts OTLP over HTTP only, and some OpenTelemetry SDKs default to gRPC on port 4317. Set the protocol as well as the endpoint:
+Non-Python applications need no Logfire-specific setup, but the receiver above accepts OpenTelemetry Protocol (OTLP), the standard wire format Logfire uses to receive data, over HTTP only. Some OpenTelemetry SDKs default to sending it over gRPC, a different transport, on port 4317 instead. Set the protocol as well as the endpoint:
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318

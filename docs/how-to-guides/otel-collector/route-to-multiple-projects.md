@@ -47,7 +47,7 @@ Every span (one unit of work: a single operation, with a name, a start, and a du
 
 Two limits are worth knowing before you rely on this:
 
-- **Spans started before the block do not carry the key.** A server span created by an instrumented web framework opens before your handler runs, so set the baggage in middleware if you want that span routed too. A span without the key goes to the default pipeline, which splits the trace (the full journey of one request, made of nested spans) across projects.
+- **Spans started before the block do not carry the key.** The key is stamped onto a span when the span starts, so a server span that an instrumented web framework opened before your code ran never gets it, and goes to the default pipeline. That splits the trace (the full journey of one request, made of nested spans) across projects. Either accept the server span landing in the default project, or set the attribute on it yourself with `trace.get_current_span().set_attribute(...)` from the OpenTelemetry API.
 - **Downstream services need the same behavior.** Baggage travels with the request, but turning it into a span attribute is what the Logfire SDK's `add_baggage_to_attributes` setting does. A service using a plain OpenTelemetry SDK propagates the baggage without putting it on its spans, so those spans are not routed by it.
 
 !!! warning
