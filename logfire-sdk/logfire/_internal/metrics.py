@@ -78,9 +78,18 @@ def _metric_attribute_value_is_valid(value: Any) -> bool:
     # element of a metric attribute sequence: the supported exporter logs an error and omits the
     # attribute, and newer versions encode it inconsistently, so a tuple containing `None` is
     # rejected here too.
-    if type(value) is tuple:
+    if isinstance(value, tuple):
         elements = cast('tuple[Any, ...]', value)
-        return all(_metric_scalar_is_valid(element) for element in elements)
+        if not all(_metric_scalar_is_valid(element) for element in elements):
+            return False
+        # A tuple subclass may override ``__hash__`` to None; probe it so the aggregation
+        # keying (``frozenset(attributes.items())``) cannot crash. Plain tuples of accepted
+        # scalars are hashable by construction.
+        try:
+            hash(value)
+        except TypeError:
+            return False
+        return True
     return False
 
 
@@ -109,11 +118,19 @@ def _span_safe_metric_attributes(attributes: Attributes | None) -> Attributes | 
 
 
 def _metric_scalar_is_valid(value: Any) -> bool:
-    # Exact-type check on purpose: an unhashable subclass (e.g. a ``str`` subclass
-    # overriding ``__hash__``) passes ``isinstance`` but then raises inside the
-    # OpenTelemetry SDK when it builds ``frozenset(attributes.items())`` as the
-    # aggregation key. ``bool`` is an ``int`` subclass and is intentionally kept.
-    if type(value) not in _VALID_METRIC_ATTRIBUTE_TYPES:
+    # isinstance rather than exact type on purpose: a hashable, OTLP-encodable subclass
+    # (e.g. ``numpy.float64``/``numpy.int64`` registered as ``float``/``int`` subclasses,
+    # or an ``IntEnum`` member) is a perfectly valid attribute value. What must be rejected
+    # is an unhashable subclass (e.g. a ``str`` subclass overriding ``__hash__``), which
+    # passes ``isinstance`` but then raises inside the OpenTelemetry SDK when it builds
+    # ``frozenset(attributes.items())`` as the aggregation key. A hashability probe rejects
+    # exactly that failure mode while keeping valid subclasses. ``bool`` is an ``int``
+    # subclass and is intentionally kept.
+    if not isinstance(value, _VALID_METRIC_ATTRIBUTE_TYPES):
+        return False
+    try:
+        hash(value)
+    except TypeError:
         return False
     # OTLP carries signed 64-bit integers, so an oversized `int` raises in the exporter's
     # protobuf encoding just like an un-encodable type does, taking the whole batch with it.
