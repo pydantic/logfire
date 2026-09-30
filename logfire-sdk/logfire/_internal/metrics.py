@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Generator, Iterable, Sequence
 from threading import Lock
 from typing import Any, Generic, TypeVar, cast
 from weakref import WeakSet
@@ -41,6 +41,11 @@ from .utils import handle_internal_errors
 # (dropping the whole batch, with no pointer to the offending call) or during aggregation
 # with a raw TypeError. See https://github.com/pydantic/logfire/issues/782.
 _VALID_METRIC_ATTRIBUTE_TYPES = (bool, str, bytes, int, float)
+
+# The same accepted scalars as a static union, used to narrow a validated tuple away from
+# ``Any`` before a hashability probe (strict pyright rejects hashing ``tuple[Any, ...]``).
+# ``bool`` precedes ``int`` because ``bool`` is an ``int`` subclass.
+_MetricScalarValue = bool | str | bytes | int | float
 
 
 def _sanitize_metric_attributes(attributes: Attributes | None) -> Attributes | None:
@@ -81,14 +86,17 @@ def _metric_attribute_value_is_valid(value: Any) -> bool:
     # attribute, and newer versions encode it inconsistently, so a tuple containing `None` is
     # rejected here too.
     if isinstance(value, tuple):
-        elements = cast('tuple[Any, ...]', value)
+        # Every element has just passed the runtime scalar gate, so narrow away ``Any`` to
+        # the concrete scalar union before probing hashability: under strict pyright hashing
+        # a ``tuple[Any, ...]`` is 'partially unknown'. A tuple subclass may still override
+        # ``__hash__`` to None, so probe explicitly to protect the aggregation keying
+        # (``frozenset(attributes.items())``); plain tuples of accepted scalars are hashable
+        # by construction.
+        elements = cast('tuple[_MetricScalarValue, ...]', value)
         if not all(_metric_scalar_is_valid(element) for element in elements):
             return False
-        # A tuple subclass may override ``__hash__`` to None; probe it so the aggregation
-        # keying (``frozenset(attributes.items())``) cannot crash. Plain tuples of accepted
-        # scalars are hashable by construction.
         try:
-            hash(value)
+            hash(elements)
         except TypeError:
             return False
         return True
@@ -158,12 +166,43 @@ def _sanitize_observable_callbacks(
     if not callbacks:
         return callbacks
 
+    def _sanitize_observations(
+        observations: Iterable[Observation],
+    ) -> Sequence[Observation]:
+        return [
+            Observation(
+                value=obs.value,
+                attributes=_sanitize_metric_attributes(obs.attributes),
+                # Rebuilding the observation must not drop the caller's explicit context.
+                context=obs.context,
+            )
+            for obs in observations
+        ]
+
     def wrap(callback: CallbackT) -> CallbackT:
+        # ``CallbackT`` is
+        # ``Callable[[CallbackOptions], Iterable[Observation]] |
+        # Generator[Iterable[Observation], CallbackOptions, None]``. A generator *object* is
+        # not callable - the SDK primes it once with ``next()`` and then pulls each collection
+        # cycle with ``send(options)``. Prime it here and expose an equivalent plain callable so
+        # both arms flow through the same sanitizing wrapper instead of handing the generator
+        # (which the SDK would treat via ``send``) straight through unsanitized.
+        if isinstance(callback, Generator):
+            # The ``isinstance`` leaves the generator's type parameters unknown, so narrow it
+            # explicitly before priming it with ``next`` (mirroring the SDK) and pulling each
+            # collection cycle with ``send(options)``.
+            generator = cast('Generator[Iterable[Observation], CallbackOptions, None]', callback)
+            next(generator)
+
+            def wrapped_generator(options: CallbackOptions) -> Sequence[Observation]:
+                return _sanitize_observations(generator.send(options))
+
+            return wrapped_generator
+
+        # After the generator arm is excluded, ``callback`` is narrowed to the plain callable
+        # arm ``(CallbackOptions) -> Iterable[Observation]``.
         def wrapped(options: CallbackOptions) -> Sequence[Observation]:
-            return [
-                Observation(value=obs.value, attributes=_sanitize_metric_attributes(obs.attributes))
-                for obs in callback(options)
-            ]
+            return _sanitize_observations(callback(options))
 
         return wrapped
 
