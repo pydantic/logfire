@@ -102,6 +102,9 @@ processors:
       - key: user_token
         action: update
         value: "[Scrubbed due to user_token]"
+      # Remove any key containing `password` outright.
+      - pattern: "password"
+        action: delete
 
   # Next, find and mask any PII values we missed.
   redaction:
