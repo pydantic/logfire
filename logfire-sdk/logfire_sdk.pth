@@ -1,0 +1,2 @@
+# Migration fallback for pip upgrades from the monolithic Logfire 5 wheel.
+_logfire_sdk

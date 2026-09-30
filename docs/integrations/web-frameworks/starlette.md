@@ -101,7 +101,7 @@ frontend code**: anyone who loads the page could read it and send data to your p
 Instead, use an experimental proxy handler to forward OpenTelemetry Protocol (OTLP) data (the
 standard wire format Logfire uses to receive telemetry) through your Starlette backend, where the
 token stays secret. See the
-[Logfire JS browser package docs](https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy)
+[Logfire JS browser package docs](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#python-backend-proxy)
 for setup.
 
 ## Reference

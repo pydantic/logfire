@@ -107,6 +107,11 @@ Pydantic Logfire provides a hosted remote MCP server that you can use without in
     The in-app **MCP** page (in your project's sidebar) shows the same setup instructions with your
     instance's server URL pre-filled, plus one-click install links for several clients.
 
+Organization admins can [limit every external MCP client to read-only tools](mcp-access.md) and
+choose whether agents may share tool feedback with Pydantic.
+
+On Logfire Cloud, the remote MCP server has its own [query limits](../reference/query-limits.md). There is a limit on the number of queries that run at the same time, and a daily budget of queries for each organization. When your organization uses all of the daily budget, Logfire refuses MCP queries until the budget refills. This does not stop queries in the web UI or with read tokens.
+
 ---
 
 ## Configuration with well-known MCP clients
@@ -150,6 +155,116 @@ codex mcp add logfire --url https://logfire-us.pydantic.dev/mcp
 
 Codex opens a browser window where you can complete the login process.
 
+### OpenCode
+
+Run the interactive setup:
+
+```bash
+opencode mcp add
+```
+
+Answer its prompts as follows:
+
+| Prompt | Answer |
+| --- | --- |
+| **Location** | `Global` to use the server in every project, or `Project` for just the current one |
+| **Enter MCP server name** | `logfire` |
+| **Select MCP server type** | `Remote` |
+| **Enter MCP server URL** | `https://logfire-us.pydantic.dev/mcp` |
+| **Does this server require OAuth authentication?** | `Yes` |
+| **Do you have a pre-registered client ID?** | `No` |
+
+The last prompt only appears after answering `Yes` to the previous one. Answer `No`: the Logfire
+server supports dynamic client registration, so OpenCode registers itself and needs no client ID.
+
+Then authenticate, which opens your browser:
+
+```bash
+opencode mcp auth logfire
+```
+
+Confirm it worked. The server is listed as `connected (OAuth)`:
+
+```bash
+opencode mcp list
+```
+
+!!! warning "Paste the URL only, without surrounding quotes"
+    The prompt takes a bare URL. A trailing `"` copied from a JSON example becomes part of the
+    address, and `opencode mcp list` then reports
+    `failed: SSE error: Invalid content type, expected "text/event-stream"`.
+
+#### Configuring by hand
+
+Instead of the prompts, add the server to `opencode.json` in your project root (`opencode.jsonc`
+and the global `~/.config/opencode/opencode.json` work the same way):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "logfire": {
+      "type": "remote",
+      "url": "https://logfire-us.pydantic.dev/mcp"
+    }
+  }
+}
+```
+
+Run `opencode mcp auth logfire` afterwards to complete the browser login.
+
+!!! note
+    `logfire prompt --opencode` writes this same entry, but names the server `logfire-mcp`. If you
+    configure OpenCode by hand as `logfire` and later run that command, you will have two entries
+    pointing at the same server. Keep whichever you prefer and delete the other.
+
+!!! note
+    The key is `mcp`, not `mcpServers`. A Claude-style `mcpServers` block is ignored silently:
+    `opencode mcp list` simply reports that no servers are configured.
+
+!!! note
+    Never set `"oauth": false` here. It reads like the way to say "this server uses a static
+    key", but it drops the connection to a transport this server answers with a `405`, whether
+    or not you also send a token, and `opencode mcp list` reports `failed`. Leave `oauth` out
+    and OpenCode detects the requirement on its first connection. The prompts above record
+    `"oauth": {}`, which is equivalent.
+
+### Pi
+
+[Pi](https://pi.dev) intentionally ships without MCP support. Its documentation states that it
+"does not include built-in MCP", and there is no `pi mcp` command. If you only want Logfire
+knowledge in Pi, install the [Logfire coding agent skills](skills.md), which Pi supports natively
+and which need no MCP server.
+
+To query your telemetry from Pi, MCP support can be added with the community-maintained
+[`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter) package:
+
+```bash
+pi install npm:pi-mcp-adapter
+```
+
+Then create `.pi/mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "logfire": {
+      "url": "https://logfire-us.pydantic.dev/mcp",
+      "auth": "oauth",
+      "protocolVersion": "auto"
+    }
+  }
+}
+```
+
+Restart Pi, then run `/mcp-auth logfire` to complete the browser login. `/mcp reconnect logfire`
+only reconnects, so on a new configuration it leaves the server unauthenticated.
+
+!!! warning
+    `pi-mcp-adapter` is a third-party package, maintained neither by Pi's authors nor by Pydantic.
+    It is not covered by Logfire's support, and its configuration format may change independently
+    of both Pi and Logfire.
+
 ### Cursor
 
 Create a `.cursor/mcp.json` file in your project root:
@@ -184,20 +299,6 @@ Create a `.vscode/mcp.json` file in your project's root directory:
 
 See the [VS Code MCP server documentation](https://code.visualstudio.com/docs/agent-customization/mcp-servers)
 to enable, disable, and manage configured servers.
-
-### Gemini CLI
-
-Add to `~/.gemini/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "logfire": {
-      "httpUrl": "https://logfire-us.pydantic.dev/mcp"
-    }
-  }
-}
-```
 
 ### Cline
 
@@ -302,6 +403,40 @@ Some clients need a different shape for key-based auth:
 
     Then export the key Codex reads: `export LOGFIRE_MCP_TOKEN=<your-logfire-api-key>`
 
+- **OpenCode**: add the header in `opencode.json`. Do not also set `"oauth": false`, which fails
+  with a `405` whether or not a token is sent:
+
+    ```json
+    {
+      "mcp": {
+        "logfire": {
+          "type": "remote",
+          "url": "https://logfire-us.pydantic.dev/mcp",
+          "headers": {
+            "Authorization": "Bearer <your-logfire-api-key>"
+          }
+        }
+      }
+    }
+    ```
+
+- **Pi**: reference an environment variable from `.pi/mcp.json`, which needs
+  [`pi-mcp-adapter`](#pi):
+
+    ```json
+    {
+      "mcpServers": {
+        "logfire": {
+          "url": "https://logfire-us.pydantic.dev/mcp",
+          "auth": "bearer",
+          "bearerTokenEnv": "LOGFIRE_MCP_TOKEN"
+        }
+      }
+    }
+    ```
+
+    Then export the key the adapter reads: `export LOGFIRE_MCP_TOKEN='<your-logfire-api-key>'`
+
 - **Claude Desktop**: custom connectors are OAuth-only, so for key-based auth use `mcp-remote` in
   `claude_desktop_config.json`:
 
@@ -340,12 +475,14 @@ The Logfire MCP server exposes tools for querying telemetry data and managing ob
 The table below lists the full tool set for the `/mcp` endpoint.
 
 !!! note
-    The tools visible to a given client depend on the token scopes granted to that client.
+    The tools visible to a given client depend on the permissions granted to its credential and the
+    organization's [external MCP access policy](mcp-access.md).
 
 | Tool family | What it does | Common tool names |
 | --- | --- | --- |
 | Query execution | Run SQL against telemetry data, inspect schema, and retrieve recent exceptions for a file. | `query_run`, `query_schema_reference`, `query_find_exceptions_in_file` |
 | Projects and auth context | Discover accessible projects, inspect token context, and create Logfire UI links. | `project_list`, `token_info`, `project_logfire_link`, `project_logfire_ui_link` |
+| Agent feedback | On Enterprise and self-hosted organizations, share feedback about Logfire tools and documentation with Pydantic when the organization allows it. Never include user or customer data. | `agent-feedback` |
 | Dashboards | Create, list, fetch, update, and delete dashboards and panels, including dashboard settings. | `dashboard_create`, `dashboard_list`, `dashboard_get`, `dashboard_update`, `dashboard_delete`, `dashboard_update_settings`, `dashboard_add_panel`, `dashboard_update_panel`, `dashboard_remove_panel` |
 | Dashboard variables | Add, update, replace, or remove dashboard variables. | `dashboard_add_variable`, `dashboard_update_variable`, `dashboard_update_variables`, `dashboard_remove_variable` |
 | Dashboard layout groups | Organize dashboard panels into groups and control group layout/visibility. | `dashboard_create_group`, `dashboard_delete_group`, `dashboard_rename_group`, `dashboard_toggle_group_collapse`, `dashboard_reorder_groups` |
@@ -353,5 +490,25 @@ The table below lists the full tool set for the `/mcp` endpoint.
 | Notification channels | Create and manage organization-level destinations for alert notifications (for example webhooks/Opsgenie). | `channel_create_webhook`, `channel_create_opsgenie`, `channel_list`, `channel_get`, `channel_update_webhook`, `channel_update_opsgenie`, `channel_delete` |
 | Notification schedules | Create and manage schedule windows that gate alert notification delivery. | `schedule_create`, `schedule_list`, `schedule_get`, `schedule_update`, `schedule_delete` |
 | Issue tracking | List tracked exception issues and triage them by state. | `issue_list`, `issue_set_states` |
-| Managed variables (feature flags) | Create and manage variables, versions, labels, and rollout behavior. | `variable_create`, `variable_list`, `variable_get`, `variable_list_versions`, `variable_update`, `variable_delete`, `variable_update_rollout`, `variable_create_version`, `variable_assign_label` |
+| Managed variables (feature flags) | Create and manage variables, versions, labels, and rollout behavior. | `variable_list`, `variable_get`, `variable_resolve`, `variable_manage`, `variable_delete` |
 | Local development bootstrap | Create a local dev session (including token/env setup) for sending telemetry. | `local_dev_session` |
+
+### Managed variable tools
+
+The managed variable write tools are consolidated, so one tool covers several operations through a
+dispatch parameter:
+
+- `variable_manage` performs every non-destructive write, selected with its `action` parameter:
+  `create`, `update`, `create_version`, `update_rollout`, and `assign_label`. Each action takes the
+  one argument bundle it needs (`metadata`, `version`, `rollout`, or `label`).
+- `variable_delete` performs the destructive operations, selected with its `target` parameter:
+  `variable` (the whole variable, the default), `version` (a single version), or `label` (a label,
+  leaving its versions intact).
+
+Keeping the destructive operations in their own tool lets clients rely on the `destructiveHint`
+annotation, which agents use to decide when to ask for confirmation.
+
+On the read side, `variable_get` returns versions, rollout change history, and the assignment
+history of a label through its `include` parameter (`"versions"`, `"routing_history"`, and
+`"label_history"`, the last of which also needs `label`). `variable_resolve` returns the value a
+given evaluation context would be served.

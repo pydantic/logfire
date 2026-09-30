@@ -93,6 +93,18 @@ Not seeing your model calls in Logfire? Check these first:
 
 ## Advanced
 
+### Keep legacy attributes during migration
+
+Logfire uses semantic convention version 2 by default. If your queries or dashboards still depend
+on the legacy `request_data` and `response_data` attributes, emit both formats while you migrate:
+
+```python
+import logfire
+
+logfire.configure()
+logfire.instrument_openai(version=[1, 2])
+```
+
 ### Methods covered
 
 The following OpenAI methods are covered:
@@ -201,7 +213,7 @@ Shows up like this in Logfire:
 Logfire also instruments the [OpenAI "agents"](https://github.com/openai/openai-agents-python)
 framework, so you can see each step an agent takes and every tool it calls as nested spans in one
 trace. OpenAI Agents runs also appear in the specialized **Agents** view; the
-[support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
+[framework coverage guide](../agent-frameworks/support-matrix.md) shows which details each view adds.
 
 ```python hl_lines="5-6" skip-run="true" skip-reason="external-connection"
 from agents import Agent, Runner

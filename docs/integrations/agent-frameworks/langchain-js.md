@@ -101,12 +101,13 @@ You'll see the graph run, its model calls, and the `lookup_incident` tool call a
     - **`LANGSMITH_OTEL_ONLY=true`** stops LangSmith from also shipping traces to its own backend, so you don't
       need a `LANGSMITH_API_KEY`.
     - **Flush on exit.** Short-lived scripts and serverless must `await ...shutdown()` (or `forceFlush()`) or
-      spans are lost. Use the HTTP/protobuf exporter (`@opentelemetry/exporter-trace-otlp-proto`), not gRPC.
+      spans are lost. This setup uses the HTTP/protobuf exporter (`@opentelemetry/exporter-trace-otlp-proto`)
+      with the `/v1/traces` URL; Logfire also accepts gRPC, which needs the bare base URL instead.
 
 ## Managed prompts
 
 Author and version prompts in [Prompt Management](../../reference/advanced/prompt-management/index.md) and
-fetch them with the [Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/):
+fetch them with the [Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/):
 
 ```typescript
 import { defineTemplateVar } from '@pydantic/logfire-node/vars';

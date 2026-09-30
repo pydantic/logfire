@@ -192,7 +192,7 @@ All views in the UI have some time range dropdown that filters on this column, s
 In dashboard queries, a time series chart querying `records` should have `time_bucket($resolution, start_timestamp)` in the `SELECT` clause, which will be used as the x-axis. `$resolution` is a variable that will be replaced with the time resolution of the dashboard, e.g. `1 minute`. This variable doesn't exist outside of dashboards, so if you want to copy a query from a dashboard to SQL Workbench, tick 'Show rendered query' first. This will fill in the variable with the actual value, e.g. `time_bucket('1 minute', start_timestamp)`.
 
 !!! warning
-    Prefer this column over `created_at`, which is an internal timestamp representing when the record was created in the database.
+    Prefer this column over `created_at`, which is an internal timestamp representing when the record was created in the database. The exception is a script that reads only new records: it can use `created_at` as a cursor. See [Read only new data](query-limits.md#read-only-new-data).
 
 !!! warning
     The `metrics` table also has a `start_timestamp` column, but you should usually use `recorded_timestamp` instead, which doesn't exist in the `records` table.
@@ -464,7 +464,7 @@ The following columns correspond directly to OpenTelemetry span attribute semant
 
 #### Internal columns
 
-These columns are used internally by **Logfire** and you should ignore them:
+These columns are used internally by **Logfire** and you should ignore them. The exception is `created_at`, which a script can use as a cursor to [read only new data](query-limits.md#read-only-new-data):
 
 - `attributes_json_schema`
 - `attributes_reduced`

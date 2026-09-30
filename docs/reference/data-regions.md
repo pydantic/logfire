@@ -25,12 +25,16 @@ Regions are strictly separated with no data sharing between them:
 
 ## Choosing a Region
 
-Logfire is hosted independently in each region at [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) and [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev). When you sign up you'll be asked to pick a region; on return visits, log in directly at your regional URL.
+Logfire is hosted independently in each region at [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) and [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev). Your region follows the URL you sign up at, so go to the URL for the region you want. The sign-up and log-in screens show the region you are about to use at the foot of the card, with a link to switch to the other one.
 
-![Region picker on the sign-in screen](../images/logfire-screenshot-region-picker.png)
+Your account is created in whichever region you sign up at, and [migration between regions is not currently available](#region-migration), so make sure the stated region is the one you want before you continue.
+
+![The data region, shown at the foot of the Logfire sign-in card, with a link to change to the other region](../images/logfire-screenshot-region-footer.png)
 
 !!! tip "Signing in to Logfire"
     We don't detect your sessions across regions; each region is hosted independently. Bookmark and sign in to your regional URL directly: [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev).
+
+    If you sign in and your projects are missing, you are probably in the other region. Check the region shown at the foot of the sign-in card and use the switch link.
 
 Consider the following factors when selecting a region:
 

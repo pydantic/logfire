@@ -54,7 +54,7 @@ testcov:
 
 .PHONY: test-pyodide  # Check logfire runs with pyodide
 test-pyodide:
-	uv build
+	uv build --package logfire-sdk
 	cd pyodide_test && npm install && npm test
 
 .PHONY: docs  # Documentation is built by pydantic/unified-docs

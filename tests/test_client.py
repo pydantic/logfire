@@ -29,7 +29,7 @@ def test_requests_send_a_timeout() -> None:
         client._put_raw('/v1/anything', body={})  # pyright: ignore[reportPrivateUsage]
 
     assert [(request.method, request.timeout) for request in m.request_history] == [
-        ('GET', 30),
-        ('POST', 30),
-        ('PUT', 30),
+        ('GET', (3, 30)),
+        ('POST', (3, 30)),
+        ('PUT', (3, 30)),
     ]

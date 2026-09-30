@@ -17,7 +17,6 @@ from uuid import UUID
 
 import numpy
 import pandas
-import pydantic
 import pytest
 from attrs import define
 from dirty_equals import IsJson, IsStr
@@ -32,7 +31,6 @@ from sqlmodel import SQLModel
 
 import logfire
 from logfire._internal.json_schema import create_json_schema
-from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
 if sys.version_info >= (3, 11):  # pragma: no branch
@@ -539,8 +537,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
         pytest.param(
             MySQLModel(s=10),
             's=10',
-            # SQLModel requires pydantic 2.7+ now
-            '{"s":10}' if get_version(pydantic.__version__) >= get_version('2.7.0') else '"MySQLModel(s=10)"',
+            '{"s":10}',
             {'type': 'object', 'title': 'MySQLModel', 'x-python-datatype': 'PydanticModel'},
         ),
         pytest.param(

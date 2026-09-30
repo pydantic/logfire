@@ -16,6 +16,9 @@ It requires a **read token** for authentication, which can be generated from the
 The API can return data in various formats, including JSON, Apache Arrow, and CSV, to suit your needs.
 See [here](#additional-configuration) for more details about the available response formats.
 
+!!! note "Query limits"
+    On Logfire Cloud, Logfire limits the queries that each organization can send with read tokens. There is a limit on the number of queries that run at the same time, and a daily budget. The limits depend on your plan. When too many queries run at the same time, Logfire puts new queries in a queue. When a query waits too long, or when the daily budget is used, the API sends back `429 Too Many Requests` and a `Retry-After` header. The header gives the number of seconds to wait. See [Query limits](../reference/query-limits.md).
+
 ## How to Create a Read Token
 
 If you've set up Logfire following the [getting started guide](../index.md), you can generate read tokens either from
@@ -69,12 +72,6 @@ the Logfire API. If blocking I/O is acceptable and you want to avoid the complex
 you can use the plain [`LogfireQueryClient`][logfire.query_client.LogfireQueryClient].
 
 Here's an example of how to use these clients:
-
-/// version-deprecated | v4.35.0
-The older `query_json()` method is deprecated in favor of `query_json_rows()`. Calling `query_json_rows()`,
-`query_arrow()`, or `query_csv()` without providing a `min_timestamp` is also deprecated: pass an explicit
-timestamp as shown below.
-///
 
 === "Async"
 
@@ -305,10 +302,6 @@ cursor = conn.cursor()
 cursor.min_timestamp = datetime.now(timezone.utc) - timedelta(days=14)
 cursor.execute('SELECT start_timestamp, message FROM records LIMIT 10')
 ```
-
-/// version-deprecated | v4.35.0
-Setting `min_timestamp` to `None` in `connect()` or on the cursor is deprecated.
-///
 
 ## Making Direct HTTP Requests
 

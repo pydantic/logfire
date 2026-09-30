@@ -1,6 +1,6 @@
 ---
 title: Send Logfire Alerts to Slack with the Slack App
-description: "Connect a Slack workspace to Logfire once, then send alerts and issues to any channel by picking it from a list. No webhook URL to create, copy, or store."
+description: "Connect a Slack workspace to Logfire once, then send alerts and issues to an eligible channel by picking it from a list. No webhook URL to create, copy, or store."
 ---
 
 # Slack App
@@ -8,16 +8,19 @@ description: "Connect a Slack workspace to Logfire once, then send alerts and is
 !!! info "Beta"
     The Slack App is available to every organization and is marked **Beta** in the app. It delivers alerts and issue notifications today.
 
-The Logfire Slack app brings your observability notifications into Slack. Install it into your workspace once, connect it to your Logfire organization, and then send any alert or issue to a channel by picking that channel from a list.
+The Logfire Slack app brings your observability notifications into Slack. Install it into your workspace once, connect it to your Logfire organization, and then send alerts and issues to an eligible channel by picking it from a list.
 
 ## What the app does in Slack
 
 - **Posts notifications** to the channels you choose: a firing alert or a new issue, rendered as a Slack message with a link back to Logfire.
 - **Lists the channels it has been invited to**, so you pick a destination instead of pasting a URL.
 - **Publishes a Home tab** describing the connection.
-- **Reads 👍 / 👎 reactions on the messages it posted.** This is how you rate a finding from Logfire's site reliability engineering (SRE) agent, which is enabled for selected organizations rather than generally available. Reacting to an alert or issue notification does nothing.
+- **Collects feedback on the notifications that ask for it.** Those messages carry **👍 Useful** and **👎 Not useful** buttons, and 👎 opens a dialog for an optional note. Adding a 👍 / 👎 reaction to one of them does the same thing. Alert and issue notifications do not ask for feedback, so reacting to one does nothing.
 
 The app never posts anywhere it has not been invited, and it does not join channels by itself.
+
+!!! warning "AI-generated content can be inaccurate"
+    Alert and issue notifications are rendered directly from your query results and exception data. No AI is involved. Some messages, such as an SRE finding or a reply to a mention in its thread, are generated with AI. AI-generated content can be inaccurate, incomplete, or misleading. Treat it as a starting point for your investigation, and verify it against the linked traces and query results in Logfire before acting on it. These are the messages that carry the 👍 / 👎 buttons: your rating helps us improve them.
 
 ### Permissions it requests
 
@@ -25,15 +28,16 @@ The app never posts anywhere it has not been invited, and it does not join chann
 | --- | --- |
 | `chat:write` | Post notifications into the channels you pick |
 | `channels:read`, `groups:read` | List public and private channels the app is a member of, for the channel picker |
-| `reactions:read` | Receive the 👍 / 👎 you add to an SRE agent finding, as your rating of it |
-| `reactions:write` | Acknowledge that rating with a reaction of its own |
+| `reactions:read` | Receive the 👍 / 👎 you add to a notification that asks for feedback, as your rating of it |
 | `team:read` | Show the workspace name and icon on the connection in Logfire |
 
 The app does not read your message history or your direct messages.
 
 ### Data and privacy
 
-Logfire stores the workspace grant (the bot token, encrypted at rest), the workspace's name and ID, the granted permissions, and the ID of each channel you select. Message content flows one way: Logfire posts notification text built from your telemetry, and the only inbound content it records is the reaction feedback described above.
+Logfire stores the workspace grant (the bot token, encrypted at rest), the workspace's name and ID, the granted permissions, and the ID of each channel you select. Message content flows one way: Logfire posts notification text built from your telemetry, and the only inbound content it records is the feedback described above, meaning your rating and any note you write in the **Not useful** dialog.
+
+Public channels that include the Logfire app are available to Logfire members who can configure notification channels. Private channels appear only to the Logfire user who connected the workspace, and only when Slack confirms that both this user and the app belong to the channel. Other Logfire members cannot browse or select those private channels.
 
 See the [Pydantic privacy policy](https://pydantic.dev/legal/privacy-policy) for how we collect, manage, and store this data.
 
@@ -66,17 +70,17 @@ In Slack, run this in the channel you want notifications in:
 /invite @Logfire
 ```
 
-Logfire only lists channels the app is a member of, so this step is what makes a channel selectable. It also means a channel you can pick is a channel Logfire can post to.
+Logfire only lists channels the app is a member of, so this step is what makes a public channel selectable. For a private channel, you must also be the Logfire user who connected the workspace and a member of that channel in Slack. These checks mean a channel you can pick is a channel Logfire can post to without revealing private channels to other Logfire members.
 
 ## 3. Create the channel in Logfire
 
 A *notification channel* in Logfire is a destination you attach to alerts and issues.
 
-1. In your project, go to **Delivery** → **Channels** in the **Notify** section of the sidebar, then click **New channel**. You can also create one inline from the **Send notifications to** section of an alert form.
+1. In your project, open **Project settings**, then select **Delivery** under **Notifications**. On the **Channels** tab, click **New channel**. You can also create one inline from the **Send notifications to** section of an alert form.
 2. Name it. This is a Logfire label, not the Slack channel name.
 3. Pick **Slack App** as the type. (**Slack Webhook** is the other route, covered in [Setup Slack Alerts](setup-slack-alerts.md).)
 4. Pick the **Slack workspace** you connected.
-5. Pick the **Slack channel**. Only channels the app was invited to appear here.
+5. Pick the **Slack channel**. Public channels appear when the app is a member. Private channels also require you to be the Logfire user who connected the workspace and a member of the channel in Slack.
 6. Click **Send test message**. A sample notification posts to the channel.
 
 The test must succeed before the channel can be created. That is deliberate: a Slack destination that silently drops messages is worse than no destination, and the moment to find out is now rather than during an incident.
@@ -94,7 +98,7 @@ One channel can serve many alerts, and one alert can notify several channels.
 
 **The channel I want is not in the list.** The app is not in it. Run `/invite @Logfire` in Slack, then reopen the list.
 
-**Private channels are missing.** Workspaces connected before Logfire asked for private-channel access can only list public channels, and the channel picker says so. Reconnect Slack under **Settings** → **Connections** to include them.
+**Private channels are missing.** Only the Logfire user who connected the workspace can select private channels. If that is you, confirm that both you and the Logfire app belong to the channel. Workspaces connected before Logfire asked for private-channel access can only list public channels, and the channel picker says so. Reconnect Slack under **Settings** → **Connections** to include private channels.
 
 **The workspace has more channels than the list shows.** Very large workspaces are listed up to a limit, and the picker's search covers only what it listed. Invite the app to the channel you want, then look again.
 

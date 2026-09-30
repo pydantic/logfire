@@ -45,8 +45,9 @@ The examples do not add manual wrapper spans to simulate agent support. If a fra
 official, or maintained third-party OpenTelemetry path, its guide says that it is not fully supported.
 
 !!! tip "At a glance"
-    The [**support matrix**](support-matrix.md) summarizes which Logfire views — Live, Explore, LLMs, and Agents —
-    work with each framework, and where a framework has a known limitation.
+    The [**framework coverage guide**](support-matrix.md) shows how each integration's telemetry appears across
+    Live, Explore, LLMs, and Agents. Every OpenTelemetry trace stays queryable even when a purpose-built view
+    does not yet populate every field.
 
 ## Python
 

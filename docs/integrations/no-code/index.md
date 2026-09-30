@@ -18,7 +18,7 @@ The configuration location matters. A **runtime configuration** row means you ne
 | Platform | What can be connected | Where it is configured |
 | --- | --- | --- |
 | [Dify](dify.md) | Application and workflow traces and metrics | Dify runtime configuration |
-| [Flowise](flowise.md) | API, flow, prediction, and optional node metrics, but not detailed traces | Flowise runtime and an OpenTelemetry Collector |
+| [Flowise](flowise.md) | API, flow, and prediction metrics, but not detailed traces or Node.js process metrics | Flowise runtime and an OpenTelemetry Collector |
 | [Goose](goose.md) | Agent-session and tool traces | Local settings and environment |
 | [Langflow](langflow.md) | Flow, model, and tool traces | Langflow runtime configuration |
 | [LobeChat](lobe-chat.md) | Request, model, agent, tool traces, and metrics | LobeChat runtime configuration |

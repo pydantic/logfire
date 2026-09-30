@@ -4,14 +4,16 @@ from collections.abc import Callable as Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from logfire._internal.exporters.otlp import OTLPExporterHttpSession as OTLPExporterHttpSession
+from logfire._internal.main import Logfire as Logfire
 from logfire._internal.server_response import install_logfire_response_hook as install_logfire_response_hook
 from logfire._internal.utils import suppress_instrumentation as suppress_instrumentation
-from logfire.experimental.forwarding import ForwardExportRequestResponse as ForwardExportRequestResponse
 from logfire.types import ServerResponseCallback as ServerResponseCallback
 from logfire.version import VERSION as VERSION
 from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceResponse
 from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceResponse
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
+from starlette.requests import Request
+from starlette.responses import Response
 from threading import Thread
 from typing import Literal
 
@@ -48,6 +50,13 @@ class ForwardingErrorResponse:
     status_code: int
     content: bytes
 
+@dataclass
+class ForwardExportRequestResponse:
+    """Response returned from a forwarded export request to Logfire."""
+    status_code: int
+    headers: Mapping[str, str]
+    content: bytes
+
 @dataclass(frozen=True)
 class ForwardingAdmissionResult:
     response: Literal['success', 'partial_success']
@@ -81,5 +90,15 @@ class OTLPForwardingManager:
 
 def parse_forwarding_content_type(content_type: str) -> ForwardingContentType | None: ...
 def build_forwarding_request(*, path: str, headers: Mapping[str, str], body: bytes, max_body_size: int = ...) -> ForwardingRequest | ForwardingErrorResponse: ...
+def forward_export_request(*, path: str, headers: Mapping[str, str], body: bytes, logfire_instance: Logfire | None = None, max_body_size: int = ...) -> ForwardExportRequestResponse:
+    """Forward an export request to the Logfire API.
+
+    See the Logfire.forward_export_request method for more details.
+    """
+async def logfire_proxy(request: Request, *, logfire_instance: Logfire | None = None, max_body_size: int = ...) -> Response:
+    """A Starlette/FastAPI handler to proxy requests to Logfire.
+
+    See the Logfire.forward_export_request_starlette method for more details.
+    """
 def build_success_response(request: ForwardingRequest) -> ForwardExportRequestResponse: ...
 def build_partial_success_response(request: ForwardingRequest, *, message: str) -> ForwardExportRequestResponse: ...

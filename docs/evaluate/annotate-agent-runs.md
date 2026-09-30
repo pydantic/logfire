@@ -45,6 +45,21 @@ Use **Comment** to state the evidence you found in the run. Add **Tags** to grou
 
 ![The run annotation panel lets you choose a verdict, write a comment, and add tags.](../images/agent-run-annotation-form.png)
 
+### Add a category and an expected output
+
+Two more fields appear once a verdict says something went wrong. Both are optional.
+
+- **Category** appears for a **Neutral** or **Fail** verdict. Pick the failure mode from the list: `hallucination`, `wrong tool`, `off topic`, `refused`, `format error`, or `slow`. Using a consistent category is what lets you group failures later instead of reading every comment.
+- **Expected output** appears for a **Fail** verdict, and stays visible once it has content. Write the answer the agent should have given. This is the field that turns a failing run into a reusable test case, so write it out in full rather than describing it.
+
+## Export annotations for reuse
+
+On an agent's **Runs** tab, select **Export annotations** to download the saved annotations as a JSON Lines file (`annotations.jsonl`, one JSON object per line). Each line carries the run's trace and span IDs, agent name, verdict, category, expected output, comment, tags, the reviewer's email, and the timestamps.
+
+The export covers the runs currently in the table and respects its verdict, category, and tag filters. Filter to the failures you care about first, then export. An empty file usually means the filters exclude every saved annotation.
+
+Use the file to seed a [dataset](manage-datasets.md), so the runs your team marked **Fail** become the cases your next experiment has to pass.
+
 ## Verify the annotation
 
 After you save, the Runs tab's annotated count increases and the run shows its annotation. Return to **Annotations** to see the saved review in **Recent annotations**, where you can filter by verdict.
@@ -62,5 +77,6 @@ Open the interaction from **Agents** > **Runs**. Run annotations are attached to
 ## Next steps
 
 - [Human review](human-review.md): understand how direct review and annotation queues support evaluation work.
+- [Manage datasets](manage-datasets.md): turn exported annotations into repeatable test cases.
 - [Run an evaluation](evals-in-code.md): compare a fixed dataset against your scoring criteria.
 - [Live Evaluations](live-evals.md): score production traffic automatically, then use annotations for the cases that need human review.

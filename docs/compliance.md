@@ -4,14 +4,14 @@ description: "Overview of Logfire compliance standards. We are SOC2 Type II cert
 ---
 For more about our security posture, see the <a href="https://pydantic.dev/security" target="_blank" rel="noopener">Pydantic security page</a> and our <a href="https://trust.oneleet.com/pydantic" target="_blank" rel="noopener">trust page</a>.
 
-To request our SOC2 report or any other compliance documentation, use our <a href="https://portal.usepylon.com/pydantic/forms/compliance-request" target="_blank" rel="noopener">compliance request form</a>. For anything else, feel free to [get in touch](help.md).
+To request our SOC2 report or any other compliance documentation, use our <a href="https://trust.oneleet.com/pydantic?tab=documents" target="_blank" rel="noopener">compliance request form</a>. For anything else, feel free to [get in touch](help.md).
 
 ## SOC2
 
 ![Pydantic Logfire SOC2 Badge](https://badges.oneleet.com/badge/59e88e9f-ed29-49bc-a91d-0c9d1b8b5c2e?dark=true#only-dark){ width="150" }
 ![Pydantic Logfire SOC2 Badge](https://badges.oneleet.com/badge/59e88e9f-ed29-49bc-a91d-0c9d1b8b5c2e?dark=false#only-light){ width="150" }
 
-Logfire is SOC2 Type II certified. We did not receive any exceptions in our report. Request a copy of our SOC2 report via our <a href="https://portal.usepylon.com/pydantic/forms/compliance-request" target="_blank" rel="noopener">compliance request form</a>.
+Logfire is SOC2 Type II certified. We did not receive any exceptions in our report. Request a copy of our SOC2 report via our <a href="https://trust.oneleet.com/pydantic?tab=documents" target="_blank" rel="noopener">compliance request form</a>.
 
 ## HIPAA
 

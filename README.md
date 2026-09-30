@@ -2,7 +2,6 @@
 
 <p align="center">
   <a href="https://github.com/pydantic/logfire/actions?query=event%3Apush+branch%3Amain+workflow%3ACI"><img src="https://github.com/pydantic/logfire/actions/workflows/main.yml/badge.svg?event=push" alt="CI" /></a>
-  <a href="https://codecov.io/gh/pydantic/logfire"><img src="https://codecov.io/gh/pydantic/logfire/graph/badge.svg?token=735CNGCGFD" alt="codecov" /></a>
   <a href="https://pypi.python.org/pypi/logfire"><img src="https://img.shields.io/pypi/v/logfire.svg" alt="pypi" /></a>
   <a href="https://github.com/pydantic/logfire/blob/main/LICENSE"><img src="https://img.shields.io/github/license/pydantic/logfire.svg" alt="license" /></a>
   <a href="https://github.com/pydantic/logfire"><img src="https://img.shields.io/pypi/pyversions/logfire.svg" alt="versions" /></a>
@@ -21,6 +20,8 @@ What sets Logfire apart:
 
 See the [documentation](https://pydantic.dev/docs/logfire/) for more information.
 
+Evaluating observability tools? See what Logfire does for [LLM apps and agents](https://pydantic.dev/logfire/llm-observability?utm_source=github&utm_medium=readme&utm_campaign=logfire), [evals in production](https://pydantic.dev/logfire/evals?utm_source=github&utm_medium=readme&utm_campaign=logfire), and [how it compares to alternatives](https://pydantic.dev/logfire/alternatives?utm_source=github&utm_medium=readme&utm_campaign=logfire).
+
 **Feel free to report issues and ask any questions about Logfire in this repository!**
 
 This repo contains the Python SDK for `logfire` and documentation; the server application for recording and displaying data is closed source.
@@ -35,7 +36,10 @@ This is a very brief overview of how to use Logfire, the [documentation](https:/
 pip install logfire
 ```
 
-[_(learn more)_](https://pydantic.dev/docs/logfire/get-started/#sdk)
+This installs both the Python SDK and the Logfire CLI. To install only the SDK, use
+`pip install logfire-sdk`; the import remains `import logfire`.
+
+[_(learn more)_](https://pydantic.dev/docs/logfire/get-started/first-trace)
 
 ## Authenticate
 
@@ -63,7 +67,7 @@ with logfire.span('Asking the user their {question}', question='age'):
     logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)
 ```
 
-[_(learn more)_](https://pydantic.dev/docs/logfire/instrument/add-manual-tracing/)
+[_(learn more)_](https://pydantic.dev/docs/logfire/instrument/python/add-manual-tracing/)
 
 ### Integration
 

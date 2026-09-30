@@ -92,11 +92,12 @@ This uses Microsoft Agent Framework's real `ChatClientAgent` and `AIFunction`; n
 You'll see `invoke_agent`, `chat`, and `execute_tool` spans in **Logfire**. To also
 collect `gen_ai.client.*` metrics, configure a `MeterProvider` with `AddMeter(SourceName)` and an OpenTelemetry
 Protocol metrics exporter. Microsoft Agent Framework runs also appear in the specialized **Agents** view; the
-[support matrix](support-matrix.md) shows which columns each view populates.
+[framework coverage guide](support-matrix.md) shows which details each view adds.
 
 !!! warning "Common pitfalls"
-    - **Default OTLP protocol is gRPC.** Set `OtlpExportProtocol.HttpProtobuf` and supply the full `/v1/traces`
-      path with per-signal `AddOtlpExporter` (it isn't appended automatically).
+    - **Default OTLP protocol is gRPC.** Logfire accepts both, but the endpoint has to match: gRPC takes the
+      bare base URL. This setup uses `OtlpExportProtocol.HttpProtobuf`, which needs the full `/v1/traces` path
+      with per-signal `AddOtlpExporter` (it isn't appended automatically).
     - **`sourceName` must match `AddSource`.** If you omit `sourceName`, register the defaults instead:
       `AddSource("Experimental.Microsoft.Agents.AI")` (agent) and
       `AddSource("Experimental.Microsoft.Extensions.AI")` (chat client).
@@ -117,7 +118,7 @@ Protocol metrics exporter. Microsoft Agent Framework runs also appear in the spe
 Managed prompts are authored and versioned in
 [Prompt Management](../../reference/advanced/prompt-management/index.md). The dedicated prompt-fetching SDK
 helpers currently ship in the [Python](../../reference/advanced/prompt-management/application.md) and
-[TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/) SDKs. From .NET you can consume managed
+[TypeScript](https://pydantic.dev/docs/logfire/instrument/typescript/) SDKs. From .NET you can consume managed
 variables over the language-agnostic
 [OpenFeature Remote Evaluation Protocol (OFREP) HTTP API](../../reference/advanced/managed-variables/external.md),
 or resolve the prompt in a small Python/TypeScript sidecar and pass the rendered text into the agent's

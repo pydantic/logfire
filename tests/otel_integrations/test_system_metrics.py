@@ -40,8 +40,10 @@ def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader)
     assert get_collected_metric_names(metrics_reader) == snapshot(
         [
             'process.cpu.utilization',
+            'system.cpu.load_average.1m',
             'system.cpu.simple_utilization',
             'system.memory.utilization',
+            'system.process.count',
             'system.swap.utilization',
         ]
     )
@@ -67,6 +69,7 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
             'process.open_file_descriptor.count',
             'process.runtime.cpython.gc_count',
             'process.thread.count',
+            'system.cpu.load_average.1m',
             'system.cpu.simple_utilization',
             'system.cpu.time',
             'system.cpu.utilization',
@@ -79,6 +82,7 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
             'system.network.errors',
             'system.network.io',
             'system.network.packets',
+            'system.process.count',
             'system.swap.usage',
             'system.swap.utilization',
             'system.thread_count',
@@ -90,6 +94,18 @@ def test_measure_process_runtime_cpu_utilization(metrics_reader: InMemoryMetricR
     # This metric is now deprecated by OTEL, but there isn't a strong reason to stop allowing it when requested
     logfire.instrument_system_metrics({'process.runtime.cpu.utilization': None}, base=None)  # type: ignore
     assert get_collected_metric_names(metrics_reader) == ['process.runtime.cpython.cpu.utilization']
+
+
+def test_system_cpu_load_average_1m(metrics_reader: InMemoryMetricReader) -> None:
+    """Load average isn't in upstream `SystemMetricsInstrumentor` — Logfire emits it."""
+    logfire.instrument_system_metrics({'system.cpu.load_average.1m': None}, base=None)
+    assert get_collected_metric_names(metrics_reader) == ['system.cpu.load_average.1m']
+
+
+def test_system_process_count(metrics_reader: InMemoryMetricReader) -> None:
+    """Process count isn't in upstream `SystemMetricsInstrumentor` — Logfire emits it."""
+    logfire.instrument_system_metrics({'system.process.count': None}, base=None)
+    assert get_collected_metric_names(metrics_reader) == ['system.process.count']
 
 
 def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
@@ -116,6 +132,8 @@ def test_basic_base():
         'system.cpu.simple_utilization': None,
         'system.memory.utilization': ['available'],
         'system.swap.utilization': ['used'],
+        'system.cpu.load_average.1m': None,
+        'system.process.count': None,
     }, 'Docs need to be updated if this test fails'
 
 
@@ -186,6 +204,8 @@ def test_full_base():
         'cpython.gc.collected_objects': None,
         'cpython.gc.collections': None,
         'cpython.gc.uncollectable_objects': None,
+        'system.cpu.load_average.1m': None,
+        'system.process.count': None,
     }, 'Docs and the MetricName type need to be updated if this test fails'
 
 

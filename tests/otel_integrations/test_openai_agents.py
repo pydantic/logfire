@@ -45,6 +45,7 @@ from agents.tracing.spans import NoOpSpan
 from agents.tracing.traces import NoOpTrace
 from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
 
+from logfire._internal.integrations import openai_agents
 from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
 os.environ['OPENAI_DEFAULT_MODEL'] = 'gpt-4o'
@@ -492,7 +493,14 @@ def simplify_spans(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 @pytest.mark.vcr()
 @pytest.mark.anyio
-async def test_responses(exporter: TestExporter):
+async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    get_openai_usage_attributes = openai_agents.get_openai_usage_attributes
+
+    def assert_provider_url(response: Any, base_url: str | None = None) -> dict[str, Any]:
+        assert base_url == 'https://api.openai.com/v1/'
+        return get_openai_usage_attributes(response, base_url)
+
+    monkeypatch.setattr(openai_agents, 'get_openai_usage_attributes', assert_provider_url)
     logfire.instrument_openai_agents()
 
     @function_tool
@@ -666,6 +674,7 @@ async def test_responses(exporter: TestExporter):
                     'logfire.msg': "Responses API with 'gpt-4o'",
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.operation.name': 'chat',
+                    'operation.cost': 0.0004025,
                     'raw_input': [
                         {'content': 'Generate a random number then, hand off to agent2.', 'role': 'user'},
                         {
@@ -691,6 +700,13 @@ async def test_responses(exporter: TestExporter):
                             'type': 'function_call_output',
                         },
                     ],
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 89,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 18,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 107,
+                    },
                     'events': [
                         {
                             'event.name': 'gen_ai.system.message',
@@ -914,6 +930,14 @@ async def test_input_guardrails(exporter: TestExporter):
                         {'event.name': 'gen_ai.assistant.message', 'content': '1 + 1 equals 2.', 'role': 'assistant'},
                     ],
                     'gen_ai.usage.input_tokens': 29,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 29,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 9,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 38,
+                    },
+                    'operation.cost': 0.0001625,
                     'gen_ai.usage.output_tokens': 9,
                 },
             },
@@ -1555,6 +1579,14 @@ async def test_responses_simple(exporter: TestExporter):
                         {'event.name': 'gen_ai.assistant.message', 'content': '2 + 2 = 4', 'role': 'assistant'},
                     ],
                     'gen_ai.usage.input_tokens': 11,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 11,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 8,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 19,
+                    },
+                    'operation.cost': 0.0001075,
                     'gen_ai.usage.output_tokens': 8,
                 },
             },
@@ -1679,6 +1711,14 @@ async def test_responses_simple(exporter: TestExporter):
                     'gen_ai.usage.output_tokens': 6,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4o'",
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 28,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 6,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 34,
+                    },
+                    'operation.cost': 0.00013,
                     'logfire.span_type': 'span',
                 },
             },
@@ -1845,6 +1885,14 @@ See JSON for details\
                         },
                     ],
                     'gen_ai.usage.input_tokens': 1144,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 1144,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 38,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 1182,
+                    },
+                    'operation.cost': 0.00324,
                     'gen_ai.usage.output_tokens': 38,
                 },
             },
@@ -2004,6 +2052,14 @@ See JSON for details\
                     'gen_ai.usage.output_tokens': 10,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4o'",
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 862,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 10,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 872,
+                    },
+                    'operation.cost': 0.002255,
                     'logfire.span_type': 'span',
                 },
             },
@@ -2158,6 +2214,14 @@ async def test_function_tool_exception(exporter: TestExporter):
                     ],
                     'gen_ai.usage.input_tokens': 244,
                     'gen_ai.usage.output_tokens': 10,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 244,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 10,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 254,
+                    },
+                    'operation.cost': 0.00071,
                     'logfire.msg': "Responses API with 'gpt-4o'",
                 },
             },
@@ -2291,6 +2355,14 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'gen_ai.usage.input_tokens': 283,
                     'gen_ai.usage.output_tokens': 30,
                     'gen_ai.system': 'openai',
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 283,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 30,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 313,
+                    },
+                    'operation.cost': 0.0010075,
                     'logfire.msg': "Responses API with 'gpt-4o'",
                 },
             },
@@ -2468,6 +2540,14 @@ async def test_voice_pipeline(exporter: TestExporter):
                     'gen_ai.usage.output_tokens': 41,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4o'",
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 10,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 41,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 51,
+                    },
+                    'operation.cost': 0.000435,
                     'logfire.span_type': 'span',
                 },
             },

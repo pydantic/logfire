@@ -10,23 +10,22 @@ Connect the framework, prompts, tools, and agent workflow you already use to the
 !!! note "Gateway vs. instrument"
     These guides **route** your model calls through the gateway for spending caps, failover, and shared keys. If you only want to **see and debug** the calls you already make, you don't need the gateway: [instrument a framework](../../../../integrations/llms/index.md) instead.
 
-Each guide shows the two client settings you need to change: the API key and gateway URL. You can point them at one model provider or at a [routing group](../index.md#routing-groups), which can fail over to another provider or distribute requests across several providers.
+Each guide shows the two client settings you need to change: the API key and gateway URL. You can point them at one model provider or a [gateway endpoint](../index.md#gateway-endpoints), which can fail over to another provider or distribute requests across several providers.
 
 ## Before you start
 
-1. If your organization has not enabled the gateway, follow [Enable the gateway](../index.md#enable-the-gateway). You need to be an organization admin.
-2. In Logfire, open your organization, then select **AI Engineering** > **Gateway** > **API Keys**.
-3. Create or copy a gateway API key, then set it in the terminal where you will run the example:
+1. Follow [Send your first Gateway request](../first-request.md) to enable Gateway, choose a provider or endpoint, and get a project-scoped Gateway API key. An organization admin must enable Gateway and configure a provider.
+2. Set the Gateway API key in the terminal where you will run the example. Keep it out of source control:
 
     ```bash
     export LOGFIRE_GATEWAY_API_KEY="..."
     ```
 
-4. On the Gateway **Connect** tab, select a provider and model. Copy the gateway URL and model name into the example.
+3. On the Gateway **Connect** tab, select a route and model. Copy the gateway URL and model name into the example.
 
 The examples use the OpenAI-compatible route for the US region, `https://gateway-us.pydantic.dev/proxy/openai`. For the EU region, use `gateway-eu` instead. For a self-hosted organization, copy the URL from the **Connect** tab.
 
-Most examples use an OpenAI-compatible client. The provider or routing group you select must support the OpenAI request format and the model name in the example. Provider-native APIs, such as Anthropic Messages, require that provider's client. See [Connect an SDK](../index.md#connect-an-sdk) for both patterns.
+Most examples use an OpenAI-compatible client. The provider or gateway endpoint you select must support the OpenAI request format and the model name in the example. Provider-native APIs, such as Anthropic Messages, require that provider's client. See [Connect an SDK](../index.md#connect-an-sdk) for both patterns.
 
 !!! note "Model data passes through Logfire"
     These settings send prompts, tool inputs, and model responses through the Logfire AI Gateway and the selected model provider. If gateway telemetry is enabled, Logfire records the model, latency, token usage, and conversation content in your selected project. Calls to built-in providers count toward your gateway spend.
@@ -54,4 +53,4 @@ Most examples use an OpenAI-compatible client. The provider or routing group you
 
 ## Next steps
 
-Read the [AI Gateway overview](../index.md) to learn how providers, routing groups, spending limits, and telemetry work together.
+Read the [AI Gateway overview](../index.md) to learn how providers, gateway endpoints, spending limits, and telemetry work together.
