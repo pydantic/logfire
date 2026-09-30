@@ -25,7 +25,7 @@ The [attributes processor](https://github.com/open-telemetry/opentelemetry-colle
 
 For example, here's a config snippet showing how to:
 - Replace any attribute with the _exact_ keys `session_id` or `user_token` with 'SCRUBBED'
-- Remove completely any key that _contains_ `password`
+- Remove completely any key that _contains_ `password`, whatever its case
 ```yaml title="otel-collector-config.yaml"
 processors:
   attributes:
@@ -36,9 +36,10 @@ processors:
       - key: user_token
         action: update
         value: "SCRUBBED"
-      # Using `pattern` instead of `key` matches any key containing the pattern
-      - pattern: "password"
-      # Remove the key completely instead of replacing
+      # `pattern` matches the key by regular expression instead of exactly.
+      # It is case sensitive, so `(?i)` is what makes it catch `dbPassword` and `PASSWORD`.
+      - pattern: "(?i)password"
+      # Remove the key completely instead of replacing its value
         action: delete
 ```
 
@@ -102,8 +103,8 @@ processors:
       - key: user_token
         action: update
         value: "[Scrubbed due to user_token]"
-      # Remove any key containing `password` outright.
-      - pattern: "password"
+      # Remove any key containing `password`, in any case, outright.
+      - pattern: "(?i)password"
         action: delete
 
   # Next, find and mask any PII values we missed.
