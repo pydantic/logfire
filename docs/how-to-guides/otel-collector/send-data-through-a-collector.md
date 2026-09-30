@@ -87,7 +87,14 @@ with logfire.span('hello from the collector'):
 
 The SDK appends `/v1/traces`, `/v1/metrics`, and `/v1/logs` to that endpoint on its own.
 
-Non-Python applications need no Logfire-specific setup. Point any OpenTelemetry SDK at `http://localhost:4318` in the same way.
+Non-Python applications need no Logfire-specific setup, but the receiver above accepts OTLP over HTTP only, and some OpenTelemetry SDKs default to gRPC on port 4317. Set the protocol as well as the endpoint:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+```
+
+To accept gRPC instead, add a `grpc` protocol block to the receiver alongside `http`.
 
 ## Verify data arrives
 

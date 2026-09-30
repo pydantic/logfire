@@ -43,7 +43,15 @@ with logfire.set_baggage(tenant=customer_id):
     handle_request()
 ```
 
-Every span (one unit of work: a single operation, with a name, a start, and a duration) opened inside that block carries a `tenant` attribute, including spans created by instrumented libraries and by downstream services that receive the request. That last part matters: a trace (the full journey of one request, made of nested spans) that spans several services stays whole, because baggage travels with the request.
+Every span (one unit of work: a single operation, with a name, a start, and a duration) opened inside that block carries a `tenant` attribute, including spans created by instrumented libraries.
+
+Two limits are worth knowing before you rely on this:
+
+- **Spans started before the block do not carry the key.** A server span created by an instrumented web framework opens before your handler runs, so set the baggage in middleware if you want that span routed too. A span without the key goes to the default pipeline, which splits the trace (the full journey of one request, made of nested spans) across projects.
+- **Downstream services need the same behavior.** Baggage travels with the request, but turning it into a span attribute is what the Logfire SDK's `add_baggage_to_attributes` setting does. A service using a plain OpenTelemetry SDK propagates the baggage without putting it on its spans, so those spans are not routed by it.
+
+!!! warning
+    Baggage travels in request headers, so a caller outside your system can set it. Never route on a value that arrived from an untrusted client: overwrite the key from your own authenticated tenant state at the edge, before the request reaches anything that opens a span. Otherwise a caller can choose which project their data lands in.
 
 Point the application at the Collector and turn off sending straight to Logfire, so the Collector is the only path out:
 
@@ -135,13 +143,27 @@ If you want to confirm the routing before pointing it at real projects, add a `d
 exporters:
   debug:
     verbosity: detailed
+
+service:
+  pipelines:
+    traces/internal:
+      receivers: [routing]
+      exporters: [otlphttp/internal, debug]
 ```
+
+An exporter only runs when a pipeline lists it, so adding `debug` under `exporters` alone prints nothing.
 
 ## Route on a fixed attribute instead
 
 When the destination depends on the service rather than the request, route on a resource attribute. Resource attributes describe the process emitting the data, so `context: resource` evaluates once per batch instead of once per span:
 
 ```yaml title="otel-collector-config.yaml"
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
 connectors:
   routing:
     default_pipelines: [traces/internal]
@@ -155,6 +177,10 @@ connectors:
         pipelines: [traces/staging]
 
 exporters:
+  otlphttp/internal:
+    endpoint: "https://logfire-us.pydantic.dev"
+    headers:
+      Authorization: "Bearer ${env:LOGFIRE_TOKEN_INTERNAL}"
   otlphttp/production:
     endpoint: "https://logfire-us.pydantic.dev"
     headers:

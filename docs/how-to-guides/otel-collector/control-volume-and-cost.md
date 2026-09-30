@@ -78,6 +78,8 @@ service:
 
 Policies are evaluated together, and a trace is kept when any one of them says keep. So this configuration keeps every failed request, every request slower than one second, and 10% of everything else.
 
+Tail sampling can only keep what reaches it. If the application or an upstream Collector already dropped a trace through head sampling, no policy here can bring it back, so leave head sampling at 100% on the traffic you want these policies to judge.
+
 `decision_wait: 10s` is how long the Collector holds a trace before deciding. It must be longer than your slowest trace, or long traces are judged on the spans that arrived in time. `num_traces` is how many traces it holds in memory while waiting, so raising `decision_wait` or your traffic raises memory use.
 
 !!! warning
@@ -117,7 +119,7 @@ Then compare the **Usage** tab against the number you wrote down before the chan
 
 **Sampling keeps far more than the percentage suggests.** A trace is kept when any policy matches. If most of your traffic is erroring or slow, the `keep-errors` and `keep-slow` policies are doing exactly what you asked. Check the error rate before lowering the probabilistic percentage.
 
-**Memory climbs after enabling tail sampling.** The Collector holds every in-flight trace for `decision_wait`. Lower it, lower `num_traces`, or give the Collector more memory. Add the `memory_limiter` processor as the first processor in the pipeline to make the limit explicit.
+**Memory climbs after enabling tail sampling.** The Collector holds every in-flight trace for `decision_wait`. Shorten `decision_wait` or give the Collector more memory, and add the `memory_limiter` processor first in the pipeline to make the ceiling explicit. Lower `num_traces` only as a last resort: it is a hard cap on traces held in memory, and traces evicted when it is reached are dropped before any policy judges them, so errors and slow requests stop being kept.
 
 **Traces look incomplete only since enabling tail sampling.** More than one Collector instance is receiving spans from one trace. See the warning above.
 
