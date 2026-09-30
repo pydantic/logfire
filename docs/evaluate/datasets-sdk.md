@@ -122,14 +122,19 @@ with LogfireAPIClient(api_key='your-api-key') as client:
 - it updates the hosted dataset if one already exists with the same name
 - it uploads all cases through the existing import/upsert API
 - it uses `on_case_conflict='update'` by default, so named cases are updated on repeat pushes
+- it accepts `on_case_conflict='error'` when an existing case name should fail the import instead
+
+Hosted names must start with a letter or number and contain only letters, numbers, dots, underscores, and hyphens.
 
 !!! note "Server-side limits on writes"
 
-    Cases are validated against the hosted dataset's JSON schemas on every write, and a request whose cases do not match is rejected in full rather than partially applied. A hosted dataset also holds at most 10,000 cases, counted as the cases a push would create: updating existing named cases does not consume capacity, while every unnamed case does. A push that would exceed the limit fails instead of truncating. See [Manage datasets](manage-datasets.md#schemas-are-enforced-on-every-write).
+    Cases are validated against the hosted dataset's JSON schemas when they are created or imported. Partial case updates validate only the fields they submit. One case-import request is rejected in full rather than partially applied when validation fails. `push_dataset(...)` itself is not atomic: it creates or updates the hosted dataset before importing the cases, so that first change can remain if the import fails.
+
+    A hosted dataset also holds at most 10,000 cases, counted as the cases a write would create. Updating existing named cases does not consume capacity, while every unnamed case does. A case-import request that would exceed the limit fails instead of truncating. See [Manage datasets](manage-datasets.md#schemas-are-enforced-on-case-writes).
 
 !!! note "Round-tripping evaluators"
 
-    `push_dataset(...)` uploads case-level evaluators with their cases, plus dataset-level `evaluators` and `report_evaluators` from the `Dataset` itself. Each push overwrites the hosted values, so removing an evaluator locally and re-pushing also clears it on the server.
+    `push_dataset(...)` uploads case-level evaluators with their cases, plus dataset-level `evaluators` and `report_evaluators` from the `Dataset` itself. Each push replaces the dataset-level evaluator lists. Case-level evaluators are replaced for the cases included in the push; omitted hosted cases and their evaluators remain unchanged.
 
     To deserialize the hosted values back into typed instances, pass the same custom types you would to `Dataset.from_file(...)`:
 
@@ -168,6 +173,8 @@ client.add_cases(
     cases=local_dataset.cases,
 )
 ```
+
+By default, a case whose name already exists is updated; the submitted case replaces its stored content rather than merging individual fields. Pass `on_conflict='error'` to reject a request containing an existing case name. New named cases and every unnamed case are created.
 
 You can also pass plain dicts instead of `Case` objects:
 
