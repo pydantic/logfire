@@ -44,7 +44,7 @@ MILLISECOND_METRIC_INTERVAL_PATTERNS = (
     re.compile(r'\botel_interval_milliseconds\s*=\s*(\d+)\b'),
     re.compile(r'\bOTEL_METRICS?_EXPORT(?:ER)?_INTERVAL(?:_MILLIS)?=(\d+)\b'),
 )
-YAML_BLOCK_PATTERN = re.compile(r'^(?P<indent>[ \t]*)```yaml[^\n]*\n(?P<body>.*?)^(?P=indent)```', re.S | re.M)
+YAML_BLOCK_PATTERN = re.compile(r'^(?P<indent>[ \t]*)```yaml[^\n]*\n(?P<body>.*?)^(?P=indent)```[ \t]*$', re.S | re.M)
 """Fenced YAML blocks in a documentation page, including blocks indented inside a `???` callout.
 
 The closing fence has to match the opening fence's indentation, otherwise an indented block
@@ -159,8 +159,12 @@ def test_hostmetrics_examples_enable_the_metrics_the_hosts_page_reads():
             # omitting it is illustrating something else and is not held to this rule.
             if 'resourcedetection' not in block:
                 continue
+            hostmetrics = _yaml_child_block(block, 'hostmetrics')
+            scrapers = _yaml_child_block(hostmetrics, 'scrapers') if hostmetrics else None
+            if scrapers is None:
+                continue
             for scraper, metric in HOSTMETRICS_SCRAPER_UTILIZATION.items():
-                scraper_body = _yaml_child_block(block, scraper)
+                scraper_body = _yaml_child_block(scrapers, scraper)
                 if scraper_body is None:
                     continue
                 # The metric has to sit under this scraper and be switched on. Matching the name
