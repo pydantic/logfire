@@ -55,7 +55,7 @@ Two limits are worth knowing before you rely on this:
 
 Point the application at the Collector and turn off sending straight to Logfire, so the Collector is the only path out:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import os
 
 os.environ['OTEL_EXPORTER_OTLP_ENDPOINT'] = 'http://collector:4318'

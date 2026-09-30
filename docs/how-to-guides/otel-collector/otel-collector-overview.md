@@ -97,7 +97,7 @@ The Collector appends `/v1/traces`, `/v1/metrics`, and `/v1/logs` to that endpoi
 
 Point the SDK at the Collector, and decide whether it should also keep sending straight to Logfire:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import os
 
 os.environ['OTEL_EXPORTER_OTLP_ENDPOINT'] = 'http://collector:4318'

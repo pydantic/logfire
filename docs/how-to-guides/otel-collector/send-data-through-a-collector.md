@@ -75,7 +75,7 @@ docker run --rm \
 
 Set the endpoint and turn off sending straight to Logfire, so the Collector is the only path out:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import os
 
 os.environ['OTEL_EXPORTER_OTLP_ENDPOINT'] = 'http://localhost:4318'
