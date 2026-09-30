@@ -9,6 +9,7 @@ from typing import Any, Generic, TypeVar, cast
 from weakref import WeakSet
 
 from opentelemetry.metrics import (
+    CallbackOptions,
     CallbackT,
     Counter,
     Histogram,
@@ -19,6 +20,7 @@ from opentelemetry.metrics import (
     ObservableCounter,
     ObservableGauge,
     ObservableUpDownCounter,
+    Observation,
     UpDownCounter,
     _Gauge as Gauge,
 )
@@ -119,13 +121,14 @@ def _span_safe_metric_attributes(attributes: Attributes | None) -> Attributes | 
 
 def _metric_scalar_is_valid(value: Any) -> bool:
     # isinstance rather than exact type on purpose: a hashable, OTLP-encodable subclass
-    # (e.g. ``numpy.float64``/``numpy.int64`` registered as ``float``/``int`` subclasses,
-    # or an ``IntEnum`` member) is a perfectly valid attribute value. What must be rejected
-    # is an unhashable subclass (e.g. a ``str`` subclass overriding ``__hash__``), which
-    # passes ``isinstance`` but then raises inside the OpenTelemetry SDK when it builds
+    # of an accepted type is a perfectly valid attribute value. What must be rejected is an
+    # unhashable subclass (e.g. a ``str`` subclass overriding ``__hash__``), which passes
+    # ``isinstance`` but then raises inside the OpenTelemetry SDK when it builds
     # ``frozenset(attributes.items())`` as the aggregation key. A hashability probe rejects
     # exactly that failure mode while keeping valid subclasses. ``bool`` is an ``int``
-    # subclass and is intentionally kept.
+    # subclass and is intentionally kept. Note that ``numpy.int64`` is *not* an ``int``
+    # subclass in numpy 2.x and is therefore dropped here like any other unsupported type,
+    # while ``numpy.float64`` is registered as a ``float`` subclass and is kept.
     if not isinstance(value, _VALID_METRIC_ATTRIBUTE_TYPES):
         return False
     try:
@@ -138,6 +141,33 @@ def _metric_scalar_is_valid(value: Any) -> bool:
     if isinstance(value, int) and not isinstance(value, bool):
         return -OTLP_MAX_INT_SIZE - 1 <= value <= OTLP_MAX_INT_SIZE
     return True
+
+
+def _sanitize_observable_callbacks(
+    callbacks: Sequence[CallbackT] | None,
+) -> Sequence[CallbackT] | None:
+    """Sanitize the attributes of every ``Observation`` an observable callback yields.
+
+    ``_ProxyCounter.add``/``_ProxyHistogram.record`` sanitize attributes before they
+    reach the SDK, but observable instruments hand user callbacks straight to the real
+    instrument: each ``Observation(value, attributes={...})`` would otherwise reach the
+    ``frozenset(attributes.items())`` aggregation key and the exporter unsanitized -
+    the same failure class as issue #782, reachable through ``logfire.metric_*_callback``.
+    Wrapping the callbacks applies the same sanitizer to every yielded observation.
+    """
+    if not callbacks:
+        return callbacks
+
+    def wrap(callback: CallbackT) -> CallbackT:
+        def wrapped(options: CallbackOptions) -> Sequence[Observation]:
+            return [
+                Observation(value=obs.value, attributes=_sanitize_metric_attributes(obs.attributes))
+                for obs in callback(options)
+            ]
+
+        return wrapped
+
+    return tuple(wrap(c) for c in callbacks)
 
 
 # The following proxy classes are adapted from OTEL's SDK
@@ -359,17 +389,23 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
 
 class _ProxyObservableCounter(_ProxyInstrument[ObservableCounter], ObservableCounter):
     def _create_real_instrument(self, meter: Meter) -> ObservableCounter:
-        return meter.create_observable_counter(**self._kwargs)
+        kwargs = dict(self._kwargs)
+        kwargs['callbacks'] = _sanitize_observable_callbacks(kwargs.get('callbacks'))
+        return meter.create_observable_counter(**kwargs)
 
 
 class _ProxyObservableGauge(_ProxyInstrument[ObservableGauge], ObservableGauge):
     def _create_real_instrument(self, meter: Meter) -> ObservableGauge:
-        return meter.create_observable_gauge(**self._kwargs)
+        kwargs = dict(self._kwargs)
+        kwargs['callbacks'] = _sanitize_observable_callbacks(kwargs.get('callbacks'))
+        return meter.create_observable_gauge(**kwargs)
 
 
 class _ProxyObservableUpDownCounter(_ProxyInstrument[ObservableUpDownCounter], ObservableUpDownCounter):
     def _create_real_instrument(self, meter: Meter) -> ObservableUpDownCounter:
-        return meter.create_observable_up_down_counter(**self._kwargs)
+        kwargs = dict(self._kwargs)
+        kwargs['callbacks'] = _sanitize_observable_callbacks(kwargs.get('callbacks'))
+        return meter.create_observable_up_down_counter(**kwargs)
 
 
 class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):

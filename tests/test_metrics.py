@@ -1147,3 +1147,23 @@ def test_metric_bytes_in_sequence_dropped_from_span_collection(exporter: TestExp
     assert span['attributes']['logfire.metrics'] == {
         'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
     }
+
+
+def test_metric_observable_callback_attributes_are_sanitized(metrics_reader: InMemoryMetricReader) -> None:
+    # Observable callbacks hand ``Observation(value, attributes=...)`` straight to the
+    # real instrument; without the wrapper added in _ProxyObservable*, an unsupported
+    # attribute value reaches the frozenset(attributes.items()) aggregation key and the
+    # exporter unsanitized - the exact failure class of issue #782, reachable through
+    # ``logfire.metric_*_callback``. The wrapper must apply the same sanitizer the
+    # synchronous paths use.
+    def observable_counter(options: CallbackOptions):
+        yield Observation(1, attributes={'bad': _UnhashableStr('x'), 'good': 'yes'})
+
+    logfire.metric_counter_callback('counter_callback', callbacks=[observable_counter])
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type _UnhashableStr"):
+        metrics_reader.collect()
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
