@@ -32,6 +32,13 @@ The Collector can only route on something it can see in the data. Attach the rou
 ```python
 import logfire
 
+
+def handle_request() -> None:
+    logfire.info('handling the request')
+
+
+customer_id = 'acme'
+
 with logfire.set_baggage(tenant=customer_id):
     handle_request()
 ```
