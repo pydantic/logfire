@@ -1015,6 +1015,72 @@ def test_metric_in_range_int_attributes_are_kept(metrics_reader: InMemoryMetricR
     }
 
 
+class _HashableIntSubclass(int):
+    # A plain, hashable subclass of ``int``: ``isinstance(x, int)`` is True, ``hash(x)``
+    # works, and OTLP encodes it as a 64-bit int. Exact-type matching drops it even though
+    # it is a perfectly valid attribute value; hash probing keeps it.
+    pass
+
+
+class _HashableFloatSubclass(float):
+    # Same for ``float``: a hashable subclass that OTLP encodes as a double.
+    pass
+
+
+def test_metric_hashable_int_and_float_subclass_attributes_are_kept(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('counter')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        counter.add(
+            1,
+            {
+                'i': _HashableIntSubclass(7),
+                'f': _HashableFloatSubclass(1.5),
+                'seq': (_HashableIntSubclass(2), _HashableFloatSubclass(3.5)),
+            },
+        )
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'i': 7, 'f': 1.5, 'seq': [2, 3.5]}
+
+
+def test_metric_intenum_attribute_is_kept(metrics_reader: InMemoryMetricReader) -> None:
+    from enum import IntEnum
+
+    class _Level(IntEnum):
+        LOW = 1
+        HIGH = 2
+
+    counter = logfire.metric_counter('counter')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        counter.add(1, {'level': _Level.HIGH})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'level': 2}
+
+
+def test_metric_numpy_scalar_attributes_are_kept(metrics_reader: InMemoryMetricReader) -> None:
+    np = pytest.importorskip('numpy')
+
+    counter = logfire.metric_counter('counter')
+
+    # ``numpy.float64`` is registered as a Python ``float`` subclass and encodes cleanly, so the
+    # hashability probe keeps it. ``numpy.int64`` is *not* an ``int`` subclass (``isinstance`` is
+    # False in numpy 2.x), so it is dropped like any other unsupported type — the probe only
+    # relaxes the gate for values that pass ``isinstance`` and the OTLP encoder.
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'i64'"):
+        counter.add(1, {'i64': np.int64(7), 'f64': np.float64(1.5), 'seq': (np.float64(2.5),)})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'f64': 1.5, 'seq': [2.5]}
+
+
 def test_metric_bytes_attribute_kept_in_export_but_dropped_from_span_collection(
     exporter: TestExporter, metrics_reader: InMemoryMetricReader
 ) -> None:
