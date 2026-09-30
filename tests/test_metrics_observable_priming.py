@@ -12,18 +12,18 @@ generator, which either drops a collection or makes a callback that consumes the
 from __future__ import annotations
 
 import warnings
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Sequence
 
-from opentelemetry.metrics import CallbackOptions, Observation
+from opentelemetry.metrics import CallbackOptions, CallbackT, Observation
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
-from logfire._internal.metrics import (  # pyright: ignore[reportPrivateUsage]
-    _ProxyObservableCounter,
+from logfire._internal.metrics import (
+    _ProxyObservableCounter,  # pyright: ignore[reportPrivateUsage]
 )
 
 
-def _observable_counter(provider: MeterProvider, callbacks: list) -> _ProxyObservableCounter:
+def _observable_counter(provider: MeterProvider, callbacks: Sequence[CallbackT]) -> _ProxyObservableCounter:
     return _ProxyObservableCounter(
         provider.get_meter('priming'),
         name='priming_counter',
@@ -56,7 +56,7 @@ def test_generator_callback_that_consumes_options_survives_meter_reconfiguration
     def callback() -> Generator[Iterable[Observation], CallbackOptions, None]:
         options = yield []
         while True:
-            options = yield [Observation(1, {'timeout_millis': options.timeout_millis, 'bad': object()})]
+            options = yield [Observation(1, {'timeout_millis': options.timeout_millis, 'bad': object()})]  # pyright: ignore[reportArgumentType]
 
     reader = InMemoryMetricReader()
     provider = MeterProvider(metric_readers=[reader])
