@@ -154,8 +154,8 @@ The Hosts page populates within about a minute. To collect metrics from the host
 
 | Symptom | Likely cause |
 |---------|--------------|
-| Host doesn't appear in the inventory | Metrics arrived without a `host.name`, which is what the inventory groups by. Add the `system` (and any cloud) detector to your Collector's `resourcedetection` processor. |
+| Host doesn't appear in the inventory | Metrics arrived without the attribute the inventory identifies hosts by: `host.name` for an ordinary machine, or `k8s.node.name` for a Kubernetes node. Add the `system` (and any cloud) detector to your Collector's `resourcedetection` processor; on Kubernetes, set the node name from the downward API (`spec.nodeName`) so both attributes agree. |
 | Same physical host shows up twice | Two sources are reporting different `host.name` values, for example the SDK reports the container's hostname while the Collector reports the machine's. Pick one source per host, or set `host.name` explicitly. |
-| One machine appears as several hosts, one per container | Each replica is reporting its own container hostname as `host.name`. Bind-mount the host's filesystem and set `root_path: /hostfs` so `resourcedetection`'s `system` detector reads the real machine instead of the container. |
+| One machine appears as several hosts, one per container | Each replica is reporting its own container hostname as `host.name`. `root_path` only affects which filesystem the metrics are read from, not the hostname, so set the identity directly: pass the node name in through the environment and let the `env` detector pick it up, or set `host.name` explicitly in `resource_attributes`. |
 | All hosts became **Delayed** or **Not reporting** at the same moment | The collector restarted, or a network blip is blocking exports. The page is just a window on what arrived. Confirm with the collector's own logs. |
 | Kubernetes node appears as both a host *and* a node, but with different names | `host.name` does not match `k8s.node.name`. Set both from the downward API (`spec.nodeName`) so they dedup correctly. See [Hosts that are Kubernetes nodes](#hosts-that-are-kubernetes-nodes). |
