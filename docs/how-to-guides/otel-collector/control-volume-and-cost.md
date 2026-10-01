@@ -52,27 +52,10 @@ wrong when it is not. If your health endpoint touches a database, the rule above
 parent (it is the span carrying `url.path`) and removes it, while the child database span is
 untouched and arrives on its own. You get a fragment rather than nothing.
 
-When the traffic you want gone is a whole trace rather than one span, drop it in `tail_sampling`
-instead, which decides per trace:
-
-```yaml title="otel-collector-config.yaml"
-processors:
-  tail_sampling:
-    policies:
-      - name: drop-health-checks
-        type: drop
-        drop:
-          drop_sub_policy:
-            - name: health-path
-              type: string_attribute
-              string_attribute:
-                key: url.path
-                values: [/health, /ready]
-      - name: keep-the-rest
-        type: always_sample
-```
-
-That removes the health check and its children together, and leaves everything else alone.
+If your health checks are whole traces, use the `drop-health-checks` policy in the next section
+instead of these rules. Tail sampling decides per trace, so it removes the parent and its
+children together. Do not do both: the filter would delete the parent before the sampler ever
+sees the trace.
 
 ## Keep the interesting traces and sample the rest
 
@@ -85,6 +68,16 @@ processors:
     num_traces: 100000
     expected_new_traces_per_sec: 1000
     policies:
+      # Whole traces to throw away, evaluated before anything that keeps them.
+      - name: drop-health-checks
+        type: drop
+        drop:
+          drop_sub_policy:
+            - name: health-path
+              type: string_attribute
+              string_attribute:
+                key: url.path
+                values: [/health, /ready]
       - name: keep-errors
         type: status_code
         status_code:
@@ -176,7 +169,7 @@ Then compare the **Usage** tab against the number you wrote down before the chan
 
 ## Troubleshoot volume changes
 
-**Traces arrive with gaps in them.** A `filter` rule is removing spans from the middle of a trace. Restrict the rule to spans with no parent, or move the decision into `tail_sampling`, which keeps or drops whole traces.
+**Traces arrive with gaps in them.** A `filter` rule is removing some spans of a trace and not others, which is what per-span filtering does. Restricting the rule to root spans does not help: it drops the parent and leaves the children, which is the gap. Move that decision to the `drop` policy in `tail_sampling`, which removes the whole trace.
 
 **Sampling keeps far more than the percentage suggests.** A trace is kept when any policy matches. If most of your traffic is erroring or slow, the `keep-errors` and `keep-slow` policies are doing exactly what you asked. Check the error rate before lowering the probabilistic percentage.
 

@@ -74,9 +74,10 @@ processors:
 
 !!! warning
     Keep `allow_all_keys: true` unless you mean to use an allowlist. This processor fails closed:
-    with no `allowed_keys` and the flag removed, it strips **every** attribute from every span,
-    and from every log record and metric datapoint in the pipelines below, rather than only
-    masking the values you blocked. That is deliberate upstream behaviour, and it
+    with no `allowed_keys` and the flag removed, it strips **every** attribute rather than
+    masking the values you blocked. That covers span, log record and metric datapoint
+    attributes, and resource attributes with them, so `service.name` goes too and the data
+    arrives belonging to nothing. That is deliberate upstream behaviour, and it
     is easy to trigger by deleting what looks like a redundant line.
 
 ## Scrub only when a condition holds

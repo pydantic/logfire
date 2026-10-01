@@ -32,7 +32,13 @@ You need:
     ```
 
     The [fixed-attribute variant](#route-on-a-fixed-attribute-instead) further down uses
-    `LOGFIRE_TOKEN_PRODUCTION` and `LOGFIRE_TOKEN_STAGING` instead of the per-customer ones.
+    `LOGFIRE_TOKEN_PRODUCTION` and `LOGFIRE_TOKEN_STAGING` instead of the per-customer ones,
+    so export whichever set your configuration reads:
+
+    ```bash
+    export LOGFIRE_TOKEN_PRODUCTION='<production-write-token>'
+    export LOGFIRE_TOKEN_STAGING='<staging-write-token>'
+    ```
 
     A Collector in a container does not inherit those. Pass each one in, or the exporters
     send an empty token and every project answers `401`:
@@ -41,6 +47,7 @@ You need:
     docker run --rm \
       -p 127.0.0.1:4318:4318 \
       -e LOGFIRE_TOKEN_ACME -e LOGFIRE_TOKEN_GLOBEX -e LOGFIRE_TOKEN_INTERNAL \
+      -e LOGFIRE_TOKEN_PRODUCTION -e LOGFIRE_TOKEN_STAGING \
       -v "$(pwd)/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro" \
       otel/opentelemetry-collector-contrib:latest
     ```
@@ -87,12 +94,14 @@ Point the application at the Collector and turn off sending straight to Logfire,
 ```python skip-run="true" skip-reason="external-connection"
 import os
 
-os.environ['OTEL_EXPORTER_OTLP_ENDPOINT'] = 'http://collector:4318'
+os.environ['OTEL_EXPORTER_OTLP_ENDPOINT'] = 'http://localhost:4318'
 
 import logfire
 
 logfire.configure(send_to_logfire=False)
 ```
+
+Use `localhost` when the Collector runs on the same machine, as the command above does. If your application runs in its own container, use the Collector's service name on the shared network instead.
 
 Set the base endpoint rather than only `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`. With `send_to_logfire=False` and a traces-only endpoint, the SDK has nowhere to send metrics and logs and drops them silently.
 
