@@ -246,6 +246,8 @@ service:
       exporters: [otlphttp/internal]
 ```
 
+This variant reads `LOGFIRE_TOKEN_PRODUCTION` and `LOGFIRE_TOKEN_STAGING` instead of the per-customer tokens above, so export those before starting the Collector.
+
 Set that attribute from the application with [`logfire.configure(environment=...)`](../environments.md) or the `OTEL_RESOURCE_ATTRIBUTES` environment variable. Resource attributes are evaluated per emitting process, so every span from one process goes to the same place. A trace crossing services whose values differ is still split across projects.
 
 ## Send the same data to two projects

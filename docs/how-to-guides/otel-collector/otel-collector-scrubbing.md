@@ -72,6 +72,12 @@ processors:
 
 * **After:** `user.comment` = "My email is `***`, please contact me."
 
+!!! warning
+    Keep `allow_all_keys: true` unless you mean to use an allowlist. This processor fails closed:
+    with no `allowed_keys` and the flag removed, it strips **every** attribute from every span
+    rather than only masking the values you blocked. That is deliberate upstream behaviour, and it
+    is easy to trigger by deleting what looks like a redundant line.
+
 ## Scrub only when a condition holds
 
 The [transform processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/transformprocessor/README.md) uses the OpenTelemetry Transformation Language (OTTL), a small expression language for rewriting telemetry, so a rule can depend on the rest of the span.
@@ -103,7 +109,7 @@ Read the condition carefully before copying it, because each clause is load-bear
 
 To use these processors, you need to add them to a service pipeline in your Collector configuration. The data will flow through them in the order you specify.
 
-Here is a complete `config.yaml` showing how you might chain these processors together:
+Here is a complete configuration showing how to chain these processors together. It reads your write token from `LOGFIRE_TOKEN`, so export that where the Collector runs:
 
 ```yaml title="otel-collector-config.yaml"
 # 1. RECEIVERS: How the collector ingests data
@@ -145,7 +151,7 @@ processors:
             and (span.attributes["http.response.status_code"] == nil or span.attributes["http.response.status_code"] < 500)
             and (span.attributes["http.status_code"] == nil or span.attributes["http.status_code"] < 500)
 
-# 3. EXPORTERS: Where the scrubbed data is sent
+# 3. EXPORTERS: Where the scrubbed data is sent, reading LOGFIRE_TOKEN from the environment
 exporters:
   # `detailed` is what makes the Collector print each attribute, which is how the
   # verification step below shows you whether a rule fired.

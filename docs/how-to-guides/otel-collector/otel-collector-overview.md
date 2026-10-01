@@ -88,7 +88,7 @@ The one exception in this section is the [S3 backup guide](s3-backup.md), where 
 Two things have to match your project:
 
 - **The endpoint must match the [data region](../../reference/data-regions.md) your project lives in**, `logfire-us` or `logfire-eu`. A write token works only against its own region.
-- **The token is a write token**, the credential a deployed app uses to send data to a Logfire project. Pass it through the environment rather than writing it into the file.
+- **The token is a write token**, the credential a deployed app uses to send data to a Logfire project. `${env:LOGFIRE_TOKEN}` reads it from the environment, so export `LOGFIRE_TOKEN` where the Collector runs rather than writing the token into the file.
 
 The Collector appends `/v1/traces`, `/v1/metrics`, and `/v1/logs` to that endpoint on its own.
 
