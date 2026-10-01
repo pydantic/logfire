@@ -3,6 +3,7 @@
 import gc
 import os
 import re
+import textwrap
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -43,6 +44,23 @@ MILLISECOND_METRIC_INTERVAL_PATTERNS = (
     re.compile(r'\botel_interval_milliseconds\s*=\s*(\d+)\b'),
     re.compile(r'\bOTEL_METRICS?_EXPORT(?:ER)?_INTERVAL(?:_MILLIS)?=(\d+)\b'),
 )
+YAML_BLOCK_PATTERN = re.compile(r'^(?P<indent>[ \t]*)```yaml[^\n]*\n(?P<body>.*?)^(?P=indent)```[ \t]*$', re.S | re.M)
+"""Fenced YAML blocks in a documentation page, including blocks indented inside a `???` callout.
+
+The closing fence has to match the opening fence's indentation, otherwise an indented block
+runs on to the next unindented fence and swallows whatever lies between.
+"""
+
+HOSTMETRICS_SCRAPER_UTILIZATION = {
+    'cpu': 'system.cpu.utilization',
+    'memory': 'system.memory.utilization',
+}
+"""Scrapers whose `*.utilization` metric the Hosts page reads, and which the `hostmetrics`
+receiver leaves disabled by default.
+
+`filesystem` is deliberately absent. The Hosts surfaces read `system.filesystem.usage`, which the
+receiver emits by default, and nothing reads `system.filesystem.utilization`."""
+
 SENSITIVE_FROM_LITERAL_PATTERN = re.compile(
     r"""--from-literal(?:=|[ \t]+)["']?(?:[A-Z0-9_.-]*(?:TOKEN|PASSWORD|SECRET|[_.-]KEY)|KEY)=""",
     re.IGNORECASE,
@@ -103,6 +121,65 @@ def test_documented_metric_intervals_are_at_least_one_minute():
 
     assert not short_intervals, 'Metric examples must use intervals of at least 60 seconds:\n' + '\n'.join(
         short_intervals
+    )
+
+
+def _yaml_child_block(block: str, key: str) -> str | None:
+    """Return the indented body under `key:`, or None when the key is absent.
+
+    Used to scope a check to one scraper instead of the whole configuration.
+    """
+    match = re.search(rf'^(?P<indent>\s+){re.escape(key)}:\s*$', block, re.M)
+    if not match:
+        return None
+    body: list[str] = []
+    for line in block[match.end() :].splitlines()[1:]:
+        if line.strip() and not line.startswith(match.group('indent') + ' '):
+            break
+        body.append(line)
+    return '\n'.join(body)
+
+
+def test_hostmetrics_examples_enable_the_metrics_the_hosts_page_reads():
+    """Keep documented `hostmetrics` configs able to populate the Hosts page.
+
+    The receiver leaves `system.cpu.utilization` and `system.memory.utilization` disabled by
+    default, and the Hosts page reads both to fill its CPU and Memory columns. A config that
+    enables one of those scrapers without its utilization metric produces a host with blank
+    columns, which is very hard to diagnose from the UI. Three documented configs had drifted
+    this way.
+    """
+    missing: list[str] = []
+
+    for path, source in _iter_documentation_sources():
+        for block_match in YAML_BLOCK_PATTERN.finditer(source):
+            block = textwrap.dedent(block_match.group('body'))
+            if 'hostmetrics:' not in block or 'scrapers:' not in block:
+                continue
+            # Only configs that intend hosts to appear in Logfire. `resourcedetection` supplies
+            # `host.name`, without which the Hosts page has nothing to group by, so a config
+            # omitting it is illustrating something else and is not held to this rule.
+            if 'resourcedetection' not in block:
+                continue
+            hostmetrics = _yaml_child_block(block, 'hostmetrics')
+            scrapers = _yaml_child_block(hostmetrics, 'scrapers') if hostmetrics else None
+            if scrapers is None:
+                continue
+            for scraper, metric in HOSTMETRICS_SCRAPER_UTILIZATION.items():
+                scraper_body = _yaml_child_block(scrapers, scraper)
+                if scraper_body is None:
+                    continue
+                # The metric has to sit under this scraper and be switched on. Matching the name
+                # anywhere in the config would accept it under the wrong scraper, set to
+                # `enabled: false`, or merely named in a comment.
+                enabled = re.search(rf'^\s*{re.escape(metric)}:\s*\n\s+enabled:\s*true\s*$', scraper_body, re.M)
+                if not enabled:
+                    line_number = source.count('\n', 0, block_match.start()) + 1
+                    missing.append(f'{path}:{line_number}: `{scraper}` scraper without `{metric}: enabled: true`')
+
+    assert not missing, (
+        'A hostmetrics example enables a scraper without the utilization metric the Hosts '
+        'page reads, so those columns render blank:\n' + '\n'.join(missing)
     )
 
 

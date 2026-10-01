@@ -4,9 +4,18 @@ description: "Ship CPU, memory, disk, filesystem, network, and process metrics f
 ---
 # Host monitoring with the OTel Collector
 
-The OpenTelemetry Collector's [`hostmetrics` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver) reads CPU, memory, disk, filesystem, network, paging and process metrics from the machine the Collector is running on and ships them to Logfire: no SDK required, no application changes. Hosts reporting these metrics show up on the **Hosts** page in Logfire, and the metric series are queryable in **Metrics**, **SQL Workbench**, and any dashboard you build on top of them.
+The OpenTelemetry Collector's [`hostmetrics` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver) reads CPU, memory, disk, filesystem, network, paging and process metrics from the machine the Collector is running on and ships them to Logfire: no SDK required, no application changes. Hosts reporting these metrics show up on the [**Hosts** page](../../guides/web-ui/hosts.md) in Logfire, and the metric series are queryable in **Metrics**, **SQL Workbench**, and any dashboard you build on top of them.
 
-This is also the smallest possible working Collector configuration. The same shape works whether the Collector runs as a daemon on a bare VM, a sidecar next to your app, or a DaemonSet in Kubernetes; only the deployment wrapper changes.
+!!! tip
+    If the machine runs a Python application that already uses Logfire, you may not need a Collector at all. [`logfire.instrument_system_metrics()`](../../integrations/system-metrics.md) reports CPU, memory, swap, load average and process count from inside the process, which is enough for the host to appear on the Hosts page. Disk and network metrics need `base='full'`, or an explicit `config` naming the ones you want. Use the Collector when the machine does not run a Python application, or when you want host metrics that keep arriving regardless of whether any one process is up.
+
+This is the configuration to start from on any host.
+
+<!-- The configuration below is deliberately identical to the one in guides/web-ui/hosts.md.
+     Each page is meant to work end to end, so a reader never has to jump to the other.
+     If you change one, change both: `test_hostmetrics_examples_enable_the_metrics_the_hosts_page_reads`
+     in tests/test_docs.py fails the build if a copy stops enabling the metrics the Hosts
+     page reads, which is how the two silently drifted apart before. --> The same shape works whether the Collector runs as a daemon on a bare VM, a sidecar next to your app, or a DaemonSet in Kubernetes; only the deployment wrapper changes.
 
 ## Minimal configuration
 
@@ -14,6 +23,8 @@ This is also the smallest possible working Collector configuration. The same sha
 receivers:
   hostmetrics:
     collection_interval: 60s
+    # Set root_path: /hostfs when running the Collector inside a container
+    # with the host filesystem bind-mounted at /hostfs (Linux only).
     scrapers:
       cpu:
         metrics:
@@ -24,6 +35,7 @@ receivers:
           system.memory.utilization:
             enabled: true
       load:
+        cpu_average: true
       disk:
         exclude:
           devices: ['^(loop|ram)[0-9]+$']
@@ -41,15 +53,18 @@ receivers:
       processes:
 
 processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
   resourcedetection:
-    detectors: [env, system]
-    system:
-      hostname_sources: [os]
+    detectors: [env, system, ec2, gcp, azure]
+    override: false
   batch:
 
 exporters:
   otlphttp:
-    endpoint: "https://logfire-eu.pydantic.dev"  # or https://logfire-us.pydantic.dev for the US region
+    endpoint: "https://logfire-us.pydantic.dev"  # or https://logfire-eu.pydantic.dev
     headers:
       Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
 
@@ -57,14 +72,16 @@ service:
   pipelines:
     metrics:
       receivers: [hostmetrics]
-      processors: [resourcedetection, batch]
+      processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlphttp]
 ```
 
 A few things worth calling out:
 
 - **`resourcedetection`** adds the `host.name` (and on cloud VMs, `cloud.provider`, `cloud.region`, etc.) resource attributes to every metric. The Hosts page groups by `host.name`, so a Collector that omits this processor won't appear there.
-- **`*.utilization` metrics are off by default in the receiver**, but the Hosts page expects them. Enabling `system.cpu.utilization`, `system.memory.utilization`, and `system.filesystem.utilization` populates the **CPU**, **Memory**, and disk columns directly instead of requiring a downstream rate calculation.
+- **`system.cpu.utilization` and `system.memory.utilization` are off by default in the receiver**, and the Hosts page reads both to fill its **CPU** and **Memory** columns. Leave them disabled and a host appears with those columns blank, with nothing in the interface to say why. Filesystem is different: the Hosts surfaces read `system.filesystem.usage`, which the receiver emits on its own, so `system.filesystem.utilization` is enabled below only because it is useful to query, not because the page needs it.
+- **`memory_limiter` comes first** so the Collector sheds load rather than being killed when a burst of metrics outgrows its memory. `batch` comes last. Any other receiver you add slots into the same shape.
+- **`load.cpu_average: true`** reports load average divided by CPU count, so the number means the same thing on a 4-core and a 64-core machine.
 - **Scraper list** is selected explicitly. Drop the scrapers you don't need to reduce metric volume. `processes` reports a few aggregate process counts per host. The similarly named `process` scraper reports metrics for every process ID (PID) and is intentionally not enabled here.
 - The endpoint must match the region your project lives in (`logfire-eu` or `logfire-us`). The token is a Logfire write token; pass it via the `LOGFIRE_TOKEN` environment variable on the Collector workload.
 - **Keep `collection_interval: 60s` unless you have a specific need for finer resolution.** The standalone receiver already defaults to one minute, but some deployment presets override it to 10 seconds. A 10-second interval sends six times as many datapoints as a 60-second interval, which usually adds cost without making host trends more useful.
@@ -168,7 +185,13 @@ receivers:
     root_path: /host
     scrapers:
       cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
       memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
       load:
       disk:
         exclude:
@@ -176,6 +199,9 @@ receivers:
           match_type: regexp
       filesystem:
         include_virtual_filesystems: false
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
       network:
         exclude:
           interfaces: [lo, 'veth.*']
@@ -204,67 +230,67 @@ service:
       exporters: [otlphttp]
 ```
 
-And the DaemonSet that runs it:
+??? note "The DaemonSet that runs it"
 
-```yaml title="otel-collector-daemonset.yaml"
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: otel-collector-hostmetrics
-  namespace: observability
-spec:
-  selector:
-    matchLabels:
-      app: otel-collector-hostmetrics
-  template:
+    ```yaml title="otel-collector-daemonset.yaml"
+    apiVersion: apps/v1
+    kind: DaemonSet
     metadata:
-      labels:
-        app: otel-collector-hostmetrics
+      name: otel-collector-hostmetrics
+      namespace: observability
     spec:
-      hostNetwork: true
-      hostPID: true
-      dnsPolicy: ClusterFirstWithHostNet
-      containers:
-        - name: otel-collector
-          image: otel/opentelemetry-collector-contrib:latest
-          args: ["--config=/etc/otel/config.yaml"]
-          env:
-            - name: LOGFIRE_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: logfire
-                  key: write-token
-            - name: K8S_NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-          volumeMounts:
+      selector:
+        matchLabels:
+          app: otel-collector-hostmetrics
+      template:
+        metadata:
+          labels:
+            app: otel-collector-hostmetrics
+        spec:
+          hostNetwork: true
+          hostPID: true
+          dnsPolicy: ClusterFirstWithHostNet
+          containers:
+            - name: otel-collector
+              image: otel/opentelemetry-collector-contrib:latest
+              args: ["--config=/etc/otel/config.yaml"]
+              env:
+                - name: LOGFIRE_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: logfire
+                      key: write-token
+                - name: K8S_NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+              volumeMounts:
+                - name: config
+                  mountPath: /etc/otel
+                - name: hostfs-proc
+                  mountPath: /host/proc
+                  readOnly: true
+                - name: hostfs-sys
+                  mountPath: /host/sys
+                  readOnly: true
+                - name: hostfs-root
+                  mountPath: /host
+                  readOnly: true
+                  mountPropagation: HostToContainer
+          volumes:
             - name: config
-              mountPath: /etc/otel
+              configMap:
+                name: otel-collector-hostmetrics
             - name: hostfs-proc
-              mountPath: /host/proc
-              readOnly: true
+              hostPath:
+                path: /proc
             - name: hostfs-sys
-              mountPath: /host/sys
-              readOnly: true
+              hostPath:
+                path: /sys
             - name: hostfs-root
-              mountPath: /host
-              readOnly: true
-              mountPropagation: HostToContainer
-      volumes:
-        - name: config
-          configMap:
-            name: otel-collector-hostmetrics
-        - name: hostfs-proc
-          hostPath:
-            path: /proc
-        - name: hostfs-sys
-          hostPath:
-            path: /sys
-        - name: hostfs-root
-          hostPath:
-            path: /
-```
+              hostPath:
+                path: /
+    ```
 
 A couple of things to be deliberate about:
 
@@ -277,7 +303,7 @@ A couple of things to be deliberate about:
 Outside of Kubernetes, no special configuration is required: the Collector already has the host's `/proc` and `/sys`. Drop the config in place and run:
 
 ```bash
-LOGFIRE_TOKEN=<your-write-token> \
+LOGFIRE_TOKEN='<your-write-token>' \
   otelcol-contrib --config otel-collector-config.yaml
 ```
 

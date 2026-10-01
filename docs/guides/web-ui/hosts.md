@@ -34,7 +34,7 @@ The findings summary calls out conditions you may want to investigate. Select **
 
 ![Host findings summary and filter](../../images/hosts/findings.png)
 
-**High memory** needs `system.memory.utilization`. **Full filesystem** needs the `used` and `free` states from `system.filesystem.usage`. The recommended [OpenTelemetry Collector configuration](../../how-to-guides/otel-collector/host-monitoring.md) enables both metrics.
+**High memory** needs `system.memory.utilization`, which the [configuration below](#minimal-collector-config) enables. **Full filesystem** needs the `used` and `free` states from `system.filesystem.usage`, which the `hostmetrics` receiver emits by default.
 
 Memory and filesystem findings inspect the final 15 minutes of the selected range. They cover the hosts loaded into the inventory. A missing metric means Logfire cannot evaluate that condition, not that the host is healthy. Kubernetes lifecycle findings, such as a node that is not ready, appear on the [Kubernetes view](kubernetes.md) instead.
 
@@ -58,29 +58,44 @@ Hosts populate from the standard OpenTelemetry [`hostmetricsreceiver`](https://g
 
 A working setup for a single host (Linux VM, container host, or laptop), exporting straight to Logfire:
 
-```yaml
+<!-- The configuration below is deliberately identical to the one in how-to-guides/otel-collector/host-monitoring.md.
+     Each page is meant to work end to end, so a reader never has to jump to the other.
+     If you change one, change both: `test_hostmetrics_examples_enable_the_metrics_the_hosts_page_reads`
+     in tests/test_docs.py fails the build if a copy stops enabling the metrics the Hosts
+     page reads, which is how the two silently drifted apart before. -->
+
+```yaml title="otel-collector-config.yaml"
 receivers:
   hostmetrics:
     collection_interval: 60s
-    # Set root_path: /hostfs when running the collector inside a container
+    # Set root_path: /hostfs when running the Collector inside a container
     # with the host filesystem bind-mounted at /hostfs (Linux only).
     scrapers:
-      cpu: {}
-      memory: {}
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
       load:
-        cpu_average: true         # normalise load across CPUs
+        cpu_average: true
       disk:
         exclude:
           devices: ['^(loop|ram)[0-9]+$']
           match_type: regexp
       filesystem:
         include_virtual_filesystems: false
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
       network:
         exclude:
-          interfaces: [lo, "veth.*"]
+          interfaces: [lo, 'veth.*']
           match_type: regexp
-      paging: {}
-      processes: {}
+      paging:
+      processes:
 
 processors:
   memory_limiter:
@@ -88,22 +103,22 @@ processors:
     limit_percentage: 80
     spike_limit_percentage: 25
   resourcedetection:
-    detectors: [env, system, ec2, gcp, azure]    # add `docker` only if you bind-mount /var/run/docker.sock into the collector
-    override: false               # SDK-supplied attributes win
-  batch: {}
+    detectors: [env, system, ec2, gcp, azure]
+    override: false
+  batch:
 
 exporters:
-  otlphttp/logfire:
-    endpoint: https://logfire-us.pydantic.dev   # or https://logfire-eu.pydantic.dev
+  otlphttp:
+    endpoint: "https://logfire-us.pydantic.dev"  # or https://logfire-eu.pydantic.dev
     headers:
-      Authorization: ${env:LOGFIRE_TOKEN}
+      Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
 
 service:
   pipelines:
     metrics:
       receivers: [hostmetrics]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [otlphttp/logfire]
+      exporters: [otlphttp]
 ```
 
 Keep the collection interval at 60 seconds unless you have a specific need for finer resolution. Some Collector deployment presets use 10 seconds, which sends six times as many datapoints. The `processes` scraper above is inexpensive because it reports aggregate counts. Do not confuse it with the singular `process` scraper, which reports CPU, memory, and disk metrics for every process ID. Leave `process` off, or filter it to a small set of stable process names. See [Cardinality and cost](../../how-to-guides/otel-collector/host-monitoring.md#cardinality-and-cost) for details.
@@ -112,7 +127,7 @@ The pipeline shape (`memory_limiter` first, `batch` last, enrichment in the midd
 
 ### Why `resourcedetection` matters
 
-The Hosts inventory keys hosts on `host.id` and `host.name`. Without them, a single host can appear duplicated, or N replicas of a containerised collector can collapse into one fake host. The `resourcedetection` processor's `system` detector fills `host.id` from the machine ID on Linux. Add the `ec2`, `gcp`, or `azure` detectors when running on those clouds (and `eks`, `gke`, or `aks` when running on their managed Kubernetes services) so the right cloud metadata enriches the hosts. Setting `override: false` makes sure an SDK-supplied `host.name` wins when there's one already.
+The Hosts inventory identifies a host by `host.name`, or by `k8s.node.name` when the metrics come from a Kubernetes node. A host that reports neither does not appear at all. The `resourcedetection` processor's `system` detector fills `host.name`, and `host.id` alongside it, from the machine on Linux. Add the `ec2`, `gcp`, or `azure` detectors when running on those clouds (and `eks`, `gke`, or `aks` when running on their managed Kubernetes services) so the right cloud metadata enriches the hosts. Setting `override: false` makes sure an SDK-supplied `host.name` wins when there's one already.
 
 ### Hosts that are Kubernetes nodes
 
@@ -124,12 +139,12 @@ If your workload is a Python app already using Logfire, you can emit system metr
 
 ## Run the collector
 
-Save the config above as `collector.yaml`, then:
+Save the config above as `otel-collector-config.yaml`, then:
 
 ```bash
 docker run --rm \
-  -v "$(pwd)/collector.yaml:/etc/otelcol-contrib/config.yaml" \
-  -e LOGFIRE_TOKEN=<your write token from project Settings → Write tokens> \
+  -v "$(pwd)/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro" \
+  -e LOGFIRE_TOKEN='<your-write-token>' \
   otel/opentelemetry-collector-contrib:latest
 ```
 
@@ -139,8 +154,8 @@ The Hosts page populates within about a minute. To collect metrics from the host
 
 | Symptom | Likely cause |
 |---------|--------------|
-| Host doesn't appear in the inventory | Metrics arrived without a `host.id` (or `host.name`). Add the `system` (and any cloud) detector to your collector's `resourcedetection` processor. |
-| Same physical host shows up twice | Two sources are reporting different `host.id` values, for example the SDK reports the container ID while the Collector reports the machine ID. Pick one source per host, or set `host.id` explicitly. |
-| Every replica of a containerised collector appears as one fake host | `host.id` is being read from inside the container (so every replica reports the same value). Bind-mount the host's filesystem and set `root_path: /hostfs` so `resourcedetection`'s `system` detector reads the real machine ID. |
+| Host doesn't appear in the inventory | Metrics arrived without the attribute the inventory identifies hosts by: `host.name` for an ordinary machine, or `k8s.node.name` for a Kubernetes node. Add the `system` (and any cloud) detector to your Collector's `resourcedetection` processor; on Kubernetes, set the node name from the downward API (`spec.nodeName`) so both attributes agree. |
+| Same physical host shows up twice | Two sources are reporting different `host.name` values, for example the SDK reports the container's hostname while the Collector reports the machine's. Pick one source per host, or set `host.name` explicitly. |
+| One machine appears as several hosts, one per container | Each replica is reporting its own container hostname as `host.name`. `root_path` only affects which filesystem the metrics are read from, not the hostname, so set the identity directly: pass the node name in through the environment and let the `env` detector pick it up, or set `host.name` explicitly in `resource_attributes`. |
 | All hosts became **Delayed** or **Not reporting** at the same moment | The collector restarted, or a network blip is blocking exports. The page is just a window on what arrived. Confirm with the collector's own logs. |
 | Kubernetes node appears as both a host *and* a node, but with different names | `host.name` does not match `k8s.node.name`. Set both from the downward API (`spec.nodeName`) so they dedup correctly. See [Hosts that are Kubernetes nodes](#hosts-that-are-kubernetes-nodes). |
