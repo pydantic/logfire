@@ -143,11 +143,11 @@ def _yaml_child_block(block: str, key: str) -> str | None:
 def test_hostmetrics_examples_enable_the_metrics_the_hosts_page_reads():
     """Keep documented `hostmetrics` configs able to populate the Hosts page.
 
-    The receiver leaves `system.cpu.utilization`, `system.memory.utilization` and
-    `system.filesystem.utilization` disabled by default, but the Hosts page reads them to
-    fill its CPU, Memory and disk columns. A config that enables one of those scrapers
-    without its utilization metric produces a host with blank columns, which is very hard
-    to diagnose from the UI. Three documented configs had drifted this way.
+    The receiver leaves `system.cpu.utilization` and `system.memory.utilization` disabled by
+    default, and the Hosts page reads both to fill its CPU and Memory columns. A config that
+    enables one of those scrapers without its utilization metric produces a host with blank
+    columns, which is very hard to diagnose from the UI. Three documented configs had drifted
+    this way.
     """
     missing: list[str] = []
 
