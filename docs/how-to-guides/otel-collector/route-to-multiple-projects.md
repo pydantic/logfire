@@ -22,8 +22,16 @@ You do not need a Collector when the split is fixed per deployment. If each serv
 
 You need:
 
-- A write token for each destination project. Create one per project under **Settings → Write tokens**, as described in [Create write tokens](../create-write-tokens.md).
-- The `contrib` build of the Collector, `otel/opentelemetry-collector-contrib`. The routing connector used below is not in the core build.
+- **A Collector already forwarding to Logfire.** [Send data through a Collector](send-data-through-a-collector.md) gets one running; this page changes where it sends.
+- **A write token for each destination project.** Create one per project under **Settings → Write tokens**, as described in [Create write tokens](../create-write-tokens.md). The configuration below reads them from the environment, so export one variable per project before starting the Collector:
+
+    ```bash
+    export LOGFIRE_TOKEN_ACME='<acme-write-token>'
+    export LOGFIRE_TOKEN_GLOBEX='<globex-write-token>'
+    export LOGFIRE_TOKEN_INTERNAL='<internal-write-token>'
+    ```
+
+- **The `contrib` build of the Collector**, `otel/opentelemetry-collector-contrib`. The routing connector used below is not in the core build.
 
 ## Tag each request with its destination
 
@@ -80,6 +88,9 @@ receivers:
       http:
         endpoint: 0.0.0.0:4318
 
+processors:
+  batch:
+
 connectors:
   routing:
     # Anything that matches no condition below goes here.
@@ -114,18 +125,23 @@ service:
       exporters: [routing]
     traces/acme:
       receivers: [routing]
+      processors: [batch]
       exporters: [otlphttp/acme]
     traces/globex:
       receivers: [routing]
+      processors: [batch]
       exporters: [otlphttp/globex]
     traces/internal:
       receivers: [routing]
+      processors: [batch]
       exporters: [otlphttp/internal]
     metrics:
       receivers: [otlp]
+      processors: [batch]
       exporters: [otlphttp/internal]
     logs:
       receivers: [otlp]
+      processors: [batch]
       exporters: [otlphttp/internal]
 ```
 
@@ -142,7 +158,9 @@ Points worth knowing about this config:
 
 ## Verify the split
 
-Send one request per destination, then open each project's Live view. You should see the full trace in exactly one project, with no fragments of it in the others.
+Send one request per destination, then open each project's Live view. Every span you opened inside the baggage block should be in that customer's project, and nothing from that request should appear in another customer's.
+
+One exception, and it is the expected one: if an instrumented web framework opened a server span before your code ran, that span has no routing key and lands in the default project. Seeing the request's own entry span there, with the rest of the trace in the right place, means the setup is working as described above, not that it is broken.
 
 If you want to confirm the routing before pointing it at real projects, add a `debug` exporter to one of the pipelines and read the Collector's own output:
 
@@ -155,6 +173,7 @@ service:
   pipelines:
     traces/internal:
       receivers: [routing]
+      processors: [batch]
       exporters: [otlphttp/internal, debug]
 ```
 
@@ -170,6 +189,9 @@ receivers:
     protocols:
       http:
         endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
 
 connectors:
   routing:
@@ -204,18 +226,23 @@ service:
       exporters: [routing]
     traces/production:
       receivers: [routing]
+      processors: [batch]
       exporters: [otlphttp/production]
     traces/staging:
       receivers: [routing]
+      processors: [batch]
       exporters: [otlphttp/staging]
     traces/internal:
       receivers: [routing]
+      processors: [batch]
       exporters: [otlphttp/internal]
     metrics:
       receivers: [otlp]
+      processors: [batch]
       exporters: [otlphttp/internal]
     logs:
       receivers: [otlp]
+      processors: [batch]
       exporters: [otlphttp/internal]
 ```
 
@@ -237,9 +264,11 @@ The Logfire SDK can also do this on its own, without a Collector, by passing sev
 
 ## Troubleshoot routing
 
-**One trace appears in two projects.** The routing key is missing from some spans. Setting it as an attribute on a single span covers that span only; its children are routed separately and land in the default project. Set the key with `logfire.set_baggage()` instead, which applies it to every span in the trace.
+**One trace appears in two projects, and not just its entry span.** The routing key is reaching some spans and not others. Setting the attribute directly on one span covers that span alone; children are routed on their own and fall to the default project. Use `logfire.set_baggage()` for the request as a whole, and reserve the direct attribute for the one span that opened before your code ran.
 
-**Every project rejects the data with a 401.** The write token is not reaching Logfire. If the Collector sits behind another Collector, the inner one strips the `Authorization` header unless the receiving Collector sets `include_metadata: true` and forwards it with the `headers_setter` extension.
+**Every project rejects the data with a 401.** Check the ordinary causes first: a `LOGFIRE_TOKEN_*` variable that is unset in the Collector's environment resolves to an empty header, and a token only works against the region its project lives in.
+
+If those are right and you run a Collector behind another Collector, the inner one strips the `Authorization` header. The receiving Collector has to set `include_metadata: true` on its receiver and forward the header with the `headers_setter` extension.
 
 **Everything lands in the default project.** The condition never matched. Attribute values are compared exactly and are case sensitive, so `"Acme"` does not match `"acme"`. Add a `debug` exporter to the default pipeline and read the attributes the Collector actually received.
 

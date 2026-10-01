@@ -126,10 +126,11 @@ processors:
     blocked_values:
      - '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
 
-  # Finally, apply complex conditional rules.
+  # Finally, apply conditional rules. This keeps the request body only where it helps,
+  # on server errors, and redacts it everywhere else.
   transform:
     trace_statements:
-      - set(span.attributes["credit_card_number"], "[REDACTED]") where span.attributes["http.status_code"] >= 500
+      - set(span.attributes["request.body"], "[REDACTED]") where span.attributes["http.status_code"] < 500
 
 # 3. EXPORTERS: Where the scrubbed data is sent
 exporters:
