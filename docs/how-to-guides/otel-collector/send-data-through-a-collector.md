@@ -57,11 +57,13 @@ Two things in that file matter beyond the shape:
 
 ```bash
 docker run --rm \
-  -p 4318:4318 \
+  -p 127.0.0.1:4318:4318 \
   -e LOGFIRE_TOKEN='<your-write-token>' \
   -v "$(pwd)/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro" \
   otel/opentelemetry-collector-contrib:latest
 ```
+
+Binding the published port to `127.0.0.1` keeps the receiver reachable from your machine and nowhere else. An OTLP receiver has no authentication, so anything that can reach it can write to your project; when you deploy one for real, keep it on a private network or put authentication in front of it.
 
 The `contrib` build includes every component the other guides in this section use. The core build is smaller and is missing them.
 

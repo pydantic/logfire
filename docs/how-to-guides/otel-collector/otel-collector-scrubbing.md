@@ -70,12 +70,13 @@ processors:
 
 * **Before:** `user.comment` = "My email is `test@example.com`, please contact me."
 
-* **After:** `user.comment` = "My email is `***`, please contact me."
+* **After:** `user.comment` = "My email is `****`, please contact me."
 
 !!! warning
     Keep `allow_all_keys: true` unless you mean to use an allowlist. This processor fails closed:
-    with no `allowed_keys` and the flag removed, it strips **every** attribute from every span
-    rather than only masking the values you blocked. That is deliberate upstream behaviour, and it
+    with no `allowed_keys` and the flag removed, it strips **every** attribute from every span,
+    and from every log record and metric datapoint in the pipelines below, rather than only
+    masking the values you blocked. That is deliberate upstream behaviour, and it
     is easy to trigger by deleting what looks like a redundant line.
 
 ## Scrub only when a condition holds

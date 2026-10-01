@@ -47,7 +47,32 @@ service:
 
 `error_mode: ignore` keeps a span flowing when the attribute it names is absent, rather than failing the batch.
 
-This is the bluntest lever and the safest one, because health checks are almost always a single span with no children. Be careful applying it to spans in the middle of a trace (the full journey of one request, made of nested spans): removing a parent leaves its children with no parent, and the trace renders with gaps.
+`filter` works on one span at a time, which is fine when a health check is a single span, and
+wrong when it is not. If your health endpoint touches a database, the rule above matches the
+parent (it is the span carrying `url.path`) and removes it, while the child database span is
+untouched and arrives on its own. You get a fragment rather than nothing.
+
+When the traffic you want gone is a whole trace rather than one span, drop it in `tail_sampling`
+instead, which decides per trace:
+
+```yaml title="otel-collector-config.yaml"
+processors:
+  tail_sampling:
+    policies:
+      - name: drop-health-checks
+        type: drop
+        drop:
+          drop_sub_policy:
+            - name: health-path
+              type: string_attribute
+              string_attribute:
+                key: url.path
+                values: [/health, /ready]
+      - name: keep-the-rest
+        type: always_sample
+```
+
+That removes the health check and its children together, and leaves everything else alone.
 
 ## Keep the interesting traces and sample the rest
 
@@ -120,6 +145,7 @@ In Docker, publishing the port is not enough. The listener binds inside the cont
 
 ```yaml title="otel-collector-config.yaml"
 service:
+  # Add this alongside the pipelines you already have; do not replace the whole service block.
   telemetry:
     metrics:
       readers:
@@ -130,7 +156,7 @@ service:
                 port: 8888
 ```
 
-Add `-p 8888:8888` to the `docker run` command alongside that. With only the published port and no `host` override, the request below is refused. Compare what came in against what went out. The gap is mostly what filtering and sampling removed, but failed exports and full queues land in it too, so check `otelcol_exporter_send_failed_spans` before reading the whole gap as a successful reduction.
+Add `-p 127.0.0.1:8888:8888` to the `docker run` command alongside that. Binding the host side to loopback keeps the documented `curl` working without putting an unauthenticated endpoint on every interface. With only the published port and no `host` override, the request below is refused. Compare what came in against what went out. The gap is mostly what filtering and sampling removed, but failed exports and full queues land in it too, so check `otelcol_exporter_send_failed_spans` before reading the whole gap as a successful reduction.
 
 ```bash
 curl -s http://localhost:8888/metrics | grep -E 'otelcol_(receiver_accepted|exporter_sent)_spans'

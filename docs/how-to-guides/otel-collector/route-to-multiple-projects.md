@@ -31,12 +31,15 @@ You need:
     export LOGFIRE_TOKEN_INTERNAL='<internal-write-token>'
     ```
 
+    The [fixed-attribute variant](#route-on-a-fixed-attribute-instead) further down uses
+    `LOGFIRE_TOKEN_PRODUCTION` and `LOGFIRE_TOKEN_STAGING` instead of the per-customer ones.
+
     A Collector in a container does not inherit those. Pass each one in, or the exporters
     send an empty token and every project answers `401`:
 
     ```bash
     docker run --rm \
-      -p 4318:4318 \
+      -p 127.0.0.1:4318:4318 \
       -e LOGFIRE_TOKEN_ACME -e LOGFIRE_TOKEN_GLOBEX -e LOGFIRE_TOKEN_INTERNAL \
       -v "$(pwd)/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro" \
       otel/opentelemetry-collector-contrib:latest
