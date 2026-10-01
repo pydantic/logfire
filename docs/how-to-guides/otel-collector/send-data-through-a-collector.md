@@ -6,11 +6,11 @@ description: "Run an OpenTelemetry Collector in front of Logfire in a few minute
 
 Get an OpenTelemetry Collector running in front of Logfire, with your application sending through it instead of straight to Logfire. This is the base that every other guide in this section builds on.
 
-If you have not decided whether you need a Collector at all, read [when you need one](otel-collector-overview.md#when-you-need-one) first.
+A Collector is a separate program that sits between your apps and Logfire, gathering telemetry and forwarding it. If the words in the configuration below are unfamiliar, [how a configuration is put together](otel-collector-overview.md#how-a-configuration-is-put-together) explains the four blocks it is built from; [when you need one](otel-collector-overview.md#when-you-need-one) covers whether to run one at all.
 
 ## Before you start
 
-You need a [write token](../create-write-tokens.md) for the project you want data to land in, and Docker or a downloaded Collector binary.
+You need a [write token](../create-write-tokens.md) for the project you want data to land in, and Docker. The commands below use the official image; if you would rather run a downloaded binary, swap `docker run ...` for `otelcol-contrib --config=file:otel-collector-config.yaml`.
 
 ## Write the configuration
 
@@ -48,7 +48,10 @@ service:
       exporters: [otlphttp]
 ```
 
-The endpoint must be the region your project lives in. The `batch` processor groups data into fewer, larger requests and belongs in every pipeline you run.
+Two things in that file matter beyond the shape:
+
+- The endpoint must match the [data region](../../reference/data-regions.md) your project lives in. A token works only against its own region.
+- The `batch` processor groups data into fewer, larger requests. It belongs in every pipeline you run.
 
 ## Run it
 
@@ -60,9 +63,9 @@ docker run --rm \
   otel/opentelemetry-collector-contrib:latest
 ```
 
-The `contrib` build includes every component the other guides in this section use. The core build is smaller but does not have them.
+The `contrib` build includes every component the other guides in this section use. The core build is smaller and is missing them.
 
-To check the file before starting anything, run `validate` in the same image:
+To check a configuration before starting anything, run `validate` in the same image:
 
 ```bash
 docker run --rm \
@@ -124,7 +127,7 @@ Spans in the Collector's output but not in Logfire means the problem is the expo
 
 **The Collector starts and exits immediately.** A configuration error. Run `validate` as shown above; the error names the block it could not read.
 
-**`401 Unauthorized` in the Collector's logs.** The write token is wrong, or the endpoint does not match the region the project lives in. Check both.
+**`401 Unauthorized` in the Collector's logs.** The write token is wrong, or the endpoint does not match the project's [data region](../../reference/data-regions.md). Check the token first, then compare the endpoint against the region shown in your project settings.
 
 **The Collector runs and logs nothing at all.** A component that is defined but not listed under `service.pipelines` does nothing. Check that your receiver and exporter both appear in a pipeline.
 
