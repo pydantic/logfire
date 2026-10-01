@@ -98,7 +98,7 @@ Read the condition carefully before copying it, because each clause is load-bear
 
 - **It redacts on everything except server errors**, which is the direction you usually want: keep the evidence where you need it, drop it everywhere else. Written the other way round, redacting only on failure, it leaves the body in place for every successful request, which is almost never what anyone means.
 - **The `!= nil` guard matters.** `set` creates an attribute that was not there, so without it every span under 500 gains a `[REDACTED]` body it never had.
-- **Both status attributes are checked.** `http.status_code` is the older spelling and `http.response.status_code` the current one; instrumentations differ, and the SDK itself reads both. Check only one and spans from the other convention slip past unredacted.
+- **Both status attributes are checked.** `http.status_code` is the older spelling and `http.response.status_code` the current one; instrumentations differ, and the SDK itself reads both. Checking only one gets it wrong in the dangerous direction: the unchecked attribute is absent as far as the rule is concerned, so a span that really was a server error looks like a success and has its body removed. Checking both means a 500 under either spelling keeps its body.
 - **A missing status still redacts.** Each status clause passes when the attribute is absent, so a span with no status code is treated as "not a server error" and its body is removed, rather than being kept by accident.
 
 `http.request.body.text` is what the Logfire HTTP integrations emit when you turn body capture on; `http.request.body.form` is the other one. Substitute whatever key your own instrumentation uses.
@@ -204,11 +204,24 @@ curl -s -X POST http://localhost:4318/v1/traces \
         "traceId":"5b8efff798038103d269b633813fc60c",
         "spanId":"eee19b7ec3c1b174","name":"login","kind":1,
         "startTimeUnixNano":"1544712660000000000","endTimeUnixNano":"1544712661000000000",
-        "attributes":[{"key":"session_id","value":{"stringValue":"sess-123"}}]}]}]}]}'
+        "attributes":[
+          {"key":"session_id","value":{"stringValue":"sess-123"}},
+          {"key":"user.comment","value":{"stringValue":"mail me at test@example.com"}},
+          {"key":"http.request.body.text","value":{"stringValue":"{\"card\":\"4111\"}"}},
+          {"key":"http.response.status_code","value":{"intValue":"200"}}]}]}]}]}'
 ```
 
-The `debug` exporter prints each span it handles. `session_id` should appear with its replacement
-value, not `sess-123`. If it still shows the original, the rule did not match.
+The `debug` exporter prints each span it handles. All three rules should have fired on it:
+
+| Attribute | Expected |
+| --- | --- |
+| `session_id` | `[Scrubbed due to session_id]`, not `sess-123` |
+| `user.comment` | the address masked, so `mail me at ****` |
+| `http.request.body.text` | `[REDACTED]`, because the status is below 500 |
+
+Change the status to `500` and send it again: the body should survive, because that is the case
+the rule keeps evidence for. If any attribute still shows its original value, that rule did not
+match.
 
 ## Troubleshoot scrubbing
 

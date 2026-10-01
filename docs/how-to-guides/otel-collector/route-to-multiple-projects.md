@@ -31,6 +31,17 @@ You need:
     export LOGFIRE_TOKEN_INTERNAL='<internal-write-token>'
     ```
 
+    A Collector in a container does not inherit those. Pass each one in, or the exporters
+    send an empty token and every project answers `401`:
+
+    ```bash
+    docker run --rm \
+      -p 4318:4318 \
+      -e LOGFIRE_TOKEN_ACME -e LOGFIRE_TOKEN_GLOBEX -e LOGFIRE_TOKEN_INTERNAL \
+      -v "$(pwd)/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro" \
+      otel/opentelemetry-collector-contrib:latest
+    ```
+
 - **The `contrib` build of the Collector**, `otel/opentelemetry-collector-contrib`. The routing connector used below is not in the core build.
 
 ## Tag each request with its destination
@@ -59,7 +70,14 @@ Two limits are worth knowing before you rely on this:
 - **Downstream services need the same behavior.** Baggage travels with the request, but turning it into a span attribute is what the Logfire SDK's `add_baggage_to_attributes` setting does. A service using a plain OpenTelemetry SDK propagates the baggage without putting it on its spans, so those spans are not routed by it.
 
 !!! warning
-    Baggage travels in request headers, so a caller outside your system can set it. Never route on a value that arrived from an untrusted client: overwrite the key from your own authenticated tenant state at the edge, before the request reaches anything that opens a span. Otherwise a caller can choose which project their data lands in.
+    Two ways a caller can choose their own destination, and you need both closed.
+
+    The receiver itself is one. Anything that can reach it can send spans already carrying
+    `tenant: acme`, and the Collector will route them with Acme's token. Bind the receiver to a
+    private interface, or put authentication in front of it; do not expose `0.0.0.0:4318` to a
+    network you do not control.
+
+    Baggage is the other. It travels in request headers, so a caller outside your system can set it. Never route on a value that arrived from an untrusted client: overwrite the key from your own authenticated tenant state at the edge, before the request reaches anything that opens a span. Otherwise a caller can choose which project their data lands in.
 
 Point the application at the Collector and turn off sending straight to Logfire, so the Collector is the only path out:
 

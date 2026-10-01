@@ -10,7 +10,7 @@ A Collector is a separate program that sits between your apps and Logfire, gathe
 
 ## Before you start
 
-You need a [write token](../create-write-tokens.md) for the project you want data to land in, and Docker. The commands below use the official image; if you would rather run a downloaded binary, swap `docker run ...` for `otelcol-contrib --config=file:otel-collector-config.yaml`.
+You need a [write token](../create-write-tokens.md) for the project you want data to land in, and either Docker or a downloaded Collector binary. The commands below use the official image; to run the binary instead, use `LOGFIRE_TOKEN='<your-write-token>' otelcol-contrib --config=file:otel-collector-config.yaml`. The configuration reads the token from the environment either way.
 
 ## Write the configuration
 

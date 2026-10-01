@@ -18,6 +18,8 @@ You need a Collector already forwarding to Logfire. If you do not have one, star
 
 The configurations below are additions to that base, not whole files. Each one shows the
 `processors` and `service` sections that change; keep your existing `receivers` and `exporters`.
+They are also cumulative: the sampling example keeps the `filter/noise` processor the first one
+defines, so apply them in order rather than on their own.
 
 Measure first. Without a number to compare against, you cannot tell whether a change helped. The **Usage** tab in your organization's billing settings shows what you are currently sending.
 
@@ -81,7 +83,7 @@ service:
 
 Policies are evaluated together, and a trace is kept when any one of them says keep. So this configuration keeps every request your instrumentation marked as an error, every request slower than one second, and 10% of everything else.
 
-That first category is narrower than "every failure". `status_code` matches spans whose OpenTelemetry status is `ERROR`, which most instrumentations do not set for a 4xx response, for a handler that catches an exception and returns a 200, or for a model that answers quickly and wrongly. Those land in the 10% bucket with everything else. If a class of failure matters to you, give it a policy of its own rather than assuming this one covers it.
+That first category is narrower than "every failure". `status_code` matches spans whose OpenTelemetry status is `ERROR`, which most instrumentations do not set for a 4xx response, for a handler that catches an exception and returns a 200, or for a model that answers quickly and wrongly. Those are judged by the remaining policies: a slow one is still caught by `keep-slow`, and a fast one falls to the 10% bucket with ordinary traffic. If a class of failure matters to you, give it a policy of its own rather than assuming this one covers it.
 
 Tail sampling can only keep what reaches it. If the application or an upstream Collector already dropped a trace through head sampling, no policy here can bring it back, so leave head sampling at 100% on the traffic you want these policies to judge.
 
@@ -112,7 +114,23 @@ Enable only the metrics and attributes you actually query.
 
 Restart the Collector and watch two things.
 
-The Collector reports its own counters at `http://localhost:8888/metrics`. If you are running it in Docker, publish that port too; the quickstart's command publishes only 4318, so the request below is refused until you add `-p 8888:8888`. Compare what came in against what went out. The gap is mostly what filtering and sampling removed, but failed exports and full queues land in it too, so check `otelcol_exporter_send_failed_spans` before reading the whole gap as a successful reduction.
+The Collector reports its own counters at `http://localhost:8888/metrics`.
+
+In Docker, publishing the port is not enough. The listener binds inside the container, so you have to move it to `0.0.0.0` as well, then publish it:
+
+```yaml title="otel-collector-config.yaml"
+service:
+  telemetry:
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+```
+
+Add `-p 8888:8888` to the `docker run` command alongside that. With only the published port and no `host` override, the request below is refused. Compare what came in against what went out. The gap is mostly what filtering and sampling removed, but failed exports and full queues land in it too, so check `otelcol_exporter_send_failed_spans` before reading the whole gap as a successful reduction.
 
 ```bash
 curl -s http://localhost:8888/metrics | grep -E 'otelcol_(receiver_accepted|exporter_sent)_spans'

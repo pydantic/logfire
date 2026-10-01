@@ -8,7 +8,7 @@ Send data to Logfire from places your application code cannot reach, and change 
 
 [OpenTelemetry](https://opentelemetry.io/) is the open industry standard for collecting traces, metrics, and logs. The **OpenTelemetry Collector** is a separate program built around it that sits between your apps and Logfire: your applications send to the Collector, and the Collector sends on to Logfire.
 
-Logfire receives standard OpenTelemetry data, so nothing here is Logfire-specific apart from the endpoint and the token.
+Logfire receives standard OpenTelemetry data, so nothing here is Logfire-specific apart from the endpoint and the token. A few [limits](../../reference/limits.md) still apply: Summary metrics in particular are rejected, which matters if you point a Prometheus receiver at the Collector.
 
 ## When you need one
 
@@ -103,7 +103,7 @@ The Collector appends `/v1/traces`, `/v1/metrics`, and `/v1/logs` to that endpoi
 
 ## Guides
 
-Start with [**Send data through a Collector**](send-data-through-a-collector.md). It gets the smallest working setup running in a few minutes, and every other guide here builds on it.
+Start with [**Send data through a Collector**](send-data-through-a-collector.md). It gets the smallest working setup running in a few minutes, and the guides that take data from your applications build on it. The host, Kubernetes and cloud provider guides collect from infrastructure instead and stand on their own.
 
 Then, as you need them:
 
@@ -112,7 +112,7 @@ Then, as you need them:
 - [**Control volume and cost**](control-volume-and-cost.md): drop the traffic you never look at and keep the traces that matter, so your bill tracks the value you get rather than the traffic you receive.
 - [**Route traces to different Logfire projects**](route-to-multiple-projects.md): send each request to whichever project it belongs to, chosen while the request runs, so one deployment can feed a project per customer or per environment.
 - [**Scrub sensitive data**](otel-collector-scrubbing.md): centralize sensitive-data scrubbing in the Collector so every application sending to it inherits the same redaction rules.
-- [**Collect cloud provider metrics**](../cloud-metrics.md): pull metrics from Google Cloud and AWS through the Collector, with deployment examples for Cloud Run and ECS.
+- [**Collect cloud provider metrics**](../cloud-metrics.md): pull metrics from Google Cloud and Amazon Web Services (AWS) through the Collector, with deployment examples for Cloud Run and Amazon Elastic Container Service (ECS).
 - [**Back up data in AWS S3**](s3-backup.md): fan out telemetry to both Logfire and an S3 bucket so you can retain raw data beyond Logfire's retention window, with notes on partitioning, IAM least-privilege, encryption, and reading the data back.
 
 For the Collector itself, see the [official documentation](https://opentelemetry.io/docs/collector/).
