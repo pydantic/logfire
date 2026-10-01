@@ -58,6 +58,12 @@ Hosts populate from the standard OpenTelemetry [`hostmetricsreceiver`](https://g
 
 A working setup for a single host (Linux VM, container host, or laptop), exporting straight to Logfire:
 
+<!-- The configuration below is deliberately identical to the one in how-to-guides/otel-collector/host-monitoring.md.
+     Each page is meant to work end to end, so a reader never has to jump to the other.
+     If you change one, change both: `test_hostmetrics_examples_enable_the_metrics_the_hosts_page_reads`
+     in tests/test_docs.py fails the build if a copy stops enabling the metrics the Hosts
+     page reads, which is how the two silently drifted apart before. -->
+
 ```yaml title="otel-collector-config.yaml"
 receivers:
   hostmetrics:

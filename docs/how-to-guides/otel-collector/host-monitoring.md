@@ -9,7 +9,13 @@ The OpenTelemetry Collector's [`hostmetrics` receiver](https://github.com/open-t
 !!! tip
     If the machine runs a Python application that already uses Logfire, you may not need a Collector at all. [`logfire.instrument_system_metrics()`](../../integrations/system-metrics.md) reports CPU, memory, swap, load average and process count from inside the process, which is enough for the host to appear on the Hosts page. Disk and network metrics need `base='full'`, or an explicit `config` naming the ones you want. Use the Collector when the machine does not run a Python application, or when you want host metrics that keep arriving regardless of whether any one process is up.
 
-This is also the smallest possible working Collector configuration. The same shape works whether the Collector runs as a daemon on a bare VM, a sidecar next to your app, or a DaemonSet in Kubernetes; only the deployment wrapper changes.
+This is also the smallest possible working Collector configuration.
+
+<!-- The configuration below is deliberately identical to the one in guides/web-ui/hosts.md.
+     Each page is meant to work end to end, so a reader never has to jump to the other.
+     If you change one, change both: `test_hostmetrics_examples_enable_the_metrics_the_hosts_page_reads`
+     in tests/test_docs.py fails the build if a copy stops enabling the metrics the Hosts
+     page reads, which is how the two silently drifted apart before. --> The same shape works whether the Collector runs as a daemon on a bare VM, a sidecar next to your app, or a DaemonSet in Kubernetes; only the deployment wrapper changes.
 
 ## Minimal configuration
 
@@ -74,6 +80,8 @@ A few things worth calling out:
 
 - **`resourcedetection`** adds the `host.name` (and on cloud VMs, `cloud.provider`, `cloud.region`, etc.) resource attributes to every metric. The Hosts page groups by `host.name`, so a Collector that omits this processor won't appear there.
 - **`*.utilization` metrics are off by default in the receiver**, but the Hosts page expects them. Enabling `system.cpu.utilization`, `system.memory.utilization`, and `system.filesystem.utilization` populates the **CPU**, **Memory**, and disk columns directly instead of requiring a downstream rate calculation.
+- **`memory_limiter` comes first** so the Collector sheds load rather than being killed when a burst of metrics outgrows its memory. `batch` comes last. Any other receiver you add slots into the same shape.
+- **`load.cpu_average: true`** reports load average divided by CPU count, so the number means the same thing on a 4-core and a 64-core machine.
 - **Scraper list** is selected explicitly. Drop the scrapers you don't need to reduce metric volume. `processes` reports a few aggregate process counts per host. The similarly named `process` scraper reports metrics for every process ID (PID) and is intentionally not enabled here.
 - The endpoint must match the region your project lives in (`logfire-eu` or `logfire-us`). The token is a Logfire write token; pass it via the `LOGFIRE_TOKEN` environment variable on the Collector workload.
 - **Keep `collection_interval: 60s` unless you have a specific need for finer resolution.** The standalone receiver already defaults to one minute, but some deployment presets override it to 10 seconds. A 10-second interval sends six times as many datapoints as a 60-second interval, which usually adds cost without making host trends more useful.
