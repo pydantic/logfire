@@ -139,12 +139,12 @@ If your workload is a Python app already using Logfire, you can emit system metr
 
 ## Run the collector
 
-Save the config above as `collector.yaml`, then:
+Save the config above as `otel-collector-config.yaml`, then:
 
 ```bash
 docker run --rm \
-  -v "$(pwd)/collector.yaml:/etc/otelcol-contrib/config.yaml" \
-  -e LOGFIRE_TOKEN=<your write token from project Settings → Write tokens> \
+  -v "$(pwd)/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro" \
+  -e LOGFIRE_TOKEN='<your-write-token>' \
   otel/opentelemetry-collector-contrib:latest
 ```
 
