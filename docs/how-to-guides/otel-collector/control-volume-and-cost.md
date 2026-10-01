@@ -8,13 +8,16 @@ Cut what you send to Logfire without losing what you debug with. Doing this in t
 
 Three levers, in the order worth trying them:
 
-1. **Drop what you never look at.** Health checks, readiness probes, and static asset requests. Pure win, no tradeoff.
+1. **Drop what you never look at.** Health checks, readiness probes, and static asset requests. The safest lever, as long as you restrict it to requests that are a whole trace on their own.
 2. **Sample the rest.** Keep every error and every slow request, keep a fraction of the ordinary ones.
 3. **Trim metrics.** Collection interval and cardinality, which is the number of separate series you produce.
 
 ## Before you start
 
-You need a Collector already forwarding to Logfire. If you do not have one, start with [Send data through a Collector](send-data-through-a-collector.md).
+You need a Collector already forwarding to Logfire. If you do not have one, start with [Send data through a Collector](send-data-through-a-collector.md). You also need the `contrib` build, `otel/opentelemetry-collector-contrib`: both processors on this page are missing from the core build, and a Collector that does not have them refuses to start.
+
+The configurations below are additions to that base, not whole files. Each one shows the
+`processors` and `service` sections that change; keep your existing `receivers` and `exporters`.
 
 Measure first. Without a number to compare against, you cannot tell whether a change helped. The **Usage** tab in your organization's billing settings shows what you are currently sending.
 
@@ -46,7 +49,7 @@ This is the bluntest lever and the safest one, because health checks are almost 
 
 ## Keep the interesting traces and sample the rest
 
-Head sampling decides at the start of a request, before you know whether it failed. Tail sampling waits for the whole trace, so it can keep every error and every slow request and throw away only the ordinary ones.
+Sampling keeps a representative subset of traces to control cost and volume; traces that are not kept are never sent. Head sampling makes that decision at the start of a request, before you know whether it failed. Tail sampling waits for the whole trace, so it can keep every error and every slow request and throw away only the ordinary ones.
 
 ```yaml title="otel-collector-config.yaml"
 processors:
@@ -76,7 +79,9 @@ service:
       exporters: [otlphttp]
 ```
 
-Policies are evaluated together, and a trace is kept when any one of them says keep. So this configuration keeps every failed request, every request slower than one second, and 10% of everything else.
+Policies are evaluated together, and a trace is kept when any one of them says keep. So this configuration keeps every request your instrumentation marked as an error, every request slower than one second, and 10% of everything else.
+
+That first category is narrower than "every failure". `status_code` matches spans whose OpenTelemetry status is `ERROR`, which most instrumentations do not set for a 4xx response, for a handler that catches an exception and returns a 200, or for a model that answers quickly and wrongly. Those land in the 10% bucket with everything else. If a class of failure matters to you, give it a policy of its own rather than assuming this one covers it.
 
 Tail sampling can only keep what reaches it. If the application or an upstream Collector already dropped a trace through head sampling, no policy here can bring it back, so leave head sampling at 100% on the traffic you want these policies to judge.
 
@@ -88,6 +93,8 @@ Tail sampling can only keep what reaches it. If the application or an upstream C
 ### What sampling costs you
 
 Anything counted from spans is counted from the spans you kept, so absolute numbers undercount. "How many requests did we serve" is wrong after sampling; "what is the p99 latency of the slow ones" is still right, because the slow ones are all kept.
+
+The loss you feel first is different, and worth being ready for: a customer reports a problem, you go to find their request, and nine times in ten it was not kept. Sampling trades the ability to answer "what happened to this one request" for a smaller bill. Keep the error and latency policies generous if that trade worries you.
 
 If you need exact request counts, record them as [metrics](../../guides/onboarding-checklist/add-metrics.md) rather than counting spans. Metrics are aggregated before they leave your application, so sampling does not change them.
 
@@ -105,11 +112,21 @@ Enable only the metrics and attributes you actually query.
 
 Restart the Collector and watch two things.
 
-The Collector reports its own counters at `http://localhost:8888/metrics`. Compare what came in against what went out. The gap is mostly what filtering and sampling removed, but failed exports and full queues land in it too, so check the exporter failure counters before reading the whole gap as a successful reduction.
+The Collector reports its own counters at `http://localhost:8888/metrics`. If you are running it in Docker, publish that port too; the quickstart's command publishes only 4318, so the request below is refused until you add `-p 8888:8888`. Compare what came in against what went out. The gap is mostly what filtering and sampling removed, but failed exports and full queues land in it too, so check `otelcol_exporter_send_failed_spans` before reading the whole gap as a successful reduction.
 
 ```bash
 curl -s http://localhost:8888/metrics | grep -E 'otelcol_(receiver_accepted|exporter_sent)_spans'
 ```
+
+The two numbers are cumulative totals since the Collector started:
+
+```
+otelcol_receiver_accepted_spans{receiver="otlp",...} 1842
+otelcol_exporter_sent_spans{exporter="otlphttp",...} 231
+```
+
+Here the Collector took in 1,842 spans and forwarded 231, so filtering and sampling removed
+about 87% of them.
 
 Then compare the **Usage** tab against the number you wrote down before the change. Give it a full day, since traffic varies by hour.
 
