@@ -34,7 +34,7 @@ The findings summary calls out conditions you may want to investigate. Select **
 
 ![Host findings summary and filter](../../images/hosts/findings.png)
 
-**High memory** needs `system.memory.utilization`. **Full filesystem** needs the `used` and `free` states from `system.filesystem.usage`. The recommended [OpenTelemetry Collector configuration](../../how-to-guides/otel-collector/host-monitoring.md) enables both metrics.
+**High memory** needs `system.memory.utilization`, which the [configuration below](#minimal-collector-config) enables. **Full filesystem** needs the `used` and `free` states from `system.filesystem.usage`, which the `hostmetrics` receiver emits by default.
 
 Memory and filesystem findings inspect the final 15 minutes of the selected range. They cover the hosts loaded into the inventory. A missing metric means Logfire cannot evaluate that condition, not that the host is healthy. Kubernetes lifecycle findings, such as a node that is not ready, appear on the [Kubernetes view](kubernetes.md) instead.
 
@@ -127,7 +127,7 @@ The pipeline shape (`memory_limiter` first, `batch` last, enrichment in the midd
 
 ### Why `resourcedetection` matters
 
-The Hosts inventory keys hosts on `host.id` and `host.name`. Without them, a single host can appear duplicated, or N replicas of a containerised collector can collapse into one fake host. The `resourcedetection` processor's `system` detector fills `host.id` from the machine ID on Linux. Add the `ec2`, `gcp`, or `azure` detectors when running on those clouds (and `eks`, `gke`, or `aks` when running on their managed Kubernetes services) so the right cloud metadata enriches the hosts. Setting `override: false` makes sure an SDK-supplied `host.name` wins when there's one already.
+The Hosts inventory identifies a host by `host.name`, or by `k8s.node.name` when the metrics come from a Kubernetes node. A host that reports neither does not appear at all. The `resourcedetection` processor's `system` detector fills `host.name`, and `host.id` alongside it, from the machine on Linux. Add the `ec2`, `gcp`, or `azure` detectors when running on those clouds (and `eks`, `gke`, or `aks` when running on their managed Kubernetes services) so the right cloud metadata enriches the hosts. Setting `override: false` makes sure an SDK-supplied `host.name` wins when there's one already.
 
 ### Hosts that are Kubernetes nodes
 
@@ -154,8 +154,8 @@ The Hosts page populates within about a minute. To collect metrics from the host
 
 | Symptom | Likely cause |
 |---------|--------------|
-| Host doesn't appear in the inventory | Metrics arrived without a `host.id` (or `host.name`). Add the `system` (and any cloud) detector to your collector's `resourcedetection` processor. |
-| Same physical host shows up twice | Two sources are reporting different `host.id` values, for example the SDK reports the container ID while the Collector reports the machine ID. Pick one source per host, or set `host.id` explicitly. |
-| Every replica of a containerised collector appears as one fake host | `host.id` is being read from inside the container (so every replica reports the same value). Bind-mount the host's filesystem and set `root_path: /hostfs` so `resourcedetection`'s `system` detector reads the real machine ID. |
+| Host doesn't appear in the inventory | Metrics arrived without a `host.name`, which is what the inventory groups by. Add the `system` (and any cloud) detector to your Collector's `resourcedetection` processor. |
+| Same physical host shows up twice | Two sources are reporting different `host.name` values, for example the SDK reports the container's hostname while the Collector reports the machine's. Pick one source per host, or set `host.name` explicitly. |
+| One machine appears as several hosts, one per container | Each replica is reporting its own container hostname as `host.name`. Bind-mount the host's filesystem and set `root_path: /hostfs` so `resourcedetection`'s `system` detector reads the real machine instead of the container. |
 | All hosts became **Delayed** or **Not reporting** at the same moment | The collector restarted, or a network blip is blocking exports. The page is just a window on what arrived. Confirm with the collector's own logs. |
 | Kubernetes node appears as both a host *and* a node, but with different names | `host.name` does not match `k8s.node.name`. Set both from the downward API (`spec.nodeName`) so they dedup correctly. See [Hosts that are Kubernetes nodes](#hosts-that-are-kubernetes-nodes). |

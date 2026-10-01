@@ -54,10 +54,12 @@ runs on to the next unindented fence and swallows whatever lies between.
 HOSTMETRICS_SCRAPER_UTILIZATION = {
     'cpu': 'system.cpu.utilization',
     'memory': 'system.memory.utilization',
-    'filesystem': 'system.filesystem.utilization',
 }
 """Scrapers whose `*.utilization` metric the Hosts page reads, and which the `hostmetrics`
-receiver leaves disabled by default."""
+receiver leaves disabled by default.
+
+`filesystem` is deliberately absent. The Hosts surfaces read `system.filesystem.usage`, which the
+receiver emits by default, and nothing reads `system.filesystem.utilization`."""
 
 SENSITIVE_FROM_LITERAL_PATTERN = re.compile(
     r"""--from-literal(?:=|[ \t]+)["']?(?:[A-Z0-9_.-]*(?:TOKEN|PASSWORD|SECRET|[_.-]KEY)|KEY)=""",

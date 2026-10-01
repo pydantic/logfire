@@ -4,12 +4,12 @@ description: "Ship CPU, memory, disk, filesystem, network, and process metrics f
 ---
 # Host monitoring with the OTel Collector
 
-The OpenTelemetry Collector's [`hostmetrics` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver) reads CPU, memory, disk, filesystem, network, paging and process metrics from the machine the Collector is running on and ships them to Logfire: no SDK required, no application changes. Hosts reporting these metrics show up on the **Hosts** page in Logfire, and the metric series are queryable in **Metrics**, **SQL Workbench**, and any dashboard you build on top of them.
+The OpenTelemetry Collector's [`hostmetrics` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver) reads CPU, memory, disk, filesystem, network, paging and process metrics from the machine the Collector is running on and ships them to Logfire: no SDK required, no application changes. Hosts reporting these metrics show up on the [**Hosts** page](../../guides/web-ui/hosts.md) in Logfire, and the metric series are queryable in **Metrics**, **SQL Workbench**, and any dashboard you build on top of them.
 
 !!! tip
     If the machine runs a Python application that already uses Logfire, you may not need a Collector at all. [`logfire.instrument_system_metrics()`](../../integrations/system-metrics.md) reports CPU, memory, swap, load average and process count from inside the process, which is enough for the host to appear on the Hosts page. Disk and network metrics need `base='full'`, or an explicit `config` naming the ones you want. Use the Collector when the machine does not run a Python application, or when you want host metrics that keep arriving regardless of whether any one process is up.
 
-This is also the smallest possible working Collector configuration.
+This is the configuration to start from on any host.
 
 <!-- The configuration below is deliberately identical to the one in guides/web-ui/hosts.md.
      Each page is meant to work end to end, so a reader never has to jump to the other.
@@ -79,7 +79,7 @@ service:
 A few things worth calling out:
 
 - **`resourcedetection`** adds the `host.name` (and on cloud VMs, `cloud.provider`, `cloud.region`, etc.) resource attributes to every metric. The Hosts page groups by `host.name`, so a Collector that omits this processor won't appear there.
-- **`*.utilization` metrics are off by default in the receiver**, but the Hosts page expects them. Enabling `system.cpu.utilization`, `system.memory.utilization`, and `system.filesystem.utilization` populates the **CPU**, **Memory**, and disk columns directly instead of requiring a downstream rate calculation.
+- **`system.cpu.utilization` and `system.memory.utilization` are off by default in the receiver**, and the Hosts page reads both to fill its **CPU** and **Memory** columns. Leave them disabled and a host appears with those columns blank, with nothing in the interface to say why. Filesystem is different: the Hosts surfaces read `system.filesystem.usage`, which the receiver emits on its own, so `system.filesystem.utilization` is enabled below only because it is useful to query, not because the page needs it.
 - **`memory_limiter` comes first** so the Collector sheds load rather than being killed when a burst of metrics outgrows its memory. `batch` comes last. Any other receiver you add slots into the same shape.
 - **`load.cpu_average: true`** reports load average divided by CPU count, so the number means the same thing on a 4-core and a 64-core machine.
 - **Scraper list** is selected explicitly. Drop the scrapers you don't need to reduce metric volume. `processes` reports a few aggregate process counts per host. The similarly named `process` scraper reports metrics for every process ID (PID) and is intentionally not enabled here.
