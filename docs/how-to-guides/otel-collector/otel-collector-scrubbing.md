@@ -82,10 +82,20 @@ A request body is the usual case. You want it when something went wrong and you 
 processors:
   transform:
     trace_statements:
-      - set(span.attributes["request.body"], "[REDACTED]") where span.attributes["http.status_code"] < 500
+      - set(span.attributes["http.request.body.text"], "[REDACTED]")
+          where span.attributes["http.request.body.text"] != nil
+            and (span.attributes["http.response.status_code"] == nil or span.attributes["http.response.status_code"] < 500)
+            and (span.attributes["http.status_code"] == nil or span.attributes["http.status_code"] < 500)
 ```
 
-Read the condition carefully before copying it. This one redacts the body on everything **except** server errors, which is the direction you usually want: keep the evidence where you need it, drop it everywhere else. Writing it the other way round, redacting only on failure, leaves the body in place for every successful request, which is almost never what anyone means.
+Read the condition carefully before copying it, because each clause is load-bearing:
+
+- **It redacts on everything except server errors**, which is the direction you usually want: keep the evidence where you need it, drop it everywhere else. Written the other way round, redacting only on failure, it leaves the body in place for every successful request, which is almost never what anyone means.
+- **The `!= nil` guard matters.** `set` creates an attribute that was not there, so without it every span under 500 gains a `[REDACTED]` body it never had.
+- **Both status attributes are checked.** `http.status_code` is the older spelling and `http.response.status_code` the current one; instrumentations differ, and the SDK itself reads both. Check only one and spans from the other convention slip past unredacted.
+- **A missing status still redacts.** Each status clause passes when the attribute is absent, so a span with no status code is treated as "not a server error" and its body is removed, rather than being kept by accident.
+
+`http.request.body.text` is what the Logfire HTTP integrations emit when you turn body capture on; `http.request.body.form` is the other one. Substitute whatever key your own instrumentation uses.
 
 `trace_statements` applies to spans only. Logs and metrics need their own statements, which is why the complete configuration below does not put `transform` in those pipelines.
 
@@ -130,7 +140,10 @@ processors:
   # on server errors, and redacts it everywhere else.
   transform:
     trace_statements:
-      - set(span.attributes["request.body"], "[REDACTED]") where span.attributes["http.status_code"] < 500
+      - set(span.attributes["http.request.body.text"], "[REDACTED]")
+          where span.attributes["http.request.body.text"] != nil
+            and (span.attributes["http.response.status_code"] == nil or span.attributes["http.response.status_code"] < 500)
+            and (span.attributes["http.status_code"] == nil or span.attributes["http.status_code"] < 500)
 
 # 3. EXPORTERS: Where the scrubbed data is sent
 exporters:
