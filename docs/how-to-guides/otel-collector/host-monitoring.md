@@ -303,7 +303,7 @@ A couple of things to be deliberate about:
 Outside of Kubernetes, no special configuration is required: the Collector already has the host's `/proc` and `/sys`. Drop the config in place and run:
 
 ```bash
-LOGFIRE_TOKEN=<your-write-token> \
+LOGFIRE_TOKEN='<your-write-token>' \
   otelcol-contrib --config otel-collector-config.yaml
 ```
 
