@@ -1912,6 +1912,10 @@ os._exit = patched_os_exit
 GLOBAL_CONFIG = LogfireConfig()
 
 
+class NoOrganizationsAvailable(LogfireConfigError):
+    """Project creation requires at least one accessible organization."""
+
+
 @dataclasses.dataclass
 class LogfireCredentials:
     """Credentials for logfire.dev."""
@@ -2127,7 +2131,7 @@ class LogfireCredentials:
         """
         organizations: list[str] = [item['organization_name'] for item in client.get_user_organizations()]
         if not organizations:
-            raise LogfireConfigError(
+            raise NoOrganizationsAvailable(
                 'No organizations are available for project creation. '
                 'Create or join an organization in Logfire, then try again.'
             )

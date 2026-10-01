@@ -1792,6 +1792,35 @@ def test_projects_new_non_interactive_multiple_organizations_guidance(
     )
 
 
+@pytest.mark.parametrize('non_interactive', [False, True])
+def test_projects_new_without_available_organizations_shows_guidance(
+    default_credentials: Path, capsys: pytest.CaptureFixture[str], non_interactive: bool
+) -> None:
+    with (
+        patch(
+            'logfire._internal.auth.UserTokenCollection.get_token',
+            return_value=UserToken(
+                token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+            ),
+        ),
+        requests_mock.Mocker() as m,
+    ):
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/', json=[])
+
+        args = ['projects', 'new', 'myproject']
+        if non_interactive:
+            args.insert(0, '--non-interactive')
+        with pytest.raises(SystemExit) as exc_info:
+            main(args)
+
+    assert exc_info.value.code == 1
+    assert capsys.readouterr().err == (
+        'No organizations are available for project creation. '
+        'Create or join an organization in Logfire, then try again.\n'
+    )
+
+
 def test_projects_new_with_project_name_and_default_org_multiple_organizations(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
