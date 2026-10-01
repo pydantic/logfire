@@ -29,7 +29,7 @@ from logfire.propagate import ContextCarrier, get_context
 from ...version import VERSION
 from ..auth import HOME_LOGFIRE
 from ..client import UA_HEADER, LogfireClient
-from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
+from ..config import REGIONS, LogfireCredentials, NoOrganizationsAvailable, get_base_url_from_token
 from ..config_params import ParamManager
 from ..interactive import NonInteractiveError, is_non_interactive, require_answer, set_non_interactive
 from ..server_response import install_logfire_response_hook
@@ -197,12 +197,16 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
     project_name = args.project_name
     organization = args.org
     default_organization = args.default_org
-    project_info = LogfireCredentials.create_new_project(
-        client=client,
-        organization=organization,
-        default_organization=default_organization,
-        project_name=project_name,
-    )
+    try:
+        project_info = LogfireCredentials.create_new_project(
+            client=client,
+            organization=organization,
+            default_organization=default_organization,
+            project_name=project_name,
+        )
+    except NoOrganizationsAvailable as e:
+        sys.stderr.write(f'{e}\n')
+        sys.exit(1)
     credentials = _write_credentials(project_info, data_dir, client.base_url)
     sys.stderr.write(f'Project created successfully. You will be able to view it at: {credentials.project_url}\n')
 
