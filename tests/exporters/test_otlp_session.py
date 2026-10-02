@@ -78,7 +78,10 @@ class StatusCodeHTTPAdapter(SinkHTTPAdapter):
 def test_post_dispatch_retries_transient_failure(
     method: str | None, data: bytes, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr('time.sleep', lambda _: None)
+    def no_sleep(_: float) -> None:
+        pass
+
+    monkeypatch.setattr('time.sleep', no_sleep)
     with OTLPExporterHttpSession() as session:
         adapter = StatusCodeHTTPAdapter(503, 200)
         session.mount('http://', adapter)
@@ -99,7 +102,10 @@ def test_post_dispatch_retries_transient_failure(
 def test_post_dispatch_delivers_through_disk_retryer(
     method: str | None, connection_error: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr('time.sleep', lambda _: None)
+    def no_sleep(_: float) -> None:
+        pass
+
+    monkeypatch.setattr('time.sleep', no_sleep)
 
     class FailingHTTPAdapter(SinkHTTPAdapter):
         def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
@@ -147,6 +153,7 @@ def test_post_dispatch_preserves_request_options(method: str | None) -> None:
             response = Response()
             response.status_code = 302
             response.request = request
+            assert request.url is not None
             response.url = request.url
             response.headers['Location'] = 'http://example.com/redirect'
             response._content = b''
