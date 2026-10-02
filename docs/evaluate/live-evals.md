@@ -17,7 +17,7 @@ Open **Evals: Live Monitoring** from the sidebar. The target list shows agents a
 
 1. Choose a time range at the top of the page. Start with **24h** for a normal operating view, then narrow it when investigating a recent deployment or broaden it to compare a longer period.
 2. Find the target you want to inspect. Each row shows the target type, its evaluators, the number of events, and when the last event arrived.
-3. Read the evaluator summaries. They show a pass rate for pass/fail checks, an average for numeric scores, or one label plus the number of other labels seen. The small activity bars show when results arrived in the selected time range.
+3. Read the evaluator summaries. They show a pass rate for pass/fail checks and binary `0`/`1` scores, an average for other numeric scores, or one label plus the number of other labels seen. The small activity bars show when results arrived in the selected time range.
 
 ![The Live Evaluations target list, showing two targets and summaries for their pass/fail, numeric, and label-based evaluators](../images/live-evaluations-directory.png)
 
