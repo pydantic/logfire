@@ -5,6 +5,7 @@ import sys
 import textwrap
 import threading
 import weakref
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
@@ -32,6 +33,7 @@ from logfire._internal.exporters.otlp import (
     DiskRetryer,
     OTLPExporterHttpSession,
     RetryFewerSpansSpanExporter,
+    SuppressedConnectionError,
     cleanup_disk_retryers,
 )
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
@@ -69,6 +71,159 @@ class StatusCodeHTTPAdapter(SinkHTTPAdapter):
         response = super().send(request, *args, **kwargs)
         response.status_code = self.status_codes.pop(0)
         return response
+
+
+@pytest.mark.parametrize('method', [None, 'POST', 'post'])
+@pytest.mark.parametrize('data', [b'payload', b''])
+def test_post_dispatch_retries_transient_failure(
+    method: str | None, data: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr('time.sleep', lambda _: None)
+    with OTLPExporterHttpSession() as session:
+        adapter = StatusCodeHTTPAdapter(503, 200)
+        session.mount('http://', adapter)
+
+        if method is None:
+            response = session.post('http://example.com', data=data, timeout=30)
+        else:
+            response = session.request(method, 'http://example.com', data=data, timeout=30)
+
+        assert response.status_code == 200
+        assert adapter.bodies == [data, data]
+        assert adapter.timeouts == [(3, 30), (3, 30)]
+        assert 'retryer' not in session.__dict__
+
+
+@pytest.mark.parametrize('method', [None, 'POST', 'post'])
+@pytest.mark.parametrize('connection_error', [False, True])
+def test_post_dispatch_delivers_through_disk_retryer(
+    method: str | None, connection_error: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr('time.sleep', lambda _: None)
+
+    class FailingHTTPAdapter(SinkHTTPAdapter):
+        def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
+            response = super().send(request, *args, **kwargs)
+            if connection_error:
+                raise requests.exceptions.ConnectionError('connection failed')
+            response.status_code = 503
+            return response
+
+    with OTLPExporterHttpSession() as session:
+        adapter = FailingHTTPAdapter()
+        session.mount('http://', adapter)
+        retryer = session.retryer
+        retry_adapter = SinkHTTPAdapter()
+        retryer.session.mount('http://', retry_adapter)
+
+        expected_error = SuppressedConnectionError if connection_error else requests.exceptions.HTTPError
+        with pytest.raises(expected_error):
+            if method is None:
+                session.post('http://example.com', data=b'payload', timeout=30)
+            else:
+                session.request(method, 'http://example.com', data=b'payload', timeout=30)
+
+        with retryer.lock:
+            thread = retryer.thread
+        if thread is not None:
+            thread.join(timeout=5)
+            assert not thread.is_alive()
+        assert adapter.bodies == [b'payload', b'payload']
+        assert retry_adapter.bodies == [b'payload']
+        assert retry_adapter.timeouts == [(3, 30)]
+        assert not retryer.tasks
+        assert retryer.total_size == 0
+        assert not list(retryer.dir.iterdir())
+
+
+@pytest.mark.parametrize('method', [None, 'POST', 'post'])
+def test_post_dispatch_preserves_request_options(method: str | None) -> None:
+    sent: list[PreparedRequest] = []
+
+    class RedirectAdapter(HTTPAdapter):
+        def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
+            sent.append(request)
+            assert len(sent) == 1, 'redirects should be disabled'
+            response = Response()
+            response.status_code = 302
+            response.request = request
+            response.url = request.url
+            response.headers['Location'] = 'http://example.com/redirect'
+            response._content = b''
+            return response
+
+    with OTLPExporterHttpSession() as session:
+        session.mount('http://', RedirectAdapter())
+        kwargs: dict[str, Any] = dict(
+            data=b'payload', params={'source': 'test'}, headers={'X-Test': 'value'}, allow_redirects=False
+        )
+        if method is None:
+            response = session.post('http://example.com', **kwargs)
+        else:
+            response = session.request(method, 'http://example.com', **kwargs)
+
+        assert response.status_code == 302
+        assert len(sent) == 1
+        assert sent[0].method == 'POST'
+        assert sent[0].url == 'http://example.com/?source=test'
+        assert sent[0].headers['X-Test'] == 'value'
+        assert sent[0].body == b'payload'
+
+
+@pytest.mark.parametrize('method', ['GET', 'PUT'])
+def test_other_request_methods_do_not_retry(method: str) -> None:
+    with OTLPExporterHttpSession() as session:
+        adapter = StatusCodeHTTPAdapter(503)
+        session.mount('http://', adapter)
+
+        response = session.request(method, 'http://example.com', data=b'payload', timeout=30)
+
+        assert response.status_code == 503
+        assert adapter.bodies == [b'payload']
+        assert adapter.timeouts == [(3, 30)]
+        assert 'retryer' not in session.__dict__
+
+
+@pytest.mark.parametrize(
+    ('kwargs', 'expected_body'),
+    [
+        ({}, None),
+        ({'json': {'span': 1}}, b'{"span": 1}'),
+        ({'data': b'', 'json': {'span': 1}}, b'{"span": 1}'),
+        ({'data': {'span': '1'}}, 'span=1'),
+    ],
+)
+def test_request_nonbytes_body_does_not_retry(kwargs: dict[str, Any], expected_body: bytes | str | None) -> None:
+    bodies: list[Any] = []
+
+    class HTTPErrorAdapter(HTTPAdapter):
+        def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
+            bodies.append(request.body)
+            response = Response()
+            response.status_code = 503
+            return response
+
+    with OTLPExporterHttpSession() as session:
+        session.mount('http://', HTTPErrorAdapter())
+
+        response = session.request('POST', 'http://example.com', timeout=30, **kwargs)
+
+        assert response.status_code == 503
+        assert bodies == [expected_body]
+        assert 'retryer' not in session.__dict__
+
+
+def test_request_multipart_body_does_not_retry() -> None:
+    with OTLPExporterHttpSession() as session, BytesIO(b'file payload') as stream:
+        adapter = StatusCodeHTTPAdapter(503, 200)
+        session.mount('http://', adapter)
+
+        response = session.request('POST', 'http://example.com', data=b'', files={'file': ('test.bin', stream)})
+
+        assert response.status_code == 503
+        assert len(adapter.bodies) == 1
+        assert b'file payload' in adapter.bodies[0]
+        assert 'retryer' not in session.__dict__
 
 
 @pytest.mark.parametrize(
