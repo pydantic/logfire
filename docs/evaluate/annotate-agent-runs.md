@@ -27,7 +27,7 @@ Use annotations for a considered review of an interaction. Use scores and other 
 | --- | --- | --- |
 | A trusted reviewer's judgment against a rubric (shared criteria for judging quality) | Human annotation | A domain expert marks an answer **Fail** and explains which policy it misinterpreted. |
 | An end user's reaction to an answer | Score recorded as a live evaluation result | A user gives an answer a thumbs-down or a low helpfulness rating. |
-| An automated check of an answer | Live evaluation result | An evaluator checks whether the answer cites a source. |
+| An automated check of production traffic | Live evaluation result | An evaluator checks whether the answer cites a source. |
 
 The distinction is the purpose of the feedback, not whether a human supplied it. Annotations capture a reviewer's judgment against your team's criteria. End-user feedback captures someone's experience with your application. For feedback such as thumbs-up/down or satisfaction ratings, [record a score as a live evaluation result](live-evals.md#record-end-user-feedback) rather than an annotation.
 

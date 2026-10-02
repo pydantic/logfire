@@ -44,7 +44,8 @@ The page presents a result according to the value returned by the evaluator:
 | Evaluator output | Target-list and detail-page summary |
 | --- | --- |
 | `bool` | Pass rate, with individual `pass` or `fail` results |
-| Number | Average score over the selected time range |
+| Number, when all scores in the selected time range are `0` or `1` | Pass rate (`1` is pass; `0` is fail) |
+| Other numbers | Average score over the selected time range |
 | String | One label, plus the number of other labels seen |
 
 An evaluator that returns multiple named scores appears as one result for each score. If you deploy a new evaluator version, use the detail page to compare the version badges and recent events while both versions are running.
