@@ -51,6 +51,74 @@ An evaluator that returns multiple named scores appears as one result for each s
 
 Live Evaluations groups results by target and evaluation name, regardless of the evaluator source or configuration. Give results distinct names when they should appear as separate summaries.
 
+## Record end-user feedback
+
+Use a score to record feedback such as thumbs-up/down or a satisfaction rating. Unlike a [human annotation](human-review.md), this records an end user's experience, not a review against your team's criteria.
+
+[Pydantic Evals](https://pydantic.dev/docs/ai/evals/online-evaluation/) emits evaluation events automatically when evaluators run. For feedback you have already collected, emit the same `gen_ai.evaluation.result` event directly through OpenTelemetry, the open industry standard for collecting traces, metrics, and logs. You do not need to run an evaluator.
+
+Install `logfire` with `pip install logfire`. Set `LOGFIRE_TOKEN` to a write token from **Project Settings > Write Tokens** in the project that receives your application's data.
+
+!!! note "Feedback is sent to Logfire"
+
+    Running this example sends a demonstration response span and a feedback score to your Logfire project. A span is one unit of work: a single operation, with a name, a start, and a duration.
+
+### Link feedback to the original response
+
+`response_context` is a variable you create with [`logfire.get_context()`](../reference/api/propagate.md), not a value returned automatically by your agent. It contains tracing metadata, including the trace and span identifiers, and you can save it as JSON.
+
+Call `get_context()` while the original response span is active. If you wrap response generation in `logfire.span(...)`, generate the response and capture its context inside the same `with` block. Calling `get_context()` later in the feedback request captures that request's context, not the original response's.
+
+This runnable example captures the context and sends feedback after the demonstration span has finished. It uses one process and does not call an agent:
+
+```python
+from opentelemetry._logs import SeverityNumber, get_logger
+
+import logfire
+
+logfire.configure()
+
+with logfire.span('Demonstration agent response'):
+    response_context = logfire.get_context()
+
+# Later, when the user selects thumbs-up:
+with logfire.attach_context(response_context):
+    get_logger('my_app.feedback').emit(
+        event_name='gen_ai.evaluation.result',
+        severity_number=SeverityNumber.INFO,
+        body='User feedback: helpful',
+        attributes={
+            'gen_ai.evaluation.target': 'support-agent',
+            'gen_ai.evaluation.name': 'user_helpfulness',
+            'gen_ai.evaluation.score.value': 1.0,
+            'gen_ai.agent.name': 'support-agent',
+        },
+    )
+```
+
+Use `1.0` for thumbs-up and `0.0` for thumbs-down. For a satisfaction rating, send the numeric rating and keep its scale consistent. Use your agent's name as the target and a distinct evaluation name such as `user_helpfulness` so user feedback stays separate from automated checks.
+
+### Receive feedback in a separate request
+
+In your application, feedback usually arrives in a later request:
+
+1. Before returning the response, save its captured context server-side with the response ID. Use a database or another shared store so a different worker can retrieve it after the original request finishes. Keeping it only in a local variable is not enough.
+2. Send the response ID to the browser with the answer. When the user gives feedback, send that ID and their rating back to your application.
+3. Authenticate the user and check that they may give feedback on that response. Retrieve the saved context for the authorized response. Do not accept arbitrary trace context from the browser.
+4. In the feedback request, use `logfire.attach_context(saved_context)` around the event emission shown above. Configure this process to send data to the same Logfire project as the original response.
+
+Restoring the saved context links feedback to the original response even after the span has finished or the process that generated it has exited. It does not rerun the agent or reopen the span.
+
+### Check the result in Logfire
+
+Open **Evals: Live Monitoring** and select `support-agent`:
+
+- **Recent events** shows `user_helpfulness` with a score of `1.00` for the example above.
+- Binary `0`/`1` scores appear as a pass percentage in the summary. For thumbs-up/down, this is the percentage of positive feedback: one thumbs-up shows `100%`; one thumbs-up and one thumbs-down show `50%`.
+- The event's **Open trace in live view** link opens the trace containing **Demonstration agent response**.
+
+If the result does not appear, check the write token and time range as described in [Troubleshoot missing or unexpected results](#troubleshoot-missing-or-unexpected-results).
+
 ## Hide evaluators without deleting telemetry
 
 Use a hide rule when an old experiment, test evaluator, or retired version makes the monitoring view harder to read. Open an evaluator's overflow menu on the target detail page and choose the matching hide action. You can hide that evaluator for the target or data that arrived before the current time while allowing new events to remain visible. When the selected range contains one recorded evaluator version, the menu also offers an action for that version.

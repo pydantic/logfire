@@ -7,7 +7,7 @@ description: "Review an agent interaction and record a pass, neutral, or fail ve
 
 Review an agent interaction in context, then save a verdict, comment, and tags that explain what it got right or wrong.
 
-An agent **run** is one end-to-end invocation of your agent, including its messages, model calls, and tool calls. Annotate a run when you need a human judgment that automated checks cannot provide, such as whether an answer was helpful, safe, or on-topic. The result is an editable [run annotation](human-review.md) that remains separate from automated evaluator results.
+An agent **run** is one end-to-end invocation of your agent, including its messages, model calls, and tool calls. A [run annotation](human-review.md) is a deliberate verdict from someone you trust to judge quality, such as a domain expert reviewing whether an answer is accurate, safe, or on-topic. It records the reviewer's judgment and the context behind it.
 
 Use this direct workflow when you are investigating one run or a small sample in context. Design Partner customers participating in early access can use an [annotation queue](human-review.md#work-through-an-annotation-queue) for a systematic batch of interactions.
 
@@ -18,6 +18,18 @@ Use this direct workflow when you are investigating one run or a small sample in
 !!! note "Review data is stored in Logfire"
 
     Saving an annotation sends its verdict, comment, and tags to your Logfire project, where your team can view them. Do not include sensitive data in a comment.
+
+## Choose annotations or scores
+
+Use annotations for a considered review of an interaction. Use scores and other [live evaluation results](live-evals.md) to record signals from your application, including end-user feedback.
+
+| What you want to record | What to use | Example |
+| --- | --- | --- |
+| A trusted reviewer's judgment against a rubric (shared criteria for judging quality) | Human annotation | A domain expert marks an answer **Fail** and explains which policy it misinterpreted. |
+| An end user's reaction to an answer | Score recorded as a live evaluation result | A user gives an answer a thumbs-down or a low helpfulness rating. |
+| An automated check of an answer | Live evaluation result | An evaluator checks whether the answer cites a source. |
+
+The distinction is the purpose of the feedback, not whether a human supplied it. Annotations capture a reviewer's judgment against your team's criteria. End-user feedback captures someone's experience with your application. For feedback such as thumbs-up/down or satisfaction ratings, [record a score as a live evaluation result](live-evals.md#record-end-user-feedback) rather than an annotation.
 
 ## Agree on the criterion first
 
