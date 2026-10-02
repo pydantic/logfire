@@ -5,7 +5,7 @@ import os
 from unittest import mock
 
 import pytest
-from dirty_equals import IsAnyStr
+from dirty_equals import IsAnyStr, IsFloat, IsInt
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 from starlette.applications import Starlette
@@ -215,6 +215,38 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'http.route': '/secret/{path_param}',
                     'logfire.level_num': 17,
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
+                    'logfire.metrics': {
+                        'http.server.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'testserver',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'http',
+                                        'http.server_name': 'testserver',
+                                        'net.host.port': 80,
+                                    },
+                                    'total': IsInt(),
+                                }
+                            ],
+                            'total': IsInt(),
+                        },
+                        'http.server.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.route': '/secret/{path_param}',
+                                        'network.protocol.version': '1.1',
+                                        'url.scheme': 'http',
+                                    },
+                                    'total': IsFloat(),
+                                }
+                            ],
+                            'total': IsFloat(),
+                        },
+                    },
                     'http.request.header.testauthorization': ("[Scrubbed due to 'auth']",),
                     'logfire.scrubbed': (
                         [{'path': ['attributes', 'http.request.header.testauthorization'], 'matched_substring': 'auth'}]
