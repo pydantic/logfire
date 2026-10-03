@@ -726,8 +726,8 @@ class _LogfireConfigData:
     def _load_configuration(
         self,
         # note that there are no defaults here so that the only place
-        # defaults exist is `__init__` and we don't forgot a parameter when
-        # forwarding parameters from `__init__` to `load_configuration`
+        # defaults exist is `__init__` and we don't forget a parameter when
+        # forwarding parameters from `__init__` to `_load_configuration`
         send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | list[str] | None,
         api_key: str | None,
@@ -945,7 +945,7 @@ class LogfireConfig(_LogfireConfigData):
 
         See `_LogfireConfigData` for parameter documentation.
         """
-        # The `load_configuration` is it's own method so that it can be called on an existing config object
+        # The `_load_configuration` is its own method so that it can be called on an existing config object
         # in particular the global config object.
         self._load_configuration(
             send_to_logfire=send_to_logfire,
