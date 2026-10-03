@@ -1679,6 +1679,27 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
         ]
 
 
+def test_initialize_project_without_available_organizations(tmp_dir_cwd: Path, tmp_path: Path):
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        request_mocker = stack.enter_context(requests_mock.Mocker())
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/', json=[])
+
+        with pytest.raises(
+            LogfireConfigError,
+            match=(
+                'No organizations are available for project creation. '
+                'Create or join an organization in Logfire, then try again.'
+            ),
+        ):
+            logfire.configure(send_to_logfire=True)
+
+
 def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
@@ -1956,7 +1977,19 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
 
 
 @pytest.mark.xdist_group(name='sequential')
-def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Path, tmp_path: Path):
+@pytest.mark.parametrize(
+    ('default_organization', 'expected_prompt_default'),
+    [
+        ({'organization_name': 'fake_org1'}, 'fake_org1'),
+        (None, 'fake_org'),
+    ],
+)
+def test_initialize_project_create_project_default_organization(
+    tmp_dir_cwd: Path,
+    tmp_path: Path,
+    default_organization: dict[str, str] | None,
+    expected_prompt_default: str,
+):
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
         '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
@@ -1981,7 +2014,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
         )
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/account/me',
-            json={'default_organization': {'organization_name': 'fake_org1'}},
+            json={'default_organization': default_organization},
         )
 
         create_project_response = {
@@ -2003,7 +2036,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
             call(
                 '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
                 choices=['fake_org', 'fake_org1'],
-                default='fake_org1',
+                default=expected_prompt_default,
             ),
             call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name)),
             call(
