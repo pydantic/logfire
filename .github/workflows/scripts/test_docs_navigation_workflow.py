@@ -37,5 +37,12 @@ def test_public_comments_describe_data_only_navigation_validation() -> None:
     assert 'gh api --paginate' in workflow
     assert "existing=${matching_comments%%$'\\n'*}" in workflow
     assert 'startswith("## Docs Preview")' in workflow
+    assert "steps.verify.outcome == 'failure'" in workflow
     assert "steps.app-token.outcome == 'failure' || steps.dispatch.outcome == 'failure'" in workflow
+    assert 'Docs Navigation Check — permission denied' in workflow
+    assert 'Only a repository maintainer can request this check.' in workflow
+    assert 'Docs Navigation Check — authentication failed' in workflow
+    assert 'The documentation app token could not be generated.' in workflow
+    assert 'Docs Navigation Check — dispatch failed' in workflow
+    assert 'The navigation check could not be queued.' in workflow
     assert "steps.acknowledge.outcome == 'failure'" in workflow
