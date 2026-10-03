@@ -452,3 +452,60 @@ def test_disk_retryer_add_task_after_close_does_nothing() -> None:
     assert retryer.total_size == 0
     assert not retryer.tasks
     assert retryer.thread is None
+
+
+def test_disk_retryer_drops_non_retryable_http_error(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Non-retryable statuses (e.g. 401) must not be treated as a successful delivery.
+
+    raise_for_retryable_status only raises for 408/429/5xx. Previously any other response
+    fell into the success branch and silently deleted the on-disk payload (#2443).
+    """
+    monkeypatch.setattr('random.random', Mock(return_value=0.0))
+    monkeypatch.setattr('time.sleep', Mock())
+
+    retryer = DiskRetryer({})
+    refused = Response()
+    refused.status_code = 401
+    post = Mock(return_value=refused)
+    monkeypatch.setattr(retryer.session, 'post', post)
+
+    with caplog.at_level('ERROR', logger='logfire'):
+        retryer.add_task(b'export-payload', {'url': 'https://example.com/v1/traces'})
+        assert retryer.thread is not None
+        retryer.thread.join(timeout=5)
+
+    assert post.call_count == 1
+    assert not retryer.tasks
+    assert retryer.thread is None
+    assert not list(retryer.dir.iterdir())
+    assert any(
+        'permanently refused with HTTP 401' in message and 'dropping queued payload' in message
+        for message in caplog.messages
+    )
+    retryer.close()
+
+
+def test_disk_retryer_still_retries_server_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retryable 5xx responses must keep the payload until a successful delivery."""
+    monkeypatch.setattr('random.random', Mock(return_value=0.0))
+    monkeypatch.setattr('time.sleep', Mock())
+
+    retryer = DiskRetryer({})
+    failure = Response()
+    failure.status_code = 503
+    success = Response()
+    success.status_code = 200
+    post = Mock(side_effect=[failure, failure, success])
+    monkeypatch.setattr(retryer.session, 'post', post)
+
+    retryer.add_task(b'export-payload', {'url': 'https://example.com/v1/traces'})
+    assert retryer.thread is not None
+    retryer.thread.join(timeout=5)
+
+    assert post.call_count == 3
+    assert not retryer.tasks
+    assert retryer.thread is None
+    assert not list(retryer.dir.iterdir())
+    retryer.close()
