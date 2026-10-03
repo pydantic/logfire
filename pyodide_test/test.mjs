@@ -36,8 +36,31 @@ async function runTest() {
     await pyodide.runPythonAsync(`
 import sys
 import micropip
+from importlib.metadata import version
 
-await micropip.install(['file:${wheelPath}'], reinstall=True)
+# micropip resolves dependencies concurrently, so constrain indirect OpenTelemetry requirements too.
+await micropip.install(
+    ['file:${wheelPath}'],
+    reinstall=True,
+    constraints=[
+        'opentelemetry-api<1.45.0',
+        'opentelemetry-sdk<1.45.0',
+        'opentelemetry-exporter-otlp-proto-http<1.45.0',
+        'opentelemetry-instrumentation<0.66b0',
+        'opentelemetry-semantic-conventions<0.66b0',
+    ],
+)
+from packaging.version import Version
+api_version = version('opentelemetry-api')
+sdk_version = version('opentelemetry-sdk')
+assert api_version == sdk_version, (api_version, sdk_version)
+assert Version(api_version) < Version('1.45.0'), api_version
+exporter_version = version('opentelemetry-exporter-otlp-proto-http')
+assert Version(exporter_version) < Version('1.45.0'), exporter_version
+instrumentation_version = version('opentelemetry-instrumentation')
+assert Version(instrumentation_version) < Version('0.66b0'), instrumentation_version
+conventions_version = version('opentelemetry-semantic-conventions')
+assert Version(conventions_version) < Version('0.66b0'), conventions_version
 import logfire
 logfire.configure(token='unknown', inspect_arguments=False)
 logfire.info('hello {name}', name='world')
