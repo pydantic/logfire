@@ -34,11 +34,13 @@ PUBLIC_SKILLS_ROOT = 'https://pydantic.dev/.well-known/agent-skills'
 AUTH_REFERENCE_PATH = 'logfire-instrumentation/references/auth.md'
 AUTH_REFERENCE_ANCHOR = '#authenticate-and-select-the-exact-project'
 
-# Hub first, then the three it routes to, in the order a reader would want
-# to meet them: detect/install first, the two optional add-ons after.
+# Hub first, then the skills it routes to, in the order a reader would want
+# to meet them: detect/install first, its replace-instead-of-add sibling, then
+# the two optional add-ons.
 SKILL_ORDER = [
     'logfire-setup',
     'logfire-instrumentation',
+    'logfire-migrate',
     'logfire-infrastructure',
     'logfire-evals',
 ]
@@ -221,8 +223,9 @@ def _preamble(*, include_references: bool) -> str:
     return (
         '# Pydantic Logfire — Offline Setup Prompt\n\n'
         'This is a self-contained bundle of the `logfire-setup` hub skill and every skill it\n'
-        'routes to (`logfire-instrumentation`, `logfire-infrastructure`,\n'
-        '`logfire-evals`), for use when you cannot fetch URLs. Read top to bottom;\n'
+        'routes to (`logfire-instrumentation`, `logfire-migrate`,\n'
+        '`logfire-infrastructure`, `logfire-evals`), for use when you cannot fetch\n'
+        'URLs. Read top to bottom;\n'
         'nothing below needs a network fetch to resolve.\n\n'
         'A pointer to "the `logfire-infrastructure` skill" (or any other skill named\n'
         'above) means the section below headed `# Skill: logfire-infrastructure` --\n'
