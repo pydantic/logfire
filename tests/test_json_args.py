@@ -877,6 +877,44 @@ def test_log_non_scalar_args(
     assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema  # type: ignore
 
 
+@pytest.mark.parametrize(
+    'row_count,row_positions', [(0, []), (1, [0]), (3, [0, 1, 2]), (4, [0, 1, 2, 3]), (5, [0, 1, 3, 4])]
+)
+@pytest.mark.parametrize(
+    'column_count,column_positions', [(0, []), (1, [0]), (3, [0, 1, 2]), (4, [0, 1, 2, 3]), (5, [0, 1, 3, 4])]
+)
+def test_log_dataframe_labels_match_data(
+    exporter: TestExporter,
+    row_count: int,
+    row_positions: list[int],
+    column_count: int,
+    column_positions: list[int],
+) -> None:
+    frame = pandas.DataFrame(
+        [[row * column_count + column for column in range(column_count)] for row in range(row_count)],
+        columns=[f'col{column}' for column in range(column_count)],
+        index=[f'row{row}' for row in range(row_count)],
+    )
+    with pandas.option_context('display.max_rows', 4, 'display.max_columns', 4):  # pyright: ignore[reportUnknownMemberType]
+        logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    value = attributes['frame']
+    schema = attributes['logfire.json_schema']
+    assert isinstance(value, str)
+    assert isinstance(schema, str)
+    assert json.loads(value) == [[row * column_count + column for column in column_positions] for row in row_positions]
+    assert json.loads(schema)['properties']['frame'] == {
+        'type': 'array',
+        'x-python-datatype': 'DataFrame',
+        'x-columns': [f'col{column}' for column in column_positions],
+        'x-indices': [f'row{row}' for row in row_positions],
+        'x-column-count': column_count,
+        'x-row-count': row_count,
+    }
+
+
 def test_log_non_finite_scalar_float_args(exporter: TestExporter) -> None:
     logfire.info(
         'test message',

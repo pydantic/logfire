@@ -375,12 +375,18 @@ def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:
     row_count, column_count = obj.shape
 
     max_columns = pandas.get_option('display.max_columns')
-    col_middle = min(max_columns, column_count) // 2
-    columns = list(obj.columns[:col_middle]) + list(obj.columns[-col_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+    if column_count > max_columns:
+        col_middle = max_columns // 2
+        columns = list(obj.columns[:col_middle]) + list(obj.columns[-col_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+    else:
+        columns = list(obj.columns)  # pyright: ignore[reportUnknownVariableType]
 
     max_rows = pandas.get_option('display.max_rows')
-    row_middle = min(max_rows, row_count) // 2
-    indices = list(obj.index[:row_middle]) + list(obj.index[-row_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+    if row_count > max_rows:
+        row_middle = max_rows // 2
+        indices = list(obj.index[:row_middle]) + list(obj.index[-row_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+    else:
+        indices = list(obj.index)  # pyright: ignore[reportUnknownVariableType]
 
     return {
         'type': 'array',
