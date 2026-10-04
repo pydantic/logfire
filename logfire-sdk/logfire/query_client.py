@@ -4,7 +4,7 @@ import platform
 import sys
 from datetime import datetime, timezone
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar, cast
 
 from typing_extensions import Self
 
@@ -30,6 +30,7 @@ __all__ = [
     'QueryRequestError',
     'InfoRequestError',
     'UnexpectedResponseError',
+    'QueryRateLimitedError',
     'ReadTokenInfo',
     'ColumnDetails',
     'RowQueryResults',
@@ -40,13 +41,31 @@ __all__ = [
 DEFAULT_TIMEOUT = Timeout(30.0)  # queries might typically be slower than the 5s default from AsyncClient
 
 
-class QueryExecutionError(RuntimeError):
+class _ProblemDetailsMixin:
+    """Additional details about an error response.
+
+    The server sends an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem detail body when the client
+    asks for one. When the server sends a different body, `problem` is `None`, and the other attributes are
+    `None` unless the response has a `Retry-After` header.
+    """
+
+    problem: dict[str, Any] | None = None
+    """The full problem detail body, when the server sent one."""
+    problem_type: str | None = None
+    """The `type` URI of the problem detail, which identifies the kind of error."""
+    retryable: bool | None = None
+    """Whether the server indicated that the same request can succeed later."""
+    retry_after: float | None = None
+    """The number of seconds the server asks the client to wait before it retries."""
+
+
+class QueryExecutionError(_ProblemDetailsMixin, RuntimeError):
     """Raised when the query execution fails on the server."""
 
     pass
 
 
-class QueryRequestError(RuntimeError):
+class QueryRequestError(_ProblemDetailsMixin, RuntimeError):
     """Raised when the query request is invalid."""
 
     pass
@@ -58,8 +77,17 @@ class InfoRequestError(RuntimeError):
     pass
 
 
-class UnexpectedResponseError(RuntimeError):
+class UnexpectedResponseError(_ProblemDetailsMixin, RuntimeError):
     """Raised when the API responds with an unexpected status code, such as a `5xx` server error."""
+
+    pass
+
+
+class QueryRateLimitedError(UnexpectedResponseError):
+    """Raised when the API responds with status code `429` because the request was rate limited.
+
+    Use `retry_after` to find how long to wait before the next request.
+    """
 
     pass
 
@@ -134,6 +162,7 @@ T = TypeVar('T', bound=BaseClient)
 
 
 _ACCEPT = Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv']
+_PROBLEM_JSON = 'application/problem+json'
 _USER_AGENT = f'logfire-sdk-python/{VERSION} (Python {platform.python_version()}, os {platform.platform()}, arch {platform.machine()})'
 
 
@@ -180,22 +209,60 @@ class _BaseLogfireQueryClient(Generic[T]):
         return body
 
     def handle_response_errors(self, response: Response) -> None:
+        if response.status_code == 200:
+            return
         # Note: the MDN spec does not specify any default for content types,
         # although it is common to assume `application/octet-stream`.
         # In our case, our API isn't supposed to return binary data, so
         # we assume text/plain if not set.
         content_type = response.headers.get('content-type', 'text/plain')
         media_type = content_type.split(';', 1)[0].strip().lower()
-        if response.status_code == 400:
-            data = response.json() if media_type == 'application/json' else response.text
-            raise QueryExecutionError(data)
-        if response.status_code == 422:
-            data = response.json() if media_type == 'application/json' else response.text
-            raise QueryRequestError(data)
-        if response.status_code != 200:
+        problem = _parse_problem(response) if media_type == _PROBLEM_JSON else None
+        error: QueryExecutionError | QueryRequestError | UnexpectedResponseError
+        if response.status_code in (400, 422):
+            if problem is not None and 'error_details' in problem:
+                # The problem detail carries the legacy error body in `error_details`,
+                # so `args[0]` is the same whether or not the server sends a problem detail.
+                data = problem['error_details']
+            elif media_type in ('application/json', _PROBLEM_JSON):
+                data = response.json()
+            else:
+                data = response.text
+            error_cls = QueryExecutionError if response.status_code == 400 else QueryRequestError
+            error = error_cls(data)
+        else:
             # Unlike the statuses above, an unexpected response (e.g. a `5xx`, or an error page from a
             # proxy) isn't guaranteed to have a well-formed body, so don't try to decode it as JSON.
-            raise UnexpectedResponseError(f'Unexpected response status code {response.status_code}: {response.text!r}')
+            error_cls = QueryRateLimitedError if response.status_code == 429 else UnexpectedResponseError
+            error = error_cls(f'Unexpected response status code {response.status_code}: {response.text!r}')
+        _set_problem_attributes(error, response, problem)
+        raise error
+
+
+def _parse_problem(response: Response) -> dict[str, Any] | None:
+    try:
+        problem = response.json()
+    except ValueError:
+        return None
+    return cast('dict[str, Any]', problem) if isinstance(problem, dict) else None
+
+
+def _set_problem_attributes(error: _ProblemDetailsMixin, response: Response, problem: dict[str, Any] | None) -> None:
+    error.problem = problem
+    retry_after: Any = response.headers.get('retry-after')
+    if problem is not None:
+        problem_type = problem.get('type')
+        error.problem_type = problem_type if isinstance(problem_type, str) else None
+        retryable = problem.get('retryable')
+        error.retryable = retryable if isinstance(retryable, bool) else None
+        if retry_after is None:
+            retry_after = problem.get('retry_after')
+    if isinstance(retry_after, (int, float, str)) and not isinstance(retry_after, bool):
+        try:
+            error.retry_after = float(retry_after)
+        except ValueError:
+            # `Retry-After` can also be an HTTP date, which this client does not parse.
+            pass
 
 
 class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
@@ -393,7 +460,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             environment=environment,
             explain=explain,
         )
-        response = self.client.post('/v2/query', headers={'accept': accept}, json=body)
+        response = self.client.post('/v2/query', headers={'accept': f'{accept}, {_PROBLEM_JSON};q=0.9'}, json=body)
         self.handle_response_errors(response)
         return response
 
@@ -593,6 +660,8 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             environment=environment,
             explain=explain,
         )
-        response = await self.client.post('/v2/query', headers={'accept': accept}, json=body)
+        response = await self.client.post(
+            '/v2/query', headers={'accept': f'{accept}, {_PROBLEM_JSON};q=0.9'}, json=body
+        )
         self.handle_response_errors(response)
         return response
