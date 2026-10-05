@@ -317,3 +317,139 @@ def test_problem_body_without_error_details_is_passed_whole():
             client.query_json_rows(SQL, min_timestamp=MIN_TIMESTAMP)
 
     assert exc_info.value.args == (problem,)
+
+
+@pytest.mark.parametrize(
+    ['status_code', 'expected_error'],
+    [(400, QueryExecutionError), (422, QueryRequestError)],
+)
+@pytest.mark.parametrize(
+    'content',
+    [pytest.param('{"trunca', id='undecodable'), pytest.param('[1]', id='not-an-object')],
+)
+def test_malformed_problem_body_request_error_sync(status_code: int, expected_error: type[Exception], content: str):
+    transport = mock_transport(status_code, headers={'content-type': 'application/problem+json'}, text=content)
+    with LogfireQueryClient(read_token=READ_TOKEN, base_url=BASE_URL, transport=transport) as client:
+        with pytest.raises(expected_error) as exc_info:
+            client.query_json_rows(SQL, min_timestamp=MIN_TIMESTAMP)
+
+    assert type(exc_info.value) is expected_error
+    assert exc_info.value.args == (content,)
+    assert exc_info.value.problem is None  # type: ignore[attr-defined]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ['status_code', 'expected_error'],
+    [(400, QueryExecutionError), (422, QueryRequestError)],
+)
+@pytest.mark.parametrize(
+    'content',
+    [pytest.param('{"trunca', id='undecodable'), pytest.param('[1]', id='not-an-object')],
+)
+async def test_malformed_problem_body_request_error_async(
+    status_code: int, expected_error: type[Exception], content: str
+):
+    transport = mock_transport(status_code, headers={'content-type': 'application/problem+json'}, text=content)
+    async with AsyncLogfireQueryClient(read_token=READ_TOKEN, base_url=BASE_URL, transport=transport) as client:
+        with pytest.raises(expected_error) as exc_info:
+            await client.query_json_rows(SQL, min_timestamp=MIN_TIMESTAMP)
+
+    assert type(exc_info.value) is expected_error
+    assert exc_info.value.args == (content,)
+    assert exc_info.value.problem is None  # type: ignore[attr-defined]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ['status_code', 'expected_error'],
+    [(400, QueryExecutionError), (422, QueryRequestError)],
+)
+async def test_query_error_problem_body_async(status_code: int, expected_error: type[Exception]):
+    problem = problem_body(status_code, 'query-error', retryable=False)
+    transport = negotiating_transport(status_code, problem)
+    async with AsyncLogfireQueryClient(read_token=READ_TOKEN, base_url=BASE_URL, transport=transport) as client:
+        with pytest.raises(expected_error) as exc_info:
+            await client.query_json_rows(SQL, min_timestamp=MIN_TIMESTAMP)
+
+    error = exc_info.value
+    assert isinstance(error, (QueryExecutionError, QueryRequestError))
+    assert error.args == (LEGACY_ERROR,)
+    assert error.problem == problem
+    assert error.problem_type == 'https://logfire.pydantic.dev/-/errors/query-error'
+    assert error.retryable is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ['status_code', 'expected_error'],
+    [(400, QueryExecutionError), (422, QueryRequestError)],
+)
+async def test_problem_body_without_error_details_is_passed_whole_async(
+    status_code: int, expected_error: type[Exception]
+):
+    problem = {'type': 'about:blank', 'title': 'Bad Request', 'status': status_code, 'detail': 'bad'}
+    transport = mock_transport(status_code, headers={'content-type': 'application/problem+json'}, json=problem)
+    async with AsyncLogfireQueryClient(read_token=READ_TOKEN, base_url=BASE_URL, transport=transport) as client:
+        with pytest.raises(expected_error) as exc_info:
+            await client.query_json_rows(SQL, min_timestamp=MIN_TIMESTAMP)
+
+    assert exc_info.value.args == (problem,)
+
+
+def test_accept_header_for_arrow_ranks_arrow_first():
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers['accept'])
+        return httpx.Response(400, json=LEGACY_ERROR)
+
+    with LogfireQueryClient(read_token=READ_TOKEN, base_url=BASE_URL, transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(QueryExecutionError):
+            client.query_arrow(SQL, min_timestamp=MIN_TIMESTAMP)
+
+    assert seen == ['application/vnd.apache.arrow.stream, application/problem+json;q=0.9']
+
+
+@pytest.mark.parametrize(
+    ['header', 'expected'],
+    [
+        pytest.param('30', 30.0, id='seconds'),
+        pytest.param('0', 0.0, id='zero'),
+        pytest.param('nan', None, id='nan'),
+        pytest.param('inf', None, id='inf'),
+        pytest.param('-5', None, id='negative'),
+        pytest.param('1e9', None, id='exponent'),
+        pytest.param('1.5', None, id='fraction'),
+    ],
+)
+def test_retry_after_header_accepts_only_delay_seconds(header: str, expected: float | None):
+    transport = mock_transport(429, text='slow down', headers={'retry-after': header})
+    with LogfireQueryClient(read_token=READ_TOKEN, base_url=BASE_URL, transport=transport) as client:
+        with pytest.raises(QueryRateLimitedError) as exc_info:
+            client.query_json_rows(SQL, min_timestamp=MIN_TIMESTAMP)
+
+    assert exc_info.value.retry_after == expected
+
+
+@pytest.mark.parametrize(
+    ['retry_after', 'expected'],
+    [
+        pytest.param(30, 30.0, id='integer'),
+        pytest.param(2.5, 2.5, id='fraction'),
+        pytest.param(1e9, 1e9, id='large'),
+        pytest.param(float('nan'), None, id='nan'),
+        pytest.param(float('inf'), None, id='inf'),
+        pytest.param(-5, None, id='negative'),
+        pytest.param(True, None, id='boolean'),
+        pytest.param('nan', None, id='nan-string'),
+    ],
+)
+def test_retry_after_problem_member_accepts_only_finite_non_negative(retry_after: Any, expected: float | None):
+    problem = problem_body(503, 'query-timeout', retryable=True, retry_after=retry_after)
+    transport = negotiating_transport(503, problem)
+    with LogfireQueryClient(read_token=READ_TOKEN, base_url=BASE_URL, transport=transport) as client:
+        with pytest.raises(UnexpectedResponseError) as exc_info:
+            client.query_json_rows(SQL, min_timestamp=MIN_TIMESTAMP)
+
+    assert exc_info.value.retry_after == expected

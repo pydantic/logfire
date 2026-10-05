@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import platform
 import sys
 from datetime import datetime, timezone
@@ -224,7 +225,10 @@ class _BaseLogfireQueryClient(Generic[T]):
                 # The problem detail carries the legacy error body in `error_details`,
                 # so `args[0]` is the same whether or not the server sends a problem detail.
                 data = problem['error_details']
-            elif media_type in ('application/json', _PROBLEM_JSON):
+            elif media_type == _PROBLEM_JSON:
+                # A problem detail body that is not a JSON object is passed as text.
+                data = problem if problem is not None else response.text
+            elif media_type == 'application/json':
                 data = response.json()
             else:
                 data = response.text
@@ -257,12 +261,21 @@ def _set_problem_attributes(error: _ProblemDetailsMixin, response: Response, pro
         error.retryable = retryable if isinstance(retryable, bool) else None
         if retry_after is None:
             retry_after = problem.get('retry_after')
-    if isinstance(retry_after, (int, float, str)) and not isinstance(retry_after, bool):
-        try:
-            error.retry_after = float(retry_after)
-        except ValueError:
-            # `Retry-After` can also be an HTTP date, which this client does not parse.
-            pass
+    error.retry_after = _parse_retry_after(retry_after)
+
+
+def _parse_retry_after(value: Any) -> float | None:
+    """Return a finite, non-negative delay in seconds, or `None` for any other value.
+
+    A string must be the `delay-seconds` form of RFC 9110, a non-negative integer.
+    `Retry-After` can also be an HTTP date, which this client does not parse.
+    """
+    if isinstance(value, str):
+        value = value.strip()
+        return float(value) if value.isascii() and value.isdigit() else None
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0:
+        return float(value)
+    return None
 
 
 class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
