@@ -4154,7 +4154,6 @@ def test_http_spans_stable_semconv(exporter: TestExporter):
     ):
         pass
 
-    # When both conventions are present with conflicting values (which shouldn't happen), the old ones win.
     with tracer.start_span(
         'GET',
         kind=SpanKind.SERVER,
@@ -4182,7 +4181,7 @@ def test_http_spans_stable_semconv(exporter: TestExporter):
             ('GET', "GET example.org/ ? x='1'", False),
             ('GET', 'GET example.org/', True),
             ('GET', 'GET /items?x=1', True),
-            ('GET', "GET /old ? a='1'", True),
+            ('GET', "GET /old ? b='2'", True),
         ]
     )
 
