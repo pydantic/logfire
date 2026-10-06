@@ -296,13 +296,10 @@ class DiskRetryer:
                                 response.status_code,
                                 len(data),
                             )
-                            path.unlink(missing_ok=True)
-                            with self.lock:
-                                self.total_size -= len(data)
-                            break
 
-                        # Success, set the delay to a small value (so that remaining tasks can be done quickly),
-                        # remove the file, and move on to the next task.
+                        # Delivered (or permanently refused), so the server is reachable. Set the delay to a
+                        # small value (so that remaining tasks can be done quickly), remove the file,
+                        # and move on to the next task.
                         delay = 0.2
                         path.unlink(missing_ok=True)
                         with self.lock:

@@ -464,16 +464,27 @@ def test_disk_retryer_drops_non_retryable_http_error(
     retryer = DiskRetryer({})
     refused = Response()
     refused.status_code = 401
-    post = Mock(return_value=refused)
+    # Hold the post until the main thread has captured the worker thread,
+    # otherwise the worker can finish and clear retryer.thread first.
+    thread_captured = threading.Event()
+
+    def refuse(**kwargs: Any) -> Response:
+        thread_captured.wait(timeout=5)
+        return refused
+
+    post = Mock(side_effect=refuse)
     monkeypatch.setattr(retryer.session, 'post', post)
 
     with caplog.at_level('ERROR', logger='logfire'):
         retryer.add_task(b'export-payload', {'url': 'https://example.com/v1/traces'})
-        assert retryer.thread is not None
-        retryer.thread.join(timeout=5)
+        thread = retryer.thread
+        assert thread is not None
+        thread_captured.set()
+        thread.join(timeout=5)
 
     assert post.call_count == 1
     assert not retryer.tasks
+    assert retryer.total_size == 0
     assert retryer.thread is None
     assert not list(retryer.dir.iterdir())
     assert any(
@@ -493,15 +504,25 @@ def test_disk_retryer_still_retries_server_errors(monkeypatch: pytest.MonkeyPatc
     failure.status_code = 503
     success = Response()
     success.status_code = 200
-    post = Mock(side_effect=[failure, failure, success])
+    responses = iter([failure, failure, success])
+    thread_captured = threading.Event()
+
+    def respond(**kwargs: Any) -> Response:
+        thread_captured.wait(timeout=5)
+        return next(responses)
+
+    post = Mock(side_effect=respond)
     monkeypatch.setattr(retryer.session, 'post', post)
 
     retryer.add_task(b'export-payload', {'url': 'https://example.com/v1/traces'})
-    assert retryer.thread is not None
-    retryer.thread.join(timeout=5)
+    thread = retryer.thread
+    assert thread is not None
+    thread_captured.set()
+    thread.join(timeout=5)
 
     assert post.call_count == 3
     assert not retryer.tasks
+    assert retryer.total_size == 0
     assert retryer.thread is None
     assert not list(retryer.dir.iterdir())
     retryer.close()
