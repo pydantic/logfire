@@ -4087,6 +4087,62 @@ def test_update_name_updates_message(exporter: TestExporter):
     )
 
 
+def test_http_spans_stable_semconv(exporter: TestExporter):
+    """Spans using the stable HTTP semantic conventions get the same name/message treatment as the old ones."""
+    tracer = get_tracer(__name__)
+
+    # e.g. FastAPI's built-in telemetry: the span starts as just the method with the stable attributes,
+    # then gets renamed and given a route once routing has matched.
+    span = tracer.start_span(
+        'GET',
+        kind=SpanKind.SERVER,
+        attributes={'http.request.method': 'GET', 'url.path': '/items/1', 'url.query': 'x=1&y=2%203'},
+    )
+    span.set_attribute('http.route', '/items/{item_id}')
+    span.update_name('GET /items/{item_id}')
+    span.end()
+
+    # No query string.
+    with tracer.start_span(
+        'GET /items/{item_id}',
+        kind=SpanKind.SERVER,
+        attributes={'http.request.method': 'GET', 'url.path': '/items/1', 'http.route': '/items/{item_id}'},
+    ):
+        pass
+
+    # A client span with the full URL and the server address.
+    with tracer.start_span(
+        'GET',
+        kind=SpanKind.CLIENT,
+        attributes={
+            'http.request.method': 'GET',
+            'url.full': 'https://example.com/path?a=1',
+            'server.address': 'example.com',
+        },
+    ):
+        pass
+
+    # A client span with only the full URL. The host is taken from it, and `http.target` isn't added.
+    with tracer.start_span(
+        'GET',
+        kind=SpanKind.CLIENT,
+        attributes={'http.request.method': 'GET', 'url.full': 'https://example.org/other'},
+    ):
+        pass
+
+    assert [
+        (s['name'], s['attributes']['logfire.msg'], 'http.target' in s['attributes'])
+        for s in exporter.exported_spans_as_dict()
+    ] == snapshot(
+        [
+            ('GET /items/{item_id}', "GET /items/1 ? x='1' & y='2 3'", False),
+            ('GET /items/{item_id}', 'GET /items/1', False),
+            ('GET', "GET example.com/path ? a='1'", False),
+            ('GET', 'GET example.org/other', False),
+        ]
+    )
+
+
 _ns_currnet_ts = 0
 
 

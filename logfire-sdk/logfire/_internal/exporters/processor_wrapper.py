@@ -176,6 +176,9 @@ def _tweak_http_spans(span: ReadableSpanDict):
 
     Also derives `http.target` from `http.url` if needed.
 
+    Both the old HTTP semantic conventions (`http.method`, `http.target`, `http.url`)
+    and the stable ones (`http.request.method`, `url.path`, `url.query`, `url.full`) are understood.
+
     The span names from OTEL instrumentations are an inconsistent and generally lacking mess.
     This is partly due to not having a concept of 'message' separate from span names.
 
@@ -198,19 +201,27 @@ def _tweak_http_spans(span: ReadableSpanDict):
     if name != attributes.get(ATTRIBUTES_MESSAGE_KEY):  # pragma: no cover
         return
 
-    method = attributes.get('http.method')
+    method = attributes.get('http.method') or attributes.get('http.request.method')
     route = attributes.get('http.route')
-    target = attributes.get('http.target')
-    url: Any = attributes.get('http.url')
+    target = attributes.get('http.target') or attributes.get('url.path')
+    url: Any = attributes.get('http.url') or attributes.get('url.full')
     if not (method or route or target or url):
         return
 
-    if not target and url and isinstance(url, str):
+    # The query string, without the leading '?'. Shown at the end of the message in a readable form below.
+    query_string: Any = attributes.get('url.query')
+    if url and isinstance(url, str):
         try:
-            target = urlparse(url).path
-            span['attributes'] = attributes = {**attributes, 'http.target': target}
+            parsed_url = urlparse(url)
         except Exception:  # pragma: no cover
             pass
+        else:
+            if not target:
+                target = parsed_url.path
+                if 'http.url' in attributes:
+                    # Only add the old attribute when the span already uses the old conventions.
+                    span['attributes'] = attributes = {**attributes, 'http.target': target}
+            query_string = query_string or parsed_url.query
 
     if not method and name in ('HTTP', f'HTTP {target}', f'HTTP {route}'):
         method = 'HTTP'
@@ -261,14 +272,11 @@ def _tweak_http_spans(span: ReadableSpanDict):
 
     # Add query params to the message if:
     # 1. The message currently ends with the target
-    # 2. We have a URL to parse query params from
+    # 2. We have a query string, either from `url.query` or parsed from the URL
     # 3. Some query params exist
     # 4. The target doesn't already end with the query string
-    #       (it's supposed to according to the spec, but the OTEL libraries don't include it)
-    if (
-        url and target and isinstance(url, str) and isinstance(target, str) and message.endswith(target)
-    ):  # pragma: no branch
-        query_string = urlparse(url).query
+    #       (`http.target` is supposed to include it according to the spec, but the OTEL libraries don't include it)
+    if isinstance(query_string, str) and isinstance(target, str) and message.endswith(target):  # pragma: no branch
         query_params = parse_qs(query_string)
         if query_params and not target.endswith(query_string):
             pairs = [(k, v) for k, vs in query_params.items() for v in vs]
