@@ -276,7 +276,8 @@ def _parse_retry_after_header(value: str | None) -> float | None:
         return None
     value = value.strip()
     if value.isascii() and value.isdigit():
-        return _parse_retry_after_member(int(value))
+        # `float` has no digit limit. A value too large for a float becomes infinity, which is rejected.
+        return _parse_retry_after_member(float(value))
     try:
         retry_at = parsedate_to_datetime(value)
     except (TypeError, ValueError, IndexError, OverflowError):

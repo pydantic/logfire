@@ -425,6 +425,7 @@ def test_accept_header_for_arrow_ranks_arrow_first():
         pytest.param('-5', None, id='negative'),
         pytest.param('1e9', None, id='exponent'),
         pytest.param('1.5', None, id='fraction'),
+        pytest.param('9' * 5000, None, id='too-many-digits'),
     ],
 )
 def test_retry_after_header_accepts_only_delay_seconds(header: str, expected: float | None):
