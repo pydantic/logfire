@@ -4130,6 +4130,46 @@ def test_http_spans_stable_semconv(exporter: TestExporter):
     ):
         pass
 
+    # A root URL has an empty path, which is shown as '/'.
+    with tracer.start_span(
+        'GET',
+        kind=SpanKind.CLIENT,
+        attributes={'http.request.method': 'GET', 'url.full': 'https://example.org?x=1'},
+    ):
+        pass
+
+    # Same with the old conventions, where `http.target` is also added.
+    with tracer.start_span(
+        'GET',
+        kind=SpanKind.CLIENT,
+        attributes={'http.method': 'GET', 'http.url': 'https://example.org'},
+    ):
+        pass
+
+    # The query string isn't added again if the target already includes it.
+    with tracer.start_span(
+        'GET',
+        kind=SpanKind.SERVER,
+        attributes={'http.method': 'GET', 'http.target': '/items?x=1', 'http.url': 'https://example.org/items?x=1'},
+    ):
+        pass
+
+    # When both conventions are present with conflicting values (which shouldn't happen), the old ones win.
+    with tracer.start_span(
+        'GET',
+        kind=SpanKind.SERVER,
+        attributes={
+            'http.method': 'GET',
+            'http.request.method': 'POST',
+            'http.target': '/old',
+            'url.path': '/new',
+            'http.url': 'https://example.org/old?a=1',
+            'url.full': 'https://example.org/new?b=2',
+            'url.query': 'b=2',
+        },
+    ):
+        pass
+
     assert [
         (s['name'], s['attributes']['logfire.msg'], 'http.target' in s['attributes'])
         for s in exporter.exported_spans_as_dict()
@@ -4139,6 +4179,10 @@ def test_http_spans_stable_semconv(exporter: TestExporter):
             ('GET /items/{item_id}', 'GET /items/1', False),
             ('GET', "GET example.com/path ? a='1'", False),
             ('GET', 'GET example.org/other', False),
+            ('GET', "GET example.org/ ? x='1'", False),
+            ('GET', 'GET example.org/', True),
+            ('GET', 'GET /items?x=1', True),
+            ('GET', "GET /old ? a='1'", True),
         ]
     )
 
