@@ -110,6 +110,8 @@ Pydantic Logfire provides a hosted remote MCP server that you can use without in
 Organization admins can [limit every external MCP client to read-only tools](mcp-access.md) and
 choose whether agents may share tool feedback with Pydantic.
 
+On Logfire Cloud, the remote MCP server has its own [query limits](../reference/query-limits.md). There is a limit on the number of queries that run at the same time, and a daily budget of queries for each organization. When your organization uses all of the daily budget, Logfire refuses MCP queries until the budget refills. This does not stop queries in the web UI or with read tokens.
+
 ---
 
 ## Configuration with well-known MCP clients

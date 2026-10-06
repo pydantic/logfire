@@ -4,19 +4,19 @@ description: "Ship Kubernetes cluster metrics, node and pod metrics, pod logs, a
 ---
 # Kubernetes monitoring with the OTel Collector
 
-See cluster health, workload state, pod logs, and Kubernetes Events in Logfire without hand-building a monitoring pipeline. This guide uses the upstream OpenTelemetry Kubernetes Helm chart; most teams only need the setup on this page.
+See cluster health, workload state, pod logs, and Kubernetes Events in Logfire without hand-building a monitoring pipeline. This guide uses the upstream OpenTelemetry Kubernetes Helm chart with a balanced configuration that keeps the Kubernetes page working without collecting every signal enabled by the chart.
 
 ## What the standard setup collects
 
-The default setup collects:
+The setup on this page collects:
 
-- Kubernetes cluster, workload, node, pod, container, and persistent-volume metrics.
-- Host CPU, memory, disk, filesystem, network, and paging metrics.
-- Kubelet cAdvisor and annotated-pod Prometheus metrics.
+- Kubernetes cluster, workload, node, pod, and container metrics once per minute.
 - Pod stdout and stderr, plus Kubernetes Events.
 - Kubernetes resource identity for telemetry sent through the Collector.
 
-It also accepts application telemetry over OTLP, but does not instrument application pods automatically. Add that after the cluster setup is working.
+It does not collect persistent-volume metrics, broad Prometheus scrapes, or host metrics. Those signals are not required by the Kubernetes page and can add substantial volume. You can [collect more Kubernetes data](kubernetes-collect-more.md) after the cluster setup works.
+
+The Collector also accepts application telemetry over the OpenTelemetry Protocol (OTLP), but does not instrument application pods automatically.
 
 ## Install with Helm
 
@@ -24,10 +24,10 @@ Use the upstream [`opentelemetry-kube-stack`](https://github.com/open-telemetry/
 
 Copy a write token, the credential that lets this deployment send data to your project, from **Project → Settings → Write tokens**.
 
-!!! note "What this sends"
-    Infrastructure metrics, pod stdout and stderr, Kubernetes Events, and application telemetry forwarded through the Collector count toward your usage. Review pod logs for sensitive values and use [Collector scrubbing](otel-collector-scrubbing.md) when needed.
+!!! note "Review volume before installing"
+    Infrastructure metrics, pod stdout and stderr, Kubernetes Events, and application telemetry forwarded through the Collector count toward your usage. Volume grows with the number of nodes, pods, and containers. This setup reduces the chart's defaults, but does not guarantee that a cluster fits a particular usage allowance. Review pod logs for sensitive values, use [Collector scrubbing](otel-collector-scrubbing.md) when needed, and [measure projected volume](kubernetes-reduce-volume.md#measure-before-and-after) after installation.
 
-Add the token to a Kubernetes Secret, then provide a small `values.yaml` to name the cluster and route the chart's default data set to Logfire:
+Add the token to a Kubernetes Secret, then provide a small `values.yaml` to name the cluster, select the balanced data set, and route it to Logfire:
 
 ```yaml title="values.yaml" collapse="10"
 # values.yaml: Logfire-shaped overrides for opentelemetry-kube-stack.
@@ -47,6 +47,13 @@ opentelemetry-operator:
 
 collectors:
   daemon:
+    # Disable the chart's broad cAdvisor and annotated-pod Prometheus scrapes.
+    scrape_configs_file: ""
+    presets:
+      # The Kubernetes page uses kubelet metrics for node resource usage.
+      # Enable host metrics separately if you also use the Hosts page.
+      hostMetrics:
+        enabled: false
     # Scope the write token to the Collector. Top-level `extraEnvs` also
     # copies values into auto-instrumented application pods.
     env:
@@ -58,6 +65,12 @@ collectors:
     # Override must live under `collectors.daemon.config`. The chart's
     # collector-specific config wins over `defaultCRConfig.config`.
     config:
+      receivers:
+        kubelet_stats:
+          collection_interval: 60s
+          metric_groups: [node, pod, container]
+        k8s_cluster:
+          collection_interval: 60s
       exporters:
         otlp_http/logfire:
           endpoint: https://logfire-us.pydantic.dev   # or https://logfire-eu.pydantic.dev
@@ -99,8 +112,11 @@ kubectl -n observability get opentelemetrycollectors,pods
 Within two minutes:
 
 1. Open **Kubernetes** in Logfire. You should see your cluster, nodes, namespaces, workloads, and pods.
-2. Open **Hosts**. You should see one host for each node reporting host metrics.
-3. Open **Live** and filter by `k8s.cluster.name`. You should see pod logs and Kubernetes Events.
+2. Open **Live** and filter by `k8s.cluster.name`. You should see pod logs and Kubernetes Events.
+
+## Monitor hosts too
+
+The Kubernetes page gets node CPU and memory from kubelet metrics. To populate the separate **Hosts** view with load, disk, filesystem, network, and paging data, set `collectors.daemon.presets.hostMetrics.enabled` to `true` and `collectors.daemon.config.receivers.host_metrics.collection_interval` to `60s` in an additional values file.
 
 ??? note "Production considerations"
     - The quickstart generates the Operator webhook certificate so cert-manager is not required. The certificate is valid for 365 days and renewed by `helm upgrade`. If your cluster already uses cert-manager, enable `opentelemetry-operator.admissionWebhooks.certManager` and remove `autoGenerateCert`.
@@ -118,5 +134,5 @@ Within two minutes:
 ## Next steps
 
 - [Collect more data](kubernetes-collect-more.md) to instrument applications or enable optional Kubernetes signals.
-- [Reduce data volume](kubernetes-reduce-volume.md) to trade collection detail for lower usage.
+- [Control monitoring volume](kubernetes-reduce-volume.md) by measuring usage and removing data you do not query.
 - [Build a custom Collector deployment](kubernetes-manual-setup.md) when the Helm chart cannot fit your cluster's deployment model.

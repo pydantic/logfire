@@ -30,6 +30,7 @@ from ..auth import HOME_LOGFIRE
 from ..client import UA_HEADER, LogfireClient
 from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
+from ..http_transport import install_connection_policy
 from ..interactive import NonInteractiveError, is_non_interactive, require_answer, set_non_interactive
 from ..server_response import install_logfire_response_hook
 from ..tracer import SDKTracerProvider
@@ -1031,6 +1032,7 @@ def _main(args: list[str] | None = None) -> None:
         namespace.func(namespace)
     else:
         with tracer.start_as_current_span('logfire._internal.cli'), requests.Session() as session:
+            install_connection_policy(session)
             context = get_context()
             session.hooks = {'response': [functools.partial(log_trace_id, context=context)]}
             session.headers.update(context)

@@ -5,13 +5,14 @@ description: "Add human judgment to agent runs in Pydantic Logfire by reviewing 
 
 # Review AI outputs by hand
 
-Review an agent run when code and model-based evaluators cannot decide whether the result was helpful, safe, or appropriate.
+Review an agent run to record a trusted human verdict about whether the result was helpful, safe, or appropriate.
 
-A **run annotation** is editable reviewer feedback attached to one end-to-end agent invocation. It can record a pass, neutral, or fail verdict, plus a comment and tags that explain the decision. Run annotations are human-review evidence, not automated evaluator results, and they do not roll into experiment or Live Evaluation aggregates.
+A **run annotation** is a deliberate verdict from someone you trust to judge quality, attached to one end-to-end agent invocation. It can record a pass, neutral, or fail verdict, plus a comment and tags that explain the decision. You can edit a saved annotation. Reviewers often apply a rubric: shared criteria for judging quality. Run annotations are human-review evidence and do not roll into experiment or Live Evaluation aggregates.
+
+For end-user feedback, such as thumbs-up/down or satisfaction ratings, [record a score as a live evaluation result](live-evals.md#record-end-user-feedback). See [Choose annotations or scores](annotate-agent-runs.md#choose-annotations-or-scores) for the distinction.
 
 ## When to use human review
 
-- Build a hand-labeled set for checking whether an LLM judge agrees with your reviewers.
 - Investigate production interactions where automated signals are missing or ambiguous.
 - Identify failures worth preserving as cases in a repeatable [dataset](datasets-and-experiments.md).
 - Apply a shared review criterion across a sample of agent runs.
