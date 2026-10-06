@@ -899,7 +899,7 @@ navigation:
             slug: "manage/organizations-and-projects"
             aliases:
               - "reference/organization-structure"
-          - page: "Create a Team"
+          - page: "Upgrade to Team or Growth"
             path: "how-to-guides/convert-to-organization.md"
             slug: "manage/convert-to-organization"
             aliases:

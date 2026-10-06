@@ -1,74 +1,50 @@
 ---
-title: Create a team from a personal account
-description: Create a paid Team or Growth organization and optionally move your personal Logfire projects into it.
+title: Upgrade your organization to Team or Growth
+description: Move a Personal plan organization to a paid Team or Growth plan so colleagues can share its projects, data, alerts, and dashboards.
 ---
 
-# Create a team from a personal account
+# Upgrade your organization to Team or Growth
 
-Create a team from your personal Logfire account so colleagues can share projects, data, alerts, and dashboards. Your personal account remains available, and you can choose whether to move its existing projects and data into the new team.
+Upgrade an organization on the free Personal plan to a paid Team or Growth plan so you can invite colleagues to share its projects, data, alerts, and dashboards.
 
-You need permission to manage billing for the personal account. You will choose a paid plan before naming the team, then finish the purchase in checkout.
+The upgrade happens in place. The organization keeps its name, its URLs, its projects and data, its members, and its write tokens. Logfire does not create a new organization, and your user account does not change.
 
-## Choose the team's plan
+You must be the owner of the organization to start the upgrade. For your personal organization, that is you.
 
-1. Open **Org settings**.
+## Choose a plan
+
+1. Open **Org settings** in the organization you want to upgrade.
 2. Select **Billing & usage**, then open the **Plan** tab.
 3. Select **Team** or **Growth** to compare what it adds to your Personal plan.
 4. Select **Upgrade to Team** or **Upgrade to Growth**.
 
-![Choose Team or Growth and compare what the plan adds](../images/guide/convert-to-org-plan-selection.png)
+Logfire sends you to checkout for the plan you chose. You do not name a team or move any projects.
 
-## Name the team
+## Complete checkout
 
-Enter the name you want to use for the team. This name also appears in the team's Logfire URLs, and you can change it later in settings.
+Enter your payment details and complete checkout to start the Team or Growth subscription.
 
-Leave **Bring existing projects and data into the new team** selected to move the personal account's projects, data, alerts, dashboards, and write tokens. Existing write tokens continue to work after the move.
+If you leave checkout before you pay, nothing changes. The organization stays on the Personal plan with the same name and projects. To try again, return to the **Plan** tab and select the plan again.
 
-Clear the option if you want an empty team instead. Your personal account and everything in it will remain unchanged.
+## Verify the upgrade
 
-![Name the team and choose whether to move existing projects and data](../images/guide/convert-to-org-create-team.png)
+Return to **Org settings → Billing & usage → Plan**. The plan card should show Team or Growth as the current plan.
 
-## Free the current account name
-
-You only see this step when both of these are true:
-
-- The team name matches your personal account's current name.
-- You chose to move the existing projects and data.
-
-Enter a new name for the personal account. For example, if your personal account is `bill` and you keep `bill` as the team name, you could rename the personal account to `bill-personal`. The team keeps the original `bill` URLs.
-
-![Rename the personal account so its current name can become the team name](../images/guide/convert-to-org-rename-personal.png)
-
-If the team name is different from your personal account's name, Logfire keeps the personal account's current name and skips this step.
-
-## Create the team and complete checkout
-
-Select **Create team & continue to checkout**. Logfire creates the team, moves the selected content, and sends you to checkout for the plan you chose.
-
-!!! warning "The team is created before checkout"
-    If checkout is interrupted, the team still exists. Open that team's **Org settings → Billing & usage → Plan** page, choose Team or Growth again, and start a new checkout.
-
-Complete checkout to activate the Team or Growth subscription.
-
-## Verify the conversion
-
-Return to **Org settings → Billing & usage → Plan** in the team. The plan card should show Team or Growth as the current plan.
-
-If you moved existing projects and data, open one of those projects and confirm that its data, alerts, dashboards, and write tokens are still available.
+Open one of your projects and confirm that its data, alerts, and dashboards are still there. The organization URL is the same as before the upgrade.
 
 ## Troubleshooting
 
-### The team name is unavailable
+### You see "Only the owner of this Free organization can start a paid subscription"
 
-Another account or team already uses that URL name. Choose a different team name.
+You can manage billing for this organization, but you do not own it. Ask the organization owner to start the upgrade.
 
-### You do not want to rename the personal account
+### The upgrade button is disabled
 
-Go back and use a different team name. You can also clear **Bring existing projects and data into the new team** to create an empty team without changing the personal account.
+You need permission to manage billing in the organization. Ask an organization admin to give you that permission, or to start the upgrade.
 
-### Checkout did not finish
+### The plan still shows Personal after checkout
 
-Open the new team, then go to **Org settings → Billing & usage → Plan**, choose Team or Growth again, and start a new checkout.
+Checkout can take a short time to activate the subscription. Refresh the **Plan** tab. If you left checkout before you paid, select the plan again and complete checkout.
 
 ## Next steps
 
