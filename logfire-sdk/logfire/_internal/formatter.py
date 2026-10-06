@@ -33,6 +33,13 @@ class ArgChunk(TypedDict):
     spec: NotRequired[str]
 
 
+class ValueChunk(TypedDict):
+    t: Literal['value']
+    source: str
+    value: Any
+    formatted: str
+
+
 class ChunksFormatter(Formatter):
     def chunks(
         self,
@@ -45,7 +52,7 @@ class ChunksFormatter(Formatter):
         if not isinstance(format_string, str):
             from .t_strings import template_chunks
 
-            return template_chunks(self, format_string, scrubber=scrubber)
+            return self._convert_special_string_chunks(template_chunks(format_string), scrubber)
 
         assert isinstance(format_string, str)
 
@@ -67,6 +74,29 @@ class ChunksFormatter(Formatter):
         )
         # When there's no f-string magic, there's no changes in the template string.
         return chunks, extra_attrs, format_string
+
+    def _convert_special_string_chunks(
+        self, chunks: list[LiteralChunk | ValueChunk], scrubber: BaseScrubber
+    ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
+        """Converts f/t-string chunks into literal and arg chunks."""
+        result: list[LiteralChunk | ArgChunk] = []
+        new_template = ''
+        extra_attrs: dict[str, Any] = {}
+        value_cleaner = MessageValueCleaner(scrubber, check_keys=False)
+        for chunk in chunks:
+            if chunk['t'] == 'lit':
+                result.append(chunk)
+                new_template += chunk['v']
+            else:
+                value = chunk['value']
+                formatted = chunk['formatted']
+                source = chunk['source']
+                formatted = value_cleaner.clean_value(source, formatted)
+                result.append({'v': formatted, 't': 'arg'})
+                new_template += '{' + source + '}'
+                extra_attrs[source] = value
+        extra_attrs.update(value_cleaner.extra_attrs())
+        return result, extra_attrs, new_template
 
     def _fstring_chunks(
         self,
@@ -118,21 +148,12 @@ class ChunksFormatter(Formatter):
         local_vars = {**frame.f_locals, **kwargs}
 
         # Now for the actual formatting!
-        result: list[LiteralChunk | ArgChunk] = []
-
-        # We construct the message template (i.e. the span name) from the AST.
-        # We don't use the source code of the f-string because that gets messy
-        # if there's escaped quotes or implicit joining of adjacent strings.
-        new_template = ''
-
-        extra_attrs: dict[str, Any] = {}
-        value_cleaner = MessageValueCleaner(scrubber, check_keys=False)
+        special_chunks: list[LiteralChunk | ValueChunk] = []
         for node_value in arg_node.values:
             if isinstance(node_value, ast.Constant):
                 # These are the parts of the f-string not enclosed by `{}`, e.g. 'foo ' in f'foo {bar}'
                 value: str = node_value.value  # pyright: ignore[reportAssignmentType]
-                result.append({'v': value, 't': 'lit'})
-                new_template += value
+                special_chunks.append({'v': value, 't': 'lit'})
             else:
                 # These are the parts of the f-string enclosed by `{}`, e.g. 'bar' in f'foo {bar}'
                 assert isinstance(node_value, ast.FormattedValue)
@@ -140,24 +161,14 @@ class ChunksFormatter(Formatter):
                 # This is cached.
                 source, value_code, formatted_code = compile_formatted_value(node_value, node_finder.source)
 
-                # Note that this doesn't include:
-                # - The format spec, e.g. `:0.2f`
-                # - The conversion, e.g. `!r`
-                # - The '=' sign within the braces, e.g. `{bar=}`.
-                #     The AST represents f'{bar = }' as f'bar = {bar}' which is how the template will look.
-                new_template += '{' + source + '}'
-
                 # The actual value of the expression.
                 value = eval(value_code, global_vars, local_vars)
-                extra_attrs[source] = value
 
                 # Format the value according to the format spec, converting to a string.
                 formatted = eval(formatted_code, global_vars, {**local_vars, '@fvalue': value})
-                formatted = value_cleaner.clean_value(source, formatted)
-                result.append({'v': formatted, 't': 'arg'})
+                special_chunks.append({'t': 'value', 'source': source, 'value': value, 'formatted': formatted})
 
-        extra_attrs.update(value_cleaner.extra_attrs())
-        return result, extra_attrs, new_template
+        return self._convert_special_string_chunks(special_chunks, scrubber)
 
     def _vformat_chunks(
         self,
