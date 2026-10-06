@@ -7,7 +7,8 @@ because a healthy server never produces the responses being exercised here.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 from typing import Any
 
 import httpx
@@ -237,7 +238,7 @@ def test_rate_limited_problem_sync():
     problem = problem_body(
         429, 'rate-limit', retryable=True, retry_after=30, rule_id='rule-1', expires_at='2030-01-01T00:00:00Z'
     )
-    transport = negotiating_transport(429, problem, headers={'retry-after': '30'})
+    transport = negotiating_transport(429, problem, headers={'retry-after': '45'})
     with LogfireQueryClient(read_token=READ_TOKEN, base_url=BASE_URL, transport=transport) as client:
         with pytest.raises(UnexpectedResponseError) as exc_info:
             client.query_json_rows(SQL, min_timestamp=MIN_TIMESTAMP)
@@ -245,7 +246,8 @@ def test_rate_limited_problem_sync():
     error = exc_info.value
     assert isinstance(error, QueryRateLimitedError)
     assert str(error).startswith('Unexpected response status code 429: ')
-    assert error.retry_after == 30.0
+    # The `Retry-After` header takes precedence over the `retry_after` member of the problem body.
+    assert error.retry_after == 45.0
     assert error.retryable is True
     assert error.problem_type == 'https://logfire.pydantic.dev/-/errors/rate-limit'
     assert error.problem is not None
@@ -268,7 +270,9 @@ async def test_rate_limited_problem_async():
     ['headers', 'expected'],
     [
         pytest.param({'retry-after': '7'}, 7.0, id='seconds'),
-        pytest.param({'retry-after': 'Wed, 21 Oct 2015 07:28:00 GMT'}, None, id='http-date'),
+        pytest.param({'retry-after': 'Wed, 21 Oct 2015 07:28:00 GMT'}, 0.0, id='http-date-in-past'),
+        pytest.param({'retry-after': 'not a date'}, None, id='invalid'),
+        pytest.param({'retry-after': 'Wed, 21 Oct 2015 07:28:00 -0000'}, 0.0, id='http-date-naive'),
         pytest.param({}, None, id='absent'),
     ],
 )
@@ -443,6 +447,8 @@ def test_retry_after_header_accepts_only_delay_seconds(header: str, expected: fl
         pytest.param(-5, None, id='negative'),
         pytest.param(True, None, id='boolean'),
         pytest.param('nan', None, id='nan-string'),
+        pytest.param('30', None, id='numeric-string'),
+        pytest.param(10**400, None, id='overflow'),
     ],
 )
 def test_retry_after_problem_member_accepts_only_finite_non_negative(retry_after: Any, expected: float | None):
@@ -453,3 +459,24 @@ def test_retry_after_problem_member_accepts_only_finite_non_negative(retry_after
             client.query_json_rows(SQL, min_timestamp=MIN_TIMESTAMP)
 
     assert exc_info.value.retry_after == expected
+
+
+def test_retry_after_header_http_date_in_future():
+    retry_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    transport = mock_transport(429, text='slow down', headers={'retry-after': format_datetime(retry_at, usegmt=True)})
+    with LogfireQueryClient(read_token=READ_TOKEN, base_url=BASE_URL, transport=transport) as client:
+        with pytest.raises(QueryRateLimitedError) as exc_info:
+            client.query_json_rows(SQL, min_timestamp=MIN_TIMESTAMP)
+
+    assert exc_info.value.retry_after is not None
+    assert 3500 < exc_info.value.retry_after <= 3600
+
+
+def test_retry_after_from_problem_body_when_header_invalid():
+    problem = problem_body(429, 'rate-limit', retryable=True, retry_after=12)
+    transport = negotiating_transport(429, problem, headers={'retry-after': 'not a date'})
+    with LogfireQueryClient(read_token=READ_TOKEN, base_url=BASE_URL, transport=transport) as client:
+        with pytest.raises(QueryRateLimitedError) as exc_info:
+            client.query_json_rows(SQL, min_timestamp=MIN_TIMESTAMP)
+
+    assert exc_info.value.retry_after == 12.0

@@ -4,6 +4,7 @@ import math
 import platform
 import sys
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar, cast
 
@@ -253,29 +254,47 @@ def _parse_problem(response: Response) -> dict[str, Any] | None:
 
 def _set_problem_attributes(error: _ProblemDetailsMixin, response: Response, problem: dict[str, Any] | None) -> None:
     error.problem = problem
-    retry_after: Any = response.headers.get('retry-after')
+    # The `Retry-After` header takes precedence. The problem body is used only when the header is absent or invalid.
+    retry_after = _parse_retry_after_header(response.headers.get('retry-after'))
     if problem is not None:
         problem_type = problem.get('type')
         error.problem_type = problem_type if isinstance(problem_type, str) else None
         retryable = problem.get('retryable')
         error.retryable = retryable if isinstance(retryable, bool) else None
         if retry_after is None:
-            retry_after = problem.get('retry_after')
-    error.retry_after = _parse_retry_after(retry_after)
+            retry_after = _parse_retry_after_member(problem.get('retry_after'))
+    error.retry_after = retry_after
 
 
-def _parse_retry_after(value: Any) -> float | None:
-    """Return a finite, non-negative delay in seconds, or `None` for any other value.
+def _parse_retry_after_header(value: str | None) -> float | None:
+    """Return the delay in seconds from a `Retry-After` header, or `None` if the header is absent or invalid.
 
-    A string must be the `delay-seconds` form of RFC 9110, a non-negative integer.
-    `Retry-After` can also be an HTTP date, which this client does not parse.
+    The header is either the `delay-seconds` form of RFC 9110, a non-negative integer, or an HTTP date.
+    An HTTP date in the past gives a delay of zero.
     """
-    if isinstance(value, str):
-        value = value.strip()
-        return float(value) if value.isascii() and value.isdigit() else None
-    if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0:
-        return float(value)
-    return None
+    if value is None:
+        return None
+    value = value.strip()
+    if value.isascii() and value.isdigit():
+        return _parse_retry_after_member(int(value))
+    try:
+        retry_at = parsedate_to_datetime(value)
+    except (TypeError, ValueError, IndexError, OverflowError):
+        return None
+    if retry_at.tzinfo is None:
+        retry_at = retry_at.replace(tzinfo=timezone.utc)
+    return max(0.0, (retry_at - datetime.now(timezone.utc)).total_seconds())
+
+
+def _parse_retry_after_member(value: Any) -> float | None:
+    """Return a finite, non-negative delay in seconds from a JSON number, or `None` for any other value."""
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    try:
+        delay = float(value)
+    except OverflowError:
+        return None
+    return delay if math.isfinite(delay) and delay >= 0 else None
 
 
 class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
