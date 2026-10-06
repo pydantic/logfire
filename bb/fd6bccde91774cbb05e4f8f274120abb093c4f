@@ -1,0 +1,33 @@
+tests/otel_integrations/test_mcp_v2.py
+  s_64972465d09301::t_444866dbaf595a 31-32
+  s_64972465d09301::t_c7d0794139ffc5 1-15,17-30,33-38,181-185
+  s_64972465d09301::t_a1c6478f533049 16,39-180
+docs/integrations/llms/mcp.md
+  s_64972465d09301::t_2738f4fa241a34 88-93
+tests/conftest.py
+  s_64972465d09301::t_e8ad799a884aa9 7,63-66
+logfire-sdk/logfire/_internal/main.py
+  s_64972465d09301::t_e8ad799a884aa9 1047-1051,1056
+.github/workflows/main.yml
+  s_64972465d09301::t_e8ad799a884aa9 225-231
+logfire-sdk/logfire/.agents/skills/logfire-instrumentation/references/python/integrations.md
+  s_64972465d09301::t_9e737dc99eace8 78
+logfire-sdk/logfire/_internal/integrations/mcp.py
+  s_64972465d09301::t_e8ad799a884aa9 4,29-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "bbfd6bccde91774cbb05e4f8f274120abb093c4f",
+  "prompts": {},
+  "sessions": {
+    "s_64972465d09301": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3c10ec4-daee-454c-a43a-129d3955605a",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Samuel Colvin <s@muelcolvin.com>"
+    }
+  }
+}

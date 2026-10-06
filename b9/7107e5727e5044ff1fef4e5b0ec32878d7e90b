@@ -1,0 +1,20 @@
+tests/otel_integrations/test_mcp_version_detection.py
+  s_64972465d09301::t_12f1d225dcd343 23,25
+  s_64972465d09301::t_e079a26beb3922 16-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b97107e5727e5044ff1fef4e5b0ec32878d7e90b",
+  "prompts": {},
+  "sessions": {
+    "s_64972465d09301": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3c10ec4-daee-454c-a43a-129d3955605a",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Samuel Colvin <s@muelcolvin.com>"
+    }
+  }
+}
