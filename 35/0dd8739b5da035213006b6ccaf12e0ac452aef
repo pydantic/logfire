@@ -1,0 +1,14 @@
+tests/otel_integrations/test_elasticsearch.py
+  h_d9dd17644dded9 87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "350dd8739b5da035213006b6ccaf12e0ac452aef",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
