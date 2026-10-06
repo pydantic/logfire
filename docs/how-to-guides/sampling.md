@@ -150,10 +150,11 @@ chance of a non-notable trace being included is `0.3`, not `0.6 * 0.3`.)
 ### Memory usage
 
 For tail sampling to work, all the spans in a trace must be kept in memory until either the trace is included by
-sampling or the trace is completed and discarded. In the above example, the spans named `included span` don't have a
-high enough level to be included, so they are kept in memory until the error logs cause the entire trace to be included.
-This means that traces with a large number of spans can consume a lot of memory, whereas without tail sampling the spans
-would be regularly exported and freed from memory without waiting for the rest of the trace.
+sampling or every started span has ended and the trace is discarded. In the above example, the spans named
+`included span` don't have a high enough level to be included, so they are kept in memory until the error logs cause the
+entire trace to be included. This means that traces with a large number of spans can consume a lot of memory, whereas
+without tail sampling the spans would be regularly exported and freed from memory without waiting for the rest of the
+trace.
 
 In practice this is usually OK, because such large traces will usually exceed the duration threshold, at which point the
 trace will be included and the spans will be exported and freed. This works because the duration is measured as the time
@@ -192,6 +193,7 @@ However, memory usage can still be a problem in any of the following cases:
 - The duration threshold is set to a high value
 - Spans are produced extremely rapidly
 - Spans contain large attributes
+- A span runs for a long time or never ends
 
 ### Distributed tracing
 
@@ -208,10 +210,11 @@ an incomplete trace.
 
 ### Spans starting after root ended, e.g. background tasks
 
-When the root span of a trace ends, if the trace doesn't meet the tail sampling criteria, all spans in the trace are
-discarded. If you start a new span in that trace (i.e. as a descendant of the root span) after the root span has ended,
-the new span will always be included anyway, and its parent will be missing. This is because the tail sampling mechanism
-only keeps track of active traces to save memory. This is similar to the distributed tracing case above.
+When the root span of a trace ends, Logfire waits for all other spans that have already started to end before discarding
+a trace that doesn't meet the tail sampling criteria. If you start a new span in that trace after all previously started
+spans have ended, the new span will always be included anyway, and its parent will be missing. This is because the tail
+sampling mechanism only keeps track of active traces to save memory. This is similar to the distributed tracing case
+above.
 
 Here's an example with a FastAPI background task which starts after the root span corresponding to the request has
 ended:

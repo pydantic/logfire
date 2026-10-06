@@ -17,7 +17,6 @@ from uuid import UUID
 
 import numpy
 import pandas
-import pydantic
 import pytest
 from attrs import define
 from dirty_equals import IsJson, IsStr
@@ -32,7 +31,6 @@ from sqlmodel import SQLModel
 
 import logfire
 from logfire._internal.json_schema import create_json_schema
-from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
 if sys.version_info >= (3, 11):  # pragma: no branch
@@ -176,6 +174,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             '["a",1,true]',
             {'type': 'array'},
             id='list',
+        ),
+        pytest.param(
+            [float('nan'), float('inf'), float('-inf')],
+            '[nan, inf, -inf]',
+            '["nan","inf","-inf"]',
+            {'type': 'array'},
+            id='list_non_finite_floats',
         ),
         pytest.param(
             [],
@@ -532,8 +537,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
         pytest.param(
             MySQLModel(s=10),
             's=10',
-            # SQLModel requires pydantic 2.7+ now
-            '{"s":10}' if get_version(pydantic.__version__) >= get_version('2.7.0') else '"MySQLModel(s=10)"',
+            '{"s":10}',
             {'type': 'object', 'title': 'MySQLModel', 'x-python-datatype': 'PydanticModel'},
         ),
         pytest.param(
@@ -871,6 +875,23 @@ def test_log_non_scalar_args(
     assert s.attributes['logfire.msg'].startswith(f'test message var={value_repr}')
     assert s.attributes['var'] == value_json
     assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema  # type: ignore
+
+
+def test_log_non_finite_scalar_float_args(exporter: TestExporter) -> None:
+    logfire.info(
+        'test message',
+        nan=float('nan'),
+        pos_inf=float('inf'),
+        neg_inf=float('-inf'),
+        finite=1.5,
+    )
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    assert attributes['nan'] == 'nan'
+    assert attributes['pos_inf'] == 'inf'
+    assert attributes['neg_inf'] == '-inf'
+    assert attributes['finite'] == 1.5
 
 
 class SABase(MappedAsDataclass, DeclarativeBase):

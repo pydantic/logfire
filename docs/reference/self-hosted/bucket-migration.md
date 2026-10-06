@@ -26,6 +26,8 @@ The migration consists of three steps:
 - Read access to the source bucket and write access to the destination bucket.
 - Familiarity with your current `values.yaml` object storage configuration.
 
+The examples below assume the Helm release is named `logfire` and installed in the `logfire` namespace. Adjust the commands if your deployment uses different names.
+
 ---
 
 ## Step 1: Replicate & Sync Bucket Data
@@ -65,22 +67,60 @@ rclone sync source:source-bucket destination:destination-bucket
 
 Once the bucket data is fully synced, scale the writer workloads to zero. This prevents any further writes to the source bucket while you update the configuration.
 
+If your production values enable HPA or KEDA autoscaling for these workloads, pause those autoscalers before scaling deployments to zero. This prevents Kubernetes from scaling the writers back up during the migration window.
+
+Create a temporary `migration-pause-writers.yaml` file:
+
+```yaml
+logfire-ff-maintenance-worker:
+  autoscaling:
+    hpa:
+      enabled: false
+    keda:
+      enabled: false
+
+logfire-ff-compaction-worker:
+  autoscaling:
+    hpa:
+      enabled: false
+    keda:
+      enabled: false
+
+logfire-ff-ingest-processor:
+  autoscaling:
+    hpa:
+      enabled: false
+    keda:
+      enabled: false
+```
+
+Apply it with your current production values:
+
 ```bash
-kubectl scale deployment logfire-ff-maintenance-worker --replicas=0
-kubectl scale deployment logfire-ff-compaction-worker --replicas=0
-kubectl scale deployment logfire-ff-ingest-processor --replicas=0
+helm upgrade logfire pydantic/logfire \
+  -f values.yaml \
+  -f migration-pause-writers.yaml \
+  --namespace logfire
+```
+
+Then scale the writer workloads down:
+
+```bash
+kubectl -n logfire scale deployment logfire-ff-maintenance-worker --replicas=0
+kubectl -n logfire scale deployment logfire-ff-compaction-worker --replicas=0
+kubectl -n logfire scale deployment logfire-ff-ingest-processor --replicas=0
 ```
 
 Verify that all writer pods have terminated:
 
 ```bash
-kubectl get pods -l 'app.kubernetes.io/component in (logfire-ff-maintenance-worker,logfire-ff-compaction-worker,logfire-ff-ingest-processor)'
+kubectl -n logfire get pods -l 'app.kubernetes.io/component in (logfire-ff-maintenance-worker,logfire-ff-compaction-worker,logfire-ff-ingest-processor)'
 ```
 
 You should see no running pods for these workloads.
 
 !!! note
-    Incoming data will continue to be received by `logfire-ff-ingest` and buffered to local disk. No data will be lost during this window.
+    Incoming data will continue to be received by `logfire-ff-ingest` and buffered to local disk. No data will be lost during this window. Keep the pause window as short as practical and monitor ingest disk usage.
 
 ### Final Sync
 
@@ -128,15 +168,19 @@ objectStore:
 Deploy the updated Helm chart:
 
 ```bash
-helm upgrade logfire pydantic/logfire -f values.yaml
+helm upgrade logfire pydantic/logfire \
+  -f values.yaml \
+  --namespace logfire
 ```
 
-Once the deployment is complete, scale the writer workloads back up:
+If you used `migration-pause-writers.yaml`, leave it out of this upgrade so Helm can restore the autoscaling and replica settings from your production values.
+
+If the Helm upgrade does not restore the writer workloads, scale them back up manually:
 
 ```bash
-kubectl scale deployment logfire-ff-maintenance-worker --replicas=1
-kubectl scale deployment logfire-ff-compaction-worker --replicas=1
-kubectl scale deployment logfire-ff-ingest-processor --replicas=1
+kubectl -n logfire scale deployment logfire-ff-maintenance-worker --replicas=1
+kubectl -n logfire scale deployment logfire-ff-compaction-worker --replicas=1
+kubectl -n logfire scale deployment logfire-ff-ingest-processor --replicas=1
 ```
 
 !!! note
@@ -148,16 +192,16 @@ kubectl scale deployment logfire-ff-ingest-processor --replicas=1
 
 After scaling the workloads back up, verify that the system is healthy:
 
-1. **Check pod status** — all pods should be running without restarts:
+1. **Check pod status** - all pods should be running without restarts:
 
     ```bash
-    kubectl get pods
+    kubectl -n logfire get pods
     ```
 
 2. **Check logs** for writer workloads to ensure they are writing to the new bucket:
 
     ```bash
-    kubectl logs -l app.kubernetes.io/component=logfire-ff-ingest-processor --tail=50
+    kubectl -n logfire logs -l app.kubernetes.io/component=logfire-ff-ingest-processor --tail=50
     ```
 
 3. **Send test data** to confirm end-to-end ingestion is working:

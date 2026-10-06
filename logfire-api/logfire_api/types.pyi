@@ -1,10 +1,14 @@
+import requests
+from collections.abc import Callable
 from dataclasses import dataclass
 from logfire._internal.constants import ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, NUMBER_TO_LEVEL as NUMBER_TO_LEVEL, log_level_attributes as log_level_attributes
+from logfire._internal.stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from logfire._internal.tracer import get_parent_span as get_parent_span
 from logfire._internal.utils import canonicalize_exception_traceback as canonicalize_exception_traceback
+from logfire.exceptions import LogfireServerWarning as LogfireServerWarning
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.util import types as otel_types
-from typing import Callable
+from typing import Any
 
 @dataclass
 class SpanLevel:
@@ -143,3 +147,20 @@ class ExceptionCallbackHelper:
         or some other level instead.
         """
 ExceptionCallback = Callable[[ExceptionCallbackHelper], None]
+
+@dataclass
+class ServerResponseCallbackHelper:
+    """Helper object passed to the server response callback.
+
+    This is experimental and may change significantly in future releases.
+    """
+    response: requests.Response
+    args: tuple[Any, ...]
+    kwargs: dict[str, Any]
+    WARNING_HEADER_NAME = ...
+    @property
+    def warning_header(self) -> str | None:
+        """Value of the Logfire warning header, or `None` if not present."""
+    def default_hook(self) -> None:
+        """The default hook behavior: emit a `LogfireServerWarning` if the warning header is present."""
+ServerResponseCallback = Callable[[ServerResponseCallbackHelper], None]

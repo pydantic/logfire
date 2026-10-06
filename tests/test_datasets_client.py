@@ -4,11 +4,14 @@
 
 from __future__ import annotations
 
+import builtins
 import json
+import sys
 import warnings
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, cast
-from unittest.mock import patch
+from uuid import UUID
 
 import httpx
 import pytest
@@ -29,7 +32,6 @@ from logfire.experimental.api_client import (
     _from_dict_compat,
     _from_dict_supports_report_evaluators,
     _get_dataset_type_args,
-    _import_pydantic_evals,
     _serialize_case,
     _serialize_evaluators,
     _serialize_value,
@@ -62,18 +64,23 @@ class PydanticInput(BaseModel):
 # --- Mock transport helpers ---
 
 FAKE_DATASET = {
-    'id': 'ds-123',
+    'id': '12345678-1234-5678-1234-567812345678',
     'name': 'test-dataset',
     'description': 'A test dataset',
     'case_count': 0,
 }
 
 FAKE_CASE = {
-    'id': 'case-456',
+    'id': '87654321-4321-8765-4321-876543218765',
     'name': 'test-case',
     'inputs': {'question': 'What is 2+2?'},
     'expected_output': {'answer': '4'},
 }
+
+# Responses are validated by the client, which coerces the string ``id`` to a
+# ``UUID``. These are the expected post-coercion results to assert against.
+EXPECTED_DATASET = {**FAKE_DATASET, 'id': UUID(FAKE_DATASET['id'])}
+EXPECTED_CASE = {**FAKE_CASE, 'id': UUID(FAKE_CASE['id'])}
 
 FAKE_EXPORT = {
     'name': 'test-dataset',
@@ -87,7 +94,7 @@ FAKE_EXPORT = {
 }
 
 
-def make_local_dataset(name: str | None = 'local-dataset') -> Dataset[MyInput, MyOutput, MyMetadata]:
+def make_local_dataset(name: str = 'local-dataset') -> Dataset[MyInput, MyOutput, MyMetadata]:
     return Dataset[MyInput, MyOutput, MyMetadata](
         name=name,
         cases=[
@@ -298,20 +305,6 @@ class TestSerializeCase:
         )
         result = _serialize_case(case)
         assert result == {'inputs': {'q': 'hi'}, 'metadata': {'source': 'test'}, 'evaluators': []}
-
-
-class TestImportPydanticEvals:
-    def test_success(self):
-        Dataset, Case_ = _import_pydantic_evals()
-        from pydantic_evals import Case as RealCase, Dataset as RealDataset
-
-        assert Dataset is RealDataset
-        assert Case_ is RealCase
-
-    def test_import_error(self):
-        with patch.dict('sys.modules', {'pydantic_evals': None}):
-            with pytest.raises(ImportError, match='pydantic-evals is required'):
-                _import_pydantic_evals()
 
 
 class TestFromDictCompat:
@@ -622,17 +615,17 @@ class TestLogfireAPIClient:
     def test_list_datasets(self):
         client = make_client()
         result = client.list_datasets()
-        assert result == [FAKE_DATASET]
+        assert result == [EXPECTED_DATASET]
 
     def test_get_dataset(self):
         client = make_client()
         result = client.get_dataset('test-dataset', include_cases=False)
-        assert result == FAKE_DATASET
+        assert result == EXPECTED_DATASET
 
     def test_create_dataset_minimal(self):
         client = make_client()
         result = client.create_dataset(name='test-dataset')
-        assert result == FAKE_DATASET
+        assert result == EXPECTED_DATASET
 
     def test_create_dataset_full(self):
         """Test create_dataset with all optional parameters."""
@@ -653,7 +646,7 @@ class TestLogfireAPIClient:
             metadata_type=MyMetadata,
             description='A test dataset',
         )
-        assert result == FAKE_DATASET
+        assert result == EXPECTED_DATASET
 
         body = json.loads(requests_seen[0].content)
         assert body['name'] == 'test-dataset'
@@ -666,7 +659,7 @@ class TestLogfireAPIClient:
         """When no params change, only empty data is sent."""
         client = make_client()
         result = client.update_dataset('test-dataset')
-        assert result == FAKE_DATASET
+        assert result == EXPECTED_DATASET
 
     def test_update_dataset_full(self):
         requests_seen: list[httpx.Request] = []
@@ -720,12 +713,12 @@ class TestLogfireAPIClient:
     def test_list_cases(self):
         client = make_client()
         result = client.list_cases('test-dataset')
-        assert result == [FAKE_CASE]
+        assert result == [EXPECTED_CASE]
 
     def test_get_case(self):
         client = make_client()
         result = client.get_case('test-dataset', 'case-456')
-        assert result == FAKE_CASE
+        assert result == EXPECTED_CASE
 
     def test_add_cases(self):
         client = make_client()
@@ -734,7 +727,7 @@ class TestLogfireAPIClient:
             Case(inputs=MyInput(question='q2')),
         ]
         result = client.add_cases('test-dataset', cases)
-        assert result == [FAKE_CASE]
+        assert result == [EXPECTED_CASE]
 
     def test_push_dataset_create_new(self):
         requests_seen: list[httpx.Request] = []
@@ -759,7 +752,7 @@ class TestLogfireAPIClient:
             description='Hosted copy',
         )
 
-        assert result == hosted_dataset
+        assert result == {**hosted_dataset, 'id': EXPECTED_DATASET['id']}
         assert [(request.method, request.url.path) for request in requests_seen] == [
             ('POST', '/v1/datasets/'),
             ('POST', '/v1/datasets/local-dataset/import/'),
@@ -812,7 +805,7 @@ class TestLogfireAPIClient:
             on_case_conflict='error',
         )
 
-        assert result == hosted_dataset
+        assert result == {**hosted_dataset, 'id': EXPECTED_DATASET['id']}
         assert [(request.method, request.url.path) for request in requests_seen] == [
             ('POST', '/v1/datasets/'),
             ('PATCH', '/v1/datasets/hosted-dataset/'),
@@ -838,7 +831,7 @@ class TestLogfireAPIClient:
     def test_push_dataset_requires_name(self):
         client = make_client()
         dataset = make_local_dataset()
-        dataset.name = None
+        dataset.name = cast(Any, None)
 
         with pytest.raises(ValueError, match='requires a dataset name'):
             client.push_dataset(dataset)
@@ -908,7 +901,7 @@ class TestLogfireAPIClient:
 
         result = client.push_dataset(empty_dataset)
 
-        assert result == hosted_dataset
+        assert result == {**hosted_dataset, 'id': EXPECTED_DATASET['id']}
         assert [(request.method, request.url.path) for request in requests_seen] == [
             ('POST', '/v1/datasets/'),
             ('GET', '/v1/datasets/empty-dataset/'),
@@ -918,7 +911,7 @@ class TestLogfireAPIClient:
         """When no params are set, sends empty body."""
         client = make_client()
         result = client.update_case('test-dataset', 'case-456')
-        assert result == FAKE_CASE
+        assert result == EXPECTED_CASE
 
     def test_update_case_full(self):
         requests_seen: list[httpx.Request] = []
@@ -1022,11 +1015,51 @@ class TestLogfireAPIClient:
 
         assert isinstance(result, Dataset)
 
+    def test_get_dataset_typed_type_form_with_defaults(self):
+        export = {
+            'name': 'test-dataset',
+            'cases': [{'name': 'test-case', 'inputs': [1, 2]}],
+        }
+        responses = {('GET', '/v1/datasets/test-dataset/export/'): httpx.Response(200, json=export)}
+        client = make_client(responses)
+
+        result = client.get_dataset('test-dataset', input_type=list[int])
+
+        assert _get_dataset_type_args(result) == (list[int], Any, Any)
+        assert result.cases[0].inputs == [1, 2]
+
+    def test_get_dataset_typed_without_pydantic_evals(self, monkeypatch: pytest.MonkeyPatch):
+        client = make_client()
+        monkeypatch.setitem(sys.modules, 'pydantic_evals', None)
+
+        with pytest.raises(ImportError, match='pydantic-evals is required for this operation'):
+            client.get_dataset('test-dataset', input_type=MyInput)
+
+    def test_get_dataset_typed_with_broken_pydantic_evals_dependency(self, monkeypatch: pytest.MonkeyPatch):
+        client = make_client()
+        import_ = builtins.__import__
+
+        def mock_import(
+            name: str,
+            globals: dict[str, Any] | None = None,
+            locals: dict[str, Any] | None = None,
+            fromlist: tuple[str, ...] = (),
+            level: int = 0,
+        ) -> Any:
+            if name == 'pydantic_evals':
+                raise ModuleNotFoundError("No module named 'broken_dependency'", name='broken_dependency')
+            return import_(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, '__import__', mock_import)
+
+        with pytest.raises(ModuleNotFoundError, match='broken_dependency'):
+            client.get_dataset('test-dataset', input_type=MyInput)
+
     def test_add_cases_with_dicts(self):
         client = make_client()
         cases: list[dict[str, Any]] = [{'inputs': {'question': 'q1'}}]
         result = client.add_cases('test-dataset', cases)
-        assert result == [FAKE_CASE]
+        assert result == [EXPECTED_CASE]
 
     def test_auth_header(self):
         """Client should set Authorization header."""
@@ -1064,19 +1097,19 @@ class TestAsyncLogfireAPIClient:
     async def test_list_datasets(self):
         client = make_async_client()
         result = await client.list_datasets()
-        assert result == [FAKE_DATASET]
+        assert result == [EXPECTED_DATASET]
 
     @pytest.mark.anyio
     async def test_get_dataset(self):
         client = make_async_client()
         result = await client.get_dataset('test-dataset', include_cases=False)
-        assert result == FAKE_DATASET
+        assert result == EXPECTED_DATASET
 
     @pytest.mark.anyio
     async def test_create_dataset_minimal(self):
         client = make_async_client()
         result = await client.create_dataset(name='test-dataset')
-        assert result == FAKE_DATASET
+        assert result == EXPECTED_DATASET
 
     @pytest.mark.anyio
     async def test_create_dataset_full(self):
@@ -1109,7 +1142,7 @@ class TestAsyncLogfireAPIClient:
     async def test_update_dataset_minimal(self):
         client = make_async_client()
         result = await client.update_dataset('test-dataset')
-        assert result == FAKE_DATASET
+        assert result == EXPECTED_DATASET
 
     @pytest.mark.anyio
     async def test_update_dataset_full(self):
@@ -1164,20 +1197,20 @@ class TestAsyncLogfireAPIClient:
     async def test_list_cases(self):
         client = make_async_client()
         result = await client.list_cases('test-dataset')
-        assert result == [FAKE_CASE]
+        assert result == [EXPECTED_CASE]
 
     @pytest.mark.anyio
     async def test_get_case(self):
         client = make_async_client()
         result = await client.get_case('test-dataset', 'case-456')
-        assert result == FAKE_CASE
+        assert result == EXPECTED_CASE
 
     @pytest.mark.anyio
     async def test_add_cases(self):
         client = make_async_client()
         cases: list[Case[MyInput, MyOutput, Any]] = [Case(inputs=MyInput(question='q1'))]
         result = await client.add_cases('test-dataset', cases)
-        assert result == [FAKE_CASE]
+        assert result == [EXPECTED_CASE]
 
     @pytest.mark.anyio
     async def test_push_dataset_create_new(self):
@@ -1203,7 +1236,7 @@ class TestAsyncLogfireAPIClient:
             description='Hosted copy',
         )
 
-        assert result == hosted_dataset
+        assert result == {**hosted_dataset, 'id': EXPECTED_DATASET['id']}
         assert [(request.method, request.url.path) for request in requests_seen] == [
             ('POST', '/v1/datasets/'),
             ('POST', '/v1/datasets/local-dataset/import/'),
@@ -1257,7 +1290,7 @@ class TestAsyncLogfireAPIClient:
             on_case_conflict='error',
         )
 
-        assert result == hosted_dataset
+        assert result == {**hosted_dataset, 'id': EXPECTED_DATASET['id']}
         assert [(request.method, request.url.path) for request in requests_seen] == [
             ('POST', '/v1/datasets/'),
             ('PATCH', '/v1/datasets/hosted-dataset/'),
@@ -1284,7 +1317,7 @@ class TestAsyncLogfireAPIClient:
     async def test_push_dataset_requires_name(self):
         client = make_async_client()
         dataset = make_local_dataset()
-        dataset.name = None
+        dataset.name = cast(Any, None)
 
         with pytest.raises(ValueError, match='requires a dataset name'):
             await client.push_dataset(dataset)
@@ -1322,7 +1355,7 @@ class TestAsyncLogfireAPIClient:
 
         result = await client.push_dataset(empty_dataset)
 
-        assert result == hosted_dataset
+        assert result == {**hosted_dataset, 'id': EXPECTED_DATASET['id']}
         assert [(request.method, request.url.path) for request in requests_seen] == [
             ('POST', '/v1/datasets/'),
             ('GET', '/v1/datasets/empty-dataset/'),
@@ -1332,7 +1365,7 @@ class TestAsyncLogfireAPIClient:
     async def test_update_case_minimal(self):
         client = make_async_client()
         result = await client.update_case('test-dataset', 'case-456')
-        assert result == FAKE_CASE
+        assert result == EXPECTED_CASE
 
     @pytest.mark.anyio
     async def test_update_case_full(self):
@@ -1439,8 +1472,87 @@ class TestAsyncLogfireAPIClient:
         assert isinstance(result, Dataset)
 
     @pytest.mark.anyio
+    async def test_get_dataset_typed_type_form_with_defaults(self):
+        export = {
+            'name': 'test-dataset',
+            'cases': [{'name': 'test-case', 'inputs': [1, 2]}],
+        }
+        responses = {('GET', '/v1/datasets/test-dataset/export/'): httpx.Response(200, json=export)}
+        client = make_async_client(responses)
+
+        result = await client.get_dataset('test-dataset', input_type=list[int])
+
+        assert _get_dataset_type_args(result) == (list[int], Any, Any)
+        assert result.cases[0].inputs == [1, 2]
+
+    @pytest.mark.anyio
     async def test_add_cases_with_dicts(self):
         client = make_async_client()
         cases: list[dict[str, Any]] = [{'inputs': {'question': 'q1'}}]
         result = await client.add_cases('test-dataset', cases)
-        assert result == [FAKE_CASE]
+        assert result == [EXPECTED_CASE]
+
+
+# =============================================================================
+# Response validation / resilience
+# =============================================================================
+
+
+class TestResponseValidation:
+    """Responses are validated and coerced to the shape this SDK knows about:
+    unknown fields are dropped (upgrade the SDK for new fields), missing optional
+    fields are tolerated, and a response that fails validation is returned raw
+    with a warning rather than raising (see `_validate_or_warn`)."""
+
+    def test_coerces_uuid_and_datetime(self):
+        response = {
+            'id': '12345678-1234-5678-1234-567812345678',
+            'name': 'test-dataset',
+            'created_at': '2024-01-02T03:04:05Z',
+        }
+        client = make_client({('GET', '/v1/datasets/test-dataset/'): httpx.Response(200, json=response)})
+        result = cast('dict[str, Any]', client.get_dataset('test-dataset', include_cases=False))
+        assert result['id'] == UUID('12345678-1234-5678-1234-567812345678')
+        assert isinstance(result['id'], UUID)
+        assert isinstance(result['created_at'], datetime)
+
+    def test_drops_unknown_fields(self):
+        # The client returns the shape this SDK version knows about: a field the
+        # SDK doesn't declare is dropped (you upgrade the SDK to access new
+        # fields), while declared fields come through.
+        response = {**FAKE_DATASET, 'a_brand_new_field': 'ignored'}
+        client = make_client({('GET', '/v1/datasets/test-dataset/'): httpx.Response(200, json=response)})
+        result = cast('dict[str, Any]', client.get_dataset('test-dataset', include_cases=False))
+        assert 'a_brand_new_field' not in result
+        assert result['name'] == 'test-dataset'
+
+    def test_tolerates_missing_optional_fields(self):
+        # The backend omitting optional fields (only id + name here) must not raise.
+        response = {'id': '12345678-1234-5678-1234-567812345678', 'name': 'minimal'}
+        client = make_client({('GET', '/v1/datasets/test-dataset/'): httpx.Response(200, json=response)})
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            result = client.get_dataset('test-dataset', include_cases=False)
+        assert result == {'id': UUID('12345678-1234-5678-1234-567812345678'), 'name': 'minimal'}
+
+    def test_warns_and_returns_raw_on_schema_mismatch(self):
+        # `id` is required and must be a UUID; an unexpected shape should warn and
+        # pass the raw dict through unchanged instead of raising, so clients keep working.
+        bad_response = {'id': 'not-a-uuid-sensitive-token', 'name': 42}
+        client = make_client({('GET', '/v1/datasets/test-dataset/'): httpx.Response(200, json=bad_response)})
+        with pytest.warns(UserWarning, match='did not match the expected schema') as record:
+            result = client.get_dataset('test-dataset', include_cases=False)
+        assert result == bad_response
+        # The warning should name the offending fields but must not leak the
+        # payload values (which can be sensitive).
+        message = str(record[0].message)
+        assert 'id' in message and 'name' in message
+        assert 'not-a-uuid-sensitive-token' not in message
+
+    @pytest.mark.anyio
+    async def test_async_warns_and_returns_raw_on_schema_mismatch(self):
+        bad_response = {'name': 'no-id-here'}
+        client = make_async_client({('GET', '/v1/datasets/test-dataset/'): httpx.Response(200, json=bad_response)})
+        with pytest.warns(UserWarning, match='did not match the expected schema'):
+            result = await client.get_dataset('test-dataset', include_cases=False)
+        assert result == bad_response

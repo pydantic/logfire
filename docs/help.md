@@ -1,6 +1,6 @@
 ---
 title: "Get Help with Pydantic Logfire: Docs, Support & GitHub"
-description: "Need to send alerts to Slack from Logfire? This guide shows how to create a Slack webhook and define SQL-based alert criteria for your Slack alert system."
+description: "Where to get help with Pydantic Logfire: the community Slack, GitHub issues, documentation, and email support."
 hide:
 ---
 # Getting help with Pydantic Logfire
@@ -21,7 +21,7 @@ The [usage documentation](index.md) is the most complete guide on how to get sta
 
 ## :material-api: SDK API Documentation
 
-The [SDK API documentation](reference/api/logfire.md) give reference docs for the **Logfire** SDK.
+The [SDK API documentation](reference/api/logfire.md) gives reference docs for the **Logfire** SDK.
 
 ## :material-email: Email
 

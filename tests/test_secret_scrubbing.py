@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import re
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -12,8 +14,116 @@ from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
-from logfire._internal.scrubbing import NoopScrubber
+from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
 from logfire.testing import TestExporter, TestLogExporter
+
+DEFAULT_PATTERN_EXAMPLES = {
+    'password': 'has_password_value',
+    'passwd': 'has_passwd_value',
+    'mysql_pwd': 'has_mysql_pwd_value',
+    'secret': 'has_secret_value',
+    r'auth(?!ors?\b)': 'has_authorization_value',
+    'credential': 'has_credential_value',
+    'private[._ -]?key': 'has_private-key_value',
+    'api[._ -]?key': 'has_api.key_value',
+    'session': 'has_session_value',
+    'cookie': 'has_cookie_value',
+    'social[._ -]?security': 'has_social security_value',
+    'credit[._ -]?card': 'has_credit_card_value',
+    'logfire[._ -]?token': 'has_logfire-token_value',
+    r'pylf_v\d+_': 'has_pylf_v12_token',
+    r'(?:\b|_)csrf(?:\b|_)': 'has csrf value',
+    r'(?:\b|_)xsrf(?:\b|_)': 'has xsrf value',
+    r'(?:\b|_)jwt(?:\b|_)': 'has jwt value',
+    r'(?:\b|_)ssn(?:\b|_)': 'has ssn value',
+}
+
+
+def test_optimized_default_patterns_match_naive_pattern():
+    """The optimized prefilter must not change which default pattern matches first."""
+    assert DEFAULT_PATTERN_EXAMPLES.keys() == set(DEFAULT_PATTERNS)
+    naive_pattern = re.compile('|'.join(DEFAULT_PATTERNS), re.IGNORECASE | re.DOTALL)
+
+    for value in [*DEFAULT_PATTERN_EXAMPLES.values(), 'has \u017fecret value', 'has credent\u0131al value']:
+        expected = naive_pattern.search(value)
+        assert expected is not None
+
+        scrub_matches: list[logfire.ScrubMatch] = []
+
+        def callback(match: logfire.ScrubMatch):
+            scrub_matches.append(match)
+            return match.value
+
+        result, scrubbed_notes = Scrubber(None, callback).scrub_value(('attributes', 'value'), value)
+
+        assert result == value
+        assert scrubbed_notes == []
+        assert len(scrub_matches) == 1
+        actual = scrub_matches[0].pattern_match
+        assert (actual.span(), actual.group(0)) == (expected.span(), expected.group(0))
+
+
+@pytest.mark.parametrize(
+    ('extra_pattern', 'value', 'expected_match'),
+    [
+        ('custom', 'custom before password', 'custom'),
+        ('pass', 'passwords', 'password'),
+        (r'\d+', '123 before password', '123'),
+    ],
+)
+def test_optimized_default_patterns_preserve_extra_pattern_order(extra_pattern: str, value: str, expected_match: str):
+    matches: list[str] = []
+
+    def callback(match: logfire.ScrubMatch):
+        matches.append(match.pattern_match.group(0))
+        return match.value
+
+    result, scrubbed_notes = Scrubber([extra_pattern], callback).scrub_value(('attributes', 'value'), value)
+
+    assert result == value
+    assert scrubbed_notes == []
+    assert matches == [expected_match]
+
+
+def test_default_pattern_start_chars_cover_each_pattern():
+    """The prefilter must still find each default pattern's own first match.
+
+    Compare against that pattern in isolation, not the combined leftmost match,
+    so a new pattern cannot be silently disabled if its example also contains
+    an earlier default match, e.g. adding `token` with `has_secret_token_value`.
+    """
+    assert DEFAULT_PATTERN_EXAMPLES.keys() == set(DEFAULT_PATTERNS)
+    isolated_examples = [
+        *DEFAULT_PATTERN_EXAMPLES.items(),
+        (r'(?:\b|_)csrf(?:\b|_)', 'has_csrf_value'),
+        (r'(?:\b|_)xsrf(?:\b|_)', 'has_xsrf_value'),
+        (r'(?:\b|_)jwt(?:\b|_)', 'has_jwt_value'),
+        (r'(?:\b|_)ssn(?:\b|_)', 'has_ssn_value'),
+        ('secret', 'has \u017fecret value'),
+        ('credential', 'has credent\u0131al value'),
+    ]
+
+    def make_callback(bucket: list[logfire.ScrubMatch]):
+        def callback(match: logfire.ScrubMatch):
+            bucket.append(match)
+            return match.value
+
+        return callback
+
+    for pattern, value in isolated_examples:
+        expected = re.compile(pattern, re.IGNORECASE | re.DOTALL).search(value)
+        assert expected is not None, pattern
+
+        scrub_matches: list[logfire.ScrubMatch] = []
+        result, scrubbed_notes = Scrubber(None, make_callback(scrub_matches)).scrub_value(
+            ('attributes', 'value'), value
+        )
+
+        assert result == value
+        assert scrubbed_notes == []
+        assert len(scrub_matches) == 1, (pattern, value)
+        actual = scrub_matches[0].pattern_match
+        assert (actual.span(), actual.group(0)) == (expected.span(), expected.group(0))
 
 
 def test_scrub_attribute(exporter: TestExporter):
@@ -404,27 +514,6 @@ def test_disable_scrubbing(exporter: TestExporter, logs_exporter: TestLogExporte
     )
 
 
-def test_scrubbing_deprecated_args(config_kwargs: dict[str, Any]):
-    def callback(match: logfire.ScrubMatch):  # pragma: no cover
-        return str(match)
-
-    with pytest.warns(UserWarning, match='The `scrubbing_callback` and `scrubbing_patterns` arguments are deprecated.'):
-        logfire.configure(**config_kwargs, scrubbing_patterns=['my_pattern'], scrubbing_callback=callback)  # type: ignore
-
-    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
-    assert config.scrubbing
-    assert config.scrubbing.extra_patterns == ['my_pattern']
-    assert config.scrubbing.callback is callback
-
-
-def test_scrubbing_deprecated_args_combined_with_new_options():
-    with pytest.raises(
-        ValueError,
-        match='Cannot specify `scrubbing` and `scrubbing_callback` or `scrubbing_patterns` at the same time.',
-    ):
-        logfire.configure(scrubbing_patterns=['my_pattern'], scrubbing=logfire.ScrubbingOptions())  # type: ignore
-
-
 def test_do_not_scrub(exporter: TestExporter):
     # do_not_scrub is a safe key to provide a crude workaround, but it only works if the matched value is *inside*
     logfire.info(
@@ -549,6 +638,85 @@ def test_word_boundaries(exporter: TestExporter):
                         {'path': ['attributes', 'x', 4], 'matched_substring': 'csrf_'},
                         {'path': ['attributes', 'x', 5], 'matched_substring': 'csrf'},
                         {'path': ['attributes', 'x', 6], 'matched_substring': 'csrf'},
+                    ],
+                },
+            }
+        ]
+    )
+
+
+def test_default_patterns_match_docs():
+    """The default scrubbing patterns are documented, so the docs must be kept in sync with the code.
+
+    The docs list is generated from `DEFAULT_PATTERNS`. If it has drifted, this test rewrites
+    the docs to match (so a local re-run passes) and then fails, like inline-snapshot's fix mode.
+    """
+    from logfire._internal.scrubbing import DEFAULT_PATTERNS
+
+    docs = Path(__file__).parent.parent / 'docs' / 'how-to-guides' / 'scrubbing.md'
+    content = docs.read_text()
+
+    # `repr` of each pattern reproduces exactly how it's written in the docs code block.
+    expected_block = '[\n' + ''.join(f'    {pattern!r},\n' for pattern in DEFAULT_PATTERNS) + ']'
+
+    # Match the ```python [...] ``` block that follows the "default scrubbing patterns" sentence.
+    match = re.search(
+        r'(Here are the default scrubbing patterns:\n+```python\n)(\[.*?\])(\n```)',
+        content,
+        re.DOTALL,
+    )
+    assert match, 'Could not find the default scrubbing patterns code block in the docs'
+
+    if match.group(2) != expected_block:
+        docs.write_text(content[: match.start(2)] + expected_block + content[match.end(2) :])
+        pytest.fail(
+            f'The scrubbing patterns documented in {docs} were out of sync with `DEFAULT_PATTERNS` '
+            'in logfire-sdk/logfire/_internal/scrubbing.py. The docs have been updated to match; re-run to confirm.'
+        )
+
+
+def test_logfire_token_prefix_scrubbing(exporter: TestExporter):
+    logfire.info(
+        'hi',
+        x=[
+            'pylf_v1_abc123xyz',
+            'pylf_v2_sometoken',
+            'pylf_v10_longerversion',
+            'not_pylf_v1_token',
+            'pylf_v1_',
+        ],
+    )
+    # pylf_v\d+_ pattern matches Logfire API token prefixes.
+    # Tokens like 'pylf_v1_abc123xyz' get scrubbed, but the prefix alone is kept.
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_logfire_token_prefix_scrubbing',
+                    'code.lineno': 123,
+                    'x': [
+                        "[Scrubbed due to 'pylf_v1_']",
+                        "[Scrubbed due to 'pylf_v2_']",
+                        "[Scrubbed due to 'pylf_v10_']",
+                        "[Scrubbed due to 'pylf_v1_']",
+                        'pylf_v1_',
+                    ],
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
+                    'logfire.scrubbed': [
+                        {'path': ['attributes', 'x', 0], 'matched_substring': 'pylf_v1_'},
+                        {'path': ['attributes', 'x', 1], 'matched_substring': 'pylf_v2_'},
+                        {'path': ['attributes', 'x', 2], 'matched_substring': 'pylf_v10_'},
+                        {'path': ['attributes', 'x', 3], 'matched_substring': 'pylf_v1_'},
                     ],
                 },
             }

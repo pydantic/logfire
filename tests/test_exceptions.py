@@ -1,3 +1,5 @@
+import sys
+import types
 from typing import Any
 
 import pytest
@@ -343,6 +345,56 @@ def test_record_exception_directly(exporter: TestExporter, config_kwargs: dict[s
                             'exception.message': 'test',
                             'exception.stacktrace': 'ValueError: test',
                             'exception.escaped': 'False',
+                        },
+                    }
+                ],
+            }
+        ]
+    )
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason='co_positions traceback formatting was added in Python 3.11')
+def test_span_records_exception_when_traceback_formatting_fails(exporter: TestExporter) -> None:
+    """Regression test for CPython traceback failures from malformed bytecode position metadata."""
+
+    def raise_from_code_with_truncated_positions() -> None:
+        raise ValueError('test error')
+
+    bad_code = raise_from_code_with_truncated_positions.__code__.replace(co_linetable=b'')
+    bad_function = types.FunctionType(bad_code, globals())
+
+    with pytest.raises(ValueError, match='test error'), logfire.span('span with malformed exception traceback'):
+        bad_function()
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'span with malformed exception traceback',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_exceptions.py',
+                    'code.function': 'test_span_records_exception_when_traceback_formatting_fails',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span with malformed exception traceback',
+                    'logfire.msg': 'span with malformed exception traceback',
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 17,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'ValueError',
+                            'exception.message': 'test error',
+                            'exception.stacktrace': (
+                                'Formatting stacktrace failed: RuntimeError: generator raised StopIteration'
+                            ),
+                            'exception.escaped': 'True',
                         },
                     }
                 ],

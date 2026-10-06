@@ -24,11 +24,10 @@ automatically generated:
 
 ![Flask and SQLAlchemy example](../images/logfire-screenshot-examples-flask-sqlalchemy.png)
 
-[View on GitHub :material-open-in-new:](https://github.com/pydantic/logfire/tree/main/examples/python/flask-sqlalchemy/){:target="_blank"}
+<a href="https://github.com/pydantic/logfire/tree/main/examples/python/flask-sqlalchemy/" target="_blank" rel="noopener">View on GitHub :material-open-in-new:</a>
 
 ## JavaScript/TypeScript
 
-Logfire provides a [JavaScript SDK](https://github.com/pydantic/logfire-js) that
-enables instrumentation of JavaScript/TypeScript applications. For
-implementation details and examples, please refer to the
-[package README](https://github.com/pydantic/logfire-js?tab=readme-ov-file#usage).
+Logfire provides a TypeScript SDK that enables instrumentation of JavaScript/TypeScript applications.
+For implementation details and examples, please refer to the
+[TypeScript SDK getting started guide](https://pydantic.dev/docs/logfire/instrument/typescript/get-started/).

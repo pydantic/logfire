@@ -5,9 +5,11 @@ from unittest.mock import patch
 
 import inline_snapshot.extra
 import pytest
+import requests
+import requests_mock
 from inline_snapshot import snapshot
 
-from logfire._internal.auth import UserToken, UserTokenCollection
+from logfire._internal.auth import UserToken, UserTokenCollection, request_device_code
 from logfire.exceptions import LogfireConfigError
 
 
@@ -33,6 +35,16 @@ from logfire.exceptions import LogfireConfigError
             'https://logfire-us.pydantic.dev',
             'pylf_v1_unknownregion_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W',
             'US (https://logfire-us.pydantic.dev) - pylf_v1_unknownregion_0kYhc****',
+        ),
+        (
+            'https://logfire-eu.pydantic.dev',
+            'pylf_v2_eu_9f9ba85a-b759-4181-9527-d812e03f9f7f_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W',
+            'EU (https://logfire-eu.pydantic.dev) - pylf_v2_eu_9f9ba85a-b759-4181-9527-d812e03f9f7f_0kYhc****',
+        ),
+        (
+            'https://logfire-eu.pydantic.dev',
+            'pylf_v3_eu_new-token-format',
+            'EU (https://logfire-eu.pydantic.dev) - new-t****',
         ),
     ],
 )
@@ -84,7 +96,18 @@ def test_get_user_token_empty_credentials(tmp_path: Path) -> None:
 
     token_collection = UserTokenCollection(empty_auth_file)
     with inline_snapshot.extra.raises(
-        snapshot('LogfireConfigError: You are not logged into Logfire. Please run `logfire auth` to authenticate.')
+        snapshot("""\
+LogfireConfigError:
+
+
+Hey, looks like you don't have Pydantic Logfire configured yet.
+
+If you're running this locally, we recommend running `uv run logfire auth`.
+
+Or you could get a write token for a specific project and set the `LOGFIRE_TOKEN` environment variable.
+
+See https://pydantic.dev/docs/logfire/get-started for more details.\
+""")
     ):
         token_collection.get_token()
 
@@ -156,3 +179,21 @@ def test_logout_all_multiple_regions(multiple_credentials: Path) -> None:
     removed = token_collection.logout()
     assert removed == ['https://logfire-us.pydantic.dev', 'https://logfire-eu.pydantic.dev']
     assert multiple_credentials.read_text() == ''
+
+
+def test_request_device_code_sends_a_timeout() -> None:
+    """The device code request must carry a timeout, otherwise `logfire auth` hangs on an unresponsive server."""
+    with requests_mock.Mocker() as m:
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            json={
+                'device_code': 'device-code',
+                'frontend_auth_url': 'https://logfire-us.pydantic.dev/auth/device-code',
+            },
+        )
+        result = request_device_code(requests.Session(), 'https://logfire-us.pydantic.dev')
+
+        assert result == ('device-code', 'https://logfire-us.pydantic.dev/auth/device-code')
+        assert m.last_request is not None
+        # Both halves of the device flow share this timeout.
+        assert m.last_request.timeout == 15

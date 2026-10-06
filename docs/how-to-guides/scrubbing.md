@@ -51,6 +51,8 @@ Here are the default scrubbing patterns:
     'cookie',
     'social[._ -]?security',
     'credit[._ -]?card',
+    'logfire[._ -]?token',
+    'pylf_v\\d+_',
     '(?:\\b|_)csrf(?:\\b|_)',
     '(?:\\b|_)xsrf(?:\\b|_)',
     '(?:\\b|_)jwt(?:\\b|_)',

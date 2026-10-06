@@ -2,6 +2,7 @@ import argparse
 from ...exceptions import LogfireConfigError as LogfireConfigError
 from ..auth import DEFAULT_FILE as DEFAULT_FILE, UserTokenCollection as UserTokenCollection, poll_for_token as poll_for_token, request_device_code as request_device_code
 from ..config import REGIONS as REGIONS
+from ..interactive import is_non_interactive as is_non_interactive, require_answer as require_answer
 
 def parse_auth(args: argparse.Namespace) -> None:
     """Authenticate with Logfire.

@@ -2,12 +2,12 @@ from ..main import Logfire as Logfire
 from ..utils import log_internal_error as log_internal_error
 from .rewrite_ast import compile_source as compile_source
 from .types import AutoTraceModule as AutoTraceModule
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from importlib.abc import Loader, MetaPathFinder
 from importlib.machinery import ModuleSpec
 from types import ModuleType
-from typing import Any, Callable
+from typing import Any
 
 @dataclass
 class LogfireFinder(MetaPathFinder):

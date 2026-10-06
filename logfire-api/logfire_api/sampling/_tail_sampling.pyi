@@ -1,4 +1,5 @@
 from _typeshed import Incomplete
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
 from logfire._internal.constants import LevelName as LevelName, ONE_SECOND_IN_NANOSECONDS as ONE_SECOND_IN_NANOSECONDS
@@ -8,7 +9,7 @@ from logfire.types import SpanLevel as SpanLevel
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.sampling import Sampler
-from typing import Callable, Literal
+from typing import Literal
 from typing_extensions import Self
 
 @dataclass
@@ -16,10 +17,14 @@ class TraceBuffer:
     """Arguments of `SpanProcessor.on_start` and `SpanProcessor.on_end` for spans in a single trace.
 
     These are stored until either the trace is included by tail sampling or it's completed and discarded.
+    The buffer is kept until every started span has ended, not just until the root ends, so a
+    late child of a dropped trace is not exported and a late child that meets the sampling
+    criteria can still include the rest of the trace.
     """
     started: list[tuple[Span, context.Context | None]]
     ended: list[ReadableSpan]
     first_span: Span
+    outstanding: int = ...
     @cached_property
     def trace_id(self) -> int: ...
 

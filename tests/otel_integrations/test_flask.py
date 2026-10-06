@@ -183,6 +183,23 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
     )
 
 
+def test_excluded_urls_is_forwarded() -> None:
+    app = Flask(__name__)
+
+    with mock.patch.object(opentelemetry.instrumentation.flask.FlaskInstrumentor, 'instrument_app') as instrument_app:
+        logfire.instrument_flask(app, excluded_urls='/health')
+
+    assert instrument_app.call_args.kwargs['excluded_urls'] == '/health'
+    assert 'exclude_urls' not in instrument_app.call_args.kwargs
+
+
+def test_exclude_urls_is_no_longer_supported() -> None:
+    app = Flask(__name__)
+
+    with pytest.raises(TypeError, match="unexpected keyword argument 'exclude_urls'"):
+        logfire.instrument_flask(app, exclude_urls='/health')
+
+
 def test_missing_opentelemetry_dependency() -> None:
     with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.flask': None}):
         with pytest.raises(RuntimeError) as exc_info:

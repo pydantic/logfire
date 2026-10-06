@@ -10,7 +10,7 @@
 
 .PHONY: install  # Install the package, dependencies, and pre-commit for local development
 install: .uv .pre-commit
-	uv sync --frozen --group docs
+	uv sync --frozen
 	uv pip install -e logfire-api
 	pre-commit install --install-hooks
 
@@ -30,7 +30,7 @@ typecheck:
 
 .PHONY: test  # Run the tests
 test:
-	uv run --no-sync pytest -n auto --dist=loadgroup
+	uv run --no-sync pytest -n logical --dist=loadgroup
 
 .PHONY: test-update-examples  # Update the examples in the documentation
 test-update-examples:
@@ -47,32 +47,23 @@ generate-stubs:
 
 .PHONY: testcov  # Run tests and generate a coverage report
 testcov:
-	uv run --no-sync coverage run -m pytest -n auto --dist=loadgroup
+	uv run --no-sync coverage run -m pytest -n logical --dist=loadgroup
 	uv run coverage combine
 	@echo "building coverage html"
 	uv run coverage html --show-contexts
 
 .PHONY: test-pyodide  # Check logfire runs with pyodide
 test-pyodide:
-	uv build
+	uv build --package logfire-sdk
 	cd pyodide_test && npm install && npm test
 
-.PHONY: docs  # Build the documentation
+.PHONY: docs  # Documentation is built by pydantic/unified-docs
 docs:
-	uv run mkdocs build
+	@echo "Logfire docs are built by pydantic/unified-docs; this repo no longer runs MkDocs."
 
-# no strict so you can build the docs without insiders packages
-.PHONY: docs-serve  # Build and serve the documentation
+.PHONY: docs-serve  # Preview documentation with pydantic/unified-docs
 docs-serve:
-	uv run mkdocs serve --no-strict
+	uv run --no-project python scripts/docs_serve.py
 
 .PHONY: all
 all: format lint test
-
-.PHONY: cf-pages-build  # Build the docs for GitHub Pages
-cf-pages-build:
-	curl -LsSf https://astral.sh/uv/0.4.30/install.sh | sh
-	${HOME}/.cargo/bin/uv python install 3.12
-	${HOME}/.cargo/bin/uv sync --python 3.12 --frozen --group docs --no-install-package madoka
-	${HOME}/.cargo/bin/uv pip install --upgrade --extra-index-url $(PPPR_URL) mkdocs-material mkdocstrings-python 'mkdocstrings<1' griffe==0.48.0
-	${HOME}/.cargo/bin/uv run --no-sync mkdocs build

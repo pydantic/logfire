@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import textwrap
+import threading
 import weakref
 from pathlib import Path
 from typing import Any
@@ -11,28 +12,96 @@ from unittest.mock import Mock
 import pytest
 import requests
 import requests.exceptions
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
+from opentelemetry.exporter.otlp.proto.http import Compression
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
+from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from requests.models import PreparedRequest, Response as Response
 from requests.sessions import HTTPAdapter
 
+import logfire
+from logfire._internal.config import LogfireConfig
+from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
     BodyTooLargeError,
     DiskRetryer,
     OTLPExporterHttpSession,
+    RetryFewerSpansSpanExporter,
     cleanup_disk_retryers,
 )
+from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
+from logfire._internal.exporters.wrapper import WrapperSpanExporter
 from tests.exporters.test_retry_fewer_spans import TEST_SPANS
+from tests.test_configure import get_span_processors, wait_for_check_token_thread
 
 
 class SinkHTTPAdapter(HTTPAdapter):
     """An HTTPAdapter that consumes all data sent to it."""
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.timeouts: list[float | tuple[float, float] | None] = []
+        self.bodies: list[bytes] = []
+        self.body_sizes: list[int] = []
+
     def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
+        self.timeouts.append(kwargs.get('timeout'))
+        assert request.body is None or isinstance(request.body, bytes)
+        body = request.body or b''
+        self.bodies.append(body)
+        self.body_sizes.append(len(body))
         resp = Response()
         resp.status_code = 200
         return resp
+
+
+class StatusCodeHTTPAdapter(SinkHTTPAdapter):
+    def __init__(self, *status_codes: int) -> None:
+        super().__init__()
+        self.status_codes = list(status_codes)
+
+    def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
+        response = super().send(request, *args, **kwargs)
+        response.status_code = self.status_codes.pop(0)
+        return response
+
+
+@pytest.mark.parametrize(
+    ('timeout', 'expected'),
+    [
+        (30, (3, 30)),
+        (2, (2, 2)),
+        ((1, 30), (1, 30)),
+    ],
+)
+def test_connect_timeout(timeout: float | tuple[float, float], expected: tuple[float, float]) -> None:
+    session = OTLPExporterHttpSession()
+    adapter = SinkHTTPAdapter()
+    session.mount('http://', adapter)
+
+    session.get('http://example.com', timeout=timeout)
+    session.post('http://example.com', data=b'', timeout=timeout)
+
+    assert adapter.timeouts == [expected, expected]
+
+
+def test_connect_timeout_is_preserved_for_disk_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = OTLPExporterHttpSession()
+    request_error = requests.exceptions.RequestException('request failed')
+    monkeypatch.setattr(session, '_post', Mock(side_effect=request_error))
+    add_task = Mock()
+    monkeypatch.setattr(session, '_add_task', add_task)
+    monkeypatch.setattr('time.time', Mock(side_effect=[0, 11]))
+
+    with pytest.raises(requests.exceptions.RequestException, match='request failed'):
+        session.post('http://example.com', data=b'data', timeout=30)
+
+    add_task.assert_called_once_with(b'data', 'http://example.com', {'timeout': (3, 30)}, request_error)
 
 
 def test_max_body_size_bytes() -> None:
@@ -45,10 +114,124 @@ def test_max_body_size_bytes() -> None:
     exporter.max_body_size = 10
     with pytest.raises(BodyTooLargeError) as e:
         exporter.export(TEST_SPANS)
-    assert str(e.value) == snapshot('Request body is too large (897045 bytes), must be less than 10 bytes.')
+    # The exact serialized size depends on the OpenTelemetry version, so match the message shape
+    # rather than a hardcoded byte count.
+    assert str(e.value) == IsStr(regex=r'Request body is too large \(\d+ bytes\), must be less than 10 bytes\.')
+
+
+def test_backend_payload_too_large_splits_spans() -> None:
+    session = OTLPExporterHttpSession()
+    adapter = StatusCodeHTTPAdapter(413, 200, 200)
+    session.mount('http://', adapter)
+    exporter = RetryFewerSpansSpanExporter(
+        BodySizeCheckingOTLPSpanExporter(session=session, compression=Compression.NoCompression)
+    )
+
+    assert exporter.export(TEST_SPANS[:2]) is SpanExportResult.SUCCESS
+    assert len(adapter.timeouts) == 3
+    span_counts: list[int] = []
+    for body in adapter.bodies:
+        request = ExportTraceServiceRequest.FromString(body)
+        span_counts.append(
+            sum(
+                len(scope_spans.spans)
+                for resource_spans in request.resource_spans
+                for scope_spans in resource_spans.scope_spans
+            )
+        )
+    assert span_counts == [2, 1, 1]
+
+
+def test_backend_payload_too_large_reports_decompressed_size() -> None:
+    original = TEST_SPANS[0]
+    span = ReadableSpan(
+        name=original.name,
+        context=original.context,
+        attributes={'large': 'x' * 200_000},
+        start_time=original.start_time,
+        end_time=original.end_time,
+    )
+    session = OTLPExporterHttpSession()
+    adapter = StatusCodeHTTPAdapter(413)
+    session.mount('http://', adapter)
+    exporter = BodySizeCheckingOTLPSpanExporter(session=session, compression=Compression.Gzip)
+
+    with pytest.raises(BodyTooLargeError) as exc_info:
+        exporter.export([span])
+
+    assert exc_info.value.max_size is None
+    assert exc_info.value.size > adapter.body_sizes[0]
+
+
+def _make_large_span():
+    large_value = 'x' * (2 * 1024 * 1024)
+    original = TEST_SPANS[0]
+    return ReadableSpan(
+        name=original.name,
+        context=original.context,
+        parent=original.parent,
+        resource=Resource({'large': large_value}),
+        attributes={
+            'code.filepath': [large_value],
+            'code.function': [large_value],
+            'code.lineno': [1],
+        },
+        start_time=original.start_time,
+        end_time=original.end_time,
+        instrumentation_scope=InstrumentationScope('test', attributes={'large': large_value}),
+    )
+
+
+def test_single_backend_payload_too_large_exports_bounded_diagnostic() -> None:
+    session = OTLPExporterHttpSession()
+    adapter = StatusCodeHTTPAdapter(413, 200)
+    session.mount('http://', adapter)
+    exporter = RetryFewerSpansSpanExporter(
+        BodySizeCheckingOTLPSpanExporter(session=session, compression=Compression.NoCompression)
+    )
+
+    assert exporter.export([_make_large_span()]) is SpanExportResult.FAILURE
+    assert len(adapter.timeouts) == 2
+    assert adapter.body_sizes[0] > 5 * 1024 * 1024
+    assert adapter.body_sizes[1] < 10_000
+
+
+def test_make_log_too_large_span() -> None:
+    span = _make_large_span()
+    error = BodyTooLargeError(1234, None)
+    new_span = RetryFewerSpansSpanExporter._make_log_too_large_span(error, span)  # type: ignore
+    assert new_span.name == snapshot('Failed to export span that was too large')
+    assert dict(new_span.attributes or {}) == snapshot(
+        {
+            'logfire.span_type': 'log',
+            'logfire.level_num': 17,
+            'logfire.msg': 'Failed to export a span of size 1,234 bytes: test span name 1',
+            'size': 1234,
+            'span_name': 'test span name 1',
+            'num_attributes': 3,
+            'num_events': 0,
+            'num_links': 0,
+            'num_event_attributes': 0,
+            'num_link_attributes': 0,
+        }
+    )
+    assert dict(new_span.resource.attributes or {}) == snapshot({})
+    assert new_span.start_time == new_span.end_time == span.end_time
+
+
+def test_other_client_errors_are_not_split() -> None:
+    session = OTLPExporterHttpSession()
+    adapter = StatusCodeHTTPAdapter(400)
+    session.mount('http://', adapter)
+    exporter = RetryFewerSpansSpanExporter(BodySizeCheckingOTLPSpanExporter(session=session))
+
+    assert exporter.export(TEST_SPANS[:2]) is SpanExportResult.FAILURE
+    assert len(adapter.timeouts) == 1
 
 
 def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
     sleep_mock = Mock(return_value=0)
     monkeypatch.setattr('time.sleep', sleep_mock)
     monkeypatch.setattr('time.monotonic', Mock(side_effect=range(0, 1000, 30)))
@@ -60,18 +243,24 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
             self.mock = mock
 
         def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
-            assert request.body == b'123'
-            assert request.url == 'http://example.com/'
-            assert request.headers['User-Agent'] == 'logfire'
-            assert request.headers['Authorization'] == 'Bearer 123'
             return self.mock()
 
-    session = OTLPExporterHttpSession()
-    headers = {'User-Agent': 'logfire', 'Authorization': 'Bearer 123'}
-    session.headers.update(headers)
+    logfire.configure(send_to_logfire=True, console=False, token='foo')
+    wait_for_check_token_thread()
+
+    [send_to_logfire_processor, *_] = get_span_processors()
+
+    assert isinstance(send_to_logfire_processor, DynamicBatchSpanProcessor)
+    assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
+    exporter = send_to_logfire_processor.span_exporter
+    while isinstance(exporter, WrapperSpanExporter):
+        exporter = exporter.wrapped_exporter
+    assert isinstance(exporter, BodySizeCheckingOTLPSpanExporter)
+
+    session: OTLPExporterHttpSession = exporter._session  # type: ignore
 
     # The main session always fails so that it defers to the retryer.
-    session.mount('http://', ConnectionErrorAdapter(Mock(side_effect=requests.exceptions.ConnectionError())))
+    session.mount('https://', ConnectionErrorAdapter(Mock(side_effect=requests.exceptions.ConnectionError())))
 
     # The retryer sessions fails at first to simulate logfire being down, then succeeds.
     failure = Response()
@@ -80,19 +269,23 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     success.status_code = 200
     num_exports = 10
     session.retryer.session.mount(
-        'http://',
+        'https://',
         ConnectionErrorAdapter(Mock(side_effect=[failure] * num_exports + [success] * num_exports)),
     )
 
     # Create a bunch of failed exports.
     for _ in range(num_exports):
-        with pytest.raises(requests.exceptions.ConnectionError):
-            session.post('http://example.com/', data=b'123')
+        logfire.info('hi')
+        logfire.force_flush()
 
     # Wait for the retryer to finish.
     # time.sleep has been mocked to return 0 so this shouldn't take long.
-    assert session.retryer.thread
-    session.retryer.thread.join()
+    # The thread may have already drained the queue and reset `retryer.thread` to None.
+    # No more tasks can be added now, so a None thread means the retryer is done.
+    with session.retryer.lock:
+        thread = session.retryer.thread
+    if thread:  # pragma: no branch
+        thread.join()
 
     # Check that everything is cleaned up after succeeding.
     assert not session.retryer.tasks
@@ -138,7 +331,9 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     # This will always be the first message in case of failures.
     # After that the number of failed exports is unpredictable because the main thread is adding to it
     # at the same time as the retryer thread removes from it.
-    assert caplog.messages[0] == snapshot('Currently retrying 1 failed export(s) (3 bytes)')
+    assert caplog.messages[0].startswith('Currently retrying 1 failed export(s) (')
+    for message in caplog.messages:
+        assert message == IsStr(regex=r'Currently retrying \d+ failed export\(s\) \(\d+ bytes\)')
 
 
 def test_disk_retryer_cleanup_after_logfire_shutdown(tmp_path: Path) -> None:
@@ -222,21 +417,26 @@ def test_disk_retryer_close_during_retry(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(retryer.session, 'send', failing_send)
 
     # After a few sleeps, call close() so the retry loop checks self.closed and returns.
+    # close() runs on the retry thread and sets retryer.thread to None, and with time.sleep
+    # mocked the retry loop can get there before add_task even returns in the main thread,
+    # so hold off until the main thread has captured the thread reference.
+    thread_captured = threading.Event()
     sleep_count = 0
 
     def mock_sleep(seconds: float) -> None:
         nonlocal sleep_count
         sleep_count += 1
         if sleep_count >= 3:
+            thread_captured.wait(timeout=5)
             retryer.close()
 
     monkeypatch.setattr('time.sleep', mock_sleep)
 
     retryer.add_task(b'123', {'url': 'http://example.com/'})
 
-    # Capture thread reference before it can be set to None by close().
     thread = retryer.thread
     assert thread is not None
+    thread_captured.set()
     thread.join(timeout=5)
 
     assert sleep_count >= 3

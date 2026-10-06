@@ -1,19 +1,80 @@
 from __future__ import annotations
 
+import asyncio
 import importlib
 import sys
 import warnings
 from collections.abc import Callable
+from importlib.metadata import version as package_version
 from pathlib import Path
 from types import ModuleType
 from unittest.mock import MagicMock
 
 import pytest
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from pydantic import __version__ as pydantic_version
 
+from logfire._internal.auto_trace.import_hook import LogfireFinder
 from logfire._internal.utils import get_version
 
 pydantic_pre_2_5 = get_version(pydantic_version) < get_version('2.5.0')
+pydantic_pre_2_10 = get_version(pydantic_version) < get_version('2.10.0')
+
+
+@pytest.fixture(autouse=True)
+def uninstrument_global_instrumentors():
+    """Undo global instrumentation applied by calling every `instrument_*` method.
+
+    `test_runtime`'s `with_logfire` variant really calls methods like
+    `instrument_requests()`, which patch shared libraries via `BaseInstrumentor`
+    singletons, and `instrument_mcp()`, which wraps methods of MCP session classes
+    without any already-instrumented guard. Left in place, these poison tests that
+    run later in the same process: `logfire.instrument_requests()` becomes a
+    warning no-op bound to this test's long-gone configuration, and every MCP
+    span gets nested in a duplicate span from the leaked wrapper.
+    """
+    # The attributes instrument_mcp patches, saved here and restored afterwards.
+    # mcp itself is unimportable on old pydantic versions, matching test_runtime's guard.
+    try:
+        from mcp.client.session import ClientSession
+        from mcp.server import Server
+        from mcp.shared.session import BaseSession
+    except ImportError:
+        mcp_patched = []
+    else:
+        mcp_patched = [
+            (BaseSession, 'send_request'),
+            (BaseSession, 'send_notification'),
+            (ClientSession, '_received_notification'),
+            (ClientSession, '_received_request'),
+            (Server, '_handle_request'),
+        ]
+    saved = [(cls, name, getattr(cls, name)) for cls, name in mcp_patched]
+
+    yield
+
+    # install_auto_tracing() adds an import hook that would stay active for every
+    # module imported later in this process; drop it. Only LogfireFinder is removed:
+    # imports during the test add unrelated finders (e.g. six._SixMetaPathImporter)
+    # that later imports still need.
+    sys.meta_path[:] = [finder for finder in sys.meta_path if not isinstance(finder, LogfireFinder)]
+    for cls, name, value in saved:
+        setattr(cls, name, value)
+
+    to_visit = [BaseInstrumentor]
+    while to_visit:
+        cls = to_visit.pop()
+        to_visit.extend(cls.__subclasses__())
+        # The singleton is stored on each subclass that has been instantiated.
+        instance = cls.__dict__.get('_instance')
+        if isinstance(instance, BaseInstrumentor) and instance.is_instrumented_by_opentelemetry:
+            try:
+                instance.uninstrument()
+            except Exception:
+                # Some instrumentors can't uninstrument what the test set up, e.g.
+                # AwsLambdaInstrumentor given a MagicMock handler is marked instrumented
+                # without the internal state uninstrument expects.
+                pass
 
 
 def logfire_dunder_all() -> set[str]:
@@ -58,7 +119,9 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('Logfire')
 
     assert hasattr(logfire_api, 'configure')
-    logfire_api.configure(send_to_logfire=False, console=False)
+    # inspect_arguments=False: f-string introspection has dedicated coverage elsewhere,
+    # and `executing` can sporadically fail to match a node under a heavily loaded machine.
+    logfire_api.configure(send_to_logfire=False, console=False, inspect_arguments=False)
     logfire__all__.remove('configure')
 
     assert hasattr(logfire_api, 'VERSION')
@@ -104,7 +167,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('with_tags')
 
     assert hasattr(logfire_api, 'force_flush')
-    logfire_api.force_flush()
+    assert logfire_api.force_flush() is True
     logfire__all__.remove('force_flush')
 
     assert hasattr(logfire_api, 'no_auto_trace')
@@ -131,8 +194,8 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     # Variables APIs are intentionally not in logfire-api — users of variables should use the full SDK
     for name in [
         'var',
+        'template_var',
         'variables',
-        'variables_clear',
         'variables_get',
         'variables_push',
         'variables_push_types',
@@ -167,6 +230,16 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     def func() -> None: ...
 
     func()
+
+    if module_name == 'logfire_api.':
+
+        @logfire_api.instrument
+        def bare_instrumented() -> str:
+            return 'ok'
+
+        assert bare_instrumented() == 'ok'
+        assert bare_instrumented.__name__ == 'bare_instrumented'
+
     logfire__all__.remove('instrument')
 
     assert hasattr(logfire_api, 'instrument_aws_lambda'), 'instrument_aws_lambda'
@@ -186,6 +259,12 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         getattr(logfire_api, member)(app=MagicMock())
         logfire__all__.remove(member)
 
+    assert hasattr(logfire_api, 'instrument_litestar')
+    if module_name == 'logfire_api.':
+        app = MagicMock()
+        assert logfire_api.instrument_litestar(app) is app
+    logfire__all__.remove('instrument_litestar')
+
     assert hasattr(logfire_api, 'instrument_fastapi')
     if get_version(pydantic_version) >= get_version('2.7.0'):
         logfire_api.instrument_fastapi(app=MagicMock())
@@ -198,17 +277,18 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire__all__.remove(member)
 
     assert hasattr(logfire_api, 'instrument_openai_agents')
-    if sys.version_info >= (3, 10):
+    # openai-agents 0.20 requires pydantic >=2.12.2.
+    if get_version(pydantic_version) >= get_version('2.12.2'):
         logfire_api.instrument_openai_agents()
     logfire__all__.remove('instrument_openai_agents')
 
     assert hasattr(logfire_api, 'instrument_pydantic_ai')
-    if sys.version_info >= (3, 10) and get_version(pydantic_version) >= get_version('2.10.0'):
+    if get_version(pydantic_version) >= get_version('2.10.0'):
         logfire_api.instrument_pydantic_ai()
     logfire__all__.remove('instrument_pydantic_ai')
 
     assert hasattr(logfire_api, 'instrument_mcp')
-    if sys.version_info >= (3, 10) and get_version(pydantic_version) >= get_version('2.11.0'):
+    if get_version(pydantic_version) >= get_version('2.11.0'):
         logfire_api.instrument_mcp()
     logfire__all__.remove('instrument_mcp')
 
@@ -222,15 +302,14 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_claude_agent_sdk')
 
     assert hasattr(logfire_api, 'instrument_google_genai')
-    if get_version(pydantic_version) >= get_version('2.7.0'):
-        with warnings.catch_warnings():
-            if sys.version_info[:2] <= (3, 9):
-                warnings.simplefilter('ignore', category=FutureWarning)
-            logfire_api.instrument_google_genai()
+    if get_version(pydantic_version) >= get_version('2.12.5') and get_version(
+        package_version('opentelemetry-sdk')
+    ) >= get_version('1.43.0'):
+        logfire_api.instrument_google_genai()
     logfire__all__.remove('instrument_google_genai')
 
     assert hasattr(logfire_api, 'instrument_litellm')
-    if not pydantic_pre_2_5:
+    if not pydantic_pre_2_10:
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', category=DeprecationWarning)
             try:
@@ -242,18 +321,24 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_litellm')
 
     assert hasattr(logfire_api, 'instrument_dspy')
-    if not pydantic_pre_2_5:
-        try:
-            importlib.import_module('openinference.instrumentation.dspy')
-        except ImportError:
-            pass
-        else:
-            logfire_api.instrument_dspy()
+    if not pydantic_pre_2_10:
+        # DSPy emits deprecation warnings while being instrumented; pytest treats warnings as errors.
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=DeprecationWarning)
+            try:
+                importlib.import_module('openinference.instrumentation.dspy')
+            except ImportError:
+                pass
+            else:
+                logfire_api.instrument_dspy()
     logfire__all__.remove('instrument_dspy')
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
-        if not (pydantic_pre_2_5 and member == 'instrument_pydantic'):
+        if member == 'instrument_monty' and module_name == 'logfire.':
+            # Monty's native instrumentation is process-global and one-shot.
+            pass
+        elif not (pydantic_pre_2_5 and member == 'instrument_pydantic'):
             # skip pydantic instrumentation (which uses the plugin) for versions prior to v2.5
             getattr(logfire_api, member)()
         # just remove the member unconditionally to pass future asserts
@@ -325,6 +410,15 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.url_from_eval(MagicMock(trace_id='abc', span_id='def'))
     logfire__all__.remove('url_from_eval')
 
+    assert hasattr(logfire_api, 'forward_export_request')
+    logfire_api.forward_export_request(path='/invalid', headers={}, body=b'')
+    logfire__all__.remove('forward_export_request')
+
+    assert hasattr(logfire_api, 'forward_export_request_starlette')
+    request = MagicMock(method='GET', headers={})
+    asyncio.run(logfire_api.forward_export_request_starlette(request))
+    logfire__all__.remove('forward_export_request_starlette')
+
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__
 
@@ -333,7 +427,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 def test_match_version_on_pyproject() -> None:
     import tomllib
 
-    logfire_pyproject = (Path(__file__).parent.parent / 'pyproject.toml').read_text()
+    logfire_pyproject = (Path(__file__).parent.parent / 'logfire-sdk' / 'pyproject.toml').read_text()
     logfire_api_pyproject = (Path(__file__).parent.parent / 'logfire-api' / 'pyproject.toml').read_text()
 
     logfire_pyproject_content = tomllib.loads(logfire_pyproject)

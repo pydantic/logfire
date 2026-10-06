@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import sys
 import unittest.mock
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -29,10 +30,12 @@ os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 # Ensure that these variables in the environment don't interfere
 os.environ['LOGFIRE_TOKEN'] = ''
 os.environ['LOGFIRE_API_KEY'] = ''
+os.environ.pop('LOGFIRE_BASE_URL', None)
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
 os.environ.setdefault('ANTHROPIC_API_KEY', os.environ.get('TEST_ANTHROPIC_API_KEY', 'foo'))
 os.environ.pop('OPENAI_BASE_URL', None)
 os.environ.pop('ANTHROPIC_BASE_URL', None)
+os.environ.pop('LOGFIRE_EMIT_CONFIGURATION_SPAN', None)
 
 # https://github.com/openai/openai-python/issues/2644
 sys.modules['openai.resources.evals'] = unittest.mock.MagicMock()
@@ -42,11 +45,14 @@ try:
 
     get_trace_provider().shutdown()
     get_trace_provider().set_processors([])
-except (ImportError, UserWarning):
+except (ImportError, UserWarning, DeprecationWarning):
     # On pydantic <2.10, openai-agents 0.14+ emits a `model_info` protected-namespace
     # UserWarning during class construction that gets promoted to an exception by
-    # `filterwarnings=error`. Test modules that need the agents API guard themselves
-    # with `pytest.importorskip`, which silences warnings inside its own catch_warnings.
+    # `filterwarnings=error`. On pydantic <2.12, openai-agents 0.19+ uses
+    # `Field(exclude_if=...)` (added in pydantic 2.12), which old pydantic reports as a
+    # `PydanticDeprecatedSince20` extra-kwargs DeprecationWarning, likewise promoted to
+    # an exception. Test modules that need the agents API guard themselves with
+    # `pytest.importorskip`, which silences warnings inside its own catch_warnings.
     pass
 
 logfire.configure(send_to_logfire=False)
@@ -54,7 +60,10 @@ logfire.configure(send_to_logfire=False)
 try:
     # This is just a simple way to perform this once.
     # There are multiple tests that use it and we don't currently have a way to uninstrument.
-    logfire.instrument_mcp()
+    with warnings.catch_warnings():
+        # With mcp 2 the call is unnecessary and says so with a UserWarning, which is irrelevant here.
+        warnings.filterwarnings('ignore', message=r'`logfire\.instrument_mcp\(\)` is unnecessary', category=UserWarning)
+        logfire.instrument_mcp()
 except ImportError:
     pass
 
@@ -124,7 +133,7 @@ def config_kwargs(
 
 @pytest.fixture(autouse=True)
 def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
-    logfire.variables_clear()
+    logfire.DEFAULT_LOGFIRE_INSTANCE.variables_clear()
     configure(
         **config_kwargs,
         metrics=logfire.MetricsOptions(

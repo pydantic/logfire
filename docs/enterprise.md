@@ -9,8 +9,18 @@ description: "The Logfire Enterprise Plan includes custom SSO, guaranteed SLAs, 
 In addition to the [Team and Growth plans](https://pydantic.dev/pricing), Pydantic Logfire has three enterprise offerings:
 
 - **Enterprise Cloud**: Fully managed, SLA-backed service
-- **Enterprise Dedicated**: Fully managed, single-tenant deployment on isolated infrastructure — see the [Enterprise Dedicated](enterprise-single-tenant.md) page for details
+- **Enterprise Dedicated**: Fully managed, single-tenant deployment on isolated infrastructure. See the [Enterprise Dedicated](enterprise-single-tenant.md) page for details
 - **Enterprise Self-Hosted**: On-premises deployment via Kubernetes
+
+## Enterprise Single Sign-On (SSO)
+
+Logfire Enterprise supports SSO through [Dex](https://github.com/dexidp/dex), an open-source OIDC gateway. The same Dex configuration model works across Enterprise Cloud, Enterprise Dedicated, and Enterprise Self-Hosted deployments.
+
+Dex works with common identity providers including Okta, Azure AD, Auth0, Google Workspace, LDAP/AD, and generic OIDC or SAML providers.
+
+## SCIM provisioning
+
+Logfire Enterprise supports [System for Cross-domain Identity Management (SCIM) 2.0 user discovery and group provisioning](scim-provisioning.md) across Enterprise Cloud and Enterprise Self-Hosted deployments. SCIM is the standard protocol identity providers use to keep application accounts and group membership in sync. Connect your identity provider to find existing Logfire users and synchronize organization and project access through mapped groups.
 
 ## Enterprise Cloud
 
@@ -34,42 +44,14 @@ Organizations requiring:
 | **Compliance & Custom Billing** | Tailored billing options and industry-specific compliance packages |
 | **Custom Retention**            | Extended data retention beyond the standard 30-day SaaS offering   |
 | **Custom SSO**                  | Login via custom identity providers (e.g. Okta, Azure AD, Auth0)   |
+| **SCIM provisioning**           | User discovery and mapped group access synchronization              |
 
-
-#### Single Sign-On (SSO) with Dex
-
-- Logfire uses [Dex](https://github.com/dexidp/dex) under the hood, an open-source OIDC gateway, enabling quick
-  integration with almost any identity provider.
-- Works out-of-the-box with Okta, Azure AD, Auth0, Google Workspace, LDAP/AD, and any generic OIDC or SAML IdP.
-- The same Dex config runs in Enterprise Cloud, Enterprise Dedicated, and Enterprise Self-Hosted, giving seamless SSO across deployments.
-
-#### Single Sign-on (SSO) with OIDC Providers
-
-Logfire supports SSO authentication with [OIDC (OpenID Connect)](https://openid.net/developers/how-connect-works/) Providers, allowing your team to access the platform using their existing corporate credentials.
-
-
-When a user logs in, your OIDC provider verifies their identity and securely shares authorized user information with our platform—eliminating the need for separate passwords while maintaining enterprise-grade security.
-
-**Popular OIDC Providers**
-
-- Okta - Enterprise identity management
-- Auth0 - Flexible authentication platform
-- Azure EntraID (formerly Azure Active Directory) - Microsoft's cloud identity service
-
-- Google Workspace - Google's business identity solution
-- AWS Cognito - Amazon's user identity service
-- Keycloak - Open-source identity management
-
-**Key Benefits**
-
-- Enhanced Security: Centralized authentication with multi-factor authentication support
-- Simplified Access: One login for all your enterprise applications
-- Automated Provisioning: Sync user roles and permissions automatically
-- Compliance Ready: Meet enterprise security and audit requirements
 
 ## Enterprise Self-Hosted
 
 > **Note:** The Helm chart for Pydantic Logfire is now [open source](https://github.com/pydantic/logfire-helm-chart)
+
+For setup details, see the [self-hosted Logfire overview](reference/self-hosted/overview.md).
 
 ### Target Users
 
@@ -86,6 +68,7 @@ Organizations with:
 | **Deployment** | Open-sourced Helm chart for quick deployment on any Kubernetes cluster |
 | **Storage & Retention** | Parquet storage on any S3-compatible object storage with customizable retention policies |
 | **Scalability** | Native Kubernetes scaling to match workload and cost requirements |
+| **SCIM provisioning** | User discovery and mapped group access synchronization |
 
 ### Support Services
 
@@ -119,7 +102,7 @@ All deployment options use the same underlying technology:
 
 - Built on established protocols and open formats
 - Minimizes vendor lock-in risk
-- Seamless integration with existing tooling
+- Integrates with existing tooling
 - Simplified migration path through OTel compatibility
 
 #### AI Readiness

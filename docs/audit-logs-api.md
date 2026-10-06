@@ -94,7 +94,7 @@ GET /v1/audit-logs/{audit_log_id}/
 
 > **Note:** The trailing slash is required.
 
-Retrieve the details of a single audit log entry by its unique ID. This includes the diff — exactly what changed.
+Retrieve the details of a single audit log entry by its unique ID. This includes the diff: exactly what changed.
 
 #### Example request
 

@@ -1,6 +1,7 @@
 import logfire
 from collections.abc import Mapping
 from logfire._internal.config import VariablesOptions
+from logfire._internal.server_response import ServerResponseCallback
 from logfire.variables.abstract import ResolvedVariable, VariableProvider
 from logfire.variables.config import VariableConfig, VariableTypeConfig, VariablesConfig
 from typing import Any
@@ -12,13 +13,15 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
     The threading implementation draws heavily from opentelemetry.sdk._shared_internal.BatchProcessor.
     """
-    def __init__(self, base_url: str, token: str, options: VariablesOptions) -> None:
+    def __init__(self, base_url: str, token: str, options: VariablesOptions, server_response_hook: ServerResponseCallback | None = None) -> None:
         """Create a new remote variable provider.
 
         Args:
             base_url: The base URL of the Logfire API.
             token: Authentication token for the Logfire API.
             options: Options for retrieving remote variables.
+            server_response_hook: Optional override for the API response hook
+                (see `AdvancedOptions.server_response_hook`).
         """
     def start(self, logfire_instance: logfire.Logfire | None) -> None:
         """Start background polling with the given logfire instance for error logging.

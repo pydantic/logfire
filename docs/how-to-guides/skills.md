@@ -1,6 +1,6 @@
 ---
 title: Coding Agent Skills
-description: Use Pydantic's coding agent skills and plugins to give Claude Code, Codex, Cursor, Gemini CLI, and other agents up-to-date Logfire knowledge.
+description: Use Pydantic's coding agent skills and plugins to give Claude Code, Codex, Cursor, OpenCode, Pi, and other agents up-to-date Logfire knowledge.
 ---
 
 # Coding Agent Skills
@@ -14,7 +14,25 @@ The Logfire skill provides agents with patterns and guidance for instrumenting P
 JavaScript/TypeScript, and Rust applications, with auto-instrumentation for frameworks like
 FastAPI, httpx, asyncpg, and more.
 
-## Installation
+## Set up Logfire from your project
+
+With [`uv`](https://docs.astral.sh/uv/) installed, run this command from your application's directory:
+
+```bash
+uvx logfire-cli wizard
+```
+
+The command-line interface (CLI) signs you in or uses your saved login, connects the directory to a
+Logfire project, and detects an installed Codex or Claude Code agent. It then starts the agent with
+setup instructions bundled into the CLI. The agent keeps its normal permission and approval controls.
+
+!!! note "This verifies setup by sending data"
+    The setup agent may update and run your application to confirm that telemetry reaches the
+    selected Logfire project. Review its proposed changes before approving them.
+
+To install the skills yourself, use one of the options below.
+
+## Install skills yourself
 
 ### Claude Code
 
@@ -29,7 +47,7 @@ The plugin bundles skills, commands, and an MCP server. Claude will use the rele
 automatically, or you can invoke a command directly:
 
 ```
-/instrumentation
+/instrument
 ```
 
 As an alternative, you can install from the [`pydantic/skills`](https://github.com/pydantic/skills)
@@ -39,6 +57,75 @@ marketplace, which bundles the Logfire skill alongside other Pydantic-maintained
 claude plugin marketplace add pydantic/skills
 claude plugin install logfire@pydantic-skills
 ```
+
+### Codex
+
+Install the Pydantic marketplace in Codex:
+
+```bash
+codex plugin marketplace add pydantic/skills --ref main
+```
+
+Then enable plugins from the **Pydantic** marketplace. Either enable them in the Codex plugin UI, or run:
+
+```bash
+codex plugin add logfire@pydantic-skills
+codex plugin add logfire-exporter@pydantic-skills
+```
+
+Two plugins are available:
+
+| Plugin | Purpose |
+| --- | --- |
+| **Logfire** | Gives Codex Logfire skills and the hosted Logfire MCP server for instrumentation, querying, and opening UI views. |
+| **Logfire Exporter** | Exports completed Codex turns and tool calls to Logfire as OpenTelemetry traces. |
+
+!!! note
+    Logfire Exporter requires a Logfire write token before it can export anything; see [Export Codex Activity to Logfire](codex-logfire-exporter.md) for the one-time setup.
+
+These plugins solve different problems and can be installed together. After enabling **Logfire Exporter**,
+restart Codex and run `/hooks` if Codex asks you to review or trust the new hooks.
+
+See also:
+
+- [Connect to MCP Server](mcp-server.md) for how the Logfire plugin configures MCP access.
+- [Export Codex Activity to Logfire](codex-logfire-exporter.md) for exporter setup, configuration, and troubleshooting.
+
+### OpenCode
+
+[OpenCode](https://opencode.ai) discovers skills from `.agents/skills/`, so the cross-agent install
+below works without extra configuration:
+
+```bash
+npx skills add pydantic/skills
+```
+
+OpenCode reads `SKILL.md` files from both the project directory and `~/.agents/skills/`, walking up
+from the current directory to the root of your repository. Confirm what it picked up with:
+
+```bash
+opencode debug skill
+```
+
+!!! note
+    OpenCode requires each skill's `name` field to match the directory containing its `SKILL.md`.
+    The Logfire skills follow that rule, so they load unchanged.
+
+### Pi
+
+[Pi](https://pi.dev) implements the [Agent Skills standard](https://agentskills.io/specification)
+and loads skills from `~/.agents/skills/` globally and `.agents/skills/` in your project, so the
+cross-agent install works there too:
+
+```bash
+npx skills add pydantic/skills
+```
+
+Each skill is also available as a `/skill:<name>` command, for example `/skill:logfire-instrumentation`.
+
+!!! note
+    Pi only loads project-local skills after you trust the project. Approve the prompt on first
+    run, or pass `--approve` to trust the files for a single run.
 
 ### Cross-Agent
 
@@ -52,7 +139,7 @@ The CLI is interactive and lets you pick individual skills (e.g. `logfire-instru
 `logfire-query`) rather than installing the whole bundle.
 
 This works with 30+ agents via the [agentskills.io](https://agentskills.io) standard, including
-Claude Code, Codex, Cursor, and Gemini CLI.
+Claude Code, Codex, Cursor, OpenCode, and Pi.
 
 ### Library Skills
 

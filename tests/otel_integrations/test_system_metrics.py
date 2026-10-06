@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import psutil
 import pytest
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
@@ -23,13 +24,26 @@ def get_collected_metric_names(metrics_reader: InMemoryMetricReader) -> list[str
         SystemMetricsInstrumentor().uninstrument()
 
 
+def process_disk_io_supported() -> bool:
+    io_counters = getattr(psutil.Process(), 'io_counters', None)
+    if io_counters is None:
+        return False
+    try:
+        io_counters()
+    except (AttributeError, NotImplementedError, PermissionError):
+        return False
+    return True
+
+
 def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
     logfire.instrument_system_metrics()
     assert get_collected_metric_names(metrics_reader) == snapshot(
         [
             'process.cpu.utilization',
+            'system.cpu.load_average.1m',
             'system.cpu.simple_utilization',
             'system.memory.utilization',
+            'system.process.count',
             'system.swap.utilization',
         ]
     )
@@ -37,7 +51,11 @@ def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader)
 
 def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
     logfire.instrument_system_metrics(base='full')
-    assert get_collected_metric_names(metrics_reader) == snapshot(
+    collected_metric_names = get_collected_metric_names(metrics_reader)
+    if process_disk_io_supported():
+        collected_metric_names.pop(collected_metric_names.index('process.disk.io'))
+
+    assert collected_metric_names == snapshot(
         [
             'cpython.gc.collected_objects',
             'cpython.gc.collections',
@@ -51,6 +69,7 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
             'process.open_file_descriptor.count',
             'process.runtime.cpython.gc_count',
             'process.thread.count',
+            'system.cpu.load_average.1m',
             'system.cpu.simple_utilization',
             'system.cpu.time',
             'system.cpu.utilization',
@@ -63,6 +82,7 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
             'system.network.errors',
             'system.network.io',
             'system.network.packets',
+            'system.process.count',
             'system.swap.usage',
             'system.swap.utilization',
             'system.thread_count',
@@ -74,6 +94,18 @@ def test_measure_process_runtime_cpu_utilization(metrics_reader: InMemoryMetricR
     # This metric is now deprecated by OTEL, but there isn't a strong reason to stop allowing it when requested
     logfire.instrument_system_metrics({'process.runtime.cpu.utilization': None}, base=None)  # type: ignore
     assert get_collected_metric_names(metrics_reader) == ['process.runtime.cpython.cpu.utilization']
+
+
+def test_system_cpu_load_average_1m(metrics_reader: InMemoryMetricReader) -> None:
+    """Load average isn't in upstream `SystemMetricsInstrumentor` — Logfire emits it."""
+    logfire.instrument_system_metrics({'system.cpu.load_average.1m': None}, base=None)
+    assert get_collected_metric_names(metrics_reader) == ['system.cpu.load_average.1m']
+
+
+def test_system_process_count(metrics_reader: InMemoryMetricReader) -> None:
+    """Process count isn't in upstream `SystemMetricsInstrumentor` — Logfire emits it."""
+    logfire.instrument_system_metrics({'system.process.count': None}, base=None)
+    assert get_collected_metric_names(metrics_reader) == ['system.process.count']
 
 
 def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
@@ -100,6 +132,8 @@ def test_basic_base():
         'system.cpu.simple_utilization': None,
         'system.memory.utilization': ['available'],
         'system.swap.utilization': ['used'],
+        'system.cpu.load_average.1m': None,
+        'system.process.count': None,
     }, 'Docs need to be updated if this test fails'
 
 
@@ -164,11 +198,14 @@ def test_full_base():
         # There's no reason for OTel to give a value here, so the docs say `None`
         'process.cpu.utilization': None,
         'process.cpu.core_utilization': None,
+        'process.disk.io': ['read', 'write'],
         'process.thread.count': None,
         'process.context_switches': ['involuntary', 'voluntary'],
         'cpython.gc.collected_objects': None,
         'cpython.gc.collections': None,
         'cpython.gc.uncollectable_objects': None,
+        'system.cpu.load_average.1m': None,
+        'system.process.count': None,
     }, 'Docs and the MetricName type need to be updated if this test fails'
 
 

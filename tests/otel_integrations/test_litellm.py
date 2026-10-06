@@ -27,7 +27,9 @@ You can install this with:
 
 
 @pytest.mark.vcr()
-@pytest.mark.skipif(get_version(pydantic.__version__) < get_version('2.5.0'), reason='Requires newer pydantic version')
+@pytest.mark.skipif(
+    get_version(pydantic.__version__) < get_version('2.10.0'), reason='LiteLLM requires Pydantic >= 2.10'
+)
 def test_litellm_instrumentation(exporter: TestExporter) -> None:
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', category=DeprecationWarning)
@@ -92,7 +94,13 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
         'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!'
     )
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    # openinference-litellm only emits `llm.cost.total` when litellm has been
+    # able to load a price map for the model — flaky across CI environments
+    # where the remote price-map fetch is blocked, so strip it.
+    exported = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    for span in exported:
+        span['attributes'].pop('llm.cost.total', None)
+    assert exported == snapshot(
         [
             {
                 'name': 'completion',
@@ -189,14 +197,17 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                             'completion_tokens_details': IsPartialDict(),
                             'prompt_tokens_details': IsPartialDict(),
                         },
+                        'moderation': None,
                         'service_tier': 'default',
                     },
                     'output.mime_type': 'application/json',
                     'llm.output_messages.0.message.role': 'assistant',
+                    'llm.output_messages.0.message.tool_calls.0.tool_call.id': 'call_SWFIWhfCI6AeHuaV6EM1MRsJ',
                     'llm.output_messages.0.message.tool_calls.0.tool_call.function.name': 'get_current_weather',
                     'llm.output_messages.0.message.tool_calls.0.tool_call.function.arguments': {
                         'location': 'San Francisco, CA'
                     },
+                    'llm.finish_reason': 'tool_calls',
                     'llm.token_count.prompt': 80,
                     'llm.token_count.prompt_details.cache_read': 0,
                     'llm.token_count.prompt_details.audio': 0,
@@ -253,6 +264,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'llm.input_messages.0.message.role': 'user',
                     'llm.input_messages.0.message.content': "What's the weather like in San Francisco?",
                     'llm.input_messages.1.message.role': 'assistant',
+                    'llm.input_messages.1.message.tool_calls.0.tool_call.id': 'call_SWFIWhfCI6AeHuaV6EM1MRsJ',
                     'llm.input_messages.1.message.tool_calls.0.tool_call.function.name': 'get_current_weather',
                     'llm.input_messages.1.message.tool_calls.0.tool_call.function.arguments': {
                         'location': 'San Francisco, CA'
@@ -336,6 +348,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'output.value': 'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!',
                     'llm.output_messages.0.message.role': 'assistant',
                     'llm.output_messages.0.message.content': 'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!',
+                    'llm.finish_reason': 'stop',
                     'llm.token_count.prompt': 62,
                     'llm.token_count.prompt_details.cache_read': 0,
                     'llm.token_count.prompt_details.audio': 0,

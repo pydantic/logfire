@@ -4,14 +4,14 @@ from ..stack_info import StackInfo as StackInfo, get_code_object_info as get_cod
 from ..utils import handle_internal_errors as handle_internal_errors, maybe_capture_server_headers as maybe_capture_server_headers
 from .asgi import tweak_asgi_spans_tracer_provider as tweak_asgi_spans_tracer_provider
 from _typeshed import Incomplete
-from collections.abc import Awaitable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from contextlib import AbstractContextManager, contextmanager
 from fastapi import FastAPI
 from functools import lru_cache
 from opentelemetry.trace import Span
 from starlette.requests import Request
 from starlette.websockets import WebSocket
-from typing import Any, Callable
+from typing import Any
 
 def find_mounted_apps(app: FastAPI) -> list[FastAPI]:
     """Fetch all sub-apps mounted to a FastAPI app, including nested sub-apps."""

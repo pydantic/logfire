@@ -1,6 +1,6 @@
 ---
 title: How to Migrate to a New Logfire Project
-description: Send data to multiple Logfire projects simultaneously for seamless migration.
+description: Send data to multiple Logfire projects simultaneously for migration.
 ---
 
 # Migrate to a New Logfire Project
@@ -79,6 +79,6 @@ We offer functionality to export and import dashboards via JSON files. Refer to 
 [Dashboard Management](../../guides/web-ui/dashboards.md) guide for more
 details on exporting and importing dashboards.
 
-We plan to ease this transition by providing IaC (Infrastructure as Code) support in the future.
+You can also manage alerts, dashboards, channels, and tokens declaratively with the [Infrastructure as Code providers](../../how-to-guides/infrastructure-as-code.md) (Terraform, OpenTofu, and Pulumi), which makes recreating them a matter of pointing the provider at the new project.
 
 If you have any questions or need assistance during your migration, please [reach out](../../help.md).

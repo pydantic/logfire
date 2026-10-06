@@ -1,105 +1,156 @@
 ---
-title: "Example Configurations for Self-Hosted Logfire Setups"
-description: "Exemplary Logfire configurations for different scenarios including Azure, GitHub, and Okta."
+title: Self-Hosted Logfire Examples
+description: "Examples for self-hosted Logfire."
 ---
 # Examples
 
-This page provides some example configuration for different scenarios.
+This page collects examples for self-hosted Logfire.
 
----
+## SSO Provider Examples
 
-## Auth
+Use these snippets as starting points for `logfire-dex.config.connectors` in your production values file. For the full connector reference, see the [Dex connectors documentation](https://dexidp.io/docs/connectors/).
 
-Examples for configuring different [Dex connectors](https://dexidp.io/docs/connectors/)
+When creating an OAuth or OIDC application in your provider, use this callback URL:
 
-### Azure
-
-For Azure, we recommend creating an [OpenID connector](https://dexidp.io/docs/connectors/oidc/).
-
-- Follow the steps to create the Azure App at [Azure Docs](https://learn.microsoft.com/en-us/power-pages/security/authentication/openid-settings#create-an-app-registration-in-azure)
-
-    - Make sure to set the **RedirectURI** to ```<logfire_url>/auth-api/callback```
-    - Make sure to copy the secret value when you create it
-
-- To finish the configuration on your Helm values file, you will need:
-    - Directory (Tenant) ID and  Application (client) ID, you can get both of these from the Azure App overview page
-    - The client secret value you copied on the previous step
-
-It should look something like this:
-```yaml
-    logfire-dex:
-      config:
-        connectors:
-        - type: oidc
-          id: azuread
-          name: Microsoft
-          config:
-            issuer: https://login.microsoftonline.com/<tenant_id>/v2.0
-            clientID: <App client ID>
-            clientSecret: <Client secret value>
-            insecureSkipEmailVerified: true
+```text
+https://logfire.example.com/auth-api/callback
 ```
 
-### Github
+Replace `https://logfire.example.com` with your self-hosted Logfire URL.
 
-For GitHub you can use the [GitHub connector](https://dexidp.io/docs/connectors/github/)
+### GitHub
 
-- Follow the steps for creating an OAuth app [in the GitHub docs](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app)
+Create a GitHub OAuth app using the [GitHub OAuth app setup docs](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app).
 
-    ![Github OAuth App](../../images/self-hosted/dex-github-oauth-app.png)
-
-    !!! note
-        Make sure to set the callback URL to ```<logfire_url>/auth-api/callback```
-
-    ![Github OAuth App Permissions](../../images/self-hosted/dex-github-oauth-app2.png)
-    !!! note
-        For personal apps, setting at least email read access is required here. For Organizations, this is not needed.
-
-- After creating the app, on the ```General``` tab at the left, at the Client secrets section, click ```Generate a new client secret```, and copy the value.
-
-- On your values file:
-    ```yaml
-      logfire-dex:
+```yaml
+logfire-dex:
+  env:
+    - name: GITHUB_CLIENT_ID
+      valueFrom:
+        secretKeyRef:
+          name: logfire-github-oauth
+          key: client-id
+    - name: GITHUB_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: logfire-github-oauth
+          key: client-secret
+  config:
+    connectors:
+      - type: github
+        id: github
+        name: GitHub
         config:
-          connectors:
-          - type: github
-            id: github
-            name: GitHub
-            config:
-              # You get clientID and clientSecret by creating a GitHub OAuth App
-              # See https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app
-              clientID: client_id
-              clientSecret: client_secret
-    ```
+          clientID: $GITHUB_CLIENT_ID
+          clientSecret: $GITHUB_CLIENT_SECRET
+          getUserInfo: true
+```
+
+### Azure AD
+
+Create a Microsoft Entra ID app registration using the [Microsoft app registration docs](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app), then [add the redirect URI](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-add-redirect-uri).
+
+```yaml
+logfire-dex:
+  env:
+    - name: AZURE_CLIENT_ID
+      valueFrom:
+        secretKeyRef:
+          name: logfire-azure-oauth
+          key: client-id
+    - name: AZURE_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: logfire-azure-oauth
+          key: client-secret
+  config:
+    connectors:
+      - type: oidc
+        id: azuread
+        name: Microsoft
+        config:
+          issuer: https://login.microsoftonline.com/TENANT_ID/v2.0
+          clientID: $AZURE_CLIENT_ID
+          clientSecret: $AZURE_CLIENT_SECRET
+          insecureSkipEmailVerified: true
+```
 
 ### Okta
 
-we recommend creating an [OpenID connector](https://dexidp.io/docs/connectors/oidc/).
+Create an Okta web application using the [Okta OIDC web app setup docs](https://developer.okta.com/docs/guides/sign-into-web-app-redirect/main/).
 
-- Follow the steps for creating an OIDC Okta App at [Okta Docs](https://help.okta.com/en-us/content/topics/apps/apps_app_integration_wizard_oidc.htm)
-    - Set **Web Application** as the Application type
-    - Set **Sign-in redirect URIs** to ```<logfire_url>/auth-api/callback```
-
-    ![Okta OIDC App](../../images/self-hosted/dex-okta-oidc-app.png)
-
-- After creating the app:
-    - Copy the Client ID from the **General** tab
-    - Copy the Secret value
-    - Go to the **Sign On** tab, click **Edit** at the **OpenID Connect ID Token** section and change **Issuer** from **Dynamic** to **Okta URL**, then copy the URL
-
-    ![Okta OIDC App2](../../images/self-hosted/dex-okta-oidc-app2.png)
-
-- Now, finish the configuration on your Helm values file, it should look something like this:
-    ```yaml
-      logfire-dex:
+```yaml
+logfire-dex:
+  env:
+    - name: OKTA_CLIENT_ID
+      valueFrom:
+        secretKeyRef:
+          name: logfire-okta-oauth
+          key: client-id
+    - name: OKTA_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: logfire-okta-oauth
+          key: client-secret
+  config:
+    connectors:
+      - type: oidc
+        id: okta
+        name: Okta
         config:
-          connectors:
-          - type: oidc
-            id: okta
-            name: Okta
-            config:
-              issuer: <Issuer_URL> ### This is the URL from the Sign On tab
-              clientID: <Client ID>
-              clientSecret: <Client secret value>
-              insecureSkipEmailVerified: true
-    ```
+          issuer: https://OKTA_DOMAIN
+          clientID: $OKTA_CLIENT_ID
+          clientSecret: $OKTA_CLIENT_SECRET
+          insecureSkipEmailVerified: true
+```
+
+## Instance Admin Automation
+
+Use an API key from the self-hosted admin organization with the `instance:admin` scope when you need to automate work across multiple organizations. Exchange it through the OAuth token endpoint for a short-lived bearer token scoped to the target organization, then call the regular public APIs with that returned token.
+
+The exchanged token is organization-scoped. Request only the scopes the automation needs.
+
+You can inspect the public API schema for your self-hosted instance at `https://logfire.example.com/api/docs`. Replace `https://logfire.example.com` with your instance URL.
+
+Install `requests` if it is not already available:
+
+```bash
+python -m pip install requests
+```
+
+This example exchanges the instance-admin API key, then uses the returned organization token to list projects in the target organization:
+
+```python skip-run="true" skip-reason="external-connection"
+import requests
+
+BASE_URL = 'https://logfire.example.com'
+INSTANCE_ADMIN_TOKEN = '<instance-admin-api-key>'
+TARGET_ORG = 'acme'
+SCOPES = ['project:read', 'organization:create_project']
+
+exchange_response = requests.post(
+    f'{BASE_URL}/api/oauth/token',
+    data={
+        'grant_type': 'urn:ietf:params:oauth:grant-type:token-exchange',
+        'subject_token': INSTANCE_ADMIN_TOKEN,
+        'subject_token_type': 'urn:ietf:params:oauth:token-type:access_token',
+        'audience': f'{BASE_URL}/{TARGET_ORG}',
+        'scope': ' '.join(SCOPES),
+        'expires_in': '900',
+    },
+    timeout=30,
+)
+exchange_response.raise_for_status()
+organization_token = exchange_response.json()['access_token']
+
+projects_response = requests.get(
+    f'{BASE_URL}/api/v1/projects/',
+    headers={'Authorization': f'Bearer {organization_token}'},
+    timeout=30,
+)
+projects_response.raise_for_status()
+
+print(f'Projects in {TARGET_ORG}:')
+for project in projects_response.json():
+    print(f'- {project["project_name"]}')
+```

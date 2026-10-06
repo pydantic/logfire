@@ -9,7 +9,7 @@ Prompt Management gives you a dedicated place to author the prompts that drive y
 
 ## What it is
 
-A prompt in Logfire is a first-class piece of configuration that lives next to — but separately from — your traces. The production contract is straightforward:
+A prompt in Logfire is a first-class piece of configuration that lives next to (but separately from) your traces. The production contract is straightforward:
 
 - author a prompt template,
 - save versions as you iterate,
@@ -43,10 +43,10 @@ flowchart LR
 ```
 
 - You **author** the template and, when needed, supporting test scenarios on the Prompts page.
-- You **save versions** as you iterate — each version freezes the template text at that moment.
+- You **save versions** as you iterate: each version freezes the template text at that moment.
 - You **test** with scenarios, datasets, and runs to see how the prompt behaves before promotion.
 - You **promote** a version by pointing a label (for example, `production`) at it on the Managed Variables page for that prompt.
-- Your **application fetches** the prompt by label through the Logfire SDK and renders the template against its runtime variables.
+- Your **application fetches and renders** the prompt through the Logfire SDK, using labels or rollout targeting to select the served version.
 
 ## When to use prompts vs. the Playground
 
@@ -66,6 +66,9 @@ The Playground is exploratory: its inputs come from a specific trace and its out
 ## Where to go next
 
 - New to the feature? Start with [Concepts](./concepts.md) for the production contract (`prompt`, `version`) and the supporting testing artifacts around it.
+- Looking for the UI workflow? See the [Prompt Management UI guide](./ui.md).
 - Writing your first template? See [Templates](./templates.md) and the full [Template reference](./template-reference.md).
+- Reusing shared prompt fragments? Follow the [Prompt composition walkthrough](./composition-walkthrough.md).
+- Ready to ship? See [Promote and Roll Out Prompts](./promotion-and-rollouts.md).
 - Setting up saved test inputs, tool-calling rehearsal, tool definitions, or dataset runs? See [Test Prompts](./scenarios.md).
 - Shipping prompts from Logfire into your application? See [Use Prompts in Your Application](./application.md).

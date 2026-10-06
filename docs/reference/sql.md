@@ -12,9 +12,9 @@ description: Use Logfire to query your observability data using SQL (via Postgre
 
 Data is stored in two main tables: `records` and `metrics`.
 
-`records` is the table you'll usually care about and is what you'll see in the Live View. Each row in `records` is a span or log (essentially a span with no duration). A _trace_ is a collection of spans that share the same `trace_id`, structured as a tree.
+`records` is the table you'll usually care about and is what you'll see in the <OpenInLogfire path="" variant="inline" label="Live View" />. Each row in `records` is a span or log (essentially a span with no duration). A _trace_ is a collection of spans that share the same `trace_id`, structured as a tree.
 
-`metrics` contains pre-aggregated numerical data which is usually more efficient to query than `records` for certain use cases. There's currently no dedicated UI for metrics, but you can query it directly using SQL in the Explore view, Dashboards, Alerts, or the API, just like you would with `records`.
+`metrics` contains pre-aggregated numerical data which is usually more efficient to query than `records` for certain use cases. There's currently no dedicated UI for metrics, but you can query it directly using SQL in SQL Workbench, Dashboards, Alerts, or the API, just like you would with `records`.
 
 Technically `records` is a subset, the full table is called `records_all` which includes additional rows called pending spans, but you can ignore that for most use cases.
 
@@ -36,9 +36,9 @@ You will see this in the Live view:
 
 ![Basic columns example in the live view](../images/sql-reference/basic-columns-live.png)
 
-Here's an example of querying in the Explore view:
+Here's an example of querying in SQL Workbench:
 
-![Basic columns example in the explore view](../images/sql-reference/basic-columns-explore.png)
+![Basic columns example in SQL Workbench](../images/sql-reference/basic-columns-explore.png)
 
 #### `span_name`
 
@@ -105,7 +105,7 @@ The default level for spans is `info`, but can be higher in some cases:
 
 You can convert level names to numbers using the `level_num` SQL function, e.g. `level_num('warn')` returns `13`.
 
-You can also use the `level_name` SQL function to convert numbers to names, e.g. `SELECT level_name(level), ...` to see a human-readable level in the Explore view.
+You can also use the `level_name` SQL function to convert numbers to names, e.g. `SELECT level_name(level), ...` to see a human-readable level in SQL Workbench.
 
 The numerical values are based on the [OpenTelemetry spec](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitynumber). Some common values: `info` is `9`, `warn` is `13`, and `error` is `17`.
 
@@ -119,7 +119,7 @@ This is a unique identifier for the trace that this span/log belongs to.
 
 A trace is a collection of one or more records that share the same `trace_id`, structured as a tree. It typically represents one high level operation such as an HTTP server request or a batch job.
 
-If you query individual records in the explore view, dashboard tables, or alerts, we recommend including `trace_id` in the `SELECT` clause. The values will become clickable links in the UI that will take you to the Live view filtered by that trace, making it easy to explore a record in context. For alerts sent as slack messages, note that this doesn't apply to the slack message itself, but the title of the slack message will link to the alert run results in the UI, and the table there will have clickable `trace_id` links.
+If you query individual records in SQL Workbench, dashboard tables, or alerts, we recommend including `trace_id` in the `SELECT` clause. The values will become clickable links in the UI that will take you to the Live view filtered by that trace, making it easy to explore a record in context. For alerts sent as slack messages, note that this doesn't apply to the slack message itself, but the title of the slack message will link to the alert run results in the UI, and the table there will have clickable `trace_id` links.
 
 Technically the trace ID is a 128-bit (16 byte) integer, but in the database it's represented as a 32-character hexadecimal string. For example, the following code:
 
@@ -189,10 +189,10 @@ This is the time shown on the left side of the list of records in the Live view.
 
 All views in the UI have some time range dropdown that filters on this column, so you usually don't have to. For example, in the Live view the default is set to 'Last 5 minutes'. But if you wanted to do this manually in SQL, you could use a `WHERE` clause like `start_timestamp >= now() - interval '5 minutes'`.
 
-In dashboard queries, a time series chart querying `records` should have `time_bucket($resolution, start_timestamp)` in the `SELECT` clause, which will be used as the x-axis. `$resolution` is a variable that will be replaced with the time resolution of the dashboard, e.g. `1 minute`. This variable doesn't exist outside of dashboards, so if you want to copy a query from a dashboard to the Explore view, tick 'Show rendered query' first. This will fill in the variable with the actual value, e.g. `time_bucket('1 minute', start_timestamp)`.
+In dashboard queries, a time series chart querying `records` should have `time_bucket($resolution, start_timestamp)` in the `SELECT` clause, which will be used as the x-axis. `$resolution` is a variable that will be replaced with the time resolution of the dashboard, e.g. `1 minute`. This variable doesn't exist outside of dashboards, so if you want to copy a query from a dashboard to SQL Workbench, tick 'Show rendered query' first. This will fill in the variable with the actual value, e.g. `time_bucket('1 minute', start_timestamp)`.
 
 !!! warning
-    Prefer this column over `created_at`, which is an internal timestamp representing when the record was created in the database.
+    Prefer this column over `created_at`, which is an internal timestamp representing when the record was created in the database. The exception is a script that reads only new records: it can use `created_at` as a cursor. See [Read only new data](query-limits.md#read-only-new-data).
 
 !!! warning
     The `metrics` table also has a `start_timestamp` column, but you should usually use `recorded_timestamp` instead, which doesn't exist in the `records` table.
@@ -266,7 +266,37 @@ You can query it using the `->>` operator, similar to the [`attributes`](#attrib
 
 Technically, each call to `logfire.configure()` can create a different set of resource attributes, so it should only be called once if possible.
 
-In **Logfire** and other OpenTelemetry SDKs, you can set arbitrary resource attributes by setting the `OTEL_RESOURCE_ATTRIBUTES` environment variable to a comma-separated list of key-value pairs, e.g. `OTEL_RESOURCE_ATTRIBUTES=service.name=my-service,service.version=1.0.0`.
+In the **Logfire** Python SDK, set resource attributes with the `resource_attributes` argument of [`logfire.configure()`][logfire.configure], and run OpenTelemetry [resource detectors](https://opentelemetry.io/docs/concepts/resources/#resource-detectors) via `resource_detectors` on [`AdvancedOptions`][logfire.AdvancedOptions]:
+
+```python
+import logfire
+
+logfire.configure(
+    resource_attributes={'host.name': 'my-host', 'datacenter.region': 'eu-west-1'},
+    advanced=logfire.AdvancedOptions(resource_detectors=['process']),
+)
+```
+
+Both can also be set via environment variables (`LOGFIRE_RESOURCE_ATTRIBUTES`, a comma-separated `key=value` list, and `LOGFIRE_RESOURCE_DETECTORS`, a comma-separated list of detector names) or in `pyproject.toml`:
+
+```toml
+[tool.logfire]
+resource_attributes = {"host.name" = "my-host", "datacenter.region" = "eu-west-1"}
+resource_detectors = ["process"]
+```
+
+By default Logfire pre-populates `host.*`, `os.*` and `process.runtime.*`; in particular the `host.*` attributes mean machines show up in the [Hosts view](../guides/web-ui/hosts.md) out of the box.
+
+The precedence, from highest to lowest (each of the first three can be set by the `logfire.configure()` argument, the corresponding `LOGFIRE_*` environment variable, or `pyproject.toml`):
+
+1. The dedicated `service_name` / `service_version` / `environment` arguments (`LOGFIRE_SERVICE_NAME` / `LOGFIRE_SERVICE_VERSION` / `LOGFIRE_ENVIRONMENT`).
+2. The `resource_attributes` argument (`LOGFIRE_RESOURCE_ATTRIBUTES`).
+3. The `resource_detectors` argument on `AdvancedOptions` (`LOGFIRE_RESOURCE_DETECTORS`).
+4. The `OTEL_RESOURCE_ATTRIBUTES` environment variable, e.g. `OTEL_RESOURCE_ATTRIBUTES=service.name=my-service,service.version=1.0.0`.
+5. Resource detectors from the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variable.
+6. Logfire's pre-populated defaults (`host.*`, `os.*`, `process.runtime.*`).
+
+Items 4 and 5 are applied by OpenTelemetry's `Resource.create`, so they behave exactly as in any OpenTelemetry SDK: in particular `OTEL_RESOURCE_ATTRIBUTES` takes precedence over the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` detectors.
 
 Metrics and spans/logs produced by the same process will share the same resource attributes, and the `metrics` table has this column as well as many of the others in this section.
 
@@ -434,7 +464,7 @@ The following columns correspond directly to OpenTelemetry span attribute semant
 
 #### Internal columns
 
-These columns are used internally by **Logfire** and you should ignore them:
+These columns are used internally by **Logfire** and you should ignore them. The exception is `created_at`, which a script can use as a cursor to [read only new data](query-limits.md#read-only-new-data):
 
 - `attributes_json_schema`
 - `attributes_reduced`

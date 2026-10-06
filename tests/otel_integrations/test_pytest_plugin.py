@@ -59,6 +59,11 @@ def logfire_pytester(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch,
     monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
     monkeypatch.delenv('TRACEPARENT', raising=False)
     monkeypatch.delenv('TRACESTATE', raising=False)
+    # The outer suite may itself run under xdist; don't leak its worker env vars into
+    # the inner pytest runs, where the plugin would detect them as xdist mode.
+    monkeypatch.delenv('PYTEST_XDIST_WORKER', raising=False)
+    monkeypatch.delenv('PYTEST_XDIST_WORKER_COUNT', raising=False)
+    monkeypatch.delenv('PYTEST_XDIST_TESTRUNUID', raising=False)
 
     # Create a conftest that captures spans to a JSON file
     # NOTE: We use trylast=True so this runs AFTER the logfire pytest plugin configures
@@ -1256,7 +1261,7 @@ def test_multiple_async_tests_have_distinct_spans(logfire_pytester: pytest.Pytes
     the span context from the first test (stale traceparent), breaking per-test isolation.
 
     A module-scoped async fixture is used to force anyio to share its internal
-    runner task across tests. The runner task's ``contextvars`` snapshot is taken
+    runner task across tests. The runner task's `contextvars` snapshot is taken
     when it is first created (during the first test), so the second test inherits
     the first test's OTel context unless it is explicitly re-attached.
     """
@@ -1307,7 +1312,7 @@ def test_pytest_asyncio_span_context_propagation(logfire_pytester: pytest.Pytest
     Verifies that the pytest_pyfunc_call hook (which re-attaches per-test span
     context inside coroutine bodies) works correctly with pytest-asyncio's runner.
 
-    Note: pytest-asyncio internally calls ``contextvars.copy_context()`` per test,
+    Note: pytest-asyncio internally calls `contextvars.copy_context()` per test,
     so context propagation works even without the hook. These tests verify
     correctness and compatibility as defense-in-depth.
 

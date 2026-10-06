@@ -4,7 +4,7 @@ description: "Practical recipes and patterns for writing SQL queries in Logfire 
 ---
 # Writing SQL Queries for Dashboards
 
-This guide provides practical recipes and patterns for writing useful SQL queries in **Logfire**. We'll focus on querying the [`records`](../reference/sql.md#records-columns) table, which contains your logs and spans. The goal is to help you create useful dashboards, but we recommend using the Explore view to learn and experiment.
+This guide provides practical recipes and patterns for writing useful SQL queries in **Logfire**. We'll focus on querying the [`records`](../reference/sql.md#records-columns) table, which contains your logs and spans. The goal is to help you create useful dashboards, but we recommend using SQL Workbench to learn and experiment.
 
 For a complete list of available tables and columns, please see the [SQL Reference](../reference/sql.md).
 
@@ -12,7 +12,7 @@ For a complete list of available tables and columns, please see the [SQL Referen
 
 ### Simple examples
 
-Here are two quick useful examples to try out immediately in the Explore view.
+Here are two quick useful examples to try out immediately in SQL Workbench.
 
 To find the most common operations based on [`span_name`](../reference/sql.md#span_name):
 
@@ -66,7 +66,7 @@ LIMIT 10
 - The alias `AS count` allows us to refer to the count in the `ORDER BY` clause.
 - `ORDER BY count DESC` sorts the results to show the most common groups first.
 - `WHERE <filter_conditions>` is optional and depends on your specific use case.
-- `LIMIT 10` isn't usually needed in the Explore view, but is helpful when creating charts.
+- `LIMIT 10` isn't usually needed in SQL Workbench, but is helpful when creating charts.
 - `<columns_to_group_by>` can be one or more columns and should be the same in the `SELECT` and `GROUP BY` clauses.
 
 ### Useful things to group by
@@ -194,7 +194,7 @@ FROM records
 GROUP BY x
 ```
 
-Here the `time_bucket($resolution, start_timestamp)` is essential. [`$resolution` is a special variable that exists in all dashboards](../guides/web-ui/dashboards.md#resolution-variable) and adjusts automatically based on the time range. You can adjust it while viewing the dashboard using the dropdown in the top left corner. It doesn't exist in the Explore view, so you have to use a concrete interval like `time_bucket('1 hour', start_timestamp)` there. Tick **Show rendered query** in the panel editor to fill in the resolution and other variables so that you can copy the query to the Explore view.
+Here the `time_bucket($resolution, start_timestamp)` is essential. [`$resolution` is a special variable that exists in all dashboards](../guides/web-ui/dashboards.md#resolution-variable) and adjusts automatically based on the time range. It doesn't exist in SQL Workbench, so you have to use a concrete interval like `time_bucket('1 hour', start_timestamp)` there. Tick **Show rendered query** in the panel editor to fill in the resolution and other variables so that you can copy the query to SQL Workbench.
 
 !!! warning
     If you're querying `metrics`, use `recorded_timestamp` instead of `start_timestamp`.
@@ -358,7 +358,7 @@ ORDER BY x
 
 ## Linking to the Live view
 
-While aggregating data with `GROUP BY` is powerful for seeing trends, sometimes you need to investigate specific events, like a single slow operation or a costly API call. In these cases, it's good to include the [`trace_id`](../reference/sql.md#trace_id) column in your `SELECT` clause. Tables in dashboards, the explore view, or alert run results with this column will render the `trace_id` values as clickable links to the Live View.
+While aggregating data with `GROUP BY` is powerful for seeing trends, sometimes you need to investigate specific events, like a single slow operation or a costly API call. In these cases, it's good to include the [`trace_id`](../reference/sql.md#trace_id) column in your `SELECT` clause. Tables in dashboards, SQL Workbench, or alert run results with this column will render the `trace_id` values as clickable links to the Live View.
 
 For example, to find the 10 slowest spans in your system, you can create a 'Table' panel with this query:
 
@@ -537,25 +537,77 @@ Then set the chart type to **Bar Chart**. Each bar represents a 'bucket' that ac
     ORDER BY m.bucket_midpoint;
     ```
 
-## Working with histogram metrics
+## Working with metrics
 
-The `metrics` table is currently more difficult to work with, especially for histogram instruments.
-If possible, just use the aggregated `histogram_*` columns, something like this:
+The `metrics` table stores each data point differently depending on the instrument type:
+gauges and sums fill the `scalar_value` column, while histograms fill the `histogram_*`
+and `exp_histogram_*` columns. The `value` column unifies all of these into a single
+struct, and the `metric_*` functions operate on it so the same query works regardless
+of how a metric was instrumented:
+
+| Function | What it computes |
+| --- | --- |
+| `metric_quantile(p, value)` | Aggregate: an observation quantile (e.g. p95) across the group |
+| `metric_rate(value, recorded_timestamp)` | Aggregate: per-second rate of change of a counter |
+| `metric_increase(value, recorded_timestamp)` | Aggregate: total increase of a counter |
+| `metric_merge(value)` | Aggregate: folds the group's data points into one `value` struct |
+| `metric_avg(value)` | Per row: the data point's average (scalar reading, or sum/count for histograms) |
+| `metric_sum(value)` | Per row: the data point's total |
+| `metric_count(value)` | Per row: the number of observations (1 for gauges and sums) |
+| `metric_min(value)` / `metric_max(value)` | Per row: the smallest / largest observation |
+
+For example, latency percentiles from a histogram instrument are a one-liner:
 
 ```sql
 SELECT
     time_bucket($resolution, recorded_timestamp) AS x,
-    sum(histogram_count) as total_count,
-    sum(histogram_sum) as total_sum,
-    sum(histogram_sum) / sum(histogram_count) as average,
-    min(histogram_min) as min,
-    max(histogram_max) as max
+    metric_quantile(0.95, value) AS p95
+FROM metrics
+WHERE metric_name = 'http.server.duration'
+GROUP BY x
+ORDER BY x
+```
+
+The same query works unchanged for a gauge like `process.cpu.utilization`: just swap the metric name.
+
+For summary statistics, apply an outer aggregate to the per-row functions:
+
+```sql
+SELECT
+    time_bucket($resolution, recorded_timestamp) AS x,
+    SUM(metric_count(value)) AS total_count,
+    SUM(metric_sum(value)) AS total_sum,
+    SUM(metric_sum(value)) / NULLIF(SUM(metric_count(value)), 0) AS average,
+    MIN(metric_min(value)) AS min,
+    MAX(metric_max(value)) AS max
 FROM metrics
 WHERE metric_name = '<fill in>'
 GROUP BY x
 ```
 
-If you need more detailed data, here's how.
+For counter metrics, `metric_rate` and `metric_increase` handle aggregation temporality
+(delta vs cumulative) automatically, so you don't need to think about resets or
+`WHERE aggregation_temporality = ...` filters:
+
+```sql
+SELECT
+    time_bucket($resolution, recorded_timestamp) AS x,
+    metric_rate(value, recorded_timestamp) AS bytes_per_second
+FROM metrics
+WHERE metric_name = 'system.network.io'
+GROUP BY x
+ORDER BY x
+```
+
+!!! note
+    `metric_quantile` and `metric_merge` require every row in a group to be the same
+    histogram flavor. If a query matches multiple metric names (or the same name emitted
+    by different SDKs) that mix explicit and exponential histograms, add a filter like
+    `metric_type = 'exponential_histogram'` or group by `metric_type`.
+
+### Unpacking raw histogram buckets
+
+The `metric_*` functions cover most needs, but if you want the raw distribution, here's how.
 The Logfire SDK typically uses exponential histograms rather than explicit buckets.
 A single database row contains a list of counts for buckets with mathematically defined boundaries.
 Here's how to unpack this data into a more usable form. Copy the following into the start of a query:
@@ -605,5 +657,5 @@ bucket_item_approx as (
 )
 ```
 
-Then `bucket_item_approx.approx_item` can be fed into e.g. percentile calculations (see the Web Server Metrics standard dashboard)
-or the histogram recipe above.
+Then `bucket_item_approx.approx_item` can be fed into the histogram chart recipe above.
+(For percentiles, prefer `metric_quantile`: it computes the same estimate without any of this machinery.)

@@ -1,25 +1,26 @@
-# Pydantic Logfire — Know more. Build faster.
+# Pydantic Logfire: Know more. Build faster.
 
 <p align="center">
   <a href="https://github.com/pydantic/logfire/actions?query=event%3Apush+branch%3Amain+workflow%3ACI"><img src="https://github.com/pydantic/logfire/actions/workflows/main.yml/badge.svg?event=push" alt="CI" /></a>
-  <a href="https://codecov.io/gh/pydantic/logfire"><img src="https://codecov.io/gh/pydantic/logfire/graph/badge.svg?token=735CNGCGFD" alt="codecov" /></a>
   <a href="https://pypi.python.org/pypi/logfire"><img src="https://img.shields.io/pypi/v/logfire.svg" alt="pypi" /></a>
   <a href="https://github.com/pydantic/logfire/blob/main/LICENSE"><img src="https://img.shields.io/github/license/pydantic/logfire.svg" alt="license" /></a>
   <a href="https://github.com/pydantic/logfire"><img src="https://img.shields.io/pypi/pyversions/logfire.svg" alt="versions" /></a>
   <a href="https://pydantic.dev/docs/logfire/join-slack/"><img src="https://img.shields.io/badge/Slack-Join%20Slack-4A154B?logo=slack" alt="Join Slack" /></a>
 </p>
 
-From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open source library — that the most powerful tools can be easy to use.
+From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open-source library: that the most powerful tools can be easy to use.
 
 What sets Logfire apart:
 
 - **Simple and Powerful:** Logfire's dashboard is simple relative to the power it provides, ensuring your entire engineering team will actually use it.
 - **Python-centric Insights:** From rich display of Python objects, to event-loop telemetry, to profiling Python code and database queries, Logfire gives you unparalleled visibility into your Python application's behavior.
-- **SQL:** Query your data using standard SQL — all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
+- **SQL:** Query your data using standard SQL: all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
 - **OpenTelemetry:** Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language. We offer full support for all OpenTelemetry signals (traces, metrics and logs).
 - **Pydantic Integration:** Understand the data flowing through your Pydantic Validation models and get built-in analytics on validations.
 
 See the [documentation](https://pydantic.dev/docs/logfire/) for more information.
+
+Evaluating observability tools? See what Logfire does for [LLM apps and agents](https://pydantic.dev/logfire/llm-observability?utm_source=github&utm_medium=readme&utm_campaign=logfire), [evals in production](https://pydantic.dev/logfire/evals?utm_source=github&utm_medium=readme&utm_campaign=logfire), and [how it compares to alternatives](https://pydantic.dev/logfire/alternatives?utm_source=github&utm_medium=readme&utm_campaign=logfire).
 
 **Feel free to report issues and ask any questions about Logfire in this repository!**
 
@@ -35,7 +36,10 @@ This is a very brief overview of how to use Logfire, the [documentation](https:/
 pip install logfire
 ```
 
-[_(learn more)_](https://pydantic.dev/docs/logfire/get-started/#sdk)
+This installs both the Python SDK and the Logfire CLI. To install only the SDK, use
+`pip install logfire-sdk`; the import remains `import logfire`.
+
+[_(learn more)_](https://pydantic.dev/docs/logfire/get-started/first-trace)
 
 ## Authenticate
 
@@ -63,7 +67,7 @@ with logfire.span('Asking the user their {question}', question='age'):
     logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)
 ```
 
-[_(learn more)_](https://pydantic.dev/docs/logfire/instrument/add-manual-tracing/)
+[_(learn more)_](https://pydantic.dev/docs/logfire/instrument/python/add-manual-tracing/)
 
 ### Integration
 

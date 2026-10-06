@@ -1,11 +1,11 @@
 ---
-title: "Logfire SQL Explorer: Query & Inspect Your Data"
-description: Run arbitrary SQL queries against traces and metric data. Use the Logfire SQL Explorer to investigate and analyze records.
+title: "Logfire SQL Workbench: Query & Inspect Your Data"
+description: Run arbitrary SQL queries against traces and metric data. Use the Logfire SQL Workbench to investigate and analyze records.
 ---
-With **Logfire**, you can use the Explore page to run arbitrary SQL queries against your trace and metric data to
+With **Logfire**, you can use the <OpenInLogfire path="explore" variant="inline" label="SQL Workbench" /> to run arbitrary SQL queries against your trace and metric data to
 analyze and investigate your system.
 
-![Logfire explore screen](../../images/guide/browser-explore-full.png)
+![Logfire SQL Workbench](../../images/guide/browser-explore-full.png)
 
 ## Querying Traces
 
@@ -37,7 +37,7 @@ See the [SQL Reference](../../reference/sql.md) for details on the SQL syntax su
 After running a query, you can take any `trace_id` and/or `span_id` and use it to look up data shown as traces
 in the Live View.
 
-Simply go to the Live View and enter a query like:
+Simply go to the <OpenInLogfire path="" variant="inline" label="Live View" /> and enter a query like:
 
 ```
 trace_id = '7bda3ddf6e6d4a0c8386093209eb0bfc' -- replace with a real trace_id of your own
@@ -61,6 +61,7 @@ CREATE TABLE metrics AS (
     aggregation_temporality public.aggregation_temporality,
     is_monotonic boolean,
     metric_description text,
+    value struct,  -- the data point's value for any metric type; query it with the metric_* functions
     scalar_value double precision,
     histogram_min double precision,
     histogram_max double precision,
@@ -96,15 +97,32 @@ WHERE metric_name = 'system.cpu.time'
   AND recorded_timestamp > now() - interval '1 hour'
 ```
 
+The flat columns (`scalar_value`, `histogram_*`, `exp_histogram_*`) hold the raw data of
+each instrument type, but the easiest way to work with metric values is the `value` column
+together with the `metric_*` functions, which work the same way for every metric type:
+
+```sql
+SELECT
+    time_bucket('5 minutes', recorded_timestamp) AS x,
+    metric_quantile(0.95, value) AS p95
+FROM metrics
+WHERE metric_name = 'http.server.duration'
+GROUP BY x
+ORDER BY x
+```
+
+See [Working with metrics](../../how-to-guides/write-dashboard-queries.md#working-with-metrics)
+for the full list of metric functions.
+
 ## Executing Queries
 
 To execute a query, type or paste it into the query editor and click the "Run Query" button.
 
-![Logfire explore screen](../../images/guide/browser-explore-run-query.png)
+![Logfire SQL Workbench running a query](../../images/guide/browser-explore-run-query.png)
 
 You can modify the time range of the query using the dropdown next to the button. There is also a "Limit" dropdown that
 controls the maximum number of result rows returned.
 
-The Explore page provides a flexible interface to query your traces and metrics using standard SQL.
+SQL Workbench provides a flexible interface to query your traces and metrics using standard SQL.
 
 Happy querying! :rocket:

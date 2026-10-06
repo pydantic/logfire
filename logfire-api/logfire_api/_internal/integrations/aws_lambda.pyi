@@ -1,7 +1,8 @@
+from collections.abc import Callable
 from opentelemetry.context import Context as Context
 from opentelemetry.metrics import MeterProvider
 from opentelemetry.trace import TracerProvider
-from typing import Any, Callable
+from typing import Any
 
 LambdaEvent = Any
 LambdaHandler = Callable[[LambdaEvent, Any], Any]

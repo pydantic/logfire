@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import time
 import unittest.mock
@@ -13,11 +14,12 @@ from typing import Any
 
 import pytest
 import requests_mock as requests_mock_module
-from pydantic import BaseModel, ValidationError
+from inline_snapshot import snapshot
+from pydantic import BaseModel, ValidationError, field_validator
 from requests import Session
 
 import logfire
-from logfire._internal.config import LocalVariablesOptions, VariablesOptions
+from logfire._internal.config import LocalVariablesOptions, LogfireConfig, VariablesOptions
 from logfire.testing import TestExporter
 from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
 from logfire.variables.config import (
@@ -37,7 +39,7 @@ from logfire.variables.config import (
     VariablesConfig,
 )
 from logfire.variables.local import LocalVariableProvider
-from logfire.variables.remote import LogfireRemoteVariableProvider
+from logfire.variables.remote import _CONSECUTIVE_FAILURES_BEFORE_ERROR, LogfireRemoteVariableProvider
 from logfire.variables.variable import is_resolve_function
 
 # =============================================================================
@@ -633,7 +635,7 @@ class TestNoOpVariableProvider:
         provider = NoOpVariableProvider()
         result = provider.get_serialized_value('any_variable')
         assert result.value is None
-        assert result._reason == 'no_provider'
+        assert result.reason == 'no_provider'
 
     def test_with_targeting_key_and_attributes(self):
         provider = NoOpVariableProvider()
@@ -661,19 +663,19 @@ class TestNoOpVariableProvider:
 
 class TestResolvedVariable:
     def test_basic_details(self):
-        details = ResolvedVariable(name='test_var', value='test', _reason='resolved')
+        details = ResolvedVariable(name='test_var', value='test', reason='resolved')
         assert details.name == 'test_var'
         assert details.value == 'test'
         assert details.label is None
         assert details.exception is None
 
     def test_with_label(self):
-        details = ResolvedVariable(name='test_var', value='test', label='v1', _reason='resolved')
+        details = ResolvedVariable(name='test_var', value='test', label='v1', reason='resolved')
         assert details.label == 'v1'
 
     def test_with_exception(self):
         error = ValueError('test error')
-        details = ResolvedVariable(name='test_var', value='default', exception=error, _reason='validation_error')
+        details = ResolvedVariable(name='test_var', value='default', exception=error, reason='validation_error')
         assert details.exception is error
 
     def test_context_manager_sets_baggage(self, config_kwargs: dict[str, Any]):
@@ -721,6 +723,49 @@ class TestResolvedVariable:
         with details:
             baggage = logfire.get_baggage()
             assert baggage['logfire.variables.cm_var'] == 'my_label'
+            # Version is propagated alongside the label so downstream spans can
+            # be filtered/grouped by `(label, version)`.
+            assert baggage['logfire.variables.cm_var.version'] == '1'
+
+    def test_context_manager_omits_version_for_code_default(self):
+        """Code-default resolutions have version=None and should not emit a version baggage entry."""
+        var = logfire.var(name='no_version_var', default='default', type=str)
+        details = var.get()
+
+        assert details.label is None
+        assert details.version is None
+
+        with details:
+            baggage = logfire.get_baggage()
+            assert baggage == snapshot({'logfire.variables.no_version_var': '<code_default>'})
+
+    def test_latest_ref_without_version_reports_code_default_metadata(self, config_kwargs: dict[str, Any]):
+        """A 100% latest rollout falls back to the code default until the first version exists."""
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'latest_before_v1': VariableConfig(
+                        name='latest_before_v1',
+                        labels={'latest': LabelRef(ref='latest')},
+                        rollout=Rollout(labels={'latest': 1.0}),
+                        overrides=[],
+                    ),
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='latest_before_v1', default='default', type=str)
+        details = var.get()
+
+        assert details.value == 'default'
+        assert details.reason == 'code_default'
+        assert details.label is None
+        assert details.version is None
+
+        with details:
+            baggage = logfire.get_baggage()
+            assert baggage == snapshot({'logfire.variables.latest_before_v1': '<code_default>'})
 
     def test_context_manager_returns_self(self, config_kwargs: dict[str, Any]):
         lf = logfire.configure(**config_kwargs)
@@ -821,7 +866,7 @@ class TestLocalVariableProvider:
         result = provider.get_serialized_value('test_var')
         assert result.value == '"default_value"'
         assert result.label == 'default'
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
     def test_get_serialized_value_with_override(self, simple_config: VariablesConfig):
         provider = LocalVariableProvider(simple_config)
@@ -836,7 +881,7 @@ class TestLocalVariableProvider:
         provider = LocalVariableProvider(simple_config)
         result = provider.get_serialized_value('unknown_var')
         assert result.value is None
-        assert result._reason == 'unrecognized_variable'
+        assert result.reason == 'unrecognized_variable'
 
     def test_rollout_returns_none(self):
         config = VariablesConfig(
@@ -852,7 +897,30 @@ class TestLocalVariableProvider:
         provider = LocalVariableProvider(config)
         result = provider.get_serialized_value('partial_var')
         assert result.value is None
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
+
+    def test_get_all_variables_config_returns_isolated_snapshot(self, simple_config: VariablesConfig):
+        """get_all_variables_config() returns a deep-copied snapshot under the lock.
+
+        Regression test: it used to return the live `self._config`, so a concurrent
+        create/update/delete mutating `variables` in place could raise
+        "dictionary changed size during iteration" in the push/validation walkers.
+        """
+        provider = LocalVariableProvider(simple_config)
+        snapshot = provider.get_all_variables_config()
+        assert set(snapshot.variables) == {'test_var'}
+        provider.create_variable(
+            VariableConfig(
+                name='added',
+                labels={'default': LabeledValue(version=1, serialized_value='"v"')},
+                rollout=Rollout(labels={'default': 1.0}),
+                overrides=[],
+            )
+        )
+        # The previously-returned snapshot is unaffected by the later write...
+        assert set(snapshot.variables) == {'test_var'}
+        # ...while a fresh snapshot reflects it.
+        assert set(provider.get_all_variables_config().variables) == {'test_var', 'added'}
 
 
 # =============================================================================
@@ -861,7 +929,8 @@ class TestLocalVariableProvider:
 
 
 REMOTE_BASE_URL = 'http://localhost:8000/'
-REMOTE_TOKEN = 'pylf_v1_local_test_token'
+REMOTE_TOKEN = 'pylf_v1_us_test_token'
+REGION_API_KEY = 'pylf_v2_stagingeu_9f9ba85a-b759-4181-9527-d812e03f9f7f_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W'
 
 
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
@@ -904,6 +973,40 @@ class TestLogfireRemoteVariableProvider:
             finally:
                 provider.shutdown()
 
+    def test_network_failure_marks_attempted_fetch(self) -> None:
+        """A failed fetch still marks `_has_attempted_fetch`, so resolves don't block on every call.
+
+        Regression test: the HTTP-failure path used to `return` before setting the flag, so with
+        `block_before_first_resolve` every `get_serialized_value` issued a fresh blocking refresh
+        while the server was unreachable.
+        """
+        from requests.exceptions import ConnectionError as RequestsConnectionError
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', exc=RequestsConnectionError('boom'))
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=True,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            try:
+                # First resolve triggers a blocking refresh that fails (logged as a RuntimeWarning
+                # since no logfire instance is bound) — but the attempt must still be recorded.
+                with pytest.warns(RuntimeWarning, match='Error retrieving variables'):
+                    result = provider.get_serialized_value('test_var')
+                assert result.value is None
+                assert provider._has_attempted_fetch is True
+                assert request_mocker.call_count == 1
+                # A second resolve must NOT issue another blocking refresh now that we've attempted once.
+                provider.get_serialized_value('test_var')
+                assert request_mocker.call_count == 1
+            finally:
+                provider.shutdown()
+
     def test_get_serialized_value_missing_config_no_block(self) -> None:
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
@@ -923,7 +1026,7 @@ class TestLogfireRemoteVariableProvider:
                 # Without blocking, config might not be fetched yet
                 result = provider.get_serialized_value('test_var')
                 # Should return missing_config if not fetched
-                assert result._reason in ('missing_config', 'resolved', 'unrecognized_variable')
+                assert result.reason in ('missing_config', 'resolved', 'unrecognized_variable')
             finally:
                 provider.shutdown()
 
@@ -959,7 +1062,7 @@ class TestLogfireRemoteVariableProvider:
             try:
                 result = provider.get_serialized_value('nonexistent_var')
                 assert result.value is None
-                assert result._reason == 'unrecognized_variable'
+                assert result.reason == 'unrecognized_variable'
             finally:
                 provider.shutdown()
 
@@ -1009,6 +1112,30 @@ class TestLogfireRemoteVariableProvider:
             # 30% of 10000ms = 3000ms = 3.0s for SSE
             mock_sse.join.assert_called_once_with(timeout=3.0)
 
+    def test_at_fork_reinit_does_not_restart_after_shutdown(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import logfire.variables.remote as remote_module
+
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        provider._started = True
+        provider._shutdown = True
+        mock_thread_cls = unittest.mock.MagicMock()
+        mock_start_sse = unittest.mock.MagicMock()
+        monkeypatch.setattr(remote_module.threading, 'Thread', mock_thread_cls)
+        monkeypatch.setattr(provider, '_start_sse_listener', mock_start_sse)
+
+        provider._at_fork_reinit()
+
+        assert provider._shutdown is True
+        mock_thread_cls.assert_not_called()
+        mock_start_sse.assert_not_called()
+
     def test_refresh_with_force(self) -> None:
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
@@ -1027,7 +1154,7 @@ class TestLogfireRemoteVariableProvider:
             try:
                 provider.refresh(force=True)
                 result = provider.get_serialized_value('test_var')
-                assert result._reason == 'unrecognized_variable'
+                assert result.reason == 'unrecognized_variable'
             finally:
                 provider.shutdown()
 
@@ -1065,7 +1192,7 @@ class TestLogfireRemoteVariableProvider:
             try:
                 result = provider.get_serialized_value('partial_var')
                 assert result.value is None
-                assert result._reason == 'resolved'
+                assert result.reason == 'resolved'
             finally:
                 provider.shutdown()
 
@@ -1144,7 +1271,7 @@ class TestLogfireRemoteVariableProvider:
                 # since no config has been fetched yet
                 result = provider.get_serialized_value_for_label('test_var', 'production')
                 assert result.value is None
-                assert result._reason == 'unrecognized_variable'
+                assert result.reason == 'unrecognized_variable'
             finally:
                 provider.shutdown()
 
@@ -1286,7 +1413,7 @@ class TestLogfireRemoteVariableProviderErrors:
             try:
                 # The mock returns an error, so config should not be set
                 result = provider.get_serialized_value('test_var')
-                assert result._reason == 'missing_config'
+                assert result.reason == 'missing_config'
             finally:
                 provider.shutdown()
 
@@ -1309,9 +1436,240 @@ class TestLogfireRemoteVariableProviderErrors:
             try:
                 # The mock returns invalid data, so validation error happens
                 result = provider.get_serialized_value('test_var')
-                assert result._reason == 'missing_config'
+                assert result.reason == 'missing_config'
             finally:
                 provider.shutdown()
+
+    def _provider_with_mock_logfire(
+        self, request_mocker: requests_mock_module.Mocker
+    ) -> tuple[LogfireRemoteVariableProvider, unittest.mock.MagicMock]:
+        """Create an unstarted provider with a mocked logfire instance for log-level assertions."""
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        mock_logfire = unittest.mock.MagicMock(spec=logfire.Logfire)
+        provider._logfire = mock_logfire
+        return provider, mock_logfire
+
+    def test_transient_failure_with_cached_config_logs_warning(self) -> None:
+        """A transient failure after a successful fetch logs a warning, not an error.
+
+        Stale values keep being served and the next poll retries, so a single 503/timeout
+        must not produce an error-level exception record.
+        """
+        request_mocker = requests_mock_module.Mocker()
+        with request_mocker:
+            provider, mock_logfire = self._provider_with_mock_logfire(request_mocker)
+            try:
+                provider.refresh(force=True)
+                assert provider._config is not None
+
+                request_mocker.get(
+                    'http://localhost:8000/v1/variables/', status_code=503, text='upstream connect error'
+                )
+                provider.refresh(force=True)
+
+                mock_logfire.warn.assert_called_once()
+                assert mock_logfire.warn.call_args[1]['message'] == 'Error retrieving variables'
+                # The exception isn't recorded on the span (that would count towards error rates),
+                # so the type has to be carried as a plain attribute instead.
+                assert '_exc_info' not in mock_logfire.warn.call_args[1]
+                assert mock_logfire.warn.call_args[1]['error_type'] == 'UnexpectedResponse'
+                mock_logfire.error.assert_not_called()
+                assert provider._config is not None
+            finally:
+                provider.shutdown()
+
+    def test_transient_failure_escalates_after_consecutive_failures(self) -> None:
+        """Sustained transient failures escalate to error level once the threshold is reached."""
+        request_mocker = requests_mock_module.Mocker()
+        with request_mocker:
+            provider, mock_logfire = self._provider_with_mock_logfire(request_mocker)
+            try:
+                provider.refresh(force=True)
+                assert provider._config is not None
+
+                request_mocker.get('http://localhost:8000/v1/variables/', status_code=503, text='unavailable')
+                for _ in range(_CONSECUTIVE_FAILURES_BEFORE_ERROR - 1):
+                    provider.refresh(force=True)
+                assert mock_logfire.warn.call_count == _CONSECUTIVE_FAILURES_BEFORE_ERROR - 1
+                mock_logfire.error.assert_not_called()
+
+                provider.refresh(force=True)
+                mock_logfire.error.assert_called_once()
+                assert mock_logfire.error.call_args[1]['message'] == 'Error retrieving variables'
+            finally:
+                provider.shutdown()
+
+    def test_auth_failure_logs_error_despite_cached_config(self) -> None:
+        """A 401/403 is a misconfiguration that won't self-heal, so it logs an error immediately."""
+        request_mocker = requests_mock_module.Mocker()
+        with request_mocker:
+            provider, mock_logfire = self._provider_with_mock_logfire(request_mocker)
+            try:
+                provider.refresh(force=True)
+                assert provider._config is not None
+
+                request_mocker.get(
+                    'http://localhost:8000/v1/variables/',
+                    status_code=401,
+                    json={'detail': 'Could not validate credentials'},
+                )
+                provider.refresh(force=True)
+
+                mock_logfire.error.assert_called_once()
+                mock_logfire.warn.assert_not_called()
+            finally:
+                provider.shutdown()
+
+    def test_transient_failure_warns_without_logfire_instance(self) -> None:
+        """With no logfire instance bound, transient failures fall back to a RuntimeWarning."""
+        from requests.exceptions import ConnectionError as RequestsConnectionError
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            try:
+                provider.refresh(force=True)
+                assert provider._config is not None
+
+                request_mocker.get('http://localhost:8000/v1/variables/', exc=RequestsConnectionError('boom'))
+                with pytest.warns(RuntimeWarning, match='Error retrieving variables'):
+                    provider.refresh(force=True)
+                assert provider._consecutive_refresh_failures == 1
+            finally:
+                provider.shutdown()
+
+    def test_transient_failure_without_cached_config_logs_error(self) -> None:
+        """A failure before any config has been fetched logs an error: the app runs on code defaults."""
+        request_mocker = requests_mock_module.Mocker()
+        with request_mocker:
+            provider, mock_logfire = self._provider_with_mock_logfire(request_mocker)
+            try:
+                request_mocker.get('http://localhost:8000/v1/variables/', status_code=503, text='unavailable')
+                provider.refresh(force=True)
+
+                mock_logfire.error.assert_called_once()
+                mock_logfire.warn.assert_not_called()
+            finally:
+                provider.shutdown()
+
+    def test_successful_refresh_resets_failure_counter(self) -> None:
+        """A successful fetch resets the consecutive-failure counter, so later blips warn again."""
+        request_mocker = requests_mock_module.Mocker()
+        with request_mocker:
+            provider, mock_logfire = self._provider_with_mock_logfire(request_mocker)
+            try:
+                provider.refresh(force=True)
+                assert provider._config is not None
+
+                request_mocker.get('http://localhost:8000/v1/variables/', status_code=503, text='unavailable')
+                for _ in range(_CONSECUTIVE_FAILURES_BEFORE_ERROR - 1):
+                    provider.refresh(force=True)
+                assert provider._consecutive_refresh_failures == _CONSECUTIVE_FAILURES_BEFORE_ERROR - 1
+
+                # Recover, then fail once more: the counter restarted, so this is a warning again
+                request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+                provider.refresh(force=True)
+                assert provider._consecutive_refresh_failures == 0
+
+                request_mocker.get('http://localhost:8000/v1/variables/', status_code=503, text='unavailable')
+                provider.refresh(force=True)
+                assert provider._consecutive_refresh_failures == 1
+                mock_logfire.error.assert_not_called()
+            finally:
+                provider.shutdown()
+
+
+# =============================================================================
+# Test LogfireRemoteVariableProvider instrumentation suppression
+# =============================================================================
+
+
+class TestLogfireRemoteVariableProviderInstrumentation:
+    """The provider's own API traffic must not show up in the user's telemetry."""
+
+    @contextlib.contextmanager
+    def _instrumented_mocker(self):
+        """A `requests_mock` mocker with `logfire.instrument_requests()` applied on top of it.
+
+        `requests_mock` patches `Session.send`, so it has to be started *before* instrumenting
+        (and stopped after uninstrumenting), otherwise it replaces the instrumented method.
+        """
+        from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
+        with requests_mock_module.Mocker() as request_mocker:
+            logfire.instrument_requests()
+            try:
+                yield request_mocker
+            finally:
+                RequestsInstrumentor().uninstrument()
+
+    def test_api_requests_are_not_instrumented(self, exporter: TestExporter) -> None:
+        """Users who instrument `requests` shouldn't get a span for every poll and write."""
+        with self._instrumented_mocker() as request_mocker:
+            request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+            request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'new_var'})
+            request_mocker.put('http://localhost:8000/v1/variables/new_var/', json={'name': 'new_var'})
+            request_mocker.delete('http://localhost:8000/v1/variables/new_var/', json={})
+            request_mocker.get('http://localhost:8000/v1/variable-types/', json=[])
+
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='new_var',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    description='Test variable',
+                )
+                provider.refresh(force=True)
+                provider.create_variable(config)
+                provider.update_variable('new_var', config)
+                provider.delete_variable('new_var')
+                provider.list_variable_types()
+            finally:
+                provider.shutdown()
+
+        assert exporter.exported_spans_as_dict() == []
+
+    def test_user_requests_are_still_instrumented(self, exporter: TestExporter) -> None:
+        """Suppression is scoped to the provider's own requests, not left on for the caller."""
+        with self._instrumented_mocker() as request_mocker:
+            request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+            request_mocker.get('https://example.com/', text='hello')
+
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                provider.refresh(force=True)
+                Session().get('https://example.com/')
+            finally:
+                provider.shutdown()
+
+        span_urls = {span['attributes'].get('http.url') for span in exporter.exported_spans_as_dict()}
+        assert span_urls == {'https://example.com/'}
 
 
 # =============================================================================
@@ -1471,6 +1829,16 @@ class TestLogfireRemoteVariableProviderStart:
 
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
 class TestApiKeySupport:
+    def test_api_key_region_configures_provider_base_url(self, config_kwargs: dict[str, Any]) -> None:
+        config_kwargs.update(api_key=REGION_API_KEY, variables=VariablesOptions())
+
+        with unittest.mock.patch.object(LogfireRemoteVariableProvider, 'start'):
+            logfire.configure(**config_kwargs)
+            provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+
+            assert isinstance(provider, LogfireRemoteVariableProvider)
+            assert provider._base_url == 'https://logfire-eu.pydantic.info'
+
     def test_api_key_in_config(self) -> None:
         """Test that api_key can be passed to LogfireRemoteVariableProvider."""
         api_key = 'test_api_key_12345'
@@ -1632,19 +2000,172 @@ class TestVariable:
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='invalid_var', default=999, type=int)
-        details = var.get()
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            details = var.get()
         # Falls back to default when validation fails
         assert details.value == 999
         assert details.exception is not None
-        assert details._reason == 'validation_error'
+        assert details.reason == 'validation_error'
+        assert details.label == 'default'
+        assert details.version == 1
 
     def test_get_uses_default_when_no_config(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='unconfigured', default='my_default', type=str)
-        value = var.get().value
-        assert value == 'my_default'
+        result = var.get()
+        assert result.value == 'my_default'
+        assert result.reason == 'code_default'
+
+    def test_get_calls_function_default_once_when_no_config(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        calls = 0
+
+        def default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            nonlocal calls
+            calls += 1
+            return 'my_default'
+
+        var = lf.var(name='unconfigured', default=default, type=str)
+        result = var.get()
+        assert result.value == 'my_default'
+        assert result.reason == 'code_default'
+        assert calls == 1
+
+    def test_get_preserves_metadata_with_deserialization_type_error(self, config_kwargs: dict[str, Any]):
+        class TypeErrorModel(BaseModel):
+            value: int
+
+            @field_validator('value')
+            @classmethod
+            def fail_for_one(cls, value: int) -> int:
+                if value == 1:
+                    raise TypeError('validator exploded')
+                return value
+
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'type_error_var': VariableConfig(
+                        name='type_error_var',
+                        labels={'default': LabeledValue(version=1, serialized_value='{"value": 1}')},
+                        rollout=Rollout(labels={'default': 1.0}),
+                        overrides=[],
+                    )
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='type_error_var', default=TypeErrorModel(value=0), type=TypeErrorModel)
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            result = var.get()
+        assert result.value == TypeErrorModel(value=0)
+        assert isinstance(result.exception, TypeError)
+        # A validator raising TypeError is still a deserialization failure, so the reason
+        # matches the "value failed validation" warning (rather than splitting on whether
+        # pydantic wrapped the error into a ValidationError).
+        assert result.reason == 'validation_error'
+        assert result.label == 'default'
+        assert result.version == 1
+
+    def test_get_preserves_provider_exception_when_using_code_default(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        provider_error = RuntimeError('missing')
+
+        def missing_get(
+            variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        ) -> ResolvedVariable[str | None]:
+            return ResolvedVariable(
+                name=variable_name, value=None, exception=provider_error, reason='unrecognized_variable'
+            )
+
+        monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', missing_get)
+
+        var = lf.var(name='unconfigured', default='my_default', type=str)
+        result = var.get()
+        assert result.value == 'my_default'
+        assert result.reason == 'code_default'
+        assert result.exception is provider_error
+
+    def test_get_warns_when_default_function_fails(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        provider_error = RuntimeError('missing')
+
+        def failing_get(
+            variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        ) -> ResolvedVariable[str | None]:
+            raise provider_error
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            raise RuntimeError('default failed')
+
+        monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', failing_get)
+
+        var = lf.var(name='unconfigured', default=bad_default, type=str)
+        with pytest.warns(RuntimeWarning) as warnings:
+            result = var.get()
+        assert result.value is None
+        assert result.reason == 'other_error'
+        assert result.exception is provider_error
+        messages = [str(warning.message) for warning in warnings]
+        assert any('code default raised' in message and 'default failed' in message for message in messages)
+        assert not any('returning None: missing' in message for message in messages)
+
+    def test_get_warns_when_missing_config_default_function_fails(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            raise RuntimeError('default failed')
+
+        var = lf.var(name='unconfigured', default=bad_default, type=str)
+        with pytest.warns(RuntimeWarning, match='code default raised'):
+            result = var.get()
+        assert result.value is None
+        assert result.reason == 'other_error'
+        assert isinstance(result.exception, RuntimeError)
+
+    def test_get_calls_failing_default_once_on_validation_error(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'invalid_var': VariableConfig(
+                        name='invalid_var',
+                        labels={'default': LabeledValue(version=1, serialized_value='"bad"')},
+                        rollout=Rollout(labels={'default': 1.0}),
+                        overrides=[],
+                    )
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+        calls = 0
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> int:
+            nonlocal calls
+            calls += 1
+            raise RuntimeError('default failed')
+
+        var = lf.var(name='invalid_var', default=bad_default, type=int)
+        with pytest.warns(RuntimeWarning) as warnings:
+            result = var.get()
+
+        assert calls == 1
+        assert result.value is None
+        assert result.reason == 'other_error'
+        assert isinstance(result.exception, RuntimeError)
+        messages = [str(warning.message) for warning in warnings]
+        assert any('value failed validation' in message for message in messages)
+        assert any('code default raised' in message and 'default failed' in message for message in messages)
 
     def test_override_context_manager(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
@@ -1670,6 +2191,29 @@ class TestVariable:
             with var.override('inner'):
                 assert var.get().value == 'inner'
             assert var.get().value == 'outer'
+
+    def test_override_unserializable_value_returned_typed(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        """Top-level overrides return the user's typed Python value, even when it isn't JSON-serializable.
+
+        Regression for #1951 r3287492856 / r3289439477 — the SDK previously
+        round-tripped overrides through `dump_json`/`validate_json`, silently
+        dropping unserializable values back to the provider / code default
+        and leaving callers unaware. Pre-#1951 behaviour was to return the
+        typed object verbatim; this restores that for the no-composition
+        case while still serializing when composition / template rendering
+        needs a string.
+        """
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=object)
+        sentinel = object()
+        with var.override(sentinel):
+            result = var.get()
+            assert result.value is sentinel
+            assert result.reason == 'context_override'
 
     def test_override_with_function(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
@@ -1788,6 +2332,152 @@ class TestVariable:
         spans = exporter.exported_spans
         resolve_spans = [s for s in spans if s.name.startswith('Resolve variable')]
         assert len(resolve_spans) == 0
+
+
+class TestVariableRenderPipeline:
+    @pytest.fixture
+    def variables_config(self) -> VariablesConfig:
+        return VariablesConfig(
+            variables={
+                'string_var': VariableConfig(
+                    name='string_var',
+                    labels={'default': LabeledValue(version=1, serialized_value='"hello"')},
+                    rollout=Rollout(labels={'default': 1.0}),
+                    overrides=[],
+                ),
+                'int_var': VariableConfig(
+                    name='int_var',
+                    labels={'default': LabeledValue(version=1, serialized_value='42')},
+                    rollout=Rollout(labels={'default': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+
+    def test_plain_variable_has_no_template_inputs_schema(self, config_kwargs: dict[str, Any]):
+        from logfire.variables.variable import get_template_inputs_schema
+
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='plain_var', default='default', type=str)
+
+        assert not hasattr(var, 'get_template_inputs_schema')
+        assert get_template_inputs_schema(var) is None
+
+    def test_render_fn_applies_to_provider_value(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered"')
+
+        assert result.value == 'rendered'
+        assert result.reason == 'resolved'
+
+    def test_render_fn_applies_to_context_override(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=str)
+
+        with var.override('overridden'):
+            result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered"')
+
+        assert result.value == 'rendered'
+        assert result.reason == 'context_override'
+
+        int_var = lf.var(name='int_var', default=0, type=int)
+
+        with int_var.override(1):
+            with pytest.warns(RuntimeWarning, match='value failed validation'):
+                invalid = int_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
+
+        assert invalid.value == 0
+        assert invalid.reason == 'validation_error'
+        assert isinstance(invalid.exception, ValidationError)
+
+        class TypeErrorModel(BaseModel):
+            value: int
+
+            @field_validator('value')
+            @classmethod
+            def fail_for_one(cls, value: int) -> int:
+                if value == 1:
+                    raise TypeError('validator exploded')
+                return value
+
+        type_error_var = lf.var(name='type_error_var', default=TypeErrorModel(value=0), type=TypeErrorModel)
+
+        with type_error_var.override(TypeErrorModel(value=0)):
+            with pytest.warns(RuntimeWarning, match='value failed validation'):
+                type_error_result = type_error_var._get_result_and_record_span(
+                    None, None, None, render_fn=lambda _: '{"value": 1}'
+                )
+
+        assert type_error_result.value == TypeErrorModel(value=0)
+        assert type_error_result.reason == 'validation_error'
+        assert isinstance(type_error_result.exception, TypeError)
+
+    def test_render_fn_applies_to_code_default(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='unconfigured', default='my_default', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered_default"')
+
+        assert result.value == 'rendered_default'
+        assert result.reason == 'code_default'
+
+        invalid_var = lf.var(name='unconfigured_int', default=0, type=int)
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            invalid = invalid_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
+
+        assert invalid.value == 0
+        assert invalid.reason == 'validation_error'
+        assert isinstance(invalid.exception, ValidationError)
+
+    def test_render_fn_preserves_provider_exception_when_using_code_default(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        provider_error = RuntimeError('missing')
+
+        def missing_get(
+            variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        ) -> ResolvedVariable[str | None]:
+            return ResolvedVariable(
+                name=variable_name, value=None, exception=provider_error, reason='unrecognized_variable'
+            )
+
+        monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', missing_get)
+
+        var = lf.var(name='unconfigured', default='my_default', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered_default"')
+        assert result.value == 'rendered_default'
+        assert result.reason == 'code_default'
+        assert result.exception is provider_error
+
+    def test_render_fn_reports_default_function_failure(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        default_error = RuntimeError('default failed')
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            raise default_error
+
+        var = lf.var(name='unconfigured', default=bad_default, type=str)
+
+        with pytest.warns(RuntimeWarning, match='could not be resolved and its code default raised'):
+            result = var._get_result_and_record_span(None, None, None, render_fn=lambda value: value)
+
+        assert result.reason == 'other_error'
+        assert result.exception is default_error
 
 
 # =============================================================================
@@ -2181,15 +2871,15 @@ class TestLogfireVarIntegration:
         original = lf.config._variable_provider.get_serialized_value
 
         def failing_get(*args: Any, **kwargs: Any) -> ResolvedVariable[str | None]:
-            raise RuntimeError('Provider failed!')
+            raise IndexError('Provider failed!')
 
         lf.config._variable_provider.get_serialized_value = failing_get
 
         var = lf.var(name='failing_var', default='fallback', type=str)
         details = var.get()
         assert details.value == 'fallback'
-        assert details._reason == 'other_error'
-        assert isinstance(details.exception, RuntimeError)
+        assert details.reason == 'other_error'
+        assert isinstance(details.exception, IndexError)
 
         # Restore original
         lf.config._variable_provider.get_serialized_value = original
@@ -2467,6 +3157,41 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             finally:
                 provider.shutdown()
 
+    def test_create_variable_with_template_inputs_schema(self) -> None:
+        """Test creating a template variable sends the template inputs schema."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        post_adapter = request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'template_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                template_inputs_schema = {
+                    'type': 'object',
+                    'properties': {'user_name': {'type': 'string'}},
+                    'required': ['user_name'],
+                }
+                config = VariableConfig(
+                    name='template_var',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"Hello {{user_name}}"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    description='Template variable',
+                    json_schema={'type': 'string'},
+                    template_inputs_schema=template_inputs_schema,
+                )
+                result = provider.create_variable(config)
+                assert result.name == 'template_var'
+
+                assert post_adapter.last_request is not None
+                request_body = post_adapter.last_request.json()
+                assert request_body['template_inputs_schema'] == template_inputs_schema
+            finally:
+                provider.shutdown()
+
     def test_create_variable_already_exists(self) -> None:
         from logfire.variables.abstract import VariableAlreadyExistsError
 
@@ -2512,6 +3237,35 @@ class TestLogfireRemoteVariableProviderWriteOperations:
                 )
                 with pytest.raises(VariableWriteError, match='Failed to create variable'):
                     provider.create_variable(config)
+            finally:
+                provider.shutdown()
+
+    def test_variable_types_network_error_raises_write_error(self) -> None:
+        """list/upsert variable types surface network errors as VariableWriteError (D4).
+
+        Regression: these two methods caught only UnexpectedResponse, so a raw
+        ConnectionError/Timeout (a RequestException) leaked out, unlike create/update/delete.
+        """
+        from requests.exceptions import ConnectionError as RequestsConnectionError
+
+        from logfire.variables.abstract import VariableWriteError
+        from logfire.variables.config import VariableTypeConfig
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.get('http://localhost:8000/v1/variable-types/', exc=RequestsConnectionError('boom'))
+        request_mocker.post('http://localhost:8000/v1/variable-types/', exc=RequestsConnectionError('boom'))
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                with pytest.raises(VariableWriteError, match='Failed to list variable types'):
+                    provider.list_variable_types()
+                with pytest.raises(VariableWriteError, match='Failed to upsert variable type'):
+                    provider.upsert_variable_type(VariableTypeConfig(name='t', json_schema={'type': 'string'}))
             finally:
                 provider.shutdown()
 
@@ -2833,7 +3587,7 @@ class TestVariablesConfigAliases:
         # Access via alias
         result = config.resolve_serialized_value('old_name')
         assert result.value == '"value"'
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
     def test_multiple_aliases(self):
         """Test that multiple aliases resolve correctly."""
@@ -2852,7 +3606,7 @@ class TestVariablesConfigAliases:
         for alias in ['alias1', 'alias2', 'alias3']:
             result = config.resolve_serialized_value(alias)
             assert result.value == '"value"'
-            assert result._reason == 'resolved'
+            assert result.reason == 'resolved'
 
     def test_nonexistent_variable_returns_unrecognized(self):
         """Test that nonexistent variable returns unrecognized."""
@@ -2868,7 +3622,7 @@ class TestVariablesConfigAliases:
         )
         result = config.resolve_serialized_value('nonexistent')
         assert result.value is None
-        assert result._reason == 'unrecognized_variable'
+        assert result.reason == 'unrecognized_variable'
 
     def test_direct_name_takes_precedence(self):
         """Test that direct variable name takes precedence over alias lookup."""
@@ -2906,7 +3660,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         result = provider.get_all_variables_config()
@@ -2919,7 +3673,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         config = VariableConfig(
@@ -2939,7 +3693,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         config = VariableConfig(
@@ -2959,7 +3713,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         with pytest.warns(UserWarning, match='does not persist variable writes'):
@@ -2978,7 +3732,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_variable_config(self, name: str) -> VariableConfig | None:
                 return self.configs.get(name)
@@ -3144,7 +3898,7 @@ class TestPushVariables:
         lf = logfire.configure(**config_kwargs)
         # Now we want it to be a string
         var = lf.var(name='my_var', default='default', type=str)
-        result = provider.push_variables([var], yes=True)
+        result = provider.push_variables([var], yes=True, strict=False)
         assert result is True
         captured = capsys.readouterr()
         assert 'Variables to UPDATE' in captured.out
@@ -3168,15 +3922,15 @@ class TestPushVariables:
         lf = logfire.configure(**config_kwargs)
         # Changing from string to int - existing label is incompatible
         var = lf.var(name='my_var', default=0, type=int)
-        result = provider.push_variables([var], yes=True)
+        result = provider.push_variables([var], yes=True, strict=False)
         assert result is True
         captured = capsys.readouterr()
         assert 'Warning' in captured.out or 'Incompatible' in captured.out
 
-    def test_push_variables_strict_mode_fails_with_incompatible(
+    def test_push_variables_fails_with_incompatible_by_default(
         self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
     ):
-        """Test push_variables in strict mode fails with incompatible labels."""
+        """Test push_variables fails with incompatible labels by default."""
         server_config = VariablesConfig(
             variables={
                 'my_var': VariableConfig(
@@ -3191,7 +3945,7 @@ class TestPushVariables:
         provider = LocalVariableProvider(server_config)
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='my_var', default=0, type=int)
-        result = provider.push_variables([var], strict=True)
+        result = provider.push_variables([var])
         assert result is False
         captured = capsys.readouterr()
         # Error message may go to stdout or stderr depending on implementation
@@ -3226,7 +3980,7 @@ class TestPushVariables:
         var1 = lf.var(name='schema_change_var', default=0, type=int)
         # unchanged_var: same schema (int) but label value is incompatible
         var2 = lf.var(name='unchanged_var', default=0, type=int)
-        result = provider.push_variables([var1, var2], yes=True)
+        result = provider.push_variables([var1, var2], yes=True, strict=False)
         assert result is True
         captured = capsys.readouterr()
         assert 'incompatible with the variable types' in captured.out
@@ -3252,7 +4006,7 @@ class TestPushVariables:
         # Create a new var to ensure there are changes (so push proceeds)
         var_new = lf.var(name='new_var', default='hello', type=str)
         var_unchanged = lf.var(name='unchanged_var', default=0, type=int)
-        result = provider.push_variables([var_new, var_unchanged], yes=True)
+        result = provider.push_variables([var_new, var_unchanged], yes=True, strict=False)
         assert result is True
         captured = capsys.readouterr()
         assert 'incompatible with the variable types (schema unchanged)' in captured.out
@@ -3433,7 +4187,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def refresh(self, force: bool = False):
                 raise RuntimeError('Refresh failed!')
@@ -3460,7 +4214,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 raise RuntimeError('Config fetch failed!')
@@ -3484,7 +4238,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 return VariablesConfig(variables={})
@@ -3509,7 +4263,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def refresh(self, force: bool = False):
                 raise RuntimeError('Refresh failed!')
@@ -3531,7 +4285,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 raise RuntimeError('Config fetch failed!')
@@ -3682,6 +4436,18 @@ class TestVariableToConfig:
         config = var.to_config()
         assert config.name == 'func_var'
         # Example should be None when default is a function
+        assert config.example is None
+
+    def test_to_config_with_unserializable_default(self, config_kwargs: dict[str, Any]):
+        """to_config() tolerates a non-serializable default (example=None) instead of raising.
+
+        Resolution already degrades to no example for such a default, so building a config
+        (e.g. for variables_push) must not crash where resolution wouldn't.
+        """
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='opaque', type=object, default=object())
+        config = var.to_config()
+        assert config.name == 'opaque'
         assert config.example is None
 
 
@@ -3837,7 +4603,7 @@ class TestGetSerializedValueForVariantUnknown:
         provider = NoOpVariableProvider()
         result = provider.get_serialized_value_for_label('nonexistent', 'v1')
         assert result.value is None
-        assert result._reason == 'unrecognized_variable'
+        assert result.reason == 'unrecognized_variable'
 
 
 class TestBaseVariableProviderTypesMethods:
@@ -3850,7 +4616,7 @@ class TestBaseVariableProviderTypesMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         with pytest.warns(UserWarning, match='does not support variable types'):
@@ -3864,7 +4630,7 @@ class TestBaseVariableProviderTypesMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         with pytest.warns(UserWarning, match='does not support variable types'):
@@ -3879,7 +4645,7 @@ class TestBaseVariableProviderTypesMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         config = VariableTypeConfig(name='test_type', json_schema={'type': 'string'})
@@ -3918,9 +4684,10 @@ class TestGetDefaultTypeName:
         from logfire.variables.config import get_default_type_name
 
         # Union types are not `type` instances
-        result = get_default_type_name(Union[int, str])
-        assert isinstance(result, str)
-        assert result  # Should be a non-empty string
+        for type_ in (Union[int, str], int | str):  # noqa: UP007
+            result = get_default_type_name(type_)
+            assert isinstance(result, str)
+            assert result  # Should be a non-empty string
 
 
 class TestGetSourceHint:
@@ -4231,7 +4998,7 @@ class TestPushVariableTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def list_variable_types(self) -> dict[str, VariableTypeConfig]:
                 return dict(self._types)
@@ -4335,7 +5102,7 @@ class TestPushVariableTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def refresh(self, force: bool = False):
                 raise RuntimeError('Refresh failed!')
@@ -4359,7 +5126,7 @@ class TestPushVariableTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def list_variable_types(self) -> dict[str, Any]:
                 raise RuntimeError('List failed!')
@@ -4381,7 +5148,7 @@ class TestPushVariableTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def list_variable_types(self) -> dict[str, Any]:
                 return {}
@@ -4467,7 +5234,7 @@ class TestPushVariableTypesWithUnchangedTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def list_variable_types(self) -> dict[str, VariableTypeConfig]:
                 return dict(self._types)
@@ -4505,7 +5272,7 @@ class TestPushVariableTypesWithIncompatibleLabels:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 return self._variables_config
@@ -4556,15 +5323,15 @@ class TestPushVariableTypesWithIncompatibleLabels:
                 ),
             },
         )
-        result = provider.push_variable_types([FeatureConfig], yes=True)
+        result = provider.push_variable_types([FeatureConfig], yes=True, strict=False)
         assert result is True
         captured = capsys.readouterr()
         assert 'Label compatibility warnings' in captured.out
         assert 'my_feature' in captured.out
         assert 'incompatible with the new type schema' in captured.out
 
-    def test_push_types_with_incompatible_labels_strict(self, capsys: pytest.CaptureFixture[str]):
-        """Test push_variable_types in strict mode fails with incompatible labels (line 1356-1357)."""
+    def test_push_types_with_incompatible_labels_fails_by_default(self, capsys: pytest.CaptureFixture[str]):
+        """Test push_variable_types fails with incompatible labels by default."""
         from pydantic import BaseModel
 
         class FeatureConfig(BaseModel):
@@ -4582,7 +5349,7 @@ class TestPushVariableTypesWithIncompatibleLabels:
                 ),
             },
         )
-        result = provider.push_variable_types([FeatureConfig], strict=True)
+        result = provider.push_variable_types([FeatureConfig])
         assert result is False
         captured = capsys.readouterr()
         assert 'Error' in captured.out
@@ -4601,7 +5368,7 @@ class TestPushVariableTypesWithIncompatibleLabels:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 raise RuntimeError('Config fetch failed!')
@@ -4923,7 +5690,7 @@ class TestVariablesConfigResolveSerializedValueCodeDefault:
         )
         result = config.resolve_serialized_value('test_var')
         assert result.value is None
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
 
 class TestVariablesConfigValidationErrorsWithLatestVersion:
@@ -5008,7 +5775,9 @@ class TestGetSerializedValueForLabelCodeDefault:
         provider = LocalVariableProvider(config)
         result = provider.get_serialized_value_for_label('test_var', 'v1')
         assert result.value is None
-        assert result._reason == 'resolved'
+        # A label that refs code_default (which the provider can't supply a value for) is reported
+        # as missing_config, not a successful 'resolved'.
+        assert result.reason == 'missing_config'
 
 
 class TestGetSerializedValueForLabelNotFound:
@@ -5028,7 +5797,8 @@ class TestGetSerializedValueForLabelNotFound:
         provider = LocalVariableProvider(config)
         result = provider.get_serialized_value_for_label('test_var', 'nonexistent')
         assert result.value is None
-        assert result._reason == 'resolved'
+        # The variable exists but the label doesn't — reported as missing_config, not 'resolved'.
+        assert result.reason == 'missing_config'
 
 
 class TestVariableGetWithExplicitLabel:
@@ -5056,7 +5826,7 @@ class TestVariableGetWithExplicitLabel:
         assert result.value == 'experiment_value'
         assert result.label == 'experiment'
         assert result.version == 2
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
     def test_explicit_label_not_found_falls_through(self, config_kwargs: dict[str, Any]):
         variables_config = VariablesConfig(
@@ -5088,6 +5858,28 @@ class TestVariableGetWithExplicitLabel:
 
 class TestLazyVariableProviderInit:
     """Tests for lazy initialization of the variable provider when LOGFIRE_API_KEY is set."""
+
+    def test_no_lazy_init_before_configure(self) -> None:
+        """LOGFIRE_API_KEY alone should not enable remote variables before configure()."""
+        config = LogfireConfig()
+
+        with unittest.mock.patch.dict('os.environ', {'LOGFIRE_API_KEY': REMOTE_TOKEN}):
+            provider = config.get_variable_provider()
+
+        assert isinstance(provider, NoOpVariableProvider)
+        assert isinstance(config._variable_provider, NoOpVariableProvider)
+
+    def test_lazy_init_uses_api_key_region(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv('LOGFIRE_API_KEY', REGION_API_KEY)
+
+        with unittest.mock.patch.object(LogfireRemoteVariableProvider, 'start'):
+            logfire.configure(**config_kwargs)
+            provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+
+            assert isinstance(provider, LogfireRemoteVariableProvider)
+            assert provider._base_url == 'https://logfire-eu.pydantic.info'
 
     def test_lazy_init_when_api_key_set(self, config_kwargs: dict[str, Any]) -> None:
         """When LOGFIRE_API_KEY is set but variables= is not passed, get_variable_provider()
@@ -5235,3 +6027,587 @@ class TestConfigVariablesDictDeserialization:
         assert isinstance(lf_config.variables, LocalVariablesOptions)
         assert lf_config.variables.config is variables_config
         assert lf_config.variables.instrument is False
+
+
+# =============================================================================
+# Test SSE hardening (gaps 1-3)
+# =============================================================================
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestSSEHardening:
+    """Tests for the SSE reconnect and polling improvements (gaps 1-3)."""
+
+    # ---------- Gap 1: reconnect triggers forced refresh ----------
+
+    def test_sse_had_connected_starts_false(self) -> None:
+        """Provider starts with _sse_had_connected=False (first connect path)."""
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        assert provider._sse_had_connected is False
+        assert not provider._force_refresh_event.is_set()
+
+    def test_at_fork_reinit_preserves_sse_had_connected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """_at_fork_reinit must NOT reset _sse_had_connected.
+
+        If it did, the child process's next SSE connection would be treated as
+        the 'first' connect and the missed-event forced refresh would be skipped.
+        This test would have caught the original bug where the flag was reset.
+        """
+        import logfire.variables.remote as remote_module
+
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        provider._started = True
+        provider._sse_had_connected = True  # had an SSE connection before the fork
+
+        mock_thread_cls = unittest.mock.MagicMock()
+        mock_start_sse = unittest.mock.MagicMock()
+        monkeypatch.setattr(remote_module.threading, 'Thread', mock_thread_cls)
+        monkeypatch.setattr(provider, '_start_sse_listener', mock_start_sse)
+
+        provider._at_fork_reinit()
+
+        # The flag must survive the fork so _sse_listener triggers a forced refresh on reconnect.
+        assert provider._sse_had_connected is True, (
+            '_sse_had_connected must not be reset by _at_fork_reinit; '
+            'resetting it would silently skip the post-fork missed-event refresh'
+        )
+
+    # ---------- Gap 2: keepalive lines reset the reconnect backoff ----------
+
+    def test_keepalive_line_resets_reconnect_backoff(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A `: keepalive` comment line must reset the SSE reconnect backoff to 1s.
+
+        Drives _sse_listener synchronously with a mocked Session:
+
+        1. a non-200 connect waits 1s and doubles the delay to 2s;
+        2. a 200 stream that delivers NO data must NOT reset the delay (waits 2s,
+           doubles to 4s) -- resetting on a bare 200 would busy-loop against a
+           misbehaving endpoint that accepts connections but immediately closes them;
+        3. a 200 stream carrying a non-SSE body (an HTML error page from a proxy)
+           must NOT reset the delay either (waits 4s, doubles to 8s), otherwise every
+           cycle delivers lines and the backoff is pinned at 1s forever;
+        4. a 200 stream that delivers only a `: keepalive` comment must reset the
+           delay, so the wait after that stream ends is back to 1s (not 8s).
+        """
+        import logfire.variables.remote as remote_module
+
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+
+        recorded_delays: list[float] = []
+
+        def recording_wait(delay: float) -> None:
+            recorded_delays.append(delay)
+            if len(recorded_delays) >= 4:
+                provider._shutdown = True
+
+        monkeypatch.setattr(provider, '_wait_for_reconnect', recording_wait)
+
+        response_non_200 = unittest.mock.MagicMock(status_code=401)
+        response_empty_stream = unittest.mock.MagicMock(status_code=200)
+        response_empty_stream.iter_lines.return_value = []
+        response_html_body = unittest.mock.MagicMock(status_code=200)
+        response_html_body.iter_lines.return_value = ['<html>', '<body>502 Bad Gateway</body>', '</html>']
+        response_keepalive = unittest.mock.MagicMock(status_code=200)
+        response_keepalive.iter_lines.return_value = [': keepalive']
+
+        mock_session = unittest.mock.MagicMock()
+        mock_session.__enter__.return_value = mock_session
+        mock_session.get.side_effect = [
+            response_non_200,
+            response_empty_stream,
+            response_html_body,
+            response_keepalive,
+        ]
+        monkeypatch.setattr(remote_module, 'Session', unittest.mock.MagicMock(return_value=mock_session))
+
+        provider._sse_listener()
+
+        assert recorded_delays == [1.0, 2.0, 4.0, 1.0], (
+            f'Expected [1.0, 2.0, 4.0, 1.0]: only SSE framing resets the backoff, so a dataless '
+            f'200 and a non-SSE HTML body keep backing off. Got {recorded_delays}'
+        )
+
+    # ---------- Gap 3: poll jitter stays within +/-10% ----------
+
+    def test_worker_jitter_within_bounds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The worker must call _worker_awaken.wait() with a timeout in [0.9, 1.1] * interval.
+
+        We capture the actual timeout the worker passes to wait() by monkeypatching the
+        Event so the recorded value comes from the production _worker code, not a copy of it.
+        """
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            wait_timeouts: list[float] = []
+
+            def capturing_wait(timeout: float | None = None) -> bool:
+                if timeout is not None:
+                    wait_timeouts.append(timeout)
+                # Immediately return False (not awakened) and signal shutdown so
+                # the worker exits after one iteration.
+                provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(provider._worker_awaken, 'wait', capturing_wait)
+            try:
+                # Run one worker iteration synchronously (the worker calls refresh then wait).
+                provider._worker()
+
+                assert len(wait_timeouts) >= 1, 'Worker must call _worker_awaken.wait()'
+                base = provider._polling_interval.total_seconds()
+                for t in wait_timeouts:
+                    assert base * 0.9 <= t <= base * 1.1, (
+                        f'Jittered wait {t:.3f}s is outside [{base * 0.9:.3f}, {base * 1.1:.3f}]'
+                    )
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
+
+    def test_worker_scheduled_iteration_bypasses_interval_gate(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """An ordinary scheduled worker iteration must call refresh(force=True).
+
+        The worker manages its own timing via the jittered wait, so it must bypass the
+        interval gate in refresh(): a jittered wait that lands below the base interval
+        (e.g. 54s of a 60s interval) would otherwise be silently skipped by the gate,
+        pushing the effective polling interval up to 2x the configured value. The SSE
+        force-event path is covered elsewhere; this guards the no-event path.
+        """
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+
+        refresh_force_args: list[bool] = []
+
+        def capturing_refresh(force: bool = False) -> None:
+            refresh_force_args.append(force)
+
+        monkeypatch.setattr(provider, 'refresh', capturing_refresh)
+
+        def stopping_wait(timeout: float | None = None) -> bool:
+            provider._shutdown = True
+            return False
+
+        monkeypatch.setattr(provider._worker_awaken, 'wait', stopping_wait)
+
+        assert not provider._force_refresh_event.is_set()
+        try:
+            provider._worker()
+        finally:
+            provider._shutdown = True
+            provider.shutdown(timeout_millis=100)
+
+        assert refresh_force_args == [True], (
+            'The worker must force-refresh on ordinary scheduled iterations so the '
+            'interval gate cannot skip a jittered wait that lands below the base interval'
+        )
+
+    # ---------- Gap 4: ETag / conditional GET / 304 handling ----------
+
+    def test_304_keeps_config_and_updates_last_fetched_at(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A 304 response keeps the current config and updates _last_fetched_at without logging."""
+        config_data: dict[str, Any] = {
+            'variables': {
+                'my_var': {
+                    'name': 'my_var',
+                    'labels': {'v1': {'version': 1, 'serialized_value': '"hello"'}},
+                    'rollout': {'labels': {'v1': 1.0}},
+                    'overrides': [],
+                }
+            }
+        }
+
+        request_mocker = requests_mock_module.Mocker()
+        # First call returns 200 + ETag; second returns 304.
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': config_data, 'status_code': 200, 'headers': {'ETag': '"abc123"'}},
+                {'status_code': 304},
+            ],
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            logged_errors: list[str] = []
+
+            def _capture_log_error(msg: str, exc: Exception) -> None:
+                logged_errors.append(msg)
+
+            monkeypatch.setattr(provider, '_log_error', _capture_log_error)
+
+            provider.refresh(force=True)  # 200 -- populates config and ETag
+            first_config = provider._config
+            assert first_config is not None
+            assert provider._last_fetched_at is not None
+            # Rewind the recorded timestamp so the strict later-than assertion below can
+            # only pass if the 304 path actually refreshed it -- clock granularity could
+            # otherwise let an unchanged timestamp slip through a >= comparison.
+            rewound_fetched_at = provider._last_fetched_at - timedelta(hours=1)
+            provider._last_fetched_at = rewound_fetched_at
+
+            provider.refresh(force=True)  # 304 -- must not replace config or log an error
+            assert provider._config is first_config, '304 must leave the cached config object untouched'
+            assert provider.get_serialized_value('my_var').value == '"hello"'
+            assert not logged_errors, f'Unexpected errors logged on 304: {logged_errors}'
+            assert provider._last_fetched_at is not None
+            assert provider._last_fetched_at > rewound_fetched_at, '304 must refresh _last_fetched_at'
+
+    def test_if_none_match_sent_when_etag_known(self) -> None:
+        """When a previous response set an ETag the next request must include If-None-Match."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': {'variables': {}}, 'status_code': 200, 'headers': {'ETag': '"deadbeef"'}},
+                {'json': {'variables': {}}, 'status_code': 200},
+            ],
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            provider.refresh(force=True)  # stores ETag
+            provider.refresh(force=True)  # sends If-None-Match
+
+            assert request_mocker.call_count == 2
+            second_request = request_mocker.request_history[1]
+            assert second_request.headers.get('If-None-Match') == '"deadbeef"'
+
+    def test_304_does_not_trip_error_logging(self) -> None:
+        """A 304 response must never cause _log_error to be called (regression guard for PR #2111)."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': {'variables': {}}, 'status_code': 200, 'headers': {'ETag': '"v1"'}},
+                {'status_code': 304},
+            ],
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            with warnings.catch_warnings():
+                warnings.filterwarnings('error')
+                provider.refresh(force=True)  # 200
+                provider.refresh(force=True)  # 304 -- must not warn
+
+    def test_304_resets_consecutive_failure_counter(self) -> None:
+        """A 304 response must reset _consecutive_refresh_failures like a normal 200 success does."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': {'variables': {}}, 'status_code': 200, 'headers': {'ETag': '"v1"'}},
+                {'status_code': 500},  # transient failure -- increments counter
+                {'status_code': 304},  # success -- must reset counter
+            ],
+        )
+        with request_mocker, warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            provider.refresh(force=True)  # 200 -- establishes config
+            assert provider._consecutive_refresh_failures == 0
+            provider.refresh(force=True)  # 500 -- increments counter
+            assert provider._consecutive_refresh_failures == 1
+            provider.refresh(force=True)  # 304 -- must reset counter to 0
+            assert provider._consecutive_refresh_failures == 0, (
+                '304 is a successful round-trip; the failure counter must be reset so a subsequent '
+                'transient failure starts from zero and is correctly logged as a warning, not an error.'
+            )
+
+    def test_etag_stored_from_200_response(self) -> None:
+        """A 200 response with an ETag header must store the ETag on the provider."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+            headers={'ETag': '"deadbeef"'},
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            assert provider._etag is None
+            provider.refresh(force=True)
+            assert provider._etag == '"deadbeef"'
+
+    def test_no_etag_header_leaves_etag_none(self) -> None:
+        """A 200 response without an ETag header must leave _etag as None."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            provider.refresh(force=True)
+            assert provider._etag is None
+
+    def test_200_without_etag_clears_stale_etag(self) -> None:
+        """A 200 response without ETag must clear a previously stored ETag (prevents stale validator)."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': {'variables': {}}, 'status_code': 200, 'headers': {'ETag': '"v1"'}},
+                {'json': {'variables': {}}, 'status_code': 200},  # no ETag
+            ],
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            provider.refresh(force=True)
+            assert provider._etag == '"v1"'
+            provider.refresh(force=True)
+            assert provider._etag is None  # cleared because 200 had no ETag
+
+    def test_etag_not_stored_after_invalid_200(self) -> None:
+        """A malformed 200 must not update _etag (guards against a permanently-stale validator).
+
+        If we stored the ETag before validation and validation failed, every subsequent
+        poll would send the stale If-None-Match and receive a 304, permanently locking
+        the provider into the outdated config.
+        """
+        valid_data: dict[str, Any] = {'variables': {}}
+        # A body where ``variables`` is a string -- not a dict -- triggers a ValidationError.
+        malformed_data: dict[str, Any] = {'variables': 'not-a-dict'}
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': valid_data, 'status_code': 200, 'headers': {'ETag': '"v1"'}},
+                {'json': malformed_data, 'status_code': 200, 'headers': {'ETag': '"v2"'}},
+                {'status_code': 304},
+            ],
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            provider.refresh(force=True)  # valid 200 -- config and ETag set
+            assert provider._etag == '"v1"'
+
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', RuntimeWarning)
+                provider.refresh(force=True)  # malformed 200 -- must NOT update ETag
+
+            assert provider._etag == '"v1"', 'ETag must not change after a malformed 200 response'
+
+            # The 304 should be accepted (ETag "v1" is still valid on the server)
+            # and must not log an error.
+            with warnings.catch_warnings():
+                warnings.filterwarnings('error')
+                provider.refresh(force=True)  # 304 -- silent, config unchanged
+
+    # ---------- Gap 5: follow-up refresh after SSE-triggered fetch ----------
+
+    def test_worker_schedules_follow_up_after_forced_refresh(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A forced (SSE-triggered) _worker iteration must set _followup_refresh_at ~2 s ahead."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+
+            # Simulate SSE wakeup with a forced refresh.
+            provider._force_refresh_event.set()
+
+            def patched_wait(timeout: float | None = None) -> bool:
+                # Stop the loop after the first wait (follow-up must already be scheduled by now).
+                provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(provider._worker_awaken, 'wait', patched_wait)
+
+            before = time.monotonic()
+            try:
+                provider._worker()
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
+
+            after = time.monotonic()
+            assert provider._followup_refresh_at is not None
+            assert before + 1.9 <= provider._followup_refresh_at <= after + 2.1
+
+    def test_worker_executes_follow_up_refresh_when_timer_elapsed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When the follow-up timer has elapsed, the worker must call refresh(force=True) once more."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+
+        call_count = 0
+        original_refresh = LogfireRemoteVariableProvider.refresh
+
+        def counting_refresh(self_provider: LogfireRemoteVariableProvider, force: bool = False) -> None:
+            nonlocal call_count
+            call_count += 1
+            original_refresh(self_provider, force=force)
+
+        monkeypatch.setattr(LogfireRemoteVariableProvider, 'refresh', counting_refresh)
+
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+
+            # Pre-set the follow-up timer to a time already elapsed so it fires on the first loop.
+            provider._followup_refresh_at = time.monotonic() - 0.1
+
+            wait_calls = 0
+
+            def patched_wait(timeout: float | None = None) -> bool:
+                nonlocal wait_calls
+                wait_calls += 1
+                if wait_calls >= 2:
+                    provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(provider._worker_awaken, 'wait', patched_wait)
+
+            try:
+                provider._worker()
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
+
+        # First loop: top-of-loop refresh (call 1), follow-up timer fires and clears the flag.
+        # Second loop: top-of-loop refresh IS the follow-up (call 2).
+        # Second wait triggers shutdown before a third refresh.
+        # Exactly 2 calls -- a third would mean the old spurious fetch is back.
+        assert call_count == 2
+
+    def test_worker_skips_follow_up_refresh_on_shutdown(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When _shutdown is set before the follow-up fires, the follow-up must not execute."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+
+        call_count = 0
+        original_refresh = LogfireRemoteVariableProvider.refresh
+
+        def counting_refresh(self_provider: LogfireRemoteVariableProvider, force: bool = False) -> None:
+            nonlocal call_count
+            call_count += 1
+            original_refresh(self_provider, force=force)
+
+        monkeypatch.setattr(LogfireRemoteVariableProvider, 'refresh', counting_refresh)
+
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+
+            # Pre-set an elapsed follow-up timer.
+            provider._followup_refresh_at = time.monotonic() - 0.1
+
+            def patched_wait(timeout: float | None = None) -> bool:
+                # Signal shutdown as soon as the worker sleeps -- before the follow-up check.
+                provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(provider._worker_awaken, 'wait', patched_wait)
+
+            try:
+                provider._worker()
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
+
+        # The worker must break out of the loop (due to shutdown) BEFORE executing the follow-up,
+        # so only the single normal refresh at the top of the loop should have been called.
+        assert call_count == 1

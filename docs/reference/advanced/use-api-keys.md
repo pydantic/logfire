@@ -3,11 +3,15 @@ title: "Using API Keys to Access Public APIs"
 description: "Guide on how to create API keys and use them to call Logfire public APIs for managing organizations, projects, and other resources."
 ---
 
-**Logfire** provides public APIs that allow you to programmatically manage your organizations, projects, and other resources. To access these APIs, you'll need to create an **API key**.
+Use a **Logfire API key** to access the public APIs or send data from your application. The permissions you select determine what the key can do.
 
-!!! info "Public APIs"
-    API keys are for accessing the Logfire platform APIs, _not_ for sending telemetry data (traces, logs, metrics).
-    To send data to Logfire, use [write tokens](../../how-to-guides/create-write-tokens.md).
+If you are building a partner integration that customers connect to their own Logfire resources,
+use an [OAuth app](../../how-to-guides/oauth-apps.md) to request consent without asking customers to copy an API key.
+
+!!! info "Sending data"
+    A key scoped to a specific project can send logs, traces, and metrics when it has the **Send telemetry** capability (`project:write_otlp`).
+    An API key without that permission cannot send data. Organization-wide keys must be scoped to a project before this capability is available.
+    Existing [write tokens](../../how-to-guides/create-write-tokens.md) also work; you do not need to replace them.
 
 !!! tip "What you can do"
     **Available to all plans:**
@@ -24,7 +28,7 @@ description: "Guide on how to create API keys and use them to call Logfire publi
 
     - **Audit logs**: List and retrieve audit log entries for your organization
     - **Billing usage**: View billing usage data for current and previous periods
-    - **SCIM provisioning**: Manage users and groups via the SCIM protocol for identity provider integration
+    - **[SCIM provisioning](../../scim-provisioning.md)**: Discover existing users and synchronize access through mapped identity-provider groups, using the System for Cross-domain Identity Management (SCIM) standard
     - **Organization management** _(self-hosted only)_: Create, list, update, and delete organizations
 
 ## API Documentation
@@ -50,16 +54,19 @@ Navigate to your project, then **Settings → API Keys → New API Key**.
 
 Project API keys are limited to the project where they were created.
 
+To send data from your app, select **Send telemetry** when creating the key. For the Python SDK, use the key as `LOGFIRE_TOKEN`, just as you would a write token.
+This permission allows sending data, not reading it or managing project settings. Add other permissions only when your application needs them.
+
 !!! warning
-    Copy your API key when it's displayed—it won't be shown again.
+    Copy your API key when it's displayed. It won't be shown again.
 
 ### Personal API Keys
 
 When creating an API key, it can be marked as **personal**. A personal API key is tied to your user account rather than being a shared project or organization key.
 
 - **Automatically deleted** when your account is removed from the project or organization.
-- **Only visible to you** — you can only view and delete your own personal API keys.
-- **Scoped to your permissions** — the key can only be granted scopes that your role allows.
+- **Only visible to you**: you can only view and delete your own personal API keys.
+- **Scoped to your permissions**: the key can only be granted scopes that your role allows.
 
 Organization and project admins can choose whether to create a personal or non-personal API key. Non-admin members always create personal API keys.
 
@@ -70,11 +77,13 @@ Available scopes depend on whether you're creating an organization or project AP
 
 | Scope                                | Organization API Key | Project API Key |
 | ------------------------------------ | -------------------- | --------------- |
-| Organization management              | ✓                    | —               |
-| Notification channels                | ✓                    | —               |
-| Audit logs                           | ✓                    | —               |
-| SCIM provisioning                    | ✓                    | —               |
-| Billing usage                        | ✓                    | —               |
+| Organization management              | ✓                    | -               |
+| Notification channels                | ✓                    | -               |
+| Audit logs                           | ✓                    | -               |
+| SCIM provisioning                    | ✓                    | -               |
+| Billing usage                        | ✓                    | -               |
+| Send telemetry (`project:write_otlp`) | Specific project only | ✓              |
+| Query telemetry (`project:read_otlp`) | Specific project only | ✓              |
 | Project settings                     | ✓                    | ✓               |
 | Write tokens management              | ✓                    | ✓               |
 | Read tokens management               | ✓                    | ✓               |

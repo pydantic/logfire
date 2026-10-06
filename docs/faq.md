@@ -27,7 +27,7 @@ Built by the Pydantic team (the same people behind Pydantic AI), Logfire provide
 Logfire is for teams building AI applications who need to actually debug them:
 
 - **AI developers** who want to understand why their AI agent failed (was it the LLM? the database? the API it called?)
-- **Teams tired of correlating** between AI monitoring and APM tools manually
+- **Teams tired of correlating** between AI monitoring and application performance monitoring (APM) tools manually
 - **Polyglot architectures** with Python AI + TypeScript frontend, etc.
 - **Developers who want SQL-based querying**, which is essential for agentic coding workflows
 - **Organizations needing enterprise features** like SOC2, HIPAA, and self-hosting
@@ -45,9 +45,12 @@ Yes: Logfire is _built_ for AI observability, and it's better at it because it s
 **AI-specific features:**
 
 - LLM-specific panels for conversation inspection
-- Token tracking and cost monitoring
+- Token tracking and cost monitoring, plus a per-model [LLMs view](guides/web-ui/llms.md)
 - Tool call inspection with full context
 - Streaming support
+- [Evals](evaluate/datasets-and-experiments.md): datasets, experiments, and [live production monitoring](evaluate/live-evals.md) in the web UI, powered by code-first [pydantic-evals](https://github.com/pydantic/pydantic-evals)
+- [Prompt management](reference/advanced/prompt-management/index.md) with versioning, labeled rollouts, and a playground
+- An [AI Gateway](reference/advanced/gateway/index.md) with unified key management, spending limits, and provider failover
 
 **Better debugging:** When your AI agent fails, you don't just see the LLM error. You see the database timeout that caused it, the API rate limit that preceded it, and the user request that started it all.
 
@@ -69,18 +72,19 @@ Logfire sees everything. When your agent fails, you see the complete story in on
 
 Some tools focus only on LLM observability. Logfire takes a different approach: you can't do AI observability well without seeing the full picture. For debugging AI applications in production, you need the full context.
 
-[Comparisons](comparisons/index.md)
+[Compare Logfire with other tools](https://pydantic.dev/logfire/alternatives)
 
 ### Q: Does Logfire support evaluations (evals)?
 
-Yes. [pydantic-evals](https://github.com/pydantic/pydantic-evals) is a code-first evaluation framework that integrates with Logfire:
+Yes, both code-first and in the web UI.
+
+[pydantic-evals](https://github.com/pydantic/pydantic-evals) is a code-first evaluation framework that integrates with Logfire:
 
 - Evaluate any Python function, not just LLM calls (test your tools, data pipelines, entire agent workflows)
 - Define evals in Python, version-controlled like everything else
 - Run them programmatically, locally or in CI
-- View comparison results in Logfire
 
-This is a code-first approach. Some tools offer UI-managed evals; Pydantic's philosophy is that evals belong in your codebase alongside your tests.
+The results feed Logfire's [Evals web UI](evaluate/datasets-and-experiments.md), where you can manage hosted [datasets](evaluate/datasets-and-experiments.md), compare experiment runs side by side, and watch [live evaluations](evaluate/live-evals.md) grade real production traffic in the background. The eval definitions stay in your codebase alongside your tests; the exploration, comparison, and monitoring happen in the UI.
 
 ---
 
@@ -101,7 +105,7 @@ Go, Java, .NET, Ruby, PHP, Elixir: if your language has an OpenTelemetry SDK, it
 
 **Polyglot architectures are first-class:** Building a Python AI backend with a TypeScript frontend? See traces from both in a single, unified view. This is the reality of modern applications.
 
-[Language support](languages.md) | [Alternative clients](how-to-guides/alternative-clients.md)
+[Language support](instrument/index.md) | [Alternative clients](how-to-guides/alternative-clients.md)
 
 ### Q: Does Logfire work with JavaScript/TypeScript?
 
@@ -115,9 +119,9 @@ Yes. We provide a full JavaScript/TypeScript SDK.
 - Cloudflare Workers
 - Deno
 
-The JS SDK provides the same core features as Python: spans, structured logging, error tracking, and distributed tracing.
+The JS SDK provides the same core features as Python: spans, structured logging, error tracking, and distributed tracing (stitching spans from several services into one trace).
 
-[JavaScript SDK](integrations/javascript/index.md)
+[JavaScript/TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/)
 
 ### Q: What frameworks and libraries does Logfire support?
 
@@ -133,7 +137,7 @@ The JS SDK provides the same core features as Python: spans, structured logging,
 - Next.js, Express, Cloudflare Workers
 - Vercel AI SDK
 
-**Other languages:** Any framework following OpenTelemetry semantic conventions.
+**Other languages:** Any framework following OpenTelemetry semantic conventions (its standard names for common telemetry).
 
 [Full integrations list](integrations/index.md)
 
@@ -204,15 +208,15 @@ SQL is the most widely-known query language, and AI assistants are exceptionally
 This matters especially for **agentic coding workflows**:
 
 - **Coding agents can query freely:** No limitation to predefined APIs. Ask any question, get any answer.
-- **Arbitrary analysis:** JOINs, aggregations, window functions, CTEs. Full SQL power.
+- **Arbitrary analysis:** JOINs, aggregations, window functions, CTEs (common table expressions). Full SQL power.
 - **AI-native:** GPT-5, Claude, and other assistants write excellent SQL
 - **Familiar syntax:** No new query language to learn
 
-When you're iterating on AI applications with a coding agent, the agent needs to understand production behavior. With SQL, it can ask any question. With proprietary DSLs or limited APIs, it's constrained to what someone anticipated.
+When you're iterating on AI applications with a coding agent, the agent needs to understand production behavior. With SQL, it can ask any question. With a proprietary query language or limited APIs, it's constrained to what someone anticipated.
 
 *Logfire uses [Apache DataFusion](https://datafusion.apache.org/) as its query engine, with syntax designed to match PostgreSQL conventions.*
 
-[SQL Explorer](guides/web-ui/explore.md)
+[SQL Workbench](guides/web-ui/explore.md)
 
 ---
 
@@ -227,11 +231,11 @@ When you're iterating on AI applications with a coding agent, the agent needs to
 - **Simple pricing:** Per-span, not per-host
 - **SQL queries:** Use familiar PostgreSQL syntax, not vendor-specific languages
 
-[//]: # ([Datadog comparison]&#40;comparisons/datadog.md&#41;)
+[//]: # ([Datadog comparison]&#40;https://pydantic.dev/logfire/vs-datadog&#41;)
 
 ### Q: Can I use Logfire alongside other observability tools?
 
-Yes: Logfire is built on OpenTelemetry, the industry standard. Your instrumentation is portable—use Logfire, export to other tools, or both.
+Yes: Logfire is built on OpenTelemetry, the industry standard. Your instrumentation is portable: use Logfire, export to other tools, or both.
 
 You can:
 
@@ -264,11 +268,11 @@ logfire.instrument_pydantic_ai()  # Or your framework of choice
 
 That's it. Three lines of code for basic instrumentation.
 
-[Getting Started](index.md) | [Onboarding Checklist](guides/onboarding-checklist/index.md)
+[Getting Started](index.md) | [Python setup](guides/onboarding-checklist/index.md)
 
 ### Q: Where can I get help?
 
 - [Documentation](index.md) - Comprehensive guides and reference
-- [Slack Community](join-slack/index.html) - Ask questions, share feedback
+- [Slack Community](https://pydantic.dev/docs/logfire/join-slack/) - Ask questions, share feedback
 - [GitHub Issues](https://github.com/pydantic/logfire/issues) - Report bugs, request features
 - [Enterprise Support](enterprise.md) - Dedicated support for enterprise customers

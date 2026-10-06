@@ -1,5 +1,6 @@
 import anthropic
 import httpx
+import httpx2
 import openai
 import opentelemetry.trace as trace_api
 import pydantic_ai
@@ -13,13 +14,14 @@ from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
 from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
 from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
 from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
-from ..variables import ResolveFunction as ResolveFunction, ValidationReport as ValidationReport, Variable as Variable, VariablesConfig as VariablesConfig
+from ..variables import ResolveFunction as ResolveFunction, TemplateVariable as TemplateVariable, ValidationReport as ValidationReport, Variable as Variable, VariablesConfig as VariablesConfig
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
-from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig
+from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig, TemplateMismatchPolicy as TemplateMismatchPolicy
 from .config_params import PydanticPluginRecordValues as PydanticPluginRecordValues
 from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
+from .forwarding import ForwardExportRequestResponse as ForwardExportRequestResponse
 from .instrument import instrument as instrument
 from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
 from .integrations.aws_lambda import LambdaEvent as LambdaEvent, LambdaHandler as LambdaHandler
@@ -34,11 +36,13 @@ from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
 from .tracer import ProxyTracerProvider as ProxyTracerProvider, _ProxyTracer, set_exception_status as set_exception_status
 from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
+from anthropic.lib.bedrock import AnthropicBedrock as _AnthropicBedrock, AsyncAnthropicBedrock as _AsyncAnthropicBedrock
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
 from flask.app import Flask
+from litestar import Litestar
 from opentelemetry.context import Context as Context
 from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
@@ -47,10 +51,12 @@ from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
 from pydantic_evals.reporting import EvaluationReport
 from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
+from snowflake.connector.connection import SnowflakeConnection
 from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.applications import Starlette
-from starlette.requests import Request as Request
+from starlette.requests import Request
+from starlette.responses import Response
 from starlette.websockets import WebSocket as WebSocket
 from surrealdb.connections.async_template import AsyncTemplate
 from surrealdb.connections.sync_template import SyncTemplate
@@ -61,6 +67,7 @@ from wsgiref.types import WSGIApplication
 
 ExcInfo = SysExcInfo | BaseException | bool | None
 T = TypeVar('T')
+InputsT = TypeVar('InputsT')
 
 class Logfire:
     """The main logfire class."""
@@ -250,7 +257,7 @@ class Logfire:
                 Attributes starting with an underscore are not allowed.
         """
     @overload
-    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, record_return: bool = False, allow_generator: bool = False, new_trace: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, record_return: bool = False, allow_generator: bool = False, new_trace: bool = False, level: LevelName | int | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
         ```py
@@ -275,6 +282,8 @@ class Logfire:
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
             new_trace: Set to `True` to start a new trace with a span link to the current span
                 instead of creating a child of the current span.
+            level: The log level for the span. If provided, the span will be tagged with this level
+                and suppressed if the level is below the configured `min_level`.
         """
     @overload
     def instrument(self, func: Callable[P, R]) -> Callable[P, R]:
@@ -360,13 +369,13 @@ class Logfire:
             A new Logfire instance with the given settings applied.
         """
     def force_flush(self, timeout_millis: int = 3000) -> bool:
-        """Force flush all spans and metrics.
+        """Force flush all telemetry and forwarding pipelines.
 
         Args:
             timeout_millis: The timeout in milliseconds.
 
         Returns:
-            Whether the flush of spans was successful.
+            Whether every component that reports a status flushed successfully.
         """
     def url_from_eval(self, report: EvaluationReport[Any, Any, Any]) -> str | None:
         """Generate a Logfire URL to view an evaluation report.
@@ -395,7 +404,7 @@ class Logfire:
     def install_auto_tracing(self, modules: Sequence[str] | Callable[[AutoTraceModule], bool], *, min_duration: float, check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error') -> None:
         """Install automatic tracing.
 
-        See the [Auto-Tracing guide](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_auto_tracing/)
+        See the [Auto-Tracing guide](https://pydantic.dev/docs/logfire/instrument/python/add-auto-tracing/)
         for more info.
 
         This will trace all non-generator function calls in the modules specified by the modules argument.
@@ -432,16 +441,37 @@ class Logfire:
                 Pass a connection class to instrument all instances of that class.
                 By default, all connection classes are instrumented.
         """
+    def instrument_snowflake(self, conn_or_module: ModuleType | SnowflakeConnection | None = None, *, capture_parameters: bool = False) -> None:
+        """Instrument the [Snowflake Connector for Python](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector) so that a span is created for each query.
+
+        Calls to `execute_async()` create a `snowflake execute async` span that measures query submission,
+        not server-side execution.
+
+        Args:
+            conn_or_module: Pass a single connection instance to instrument only that connection.
+                By default (`None`), all connections are instrumented, including ones created later.
+            capture_parameters: Set to `True` to capture query parameters as span attributes.
+                Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
+                Instrumenting the same target again has no effect; the first call determines this setting,
+                and a later call with a different value emits a warning.
+                A connection keeps the setting it was instrumented with, even if the module is instrumented later.
+        """
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
         """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
 
         Instruments both the client and server side. If possible, calling this in both the client and server
         processes is recommended for nice distributed traces.
 
+        This is only needed with mcp 1.x. Version 2 of the SDK (which fastmcp 4 depends on) emits
+        OpenTelemetry spans and propagates the trace context via `_meta` by itself, so with it
+        `logfire.configure()` is all that's needed. Calling this method there does nothing
+        except emit a `UserWarning` saying so.
+
         Args:
             propagate_otel_context: Whether to enable propagation of the OpenTelemetry context
                 for distributed tracing.
                 Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+                Ignored with mcp 2, which always propagates the context.
         """
     def instrument_claude_agent_sdk(self) -> AbstractContextManager[None]:
         """Instrument the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview).
@@ -471,13 +501,25 @@ class Logfire:
                 - `off`: Disable instrumentation.
             include:
                 By default, third party modules are not instrumented. This option allows you to include specific modules.
+                Each entry is a regular expression matched against `module::ModelName` and anchored at the end,
+                so use e.g. `openai.*` rather than `openai`, which would only match a model named `openai`.
             exclude:
-                Exclude specific modules from instrumentation.
+                Exclude specific modules from instrumentation. Matched the same way as `include`.
         """
     @overload
-    def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> None: ...
+    def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3, 4, 5] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> None: ...
     @overload
-    def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
+    def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3, 4, 5] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
+    def instrument_monty(self) -> None:
+        """Instrument Pydantic Monty.
+
+        Call this once after [`configure()`][logfire.configure] and before creating a Monty pool.
+        The first call selects the Logfire instance and its settings for the whole process;
+        subsequent calls do not replace them.
+
+        It records Monty sessions, executed code, inputs, outputs, external calls,
+        exceptions, printed text, and pool metrics. Recorded values are subject to Logfire's configured scrubbing.
+        """
     def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
@@ -521,7 +563,7 @@ class Logfire:
                 without waiting for the context manager to be opened,
                 i.e. it's not necessary to use this as a context manager.
         """
-    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 1) -> AbstractContextManager[None]:
+    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 2) -> AbstractContextManager[None]:
         '''Instrument an OpenAI client so that spans are automatically created for each request.
 
         This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
@@ -572,14 +614,15 @@ class Logfire:
 
             version: The version(s) of the span attribute format to use:
 
-                - `1` (the default): Uses `request_data` and `response_data` attributes.
-                - `\'latest\'`: Uses OpenTelemetry Gen AI semantic convention attributes
+                - `1`: Uses the legacy `request_data` and `response_data` attributes.
+                - `2` (the default): Uses OpenTelemetry Gen AI semantic convention attributes
                   (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) and omits the full
                   `response_data` attribute. A minimal `request_data` (e.g. `{"model": ...}`) is
-                  still recorded for message template compatibility. This format may change between
-                  releases.
-                - `[1, \'latest\']`: Emits both the full legacy attributes and the semantic convention
-                  attributes simultaneously, useful for migration and testing.
+                  still recorded for message template compatibility.
+                - `\'latest\'`: Uses the latest format, which is currently identical to version 2.
+                  Unlike a numbered version, this format may change between releases.
+                - `[1, 2]` or `[1, \'latest\']`: Emits both the full legacy attributes and the semantic
+                  convention attributes simultaneously, useful for migration and testing.
 
         Returns:
             A context manager that will revert the instrumentation when exited.
@@ -591,7 +634,7 @@ class Logfire:
         For instrumentation of the standard OpenAI SDK package,
         see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
-    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 1) -> AbstractContextManager[None]:
+    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | _AnthropicBedrock | _AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[_AnthropicBedrock] | type[_AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 2) -> AbstractContextManager[None]:
         '''Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
@@ -637,14 +680,15 @@ class Logfire:
 
             version: The version(s) of the span attribute format to use:
 
-                - `1` (the default): Uses `request_data` and `response_data` attributes.
-                - `\'latest\'`: Uses OpenTelemetry Gen AI semantic convention attributes
+                - `1`: Uses the legacy `request_data` and `response_data` attributes.
+                - `2` (the default): Uses OpenTelemetry Gen AI semantic convention attributes
                   (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) and omits the full
                   `response_data` attribute. A minimal `request_data` (e.g. `{"model": ...}`) is
-                  still recorded for message template compatibility. This format may change between
-                  releases.
-                - `[1, \'latest\']`: Emits both the full legacy attributes and the semantic convention
-                  attributes simultaneously, useful for migration and testing.
+                  still recorded for message template compatibility.
+                - `\'latest\'`: Uses the latest format, which is currently identical to version 2.
+                  Unlike a numbered version, this format may change between releases.
+                - `[1, 2]` or `[1, \'latest\']`: Emits both the full legacy attributes and the semantic
+                  convention attributes simultaneously, useful for migration and testing.
 
         Returns:
             A context manager that will revert the instrumentation when exited.
@@ -655,7 +699,7 @@ class Logfire:
 
         !!! note
             To capture message contents (i.e. prompts and completions), set the environment variable
-            `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `true`.
+            `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `SPAN_ONLY`.
 
         Uses the `GoogleGenAiSdkInstrumentor().instrument()` method of the
         [`opentelemetry-instrumentation-google-genai`](https://pypi.org/project/opentelemetry-instrumentation-google-genai/)
@@ -697,12 +741,18 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
-    def instrument_asyncpg(self, **kwargs: Any) -> None:
-        """Instrument the `asyncpg` module so that spans are automatically created for each query."""
+    def instrument_asyncpg(self, capture_parameters: bool = False, **kwargs: Any) -> None:
+        """Instrument the `asyncpg` module so that spans are automatically created for each query.
+
+        Args:
+            capture_parameters: Set to `True` to capture query parameters as span attributes.
+                Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
+            kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method.
+        """
     @overload
-    def instrument_httpx(self, client: httpx.Client, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, **kwargs: Any) -> None: ...
+    def instrument_httpx(self, client: httpx.Client | httpx2.Client, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, **kwargs: Any) -> None: ...
     @overload
-    def instrument_httpx(self, client: httpx.AsyncClient, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None, response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
+    def instrument_httpx(self, client: httpx.AsyncClient | httpx2.AsyncClient, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None, response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
     @overload
     def instrument_httpx(self, client: None = None, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, async_request_hook: HttpxAsyncRequestHook | None = None, async_response_hook: HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
     def instrument_celery(self, **kwargs: Any) -> None:
@@ -782,6 +832,29 @@ class Logfire:
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry Flask instrumentation.
+        """
+    def instrument_litestar(self, app: Litestar, *, capture_headers: bool = False, record_send_receive: bool = False, **kwargs: Unpack[ASGIInstrumentKwargs]) -> ASGIApp:
+        """Instrument a Litestar app to record requests with canonical route templates.
+
+        Uses `instrument_asgi()` with a Litestar route extractor, so requests to
+        `/users/1` and `/users/2` share the route `/users/{user_id}`.
+
+        Warning:
+            This method returns an ASGI wrapper instead of modifying the app in place.
+            Pass the returned app to your server. Access Litestar-specific attributes
+            through the original app.
+
+        Args:
+            app: The Litestar app to instrument.
+            capture_headers: Set to `True` to capture all request and response headers.
+            record_send_receive: Set to `True` to record low-level ASGI send and receive spans.
+                These are disabled by default to reduce noise.
+            **kwargs: Additional options for the OpenTelemetry ASGI middleware, including
+                `server_request_hook`, `client_request_hook`, `client_response_hook`,
+                `excluded_urls`, and `default_span_details`.
+
+        Returns:
+            The instrumented ASGI application.
         """
     def instrument_starlette(self, app: Starlette, *, capture_headers: bool = False, record_send_receive: bool = False, server_request_hook: ServerRequestHook | None = None, client_request_hook: ClientRequestHook | None = None, client_response_hook: ClientResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument `app` so that spans are automatically created for each request.
@@ -1203,16 +1276,22 @@ class Logfire:
     def var(self, name: str, *, default: T, description: str | None = None) -> Variable[T]: ...
     @overload
     def var(self, name: str, *, type: type[T], default: T | ResolveFunction[T], description: str | None = None) -> Variable[T]: ...
+    @overload
+    def template_var(self, name: str, *, default: T, inputs_type: type[InputsT], description: str | None = None, template_mismatch_policy: TemplateMismatchPolicy | None = None) -> TemplateVariable[T, InputsT]: ...
+    @overload
+    def template_var(self, name: str, *, type: type[T], default: T | ResolveFunction[T], inputs_type: type[InputsT], description: str | None = None, template_mismatch_policy: TemplateMismatchPolicy | None = None) -> TemplateVariable[T, InputsT]: ...
     def variables_clear(self) -> None:
-        """Clear all registered variables from this Logfire instance.
+        """Clear all variables registered with this Logfire instance's config.
 
-        This removes all variables previously registered via [`var()`][logfire.Logfire.var],
-        allowing them to be re-registered. This is primarily intended for use in tests
-        to ensure a clean state between test cases.
+        This removes all variables previously registered via [`var()`][logfire.Logfire.var]
+        or [`template_var()`][logfire.Logfire.template_var] on this instance or any
+        [`with_settings()`][logfire.Logfire.with_settings] sibling that shares its config,
+        allowing them to be re-registered. This is primarily intended for use in tests to
+        ensure a clean state between test cases.
         """
-    def variables_get(self) -> list[Variable[Any]]:
-        """Get all variables registered with this Logfire instance."""
-    def variables_push(self, variables: list[Variable[Any]] | None = None, *, dry_run: bool = False, yes: bool = False, strict: bool = False) -> bool:
+    def variables_get(self) -> list[Variable[Any] | TemplateVariable[Any, Any]]:
+        """Get all variables registered with this Logfire instance's config."""
+    def variables_push(self, variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None, *, dry_run: bool = False, yes: bool = False, strict: bool = True) -> bool:
         """Push variable definitions (metadata only) to the configured variable provider.
 
         This method syncs local variable definitions with the provider:
@@ -1225,10 +1304,12 @@ class Logfire:
 
         Args:
             variables: Variable instances to push. If None, all variables
-                registered with this Logfire instance will be pushed.
+                registered with this Logfire instance's config will be pushed, including
+                variables registered on `with_settings()` siblings.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
-            strict: If True, fail if any existing label values are incompatible with new schemas.
+            strict: If True, fail on incompatible label values, missing references, or template-field issues.
+                Set to False to publish despite those issues. Reference cycles always block the push.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -1248,7 +1329,7 @@ class Logfire:
                 logfire.variables_push([feature_enabled])
             ```
         """
-    def variables_push_types(self, types: Sequence[type[Any] | tuple[type[Any], str]], *, dry_run: bool = False, yes: bool = False, strict: bool = False) -> bool:
+    def variables_push_types(self, types: Sequence[type[Any] | tuple[type[Any], str]], *, dry_run: bool = False, yes: bool = False, strict: bool = True) -> bool:
         """Push variable type definitions to the configured variable provider.
 
         Variable types are reusable schema definitions that can be referenced by variables.
@@ -1270,7 +1351,7 @@ class Logfire:
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
             strict: If True, abort when existing label values are incompatible with
-                the new type schema.
+                the new type schema. Set to False to publish despite these issues.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -1305,7 +1386,7 @@ class Logfire:
                 )
             ```
         """
-    def variables_validate(self, variables: list[Variable[Any]] | None = None) -> ValidationReport:
+    def variables_validate(self, variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None) -> ValidationReport:
         """Validate that provider-side variable label values match local type definitions.
 
         This method fetches the current variable configuration from the provider and
@@ -1314,7 +1395,8 @@ class Logfire:
 
         Args:
             variables: Variable instances to validate. If None, all variables
-                registered with this Logfire instance will be validated.
+                registered with this Logfire instance's config will be validated, including
+                variables registered on `with_settings()` siblings.
 
         Returns:
             A ValidationReport containing any errors found. Use `report.is_valid` to check
@@ -1339,8 +1421,10 @@ class Logfire:
     def variables_push_config(self, config: VariablesConfig, *, mode: Literal['merge', 'replace'] = 'merge', dry_run: bool = False, yes: bool = False) -> bool:
         '''Push a VariablesConfig to the configured provider.
 
-        This method pushes a complete VariablesConfig (including labels and rollouts)
-        to the provider. It\'s useful for:
+        This method pushes a VariablesConfig (including labels and rollouts) to the
+        provider. For remote providers, version records are created from label
+        entries with inline serialized values; `latest_version` is pull/read state
+        derived by the server and is not pushed directly. It\'s useful for:
         - Pushing configs generated or modified locally
         - Pushing configs read from files
         - Partial updates (merge mode) or full replacement (replace mode)
@@ -1385,14 +1469,16 @@ class Logfire:
             print(config.model_dump_json(indent=2))
             ```
         '''
-    def variables_build_config(self, variables: list[Variable[Any]] | None = None) -> VariablesConfig:
+    def variables_build_config(self, variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None) -> VariablesConfig:
         '''Build a VariablesConfig from registered Variable instances.
 
         This creates a minimal config with just the name, schema, and example for each variable.
         No labels or versions are created - use this to build a template config that can be edited.
 
         Args:
-            variables: Variable instances to include. If None, uses all registered variables.
+            variables: Variable instances to include. If None, uses all variables registered
+                with this Logfire instance\'s config, including variables registered on
+                `with_settings()` siblings.
 
         Returns:
             A VariablesConfig with minimal configs for each variable.
@@ -1409,6 +1495,50 @@ class Logfire:
             print(config.model_dump_json(indent=2))
             ```
         '''
+    def forward_export_request(self, *, path: str, headers: Mapping[str, str], body: bytes, max_body_size: int = ...) -> ForwardExportRequestResponse:
+        '''Forward an OpenTelemetry export request to the Logfire backend.
+
+        This method is generic and can be used for any web framework.
+        For Starlette/FastAPI, use `forward_export_request_starlette` instead for extra protection and convenience.
+
+        This is for proxying telemetry from a browser to Logfire so that the write token doesn\'t need to be
+        exposed in the frontend code.
+        See https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#python-backend-proxy
+        for more details.
+
+        We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
+
+        Args:
+            path: one of "/v1/traces", "/v1/metrics", or "/v1/logs"
+            headers: the request headers, as a mapping of header names to values
+            body: the request body, as bytes
+            max_body_size: the maximum allowed body size, in bytes.
+                If the body exceeds this size, the response will be a 413, rejecting the payload.
+
+        Returns:
+            A `ForwardExportRequestResponse` containing the response status code, body, and headers.
+        '''
+    async def forward_export_request_starlette(self, request: Request, *, max_body_size: int = ...) -> Response:
+        """Forward an OpenTelemetry export request to the Logfire backend.
+
+        This method is designed for Starlette/FastAPI.
+        For other web frameworks, use `forward_export_request` instead and adapt the request/response handling as needed.
+
+        This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
+        exposed in the frontend code.
+        See https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#python-backend-proxy
+        for more details.
+
+        We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
+
+        Args:
+            request: The Starlette/FastAPI `Request` object.
+            max_body_size: the maximum allowed body size, in bytes.
+                If the body exceeds this size, the response will be a 413, rejecting the payload.
+
+        Returns:
+            A Starlette/FastAPI `Response` object.
+        """
 
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""

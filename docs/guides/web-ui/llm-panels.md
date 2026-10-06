@@ -54,7 +54,15 @@ Click an LLM span to open the details panel.
 | [LiteLLM](../../integrations/llms/litellm.md)                                         | ✅            | ✅     | ✅                 |
 | [Anthropic](../../integrations/llms/anthropic.md)                                     | ✅            | ✅     | ✅                 |
 | [Claude Agent SDK](../../integrations/llms/claude-agent-sdk.md)                       | ✅            | ✅     | ✅                 |
+| [LangGraph](../../integrations/llms/langgraph.md)                                   | ✅            |       | ✅                 |
+| [CrewAI](../../integrations/llms/crewai.md)                                         | ✅[^crewai]   |       | ✅[^crewai]        |
+| [smolagents](../../integrations/llms/smolagents.md)                                 | ✅            |       | ✅                 |
+| [Agno](../../integrations/llms/agno.md)                                             | ✅            |       | ✅                 |
+| [AutoGen](../../integrations/llms/autogen.md)                                       | ✅            | ✅     | ✅                 |
 | [Google ADK](https://github.com/pydantic/logfire/issues/1201#issuecomment-3012423974) | ✅            |       |                   |
+
+[^crewai]: CrewAI's default setup records agent and task operations. To capture token counts and conversations,
+    also configure model instrumentation as described in the [CrewAI guide](../../integrations/llms/crewai.md).
 
 Tokens and costs are more generally supported by any instrumentation that follows the standard [OpenTelemetry semantic conventions for GenAI spans](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/). The following snippet shows the attributes required if you want to log the data manually:
 
@@ -67,8 +75,8 @@ logfire.info(
     'LLM request',
     **{
         'gen_ai.system': 'google',
-        'gen_ai.request.model': 'gemini-2.0-flash',
-        'gen_ai.response.model': 'gemini-2.0-flash-001',
+        'gen_ai.request.model': 'gemini-2.5-flash',
+        'gen_ai.response.model': 'gemini-2.5-flash',
         'gen_ai.usage.input_tokens': 20,
         'gen_ai.usage.output_tokens': 40,
     },
@@ -90,7 +98,7 @@ If `operation.cost` isn't present on the span, then the Logfire UI will use `gen
 ### Single‑prompt calls
 
 ```python skip="true" skip-reason="incomplete"
-agent = Agent("google-gla:gemini-1.5-flash")
+agent = Agent("google:gemini-2.5-flash")
 result = agent.run_sync("Which city is the capital of France?")
 print(result.output)
 ```
@@ -101,7 +109,7 @@ Add a system prompt and Logfire captures it too:
 
 ```python skip="true" skip-reason="incomplete"
 agent = Agent(
-    "google-gla:gemini-1.5-flash",
+    "google:gemini-2.5-flash",
     system_prompt="You are a helpful assistant."
 )
 result = agent.run_sync("Please write me a limerick about Python logging.")

@@ -1,0 +1,41 @@
+interactions:
+- request:
+    body: '{"sql":"SELECT count(*) AS n FROM records","explain":false,"include_schema":true,"min_timestamp":"2020-01-01T00:00:00+00:00","max_timestamp":"2099-01-01T00:00:00+00:00","timezone":"UTC","deployment_environment":["production"]}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '226'
+      Content-Type:
+      - application/json
+      Host:
+      - localhost:3000
+      accept:
+      - application/json
+      accept-encoding:
+      - identity
+      user-agent:
+      - logfire-sdk-python/4.33.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
+        arch arm64)
+    method: POST
+    uri: http://localhost:3000/v2/query
+  response:
+    body:
+      string: '{"schema":{"fields":[{"name":"n","data_type":"Int64","nullable":false}],"metadata":{}},"data":[{"n":0}]}'
+    headers:
+      Connection:
+      - keep-alive
+      Date:
+      - Wed, 27 May 2026 15:49:46 GMT
+      Server:
+      - nginx/1.29.6
+      Transfer-Encoding:
+      - chunked
+      vary:
+      - accept-encoding
+      x-logfire-context:
+      - viicos/logfire-sdk-cassettes
+    status:
+      code: 200
+      message: OK
+version: 1

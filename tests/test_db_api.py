@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import warnings
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 import httpx
 import pytest
@@ -17,10 +18,11 @@ from logfire.db_api import Connection, Cursor, ProgrammingError, connect
 # Mock transport helpers
 # ---------------------------------------------------------------------------
 
-SAMPLE_COLUMNS = [
-    {'name': 'kind', 'datatype': 'Utf8', 'nullable': False},
-    {'name': 'message', 'datatype': 'Utf8', 'nullable': True},
-    {'name': 'count', 'datatype': 'Int64', 'nullable': True},
+# Server-side schema fields use `data_type`; the SDK transforms it to `datatype`.
+SAMPLE_FIELDS = [
+    {'name': 'kind', 'data_type': 'Utf8', 'nullable': False},
+    {'name': 'message', 'data_type': 'Utf8', 'nullable': True},
+    {'name': 'count', 'data_type': 'Int64', 'nullable': True},
 ]
 
 SAMPLE_ROWS = [
@@ -32,22 +34,23 @@ SAMPLE_ROWS = [
 
 def make_mock_transport(
     *,
-    columns: list[dict[str, Any]] | None = None,
+    fields: list[dict[str, Any]] | None = None,
     rows: list[dict[str, Any]] | None = None,
     capture: dict[str, Any] | None = None,
 ) -> httpx.MockTransport:
-    """Create a mock transport that returns the given columns/rows for /v1/query."""
-    resp_columns = columns if columns is not None else SAMPLE_COLUMNS
+    """Create a mock transport that returns the given schema fields/data for `POST /v2/query`."""
+    resp_fields = fields if fields is not None else SAMPLE_FIELDS
     resp_rows = rows if rows is not None else SAMPLE_ROWS
 
     def handler(request: httpx.Request) -> httpx.Response:
         parsed = urlparse(str(request.url))
         if capture is not None:
             capture['path'] = parsed.path
-            capture['params'] = parse_qs(parsed.query)
+            capture['method'] = request.method
             capture['headers'] = dict(request.headers)
-        if parsed.path == '/v1/query':
-            body = {'columns': resp_columns, 'rows': resp_rows}
+            capture['body'] = json.loads(request.content) if request.content else None
+        if request.method == 'POST' and parsed.path == '/v2/query':
+            body: dict[str, Any] = {'schema': {'fields': resp_fields, 'metadata': {}}, 'data': resp_rows}
             return httpx.Response(200, json=body)
         return httpx.Response(404)
 
@@ -56,17 +59,17 @@ def make_mock_transport(
 
 def make_connection(
     *,
-    columns: list[dict[str, Any]] | None = None,
+    fields: list[dict[str, Any]] | None = None,
     rows: list[dict[str, Any]] | None = None,
     capture: dict[str, Any] | None = None,
     limit: int = logfire.db_api.DEFAULT_LIMIT,
-    min_timestamp: datetime | timedelta | None = None,
+    min_timestamp: datetime | timedelta = timedelta(days=1),
     max_timestamp: datetime | None = None,
 ) -> Connection:
     """Create a Connection backed by a mock transport."""
-    from logfire.experimental.query_client import LogfireQueryClient
+    from logfire.query_client import LogfireQueryClient
 
-    transport = make_mock_transport(columns=columns, rows=rows, capture=capture)
+    transport = make_mock_transport(fields=fields, rows=rows, capture=capture)
     client = LogfireQueryClient(
         read_token='fake-token',
         base_url='https://logfire-us.pydantic.dev',
@@ -169,8 +172,8 @@ def test_execute_basic():
     cur = conn.cursor()
     cur.execute('SELECT kind, message, count FROM records LIMIT 3')
 
-    assert capture['params']['sql'] == ['SELECT kind, message, count FROM records LIMIT 3']
-    assert capture['params']['json_rows'] == ['true']
+    assert capture['body']['sql'] == 'SELECT kind, message, count FROM records LIMIT 3'
+    assert capture['body']['include_schema'] is True
     assert cur.rowcount == 3
     assert cur.description is not None
     assert len(cur.description) == 3
@@ -184,8 +187,9 @@ def test_execute_sends_limit():
     capture: dict[str, Any] = {}
     conn = make_connection(capture=capture, limit=500)
     cur = conn.cursor()
+    assert cur.limit == 500
     cur.execute('SELECT 1')
-    assert capture['params']['limit'] == ['500']
+    assert capture['body']['limit'] == 500
     conn.close()
 
 
@@ -193,9 +197,11 @@ def test_execute_cursor_limit_override():
     capture: dict[str, Any] = {}
     conn = make_connection(capture=capture, limit=500)
     cur = conn.cursor()
+    assert cur.limit == 500
     cur.limit = 100
+    assert cur.limit == 100
     cur.execute('SELECT 1')
-    assert capture['params']['limit'] == ['100']
+    assert capture['body']['limit'] == 100
     conn.close()
 
 
@@ -317,7 +323,7 @@ def test_params_dict():
         'SELECT * FROM records WHERE kind = %(kind)s AND count > %(count)s',
         {'kind': 'log', 'count': 5},
     )
-    sql = capture['params']['sql'][0]
+    sql = capture['body']['sql']
     assert "kind = 'log'" in sql
     assert 'count > 5' in sql
     conn.close()
@@ -331,7 +337,7 @@ def test_params_string_escaping():
         'SELECT * FROM records WHERE message = %(msg)s',
         {'msg': "it's a test"},
     )
-    sql = capture['params']['sql'][0]
+    sql = capture['body']['sql']
     assert "message = 'it''s a test'" in sql
     conn.close()
 
@@ -344,7 +350,7 @@ def test_params_none():
         'SELECT * FROM records WHERE message = %(msg)s',
         {'msg': None},
     )
-    sql = capture['params']['sql'][0]
+    sql = capture['body']['sql']
     assert 'message = NULL' in sql
     conn.close()
 
@@ -357,7 +363,7 @@ def test_params_bool():
         'SELECT * FROM records WHERE is_exception = %(flag)s',
         {'flag': True},
     )
-    sql = capture['params']['sql'][0]
+    sql = capture['body']['sql']
     assert 'is_exception = TRUE' in sql
     conn.close()
 
@@ -370,7 +376,7 @@ def test_params_float():
         'SELECT * FROM records WHERE score > %(val)s',
         {'val': 3.14},
     )
-    sql = capture['params']['sql'][0]
+    sql = capture['body']['sql']
     assert 'score > 3.14' in sql
     conn.close()
 
@@ -385,7 +391,7 @@ def test_params_non_string_fallback():
         'SELECT * FROM records WHERE start_timestamp > %(ts)s',
         {'ts': ts},
     )
-    sql = capture['params']['sql'][0]
+    sql = capture['body']['sql']
     assert "start_timestamp > '2024-01-15 12:30:00+00:00'" in sql
     conn.close()
 
@@ -404,7 +410,7 @@ def test_params_non_string_fallback_with_quotes():
         'SELECT * FROM records WHERE label = %(val)s',
         {'val': HasQuotes()},
     )
-    sql = capture['params']['sql'][0]
+    sql = capture['body']['sql']
     assert "label = 'it''s tricky'" in sql
     conn.close()
 
@@ -417,7 +423,7 @@ def test_params_sequence():
         'SELECT * FROM records WHERE kind = %s AND count > %s',
         ['log', 5],
     )
-    sql = capture['params']['sql'][0]
+    sql = capture['body']['sql']
     assert "kind = 'log'" in sql
     assert 'count > 5' in sql
     conn.close()
@@ -429,7 +435,7 @@ def test_params_empty_dict():
     conn = make_connection(capture=capture)
     cur = conn.cursor()
     cur.execute("SELECT '100%%' AS pct", {})
-    sql = capture['params']['sql'][0]
+    sql = capture['body']['sql']
     assert "SELECT '100%' AS pct" == sql
     conn.close()
 
@@ -444,9 +450,11 @@ def test_connection_timestamps():
     ts = datetime(2024, 1, 1, tzinfo=timezone.utc)
     conn = make_connection(capture=capture, min_timestamp=ts, max_timestamp=ts)
     cur = conn.cursor()
+    assert cur.min_timestamp == ts
+    assert cur.max_timestamp == ts
     cur.execute('SELECT 1')
-    assert capture['params']['min_timestamp'] == [ts.isoformat()]
-    assert capture['params']['max_timestamp'] == [ts.isoformat()]
+    assert capture['body']['min_timestamp'] == ts.isoformat()
+    assert capture['body']['max_timestamp'] == ts.isoformat()
     conn.close()
 
 
@@ -454,11 +462,28 @@ def test_cursor_timestamp_override():
     capture: dict[str, Any] = {}
     conn_ts = datetime(2024, 1, 1, tzinfo=timezone.utc)
     cur_ts = datetime(2024, 6, 1, tzinfo=timezone.utc)
-    conn = make_connection(capture=capture, min_timestamp=conn_ts)
+    conn = make_connection(capture=capture, min_timestamp=conn_ts, max_timestamp=conn_ts)
     cur = conn.cursor()
+    assert cur.min_timestamp == conn_ts
+    assert cur.max_timestamp == conn_ts
     cur.min_timestamp = cur_ts
+    cur.max_timestamp = cur_ts
+    assert cur.min_timestamp == cur_ts
+    assert cur.max_timestamp == cur_ts
     cur.execute('SELECT 1')
-    assert capture['params']['min_timestamp'] == [cur_ts.isoformat()]
+    assert capture['body']['min_timestamp'] == cur_ts.isoformat()
+    assert capture['body']['max_timestamp'] == cur_ts.isoformat()
+    conn.close()
+
+
+def test_cursor_max_timestamp_none_override():
+    capture: dict[str, Any] = {}
+    conn = make_connection(capture=capture, max_timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc))
+    cur = conn.cursor()
+    cur.max_timestamp = None
+    assert cur.max_timestamp is None
+    cur.execute('SELECT 1')
+    assert 'max_timestamp' not in capture['body']
     conn.close()
 
 
@@ -521,7 +546,7 @@ def test_executemany():
         [{'kind': 'log'}, {'kind': 'span'}],
     )
     # Last execution's SQL should be the span one
-    sql = capture['params']['sql'][0]
+    sql = capture['body']['sql']
     assert "kind = 'span'" in sql
     # rowcount reflects the last execution
     assert cur.rowcount == 3
@@ -593,7 +618,7 @@ def test_connect_custom_limit():
     )
     cur = conn.cursor()
     cur.execute('SELECT 1')
-    assert capture['params']['limit'] == ['200']
+    assert capture['body']['limit'] == 200
     conn.close()
 
 
@@ -613,27 +638,11 @@ def test_connect_default_min_timestamp():
     )
     cur = conn.cursor()
     cur.execute('SELECT 1')
-    assert 'min_timestamp' in capture['params']
+    assert 'min_timestamp' in capture['body']
     # The default should be approximately 1 day ago
     assert conn.min_timestamp is not None
     age = datetime.now(timezone.utc) - conn.min_timestamp
     assert timedelta(hours=23) < age < timedelta(hours=25)
-    conn.close()
-
-
-def test_connect_min_timestamp_none_disables_filter():
-    """Passing min_timestamp=None disables the timestamp filter."""
-    capture: dict[str, Any] = {}
-    transport = make_mock_transport(capture=capture)
-    conn = connect(
-        read_token='pylf_v1_us_fake',
-        base_url='https://logfire-us.pydantic.dev',
-        min_timestamp=None,
-        transport=transport,
-    )
-    cur = conn.cursor()
-    cur.execute('SELECT 1')
-    assert 'min_timestamp' not in capture['params']
     conn.close()
 
 
@@ -649,7 +658,7 @@ def test_connect_min_timestamp_timedelta():
     )
     cur = conn.cursor()
     cur.execute('SELECT 1')
-    assert 'min_timestamp' in capture['params']
+    assert 'min_timestamp' in capture['body']
     assert conn.min_timestamp is not None
     age = datetime.now(timezone.utc) - conn.min_timestamp
     assert timedelta(days=6) < age < timedelta(days=8)

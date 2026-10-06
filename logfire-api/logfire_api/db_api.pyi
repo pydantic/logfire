@@ -1,8 +1,12 @@
 from _typeshed import Incomplete
 from collections.abc import Sequence
 from datetime import datetime, timedelta
-from logfire.experimental.query_client import ColumnDetails as ColumnDetails, LogfireQueryClient as LogfireQueryClient
+from enum import Enum
+from logfire.query_client import ColumnDetails as ColumnDetails, LogfireQueryClient as LogfireQueryClient
 from typing import Any
+
+class _Unset(Enum):
+    UNSET: str
 
 apilevel: str
 threadsafety: int
@@ -33,7 +37,7 @@ class Connection:
     min_timestamp: Incomplete
     max_timestamp: Incomplete
     limit: Incomplete
-    def __init__(self, client: LogfireQueryClient, *, min_timestamp: datetime | timedelta | None = ..., max_timestamp: datetime | None = None, limit: int = ...) -> None: ...
+    def __init__(self, client: LogfireQueryClient, *, min_timestamp: datetime | timedelta = ..., max_timestamp: datetime | None = None, limit: int = ...) -> None: ...
     def close(self) -> None:
         """Close the connection and the underlying HTTP client."""
     def commit(self) -> None:
@@ -49,10 +53,22 @@ class Cursor:
     """PEP 249 Cursor that executes queries via `LogfireQueryClient.query_json_rows()`."""
     rowcount: int
     arraysize: int
-    min_timestamp: datetime | None
-    max_timestamp: datetime | None
-    limit: int
     def __init__(self, connection: Connection) -> None: ...
+    @property
+    def min_timestamp(self) -> datetime:
+        """Lower `start_timestamp` bound, inherited from the connection unless overridden."""
+    @min_timestamp.setter
+    def min_timestamp(self, value: datetime) -> None: ...
+    @property
+    def max_timestamp(self) -> datetime | None:
+        """Upper `start_timestamp` bound, inherited from the connection unless overridden."""
+    @max_timestamp.setter
+    def max_timestamp(self, value: datetime | None) -> None: ...
+    @property
+    def limit(self) -> int:
+        """Row limit, inherited from the connection unless overridden."""
+    @limit.setter
+    def limit(self, value: int) -> None: ...
     @property
     def description(self) -> list[tuple[Any, ...]] | None:
         """Column description as a list of 7-tuples per PEP 249.
@@ -88,7 +104,7 @@ class Cursor:
     def __enter__(self) -> Cursor: ...
     def __exit__(self, *args: Any) -> None: ...
 
-def connect(read_token: str, base_url: str | None = None, timeout: float = 30.0, *, min_timestamp: datetime | timedelta | None = ..., max_timestamp: datetime | None = None, limit: int = ..., **kwargs: Any) -> Connection:
+def connect(read_token: str, base_url: str | None = None, timeout: float = 30.0, *, min_timestamp: datetime | timedelta = ..., max_timestamp: datetime | None = None, limit: int = ..., **kwargs: Any) -> Connection:
     """Create a PEP 249 connection to the Logfire query API.
 
     Args:
@@ -97,8 +113,7 @@ def connect(read_token: str, base_url: str | None = None, timeout: float = 30.0,
         timeout: HTTP request timeout in seconds.
         min_timestamp: Default lower bound for `start_timestamp` filtering.
             Accepts a `datetime` for an exact bound, a `timedelta` for a
-            relative window (computed as `now - timedelta`), or `None` to
-            disable the filter.  Defaults to 1 day ago.
+            relative window (computed as `now - timedelta`). Defaults to 1 day ago.
         max_timestamp: Default upper bound for `start_timestamp` filtering.
         limit: Default row limit per query (max 10,000). When the number of
             returned rows equals the limit a warning is emitted.

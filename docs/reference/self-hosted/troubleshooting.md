@@ -1,81 +1,82 @@
 ---
-title: "Troubleshooting Self-Hosted Logfire Installations"
-description: "Troubleshooting guide for self-hosted Logfire Deployments. Access the Meta Organization for issue resolution."
+title: Troubleshooting Self-Hosted Logfire
+description: "Troubleshooting guide for self-hosted Logfire deployments, including meta project access and image pull checks."
 ---
-# Troubleshooting Self Hosted
+# Troubleshooting Self-Hosted Logfire
 
-There are occasions when you need to troubleshoot the installation.  Since Logfire sends its own internal logs to the `logfire-meta` organisation, this is a good place to start.
+Self-hosted Logfire sends its own internal telemetry to the `logfire-meta` organization. Start there when the deployment is running but behavior is unclear.
 
-## Accessing the Meta Organization
+## Access the Meta Organization
 
-Logfire will send internal traces to a meta organisation that is created upon first install.   This meta organisation is helpful in troubleshooting any issues that might arise when running Logfire.
+On first install, the chart creates a frontend token for the `logfire-meta` organization.
 
-When the chart is first installed, a secret is created that allows system administrators access to the meta organisation via a special URL.
+Read the token from the release namespace:
 
-Follow these steps to access the meta organisation:
-
-* Run the following command to get the meta token secret (changing `-n logfire` to your namespace or omitting it if it's default):
-  ```
-  kubectl get secret -n logfire logfire-meta-frontend-token -o "jsonpath={.data.logfire-meta-frontend-token}" | base64 -d
-  ```
-* With this and using your hostname, login to the meta organisation using the following link:
-  ```
-  https://<your-logfire-hostname>/logfire-meta/logfire-meta#token=<logfire-meta-frontend-token>
-  ```
-
-* !!! note
-    We recommend generating an invite link to the Meta organization so you can access with your own user afterwards.
-    You can easily do this by going to **Settings** > **Invite** and set **Admin** as the Organization role
-
-You should be able to see a stream of traces come through from each service.
-
-To check for errors, use the following query filter:
-
+```bash
+kubectl -n logfire get secret logfire-meta-frontend-token \
+  -o "jsonpath={.data.logfire-meta-frontend-token}" | base64 -d
 ```
+
+Open the meta project with your hostname and token:
+
+```text
+https://logfire.example.com/logfire-meta/logfire-meta#token=LOGFIRE_META_FRONTEND_TOKEN
+```
+
+After you get access, create an invite link for your own user from **Settings** > **Invite** and give it the **Admin** organization role.
+
+To find errors in the meta project, use this query filter:
+
+```text
 level >= 'error'
 ```
 
-### No Traces in Meta Organization
+## No Traces in the Meta Organization
 
-Logfire itself can have an issue sending traces to the `logfire-meta` organization.
+If the meta project has no traces, check the services involved in ingestion and internal telemetry export:
 
-If you don't see any traces this could mean that one of the services involved in ingest may not be configured correctly, or there is an issue with an external service, such as **PostgreSQL** or **Object Storage**.
+```bash
+kubectl -n logfire get pods
+kubectl -n logfire logs statefulset/logfire-ff-ingest
+kubectl -n logfire logs deployment/logfire-ff-ingest-processor
+kubectl -n logfire logs deployment/logfire-otel-collector
+kubectl -n logfire logs deployment/logfire-ff-query-api
+```
 
-One quick thing to check is the console logs involved in those services.  Here are a few steps you can take to hone in on the issue:
+Common causes are PostgreSQL connectivity, object storage connectivity, image pull failures, or incorrect public URL/TLS settings.
 
-* Check that all pods are up and their status is `Running`:
- ```
- kubectl get pods -n logfire
- ```
-* Check the console logs of the ingest pod for any errors ingesting new traces:
- ```
- kubectl logs -n logfire statefulset/logfire-ff-ingest
- ```
-* Check the console logs of the OTel collector:
- ```
- kubectl logs -n logfire deployments/logfire-otel-collector
- ```
-* Check the console logs of the query API:
- ```
- kubectl logs -n logfire deployments/logfire-ff-query-api
- ```
+## ErrImagePull or ImagePullBackOff
 
-## ErrImagePull / ImagePullBackOff
+If pods cannot pull images, check that:
 
-If you are seeing Image pull issues on your logfire pods, make sure you have:
+* The image pull secret exists in the same namespace as the Helm release.
+* `imagePullSecrets` in your values file references that secret name.
+* The secret was created from the current image pull key provided by Pydantic.
 
-* Created the required Image Pull Secret as described at the [Installation](./installation.md#image-pull-secrets_1) section
-* You set the right secret name at `Values.imagePullSecrets`
-* Both secret and the release are installed on the same namespace
+The [production requirements](./installation.md#image-pull-secret) page shows the expected secret shape.
 
+## PostgreSQL Migration Failures
 
-## Troubleshooting and support
+Backend and FusionFire migrations run before the main workloads are ready. If Helm times out or reports a failed migration job, inspect the migration logs:
 
-If this page didn't help, please open a detailed issue on [Github](https://github.com/pydantic/logfire-helm-chart/issues), including:
+```bash
+kubectl -n logfire logs job/logfire-backend-migrations
+kubectl -n logfire logs job/logfire-ff-migrations
+```
 
-* Chart version
-* Kubernetes version
-* A sanitized copy of your ```values.yaml```
-* Relevant logs or error messages
+Check that:
 
-For commercial or enterprise support, contact [our sales team](mailto:sales@pydantic.dev).
+* `postgresDsn` points at the `crud` database.
+* `postgresFFDsn` points at the `ff` database.
+* Dex storage points at the `dex` database.
+* Database users have owner permissions for their databases.
+* The Kubernetes cluster can connect to the PostgreSQL host and port.
+
+## Support
+
+When asking for support, include:
+
+* Chart version.
+* Kubernetes version.
+* A sanitized copy of your values file.
+* Relevant pod, job, or Helm error messages.

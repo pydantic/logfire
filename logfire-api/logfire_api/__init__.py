@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import importlib
 import sys
-from contextlib import contextmanager, nullcontext
-from typing import Any, ContextManager, Literal, TYPE_CHECKING, Sequence
+from collections.abc import Sequence
+from contextlib import AbstractContextManager, contextmanager, nullcontext
+from typing import TYPE_CHECKING, Any, Literal
 from unittest.mock import MagicMock
-
 
 try:
     logfire_module = importlib.import_module('logfire')
@@ -85,7 +85,7 @@ except ImportError:
             def parent(self):
                 return None
 
-            def set_attribute(self, key: str, value: Any) -> None: ... # pragma: no cover
+            def set_attribute(self, key: str, value: Any) -> None: ...  # pragma: no cover
 
         class Logfire:
             def __getattr__(self, attr):
@@ -124,17 +124,20 @@ except ImportError:
             def with_settings(self, *args, **kwargs) -> Logfire:
                 return self
 
-            def force_flush(self, *args, **kwargs) -> None: ...
+            def force_flush(self, *args, **kwargs) -> bool:
+                return True
 
             def log_slow_async_callbacks(self, *args, **kwargs) -> None:  # pragma: no cover
                 return nullcontext()
 
             def install_auto_tracing(self, *args, **kwargs) -> None: ...
 
-            def instrument(self, *args, **kwargs):
+            def instrument(self, msg_template=None, **kwargs):
                 def decorator(func):
                     return func
 
+                if callable(msg_template):
+                    return decorator(msg_template)
                 return decorator
 
             def instrument_asgi(self, app, *args, **kwargs):
@@ -143,12 +146,14 @@ except ImportError:
             def instrument_wsgi(self, app, *args, **kwargs):
                 return app
 
-            def instrument_fastapi(self, *args, **kwargs) -> ContextManager[None]:
+            def instrument_fastapi(self, *args, **kwargs) -> AbstractContextManager[None]:
                 return nullcontext()
 
             def instrument_pydantic(self, *args, **kwargs) -> None: ...
 
             def instrument_pydantic_ai(self, *args, **kwargs) -> None: ...
+
+            def instrument_monty(self, *args, **kwargs) -> None: ...
 
             def instrument_pymongo(self, *args, **kwargs) -> None: ...
 
@@ -164,11 +169,16 @@ except ImportError:
 
             def instrument_starlette(self, *args, **kwargs) -> None: ...
 
+            def instrument_litestar(self, app, *args, **kwargs):
+                return app
+
             def instrument_django(self, *args, **kwargs) -> None: ...
 
             def instrument_psycopg(self, *args, **kwargs) -> None: ...
 
             def instrument_surrealdb(self, *args, **kwargs) -> None: ...
+
+            def instrument_snowflake(self, *args, **kwargs) -> None: ...
 
             def instrument_requests(self, *args, **kwargs) -> None: ...
 
@@ -176,13 +186,13 @@ except ImportError:
 
             def instrument_asyncpg(self, *args, **kwargs) -> None: ...
 
-            def instrument_anthropic(self, *args, **kwargs) -> ContextManager[None]:
+            def instrument_anthropic(self, *args, **kwargs) -> AbstractContextManager[None]:
                 return nullcontext()
 
-            def instrument_openai(self, *args, **kwargs) -> ContextManager[None]:
+            def instrument_openai(self, *args, **kwargs) -> AbstractContextManager[None]:
                 return nullcontext()
 
-            def instrument_print(self, *args, **kwargs) -> ContextManager[None]:
+            def instrument_print(self, *args, **kwargs) -> AbstractContextManager[None]:
                 return nullcontext()
 
             def instrument_openai_agents(self, *args, **kwargs) -> None: ...
@@ -201,13 +211,18 @@ except ImportError:
 
             def instrument_mcp(self, *args, **kwargs) -> None: ...
 
-            def instrument_claude_agent_sdk(self, *args, **kwargs) -> ContextManager[None]:
+            def instrument_claude_agent_sdk(self, *args, **kwargs) -> AbstractContextManager[None]:
                 return nullcontext()
 
             def url_from_eval(self, *args, **kwargs) -> str | None: ...
 
-            def shutdown(self, *args, **kwargs) -> None: ...
+            def forward_export_request(self, *args, **kwargs) -> MagicMock:
+                return MagicMock()
 
+            async def forward_export_request_starlette(self, *args, **kwargs) -> MagicMock:
+                return MagicMock()
+
+            def shutdown(self, *args, **kwargs) -> None: ...
 
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span
@@ -231,6 +246,7 @@ except ImportError:
         instrument_wsgi = DEFAULT_LOGFIRE_INSTANCE.instrument_wsgi
         instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
         instrument_pydantic_ai = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic_ai
+        instrument_monty = DEFAULT_LOGFIRE_INSTANCE.instrument_monty
         instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
         instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
         instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
@@ -244,10 +260,12 @@ except ImportError:
         instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
         instrument_requests = DEFAULT_LOGFIRE_INSTANCE.instrument_requests
         instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb
+        instrument_snowflake = DEFAULT_LOGFIRE_INSTANCE.instrument_snowflake
         instrument_psycopg = DEFAULT_LOGFIRE_INSTANCE.instrument_psycopg
         instrument_django = DEFAULT_LOGFIRE_INSTANCE.instrument_django
         instrument_flask = DEFAULT_LOGFIRE_INSTANCE.instrument_flask
         instrument_starlette = DEFAULT_LOGFIRE_INSTANCE.instrument_starlette
+        instrument_litestar = DEFAULT_LOGFIRE_INSTANCE.instrument_litestar
         instrument_aiohttp_client = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_client
         instrument_aiohttp_server = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_server
         instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy
@@ -262,6 +280,8 @@ except ImportError:
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
         url_from_eval = DEFAULT_LOGFIRE_INSTANCE.url_from_eval
+        forward_export_request = DEFAULT_LOGFIRE_INSTANCE.forward_export_request
+        forward_export_request_starlette = DEFAULT_LOGFIRE_INSTANCE.forward_export_request_starlette
 
         def loguru_handler() -> dict[str, Any]:
             return {}
@@ -293,7 +313,6 @@ except ImportError:
         class MetricsOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 
-
         class PydanticPlugin:
             def __init__(self, *args, **kwargs) -> None: ...
 
@@ -316,11 +335,11 @@ except ImportError:
         def get_baggage(*args, **kwargs) -> dict[str, str]:
             return {}
 
-        def set_baggage(*args, **kwargs) -> ContextManager[None]:
+        def set_baggage(*args, **kwargs) -> AbstractContextManager[None]:
             return nullcontext()
 
         def get_context(*args, **kwargs) -> dict[str, Any]:
             return {}
 
-        def attach_context(*args, **kwargs) -> ContextManager[None]:
+        def attach_context(*args, **kwargs) -> AbstractContextManager[None]:
             return nullcontext()

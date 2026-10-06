@@ -41,9 +41,9 @@ Note that:
 2. Spans have a start and an end time, and thus a duration. This span took 3 seconds to complete.
 3. For logs, the start and end time are the same, so they don't have a duration. But you can still see in the UI that the log was created 1 second after the span started and 2 seconds before it ended.
 
-If you click on the 'Explore' link in the top navbar, you can write SQL to explore further, e.g:
+If you click on the **SQL Workbench** link in the top navbar, you can write SQL to explore further, e.g:
 
-![Query in Explore view: select extract('seconds' from end_timestamp - start_timestamp) as duration, kind, message, trace_id, span_id, parent_span_id from records order by start_timestamp ](../../images/guide/manual-tracing-explore-basic.png)
+![Query in SQL Workbench: select extract('seconds' from end_timestamp - start_timestamp) as duration, kind, message, trace_id, span_id, parent_span_id from records order by start_timestamp ](../../images/guide/manual-tracing-explore-basic.png)
 
 Note:
 
@@ -90,7 +90,7 @@ for name in ['Alice', 'Bob', 'Carol']:
     logfire.info('Hello {name}', name=name)
 ```
 
-![Query in Explore view: select span_name, attributes->>'name' as name, message from records order by start_timestamp](../../images/guide/manual-tracing-span-names.png)
+![Query in SQL Workbench: select span_name, attributes->>'name' as name, message from records order by start_timestamp](../../images/guide/manual-tracing-span-names.png)
 
 Here you can see that:
 
@@ -147,7 +147,7 @@ logfire.info(f'Hello {name}')
 
 Contrary to the previous section, this _will_ work well in Python 3.11+ because Logfire will use special magic to both set the `span_name` to `'Hello {name}'` and set the `name` attribute to the value of the `name` variable, so it's equivalent to the previous snippet. Here's what you need to know about this:
 
-- The feature is enabled by default in Python 3.11+. You can disable it with [`logfire.configure(inspect_arguments=False)`][logfire.configure(inspect_arguments)]. You can also enable it in Python 3.9 and 3.10, but it's more likely to not work correctly.
+- The feature is enabled by default in Python 3.11+. You can disable it with [`logfire.configure(inspect_arguments=False)`][logfire.configure(inspect_arguments)]. You can also enable it in Python 3.10, but it's more likely to not work correctly.
 - Inspecting arguments is expected to always work under normal circumstances. The main caveat is that the source code must be available, so e.g. deploying only `.pyc` files will cause it to fail.
 - If inspecting arguments fails, you will get a warning, and the f-string argument will be used as a formatting template. This means you will get high-cardinality span names such as `'Hello Alice'` and no `name` attribute, but the information won't be completely lost.
 - If inspecting arguments is enabled, then arguments will be inspected regardless of whether f-strings are being used. So if you write `logfire.info('Hello {name}', name=name)` and inspecting arguments fails, then you will still get a warning.
@@ -238,6 +238,12 @@ my_function(3, 4)
 # Logs: Applying my_function to x=3 and y=4
 ```
 
+Other useful keyword arguments include:
+
+- `level`: the log level for the span, e.g. `@logfire.instrument(level='debug')`. The span is suppressed if the level is below the configured `min_level`.
+- `record_return`: set to `True` to record the function's return value as a span attribute.
+- `new_trace`: set to `True` to start a new trace (with a span link to the current span) instead of creating a child of the current span.
+
 !!! note
 
     - The [`@logfire.instrument`][logfire.Logfire.instrument] decorator MUST be applied first, i.e., UNDER any other decorators.
@@ -308,3 +314,7 @@ import logfire
 
 logfire.configure(console=logfire.ConsoleOptions(min_log_level='debug'))
 ```
+
+## Next step
+
+**[Add auto-tracing](add-auto-tracing.md)**: instrument whole modules automatically, without adding a span to every function by hand.

@@ -1,4 +1,4 @@
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from logfire import Logfire as Logfire
 from logfire._internal.constants import log_level_attributes as log_level_attributes
@@ -6,7 +6,7 @@ from logfire._internal.utils import is_asgi_send_receive_span_name as is_asgi_se
 from opentelemetry.context import Context
 from opentelemetry.trace import Span, SpanKind, Tracer, TracerProvider
 from opentelemetry.util import types as otel_types
-from typing import Any, Callable, Protocol, TypedDict
+from typing import Any, Protocol, TypedDict
 from typing_extensions import Unpack
 
 Scope = dict[str, Any]

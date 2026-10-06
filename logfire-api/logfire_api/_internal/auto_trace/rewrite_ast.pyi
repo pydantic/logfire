@@ -1,9 +1,10 @@
 import ast
 from ..ast_utils import BaseTransformer as BaseTransformer, LogfireArgs as LogfireArgs
 from ..main import Logfire as Logfire
+from collections.abc import Callable
 from contextlib import AbstractContextManager as AbstractContextManager
 from dataclasses import dataclass
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 def compile_source(tree: ast.AST, filename: str, module_name: str, logfire_instance: Logfire, min_duration: int) -> Callable[[dict[str, Any]], None]:
     """Compile a modified AST of the module's source code in the module's namespace.

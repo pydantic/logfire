@@ -2,6 +2,7 @@ from .._internal.constants import ATTRIBUTES_LOGGING_ARGS_KEY as ATTRIBUTES_LOGG
 from .._internal.stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from .logging import LogfireLoggingHandler as LogfireLoggingHandler
 from _typeshed import Incomplete
+from collections.abc import Callable as Callable
 from logging import LogRecord
 from typing import Any
 

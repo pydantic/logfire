@@ -9,7 +9,8 @@ import re
 import sys
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from pathlib import Path
+from typing import Any, Literal
 from unittest import mock
 
 import pytest
@@ -24,6 +25,7 @@ import logfire
 from logfire import ConsoleOptions
 from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.exporters.console import (
+    ConsoleLogExporter,
     IndentedConsoleSpanExporter,
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
@@ -43,6 +45,116 @@ else:  # pragma: no cover
 tracer = trace.get_tracer('test')
 
 NANOSECONDS_PER_SECOND = int(1e9)
+
+
+@pytest.mark.parametrize('span_style', ['simple', 'indented', 'show-parents'])
+@pytest.mark.parametrize('colors', ['never', 'always'])
+@pytest.mark.parametrize(
+    'verbose,include_attributes,expect_attributes',
+    [
+        (False, None, False),
+        (True, None, True),
+        (False, True, True),
+        (True, True, True),
+        (False, False, False),
+        (True, False, False),
+    ],
+)
+def test_console_include_attributes(
+    config_kwargs: dict[str, Any],
+    span_style: Literal['simple', 'indented', 'show-parents'],
+    colors: Literal['never', 'always'],
+    verbose: bool,
+    include_attributes: bool | None,
+    expect_attributes: bool,
+) -> None:
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output,
+        colors=colors,
+        span_style=span_style,
+        include_timestamps=False,
+        verbose=verbose,
+        include_attributes=include_attributes,
+    )
+    logfire.configure(**config_kwargs)
+    with logfire.span('loading_users', num_users=13070):
+        logfire.info('loaded', result={'count': 13070})
+
+    text = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', output.getvalue())
+    assert 'loading_users' in text
+    assert 'loaded' in text
+    assert ('num_users=13070' in text) is expect_attributes
+    assert ('result={' in text) is expect_attributes
+    assert ("'count': 13070" in text) is expect_attributes
+    assert ('test_console_exporter.py:' in text) is verbose
+    assert (' info' in text) is verbose
+
+
+@pytest.mark.parametrize('source', ['file', 'environment', 'options'])
+@pytest.mark.parametrize('include_attributes', [True, False])
+def test_console_include_attributes_config_sources(
+    config_kwargs: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    source: str,
+    include_attributes: bool,
+) -> None:
+    monkeypatch.delenv('LOGFIRE_CONSOLE_INCLUDE_ATTRIBUTES', raising=False)
+    file_value = include_attributes if source == 'file' else not include_attributes
+    (tmp_path / 'pyproject.toml').write_text(
+        f'[tool.logfire]\nconsole_include_attributes = {str(file_value).lower()}\n'
+    )
+    config_kwargs.update(console=None, config_dir=tmp_path)
+    if source != 'file':
+        env_value = include_attributes if source == 'environment' else not include_attributes
+        monkeypatch.setenv('LOGFIRE_CONSOLE_INCLUDE_ATTRIBUTES', str(env_value).lower())
+    if source == 'options':
+        config_kwargs['console'] = ConsoleOptions(include_attributes=include_attributes)
+
+    logfire.configure(**config_kwargs)
+    logfire.info('loaded', num_users=13070)
+    assert ('num_users=13070' in capsys.readouterr().out) is include_attributes
+
+
+@pytest.mark.parametrize('include_attributes', [True, False])
+def test_console_include_attributes_otel_logs(
+    config_kwargs: dict[str, Any], capsys: pytest.CaptureFixture[str], include_attributes: bool
+) -> None:
+    config_kwargs['console'] = ConsoleOptions(
+        include_attributes=include_attributes, include_timestamps=False, colors='never'
+    )
+    logfire.configure(**config_kwargs)
+    get_logger('logs').emit(
+        LogRecord(
+            body='loaded',
+            severity_number=SeverityNumber.INFO,
+            attributes={
+                'num_users': 13070,
+                'code.filepath': 'example.py',
+                'code.lineno': 42,
+                'logfire.json_schema': '{"type":"object","properties":{"num_users":{}}}',
+            },
+        )
+    )
+    assert capsys.readouterr().out == ('loaded\n│ num_users=13070\n' if include_attributes else 'loaded\n')
+
+
+@pytest.mark.parametrize('include_attributes', [None, True, False])
+@pytest.mark.parametrize('body', ['loaded', None])
+def test_console_include_attributes_preserves_otel_log_messages(
+    config_kwargs: dict[str, Any],
+    capsys: pytest.CaptureFixture[str],
+    include_attributes: bool | None,
+    body: str | None,
+) -> None:
+    config_kwargs['console'] = ConsoleOptions(
+        include_attributes=include_attributes, include_timestamps=False, colors='never'
+    )
+    logfire.configure(**config_kwargs)
+    get_logger('logs').emit(LogRecord(body=body, attributes={'num_users': 13070}))
+    assert capsys.readouterr().out == ("{'num_users': 13070}\n" if body is None else 'loaded\n')
 
 
 @pytest.fixture
@@ -116,6 +228,17 @@ def test_simple_console_exporter_colors_concise(simple_spans: list[ReadableSpan]
             '\x1b[32m00:00:02.000\x1b[0m childSpan 1',
         ]
     )
+
+
+def test_simple_console_exporter_colors_always_ignores_no_color(
+    simple_spans: list[ReadableSpan], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv('NO_COLOR', '1')
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, verbose=False, colors='always').export(simple_spans)
+
+    assert out.getvalue().splitlines()[0].startswith('\x1b[32m')
 
 
 def test_simple_console_exporter_no_colors_verbose(simple_spans: list[ReadableSpan]) -> None:
@@ -441,10 +564,10 @@ def test_verbose_attributes(exporter: TestExporter) -> None:
             '\x1b[32m00:00:01.000\x1b[0m Hello world!',
             '             \x1b[34m│\x1b[0m\x1b[36m test_console_exporter.py:123\x1b[0m info',
             "             \x1b[34m│ \x1b[0m\x1b[34mname=\x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49mworld\x1b[0m\x1b[93;49m'\x1b[0m",
-            '             \x1b[34m│ \x1b[0m\x1b[34md=\x1b[0m\x1b[97;49m{\x1b[0m          ',
+            '             \x1b[34m│ \x1b[0m\x1b[34md=\x1b[0m\x1b[97;49m{\x1b[0m',
             "             \x1b[34m│ \x1b[0m  \x1b[97;49m    \x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49ma\x1b[0m\x1b[93;49m'\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m \x1b[0m\x1b[37;49m1\x1b[0m\x1b[97;49m,\x1b[0m",
             "             \x1b[34m│ \x1b[0m  \x1b[97;49m    \x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49mb\x1b[0m\x1b[93;49m'\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m \x1b[0m\x1b[37;49m2\x1b[0m\x1b[97;49m,\x1b[0m",
-            '             \x1b[34m│ \x1b[0m  \x1b[97;49m}\x1b[0m          ',
+            '             \x1b[34m│ \x1b[0m  \x1b[97;49m}\x1b[0m',
         ]
     )
 
@@ -933,6 +1056,11 @@ def test_console_otel_logs(capsys: pytest.CaptureFixture[str]):
     )
 
 
+def test_console_log_exporter_force_flush():
+    exporter = ConsoleLogExporter(SimpleConsoleSpanExporter())
+    assert exporter.force_flush() is True
+
+
 def test_truncated_json(capsys: pytest.CaptureFixture[str]) -> None:
     with mock.patch.dict('os.environ', {'OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT': '70'}):
         logfire.configure(
@@ -949,6 +1077,43 @@ def test_truncated_json(capsys: pytest.CaptureFixture[str]) -> None:
                 "│ x='[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1'",
             ]
         )
+
+
+def test_console_exporter_rich_long_argument_not_truncated() -> None:
+    long_value = 'a' * 1000
+    span = ReadableSpan(
+        name='hi',
+        context=trace.SpanContext(trace_id=1, span_id=1, is_remote=False),
+        parent=None,
+        attributes={
+            'logfire.span_type': 'log',
+            'logfire.level_num': 9,
+            'logfire.msg': 'hi',
+            'x': long_value,
+            'logfire.json_schema': json.dumps({'type': 'object', 'properties': {'x': {}}}),
+        },
+        events=[],
+        start_time=NANOSECONDS_PER_SECOND,
+        end_time=NANOSECONDS_PER_SECOND,
+    )
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, verbose=True, colors='always', include_timestamp=False).export([span])
+
+    plain_output = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', out.getvalue())
+    assert '…' not in plain_output
+    assert plain_output.count('a') == len(long_value)
+    assert f"x='{long_value}'" in plain_output
+
+
+def test_console_exporter_rich_argument_preserves_expanded_tab() -> None:
+    out = io.StringIO()
+    exporter = SimpleConsoleSpanExporter(output=out, verbose=True, colors='always', include_timestamp=False)
+
+    exporter._print_arguments_rich({'x': '\t'}, '')
+
+    plain_output = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', out.getvalue())
+    assert plain_output == '│ x=    \n'
 
 
 def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:

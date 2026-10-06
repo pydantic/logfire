@@ -11,9 +11,9 @@ from weakref import WeakSet
 @dataclasses.dataclass
 class ProxyMeterProvider(MeterProvider):
     provider: MeterProvider
-    meters: WeakSet[_ProxyMeter] = dataclasses.field(default_factory=WeakSet)
+    meters: WeakSet[_ProxyMeter] = dataclasses.field(default_factory=WeakSet['_ProxyMeter'])
     lock: Lock = dataclasses.field(default_factory=Lock)
-    suppressed_scopes: set[str] = dataclasses.field(default_factory=set)
+    suppressed_scopes: set[str] = dataclasses.field(default_factory=set[str])
     def get_meter(self, name: str, version: str | None = None, schema_url: str | None = None, attributes: Attributes | None = None) -> Meter: ...
     def suppress_scopes(self, *scopes: str) -> None: ...
     def set_meter_provider(self, meter_provider: MeterProvider) -> None: ...

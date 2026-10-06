@@ -11,6 +11,19 @@ import logfire._internal.integrations.sqlite3
 from logfire.testing import TestExporter
 
 
+@pytest.fixture(autouse=True)
+def uninstrument_after_test():
+    """Clean up global instrumentation even when a test fails partway through.
+
+    A test that fails before reaching its uninstrument call would otherwise leave sqlite3
+    globally instrumented, sending phantom spans into every later test in the same process
+    through the proxy tracer provider.
+    """
+    yield
+    if SQLite3Instrumentor().is_instrumented_by_opentelemetry:
+        SQLite3Instrumentor().uninstrument()
+
+
 def test_sqlite3_instrumentation(exporter: TestExporter):
     logfire.instrument_sqlite3()
 
@@ -34,7 +47,6 @@ def test_sqlite3_instrumentation(exporter: TestExporter):
                         'logfire.span_type': 'span',
                         'logfire.msg': 'DROP TABLE IF EXISTS test',
                         'db.system': 'sqlite',
-                        'db.name': '',
                         'db.statement': 'DROP TABLE IF EXISTS test',
                     },
                 },
@@ -48,7 +60,6 @@ def test_sqlite3_instrumentation(exporter: TestExporter):
                         'logfire.span_type': 'span',
                         'logfire.msg': 'CREATE TABLE test (id INT PRIMARY KEY, name VARCHAR(255))',
                         'db.system': 'sqlite',
-                        'db.name': '',
                         'db.statement': 'CREATE TABLE test (id INT PRIMARY KEY, name VARCHAR(255))',
                     },
                 },
@@ -62,7 +73,6 @@ def test_sqlite3_instrumentation(exporter: TestExporter):
                         'logfire.span_type': 'span',
                         'logfire.msg': 'INSERT INTO test (id, name) VALUES (1, "test")',
                         'db.system': 'sqlite',
-                        'db.name': '',
                         'db.statement': 'INSERT INTO test (id, name) VALUES (1, "test")',
                     },
                 },
@@ -76,7 +86,6 @@ def test_sqlite3_instrumentation(exporter: TestExporter):
                         'logfire.span_type': 'span',
                         'logfire.msg': 'SELECT * FROM test',
                         'db.system': 'sqlite',
-                        'db.name': '',
                         'db.statement': 'SELECT * FROM test',
                     },
                 },
@@ -84,7 +93,6 @@ def test_sqlite3_instrumentation(exporter: TestExporter):
         )
 
     conn.close()
-    SQLite3Instrumentor().uninstrument()
 
 
 def test_instrument_sqlite3_connection(exporter: TestExporter):
@@ -111,7 +119,6 @@ def test_instrument_sqlite3_connection(exporter: TestExporter):
                         'logfire.span_type': 'span',
                         'logfire.msg': 'INSERT INTO test (id, name) VALUES (1, "test")',
                         'db.system': 'sqlite',
-                        'db.name': '',
                         'db.statement': 'INSERT INTO test (id, name) VALUES (1, "test")',
                     },
                 },
@@ -125,7 +132,6 @@ def test_instrument_sqlite3_connection(exporter: TestExporter):
                         'logfire.span_type': 'span',
                         'logfire.msg': 'SELECT * FROM test',
                         'db.system': 'sqlite',
-                        'db.name': '',
                         'db.statement': 'SELECT * FROM test',
                     },
                 },

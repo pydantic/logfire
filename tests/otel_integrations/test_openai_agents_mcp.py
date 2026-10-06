@@ -3,7 +3,6 @@
 
 import asyncio
 import os
-import sys
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
@@ -28,7 +27,6 @@ except ImportError:
         assert False
 
 pytestmark = [
-    pytest.mark.skipif(sys.version_info < (3, 10), reason='Requires Python 3.10 or higher'),
     pytest.mark.skipif(
         get_version(pydantic.__version__) < get_version('2.11'), reason='Requires Pydantic 2.11 or higher'
     ),
@@ -205,7 +203,7 @@ async def test_mcp(exporter: TestExporter):
                         'input_tokens': 51,
                         'output_tokens': 11,
                         'total_tokens': 62,
-                        'input_tokens_details': {'cached_tokens': 0},
+                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.system': 'openai',
@@ -228,6 +226,14 @@ async def test_mcp(exporter: TestExporter):
                     ],
                     'gen_ai.usage.input_tokens': 51,
                     'gen_ai.usage.output_tokens': 11,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 51,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 11,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 62,
+                    },
+                    'operation.cost': 0.0002375,
                     'logfire.msg': "Responses API with 'gpt-4o'",
                 },
             },
@@ -350,7 +356,12 @@ async def test_mcp(exporter: TestExporter):
                     'sdk_span_type': 'turn',
                     'turn': 1,
                     'agent_name': 'Assistant',
-                    'usage': {'input_tokens': 51, 'output_tokens': 11, 'cached_input_tokens': 0},
+                    'usage': {
+                        'input_tokens': 51,
+                        'output_tokens': 11,
+                        'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
+                    },
                     'logfire.msg': 'Turn 1 for agent Assistant',
                     'logfire.span_type': 'span',
                 },
@@ -463,7 +474,7 @@ async def test_mcp(exporter: TestExporter):
                         'input_tokens': 83,
                         'output_tokens': 11,
                         'total_tokens': 94,
-                        'input_tokens_details': {'cached_tokens': 0},
+                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
@@ -513,6 +524,14 @@ async def test_mcp(exporter: TestExporter):
                     'gen_ai.usage.input_tokens': 83,
                     'gen_ai.usage.output_tokens': 11,
                     'gen_ai.system': 'openai',
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 83,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 11,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 94,
+                    },
+                    'operation.cost': 0.0003175,
                     'logfire.msg': "Responses API with 'gpt-4o'",
                 },
             },
@@ -533,7 +552,12 @@ async def test_mcp(exporter: TestExporter):
                     'sdk_span_type': 'turn',
                     'turn': 2,
                     'agent_name': 'Assistant',
-                    'usage': {'input_tokens': 83, 'output_tokens': 11, 'cached_input_tokens': 0},
+                    'usage': {
+                        'input_tokens': 83,
+                        'output_tokens': 11,
+                        'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
+                    },
                     'logfire.msg': 'Turn 2 for agent Assistant',
                     'logfire.span_type': 'span',
                 },
@@ -577,6 +601,7 @@ async def test_mcp(exporter: TestExporter):
                         'input_tokens': 134,
                         'output_tokens': 22,
                         'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
                         'requests': 2,
                         'total_tokens': 156,
                     },

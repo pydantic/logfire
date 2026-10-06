@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import dataclasses
+import getpass
+import inspect
 import json
 import os
 import pickle
+import signal
 import subprocess
 import sys
 import threading
-from collections.abc import Iterable, Sequence
+import warnings
+from collections.abc import Callable, Iterable, Sequence
 from contextlib import ExitStack
 from io import StringIO
 from pathlib import Path
@@ -22,7 +26,7 @@ import requests.exceptions
 import requests_mock
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
-from opentelemetry._logs import get_logger_provider
+from opentelemetry._logs import LogRecord, get_logger, get_logger_provider
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -33,6 +37,7 @@ from opentelemetry.sdk._logs import LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogRecordExporter, SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, PeriodicExportingMetricReader
+from opentelemetry.sdk.resources import Resource, ResourceDetector
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
@@ -46,6 +51,7 @@ from pydantic import __version__ as pydantic_version
 from pytest import LogCaptureFixture
 
 import logfire
+import logfire._internal.config as config_module
 from logfire import configure, propagate
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire._internal.config import (
@@ -53,6 +59,7 @@ from logfire._internal.config import (
     CodeSource,
     ConsoleOptions,
     LogfireConfig,
+    LogfireConfigWarning,
     LogfireCredentials,
     VariablesOptions,
     get_base_url_from_token,
@@ -73,13 +80,15 @@ from logfire._internal.exporters.processor_wrapper import (
 )
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
+from logfire._internal.forwarding import OTLPForwardingManager
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
+from logfire._internal.interactive import NonInteractiveError
 from logfire._internal.tracer import PendingSpanProcessor
 from logfire._internal.utils import SeededRandomIdGenerator, get_version
 from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
 from logfire.propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
-from logfire.testing import TestExporter
+from logfire.testing import TestExporter, TestLogExporter
 from logfire.version import VERSION
 
 PROCESS_RUNTIME_VERSION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
@@ -465,20 +474,6 @@ def test_pydantic_plugin_include_exclude_strings():
     assert fresh_pydantic_plugin().exclude == {'exc'}
 
 
-def test_deprecated_configure_pydantic_plugin(config_kwargs: dict[str, Any]):
-    assert fresh_pydantic_plugin().record == 'off'
-
-    with pytest.warns(UserWarning) as warnings:
-        logfire.configure(**config_kwargs, pydantic_plugin=logfire.PydanticPlugin(record='all'))  # type: ignore
-
-    assert fresh_pydantic_plugin().record == 'all'
-
-    assert len(warnings) == 1
-    assert str(warnings[0].message) == snapshot(
-        'The `pydantic_plugin` argument is deprecated. Use `logfire.instrument_pydantic()` instead.'
-    )
-
-
 def test_read_config_from_environment_variables() -> None:
     assert fresh_pydantic_plugin().record == 'off'
 
@@ -582,6 +577,142 @@ def test_logfire_config_console_options() -> None:
         assert LogfireConfig().console == ConsoleOptions(verbose=False)
 
 
+def test_logfire_config_reconfigure_replaces_forwarding_manager() -> None:
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    previous_manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(previous_manager, OTLPForwardingManager)
+    assert previous_manager.has_destinations() is False
+
+    logfire.configure(send_to_logfire=False, console=False, metrics=False)
+
+    manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(manager, OTLPForwardingManager)
+    assert manager is not previous_manager
+    assert previous_manager.closed is True
+    assert manager.has_destinations() is False
+
+
+def test_forwarding_destinations_registered_from_active_logfire_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
+    configure(
+        token=['pylf_v1_us_token1', 'pylf_v1_us_token2', 'pylf_v1_eu_token3'],
+        send_to_logfire=True,
+        console=False,
+        metrics=False,
+    )
+    wait_for_check_token_thread()
+    manager = GLOBAL_CONFIG._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+
+    assert set(manager.pipelines) == {'https://logfire-us.pydantic.dev', 'https://logfire-eu.pydantic.dev'}
+    assert manager.pipelines['https://logfire-us.pydantic.dev'].tokens == [
+        'pylf_v1_us_token1',
+        'pylf_v1_us_token2',
+    ]
+    assert manager.pipelines['https://logfire-eu.pydantic.dev'].tokens == ['pylf_v1_eu_token3']
+
+
+def test_forwarding_destinations_not_registered_when_send_to_logfire_false() -> None:
+    logfire.configure(token='pylf_v1_us_token', send_to_logfire=False, console=False, metrics=False)
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+
+    manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    assert manager.has_destinations() is False
+
+
+def test_shutdown_otlp_forwarding_closes_local_forwarding_managers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
+    local_logfires = [
+        logfire.configure(local=True, token='pylf_v1_us_token1', send_to_logfire=True, console=False, metrics=False),
+        logfire.configure(local=True, token='pylf_v1_eu_token2', send_to_logfire=True, console=False, metrics=False),
+    ]
+    wait_for_check_token_thread()
+    managers = [local_logfire.config._otlp_forwarding for local_logfire in local_logfires]  # pyright: ignore[reportPrivateUsage]
+
+    try:
+        assert all(manager.has_destinations() for manager in managers)
+
+        config_module.shutdown_otlp_forwarding(100)
+
+        assert all(manager.closed for manager in managers)
+        assert all(pipeline.closed for manager in managers for pipeline in manager.pipelines.values())
+    finally:
+        for local_logfire in local_logfires:
+            local_logfire.shutdown(flush=False)
+
+
+@pytest.mark.parametrize('flush', [False, True])
+def test_logfire_shutdown_closes_providers(monkeypatch: pytest.MonkeyPatch, flush: bool) -> None:
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    variable_provider = mock.Mock()
+    otlp_forwarding = mock.Mock()
+    otlp_forwarding.shutdown.return_value = True
+    tracer_provider = mock.Mock()
+    logger_provider = mock.Mock()
+    meter_provider = mock.Mock()
+    monkeypatch.setattr(config, '_variable_provider', variable_provider)
+    monkeypatch.setattr(config, '_otlp_forwarding', otlp_forwarding)
+    monkeypatch.setattr(config, '_tracer_provider', tracer_provider)
+    monkeypatch.setattr(config, '_logger_provider', logger_provider)
+    monkeypatch.setattr(config, '_meter_provider', meter_provider)
+
+    assert logfire.shutdown(timeout_millis=1000, flush=flush) is True
+
+    forwarding_timeout = otlp_forwarding.shutdown.call_args.args[0]
+    otlp_forwarding.shutdown.assert_called_once_with(forwarding_timeout, drain_queued=flush)
+    if flush:
+        tracer_provider.force_flush.assert_called_once()
+        logger_provider.force_flush.assert_called_once()
+        meter_provider.force_flush.assert_called_once()
+    else:
+        tracer_provider.force_flush.assert_not_called()
+        logger_provider.force_flush.assert_not_called()
+        meter_provider.force_flush.assert_not_called()
+    tracer_provider.shutdown.assert_called_once()
+    logger_provider.shutdown.assert_called_once()
+    meter_provider.shutdown.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ('logger_result', 'forwarding_result', 'tracer_result', 'expected'),
+    [
+        (True, True, True, True),
+        (None, True, True, True),
+        (False, True, True, False),
+        (True, False, True, False),
+        (True, True, False, False),
+    ],
+)
+def test_force_flush_combines_provider_results(
+    monkeypatch: pytest.MonkeyPatch,
+    logger_result: bool | None,
+    forwarding_result: bool,
+    tracer_result: bool,
+    expected: bool,
+) -> None:
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    meter_provider = mock.Mock()
+    logger_provider = mock.Mock()
+    logger_provider.force_flush.return_value = logger_result
+    otlp_forwarding = mock.Mock()
+    otlp_forwarding.force_flush.return_value = forwarding_result
+    tracer_provider = mock.Mock()
+    tracer_provider.force_flush.return_value = tracer_result
+    monkeypatch.setattr(config, '_meter_provider', meter_provider)
+    monkeypatch.setattr(config, '_logger_provider', logger_provider)
+    monkeypatch.setattr(config, '_otlp_forwarding', otlp_forwarding)
+    monkeypatch.setattr(config, '_tracer_provider', tracer_provider)
+
+    assert config.force_flush(123) is expected
+    meter_provider.force_flush.assert_called_once_with(123)
+    logger_provider.force_flush.assert_called_once_with(123)
+    otlp_forwarding.force_flush.assert_called_once_with(123)
+    tracer_provider.force_flush.assert_called_once_with(123)
+
+
 def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
     assert isinstance(processor, BatchSpanProcessor)
     try:
@@ -661,36 +792,38 @@ def test_configure_export_delay() -> None:
     check_delays(exporter, 0.0, 0.1)  # since we set 1ms it should be a very short delay
 
 
-def test_configure_service_version(tmp_path: str) -> None:
-    request_mocker = requests_mock.Mocker()
-    request_mocker.get(
-        'https://logfire-api.pydantic.dev/v1/info',
-        json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
-    )
-
+def test_configure_service_version(config_kwargs: dict[str, Any], exporter: TestExporter, tmp_path: str) -> None:
     import subprocess
 
     git_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
-    with request_mocker:
-        configure(token='abc2', service_version='1.2.3')
+    def resource_service_version() -> str | None:
+        logfire.info('test')
+        [span] = exporter.exported_spans_as_dict(include_resources=True)
+        exporter.clear()
+        return span['resource']['attributes'].get('service.version')
 
-        assert GLOBAL_CONFIG.service_version == '1.2.3'
+    # Explicit version: stored on the config and used in the resource.
+    configure(service_version='1.2.3', **config_kwargs)
+    assert GLOBAL_CONFIG.service_version == '1.2.3'
+    assert resource_service_version() == '1.2.3'
 
-        configure(token='abc3')
+    # No explicit version: the git commit hash is used in the resource as a low-precedence fallback (so
+    # `OTEL_RESOURCE_ATTRIBUTES` can still override it here), and is stored back on the config so it's reflected
+    # in the configuration span and serialized to child processes.
+    configure(**config_kwargs)
+    assert GLOBAL_CONFIG.service_version == git_sha
+    assert resource_service_version() == git_sha
 
-        assert GLOBAL_CONFIG.service_version == git_sha
-
-        dir = os.getcwd()
-
-        try:
-            os.chdir(tmp_path)
-            configure(token='abc4')
-            assert GLOBAL_CONFIG.service_version is None
-        finally:
-            os.chdir(dir)
-
-        wait_for_check_token_thread()
+    # No git available: no `service.version` at all.
+    dir = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        configure(**config_kwargs)
+        assert GLOBAL_CONFIG.service_version is None
+        assert resource_service_version() is None
+    finally:
+        os.chdir(dir)
 
 
 def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
@@ -728,6 +861,10 @@ def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: Test
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                         'process.pid': 1234,
                     }
                 },
@@ -775,6 +912,10 @@ def test_otel_otel_resource_attributes_env_var(config_kwargs: dict[str, Any], ex
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                     }
                 },
             }
@@ -815,7 +956,9 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                         'telemetry.sdk.language': 'python',
                         'telemetry.sdk.name': 'opentelemetry',
                         'telemetry.sdk.version': '0.0.0',
-                        'service.name': 'banana',
+                        # `OTEL_SERVICE_NAME` takes priority over `service.name` in `OTEL_RESOURCE_ATTRIBUTES`,
+                        # matching OpenTelemetry's own semantics.
+                        'service.name': 'potato',
                         'service.version': '1.2.3',
                         'service.instance.id': '00000000000000000000000000000000',
                         'logfire.version': VERSION,
@@ -823,11 +966,543 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                     }
                 },
             }
         ]
     )
+
+
+def test_resource_attributes_advanced_option(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    config_kwargs['resource_attributes'] = {'host.name': 'my-host', 'custom.thing': 'from-kwarg'}
+    with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'custom.thing=from-env'}):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict(
+        {
+            'host.name': 'my-host',
+            # The explicit `resource_attributes` kwarg takes precedence over the OTEL_RESOURCE_ATTRIBUTES env var.
+            'custom.thing': 'from-kwarg',
+        }
+    )
+
+
+def test_dedicated_args_take_precedence_over_resource_attributes(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    # The dedicated `service_name`/`service_version`/`environment` args win over the same keys set generically
+    # via `resource_attributes`, and each override emits a warning.
+    config_kwargs['resource_attributes'] = {
+        'service.name': 'from-attrs',
+        'service.version': 'from-attrs',
+        'deployment.environment.name': 'from-attrs',
+        'custom.thing': 'from-attrs',
+    }
+    with pytest.warns(LogfireConfigWarning) as warnings:
+        configure(**config_kwargs, service_name='from-arg', service_version='from-arg', environment='from-arg')
+
+    # One warning per dedicated argument that overrode a different `resource_attributes` value; the key with no
+    # dedicated argument (`custom.thing`) doesn't warn.
+    messages = '\n'.join(str(w.message) for w in warnings)
+    assert "The 'service.name' resource attribute is set both via" in messages
+    assert "The 'service.version' resource attribute is set both via" in messages
+    assert "The 'deployment.environment.name' resource attribute is set both via" in messages
+    assert "'custom.thing'" not in messages
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict(
+        {
+            'service.name': 'from-arg',
+            'service.version': 'from-arg',
+            'deployment.environment.name': 'from-arg',
+            # A key with no dedicated argument still comes from `resource_attributes`.
+            'custom.thing': 'from-attrs',
+        }
+    )
+
+
+@pytest.mark.parametrize('detectors', [['*'], 'process', ['process']])
+def test_resource_detectors(detectors: str | list[str], config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # A list of names, a bare string (coerced to a single-element list), and `'*'` (every registered detector)
+    # all run the `process` detector, which adds attributes that aren't pre-populated by default.
+    config_kwargs['advanced'] = dataclasses.replace(config_kwargs['advanced'], resource_detectors=detectors)
+    configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    # The `process` detector adds attributes that aren't pre-populated by default.
+    assert span['resource']['attributes'] == IsPartialDict(
+        {
+            'process.owner': getpass.getuser(),
+            'process.executable.name': IsStr(),
+            'process.executable.path': IsStr(),
+        }
+    )
+
+
+def test_resource_detector_instance(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    class MyDetector(ResourceDetector):
+        def detect(self) -> Resource:
+            return Resource({'custom.thing': 'detected', 'service.version': 'detected-version'})
+
+    config_kwargs['advanced'] = dataclasses.replace(config_kwargs['advanced'], resource_detectors=[MyDetector()])
+    configure(**config_kwargs, service_version='explicit-version')
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict(
+        {
+            'custom.thing': 'detected',
+            # Explicitly set attributes take precedence over detectors.
+            'service.version': 'explicit-version',
+        }
+    )
+
+
+def test_resource_detector_unknown_name(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # An unknown detector name warns and is skipped rather than raising, so a typo can't crash the app.
+    config_kwargs['advanced'] = dataclasses.replace(
+        config_kwargs['advanced'], resource_detectors=['nonexistent-detector', 'process']
+    )
+    with pytest.warns(LogfireConfigWarning, match="Skipping unknown resource detector 'nonexistent-detector'"):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    # The valid detector alongside the unknown one is still applied.
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict({'process.owner': getpass.getuser()})
+
+
+def test_resource_detector_load_failure(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # A registered detector that raises while loading warns and is skipped rather than crashing the app.
+    class FailingEntryPoint:
+        name = 'failing'
+
+        def load(self):
+            def make_detector():
+                raise RuntimeError('boom')
+
+            return make_detector
+
+    config_kwargs['advanced'] = dataclasses.replace(config_kwargs['advanced'], resource_detectors=['failing'])
+    with patch('logfire._internal.config.entry_points', return_value=[FailingEntryPoint()]):
+        with pytest.warns(LogfireConfigWarning, match="Failed to load resource detector 'failing': boom"):
+            configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    # Configuration still succeeds with the default resource attributes despite the failing detector.
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict({'process.runtime.name': IsStr()})
+
+
+def test_resource_detector_unknown_name_in_env_var(config_kwargs: dict[str, Any]) -> None:
+    # The env var follows the same tolerant semantics as OTEL_EXPERIMENTAL_RESOURCE_DETECTORS.
+    with patch.dict(os.environ, {'LOGFIRE_RESOURCE_DETECTORS': 'nonexistent-detector'}):
+        with pytest.warns(LogfireConfigWarning, match="Skipping unknown resource detector 'nonexistent-detector'"):
+            configure(**config_kwargs)
+
+
+def test_resource_detectors_take_precedence_over_env_var_detectors(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    class CommandDetector(ResourceDetector):
+        def detect(self) -> Resource:
+            return Resource({'process.command': 'from-kwarg-detector'})
+
+    config_kwargs['advanced'] = dataclasses.replace(config_kwargs['advanced'], resource_detectors=[CommandDetector()])
+    with patch.dict(os.environ, {'OTEL_EXPERIMENTAL_RESOURCE_DETECTORS': 'process'}):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    # `resource_detectors` takes precedence over `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`.
+    assert attributes['process.command'] == 'from-kwarg-detector'
+    # The env var detector still contributes attributes that the kwarg detector doesn't override.
+    assert attributes['process.owner'] == getpass.getuser()
+
+
+def test_resource_attributes_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    with patch.dict(
+        os.environ,
+        {
+            # The `malformed` item has no `=` and is silently skipped.
+            'LOGFIRE_RESOURCE_ATTRIBUTES': 'custom.thing=from-logfire-env,other=value,malformed',
+            'OTEL_RESOURCE_ATTRIBUTES': 'custom.thing=from-otel-env',
+        },
+    ):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    assert attributes['other'] == 'value'
+    assert 'malformed' not in attributes
+    # LOGFIRE_RESOURCE_ATTRIBUTES (a `logfire.configure()` source) takes precedence over OTEL_RESOURCE_ATTRIBUTES.
+    assert attributes['custom.thing'] == 'from-logfire-env'
+
+
+def test_resource_detectors_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    with patch.dict(os.environ, {'LOGFIRE_RESOURCE_DETECTORS': 'process'}):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict({'process.owner': getpass.getuser()})
+
+
+def test_resource_attributes_and_detectors_from_pyproject_toml(
+    config_kwargs: dict[str, Any], exporter: TestExporter, tmp_path: Path
+) -> None:
+    (tmp_path / 'pyproject.toml').write_text(
+        """
+        [tool.logfire]
+        resource_attributes = {"custom.thing" = "from-file"}
+        resource_detectors = ["process"]
+        """
+    )
+
+    configure(**config_kwargs, config_dir=tmp_path)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    assert attributes['custom.thing'] == 'from-file'
+    assert attributes['process.owner'] == getpass.getuser()
+
+
+def test_explicit_service_version_takes_precedence_over_otel_resource_attributes(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    # An explicit `service_version` beats OTEL_RESOURCE_ATTRIBUTES; the git-hash fallback does not
+    # (see `test_otel_otel_resource_attributes_env_var`).
+    with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'service.version=from-env'}):
+        configure(**config_kwargs, service_version='explicit-version')
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes']['service.version'] == 'explicit-version'
+
+
+def test_auto_detected_service_version_serialized() -> None:
+    """An auto-detected (git) `service_version` is stored back on the config when the resource is built, so it's
+    reflected in the configuration span and serialized to child processes (which then treat it as an explicit
+    value). An explicitly-passed `service_version` is stored and serialized as-is.
+    """
+    import subprocess
+
+    git_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+
+    # In the logfire repo, the version is auto-detected from git and stored on the config.
+    configure(send_to_logfire=False, console=False)
+    assert GLOBAL_CONFIG.service_version == git_sha
+    serialized = serialize_config()
+    assert serialized is not None
+    assert serialized['service_version'] == git_sha
+
+    # An explicit version is stored and preserved across serialization.
+    configure(send_to_logfire=False, console=False, service_version='explicit-version')
+    assert GLOBAL_CONFIG.service_version == 'explicit-version'
+    serialized = serialize_config()
+    assert serialized is not None
+    assert serialized['service_version'] == 'explicit-version'
+
+
+def test_host_and_os_resource_attributes_populated_by_default(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    """`host.*` and `os.*` are pre-populated with the same values OTel's
+    `_HostResourceDetector` and `OsResourceDetector` would emit, so the Hosts
+    page works without the customer enabling the experimental detector env var.
+    """
+    import platform
+    import socket
+
+    # Hermetic: an inherited `OTEL_RESOURCE_ATTRIBUTES` from the runner shell
+    # would override our defaults and make this test pass spuriously.
+    with patch.dict(os.environ, {}, clear=False):
+        os.environ.pop('OTEL_RESOURCE_ATTRIBUTES', None)
+        configure(**config_kwargs)
+    logfire.info('test')
+
+    resource_attrs = exporter.exported_spans_as_dict(include_resources=True)[0]['resource']['attributes']
+    assert resource_attrs['host.name'] == socket.gethostname()
+    assert resource_attrs['host.arch'] == platform.machine()
+    assert resource_attrs['os.type'] == platform.system().lower()
+    assert resource_attrs['os.version'] == (
+        platform.version() if platform.system().lower() in ('windows', 'sunos') else platform.release()
+    )
+
+
+@pytest.mark.skipif(not hasattr(os, 'register_at_fork'), reason='os.register_at_fork is not available')
+def test_register_at_fork_resource_updates(
+    monkeypatch: pytest.MonkeyPatch,
+    exporter: TestExporter,
+    logs_exporter: TestLogExporter,
+    metrics_reader: InMemoryMetricReader,
+) -> None:
+    callbacks: list[Callable[[], None]] = []
+
+    def register_at_fork(*, after_in_child: Callable[[], None]) -> None:
+        callbacks.append(after_in_child)
+
+    monkeypatch.setattr(config_module.os, 'register_at_fork', register_at_fork)
+    monkeypatch.setattr(config_module.os, 'getpid', lambda: 42)
+
+    proxy_tracer_provider = GLOBAL_CONFIG.get_tracer_provider()
+    proxy_meter_provider = GLOBAL_CONFIG.get_meter_provider()
+    proxy_logger_provider = GLOBAL_CONFIG.get_logger_provider()
+    tracer_provider = proxy_tracer_provider.provider
+    meter_provider = proxy_meter_provider.provider
+    logger_provider = proxy_logger_provider.provider
+    assert isinstance(tracer_provider, config_module.SDKTracerProvider)
+    assert isinstance(meter_provider, config_module.MeterProvider)
+    assert isinstance(logger_provider, config_module.SDKLoggerProvider)
+
+    counter = logfire.metric_counter('fork.callback.counter')
+    counter.add(1)
+    logger = get_logger('fork.callback.logger')
+    logger.emit(LogRecord(body='before callback'))
+    with logfire.span('before callback'):
+        pass
+    metrics_reader.get_metrics_data()
+    exporter.clear()
+    logs_exporter.clear()
+
+    config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
+        proxy_tracer_provider,
+        proxy_meter_provider,
+        proxy_logger_provider,
+    )
+    [callback] = callbacks
+    callback()
+
+    counter.add(1)
+    logger.emit(LogRecord(body='after callback'))
+    with logfire.span('after callback'):
+        pass
+    metrics_data = metrics_reader.get_metrics_data()
+    assert metrics_data is not None
+    assert metrics_data.resource_metrics[0].resource.attributes['process.pid'] == 42
+    assert exporter.exported_spans[-1].resource.attributes['process.pid'] == 42
+    assert logs_exporter.get_finished_logs()[-1].resource.attributes['process.pid'] == 42
+
+    suppressed_scope = 'fork.callback.suppressed'
+    proxy_tracer_provider.suppress_scopes(suppressed_scope)
+    proxy_logger_provider.suppress_scopes(suppressed_scope)
+    suppressed_tracer = proxy_tracer_provider.get_tracer(suppressed_scope)
+    suppressed_logger = proxy_logger_provider.get_logger(suppressed_scope)
+    callbacks.clear()
+    noop_proxy_meter_provider = config_module.ProxyMeterProvider(NoOpMeterProvider())
+    config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
+        proxy_tracer_provider,
+        noop_proxy_meter_provider,
+        proxy_logger_provider,
+    )
+    [callback] = callbacks
+    callback()
+    assert suppressed_tracer.instrumenting_module_name == suppressed_scope
+    assert suppressed_logger
+
+    callbacks.clear()
+    noop_proxy_tracer_provider = config_module.ProxyTracerProvider(
+        config_module.trace.NoOpTracerProvider(), GLOBAL_CONFIG
+    )
+    noop_proxy_logger_provider = config_module.ProxyLoggerProvider(config_module.NoOpLoggerProvider())
+    config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
+        noop_proxy_tracer_provider,
+        noop_proxy_meter_provider,
+        noop_proxy_logger_provider,
+    )
+    [callback] = callbacks
+    callback()
+
+    callbacks.clear()
+    config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
+        config_module.ProxyTracerProvider(config_module.trace.NoOpTracerProvider(), GLOBAL_CONFIG),
+        config_module.ProxyMeterProvider(NoOpMeterProvider()),
+        config_module.ProxyLoggerProvider(config_module.NoOpLoggerProvider()),
+    )
+    [callback] = callbacks
+    callback()
+
+
+def test_otel_resource_updater_sources() -> None:
+    provider_classes = {
+        'traces': config_module.SDKTracerProvider,
+        'metrics': config_module.MeterProvider,
+        'logs': config_module.SDKLoggerProvider,
+    }
+    if not all(hasattr(provider_class, '_update_resource') for provider_class in provider_classes.values()):
+        pytest.skip('OpenTelemetry resource updaters were added in version 1.44')
+
+    # The fork callback manually performs the lock-free equivalent of these private methods. Fail loudly if an
+    # OpenTelemetry upgrade changes the state that needs updating.
+    assert {
+        name: inspect.getsource(getattr(provider_class, '_update_resource'))
+        for name, provider_class in provider_classes.items()
+    } == snapshot(
+        {
+            'traces': """\
+    def _update_resource(self, resource: Resource) -> None:
+        with self._tracers_lock:
+            self._resource = self._resource.merge(resource)
+            for tracer in self._tracers.values():
+                tracer._set_resource(self._resource)  # pylint: disable=protected-access
+""",
+            'metrics': """\
+    def _update_resource(self, resource: Resource) -> None:
+        with self._meter_lock:
+            self._sdk_config.resource = self._sdk_config.resource.merge(
+                resource
+            )
+""",
+            'logs': """\
+    def _update_resource(self, resource: Resource) -> None:
+        with self._active_loggers_lock:
+            self._resource = self._resource.merge(resource)
+            for logger in list(self._active_loggers):
+                # pylint: disable-next=protected-access
+                logger._set_resource(self._resource)
+""",
+        }
+    )
+
+
+@pytest.mark.skipif(not hasattr(os, 'fork'), reason='os.fork is not available')
+def test_resource_process_pid_updated_after_fork(
+    exporter: TestExporter, logs_exporter: TestLogExporter, metrics_reader: InMemoryMetricReader
+) -> None:
+    tracer_provider = GLOBAL_CONFIG.get_tracer_provider().provider
+    meter_provider = GLOBAL_CONFIG.get_meter_provider().provider
+    logger_provider = GLOBAL_CONFIG.get_logger_provider().provider
+    assert isinstance(tracer_provider, config_module.SDKTracerProvider)
+    assert isinstance(meter_provider, config_module.MeterProvider)
+    assert isinstance(logger_provider, config_module.SDKLoggerProvider)
+
+    counter = logfire.metric_counter('fork.counter')
+    counter.add(1)
+    logger = get_logger('fork.logger')
+    logger.emit(LogRecord(body='parent'))
+    with logfire.span('parent'):
+        pass
+
+    metrics_data = metrics_reader.get_metrics_data()
+    assert metrics_data is not None
+    assert metrics_data.resource_metrics[0].resource.attributes['process.pid'] == os.getpid()
+    assert exporter.exported_spans[-1].resource.attributes['process.pid'] == os.getpid()
+    assert logs_exporter.get_finished_logs()[-1].resource.attributes['process.pid'] == os.getpid()
+    exporter.clear()
+    logs_exporter.clear()
+
+    read_fd, write_fd = os.pipe()
+    provider_locks = []
+    if all(
+        hasattr(provider, '_handle_fork') and hasattr(provider, '_update_resource')
+        for provider in (tracer_provider, meter_provider, logger_provider)
+    ):
+        provider_locks = [
+            tracer_provider._tracers_lock,  # pyright: ignore[reportPrivateUsage]
+            meter_provider._meter_lock,  # pyright: ignore[reportPrivateUsage]
+            logger_provider._active_loggers_lock,  # pyright: ignore[reportPrivateUsage]
+        ]
+        for lock in provider_locks:
+            lock.acquire()
+
+    signal.alarm(10)
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*fork.*')
+            child_pid = os.fork()
+    except BaseException:
+        signal.alarm(0)
+        for lock in provider_locks:
+            lock.release()
+        raise
+
+    if child_pid == 0:  # pragma: no cover
+        os.close(read_fd)
+        try:
+            counter.add(1)
+            logger.emit(LogRecord(body='child'))
+            with logfire.span('child'):
+                pass
+            metrics_data = metrics_reader.get_metrics_data()
+            assert metrics_data is not None
+            result = json.dumps(
+                {
+                    'metric': metrics_data.resource_metrics[0].resource.attributes['process.pid'],
+                    'span': exporter.exported_spans[-1].resource.attributes['process.pid'],
+                    'log': logs_exporter.get_finished_logs()[-1].resource.attributes['process.pid'],
+                }
+            )
+            exit_code = 0
+        except BaseException as error:
+            result = repr(error)
+            exit_code = 1
+        os.write(write_fd, result.encode())
+        os.close(write_fd)
+        signal.alarm(0)
+        os._exit(exit_code)
+
+    for lock in provider_locks:
+        lock.release()
+    os.close(write_fd)
+
+    def raise_fork_timeout(*_: object) -> None:
+        raise TimeoutError('forked child process timed out')
+
+    previous_alarm_handler = signal.signal(signal.SIGALRM, raise_fork_timeout)
+    signal.alarm(10)
+    try:
+        with os.fdopen(read_fd) as read_file:
+            result = read_file.read()
+        _, status = os.waitpid(child_pid, 0)
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous_alarm_handler)
+
+    assert os.waitstatus_to_exitcode(status) == 0, result
+    assert json.loads(result) == {'metric': child_pid, 'span': child_pid, 'log': child_pid}
+
+
+def test_otel_resource_attributes_env_var_overrides_host_and_os_defaults(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    """`OTEL_RESOURCE_ATTRIBUTES` wins over the pre-populated `host.*` / `os.*`
+    so customers whose `socket.gethostname()` is useless (e.g. random
+    container IDs) can override cleanly.
+    """
+    with patch.dict(
+        os.environ,
+        {'OTEL_RESOURCE_ATTRIBUTES': 'host.name=my-explicit-host,host.arch=my-arch,os.type=plan9,os.version=4'},
+    ):
+        configure(**config_kwargs)
+    logfire.info('test')
+
+    resource_attrs = exporter.exported_spans_as_dict(include_resources=True)[0]['resource']['attributes']
+    assert resource_attrs['host.name'] == 'my-explicit-host'
+    assert resource_attrs['host.arch'] == 'my-arch'
+    assert resource_attrs['os.type'] == 'plan9'
+    assert resource_attrs['os.version'] == '4'
 
 
 def test_config_serializable():
@@ -1337,6 +2012,291 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
         ]
 
 
+@pytest.mark.xdist_group(name='sequential')
+def test_create_new_project_selects_organization_with_no_tty(tmp_dir_cwd: Path, tmp_path: Path):
+    """The organization-selection prompt already has `default=user_default_organization_name
+
+    or organizations[0]` -- the same outcome a person pressing Enter would get -- so an
+    exhausted stdin picks that organization instead of raising an `EOFError` traceback.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        prompt_mock = stack.enter_context(
+            mock.patch('rich.prompt.Prompt.ask', side_effect=[EOFError, 'mytestproject1', ''])
+        )
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_org1'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/account/me',
+            json={'default_organization': {'organization_name': 'fake_org1'}},
+        )
+
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        # The default (`fake_org1`, from `account/me` above) is where the project must
+        # land -- if the EOF fallback picked the WRONG organization, this mock would 404
+        # instead of the create call succeeding.
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org1/projects',
+            [create_project_response],
+        )
+
+        logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        assert prompt_mock.mock_calls == [
+            call(
+                '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
+                choices=['fake_org', 'fake_org1'],
+                default='fake_org1',
+            ),
+            call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name)),
+            call(
+                'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
+            ),
+        ]
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
+def test_initialize_project_completes_with_no_tty_at_the_final_prompt(tmp_dir_cwd: Path, tmp_path: Path):
+    """`configure()` finishes even when stdin runs out at the very last prompt.
+
+    That final "Press Enter to continue" discards its answer either way -- it exists to
+    give a person a beat before moving on -- so an `EOFError` there must not turn an
+    already-completed setup into a crash. This is the exact shape of a real failure: an
+    agent piping just enough answers to satisfy the prompts it can see ahead of time
+    (`printf 'y\\n1\\n' | python -c 'import logfire; logfire.configure()'`) and hitting an
+    unhandled traceback on the one prompt it had no way to anticipate.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True, True]))
+        # Only two real answers, same as `printf 'y\n1\n'` -- the third prompt (the final
+        # "Press Enter to continue") has nothing left to read.
+        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['1', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/writable-projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'fake_project'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/fake_project/write-tokens/',
+            [create_project_response],
+        )
+
+        logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        assert confirm_mock.mock_calls == [call('Do you want to use one of your existing projects? ', default=True)]
+        assert prompt_mock.mock_calls == [
+            call(
+                "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/fake_project\n",
+                choices=['1'],
+                default='1',
+            ),
+            call(
+                'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
+            ),
+        ]
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
+def test_initialize_project_uses_existing_projects_with_no_tty(tmp_dir_cwd: Path, tmp_path: Path):
+    """ "Do you want to use one of your existing projects?" already has `default=True` --
+
+    the same outcome a person pressing Enter would get -- so an exhausted stdin reaches
+    that same outcome (and then continues into `use_existing_project`) instead of an
+    `EOFError` traceback on the very first prompt of the whole flow.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=EOFError))
+        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['1', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/writable-projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'fake_project'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/fake_project/write-tokens/',
+            [create_project_response],
+        )
+
+        logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        # The `use_existing_project` prompt was still reached, proving the first Confirm
+        # defaulted to True rather than skipping straight to project creation.
+        assert prompt_mock.mock_calls[0] == call(
+            "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/fake_project\n",
+            choices=['1'],
+            default='1',
+        )
+        assert confirm_mock.mock_calls == [call('Do you want to use one of your existing projects? ', default=True)]
+
+
+def test_create_new_project_confirms_the_organization_with_no_tty(tmp_dir_cwd: Path, tmp_path: Path):
+    """The organization-creation "Continue?" confirm already has `default=True` -- the
+
+    exact prompt a real user copying `logfire auth && python -c '...configure()'` out of
+    the docs would hit with no terminal attached. An exhausted stdin reaches the same
+    outcome pressing Enter would (create it) instead of an `EOFError` traceback.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        # Only the first Confirm ("use one of your existing projects?") has a real
+        # answer; there are no existing projects, so it is never asked. The "Continue?"
+        # confirm that matters here has nothing to read.
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=EOFError))
+        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['myproject', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects', [create_project_response]
+        )
+
+        logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        assert confirm_mock.mock_calls == [
+            call('The project will be created in the organization "fake_org". Continue?', default=True),
+        ]
+        assert prompt_mock.mock_calls == [
+            call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name)),
+            call(
+                'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
+            ),
+        ]
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
+def test_project_name_prompt_with_no_safe_default_and_no_tty_fails_with_guidance(tmp_dir_cwd: Path, tmp_path: Path):
+    """A rejected project name has NO safe default left to fall back on ("Ellipsis" is a
+
+    sentinel meaning "an answer is required", not a suggestion -- see the comment beside
+    `project_name_default = ...`). So once the first name is rejected, an exhausted stdin
+    must raise the same guidance `--non-interactive` would rather than silently retrying
+    with a project literally named "Ellipsis".
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True]))
+        stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['existingprojectname', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects',
+            [{'status_code': 409}],
+        )
+
+        with pytest.raises(NonInteractiveError) as exc_info:
+            logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        message = str(exc_info.value)
+        assert "A project with the name 'existingprojectname' already exists" in message
+        assert 'Cannot prompt because there is nothing left to read from stdin.' in message
+        assert 'logfire projects new PROJECT_NAME --org fake_org' in message
+
+        # No retry with the rejected name's sentinel default -- only the one doomed POST.
+        create_requests = [r for r in request_mocker.request_history if r.method == 'POST']
+        assert len(create_requests) == 1
+        assert not (tmp_dir_cwd / '.logfire/logfire_credentials.json').exists()
+
+
 def test_send_to_logfire_true(tmp_path: Path) -> None:
     """
     Test that with send_to_logfire=True, the logic is triggered to ask about creating a project.
@@ -1418,6 +2378,29 @@ def wait_for_check_token_thread():
             thread.join()
 
 
+def test_token_check_is_skipped_on_aws_lambda(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Lambda freezes the environment after the init phase; a background token check frozen
+    # mid-request would warn once thawed, and a synchronous check would slow every cold start.
+    # Inside Lambda the check is skipped. The mocked /v1/info response is held back until
+    # `release` is set, so a (wrongly) started background thread would still be alive and
+    # visible when the assertions run.
+    monkeypatch.setenv('AWS_LAMBDA_FUNCTION_NAME', 'my-function')
+    release = threading.Event()
+
+    def held_back_info(_request: Any, _context: Any) -> dict[str, str]:
+        release.wait(timeout=5)
+        return {'project_name': 'myproject', 'project_url': 'fake_project_url'}
+
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get('https://logfire-us.pydantic.dev/v1/info', json=held_back_info)
+        try:
+            configure(token='foobar', send_to_logfire='if-token-present', console=False)
+            assert not any(thread.name == 'check_logfire_token' for thread in threading.enumerate())
+            assert request_mocker.request_history == []
+        finally:
+            release.set()
+
+
 def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixture[str]) -> None:
     os.environ['LOGFIRE_TOKEN'] = 'foobar'
     try:
@@ -1474,15 +2457,22 @@ def test_send_to_logfire_if_token_present_in_logfire_dir(tmp_path: Path, capsys:
         assert len(request_mocker.request_history) == 1
 
 
-def test_configure_unknown_token_region(capsys: pytest.CaptureFixture[str]) -> None:
+def test_configure_unknown_token_region(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
     # Should default to us:
     with requests_mock.Mocker() as request_mocker:
         request_mocker.get(
             'https://logfire-us.pydantic.dev/v1/info',
             json={'project_name': 'myproject', 'project_url': 'https://logfire-us.pydantic.dev'},
         )
-        configure(send_to_logfire='if-token-present', token='pylf_v1_unknownregion_foobarbaz')
-        wait_for_check_token_thread()
+        with pytest.warns(LogfireConfigWarning) as warns:
+            configure(send_to_logfire='if-token-present', token='pylf_v1_unknownregion_foobarbaz', data_dir=tmp_path)
+            # Inside the `pytest.warns` block so that any warning from the background
+            # token-checking thread would be caught too: the token must warn exactly once.
+            wait_for_check_token_thread()
+        assert len(warns) == 1
+        assert str(warns[0].message) == snapshot(
+            "Unknown region 'unknownregion' in Logfire token, falling back to the US region. Known regions: eu, us."
+        )
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err == 'Logfire project URL: https://logfire-us.pydantic.dev\n'
 
@@ -1644,9 +2634,11 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
                         'service_name': False,
                         'service_version': True,
                         'environment': False,
+                        'resource_attributes': 0,
+                        'resource_detectors': 0,
                         'additional_span_processors': 1,
                     },
-                    'logfire.package_versions': IsPartialDict({'logfire': IsStr()}),
+                    'logfire.package_versions': IsPartialDict({'logfire-sdk': IsStr()}),
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1654,6 +2646,7 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
                             'logfire.package_versions': {'type': 'object'},
                         },
                     },
+                    'logfire.disable_console_log': True,
                 },
             }
         ]
@@ -1880,8 +2873,15 @@ def get_span_processors() -> Iterable[SpanProcessor]:
     return result[1:]
 
 
-def get_metric_readers() -> Iterable[SpanProcessor]:
-    return get_meter_provider().provider._sdk_config.metric_readers  # type: ignore
+def get_metric_readers() -> Iterable[object]:
+    provider = get_meter_provider().provider  # type: ignore
+    result = provider._logfire_metric_readers  # type: ignore
+    try:
+        # This only works on older OTel versions and is just a sanity check now.
+        assert result == provider._sdk_config.metric_readers  # type: ignore
+    except AttributeError:
+        pass
+    return result  # type: ignore
 
 
 def get_log_record_processors() -> Iterable[LogRecordProcessor]:
@@ -1907,76 +2907,9 @@ def test_dynamic_module_ignored_in_ensure_flush_after_aws_lambda(
     assert capsys.readouterr().err == ''
 
 
-def test_collect_system_metrics_false():
-    with inline_snapshot.extra.raises(
-        snapshot(
-            'ValueError: The `collect_system_metrics` argument has been removed. '
-            'System metrics are no longer collected by default.'
-        )
-    ):
-        logfire.configure(collect_system_metrics=False)  # type: ignore
-
-
-def test_collect_system_metrics_true():
-    with inline_snapshot.extra.raises(
-        snapshot(
-            'ValueError: The `collect_system_metrics` argument has been removed. '
-            'Use `logfire.instrument_system_metrics()` instead.'
-        )
-    ):
-        logfire.configure(collect_system_metrics=True)  # type: ignore
-
-
 def test_unknown_kwargs():
-    with inline_snapshot.extra.raises(snapshot('TypeError: configure() got unexpected keyword arguments: foo, bar')):
-        logfire.configure(foo=1, bar=2)  # type: ignore
-
-
-def test_project_name_deprecated():
-    with inline_snapshot.extra.raises(
-        snapshot('UserWarning: The `project_name` argument is deprecated and not needed.')
-    ):
-        logfire.configure(project_name='foo')  # type: ignore
-
-
-def test_base_url_deprecated():
-    with pytest.warns(UserWarning) as warnings:
-        logfire.configure(base_url='foo')  # type: ignore
-    assert len(warnings) == 1
-    assert str(warnings[0].message) == snapshot(
-        'The `base_url` argument is deprecated. Use `advanced=logfire.AdvancedOptions(base_url=...)` instead.'
-    )
-    assert GLOBAL_CONFIG.advanced.base_url == 'foo'
-
-
-def test_combine_deprecated_and_new_advanced():
-    with inline_snapshot.extra.raises(
-        snapshot('ValueError: Cannot specify `base_url` and `advanced`. Use only `advanced`.')
-    ):
-        logfire.configure(base_url='foo', advanced=logfire.AdvancedOptions(base_url='bar'))  # type: ignore
-
-
-def test_additional_metric_readers_deprecated():
-    readers = [InMemoryMetricReader()]
-    with pytest.warns(UserWarning) as warnings:
-        logfire.configure(additional_metric_readers=readers)  # type: ignore
-    assert len(warnings) == 1
-    assert str(warnings[0].message) == snapshot(
-        'The `additional_metric_readers` argument is deprecated. '
-        'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
-    )
-    assert GLOBAL_CONFIG.metrics.additional_readers is readers  # type: ignore
-
-
-def test_additional_metric_readers_combined_with_metrics():
-    readers = [InMemoryMetricReader()]
-    with inline_snapshot.extra.raises(
-        snapshot(
-            'ValueError: Cannot specify both `additional_metric_readers` and `metrics`. '
-            'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
-        )
-    ):
-        logfire.configure(additional_metric_readers=readers, metrics=False)  # type: ignore
+    with inline_snapshot.extra.raises(snapshot("TypeError: configure() got an unexpected keyword argument 'foo'")):
+        logfire.configure(foo=1)  # type: ignore
 
 
 def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
@@ -2013,6 +2946,10 @@ def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                         'service.version': '1.2.3',
                         'deployment.environment.name': 'production',
                     }
@@ -2064,6 +3001,10 @@ def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                         'logfire.code.root_path': 'logfire',
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
@@ -2117,6 +3058,10 @@ def test_code_source_without_root_path(config_kwargs: dict[str, Any], exporter: 
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
                         'vcs.repository.ref.revision': 'main',
@@ -2446,6 +3391,63 @@ def test_quiet_span_exporter(caplog: LogCaptureFixture):
 def test_staging_token_regions():
     assert get_base_url_from_token('pylf_v1_stagingeu_123456') == 'https://logfire-eu.pydantic.info'
     assert get_base_url_from_token('pylf_v1_stagingus_123456') == 'https://logfire-us.pydantic.info'
+    # Backend routing must not depend on validation of the evolving token suffix format.
+    assert (
+        get_base_url_from_token(
+            'pylf_v2_stagingeu_9F9BA85A-B759-4181-9527-D812E03F9F7F_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W'
+        )
+        == get_base_url_from_token(
+            'pylf_v2_stagingeu_9F9BA85AB759181-9527-D81^&*%*&^%*&^    2E03F9F7F_0kYhc414Ys2FNDRdt5vFBcbcBMy4Kp6PH0W'
+        )
+        == 'https://logfire-eu.pydantic.info'
+    )
+
+
+def test_known_token_regions_do_not_warn():
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        assert get_base_url_from_token('pylf_v1_us_123456') == 'https://logfire-us.pydantic.dev'
+        assert get_base_url_from_token('pylf_v1_eu_123456') == 'https://logfire-eu.pydantic.dev'
+        # Tokens predating regions have no region segment and must keep working silently.
+        assert get_base_url_from_token('legacy_token_no_region') == 'https://logfire-us.pydantic.dev'
+
+
+def test_unknown_token_region_warns_by_default():
+    with pytest.warns(LogfireConfigWarning) as warns:
+        assert get_base_url_from_token('pylf_v1_unknownregion_123456') == snapshot('https://logfire-us.pydantic.dev')
+    assert str(warns[0].message) == snapshot(
+        "Unknown region 'unknownregion' in Logfire token, falling back to the US region. Known regions: eu, us."
+    )
+
+
+def test_generate_base_url_warns_about_unknown_region_by_default():
+    # All `generate_base_url` callers are configuration paths, so they all warn consistently:
+    # the exporter setup, the variables provider, lazy variable init and credential validation.
+    with pytest.warns(LogfireConfigWarning) as warns:
+        assert (
+            logfire.AdvancedOptions().generate_base_url('pylf_v1_unknownregion_123456')
+            == 'https://logfire-us.pydantic.dev'
+        )
+    assert str(warns[0].message) == snapshot(
+        "Unknown region 'unknownregion' in Logfire token, falling back to the US region. Known regions: eu, us."
+    )
+
+
+def test_generate_base_url_with_explicit_base_url_does_not_warn():
+    # An explicit base_url overrides region routing entirely, so there's nothing to warn about.
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        advanced = logfire.AdvancedOptions(base_url='https://my-proxy.example.com')
+        assert advanced.generate_base_url('pylf_v1_unknownregion_123456') == 'https://my-proxy.example.com'
+
+
+def test_unknown_token_region_warning_can_be_disabled():
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        assert (
+            get_base_url_from_token('pylf_v1_unknownregion_123456', warn_unknown_region=False)
+            == 'https://logfire-us.pydantic.dev'
+        )
 
 
 def test_multiple_tokens_list(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2601,3 +3603,10 @@ def test_normalize_token():
     # Tuple input
     assert normalize_token(('token1',)) == 'token1'
     assert normalize_token(('token1', 'token2')) == ['token1', 'token2']
+
+
+def test_host_resource_attributes():
+    # Check that we're copying OTel accurately while avoiding the private import outside tests.
+    from opentelemetry.sdk.resources import _HostResourceDetector  # pyright: ignore[reportPrivateUsage]
+
+    assert config_module.host_resource_attributes() == _HostResourceDetector().detect().attributes

@@ -1,16 +1,19 @@
 ---
 title: "SSO Setup (Enterprise Cloud)"
-description: "Step-by-step guide to configure Single Sign-On (SSO) for Logfire Enterprise Cloud. Supports Okta, Microsoft Azure Entra ID, Keycloak, and any OIDC-compatible provider."
+description: "Step-by-step guide to configure Single Sign-On (SSO) for Logfire Enterprise Cloud. Supports Microsoft Entra ID, Okta, and Keycloak OIDC providers."
 ---
 
 # SSO Setup
 
-Logfire Enterprise Cloud supports Single Sign-On (SSO) via [OIDC-compatible](https://openid.net/developers/how-connect-works/) identity providers, including Okta, Microsoft Azure Entra ID, and Keycloak. Under the hood, Logfire uses [Dex](https://github.com/dexidp/dex), an open-source OIDC gateway.
+Logfire Enterprise Cloud supports Single Sign-On (SSO) through Microsoft Entra ID, Okta, and Keycloak OIDC providers. Under the hood, Logfire uses [Dex](https://github.com/dexidp/dex), an open-source OIDC gateway.
 
-This guide uses **Microsoft Azure Entra ID** as an example, but the general steps — registering an OIDC app, obtaining a Client ID, Client Secret, and Issuer URL, then connecting it in Logfire — apply to any supported provider.
+This guide uses **Microsoft Azure Entra ID** as an example, but the general steps (registering an OIDC app, obtaining a Client ID, Client Secret, and Issuer URL, then connecting it in Logfire) also apply to Okta and Keycloak.
 
 !!! note "Enterprise Cloud Required"
     SSO is available exclusively on the **Enterprise Cloud** plan. Ensure your organization has Enterprise Cloud enabled before proceeding. [Contact sales](mailto:sales@pydantic.dev) if you need to upgrade.
+
+!!! note "Self-hosted Logfire"
+    For self-hosted deployments, configure SSO in your Helm values through Dex. See the [self-hosted SSO provider examples](../reference/self-hosted/examples.md#sso-provider-examples).
 
 !!! tip "We Recommend Doing This on a Call"
     SSO configuration involves coordinating between Logfire and your identity provider's admin portal, and it's easy to miss a step. We strongly recommend scheduling a setup call with the Logfire team. Reach out to [support@pydantic.dev](mailto:support@pydantic.dev) to arrange this.
@@ -25,12 +28,24 @@ This guide uses **Microsoft Azure Entra ID** as an example, but the general step
 
 ---
 
+## Provider Setup References
+
+Use the Redirect URI from Logfire in Step 1 when your identity provider asks for a callback URL, sign-in redirect URI, or allowed callback URL.
+
+- **Microsoft Entra ID**: [Register an application](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app) and [add a redirect URI](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-add-redirect-uri).
+- **Okta**: [Create an OIDC web app integration](https://developer.okta.com/docs/guides/sign-into-web-app-redirect/main/).
+- **Keycloak**: [Create an OpenID Connect client](https://www.keycloak.org/docs/latest/server_admin/index.html#_oidc_clients).
+
+If you need a provider that is not listed here, contact [support@pydantic.dev](mailto:support@pydantic.dev).
+
+---
+
 ## Step 1: Find the Redirect URI in Logfire
 
 1. Log in to Logfire and switch to your **Enterprise Cloud organization**.
 2. Go to **Settings** in the left-hand menu.
-3. Scroll down to the **Identity Providers** section.
-4. Note the **Redirect URI** shown — you will need this when configuring the Azure app.
+3. Select **Single sign-on**.
+4. Note the **Redirect URI** shown. You will need this when configuring the Azure app.
 
 ---
 
@@ -49,7 +64,7 @@ This guide uses **Microsoft Azure Entra ID** as an example, but the general step
 
 1. In your new app registration, go to **Certificates & secrets** → **New client secret**.
 2. Add a description and choose an expiry period.
-3. Click **Add** and immediately **copy the secret value** — it will not be shown again.
+3. Click **Add** and immediately **copy the secret value**. It will not be shown again.
 
 ---
 
@@ -67,7 +82,7 @@ From your app registration, gather the following:
 
 ## Step 5: Configure the OIDC Provider in Logfire
 
-1. Return to **Logfire** → **Organization Settings** → **Identity Providers**.
+1. Return to **Logfire** → **Settings** → **Single sign-on**.
 2. Click **Add OIDC Provider** and select **Azure** (Microsoft Entra ID).
 3. Fill in the fields:
    - **Client ID**: your Azure Client ID
@@ -89,11 +104,16 @@ A request will be sent to your Azure admin for approval. The Azure admin should 
 ## Step 7: Test the SSO Login
 
 1. Log out of Logfire.
-2. Navigate to your organization's SSO login URL:
+2. Navigate to your organization's SSO login URL. Use the URL for the region your Logfire organization is hosted in:
    ```
-   https://logfire.pydantic.dev/login/{org-name}
+   https://logfire-us.pydantic.dev/login/{org-name}
+   https://logfire-eu.pydantic.dev/login/{org-name}
    ```
    *(replace `{org-name}` with your organization's handle)*
+
+    !!! tip "Which region?"
+        The org admin who set up SSO will let your team know which region URL to use. SSO is configured in a specific region, so the regional URL is the canonical sign-in URL for your team.
+
 3. Click **Continue with Entra ID** and verify you can log in successfully with your corporate credentials.
 
 ---
@@ -103,7 +123,7 @@ A request will be sent to your Azure admin for approval. The Azure admin should 
 1. Go to your Enterprise Cloud organization in Logfire.
 2. Navigate to **Settings** → **Invite Members**.
 3. Create an invite link (set it to never expire for convenience if you plan to share it in internal documentation).
-4. Share the **invite link** with your team — if users are not already authenticated, it will automatically redirect them to your SSO login page.
+4. Share the **invite link** with your team. If users are not already authenticated, it will automatically redirect them to your SSO login page.
 
 ---
 
@@ -113,7 +133,7 @@ During the transition, existing login methods (e.g., Google, GitHub) remain acti
 
 Once your team has successfully migrated to Entra ID SSO:
 
-- You can **disconnect** individual login methods from **Organization Settings** → **Identity Providers**.
+- You can **disconnect** individual login methods from **Settings** → **Single sign-on**.
 - Advise team members to use the SSO login URL going forward. If other providers are still enabled, users may inadvertently log in with their personal accounts instead.
 
 ### Linking Accounts for Existing Users
@@ -134,15 +154,15 @@ Users who joined the organization before SSO was configured need to connect thei
 
 | Step | Action |
 |---|---|
-| 1 | Copy the Redirect URI from Logfire Organization Settings |
+| 1 | Copy the Redirect URI from Logfire Settings → Single sign-on |
 | 2 | Create a **Web** app registration in Azure Entra ID with that Redirect URI |
 | 3 | Generate a Client Secret in Azure |
 | 4 | Collect Client ID, Client Secret, and Tenant ID |
 | 5 | Add Azure OIDC provider in Logfire with Issuer URL `https://login.microsoftonline.com/{tenant-id}/v2.0` |
 | 6 | Connect Entra ID and approve the request in Azure |
-| 7 | Test SSO login via `https://logfire.pydantic.dev/login/{org-name}` |
+| 7 | Test SSO login via your region's URL: `https://logfire-us.pydantic.dev/login/{org-name}` or `https://logfire-eu.pydantic.dev/login/{org-name}` |
 | 8 | Share the invite link with your team (redirects to SSO login if unauthenticated) |
 
 ---
 
-**See also:** [Enterprise Plan Overview](../enterprise.md)
+**See also:** [Provision group access with SCIM](../scim-provisioning.md), the System for Cross-domain Identity Management standard your identity provider uses to synchronize group membership, and [Enterprise Plan Overview](../enterprise.md)

@@ -1,11 +1,22 @@
 ---
-title: "Logfire MySQL Integration & Setup Guide"
-description: Trace every MySQL query with Logfire SQL logging. Set up the connection using our Docker example and automatically capture database query spans.
+title: "Instrument MySQL: see every query your app runs"
+description: "Add a few lines to your MySQL code and see every query in Logfire: the statement, how long it took, and which ones failed."
 integration: otel
 ---
 # MySQL
 
-The [`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql] method can be used to instrument the [MySQL Connector/Python][mysql-connector] database driver with **Logfire**, creating a span for every query.
+See every query your app sends to MySQL through the [MySQL Connector/Python][mysql-connector] driver
+(the statement, how long it took, and which ones failed) as a **span** (one unit of work with a name,
+a start, and a duration) in Logfire. Related spans link together into a **trace** (the full journey of
+one request), so a slow query shows up right next to the code that triggered it.
+
+## What you'll capture
+
+- Each query as a span, with its duration and any errors
+- The SQL statement that ran
+- Which database the query went to
+
+{{ before_you_start() }}
 
 ## Installation
 
@@ -15,12 +26,11 @@ Install `logfire` with the `mysql` extra:
 
 ## Usage
 
-Let's setup a MySQL database using Docker and run a Python script that connects to the database using MySQL connector to
-demonstrate how to use **Logfire** with MySQL.
+Add two lines to your app: `logfire.configure()` to connect to your project, and
+[`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql] to record every query.
 
-### Setup a MySQL Database Using Docker
-
-First, we need to initialize a MySQL database. This can be easily done using Docker with the following command:
+The example below connects to a local MySQL database. If you don't have one running, you can start one
+with Docker:
 
 ```bash
 docker run --name mysql \
@@ -32,20 +42,14 @@ docker run --name mysql \
     -d mysql
 ```
 
-The command above will create a MySQL database, that you can connect with `mysql://user:secret@0.0.0.0:3306/database`.
+This gives you a database you can reach at `mysql://user:secret@127.0.0.1:3306/database`.
 
-### Run the Python script
-
-The following Python script connects to the MySQL database and executes some SQL queries:
-
-```py skip-run="true" skip-reason="external-connection"
+```py title="main.py" hl_lines="6" skip-run="true" skip-reason="external-connection"
 import mysql.connector
 
 import logfire
 
 logfire.configure()
-
-# To instrument the whole module:
 logfire.instrument_mysql()
 
 connection = mysql.connector.connect(
@@ -56,9 +60,6 @@ connection = mysql.connector.connect(
     port=3306,
     use_pure=True,
 )
-
-# Or instrument just the connection:
-# connection = logfire.instrument_mysql(connection)
 
 with logfire.span('Create table and insert data'), connection.cursor() as cursor:
     cursor.execute(
@@ -71,14 +72,61 @@ with logfire.span('Create table and insert data'), connection.cursor() as cursor
 
     # Query the data
     cursor.execute('SELECT * FROM test')
-    results = cursor.fetchall()  # Fetch all rows
+    results = cursor.fetchall()
     for row in results:
-        print(row)  # Print each row
+        print(row)
 ```
 
-[`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql] uses the
-**OpenTelemetry MySQL Instrumentation** package,
-which you can find more information about [here][opentelemetry-mysql].
+Run it with `python main.py`.
+
+## Verify it worked
+
+Run your program, then open your project in the
+[Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
+should see a span for each query the script ran. Click one to see the SQL statement and how long it
+took.
+
+## Troubleshooting
+
+Not seeing your queries in Logfire? Check these first:
+
+- **`logfire.configure()` runs before `logfire.instrument_mysql()`.** Configure the connection first,
+  then instrument.
+- **You call `instrument_mysql()` exactly once.** With no argument it instruments the whole module;
+  pass a connection to instrument just that one.
+- **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
+  production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
+- **You actually ran a query.** Spans appear only after a statement executes.
+
+## Advanced
+
+### Instrumenting a single connection
+
+Instead of the whole module, you can instrument just one connection:
+
+```py skip-run="true" skip-reason="external-connection"
+import mysql.connector
+
+import logfire
+
+logfire.configure()
+
+connection = mysql.connector.connect(
+    host='localhost', user='user', password='secret', database='database', port=3306, use_pure=True
+)
+connection = logfire.instrument_mysql(connection)
+```
+
+### Passing options to the OpenTelemetry instrumentor
+
+[`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql] accepts additional keyword arguments
+and passes them to the OpenTelemetry MySQL instrumentation. See
+[their documentation][opentelemetry-mysql] for the full list.
+
+## Reference
+
+- API reference: [`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql]
+- Underlying OpenTelemetry package: [MySQL instrumentation][opentelemetry-mysql]
 
 [opentelemetry-mysql]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/mysql/mysql.html
 [mysql]: https://www.mysql.com/

@@ -61,7 +61,7 @@ def test_log_methods_without_kwargs(method: str):
     Ensure you are either:
       (1) passing an f-string directly, with inspect_arguments enabled and working, or
       (2) passing a literal `str.format`-style template, not a preformatted string.
-    See https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#messages-and-span-names.
+    See https://pydantic.dev/docs/logfire/instrument/python/add-manual-tracing/#messages-and-span-names.
     The problem was: The field {foo} is not defined.\
 """)
 
@@ -443,6 +443,38 @@ def test_instrument_missing_template_field():
 
     warning = warnings.pop()
     assert warning.filename.endswith('test_logfire.py'), (warning.filename, warning.lineno)
+
+
+def test_instrument_span_with_args_does_not_mutate_attributes(exporter: TestExporter) -> None:
+    from opentelemetry.util import types as otel_types
+
+    shared_attrs: dict[str, otel_types.AttributeValue] = {'logfire.msg_template': 'hello {a}', 'initial': 'value'}
+
+    # Call the internal method directly
+    with logfire.DEFAULT_LOGFIRE_INSTANCE._instrument_span_with_args(  # type: ignore[reportPrivateUsage]
+        'hello', shared_attrs, {'a': 1}
+    ):
+        pass
+
+    # Assert that the shared_attrs dict was not mutated in-place
+    assert shared_attrs == {'logfire.msg_template': 'hello {a}', 'initial': 'value'}
+
+
+def test_instrument_shared_mutable_attributes(exporter: TestExporter) -> None:
+    @logfire.instrument('hello {kwargs=}')
+    def hello(**kwargs: Any) -> None:
+        pass
+
+    hello(a=1)
+    hello(b=2)
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 2
+    # Ensure attributes from the first call do not leak into the second call
+    assert 'a' in spans[0]['attributes']['kwargs']
+    assert 'b' not in spans[0]['attributes']['kwargs']
+    assert 'b' in spans[1]['attributes']['kwargs']
+    assert 'a' not in spans[1]['attributes']['kwargs']
 
 
 def test_span_missing_template_field() -> None:
@@ -4016,6 +4048,41 @@ def test_exit_ended_span(exporter: TestExporter):
                 'parent': None,
                 'start_time': 1000000000,
             }
+        ]
+    )
+
+
+def test_update_name_updates_message(exporter: TestExporter):
+    tracer = get_tracer(__name__)
+
+    # e.g. FastAPI's built-in telemetry starts the span before the route is known, then renames it.
+    span = tracer.start_span(
+        'GET',
+        kind=SpanKind.SERVER,
+        attributes={'http.method': 'GET', 'http.route': '/items/{item_id}', 'http.target': '/items/1'},
+    )
+    span.update_name('GET /items/{item_id}')
+    span.end()
+
+    span = tracer.start_span('old name')
+    span.update_name('new name')
+    span.end()
+
+    # An explicitly set message is kept.
+    span = tracer.start_span('old name', attributes={'logfire.msg': 'custom message'})
+    span.update_name('new name')
+    span.end()
+
+    # So is a message from a template.
+    with logfire.span('old {x}', x=1):
+        get_current_span().update_name('new name')
+
+    assert [(s['name'], s['attributes']['logfire.msg']) for s in exporter.exported_spans_as_dict()] == snapshot(
+        [
+            ('GET /items/{item_id}', 'GET /items/1'),
+            ('new name', 'new name'),
+            ('new name', 'custom message'),
+            ('new name', 'old 1'),
         ]
     )
 

@@ -1,44 +1,45 @@
 ---
-title: "Logfire Stripe Integration: Setup Guide"
-description: Instrument the Stripe Python client for tracing. Logfire integrates with requests/httpx to monitor payments and API calls.
+title: "Instrument Stripe: trace calls to the Stripe API"
+description: "See every request the Stripe Python client makes, sync or async, as spans in Logfire, with duration, status, and errors."
 integration: otel
 ---
 # Stripe
 
-[Stripe] is a popular payment gateway that allows businesses to accept payments online.
+See every call your app makes to [Stripe](https://stripe.com) (the payment platform's API) as a
+**span** (one timed step, with a name and a duration) in Logfire, with how long it took, its status,
+and any errors.
 
-The stripe Python client has both synchronous and asynchronous methods for making requests to the Stripe API.
+The Stripe Python client sends these calls over HTTP, so you instrument it by instrumenting the HTTP
+library it uses under the hood: there's no separate Stripe extra to install. By default the client
+uses the [`requests`](http-clients/requests.md) package for synchronous calls and the
+[`httpx`](http-clients/httpx.md) package for asynchronous calls, so which Logfire function you call
+depends on which style you use.
 
-By default, the stripe client uses the `requests` package for making synchronous requests and
-the `httpx` package for making asynchronous requests.
+## What you'll capture
 
-```py skip-run="true" skip-reason="external-connection"
-from stripe import StripeClient
+- Each Stripe API call as a span, with its duration and status
+- Any errors returned by Stripe
+- Optionally, Stripe's own log messages (see [Advanced](#advanced))
 
-client = StripeClient(api_key='<your_secret_key>')
+{{ before_you_start() }}
 
-# Synchronous request
-client.customers.list()  # uses `requests`
+You'll also need a **Stripe secret key**, from your Stripe dashboard. The examples read it from the `STRIPE_SECRET_KEY` environment variable.
 
+## Installation
 
-# Asynchronous request
-async def main():
-    await client.customers.list_async()  # uses `httpx`
+Install `logfire`. No Stripe-specific extra is needed:
 
+{{ install_logfire() }}
 
-if __name__ == '__main__':
-    import asyncio
+This works with your existing `stripe` package. If you don't have it yet, `pip install stripe`.
 
-    asyncio.run(main())
-```
+## Usage
 
-You read more about this on the [Configuring an HTTP Client] section on the stripe repository.
+Call `logfire.configure()` to connect to your project, then instrument the HTTP library the Stripe
+client uses.
 
-## Synchronous Requests
-
-As mentioned, by default, `stripe` uses the `requests` package for making HTTP requests.
-
-In this case, you'll need to call [`logfire.instrument_requests()`][requests-section].
+For **synchronous** calls (the default), the client uses `requests`, so call
+[`logfire.instrument_requests()`][requests-section]:
 
 ```py skip-run="true" skip-reason="external-connection"
 import os
@@ -55,15 +56,8 @@ client = StripeClient(api_key=os.getenv('STRIPE_SECRET_KEY'))
 client.customers.list()
 ```
 
-!!! note
-    If you use the `http_client` parameter to configure the stripe client to use a different HTTP client,
-    you'll need to call the appropriate instrumentation method.
-
-## Asynchronous Requests
-
-As mentioned, by default, `stripe` uses the `httpx` package for making asynchronous HTTP requests.
-
-In this case, you'll need to call [`logfire.instrument_httpx()`][httpx-section].
+For **asynchronous** calls (methods ending in `_async`), the client uses `httpx`, so call
+[`logfire.instrument_httpx()`][httpx-section]:
 
 ```py skip-run="true" skip-reason="external-connection"
 import asyncio
@@ -89,12 +83,30 @@ if __name__ == '__main__':
 ```
 
 !!! note
-    If you use the `http_client` parameter to configure the stripe client to use a different HTTP client,
-    you'll need to call the appropriate instrumentation method.
+    If you set the Stripe client's `http_client` parameter to use a different HTTP library, call the
+    matching Logfire instrumentation method for that library instead. See
+    [Configuring an HTTP Client](https://github.com/stripe/stripe-python#configuring-an-http-client) in
+    the Stripe repository for the details.
 
-## Add logging instrumentation
+## Verify it worked
 
-Stripe also has a logger (`logger = getLogger('stripe')`) that [you can instrument with **Logfire**][logging-section].
+Run your program, then open the [Live view](../guides/web-ui/live.md). Within a few seconds you'll see
+a span for the HTTP call to Stripe, with its duration and status.
+
+## Troubleshooting
+
+Not seeing your Stripe calls in Logfire? Check that `logfire.configure()` ran before the
+`instrument_*` call, that your write token is set, that you instrumented the HTTP library your calls
+actually use (`requests` for synchronous, `httpx` for asynchronous), and that your `STRIPE_SECRET_KEY`
+is set so the call succeeds.
+
+## Advanced
+
+### Add Stripe's log messages
+
+Stripe has its own logger (`getLogger('stripe')`) that
+[you can route to Logfire](logging.md). This adds Stripe's internal log lines alongside the request
+spans:
 
 ```py skip-run="true" skip-reason="external-connection" hl_lines="8-9"
 import os
@@ -112,10 +124,14 @@ client = StripeClient(api_key=os.getenv('STRIPE_SECRET_KEY'))
 client.customers.list()
 ```
 
-You can change the `level=INFO` to `level=DEBUG` to see even more details, like the response body.
+Change `level='INFO'` to `level='DEBUG'` to see more detail, including the response body. Note that
+`DEBUG` level can include sensitive data, so use it with care.
 
-[Stripe]: https://stripe.com
-[Configuring an HTTP Client]: https://github.com/stripe/stripe-python#configuring-an-http-client
-[logging-section]: logging.md
+## Reference
+
+- [`logfire.instrument_requests()`][requests-section]: instrument synchronous Stripe calls.
+- [`logfire.instrument_httpx()`][httpx-section]: instrument asynchronous Stripe calls.
+- [Stripe: Configuring an HTTP Client](https://github.com/stripe/stripe-python#configuring-an-http-client): how the client chooses its HTTP library.
+
 [requests-section]: http-clients/requests.md
 [httpx-section]: http-clients/httpx.md
