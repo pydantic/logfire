@@ -1,0 +1,43 @@
+logfire-sdk/logfire/_internal/t_strings.py
+  s_a712bf945c5ce9::t_13bb890f80b0a9 12
+  s_a712bf945c5ce9::t_72f6269a8b6218 22
+  s_a712bf945c5ce9::t_854319068c5eff 25
+  s_a712bf945c5ce9::t_1ba60a3399946f 9
+  h_d9dd17644dded9 5
+  s_a712bf945c5ce9::t_ebb9265255d023 18
+  s_a712bf945c5ce9::t_a8e5f0e090d71e 8
+  s_a712bf945c5ce9::t_aecfb0216318da 26
+logfire-sdk/logfire/_internal/formatter.py
+  s_a712bf945c5ce9::t_986c5550a917b1 78
+  h_d9dd17644dded9 36-37,39-40,100,169
+  s_a712bf945c5ce9::t_8a58fcad795063 96
+  s_a712bf945c5ce9::t_bba87e0144be93 156
+  s_a712bf945c5ce9::t_1f89e2e1c0c3b1 94
+  s_a712bf945c5ce9::t_cd32ea41673138 171
+  s_a712bf945c5ce9::t_5ee43bd2d30130 55
+  s_a712bf945c5ce9::t_76ae4c1ea16daf 97
+  s_a712bf945c5ce9::t_1c4c3a6b9bfa89 79-81,91-93
+  s_a712bf945c5ce9::t_88145fc23acbea 95
+  h_d9dd17644dded9 38,41-42,82-90,98-99,151
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c41b4b975f85be21d1437a4974fb20f766634cf4",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_a712bf945c5ce9": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1791300803347",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
