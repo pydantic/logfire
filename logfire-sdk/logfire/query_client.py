@@ -222,10 +222,11 @@ class _BaseLogfireQueryClient(Generic[T]):
         problem = _parse_problem(response) if media_type == _PROBLEM_JSON else None
         error: QueryExecutionError | QueryRequestError | UnexpectedResponseError
         if response.status_code in (400, 422):
-            if problem is not None and 'error_details' in problem:
+            error_details = problem.get('error_details') if problem is not None else None
+            if error_details is not None:
                 # The problem detail carries the legacy error body in `error_details`,
                 # so `args[0]` is the same whether or not the server sends a problem detail.
-                data = problem['error_details']
+                data = error_details
             elif media_type == _PROBLEM_JSON:
                 # A problem detail body that is not a JSON object is passed as text.
                 data = problem if problem is not None else response.text
