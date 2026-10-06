@@ -1,0 +1,31 @@
+tests/test_logfire.py
+  h_d9dd17644dded9 4184
+logfire-sdk/logfire/_internal/exporters/processor_wrapper.py
+  h_d9dd17644dded9 282
+  s_bbe3a09f9d4386::t_aa5607e2f3b3e7 223
+  s_bbe3a09f9d4386::t_643cc44b50adcb 226
+  s_bbe3a09f9d4386::t_80dd7255d8b61c 227
+  s_bbe3a09f9d4386::t_7d96e50bd61c66 224-225
+  h_d9dd17644dded9 213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5da43c4bb37bf391895538f678595525b8a7ef07",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_bbe3a09f9d4386": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1791247356427",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
