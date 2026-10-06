@@ -1,0 +1,14 @@
+tests/otel_integrations/test_mcp_v2.py
+  h_d9dd17644dded9 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "360f0a3be5a494921b747566255797a10b61e72f",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
