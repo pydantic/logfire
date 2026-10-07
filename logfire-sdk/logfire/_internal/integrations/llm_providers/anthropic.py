@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+from collections.abc import Callable
 from inspect import signature
 from typing import TYPE_CHECKING, Any, cast
 
@@ -272,32 +273,25 @@ class AnthropicMessageStreamState(StreamState):
     _versions: frozenset[NormalizedSemconvVersion] = frozenset({2})
 
     def __init__(self):
-        from anthropic.lib.streaming._beta_messages import accumulate_event as beta_accumulate_event
-        from anthropic.lib.streaming._messages import accumulate_event
-
         self._message: Any = None
         self._chunk_count: int = 0
-        # Newer SDKs keep partial tool-call JSON outside the message snapshot.
-        self._accumulate_kwargs: dict[str, Any] = (
-            {'json_bufs': {}} if 'json_bufs' in signature(accumulate_event).parameters else {}
-        )
-        self._beta_accumulate_kwargs: dict[str, Any] = (
-            {'json_bufs': {}} if 'json_bufs' in signature(beta_accumulate_event).parameters else {}
-        )
+        self._accumulate_event: Callable[..., Any] | None = None
+        self._accumulate_kwargs: dict[str, Any] = {}
 
     def record_chunk(self, chunk: anthropic.types.MessageStreamEvent) -> None:
-        from anthropic.lib.streaming._beta_messages import accumulate_event as beta_accumulate_event
-        from anthropic.lib.streaming._messages import accumulate_event
+        if self._accumulate_event is None:
+            if type(chunk).__module__.startswith('anthropic.types.beta'):
+                from anthropic.lib.streaming._beta_messages import accumulate_event
 
-        if type(chunk).__module__.startswith('anthropic.types.beta'):
-            self._message = beta_accumulate_event(
-                event=cast(Any, chunk),
-                current_snapshot=self._message,
-                request_headers=cast(Any, {}),
-                **self._beta_accumulate_kwargs,
-            )
-        else:
-            self._message = accumulate_event(event=chunk, current_snapshot=self._message, **self._accumulate_kwargs)
+                self._accumulate_kwargs['request_headers'] = {}
+            else:
+                from anthropic.lib.streaming._messages import accumulate_event
+
+            self._accumulate_event = accumulate_event
+            # Newer SDKs keep partial tool-call JSON outside the message snapshot.
+            if 'json_bufs' in signature(accumulate_event).parameters:
+                self._accumulate_kwargs['json_bufs'] = {}
+        self._message = self._accumulate_event(event=chunk, current_snapshot=self._message, **self._accumulate_kwargs)
         if isinstance(getattr(chunk, 'delta', None), (TextDelta, BetaTextDelta)):
             self._chunk_count += 1
 
