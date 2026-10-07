@@ -170,6 +170,48 @@ def test_instrument_valkey_compound_command_redacted(valkey_behavior: dict[str, 
     )
 
 
+def test_instrument_valkey_whitespace_command(valkey_behavior: dict[str, Any], exporter: TestExporter):
+    """Whitespace-only first arg has no verb — must not leak and must not crash."""
+    from valkey import Valkey
+
+    client = Valkey(host='localhost', port=6379, db=0)
+    assert _sync_execute(client, '   ') == 'OK'
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'valkey',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': '?',
+                    'db.system': 'valkey',
+                    'db.statement': '?',
+                    'db.valkey.args_length': 1,
+                    'db.valkey.database_index': 0,
+                    'server.address': 'localhost',
+                    'server.port': 6379,
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_valkey_bytes_command(valkey_behavior: dict[str, Any], exporter: TestExporter):
+    from valkey import Valkey
+
+    client = Valkey(host='localhost', port=6379, db=0)
+    assert _sync_execute(client, b'SET', b'my-key', b'123') == 'OK'
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert spans[0]['name'] == 'SET'
+    assert spans[0]['attributes']['db.statement'] == 'SET ? ?'
+    assert spans[0]['attributes']['db.valkey.args_length'] == 3
+
+
 def test_instrument_valkey_no_connection_attributes(
     monkeypatch: pytest.MonkeyPatch, valkey_behavior: dict[str, Any], exporter: TestExporter
 ):
@@ -329,5 +371,26 @@ You can install this with:
 """
         )
     # Restore integration modules for subsequent tests.
+    importlib.import_module('logfire.integrations.valkey')
+    importlib.import_module('logfire._internal.integrations.valkey')
+
+
+def test_unrelated_import_error_reraised() -> None:
+    """Unrelated ModuleNotFoundError must not be masked as missing valkey."""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fake_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'logfire.integrations.valkey':
+            raise ModuleNotFoundError("No module named 'other_dep'", name='other_dep')
+        return real_import(name, *args, **kwargs)
+
+    sys.modules.pop('logfire.integrations.valkey', None)
+    sys.modules.pop('logfire._internal.integrations.valkey', None)
+    with mock.patch('builtins.__import__', side_effect=fake_import):
+        with pytest.raises(ModuleNotFoundError) as exc_info:
+            importlib.import_module('logfire._internal.integrations.valkey')
+        assert exc_info.value.name == 'other_dep'
     importlib.import_module('logfire.integrations.valkey')
     importlib.import_module('logfire._internal.integrations.valkey')

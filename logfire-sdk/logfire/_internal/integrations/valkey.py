@@ -78,10 +78,7 @@ def uninstrument_valkey() -> None:
 
 def _arg_to_str(arg: Any) -> str:
     if isinstance(arg, (bytes, bytearray)):
-        try:
-            return bytes(arg).decode('utf-8', errors='replace')
-        except Exception:
-            return str(arg)
+        return bytes(arg).decode('utf-8', errors='replace')
     return str(arg)
 
 
