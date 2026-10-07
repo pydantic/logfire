@@ -1,0 +1,29 @@
+logfire-sdk/logfire/_internal/integrations/fastapi.py
+  s_3eecf04afaad8c::t_57c6bac22bac8a 327-329
+tests/otel_integrations/test_fastapi.py
+  s_de8b99268d09e9::t_245c0b72b76026 1400-1403,1405-1406,1409-1410,1415-1430,1435-1438,1444,1453-1456,1461-1462,1468-1471,1476,1484,1512-1513,1516-1518,1544-1547,1549-1550,1553-1554,1559-1574,1579-1582,1587-1588,1597-1600,1605-1606,1612-1615,1620,1628,1656-1657,1660-1662
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9347efa04b2cdb7d1265b026becb2e9cdfd403b2",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_de8b99268d09e9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168c-0068-7b61-a918-bc2ef6d93466",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
