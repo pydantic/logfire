@@ -1,0 +1,35 @@
+logfire-sdk/logfire/_internal/integrations/mcp.py
+  s_3eecf04afaad8c::t_74e7fec93a5b45 5,7-8,23-29,32,49-52,55,57,86,88,95,117,119,122,128,130,133,138,141,149
+tests/otel_integrations/test_mcp_v2.py
+  s_3eecf04afaad8c::t_74e7fec93a5b45 4,13
+tests/test_logfire_api.py
+  s_3eecf04afaad8c::t_74e7fec93a5b45 41-42,292-298
+tests/conftest.py
+  s_3eecf04afaad8c::t_74e7fec93a5b45 67-68
+tests/otel_integrations/test_mcp_version_detection.py
+  s_3eecf04afaad8c::t_74e7fec93a5b45 5,15,17
+tests/otel_integrations/test_openai_agents_mcp.py
+  s_3eecf04afaad8c::t_b84e96f77ce1a9 65
+  s_3eecf04afaad8c::t_74e7fec93a5b45 7,20-27,31-33,56,59,68,94-95,110-111,133-135,166-167,211-213,268-270,285-287,298-300,333-335,361-363,408-410,441-442,674-676,723-725
+  s_3eecf04afaad8c::t_e695e8eaf9ca3c 66
+tests/otel_integrations/test_pydantic_ai_mcp.py
+  s_3eecf04afaad8c::t_74e7fec93a5b45 5,17-24,27-28,52,78-80,101-103,135-137,282-284,347-349,486-488,539-541
+  s_3eecf04afaad8c::t_b84e96f77ce1a9 57
+  s_3eecf04afaad8c::t_5e183b5add1c5f 58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6291425222446d31e33a8ab71111cd3911c2973e",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
