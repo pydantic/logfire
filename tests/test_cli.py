@@ -43,6 +43,7 @@ from logfire._internal.cli import (
     STATUS_MAX_ROWS,
     OrgProjectAction,
     SplitArgs,
+    _get_logfire_url,  # pyright: ignore[reportPrivateUsage]
     _has_git_dir,  # pyright: ignore[reportPrivateUsage]
     _is_git_tracked,  # pyright: ignore[reportPrivateUsage]
     _load_saved_read_token,  # pyright: ignore[reportPrivateUsage]
@@ -1417,6 +1418,56 @@ def test_auth_no_region_specified(tmp_path: Path) -> None:
         assert auth_file.read_text() == snapshot(
             """\
 [tokens."https://logfire-eu.pydantic.dev"]
+token = "fake_token"
+expiration = "fake_exp"
+"""
+        )
+
+
+def test_get_logfire_url_env_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`LOGFIRE_BASE_URL` is used when neither `--base-url` nor `--region` is passed."""
+    monkeypatch.setenv('LOGFIRE_BASE_URL', 'https://logfire.example.com')
+    assert _get_logfire_url('https://flag.example.com', None) == 'https://flag.example.com'
+    assert _get_logfire_url(None, 'us') == 'https://logfire-us.pydantic.dev'
+    assert _get_logfire_url(None, None) == 'https://logfire.example.com'
+
+
+def test_get_logfire_url_none_without_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
+    assert _get_logfire_url(None, None) is None
+
+
+def test_auth_uses_logfire_base_url_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """`LOGFIRE_BASE_URL=... logfire auth` skips the region prompt and uses the URL."""
+    monkeypatch.setenv('LOGFIRE_BASE_URL', 'https://logfire.example.com')
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        # EOFError here means "no terminal", which is fine past the region prompt:
+        # without the fix this raises SystemExit(1) at the region prompt instead.
+        stack.enter_context(patch('logfire._internal.cli.auth.input', side_effect=EOFError))
+        stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire.example.com/v1/device-auth/new/',
+            text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
+        )
+        m.get(
+            'https://logfire.example.com/v1/device-auth/wait/DC',
+            [
+                dict(text='null'),
+                dict(text='{"token": "fake_token", "expiration": "fake_exp"}'),
+            ],
+        )
+
+        main(['auth'])
+
+        assert auth_file.read_text() == snapshot(
+            """\
+[tokens."https://logfire.example.com"]
 token = "fake_token"
 expiration = "fake_exp"
 """

@@ -851,6 +851,9 @@ def _get_logfire_url(logfire_url: str | None, region: str | None) -> str | None:
         return logfire_url
     if region is not None:
         return REGIONS[region]['base_url']
+    # Match the SDK: allow targeting a self-hosted instance via the environment
+    # so `LOGFIRE_BASE_URL=... logfire auth` doesn't fall back to the region prompt.
+    return os.environ.get('LOGFIRE_BASE_URL')
 
 
 class SplitArgs(argparse.Action):
