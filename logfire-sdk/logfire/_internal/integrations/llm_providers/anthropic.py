@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+from inspect import signature
 from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
@@ -269,8 +270,18 @@ class AnthropicMessageStreamState(StreamState):
     _versions: frozenset[NormalizedSemconvVersion] = frozenset({2})
 
     def __init__(self):
+        from anthropic.lib.streaming._beta_messages import accumulate_event as beta_accumulate_event
+        from anthropic.lib.streaming._messages import accumulate_event
+
         self._message: Any = None
         self._chunk_count: int = 0
+        # Newer SDKs keep partial tool-call JSON outside the message snapshot.
+        self._accumulate_kwargs: dict[str, Any] = (
+            {'json_bufs': {}} if 'json_bufs' in signature(accumulate_event).parameters else {}
+        )
+        self._beta_accumulate_kwargs: dict[str, Any] = (
+            {'json_bufs': {}} if 'json_bufs' in signature(beta_accumulate_event).parameters else {}
+        )
 
     def record_chunk(self, chunk: anthropic.types.MessageStreamEvent) -> None:
         from anthropic.lib.streaming._beta_messages import accumulate_event as beta_accumulate_event
@@ -278,10 +289,13 @@ class AnthropicMessageStreamState(StreamState):
 
         if type(chunk).__module__.startswith('anthropic.types.beta'):
             self._message = beta_accumulate_event(
-                event=cast(Any, chunk), current_snapshot=self._message, request_headers=cast(Any, {})
+                event=cast(Any, chunk),
+                current_snapshot=self._message,
+                request_headers=cast(Any, {}),
+                **self._beta_accumulate_kwargs,
             )
         else:
-            self._message = accumulate_event(event=chunk, current_snapshot=self._message)
+            self._message = accumulate_event(event=chunk, current_snapshot=self._message, **self._accumulate_kwargs)
         if isinstance(getattr(chunk, 'delta', None), (TextDelta, BetaTextDelta)):
             self._chunk_count += 1
 
