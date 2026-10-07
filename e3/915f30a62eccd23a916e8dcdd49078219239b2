@@ -1,0 +1,19 @@
+uv.lock
+  s_3eecf04afaad8c::t_b439cf2913c508 310,315,317,319
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e3915f30a62eccd23a916e8dcdd49078219239b2",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
