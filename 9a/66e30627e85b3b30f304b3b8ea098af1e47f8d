@@ -1,0 +1,28 @@
+logfire-sdk/logfire/_internal/integrations/mcp.py
+  s_3eecf04afaad8c::t_b76d29320a15f6 7,32,49-52,55,57,86,88,95,117,119,122,128,130,133,138
+  s_de8b99268d09e9::t_3b1e7cfd1ad460 141,149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9a66e30627e85b3b30f304b3b8ea098af1e47f8d",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_de8b99268d09e9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168c-0068-7b61-a918-bc2ef6d93466",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
