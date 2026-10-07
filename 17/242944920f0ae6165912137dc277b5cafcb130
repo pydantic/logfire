@@ -1,0 +1,23 @@
+tests/otel_integrations/test_dspy.py
+  s_3eecf04afaad8c::t_314260de353909 113
+tests/otel_integrations/test_litellm.py
+  s_3eecf04afaad8c::t_331ff46bf8c207 31
+tests/test_logfire_api.py
+  s_3eecf04afaad8c::t_ff35f5048898d8 21,318,330
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "17242944920f0ae6165912137dc277b5cafcb130",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
