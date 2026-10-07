@@ -1,0 +1,21 @@
+tests/otel_integrations/test_anthropic.py
+  s_3eecf04afaad8c::t_39d0f00568d207 703-704,706-721,732-754,758-762
+  s_3eecf04afaad8c::t_b387850467e105 722-731,755-757
+  s_3eecf04afaad8c::t_da6dbb2c3fdff1 705
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cc18b96f820d0cfdb8c4c0a7cfa29715344a66b1",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
