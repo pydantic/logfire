@@ -1,12 +1,12 @@
 ---
-title: "Logfire Kubernetes view: clusters, namespaces, workloads, pods and nodes"
-description: "Browse Kubernetes resources, filter nodes, workloads, and pods to current findings, and jump from each resource to the traces it produced."
+title: "Logfire Kubernetes view: resource findings, logs, and events"
+description: "Find Kubernetes resources that need attention, inspect their Events and container logs, and open the application traces they produced."
 ---
 # Kubernetes
 
-The <OpenInLogfire path="kubernetes" variant="inline" label="Kubernetes view" /> is the cluster-shaped browser for your Kubernetes telemetry. Six lenses on the same data (Clusters, Nodes, Namespaces, Workloads, Pods, and Images) are all sortable, with one-click drill-down to the traces each pod produced in the [Live View](live.md).
+Find Kubernetes resources that need attention, then inspect their events, container logs, and application traces in the <OpenInLogfire path="kubernetes" variant="inline" label="Kubernetes view" />. A trace is the full journey of one request, made of nested spans. Each span is one unit of work: a single operation, with a name, a start, and a duration. Open the trace in [Live View](live.md) to investigate what the application did.
 
-You'll find Kubernetes in the project sidebar, between **Hosts** and **Metrics**.
+You'll find **Kubernetes** in the project sidebar. Resource findings are available in the inventory; the dedicated **Logs** and **Events** tabs are experimental.
 
 Switch to the **Pods** tab to drop into individual pod state: restart counts, CPU and memory per pod, status pill, and the workload they belong to.
 
@@ -29,15 +29,17 @@ Restart counts roll up at every level. If a single pod is in a crash loop, you c
 
 ## Find current Kubernetes problems
 
-The **Nodes**, **Workloads**, and **Pods** tabs show current finding counts. Open one of those tabs and select **With findings** to query the full fleet for affected resources, including resources beyond the rows initially loaded on the page.
+The **Nodes**, **Workloads**, and **Pods** tabs show finding counts. Open one of those tabs and select **With findings** to query the full fleet for resources with current findings, including resources beyond the rows initially loaded on the page.
 
 - **Nodes**: not ready, reporting memory or disk pressure, or using at least 80% of allocatable processor or memory capacity.
 - **Workloads**: a deployment has fewer available replicas than desired, or a job reports failed pods.
-- **Pods**: pending or failed, or reporting at least three cumulative container restarts.
+- **Pods**: pending or failed, or reporting at least three cumulative container restarts. This is the count reported by Kubernetes, not the number of restarts in the selected range. Kubernetes can reset it after a node restart.
 
 ![Kubernetes node findings and full-fleet filter](../../images/kubernetes/findings-overview.png)
 
-Kubernetes findings use telemetry received in the latest 15 minutes, rather than every sample in the selected historical range, so they describe the current state. One resource can have more than one condition, which means the condition counts can overlap. A missing metric means Logfire cannot evaluate that condition, not that the resource is healthy.
+Finding counts use metric samples from the final 15 minutes of the selected range, or the whole range if it is shorter. **With findings** checks the latest 15 minutes at the time of the request, regardless of the selected range. In a historical range, the counts and filtered rows can therefore differ.
+
+One resource can have more than one condition, which means the condition counts can overlap. A missing metric means Logfire cannot evaluate that condition, not that the resource is healthy.
 
 Kubernetes Events remain separate log records. An image-pull failure, scheduling event, or `OOMKilled` event can explain a finding, but it is not itself counted as one.
 
@@ -50,7 +52,35 @@ The view follows the Kubernetes hierarchy you already think in:
 - From a **workload** (Deployment, StatefulSet, DaemonSet, etc.) to its pods.
 - From a **pod** to its workload, its namespace, its node, **and the traces it produced**.
 
-Every detail page links into the [Live View](live.md) for the trace investigation that ends the question.
+Resource detail pages retain your time range and environment when you switch between **Overview**, **Logs**, and **Events**. The Logs and Events tabs keep the selected cluster, namespace, node, workload, or pod scope. Each detail page also links to [Live View](live.md) for application traces.
+
+## Enable experimental Logs and Events
+
+Early access requires access to a Growth or Enterprise organization, or a self-hosted deployment. Findings do not require Early access.
+
+1. Open **Settings → Early access**.
+2. Click the flask button labeled **Show experimental features**.
+3. Enable **Infrastructure logs**.
+4. If prompted, review the terms, check the agreement box, and select **Agree and continue**. If you see a notice instead, select **Enable feature**.
+5. Open **Kubernetes** or a resource's detail page. You should see **Overview**, **Logs**, and **Events** tabs.
+
+The switch does not install a Collector or start sending data. An OpenTelemetry Collector is a separate program that sits between your apps and Logfire, gathering telemetry and forwarding it. Use the [Kubernetes monitoring setup](../../how-to-guides/otel-collector/kubernetes-monitoring.md) to collect pod logs and Kubernetes Events. A metrics-only installation does not populate those tabs.
+
+## Read container logs
+
+Open **Logs** for all Kubernetes resources, or select a cluster, namespace, node, workload, or pod first. Search messages, filter by severity, and choose a container on a pod's Logs tab. Open a row to inspect its original body and attributes; a truncated message preview does not replace the stored record.
+
+Live tail follows incoming records. **Pause** freezes the window for inspection. Scrolling away stops automatic scrolling. A new-row indicator appears when new records arrive while you're scrolled away; select **Resume** to return to live output. A fixed historical range stays within its selected bounds.
+
+<span id="where-kubernetes-events-surface-today"></span>
+
+## Inspect Kubernetes Events
+
+Open **Events** for the fleet or a selected resource. Search by message, reason, or affected object. Each event shows its type, reason, message, affected resource, and reported total occurrence count when available. Open an event to inspect its original structured body.
+
+An Event is a Kubernetes lifecycle record, such as a scheduling failure or a container restart. The chart's `kubernetesEvents` preset sends these records to Logfire through the `k8s_objects` receiver. Repeated updates to the same Event appear together; its occurrence count is reported by Kubernetes, not a count of rows received in your selected range. The list starts with recent records; use **Show more** when available to request older records in the range.
+
+You can also read the records in [Live View](live.md) or query `records` in [SQL Workbench](explore.md), without enabling the experimental tabs.
 
 ## Setting up
 
@@ -64,10 +94,6 @@ For the full per-piece breakdown (RBAC, both collector configs, the `k8s_attribu
 
 If you have not set anything up yet, the empty state on each tab has a **Set up** button that deep-links to the relevant page of the add-data wizard.
 
-## Where Kubernetes events surface today
-
-The chart's `kubernetesEvents` preset turns Kubernetes events (pod scheduling, OOMKills, image pull failures, deployment progress) into log records via the `k8s_objects` receiver and ships them to your project. There is no dedicated **Events** tab in the Kubernetes view yet. To read them, open the [Live View](live.md) and filter on the relevant pod, namespace or `k8s.*` attribute, or query the `records` table directly in [SQL Workbench](explore.md). Watch this space. An events feed in the Kubernetes view is in our backlog.
-
 ## Troubleshooting
 
 | Symptom | Likely cause |
@@ -77,3 +103,5 @@ The chart's `kubernetesEvents` preset turns Kubernetes events (pod scheduling, O
 | Pod row has no traces to drill into | The `k8s_attributes` processor is not on the trace pipeline, so spans never get `k8s.pod.name` etc. attached. The chart wires this in by default; if you assembled the setup by hand, see [the custom Collector reference](../../how-to-guides/otel-collector/kubernetes-manual-setup.md#what-k8sattributesprocessor-actually-does). |
 | Cluster metrics appear duplicated across nodes | `k8s_cluster` is running on every replica without `k8s_leader_elector`. The chart configures the elector; from-scratch setups must add it. |
 | Two clusters collide as one row in the **Clusters** tab | Both clusters report the same `k8s.cluster.name`. Set a unique `clusterName` on each via the chart's top-level `clusterName:` value or the `resource/cluster` processor in a hand-rolled setup. |
+| Logs and Events tabs are missing | Check your Early access eligibility and follow [Enable experimental Logs and Events](#enable-experimental-logs-and-events), including any terms or notice prompt. |
+| Logs or Events are empty | Check the time range and environment. Confirm that the Collector sends pod logs and Kubernetes Events, with the cluster and resource identity used by the selected scope. Widen to the fleet view to check whether records arrived under a different identity. |
