@@ -65,6 +65,7 @@ instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy
 instrument_sqlite3 = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlite3
 instrument_aws_lambda = DEFAULT_LOGFIRE_INSTANCE.instrument_aws_lambda
 instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
+instrument_valkey = DEFAULT_LOGFIRE_INSTANCE.instrument_valkey
 instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
 instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
 instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb
@@ -179,6 +180,7 @@ __all__ = (
     'instrument_sqlite3',
     'instrument_aws_lambda',
     'instrument_redis',
+    'instrument_valkey',
     'instrument_pymongo',
     'instrument_mysql',
     'instrument_surrealdb',
