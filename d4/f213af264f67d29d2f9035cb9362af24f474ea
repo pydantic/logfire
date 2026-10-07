@@ -1,0 +1,19 @@
+tests/otel_integrations/test_dspy.py
+  s_3eecf04afaad8c::t_456b71d53e3892 128-129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d4f213af264f67d29d2f9035cb9362af24f474ea",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
