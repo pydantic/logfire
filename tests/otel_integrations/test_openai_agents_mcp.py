@@ -7,18 +7,23 @@ from contextlib import asynccontextmanager
 from importlib import import_module
 from typing import TYPE_CHECKING
 
-import pydantic
 import pytest
 from dirty_equals import IsPartialDict
 from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
-from logfire._internal.utils import get_version
 from tests.otel_integrations.test_openai_agents import simplify_spans
 
+# The installed AI frameworks require Pydantic 2.12; skip before importing MCP.
+pytest.importorskip('pydantic', minversion='2.12')
 # These snapshots exercise Logfire's MCP 1 instrumentation; MCP 2 has its own tests.
-pytest.importorskip('mcp.shared.session', exc_type=ImportError)
+try:
+    import_module('mcp.shared.session')
+except ModuleNotFoundError as exc:
+    if exc.name not in {'mcp', 'mcp.shared', 'mcp.shared.session'}:
+        raise
+    pytest.skip('Requires MCP 1', allow_module_level=True)
 
 if TYPE_CHECKING:
     from typing import Any as Context
@@ -35,12 +40,6 @@ try:
 except ImportError:
     if TYPE_CHECKING:
         assert False
-
-pytestmark = [
-    pytest.mark.skipif(
-        get_version(pydantic.__version__) < get_version('2.11'), reason='Requires Pydantic 2.11 or higher'
-    ),
-]
 
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
 os.environ['OPENAI_DEFAULT_MODEL'] = 'gpt-4o'
