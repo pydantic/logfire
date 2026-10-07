@@ -317,6 +317,31 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
     )
 
 
+def test_legacy_google_genai_scope(exporter: TestExporter) -> None:
+    """Retain the chat attributes and specific scope for instrumentor versions before 1.2b0."""
+    from opentelemetry.sdk.util.instrumentation import InstrumentationScope
+    from opentelemetry.trace import get_tracer
+
+    tracer = get_tracer(
+        'opentelemetry.util.genai.handler',
+        '1.1b0',
+        schema_url='https://example.com/schema',
+        attributes={'source': 'legacy'},
+    )
+    with tracer.start_as_current_span(
+        'generate_content gemini-test',
+        attributes={'gen_ai.provider.name': 'gemini', 'gen_ai.operation.name': 'generate_content'},
+    ):
+        pass
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['gen_ai.operation.name'] == 'chat'
+    assert span['attributes']['gen_ai.system'] == 'gemini'
+    assert exporter.exported_spans[0].instrumentation_scope == InstrumentationScope(
+        'opentelemetry.instrumentation.google_genai', '1.1b0', 'https://example.com/schema', {'source': 'legacy'}
+    )
+
+
 def test_non_gemini_util_genai_span_not_transformed(exporter: TestExporter) -> None:
     """A non-Gemini span under the shared `opentelemetry.util.genai.handler` scope is left untouched.
 
