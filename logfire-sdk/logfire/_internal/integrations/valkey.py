@@ -6,12 +6,14 @@ from typing import Any
 
 try:
     from logfire.integrations.valkey import RequestHook, ResponseHook
-except ImportError:
+except ModuleNotFoundError as exc:
+    if exc.name != 'valkey':
+        raise
     raise RuntimeError(
         '`logfire.instrument_valkey()` requires the `valkey` package.\n'
         'You can install this with:\n'
         "    pip install 'logfire[valkey]'"
-    )
+    ) from exc
 
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
@@ -74,23 +76,51 @@ def uninstrument_valkey() -> None:
     _is_instrumented = False
 
 
-def _span_name(args: tuple[Any, ...]) -> str:
+def _arg_to_str(arg: Any) -> str:
+    if isinstance(arg, (bytes, bytearray)):
+        try:
+            return bytes(arg).decode('utf-8', errors='replace')
+        except Exception:
+            return str(arg)
+    return str(arg)
+
+
+def _first_arg_tokens(args: tuple[Any, ...]) -> list[str]:
     if not args:
+        return []
+    return _arg_to_str(args[0]).split()
+
+
+def _span_name(args: tuple[Any, ...]) -> str:
+    tokens = _first_arg_tokens(args)
+    if not tokens:
         return 'valkey'
-    return str(args[0]).upper()
+    return tokens[0].upper()
+
+
+def _expanded_args_length(args: tuple[Any, ...]) -> int:
+    tokens = _first_arg_tokens(args)
+    if not args:
+        return 0
+    if not tokens:
+        return len(args)
+    return len(tokens) + len(args) - 1
 
 
 def _sanitized_statement(args: tuple[Any, ...]) -> str:
     if not args:
         return ''
-    return ' '.join([str(args[0])] + ['?'] * (len(args) - 1))
+    tokens = _first_arg_tokens(args)
+    if not tokens:
+        return ' '.join(['?'] * len(args))
+    return ' '.join([tokens[0]] + ['?'] * (len(tokens) + len(args) - 2))
 
 
 def _display_statement(args: tuple[Any, ...], *, capture_statement: bool) -> tuple[str, str]:
     if capture_statement:
-        full = ' '.join(map(str, args))
+        full = ' '.join(map(_arg_to_str, args))
         truncate_value = functools.partial(truncate_string, max_length=20, middle='...')
-        return full, ' '.join(map(truncate_value, map(str, args)))
+        return full, ' '.join(map(truncate_value, map(_arg_to_str, args)))
     sanitized = _sanitized_statement(args)
     return sanitized, sanitized
 
@@ -98,7 +128,7 @@ def _display_statement(args: tuple[Any, ...], *, capture_statement: bool) -> tup
 def _set_attributes(span: Any, instance: Any, args: tuple[Any, ...], statement: str, display: str) -> None:
     span.set_attribute('db.system', 'valkey')
     span.set_attribute('db.statement', statement)
-    span.set_attribute('db.valkey.args_length', len(args))
+    span.set_attribute('db.valkey.args_length', _expanded_args_length(args))
     span.set_attribute(ATTRIBUTES_MESSAGE_KEY, display)
     pool = getattr(instance, 'connection_pool', None)
     connection_kwargs: dict[str, Any] = getattr(pool, 'connection_kwargs', {})

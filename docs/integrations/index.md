@@ -34,7 +34,7 @@ If a package you are using is not listed in this documentation, please let us kn
 - _AI Agent Frameworks_ (Python, TypeScript, Go, Rust, .NET): CrewAI, AutoGen, Google ADK, smolagents, Strands, Agno, Haystack, Semantic Kernel, Vercel AI SDK, Mastra, Rig, and more. See [Agent Frameworks](agent-frameworks/index.md).
 - _No-code AI and workflow platforms_: Dify, Flowise, Goose, Langflow, LobeChat, n8n, and Open WebUI ([setup guides](no-code/index.md))
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
-- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery, Elasticsearch, Snowflake
+- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, Valkey, BigQuery, Elasticsearch, Snowflake
 - _HTTP Clients_: HTTPX, HTTPX2, Requests, AIOHTTP
 - _Task Queues and Schedulers_: Airflow, FastStream, Celery
 - _Logging Libraries_: Standard Library Logging, Loguru, Structlog

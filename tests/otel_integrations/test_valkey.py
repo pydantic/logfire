@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import sys
 from collections.abc import Iterator
 from typing import Any
 from unittest import mock
@@ -10,7 +11,6 @@ from inline_snapshot import snapshot
 from opentelemetry.trace import Span
 
 import logfire
-import logfire._internal.integrations.valkey
 from logfire._internal.integrations.valkey import uninstrument_valkey
 from logfire.testing import TestExporter
 
@@ -131,6 +131,36 @@ def test_instrument_valkey_empty_args(valkey_behavior: dict[str, Any], exporter:
                     'db.system': 'valkey',
                     'db.statement': '',
                     'db.valkey.args_length': 0,
+                    'db.valkey.database_index': 0,
+                    'server.address': 'localhost',
+                    'server.port': 6379,
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_valkey_compound_command_redacted(valkey_behavior: dict[str, Any], exporter: TestExporter):
+    """`execute_command('AUTH secret')` is valid — credentials must not leak with capture off."""
+    from valkey import Valkey
+
+    client = Valkey(host='localhost', port=6379, db=0)
+    assert _sync_execute(client, 'AUTH secret123') == 'OK'
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'AUTH',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'AUTH ?',
+                    'db.system': 'valkey',
+                    'db.statement': 'AUTH ?',
+                    'db.valkey.args_length': 2,
                     'db.valkey.database_index': 0,
                     'server.address': 'localhost',
                     'server.port': 6379,
@@ -285,12 +315,12 @@ def test_uninstrument_valkey_without_instrument():
 
 
 def test_missing_valkey_dependency() -> None:
-    with mock.patch.dict(
-        'sys.modules',
-        {'valkey': None, 'logfire.integrations.valkey': None},
-    ):
+    with mock.patch.dict('sys.modules', {'valkey': None}):
+        # Evict cached integration modules so the missing `valkey` dependency is actually exercised.
+        sys.modules.pop('logfire.integrations.valkey', None)
+        sys.modules.pop('logfire._internal.integrations.valkey', None)
         with pytest.raises(RuntimeError) as exc_info:
-            importlib.reload(logfire._internal.integrations.valkey)
+            importlib.import_module('logfire._internal.integrations.valkey')
         assert str(exc_info.value) == snapshot(
             """\
 `logfire.instrument_valkey()` requires the `valkey` package.
@@ -298,3 +328,6 @@ You can install this with:
     pip install 'logfire[valkey]'\
 """
         )
+    # Restore integration modules for subsequent tests.
+    importlib.import_module('logfire.integrations.valkey')
+    importlib.import_module('logfire._internal.integrations.valkey')

@@ -89,8 +89,9 @@ Not seeing your commands in Logfire? Check these first:
 
 ### Capturing the command
 
-By default, the command sent to Valkey isn't recorded, since it can contain sensitive data. To include
-it, pass `capture_statement=True`:
+By default, only the command name is recorded with argument values redacted as `?`
+(e.g. `db.statement` = `SET ? ?`), since commands can contain sensitive data. To include
+the full command with values, pass `capture_statement=True`:
 
 ```py skip-run="true" skip-reason="external-connection"
 import logfire
