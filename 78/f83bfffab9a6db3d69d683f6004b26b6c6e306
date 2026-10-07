@@ -1,0 +1,20 @@
+tests/test_logfire_api.py
+  s_3eecf04afaad8c::t_8480ab9d0de713 289-290,305-306
+  s_3eecf04afaad8c::t_dd95331b470f12 37-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "78f83bfffab9a6db3d69d683f6004b26b6c6e306",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
