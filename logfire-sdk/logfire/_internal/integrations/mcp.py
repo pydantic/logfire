@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import functools
 import warnings
+from collections.abc import Awaitable, Callable
 from contextlib import ExitStack, contextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from mcp.client.session import ClientSession
 from mcp.server import Server
@@ -23,6 +24,13 @@ from logfire.propagate import attach_context, get_context
 
 if TYPE_CHECKING:
     from logfire import LevelName, Logfire
+
+
+class _RequestResponder(Protocol):
+    """The MCP 1 responder interface used by instrumentation."""
+
+    request: Any
+    respond: Callable[..., Awaitable[None]]
 
 
 def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
