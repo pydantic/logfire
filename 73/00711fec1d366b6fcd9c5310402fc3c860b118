@@ -1,0 +1,19 @@
+uv.lock
+  s_3eecf04afaad8c::t_820a974040576d 1365,1386,1388,1563,1567,1573,1575,3073,3809,3811,3813,7018,7024,7026,7433,7440,7442,7610,7615,7617
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7300711fec1d366b6fcd9c5310402fc3c860b118",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
