@@ -1,8 +1,7 @@
 """Tests for `logfire.instrument_mcp()` with mcp 2, which fastmcp 4 depends on.
 
 mcp 2 emits OpenTelemetry spans and propagates trace context by itself, so `instrument_mcp()`
-only warns that it's unnecessary. These tests run in CI in a separate step that installs
-`fastmcp>=4` on top of the locked environment (see `.github/workflows/main.yml`).
+only warns that it's unnecessary. MCP 1 is exercised in a separate compatibility step.
 """
 
 import pytest
@@ -12,6 +11,7 @@ import logfire
 from logfire.testing import TestExporter
 
 pytest.importorskip('fastmcp', minversion='4')
+pytest.importorskip('pydantic', minversion='2.12')
 
 from fastmcp import Client, FastMCP
 
