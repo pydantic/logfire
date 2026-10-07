@@ -1,0 +1,31 @@
+tests/otel_integrations/test_wsgi.py
+  s_3eecf04afaad8c::t_00953d293d6732 23
+logfire-sdk/logfire/_internal/integrations/mysql.py
+  s_3eecf04afaad8c::t_fb9114fc60a798 33
+tests/otel_integrations/test_celery.py
+  s_3eecf04afaad8c::t_fb9114fc60a798 38
+tests/otel_integrations/test_claude_agent_sdk.py
+  s_3eecf04afaad8c::t_fb9114fc60a798 73
+tests/otel_integrations/test_faststream.py
+  s_3eecf04afaad8c::t_380967ecc0a31e 29,33
+tests/otel_integrations/test_flask.py
+  s_3eecf04afaad8c::t_11a86a2a5aca29 22
+tests/test_http_transport.py
+  s_3eecf04afaad8c::t_e9639cdf264d48 8,32-34,41,75,88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4556f43f8500d911ff8de25d45cff706fadbacd5",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
