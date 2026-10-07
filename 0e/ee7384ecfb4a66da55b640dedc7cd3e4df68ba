@@ -1,0 +1,19 @@
+.github/workflows/main.yml
+  s_3f212e475b57d0::t_f20b649f54b0ba 232-238
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0eee7384ecfb4a66da55b640dedc7cd3e4df68ba",
+  "prompts": {},
+  "sessions": {
+    "s_3f212e475b57d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a117c0-403b-7572-bb01-c93f33dc3348",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
