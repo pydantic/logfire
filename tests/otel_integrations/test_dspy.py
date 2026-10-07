@@ -110,7 +110,7 @@ You can install this with:
 
 @pytest.mark.vcr()
 @pytest.mark.skipif(
-    get_version(pydantic.__version__) < get_version('2.10.0'), reason='LiteLLM requires Pydantic >= 2.10'
+    get_version(pydantic.__version__) < get_version('2.11.0'), reason='LiteLLM requires Pydantic >= 2.11'
 )
 def test_dspy_instrumentation(exporter: TestExporter, isolated_litellm_event_loop: None) -> None:
     # Skip test if dspy can't be imported due to compatibility issues
