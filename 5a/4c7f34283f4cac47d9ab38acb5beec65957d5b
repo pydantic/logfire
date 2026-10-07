@@ -1,0 +1,27 @@
+tests/test_formatter.py
+  s_a712bf945c5ce9::t_1f1b9c43c55ab2 134,136-137
+  h_d9dd17644dded9 135,139
+  s_a712bf945c5ce9::t_2fd7c2ef564f64 138
+  h_d9dd17644dded9 140-141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5a4c7f34283f4cac47d9ab38acb5beec65957d5b",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_a712bf945c5ce9": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1791300803347",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
