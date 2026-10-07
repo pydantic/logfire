@@ -1,0 +1,21 @@
+logfire-sdk/logfire/_internal/exporters/processor_wrapper.py
+  s_3eecf04afaad8c::t_0b60b4ffb228cf 557-560
+tests/otel_integrations/test_google_genai.py
+  s_3eecf04afaad8c::t_0e4237c52d16d6 134,176,239,252,291,316
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7c1eea0e859dd899306be2f46fd34e5cb6fdea3c",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
