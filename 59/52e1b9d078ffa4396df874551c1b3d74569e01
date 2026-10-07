@@ -1,0 +1,19 @@
+.github/workflows/deps_test.yml
+  s_3eecf04afaad8c::t_513404a9951f7e 101-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5952e1b9d078ffa4396df874551c1b3d74569e01",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
