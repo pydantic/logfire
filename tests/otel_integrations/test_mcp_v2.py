@@ -10,8 +10,8 @@ from inline_snapshot import snapshot
 import logfire
 from logfire.testing import TestExporter
 
-pytest.importorskip('fastmcp', minversion='4')
 pytest.importorskip('pydantic', minversion='2.12')
+pytest.importorskip('fastmcp', minversion='4')
 
 from fastmcp import Client, FastMCP
 

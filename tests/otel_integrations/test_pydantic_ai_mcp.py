@@ -15,7 +15,7 @@ from logfire._internal.utils import get_version
 from tests.otel_integrations.test_openai_agents import simplify_spans
 
 # These snapshots exercise Logfire's MCP 1 instrumentation; MCP 2 has its own tests.
-pytest.importorskip('mcp.shared.session')
+pytest.importorskip('mcp.shared.session', exc_type=ImportError)
 
 if TYPE_CHECKING:
     from typing import Any as Context
