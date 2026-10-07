@@ -131,6 +131,14 @@ def test_template_string_conversion_error():
         logfire_format(Template(Interpolation(BadRepr(), 'a', 'r')), {}, NOOP_SCRUBBER)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 14), reason='template strings require Python 3.14')
+def test_template_string_formatting_error():
+    from string.templatelib import Interpolation, Template
+
+    with warns_failed("Error formatting field {a}: Invalid format specifier 'foo' for object of type 'str'"):
+        logfire_format(Template(Interpolation(1, 'a', 'r', format_spec='foo')), {}, NOOP_SCRUBBER)
+
+
 def test_conversion_error():
     with warns_failed('Error converting field {a}: bad repr'):
         logfire_format('{a!r}', {'a': BadRepr()}, NOOP_SCRUBBER)
