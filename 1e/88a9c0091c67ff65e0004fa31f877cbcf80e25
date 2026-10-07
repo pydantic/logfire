@@ -1,0 +1,21 @@
+tests/otel_integrations/test_mcp_v2.py
+  s_3eecf04afaad8c::t_b47397cc74c16a 14
+tests/otel_integrations/test_mcp_version_detection.py
+  s_3eecf04afaad8c::t_07a7951acf1bc9 15,17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1e88a9c0091c67ff65e0004fa31f877cbcf80e25",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
