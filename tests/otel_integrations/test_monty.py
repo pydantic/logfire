@@ -138,11 +138,23 @@ def test_instrument_monty(exporter: TestExporter, logs_exporter: TestLogExporter
     ] == snapshot(
         [
             {
+                'name': 'run code',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'message': 'run code',
+            },
+            {
+                'name': 'session {script_name}',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'message': 'session calculation.py',
+            },
+            {
                 'name': 'parent',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'message': 'parent',
-            }
+            },
         ]
     )
     assert spans[0]['attributes']['code'] == snapshot("print('hello')\n1 + 2")
@@ -179,7 +191,9 @@ def test_instrument_monty_is_idempotent(exporter: TestExporter) -> None:
         with pool.checkout() as session:
             assert session.feed_run('6 * 7') == 42
 
-    assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot([])
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot(
+        ['run code', 'session {script_name}']
+    )
 
 
 def test_instrument_monty_metrics(metrics_reader: InMemoryMetricReader) -> None:
@@ -259,7 +273,6 @@ async def test_instrument_monty_async_callback(monty_async_callback_spans: dict[
 
 
 @pytest.mark.anyio
-@pytest.mark.xfail(reason='Monty 0.0.23 lacks callback context propagation', raises=AssertionError, strict=True)
 async def test_instrument_monty_async_callback_parent(monty_async_callback_spans: dict[str, Any]) -> None:
     spans = monty_async_callback_spans
     assert spans['host callback']['parent'] == spans['call {function_name}']['context']
@@ -304,7 +317,6 @@ def test_instrument_monty_callback_exception(
     assert error['span_id'] == run['context']['span_id']
 
 
-@pytest.mark.xfail(reason='Monty 0.0.23 lacks callback exception events', raises=AssertionError, strict=True)
 def test_instrument_monty_callback_exception_event(monty_callback_exception_spans: dict[str, Any]) -> None:
     call = monty_callback_exception_spans['call {function_name}']
     assert [event['attributes'] for event in call.get('events', [])] == snapshot(
@@ -351,5 +363,25 @@ def test_instrument_monty_scrubbing(exporter: TestExporter, logs_exporter: TestL
             },
         }
         for span in spans
-    ] == snapshot([])
-    assert [(record['body'], record['attributes']['text']) for record in logs] == snapshot([])
+    ] == snapshot(
+        [
+            {
+                'name': 'call {function_name}',
+                'attributes': {
+                    'kwargs': {'password': "[Scrubbed due to 'password']"},
+                    'return_value': {'password': "[Scrubbed due to 'password']", 'answer': 42},
+                },
+            },
+            {
+                'name': 'run code',
+                'attributes': {
+                    'inputs': {'password': "[Scrubbed due to 'password']"},
+                    'output': {'password': "[Scrubbed due to 'password']", 'answer': 42},
+                },
+            },
+            {'name': 'session {script_name}', 'attributes': {}},
+        ]
+    )
+    assert [(record['body'], record['attributes']['text']) for record in logs] == snapshot(
+        [('print stdout', "[Scrubbed due to 'password']")]
+    )
