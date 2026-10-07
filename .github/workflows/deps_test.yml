@@ -100,7 +100,7 @@ jobs:
 
       - name: Install the PR's locked dependencies
         if: github.event_name == 'pull_request'
-        run: uv sync --python ${{ matrix.python-version }} --frozen
+        run: uv sync --python ${{ matrix.python-version }} --locked
 
       - name: Upgrade dependencies for scheduled and manual checks
         if: github.event_name != 'pull_request'
