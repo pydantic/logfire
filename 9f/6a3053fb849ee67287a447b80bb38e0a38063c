@@ -1,0 +1,29 @@
+tests/otel_integrations/test_pydantic_ai_mcp.py
+  s_3eecf04afaad8c::t_58b00093bd0aec 5,17-24,27-28,53,77-79,100-102,134-136,281-283,346-348,485-487,538-540
+tests/test_logfire_api.py
+  s_3eecf04afaad8c::t_44384d45e6189b 292-298
+  s_3eecf04afaad8c::t_58b00093bd0aec 42
+  s_3eecf04afaad8c::t_3a6a3d28f0d5a4 41
+tests/conftest.py
+  s_3eecf04afaad8c::t_44384d45e6189b 67-68
+tests/otel_integrations/test_mcp_v2.py
+  s_3eecf04afaad8c::t_44384d45e6189b 4,14
+tests/otel_integrations/test_openai_agents_mcp.py
+  s_3eecf04afaad8c::t_58b00093bd0aec 7,20-27,31-33,57,60,67,93-94,109-110,132-134,165-166,210-212,267-269,284-286,297-299,332-334,360-362,407-409,440-441,673-675,722-724
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9f6a3053fb849ee67287a447b80bb38e0a38063c",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
