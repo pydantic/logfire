@@ -69,7 +69,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
         model = 'gpt-4o-mini'
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=UserWarning)
-            return litellm.completion(model=model, messages=messages, tools=tools)  # type: ignore
+            return litellm.completion(model=model, messages=messages, tools=tools)
 
     response = completion()
     response_message = response.choices[0].message

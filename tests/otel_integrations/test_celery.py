@@ -34,7 +34,7 @@ def celery_app() -> Iterator[Celery]:
         redis_uri = f'redis://{redis_container.get_container_host_ip()}:{redis_container.get_exposed_port(6379)}/0'
         app = Celery('tasks', broker=redis_uri, backend=redis_uri)
 
-        @app.task(name='tasks.say_hello')  # type: ignore
+        @app.task(name='tasks.say_hello')
         def say_hello():  # type: ignore
             return 'hello'
 
