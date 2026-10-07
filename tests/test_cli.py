@@ -1437,6 +1437,11 @@ def test_get_logfire_url_none_without_env(monkeypatch: pytest.MonkeyPatch) -> No
     assert _get_logfire_url(None, None) is None
 
 
+def test_get_logfire_url_empty_env_treated_as_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('LOGFIRE_BASE_URL', '')
+    assert _get_logfire_url(None, None) is None
+
+
 def test_auth_uses_logfire_base_url_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """`LOGFIRE_BASE_URL=... logfire auth` skips the region prompt and uses the URL."""
     monkeypatch.setenv('LOGFIRE_BASE_URL', 'https://logfire.example.com')

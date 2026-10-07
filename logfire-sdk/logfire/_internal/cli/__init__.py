@@ -853,7 +853,9 @@ def _get_logfire_url(logfire_url: str | None, region: str | None) -> str | None:
         return REGIONS[region]['base_url']
     # Match the SDK: allow targeting a self-hosted instance via the environment
     # so `LOGFIRE_BASE_URL=... logfire auth` doesn't fall back to the region prompt.
-    return os.environ.get('LOGFIRE_BASE_URL')
+    # An empty value is treated as unset so commands like `auth logout` keep
+    # their no-URL behavior instead of matching against an empty URL.
+    return os.environ.get('LOGFIRE_BASE_URL') or None
 
 
 class SplitArgs(argparse.Action):
