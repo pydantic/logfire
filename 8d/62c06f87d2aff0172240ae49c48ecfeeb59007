@@ -1,0 +1,21 @@
+pyproject.toml
+  s_3eecf04afaad8c::t_fdef274be8d738 108
+uv.lock
+  s_3eecf04afaad8c::t_0e4a9e837a66cf 1330-1381,1680-1703,2579-2587,2604-2618,3206,3321,4491-4502,5356-5364,6366-6374,6916-6928,7733-7741,7905-7947
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8d62c06f87d2aff0172240ae49c48ecfeeb59007",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
