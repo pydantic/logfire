@@ -38,7 +38,8 @@ def uninstrument_global_instrumentors():
     try:
         from mcp.client.session import ClientSession
         from mcp.server import Server
-        from mcp.shared.session import BaseSession
+
+        BaseSession = importlib.import_module('mcp.shared.session').BaseSession
     except ImportError:
         mcp_patched = []
     else:
@@ -288,8 +289,13 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_pydantic_ai')
 
     assert hasattr(logfire_api, 'instrument_mcp')
-    if get_version(pydantic_version) >= get_version('2.11.0'):
-        logfire_api.instrument_mcp()
+    if get_version(pydantic_version) >= get_version('2.12.0'):
+        with warnings.catch_warnings():
+            # MCP 2 is already instrumented; this test only checks that the API is callable.
+            warnings.filterwarnings(
+                'ignore', message=r'`logfire\.instrument_mcp\(\)` is unnecessary', category=UserWarning
+            )
+            logfire_api.instrument_mcp()
     logfire__all__.remove('instrument_mcp')
 
     assert hasattr(logfire_api, 'instrument_claude_agent_sdk')

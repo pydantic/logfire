@@ -64,7 +64,8 @@ try:
         # With mcp 2 the call is unnecessary and says so with a UserWarning, which is irrelevant here.
         warnings.filterwarnings('ignore', message=r'`logfire\.instrument_mcp\(\)` is unnecessary', category=UserWarning)
         logfire.instrument_mcp()
-except ImportError:
+except (ImportError, UserWarning, DeprecationWarning):
+    # MCP 2 requires Pydantic >=2.12; older compatibility jobs can fail during import.
     pass
 
 

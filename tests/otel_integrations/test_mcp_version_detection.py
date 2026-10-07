@@ -2,7 +2,7 @@
 
 mcp 2 removed `mcp.shared.session`. A `ModuleNotFoundError` for exactly that module means mcp 2 and
 turns the call into a warning; any other import failure propagates. Both cases are simulated here
-via `sys.modules` so they run against the locked mcp 1.
+via `sys.modules` in the MCP 1 compatibility job.
 """
 
 import sys
@@ -12,9 +12,9 @@ import pytest
 
 import logfire
 
-pytest.importorskip('mcp.shared.session')
+pytest.importorskip('mcp.shared.session', exc_type=ImportError)
 # On old pydantic (e.g. the 2.4 CI job) mcp 1 itself fails to import, so the integration can't be exercised.
-pytest.importorskip('logfire._internal.integrations.mcp')
+pytest.importorskip('logfire._internal.integrations.mcp', exc_type=ImportError)
 
 
 def test_missing_shared_session_means_mcp_2(monkeypatch: pytest.MonkeyPatch):

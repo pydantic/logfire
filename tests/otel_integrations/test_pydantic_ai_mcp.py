@@ -2,6 +2,7 @@
 # because it breaks `ctx: Context` being recognised by `@fastmcp.tool()` properly.
 
 import os
+from importlib import import_module
 from typing import TYPE_CHECKING
 
 import pydantic
@@ -13,9 +14,18 @@ from logfire._internal.exporters.test import TestExporter
 from logfire._internal.utils import get_version
 from tests.otel_integrations.test_openai_agents import simplify_spans
 
+# These snapshots exercise Logfire's MCP 1 instrumentation; MCP 2 has its own tests.
+pytest.importorskip('mcp.shared.session', exc_type=ImportError)
+
+if TYPE_CHECKING:
+    from typing import Any as Context
+else:
+    Context = import_module('mcp.server.fastmcp').Context
+
 try:
     from inline_snapshot import snapshot
-    from mcp.server.fastmcp import Context, FastMCP
+
+    FastMCP = import_module('mcp.server.fastmcp').FastMCP
     from pydantic_ai import Agent
     from pydantic_ai.mcp import MCPToolset
     from pydantic_ai.models.mcp_sampling import MCPSamplingModel
@@ -39,11 +49,12 @@ async def test_pydantic_ai_mcp_sampling(exporter: TestExporter):
 
     fastmcp = FastMCP()
 
-    @fastmcp.tool()
-    async def joker(ctx: Context, theme: str) -> str:  # type: ignore
+    async def joker(ctx: Context, theme: str) -> str:
         """Poem generator"""
         r = await Agent().run(f'tell a joke about {theme}', model=MCPSamplingModel(session=ctx.session))
         return r.output
+
+    fastmcp.tool()(joker)
 
     agent = Agent('openai-chat:gpt-4o', toolsets=[MCPToolset(fastmcp)])
     agent.set_mcp_sampling_model()
@@ -64,6 +75,9 @@ Because it found something more "sole-ful!"\
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
+                    'code.filepath': 'session.py',
+                    'code.function': 'initialize',
+                    'code.lineno': 123,
                     'request': {
                         'method': 'initialize',
                         'params': IsPartialDict(),
@@ -84,6 +98,9 @@ Because it found something more "sole-ful!"\
                 'start_time': 6000000000,
                 'end_time': 7000000000,
                 'attributes': {
+                    'code.filepath': 'server.py',
+                    'code.function': '_handle_message',
+                    'code.lineno': 123,
                     'request': {
                         'method': 'tools/list',
                         'params': {
@@ -115,6 +132,9 @@ Because it found something more "sole-ful!"\
                 'start_time': 5000000000,
                 'end_time': 8000000000,
                 'attributes': {
+                    'code.filepath': 'session.py',
+                    'code.function': 'list_tools',
+                    'code.lineno': 123,
                     'request': {'method': 'tools/list', 'params': None},
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
@@ -259,6 +279,9 @@ Because it found something more "sole-ful!"\
                 'start_time': 19000000000,
                 'end_time': 22000000000,
                 'attributes': {
+                    'code.filepath': 'session.py',
+                    'code.function': '_receive_loop',
+                    'code.lineno': 123,
                     'request': {
                         'method': 'sampling/createMessage',
                         'params': {
@@ -321,6 +344,9 @@ Because it found something more "sole-ful!"\
                 'start_time': 18000000000,
                 'end_time': 23000000000,
                 'attributes': {
+                    'code.filepath': 'session.py',
+                    'code.function': 'create_message',
+                    'code.lineno': 123,
                     'request': {
                         'method': 'sampling/createMessage',
                         'params': {
@@ -457,6 +483,9 @@ Because it found something more "sole-ful!"\
                 'start_time': 15000000000,
                 'end_time': 26000000000,
                 'attributes': {
+                    'code.filepath': 'server.py',
+                    'code.function': '_handle_message',
+                    'code.lineno': 123,
                     'request': {
                         'method': 'tools/call',
                         'params': {
@@ -507,6 +536,9 @@ Because it found something more "sole-ful!"\
                 'start_time': 14000000000,
                 'end_time': 27000000000,
                 'attributes': {
+                    'code.filepath': 'session.py',
+                    'code.function': 'call_tool',
+                    'code.lineno': 123,
                     'request': {
                         'method': 'tools/call',
                         'params': {
