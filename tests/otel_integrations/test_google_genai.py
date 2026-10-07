@@ -131,7 +131,7 @@ def test_instrument_google_genai(capfire: CaptureLogfire) -> None:
                 'end_time': 4000000000,
                 'attributes': {
                     'gen_ai.request.model': 'gemini-2.0-flash-001',
-                    'gen_ai.operation.name': 'generate_content',
+                    'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'gemini',
                     'server.address': 'generativelanguage.googleapis.com',
                     'logfire.span_type': 'span',
@@ -173,6 +173,7 @@ def test_instrument_google_genai(capfire: CaptureLogfire) -> None:
                     'gen_ai.response.finish_reasons': ('stop',),
                     'logfire.metrics': IsPartialDict(),
                     'gen_ai.response.model': 'gemini-2.0-flash-001',
+                    'gen_ai.system': 'gemini',
                 },
             },
         ]
@@ -235,7 +236,7 @@ def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
                 'end_time': 4000000000,
                 'attributes': {
                     'gen_ai.request.model': 'gemini-2.0-flash-001',
-                    'gen_ai.operation.name': 'generate_content',
+                    'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'gemini',
                     'server.address': 'generativelanguage.googleapis.com',
                     'logfire.span_type': 'span',
@@ -248,6 +249,7 @@ def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
                     'gen_ai.usage.text.output_tokens': 7,
                     'logfire.metrics': IsPartialDict(),
                     'gen_ai.response.model': 'gemini-2.0-flash-001',
+                    'gen_ai.system': 'gemini',
                 },
             },
         ]
@@ -286,7 +288,7 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
                 'end_time': 2000000000,
                 'attributes': {
                     'gen_ai.request.model': 'gemini-2.5-flash',
-                    'gen_ai.operation.name': 'generate_content',
+                    'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'gemini',
                     'server.address': 'generativelanguage.googleapis.com',
                     'logfire.span_type': 'span',
@@ -311,6 +313,7 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
                         }
                     ],
                     'gen_ai.response.model': 'gemini-2.5-flash',
+                    'gen_ai.system': 'gemini',
                 },
             }
         ]
