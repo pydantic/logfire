@@ -18,7 +18,7 @@ from uuid import UUID
 import numpy
 import pandas
 import pytest
-from attrs import define
+from attrs import define, field as attrs_field
 from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, RootModel, SecretBytes, SecretStr
@@ -153,6 +153,12 @@ class AttrsType:
 @define
 class AttrsError(Exception):
     code: int
+
+
+@define
+class MyReprAttrs:
+    in_repr: int
+    not_in_repr: MyDataclass = attrs_field(repr=False)
 
 
 class ListSubclass(_ListSubclass): ...
@@ -803,6 +809,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             id='attrs-simple',
         ),
         pytest.param(
+            MyReprAttrs(1, MyDataclass(2)),
+            'MyReprAttrs(in_repr=1)',
+            '{"in_repr":1}',
+            {'type': 'object', 'title': 'MyReprAttrs', 'x-python-datatype': 'attrs'},
+            id='attrs-repr',
+        ),
+        pytest.param(
             AttrsError(404),
             '404',
             '{"code":404}',
@@ -875,6 +888,14 @@ def test_log_non_scalar_args(
     assert s.attributes['logfire.msg'].startswith(f'test message var={value_repr}')
     assert s.attributes['var'] == value_json
     assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema  # type: ignore
+
+
+def test_attrs_schema_respects_repr() -> None:
+    assert create_json_schema(MyReprAttrs(1, MyDataclass(2)), set()) == {
+        'type': 'object',
+        'title': 'MyReprAttrs',
+        'x-python-datatype': 'attrs',
+    }
 
 
 def test_log_non_finite_scalar_float_args(exporter: TestExporter) -> None:
