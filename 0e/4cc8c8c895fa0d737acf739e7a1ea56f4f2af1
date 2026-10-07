@@ -1,0 +1,21 @@
+tests/otel_integrations/test_celery.py
+  s_3eecf04afaad8c::t_8de62aac581082 37-38
+tests/test_http_transport.py
+  s_3eecf04afaad8c::t_8d2be27c83a787 8,32-34,41,75,88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0e4cc8c8c895fa0d737acf739e7a1ea56f4f2af1",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
