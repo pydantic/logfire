@@ -6,6 +6,7 @@ from inspect import signature
 from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
+from anthropic._utils import is_given
 from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
 from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
 from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaTextDelta, BetaToolUseBlock
@@ -100,7 +101,8 @@ def get_endpoint_config(
     if not isinstance(raw_json_data, dict):  # pragma: no cover
         # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
         raw_json_data = {}
-    json_data = cast('dict[str, Any]', raw_json_data)
+    # Recent SDKs remove omitted parameters inside request(), after our hook runs.
+    json_data = {key: value for key, value in cast('dict[str, Any]', raw_json_data).items() if is_given(value)}
     model = json_data.get('model')
     request_data = json_data if 1 in versions else {'model': model}
 
