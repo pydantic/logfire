@@ -1,0 +1,21 @@
+.github/workflows/main.yml
+  s_3eecf04afaad8c::t_2b41f70cd6754d 225,228-232,234
+tests/otel_integrations/test_mcp_version_detection.py
+  s_3eecf04afaad8c::t_2b41f70cd6754d 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e571681c2fbd0aff11b6617bbf03f667c726f95f",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
