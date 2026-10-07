@@ -5,7 +5,7 @@ import socket
 import threading
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import requests
@@ -29,13 +29,16 @@ from logfire._internal.http_transport import (
 )
 from logfire.variables.remote import LogfireRemoteVariableProvider
 
+# urllib3 2.8 nests Final inside ClassVar, which Pyright does not yet unwrap.
+DEFAULT_SOCKET_OPTIONS = cast(list[tuple[int, int, int]], HTTPConnection.default_socket_options)
+
 
 def test_keepalive_socket_options_enable_keepalive_and_keep_urllib3_defaults() -> None:
     options = keepalive_socket_options()
 
     assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in options
     # TCP_NODELAY is urllib3's own default and must survive.
-    for default in HTTPConnection.default_socket_options:
+    for default in DEFAULT_SOCKET_OPTIONS:
         assert default in options
 
 
@@ -69,7 +72,7 @@ def test_a_platform_missing_an_option_still_gets_the_rest(monkeypatch: pytest.Mo
 def test_a_platform_without_keepalive_leaves_the_defaults_alone(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delattr(socket, 'SO_KEEPALIVE', raising=False)
 
-    assert keepalive_socket_options() == list(HTTPConnection.default_socket_options)
+    assert keepalive_socket_options() == list(DEFAULT_SOCKET_OPTIONS)
 
 
 def test_a_connection_class_without_default_socket_options(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -82,7 +85,7 @@ def test_a_connection_class_without_default_socket_options(monkeypatch: pytest.M
     options = keepalive_socket_options()
 
     assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in options
-    for default in HTTPConnection.default_socket_options:
+    for default in DEFAULT_SOCKET_OPTIONS:
         assert default not in options
 
 
