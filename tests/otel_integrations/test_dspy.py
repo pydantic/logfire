@@ -125,7 +125,8 @@ def test_dspy_instrumentation(exporter: TestExporter, isolated_litellm_event_loo
     # Configure DSPy with OpenAI - disable caching
     # Use real API key if present (for recording), otherwise fake key (for VCR replay)
     api_key = os.getenv('OPENAI_API_KEY', 'fake-api-key-for-testing')
-    lm = dspy.LM('openai/gpt-5-mini', cache=False, api_key=api_key)
+    # DSPy 3.4 defaults to lm15, whose native HTTP transport bypasses VCR.
+    lm = dspy.LM('openai/gpt-5-mini', cache=False, api_key=api_key, engine='litellm')
     dspy.configure(lm=lm)
 
     # Define a simple signature
