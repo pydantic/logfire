@@ -1,0 +1,29 @@
+pyproject.toml
+  s_3f212e475b57d0::t_5f1348bd7687b2 107
+uv.lock
+  s_3eecf04afaad8c::t_6b18304ca2a5c3 47,55,57,1307-1358,1631,1634,1642,1644,1651,1657-1680,1922,1928,1930,2081,2083,2085,2492-2500,2517-2531,3169,3285,3665,3669,3671-3672,3683,3685-3698,4321-4332,5170-5178,5572,5578,5580,5585,5710,5723,5725,5851,5861,5863,5868,5876,5878,6022,6027,6029,6130-6138,6664-6676,7154,7160,7162,7470-7478,7641-7683
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "83b1f20798503b1f8ba6de0222fd3a09abe676e6",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_3f212e475b57d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a117c0-403b-7572-bb01-c93f33dc3348",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
