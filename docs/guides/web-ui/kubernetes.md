@@ -18,14 +18,14 @@ Below the cards, six tabs let you browse by level:
 
 | Tab | Shows |
 |-----|-------|
-| **Clusters** | One row per cluster, with pod / namespace / node counts and total restarts in the window. |
+| **Clusters** | One row per cluster, with pod, namespace, and node counts and reported cumulative restarts across pods. |
 | **Nodes** | One row per node, with cluster, CPU + sparkline, memory, ready status, and pod count. |
 | **Namespaces** | Pod count, CPU and memory usage, restart count. |
 | **Workloads** | Workload name and kind, namespace, cluster, pod count, available-vs-desired replicas, restarts. |
 | **Pods** | Status (Running / Pending / Failed / Succeeded / Unknown), restart count, CPU, memory, workload, and node. |
 | **Images** | Container image and tag, with pod, namespace, and cluster counts. |
 
-Restart counts roll up at every level. If a single pod is in a crash loop, you can spot it from the Clusters or Workloads tab without drilling all the way down.
+Pods show their reported cumulative container restart counts. Workload, namespace, and cluster rows roll up those counts across their pods. These totals can help you choose where to investigate; they do not count new restarts during the selected range.
 
 ## Find current Kubernetes problems
 
@@ -102,6 +102,6 @@ If you have not set anything up yet, the empty state on each tab has a **Set up*
 | Nodes tab CPU and memory columns are blank | A custom `kubelet_stats.metric_groups` list omits `node`. Add `node` to the list (the receiver and chart preset include it by default). |
 | Pod row has no traces to drill into | The `k8s_attributes` processor is not on the trace pipeline, so spans never get `k8s.pod.name` etc. attached. The chart wires this in by default; if you assembled the setup by hand, see [the custom Collector reference](../../how-to-guides/otel-collector/kubernetes-manual-setup.md#what-k8sattributesprocessor-actually-does). |
 | Cluster metrics appear duplicated across nodes | `k8s_cluster` is running on every replica without `k8s_leader_elector`. The chart configures the elector; from-scratch setups must add it. |
-| Two clusters collide as one row in the **Clusters** tab | Both clusters report the same `k8s.cluster.name`. Set a unique `clusterName` on each via the chart's top-level `clusterName:` value or the `resource/cluster` processor in a hand-rolled setup. |
+| Two clusters collide as one row in the **Clusters** tab | Check `k8s.cluster.uid`: distinct UIDs keep clusters separate even when names match. Without a UID, Logfire falls back to `k8s.cluster.name`. Set a unique `clusterName` for each name-only cluster via the chart's top-level `clusterName:` value or the `resource/cluster` processor in a custom setup. |
 | Logs and Events tabs are missing | Check your Early access eligibility and follow [Enable experimental Logs and Events](#enable-experimental-logs-and-events), including any terms or notice prompt. |
 | Logs or Events are empty | Check the time range and environment. Confirm that the Collector sends pod logs and Kubernetes Events, with the cluster and resource identity used by the selected scope. Widen to the fleet view to check whether records arrived under a different identity. |
