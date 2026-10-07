@@ -98,8 +98,13 @@ jobs:
           version: "0.11.1"
           enable-cache: true
 
-        # upgrade deps to the latest versions for this test
-      - run: uv sync --python ${{ matrix.python-version }} --upgrade
+      - name: Install the PR's locked dependencies
+        if: github.event_name == 'pull_request'
+        run: uv sync --python ${{ matrix.python-version }} --frozen
+
+      - name: Upgrade dependencies for scheduled and manual checks
+        if: github.event_name != 'pull_request'
+        run: uv sync --python ${{ matrix.python-version }} --upgrade
 
       - name: Install pydantic main
         if: matrix.pydantic-version == 'main'
