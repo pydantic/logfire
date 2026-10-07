@@ -4,18 +4,12 @@ import functools
 import warnings
 from collections.abc import Awaitable, Callable
 from contextlib import ExitStack, contextmanager
+from importlib import import_module
 from typing import TYPE_CHECKING, Any, Protocol
 
-from mcp.client.session import ClientSession
-from mcp.server import Server
 from mcp.types import (
     CallToolRequest,
-    ClientRequest,
-    ClientResult,
-    ErrorData,
     LoggingMessageNotification,
-    ServerRequest,
-    ServerResult,
 )
 from pydantic import TypeAdapter
 
@@ -35,7 +29,7 @@ class _RequestResponder(Protocol):
 
 def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
     try:
-        from mcp.shared.session import BaseSession, ReceiveRequestT, RequestResponder, SendResultT
+        BaseSession = import_module('mcp.shared.session').BaseSession
     except ModuleNotFoundError as exc:
         if exc.name != 'mcp.shared.session':
             raise
@@ -52,11 +46,15 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
         warnings.warn(message, UserWarning, stacklevel=3)
         return
 
+    # These private APIs exist only in MCP 1; import them dynamically so typing
+    # does not depend on which MCP major version is installed.
+    ClientSession = import_module('mcp.client.session').ClientSession
+    Server = import_module('mcp.server').Server
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='mcp')
 
-    original_send_request = BaseSession.send_request  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    original_send_request = BaseSession.send_request
 
-    @functools.wraps(original_send_request)  # pyright: ignore[reportUnknownArgumentType]
+    @functools.wraps(original_send_request)
     async def send_request(self: Any, request: Any, *args: Any, **kwargs: Any):
         # Use getattr to handle both RootModel wrappers (e.g. ClientRequest) and bare request types.
         # fastmcp 3.x can send bare request types directly when OTel context propagation is active.
@@ -85,16 +83,16 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
 
     BaseSession.send_request = send_request
 
-    original_send_notification = BaseSession.send_notification  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    original_send_notification = BaseSession.send_notification
 
-    @functools.wraps(original_send_notification)  # pyright: ignore[reportUnknownArgumentType]
+    @functools.wraps(original_send_notification)
     async def send_notification(self: Any, notification: Any, *args: Any, **kwargs: Any):
         _attach_context_to_request(getattr(notification, 'root', notification))
         return await original_send_notification(self, notification, *args, **kwargs)
 
     BaseSession.send_notification = send_notification
 
-    original_received_notification = ClientSession._received_notification  # pyright: ignore[reportPrivateUsage]
+    original_received_notification = ClientSession._received_notification
 
     @functools.wraps(original_received_notification)
     async def _received_notification(self: Any, notification: Any, *args: Any, **kwargs: Any):
@@ -116,35 +114,31 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                     logfire_instance.log(level, span_name, attributes=dict(data=params.data))
         await original_received_notification(self, notification, *args, **kwargs)
 
-    ClientSession._received_notification = _received_notification  # pyright: ignore[reportPrivateUsage]
+    ClientSession._received_notification = _received_notification
 
-    original_handle_client_request = ClientSession._received_request  # pyright: ignore[reportPrivateUsage]
+    original_handle_client_request = ClientSession._received_request
 
     @functools.wraps(original_handle_client_request)
-    async def _received_request_client(self: Any, responder: RequestResponder[ServerRequest, ClientResult]) -> None:
+    async def _received_request_client(self: Any, responder: _RequestResponder) -> None:
         request = getattr(responder.request, 'root', responder.request)
         span_name = 'MCP client handle request'
         with _handle_request_with_context(request, responder, span_name):
             await original_handle_client_request(self, responder)
 
-    ClientSession._received_request = _received_request_client  # pyright: ignore[reportPrivateUsage]
+    ClientSession._received_request = _received_request_client
 
-    original_handle_server_request = Server._handle_request  # pyright: ignore[reportPrivateUsage]
+    original_handle_server_request = Server._handle_request
 
     @functools.wraps(original_handle_server_request)
-    async def _handle_request(
-        self: Any, message: RequestResponder[ClientRequest, ServerResult], request: Any, *args: Any, **kwargs: Any
-    ) -> Any:
+    async def _handle_request(self: Any, message: _RequestResponder, request: Any, *args: Any, **kwargs: Any) -> Any:
         span_name = 'MCP server handle request'
         with _handle_request_with_context(request, message, span_name):
             return await original_handle_server_request(self, message, request, *args, **kwargs)
 
-    Server._handle_request = _handle_request  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue]
+    Server._handle_request = _handle_request
 
     @contextmanager
-    def _handle_request_with_context(
-        request: Any, responder: RequestResponder[ReceiveRequestT, SendResultT], span_name: str
-    ):
+    def _handle_request_with_context(request: Any, responder: _RequestResponder, span_name: str):
         with _request_context(request):
             if method := getattr(request, 'method', None):  # pragma: no branch
                 span_name += f': {method}'
@@ -152,9 +146,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                 with handle_internal_errors:
                     original_respond = responder.respond
 
-                    def _respond_with_logging(
-                        response: SendResultT | ErrorData, *respond_args: Any, **respond_kwargs: Any
-                    ) -> Any:
+                    def _respond_with_logging(response: Any, *respond_args: Any, **respond_kwargs: Any) -> Any:
                         span.set_attribute('response', response)
                         return original_respond(response, *respond_args, **respond_kwargs)
 
