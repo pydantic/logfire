@@ -898,6 +898,35 @@ def test_attrs_schema_respects_repr() -> None:
     }
 
 
+def test_attrs_falsey_callable_repr(exporter: TestExporter) -> None:
+    class FalseyRepr:
+        def __call__(self, value: Any) -> str:
+            return repr(value)
+
+        def __bool__(self) -> bool:
+            return False
+
+    formatter = FalseyRepr()
+    assert not formatter
+
+    @define
+    class CallableReprAttrs:
+        value: MyDataclass = attrs_field(repr=formatter)
+
+    value = CallableReprAttrs(MyDataclass(2))
+    assert repr(value) == 'CallableReprAttrs(value=MyDataclass(t=2))'
+    logfire.info('test message {var=}', var=value)
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    assert json.loads(attributes['var']) == {'value': {'t': 2}}  # type: ignore
+    assert json.loads(attributes['logfire.json_schema'])['properties']['var'] == {  # type: ignore
+        'type': 'object',
+        'title': 'CallableReprAttrs',
+        'x-python-datatype': 'attrs',
+        'properties': {'value': {'type': 'object', 'title': 'MyDataclass', 'x-python-datatype': 'dataclass'}},
+    }
+
+
 def test_log_non_finite_scalar_float_args(exporter: TestExporter) -> None:
     logfire.info(
         'test message',

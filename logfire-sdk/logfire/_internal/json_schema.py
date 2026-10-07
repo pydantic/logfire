@@ -409,7 +409,7 @@ def _attrs_schema(obj: Any, seen: set[int]) -> JsonDict:
     import attrs
 
     obj = cast(attrs.AttrsInstance, obj)
-    return _custom_object_schema(obj, 'attrs', (key.name for key in obj.__attrs_attrs__ if key.repr), seen)
+    return _custom_object_schema(obj, 'attrs', (key.name for key in obj.__attrs_attrs__ if key.repr is not False), seen)
 
 
 def _sqlalchemy_schema(obj: Any, seen: set[int]) -> JsonDict | None:
