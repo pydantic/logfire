@@ -31,7 +31,7 @@ from types import GeneratorType
 from typing import Any, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
-from .json_encoder import pandas_display_slices, is_attrs, is_sqlalchemy, to_json_value
+from .json_encoder import is_attrs, is_sqlalchemy, pandas_display_slices, to_json_value
 from .stack_info import STACK_INFO_KEYS
 from .utils import JsonDict, dump_json, log_internal_error, safe_repr
 
