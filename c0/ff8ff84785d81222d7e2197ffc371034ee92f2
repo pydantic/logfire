@@ -1,0 +1,27 @@
+logfire-sdk/logfire/_internal/tracer.py
+  s_da2d22cb97a2f8::t_d7370cfa27c409 231,233-234,246-247
+tests/otel_integrations/test_asgi.py
+  s_da2d22cb97a2f8::t_9eaf91c2708259 5,102-167
+tests/otel_integrations/test_fastapi.py
+  s_da2d22cb97a2f8::t_8d84a300130ad4 9,1025-1092
+tests/otel_integrations/test_flask.py
+  s_da2d22cb97a2f8::t_3b4faa6856f928 6,144-179
+tests/test_metrics.py
+  s_da2d22cb97a2f8::t_f1041579a270da 483-526
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c0ff8ff84785d81222d7e2197ffc371034ee92f2",
+  "prompts": {},
+  "sessions": {
+    "s_da2d22cb97a2f8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11cb6-54ca-7262-8d31-4317aa3541ee",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
