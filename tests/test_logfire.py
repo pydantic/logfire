@@ -2575,7 +2575,7 @@ def test_log_with_leading_underscore_on_attributes(exporter: TestExporter) -> No
 
 
 def test_large_int(exporter: TestExporter) -> None:
-    with pytest.warns(UserWarning, match='larger than the maximum OTLP integer size'):
+    with pytest.warns(UserWarning, match='outside the range of OTLP integers'):
         with logfire.span('test {value=}', value=2**63 + 1):
             pass
 
@@ -2620,7 +2620,7 @@ def test_large_int(exporter: TestExporter) -> None:
     )
     exporter.exported_spans.clear()
 
-    with pytest.warns(UserWarning, match='larger than the maximum OTLP integer size'):
+    with pytest.warns(UserWarning, match='outside the range of OTLP integers'):
         with logfire.span('test {value=}', value=2**63):
             pass
 
@@ -2706,6 +2706,16 @@ def test_large_int(exporter: TestExporter) -> None:
                 },
             },
         ]
+    )
+
+
+def test_large_negative_int(exporter: TestExporter) -> None:
+    with pytest.warns(UserWarning, match='outside the range of OTLP integers'):
+        logfire.info('test {value=}', value=-(2**63) - 1)
+    logfire.info('test {value=}', value=-(2**63))
+
+    assert [span['attributes']['value'] for span in exporter.exported_spans_as_dict()] == snapshot(
+        ['-9223372036854775809', -9223372036854775808]
     )
 
 
