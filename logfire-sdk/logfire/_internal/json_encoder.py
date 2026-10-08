@@ -59,9 +59,9 @@ def _to_repr(o: Any, _seen: set[int]) -> str:
     return repr(o)
 
 
-def _pandas_display_slices(count: int, limit: int | None) -> tuple[slice, ...]:
+def pandas_display_slices(count: int, limit: int | None) -> tuple[slice, ...]:
     """Return the first and last positions selected by a pandas display limit."""
-    # Pandas uses 0 to auto-detect terminal height; JSON output has no terminal.
+    # Pandas uses 0 for terminal auto-detection, which does not apply to JSON output.
     if limit is None or limit <= 0 or count <= limit:
         return (slice(None),)
     front = (limit + 1) // 2
@@ -93,8 +93,8 @@ def _pandas_data_frame_encoder(o: Any, seen: set[int]) -> JsonValue:
     """
     import pandas
 
-    row_slices = _pandas_display_slices(len(o), pandas.get_option('display.max_rows'))
-    column_slices = _pandas_display_slices(len(o.columns), pandas.get_option('display.max_columns'))
+    row_slices = pandas_display_slices(len(o), pandas.get_option('display.max_rows'))
+    column_slices = pandas_display_slices(len(o.columns), pandas.get_option('display.max_columns'))
 
     rows: list[Any] = []
     for row_slice in row_slices:

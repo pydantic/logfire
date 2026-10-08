@@ -995,7 +995,9 @@ def test_log_dataframe_with_unlimited_and_odd_display_limits(
     assert attributes is not None
     assert isinstance(attributes['frame'], str)
     assert isinstance(attributes['logfire.json_schema'], str)
-    assert json.loads(attributes['frame']) == [[row * 5 + column for column in column_positions] for row in row_positions]
+    assert json.loads(attributes['frame']) == [
+        [row * 5 + column for column in column_positions] for row in row_positions
+    ]
     assert json.loads(attributes['logfire.json_schema'])['properties']['frame'] == {
         'type': 'array',
         'x-python-datatype': 'DataFrame',

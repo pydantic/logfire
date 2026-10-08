@@ -31,7 +31,7 @@ from types import GeneratorType
 from typing import Any, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
-from .json_encoder import _pandas_display_slices, is_attrs, is_sqlalchemy, to_json_value
+from .json_encoder import pandas_display_slices, is_attrs, is_sqlalchemy, to_json_value
 from .stack_info import STACK_INFO_KEYS
 from .utils import JsonDict, dump_json, log_internal_error, safe_repr
 
@@ -374,16 +374,13 @@ def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:
 
     row_count, column_count = obj.shape
 
-    columns = [
-        column
-        for column_slice in _pandas_display_slices(column_count, pandas.get_option('display.max_columns'))
-        for column in obj.columns[column_slice]
-    ]
-    indices = [
-        index
-        for row_slice in _pandas_display_slices(row_count, pandas.get_option('display.max_rows'))
-        for index in obj.index[row_slice]
-    ]
+    columns: list[Any] = []
+    for column_slice in pandas_display_slices(column_count, pandas.get_option('display.max_columns')):
+        columns.extend(cast(Iterable[Any], obj.columns[column_slice]))
+
+    indices: list[Any] = []
+    for row_slice in pandas_display_slices(row_count, pandas.get_option('display.max_rows')):
+        indices.extend(cast(Iterable[Any], obj.index[row_slice]))
 
     return {
         'type': 'array',
