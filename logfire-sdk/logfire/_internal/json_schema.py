@@ -31,7 +31,7 @@ from types import GeneratorType
 from typing import Any, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
-from .json_encoder import is_attrs, is_sqlalchemy, to_json_value
+from .json_encoder import _pandas_display_slices, is_attrs, is_sqlalchemy, to_json_value
 from .stack_info import STACK_INFO_KEYS
 from .utils import JsonDict, dump_json, log_internal_error, safe_repr
 
@@ -374,19 +374,16 @@ def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:
 
     row_count, column_count = obj.shape
 
-    max_columns = pandas.get_option('display.max_columns')
-    if column_count > max_columns:
-        col_middle = max_columns // 2
-        columns = list(obj.columns[:col_middle]) + list(obj.columns[-col_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
-    else:
-        columns = list(obj.columns)  # pyright: ignore[reportUnknownVariableType]
-
-    max_rows = pandas.get_option('display.max_rows')
-    if row_count > max_rows:
-        row_middle = max_rows // 2
-        indices = list(obj.index[:row_middle]) + list(obj.index[-row_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
-    else:
-        indices = list(obj.index)  # pyright: ignore[reportUnknownVariableType]
+    columns = [
+        column
+        for column_slice in _pandas_display_slices(column_count, pandas.get_option('display.max_columns'))
+        for column in obj.columns[column_slice]
+    ]
+    indices = [
+        index
+        for row_slice in _pandas_display_slices(row_count, pandas.get_option('display.max_rows'))
+        for index in obj.index[row_slice]
+    ]
 
     return {
         'type': 'array',
@@ -415,7 +412,7 @@ def _attrs_schema(obj: Any, seen: set[int]) -> JsonDict:
     import attrs
 
     obj = cast(attrs.AttrsInstance, obj)
-    return _custom_object_schema(obj, 'attrs', (key.name for key in obj.__attrs_attrs__), seen)
+    return _custom_object_schema(obj, 'attrs', (key.name for key in obj.__attrs_attrs__ if key.repr is not False), seen)
 
 
 def _sqlalchemy_schema(obj: Any, seen: set[int]) -> JsonDict | None:

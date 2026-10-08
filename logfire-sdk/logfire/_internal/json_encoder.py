@@ -10,7 +10,6 @@ from decimal import Decimal
 from enum import Enum
 from functools import cache, lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
-from itertools import chain
 from pathlib import PosixPath
 from re import Pattern
 from types import GeneratorType
@@ -60,6 +59,18 @@ def _to_repr(o: Any, _seen: set[int]) -> str:
     return repr(o)
 
 
+def _pandas_display_slices(count: int, limit: int | None) -> tuple[slice, ...]:
+    """Return the first and last positions selected by a pandas display limit."""
+    # Pandas uses 0 to auto-detect terminal height; JSON output has no terminal.
+    if limit is None or limit <= 0 or count <= limit:
+        return (slice(None),)
+    front = (limit + 1) // 2
+    back = limit // 2
+    if back == 0:
+        return (slice(None, front),)
+    return (slice(None, front), slice(-back, None))
+
+
 def _pandas_data_frame_encoder(o: Any, seen: set[int]) -> JsonValue:
     """Encode pandas data frame by extracting important information.
 
@@ -82,26 +93,13 @@ def _pandas_data_frame_encoder(o: Any, seen: set[int]) -> JsonValue:
     """
     import pandas
 
-    max_rows = pandas.get_option('display.max_rows')
-    max_columns = pandas.get_option('display.max_columns')
-
-    col_middle = max_columns // 2
-    column_count = len(o.columns)
+    row_slices = _pandas_display_slices(len(o), pandas.get_option('display.max_rows'))
+    column_slices = _pandas_display_slices(len(o.columns), pandas.get_option('display.max_columns'))
 
     rows: list[Any] = []
-    row_count = len(o)
-
-    if row_count > max_rows:
-        row_middle = max_rows // 2
-        df_rows = chain(o.head(row_middle).iterrows(), o.tail(row_middle).iterrows())
-    else:
-        df_rows = o.iterrows()
-
-    for _, row in df_rows:
-        if column_count > max_columns:
-            rows.append(list(row[:col_middle]) + list(row[-col_middle:]))
-        else:
-            rows.append(list(row))
+    for row_slice in row_slices:
+        for _, row in o.iloc[row_slice].iterrows():
+            rows.append([item for column_slice in column_slices for item in row.iloc[column_slice]])
 
     return to_json_value(rows, seen)
 
@@ -343,4 +341,4 @@ def is_attrs(cls: type) -> bool:
 def _get_attrs_data(o: Any, seen: set[int]) -> JsonValue:
     import attrs
 
-    return {f.name: to_json_value(getattr(o, f.name), seen) for f in attrs.fields(o.__class__)}
+    return {f.name: to_json_value(getattr(o, f.name), seen) for f in attrs.fields(o.__class__) if f.repr is not False}

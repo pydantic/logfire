@@ -18,7 +18,7 @@ from uuid import UUID
 import numpy
 import pandas
 import pytest
-from attrs import define
+from attrs import define, field as attrs_field
 from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, RootModel, SecretBytes, SecretStr
@@ -153,6 +153,12 @@ class AttrsType:
 @define
 class AttrsError(Exception):
     code: int
+
+
+@define
+class MyReprAttrs:
+    in_repr: int
+    not_in_repr: MyDataclass = attrs_field(repr=False)
 
 
 class ListSubclass(_ListSubclass): ...
@@ -803,6 +809,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             id='attrs-simple',
         ),
         pytest.param(
+            MyReprAttrs(1, MyDataclass(2)),
+            'MyReprAttrs(in_repr=1)',
+            '{"in_repr":1}',
+            {'type': 'object', 'title': 'MyReprAttrs', 'x-python-datatype': 'attrs'},
+            id='attrs-repr',
+        ),
+        pytest.param(
             AttrsError(404),
             '404',
             '{"code":404}',
@@ -877,6 +890,43 @@ def test_log_non_scalar_args(
     assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema  # type: ignore
 
 
+def test_attrs_schema_respects_repr() -> None:
+    assert create_json_schema(MyReprAttrs(1, MyDataclass(2)), set()) == {
+        'type': 'object',
+        'title': 'MyReprAttrs',
+        'x-python-datatype': 'attrs',
+    }
+
+
+def test_attrs_falsey_callable_repr(exporter: TestExporter) -> None:
+    class FalseyRepr:
+        def __call__(self, value: Any) -> str:
+            return repr(value)
+
+        def __bool__(self) -> bool:
+            return False
+
+    formatter = FalseyRepr()
+    assert not formatter
+
+    @define
+    class CallableReprAttrs:
+        value: MyDataclass = attrs_field(repr=formatter)
+
+    value = CallableReprAttrs(MyDataclass(2))
+    assert repr(value) == 'CallableReprAttrs(value=MyDataclass(t=2))'
+    logfire.info('test message {var=}', var=value)
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    assert json.loads(attributes['var']) == {'value': {'t': 2}}  # type: ignore
+    assert json.loads(attributes['logfire.json_schema'])['properties']['var'] == {  # type: ignore
+        'type': 'object',
+        'title': 'CallableReprAttrs',
+        'x-python-datatype': 'attrs',
+        'properties': {'value': {'type': 'object', 'title': 'MyDataclass', 'x-python-datatype': 'dataclass'}},
+    }
+
+
 @pytest.mark.parametrize(
     'row_count,row_positions', [(0, []), (1, [0]), (3, [0, 1, 2]), (4, [0, 1, 2, 3]), (5, [0, 1, 3, 4])]
 )
@@ -912,6 +962,47 @@ def test_log_dataframe_labels_match_data(
         'x-indices': [f'row{row}' for row in row_positions],
         'x-column-count': column_count,
         'x-row-count': row_count,
+    }
+
+
+@pytest.mark.parametrize(
+    'max_rows,max_columns,row_positions,column_positions',
+    [
+        (None, None, [0, 1, 2, 3, 4], [0, 1, 2, 3, 4]),
+        (None, 2, [0, 1, 2, 3, 4], [0, 4]),
+        (2, None, [0, 4], [0, 1, 2, 3, 4]),
+        (0, 0, [0, 1, 2, 3, 4], [0, 1, 2, 3, 4]),
+        (1, 1, [0], [0]),
+        (3, 3, [0, 1, 4], [0, 1, 4]),
+    ],
+)
+def test_log_dataframe_with_unlimited_and_odd_display_limits(
+    exporter: TestExporter,
+    max_rows: int | None,
+    max_columns: int | None,
+    row_positions: list[int],
+    column_positions: list[int],
+) -> None:
+    frame = pandas.DataFrame(
+        [[row * 5 + column for column in range(5)] for row in range(5)],
+        columns=[f'col{column}' for column in range(5)],
+        index=[f'row{row}' for row in range(5)],
+    )
+    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):  # pyright: ignore[reportUnknownMemberType]
+        logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    assert isinstance(attributes['frame'], str)
+    assert isinstance(attributes['logfire.json_schema'], str)
+    assert json.loads(attributes['frame']) == [[row * 5 + column for column in column_positions] for row in row_positions]
+    assert json.loads(attributes['logfire.json_schema'])['properties']['frame'] == {
+        'type': 'array',
+        'x-python-datatype': 'DataFrame',
+        'x-columns': [f'col{column}' for column in column_positions],
+        'x-indices': [f'row{row}' for row in row_positions],
+        'x-column-count': 5,
+        'x-row-count': 5,
     }
 
 
