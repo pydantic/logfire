@@ -28,6 +28,8 @@ from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 # Emit both new and old semantic convention attribute names
 os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
+# Use LiteLLM's bundled prices so importing it never downloads data outside the cassettes.
+os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = 'True'
 # Monty's native tracing must not inherit a developer's Rust log filter.
 os.environ.pop('RUST_LOG', None)
 
