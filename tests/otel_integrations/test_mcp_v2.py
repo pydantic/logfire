@@ -11,6 +11,7 @@ from inline_snapshot import snapshot
 import logfire
 from logfire.testing import TestExporter
 
+pytest.importorskip('pydantic', minversion='2.12')
 pytest.importorskip('fastmcp', minversion='4')
 
 from fastmcp import Client, FastMCP
@@ -90,7 +91,7 @@ async def test_instrument_mcp_v2_builtin_otel(exporter: TestExporter):
                 'attributes': {
                     'fastmcp.span.seam': True,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'tools/call',
+                    'logfire.msg': 'tools/call add',
                     'mcp.method.name': 'tools/call',
                     'fastmcp.server.name': 'demo',
                     'mcp.protocol.version': '2026-07-28',

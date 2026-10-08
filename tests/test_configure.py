@@ -839,6 +839,23 @@ def test_configure_service_version(config_kwargs: dict[str, Any], exporter: Test
         os.chdir(dir)
 
 
+@pytest.mark.skipif(sys.platform != 'win32', reason='console windows only exist on Windows')
+def test_configure_service_version_git_no_window(
+    config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def check_output(cmd: list[str], **kwargs: Any) -> bytes:
+        calls.append(kwargs)
+        return b'abc123\n'
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    configure(**config_kwargs)
+    assert calls[-1]['creationflags'] == 0x08000000  # subprocess.CREATE_NO_WINDOW, which only exists on Windows
+    assert GLOBAL_CONFIG.service_version == 'abc123'
+
+
 def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
     with patch.dict(os.environ, {'OTEL_SERVICE_NAME': 'potato'}):
         configure(service_version='1.2.3', **config_kwargs)
