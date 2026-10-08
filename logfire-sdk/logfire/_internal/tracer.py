@@ -152,6 +152,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     record_metrics: bool
     metrics: dict[str, SpanMetric] = field(default_factory=lambda: defaultdict(SpanMetric))
     exception_callback: ExceptionCallback | None = None
+    metric_parent: _LogfireWrappedSpan | None = None
 
     def __post_init__(self):
         OPEN_SPANS[self._open_spans_key()] = self
@@ -231,7 +232,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         is_recording = self.is_recording()
         if not (
             # Ended SDK spans retain their parent, allowing updates to open ancestors.
-            (is_recording or isinstance(self.span, SDKSpan))
+            (is_recording or isinstance(self.span, SDKSpan) or self.metric_parent is not None)
             and (
                 (
                     self.record_metrics
@@ -245,7 +246,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
 
         if is_recording:
             self.metrics[name].increment(attributes, value)
-        if parent := get_parent_span(self):
+        if parent := self.metric_parent or get_parent_span(self):
             parent.increment_metric(name, attributes, value)
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
@@ -261,7 +262,8 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
 
 
 def get_parent_span(span: ReadableSpan) -> _LogfireWrappedSpan | None:
-    return span.parent and OPEN_SPANS.get(_open_spans_key(span.parent))
+    parent = getattr(span, 'parent', None)
+    return parent and OPEN_SPANS.get(_open_spans_key(parent))
 
 
 def _open_spans_key(ctx: SpanContext) -> tuple[int, int]:
@@ -330,6 +332,9 @@ class _ProxyTracer(Tracer):
             ns_timestamp_generator=ns_timestamp_generator,
             record_metrics=record_metrics,
             exception_callback=exception_callback,
+            metric_parent=OPEN_SPANS.get(_open_spans_key(get_current_span(context).get_span_context()))
+            if isinstance(span, NonRecordingSpan)
+            else None,
         )
 
     # This means that `with start_as_current_span(...):`

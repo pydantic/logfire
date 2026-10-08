@@ -836,3 +836,49 @@ def test_replace_default_views(metrics_reader: InMemoryMetricReader, config_kwar
             },
         ]
     )
+
+
+@pytest.mark.parametrize('instrument_type', ['counter', 'histogram'])
+@pytest.mark.parametrize('explicit_context', [False, True])
+@pytest.mark.parametrize('depth', [1, 2])
+def test_metrics_in_sampled_out_child(
+    exporter: TestExporter,
+    config_kwargs: dict[str, Any],
+    instrument_type: str,
+    explicit_context: bool,
+    depth: int,
+) -> None:
+    from contextlib import ExitStack
+
+    from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, ParentBased
+
+    reader = InMemoryMetricReader()
+    logfire.configure(
+        **config_kwargs,
+        sampling=logfire.SamplingOptions(head=ParentBased(ALWAYS_ON, local_parent_sampled=ALWAYS_OFF)),
+        metrics=logfire.MetricsOptions(collect_in_spans=True, additional_readers=[reader]),
+    )
+    record = (
+        logfire.metric_counter('measurement').add
+        if instrument_type == 'counter'
+        else logfire.metric_histogram('measurement').record
+    )
+    with logfire.span('parent'):
+        with ExitStack() as stack:
+            child = stack.enter_context(get_tracer(__name__).start_as_current_span('sampled out'))
+            assert not child.is_recording()
+            for _ in range(depth - 1):
+                child = stack.enter_context(get_tracer(__name__).start_as_current_span('sampled out'))
+                assert not child.is_recording()
+            record(10, context=set_span_in_context(child) if explicit_context else None)
+        record(20)
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert not any(span['name'] == 'sampled out' for span in spans)
+    parent = next(
+        span for span in spans if span['name'] == 'parent' and span['attributes']['logfire.span_type'] == 'span'
+    )
+    assert parent['attributes']['logfire.metrics']['measurement']['total'] == 30
+    [metric] = [metric for metric in get_collected_metrics(reader) if metric['name'] == 'measurement']
+    value_key = 'value' if instrument_type == 'counter' else 'sum'
+    assert sum(point[value_key] for point in metric['data']['data_points']) == 30
