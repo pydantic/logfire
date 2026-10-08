@@ -228,8 +228,10 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         )
 
     def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None:
+        is_recording = self.is_recording()
         if not (
-            self.is_recording()
+            # Ended SDK spans retain their parent, allowing updates to open ancestors.
+            (is_recording or isinstance(self.span, SDKSpan))
             and (
                 (
                     self.record_metrics
@@ -241,7 +243,8 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         ):
             return
 
-        self.metrics[name].increment(attributes, value)
+        if is_recording:
+            self.metrics[name].increment(attributes, value)
         if parent := get_parent_span(self):
             parent.increment_metric(name, attributes, value)
 
