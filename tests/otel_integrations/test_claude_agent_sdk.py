@@ -70,7 +70,7 @@ CASSETTES_DIR = Path(__file__).parent / 'cassettes' / 'test_claude_agent_sdk'
 
 
 @pytest.fixture(autouse=True)
-def _reset_instrumentation():  # pyright: ignore[reportUnusedFunction]
+def _reset_instrumentation():
     """Instrument and reset SDK class patching between tests."""
     with logfire.instrument_claude_agent_sdk():
         yield
