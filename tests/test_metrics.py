@@ -886,12 +886,19 @@ def test_metrics_in_sampled_out_child(
 
 @pytest.mark.parametrize('instrument_type', ['counter', 'histogram'])
 def test_sampled_child_of_ended_parent(exporter: TestExporter, config_kwargs: dict[str, Any], instrument_type: str):
-    from unittest.mock import patch
+    from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, Sampler, SamplingResult
 
-    from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON
+    class SelectiveSampler(Sampler):
+        def should_sample(self, *args: Any, **kwargs: Any) -> SamplingResult:
+            sampler = ALWAYS_OFF if args[2] == 'sampled out' else ALWAYS_ON
+            return sampler.should_sample(*args, **kwargs)
+
+        def get_description(self) -> str:
+            return 'drop sampled out children'
 
     logfire.configure(
         **config_kwargs,
+        sampling=logfire.SamplingOptions(head=SelectiveSampler()),
         metrics=logfire.MetricsOptions(collect_in_spans=True),
     )
     record = (
@@ -902,10 +909,9 @@ def test_sampled_child_of_ended_parent(exporter: TestExporter, config_kwargs: di
     with logfire.span('grandparent'):
         with get_tracer(__name__).start_span('parent') as parent:
             assert parent.is_recording()
-        with patch.object(ALWAYS_ON, 'should_sample', side_effect=ALWAYS_OFF.should_sample):
-            with get_tracer(__name__).start_span('sampled out', context=set_span_in_context(parent)) as child:
-                assert not child.is_recording()
-                record(10, context=set_span_in_context(child))
+        with get_tracer(__name__).start_span('sampled out', context=set_span_in_context(parent)) as child:
+            assert not child.is_recording()
+            record(10, context=set_span_in_context(child))
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
     grandparent = next(
         s for s in spans if s['name'] == 'grandparent' and s['attributes']['logfire.span_type'] == 'span'
