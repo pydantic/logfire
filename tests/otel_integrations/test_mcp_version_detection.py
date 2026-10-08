@@ -6,15 +6,22 @@ via `sys.modules` so they run against the locked mcp 1.
 """
 
 import sys
+from importlib import import_module
+from importlib.metadata import version
 from typing import Any
 
 import pytest
 
 import logfire
+from logfire._internal.utils import get_version
 
-pytest.importorskip('mcp.shared.session')
-# On old pydantic (e.g. the 2.4 CI job) mcp 1 itself fails to import, so the integration can't be exercised.
-pytest.importorskip('logfire._internal.integrations.mcp')
+# The installed MCP 1 release requires Pydantic 2.11; check before importing its models.
+pytest.importorskip('pydantic', minversion='2.11')
+if get_version(version('mcp')) >= get_version('2'):
+    pytest.skip('Requires MCP 1', allow_module_level=True)
+
+# On supported dependency combinations, unexpected import failures must fail collection.
+import_module('logfire._internal.integrations.mcp')
 
 
 def test_missing_shared_session_means_mcp_2(monkeypatch: pytest.MonkeyPatch):

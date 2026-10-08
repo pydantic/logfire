@@ -2575,7 +2575,7 @@ def test_log_with_leading_underscore_on_attributes(exporter: TestExporter) -> No
 
 
 def test_large_int(exporter: TestExporter) -> None:
-    with pytest.warns(UserWarning, match='larger than the maximum OTLP integer size'):
+    with pytest.warns(UserWarning, match='outside the range of OTLP integers'):
         with logfire.span('test {value=}', value=2**63 + 1):
             pass
 
@@ -2620,7 +2620,7 @@ def test_large_int(exporter: TestExporter) -> None:
     )
     exporter.exported_spans.clear()
 
-    with pytest.warns(UserWarning, match='larger than the maximum OTLP integer size'):
+    with pytest.warns(UserWarning, match='outside the range of OTLP integers'):
         with logfire.span('test {value=}', value=2**63):
             pass
 
@@ -2706,6 +2706,16 @@ def test_large_int(exporter: TestExporter) -> None:
                 },
             },
         ]
+    )
+
+
+def test_large_negative_int(exporter: TestExporter) -> None:
+    with pytest.warns(UserWarning, match='outside the range of OTLP integers'):
+        logfire.info('test {value=}', value=-(2**63) - 1)
+    logfire.info('test {value=}', value=-(2**63))
+
+    assert [span['attributes']['value'] for span in exporter.exported_spans_as_dict()] == snapshot(
+        ['-9223372036854775809', -9223372036854775808]
     )
 
 
@@ -4048,6 +4058,140 @@ def test_exit_ended_span(exporter: TestExporter):
                 'parent': None,
                 'start_time': 1000000000,
             }
+        ]
+    )
+
+
+def test_update_name_updates_message(exporter: TestExporter):
+    tracer = get_tracer(__name__)
+
+    # e.g. FastAPI's built-in telemetry starts the span before the route is known, then renames it.
+    span = tracer.start_span(
+        'GET',
+        kind=SpanKind.SERVER,
+        attributes={'http.method': 'GET', 'http.route': '/items/{item_id}', 'http.target': '/items/1'},
+    )
+    span.update_name('GET /items/{item_id}')
+    span.end()
+
+    span = tracer.start_span('old name')
+    span.update_name('new name')
+    span.end()
+
+    # An explicitly set message is kept.
+    span = tracer.start_span('old name', attributes={'logfire.msg': 'custom message'})
+    span.update_name('new name')
+    span.end()
+
+    # So is a message from a template.
+    with logfire.span('old {x}', x=1):
+        get_current_span().update_name('new name')
+
+    assert [(s['name'], s['attributes']['logfire.msg']) for s in exporter.exported_spans_as_dict()] == snapshot(
+        [
+            ('GET /items/{item_id}', 'GET /items/1'),
+            ('new name', 'new name'),
+            ('new name', 'custom message'),
+            ('new name', 'old 1'),
+        ]
+    )
+
+
+def test_http_spans_stable_semconv(exporter: TestExporter):
+    """Spans using the stable HTTP semantic conventions get the same name/message treatment as the old ones."""
+    tracer = get_tracer(__name__)
+
+    # e.g. FastAPI's built-in telemetry: the span starts as just the method with the stable attributes,
+    # then gets renamed and given a route once routing has matched.
+    span = tracer.start_span(
+        'GET',
+        kind=SpanKind.SERVER,
+        attributes={'http.request.method': 'GET', 'url.path': '/items/1', 'url.query': 'x=1&y=2%203'},
+    )
+    span.set_attribute('http.route', '/items/{item_id}')
+    span.update_name('GET /items/{item_id}')
+    span.end()
+
+    # No query string.
+    with tracer.start_span(
+        'GET /items/{item_id}',
+        kind=SpanKind.SERVER,
+        attributes={'http.request.method': 'GET', 'url.path': '/items/1', 'http.route': '/items/{item_id}'},
+    ):
+        pass
+
+    # A client span with the full URL and the server address.
+    with tracer.start_span(
+        'GET',
+        kind=SpanKind.CLIENT,
+        attributes={
+            'http.request.method': 'GET',
+            'url.full': 'https://example.com/path?a=1',
+            'server.address': 'example.com',
+        },
+    ):
+        pass
+
+    # A client span with only the full URL. The host is taken from it, and `http.target` isn't added.
+    with tracer.start_span(
+        'GET',
+        kind=SpanKind.CLIENT,
+        attributes={'http.request.method': 'GET', 'url.full': 'https://example.org/other'},
+    ):
+        pass
+
+    # A root URL has an empty path, which is shown as '/'.
+    with tracer.start_span(
+        'GET',
+        kind=SpanKind.CLIENT,
+        attributes={'http.request.method': 'GET', 'url.full': 'https://example.org?x=1'},
+    ):
+        pass
+
+    # Same with the old conventions, where `http.target` is also added.
+    with tracer.start_span(
+        'GET',
+        kind=SpanKind.CLIENT,
+        attributes={'http.method': 'GET', 'http.url': 'https://example.org'},
+    ):
+        pass
+
+    # The query string isn't added again if the target already includes it.
+    with tracer.start_span(
+        'GET',
+        kind=SpanKind.SERVER,
+        attributes={'http.method': 'GET', 'http.target': '/items?x=1', 'http.url': 'https://example.org/items?x=1'},
+    ):
+        pass
+
+    with tracer.start_span(
+        'GET',
+        kind=SpanKind.SERVER,
+        attributes={
+            'http.method': 'GET',
+            'http.request.method': 'POST',
+            'http.target': '/old',
+            'url.path': '/new',
+            'http.url': 'https://example.org/old?a=1',
+            'url.full': 'https://example.org/new?b=2',
+            'url.query': 'b=2',
+        },
+    ):
+        pass
+
+    assert [
+        (s['name'], s['attributes']['logfire.msg'], 'http.target' in s['attributes'])
+        for s in exporter.exported_spans_as_dict()
+    ] == snapshot(
+        [
+            ('GET /items/{item_id}', "GET /items/1 ? x='1' & y='2 3'", False),
+            ('GET /items/{item_id}', 'GET /items/1', False),
+            ('GET', "GET example.com/path ? a='1'", False),
+            ('GET', 'GET example.org/other', False),
+            ('GET', "GET example.org/ ? x='1'", False),
+            ('GET', 'GET example.org/', True),
+            ('GET', 'GET /items?x=1', True),
+            ('GET', "GET /old ? b='2'", True),
         ]
     )
 

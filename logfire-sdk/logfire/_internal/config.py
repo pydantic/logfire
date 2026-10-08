@@ -175,7 +175,8 @@ class ConsoleOptions:
     verbose: bool = False
     """Whether to show verbose output.
 
-    It includes the filename, log level, and line number.
+    It includes the filename, log level, line number, and attributes.
+    `include_attributes` can override whether attributes are shown.
     """
     min_log_level: LevelName = 'info'
     """The minimum log level to show in the console."""
@@ -184,6 +185,12 @@ class ConsoleOptions:
     """Whether to print the URL of the Logfire project after initialization."""
     output: TextIO | None = None
     """The output stream to write console output to (default: stdout)."""
+    include_attributes: bool | None = None
+    """Whether to show formatted Logfire attributes beneath span and log messages. Defaults to `verbose`.
+
+    Set to `True` with `verbose=False` to show attributes without the filename, line number, or log level.
+    This uses Logfire's formatting metadata and does not change the message itself.
+    """
 
 
 @dataclass
@@ -798,6 +805,7 @@ class _LogfireConfigData:
                 include_timestamps=param_manager.load_param('console_include_timestamp'),
                 include_tags=param_manager.load_param('console_include_tags'),
                 verbose=param_manager.load_param('console_verbose'),
+                include_attributes=param_manager.load_param('console_include_attributes'),
                 min_log_level=param_manager.load_param('console_min_log_level'),
                 show_project_link=param_manager.load_param('console_show_project_link'),
             )
@@ -1193,6 +1201,7 @@ class LogfireConfig(_LogfireConfigData):
                     include_timestamp=self.console.include_timestamps,
                     include_tags=self.console.include_tags,
                     verbose=self.console.verbose,
+                    include_attributes=self.console.include_attributes,
                     min_log_level=self.console.min_log_level,
                     output=self.console.output,
                 )
