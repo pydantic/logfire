@@ -219,17 +219,19 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
 
     def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None:
         if not (
-            (
-                self.record_metrics
-                # Filter out these OTel meta metrics which are just noise
-                and not name.startswith('otel.sdk.')
+            self.is_recording()
+            and (
+                (
+                    self.record_metrics
+                    # Filter out these OTel meta metrics which are just noise
+                    and not name.startswith('otel.sdk.')
+                )
+                or name in ('operation.cost', 'gen_ai.client.token.usage')
             )
-            or name in ('operation.cost', 'gen_ai.client.token.usage')
         ):
             return
 
-        if self.is_recording():
-            self.metrics[name].increment(attributes, value)
+        self.metrics[name].increment(attributes, value)
         if parent := get_parent_span(self):
             parent.increment_metric(name, attributes, value)
 
@@ -246,8 +248,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
 
 
 def get_parent_span(span: ReadableSpan) -> _LogfireWrappedSpan | None:
-    parent = getattr(span, 'parent', None)  # NonRecordingSpan has no parent attribute
-    return parent and OPEN_SPANS.get(_open_spans_key(parent))
+    return span.parent and OPEN_SPANS.get(_open_spans_key(span.parent))
 
 
 def _open_spans_key(ctx: SpanContext) -> tuple[int, int]:
