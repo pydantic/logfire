@@ -1,0 +1,27 @@
+.github/workflows/main.yml
+  s_3eecf04afaad8c::t_42a8f4c2135a37 235-241
+logfire-sdk/logfire/_internal/integrations/llm_providers/anthropic.py
+  s_3eecf04afaad8c::t_42a8f4c2135a37 5-6,10,105-106,278-279,282-294
+tests/conftest.py
+  s_3eecf04afaad8c::t_42a8f4c2135a37 31-32
+tests/otel_integrations/test_anthropic.py
+  s_3eecf04afaad8c::t_42a8f4c2135a37 703-762
+uv.lock
+  s_3eecf04afaad8c::t_05b75867f4743d 292,303,305,2160,2166,2168,2188,2198,2200,2368-2489,6135,6141,6143,6148,6153-6225,6230-6245
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f33644179a791a7da67e3695effc22b02f1e492c",
+  "prompts": {},
+  "sessions": {
+    "s_3eecf04afaad8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1168b-ad6e-7d31-8c1e-8d0072575520",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
