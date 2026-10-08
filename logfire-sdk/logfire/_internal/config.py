@@ -733,8 +733,8 @@ class _LogfireConfigData:
     def _load_configuration(
         self,
         # note that there are no defaults here so that the only place
-        # defaults exist is `__init__` and we don't forgot a parameter when
-        # forwarding parameters from `__init__` to `load_configuration`
+        # defaults exist is `__init__` and we don't forget a parameter when
+        # forwarding parameters from `__init__` to `_load_configuration`
         send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | list[str] | None,
         api_key: str | None,
@@ -953,7 +953,7 @@ class LogfireConfig(_LogfireConfigData):
 
         See `_LogfireConfigData` for parameter documentation.
         """
-        # The `load_configuration` is it's own method so that it can be called on an existing config object
+        # The `_load_configuration` is its own method so that it can be called on an existing config object
         # in particular the global config object.
         self._load_configuration(
             send_to_logfire=send_to_logfire,
@@ -2304,7 +2304,16 @@ def get_git_revision_hash() -> str:
     """Get the current git commit hash."""
     import subprocess
 
-    return subprocess.check_output(['git', 'rev-parse', 'HEAD'], stderr=subprocess.STDOUT).decode('ascii').strip()
+    return (
+        subprocess.check_output(
+            ['git', 'rev-parse', 'HEAD'],
+            stderr=subprocess.STDOUT,
+            # On Windows, don't flash a console window for git. `CREATE_NO_WINDOW` only exists on Windows; 0 is the default.
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+        )
+        .decode('ascii')
+        .strip()
+    )
 
 
 def sanitize_project_name(name: str) -> str:
