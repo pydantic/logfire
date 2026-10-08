@@ -116,6 +116,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         include_tags: bool = True,
         verbose: bool = False,
         min_log_level: LevelName = 'info',
+        include_attributes: bool | None = None,
     ) -> None:
         self._output = output
         if colors == 'auto':
@@ -143,6 +144,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         # timestamp len('12:34:56.789') 12 + space (1)
         self._timestamp_indent = 13 if include_timestamp else 0
         self._verbose = verbose
+        self._include_attributes = verbose if include_attributes is None else include_attributes
         self._min_log_level_num = LEVEL_NUMBERS[min_log_level]
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
@@ -255,8 +257,8 @@ class SimpleConsoleSpanExporter(SpanExporter):
             return []
 
     def _print_arguments(self, span: Record, indent_str: str):
-        """Pretty-print formatted logfire arguments for the span if `self._verbose` is True."""
-        if not self._verbose or not span.attributes:
+        """Pretty-print formatted logfire arguments for the span if `self._include_attributes` is True."""
+        if not self._include_attributes or not span.attributes:
             return
 
         arguments: dict[str, Any] = {}
@@ -357,8 +359,9 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
         include_tags: bool = True,
         verbose: bool = False,
         min_log_level: LevelName = 'info',
+        include_attributes: bool | None = None,
     ) -> None:
-        super().__init__(output, colors, include_timestamp, include_tags, verbose, min_log_level)
+        super().__init__(output, colors, include_timestamp, include_tags, verbose, min_log_level, include_attributes)
         # lookup from span ID to indent level
         self._indent_level: dict[int, int] = {}
 
@@ -401,8 +404,9 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         include_tags: bool = True,
         verbose: bool = False,
         min_log_level: LevelName = 'info',
+        include_attributes: bool | None = None,
     ) -> None:
-        super().__init__(output, colors, include_timestamp, include_tags, verbose, min_log_level)
+        super().__init__(output, colors, include_timestamp, include_tags, verbose, min_log_level, include_attributes)
 
         # lookup from span_id to `(indent, span message, parent id)`
         self._span_history: dict[int, tuple[int, str, int]] = {}
