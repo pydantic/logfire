@@ -28,6 +28,8 @@ from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 # Emit both new and old semantic convention attribute names
 os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
+# Monty's native tracing must not inherit a developer's Rust log filter.
+os.environ.pop('RUST_LOG', None)
 
 # Ensure that these variables in the environment don't interfere
 os.environ['LOGFIRE_TOKEN'] = ''
