@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from typing import Any
+import warnings
+from collections.abc import Callable, Iterable
+from typing import Any, cast
 
 import pytest
 import requests
 from dirty_equals import IsInt
 from inline_snapshot import Is, snapshot
 from opentelemetry import metrics
-from opentelemetry.metrics import CallbackOptions, Observation
+from opentelemetry.context import Context
+from opentelemetry.metrics import CallbackOptions, CallbackT, Observation
 from opentelemetry.sdk.metrics import Counter, Histogram
 from opentelemetry.sdk.metrics.export import (
     AggregationTemporality,
@@ -15,6 +18,7 @@ from opentelemetry.sdk.metrics.export import (
     MetricExporter,
     MetricExportResult,
     MetricsData,
+    Sum,
 )
 from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
 
@@ -22,6 +26,9 @@ import logfire
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.test import TestExporter
+from logfire._internal.metrics import (
+    _sanitize_observable_callbacks,  # pyright: ignore[reportPrivateUsage]
+)
 from logfire.testing import get_collected_metrics
 
 meter = metrics.get_meter('global_test_meter')
@@ -752,3 +759,476 @@ def test_replace_default_views(metrics_reader: InMemoryMetricReader, config_kwar
             },
         ]
     )
+
+
+def test_metric_counter_drops_invalid_attribute_and_warns(metrics_reader: InMemoryMetricReader) -> None:
+    """Invalid metric attribute values are dropped with a warning instead of crashing the exporter.
+
+    Regression test for https://github.com/pydantic/logfire/issues/782: an attribute value the
+    OTLP exporter cannot encode (here an arbitrary ``object()``) previously reached the export
+    thread and failed there, dropping the whole batch with no pointer to the offending call.
+    """
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+        counter.add(1, {'bad': object(), 'good': 'yes', 'n': 3})  # type: ignore[arg-type]
+
+    assert get_collected_metrics(metrics_reader) == snapshot(
+        [
+            {
+                'name': 'counter',
+                'description': '',
+                'unit': '',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {'good': 'yes', 'n': 3},
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'value': 1,
+                            'exemplars': [],
+                        }
+                    ],
+                    'aggregation_temporality': 1,
+                    'is_monotonic': True,
+                },
+            }
+        ]
+    )
+
+
+def test_metric_histogram_drops_invalid_attribute_and_warns(metrics_reader: InMemoryMetricReader) -> None:
+    histogram = logfire.metric_histogram('histogram')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+        histogram.record(50, {'bad': object(), 'good': 'yes'})  # type: ignore[arg-type]
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_up_down_counter_drops_invalid_attribute_and_warns(metrics_reader: InMemoryMetricReader) -> None:
+    up_down_counter = logfire.metric_up_down_counter('up_down_counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+        up_down_counter.add(1, {'bad': object(), 'good': 'yes'})  # type: ignore[arg-type]
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_gauge_drops_invalid_attribute_and_warns(metrics_reader: InMemoryMetricReader) -> None:
+    gauge = logfire.metric_gauge('gauge')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+        gauge.set(1, {'bad': object(), 'good': 'yes'})  # type: ignore[arg-type]
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_attributes_with_invalid_sequence_element_are_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type tuple"):
+        counter.add(1, {'seq': (1, object()), 'good_seq': ('a', 'b')})  # type: ignore[arg-type]
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good_seq': ['a', 'b']}
+
+
+def test_metric_attributes_with_none_sequence_element_are_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    # `None` is not a valid element of a metric attribute sequence: the supported exporter logs
+    # an error and omits the attribute, and newer versions encode it inconsistently, so a tuple
+    # containing `None` must be dropped rather than forwarded.
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type tuple"):
+        counter.add(1, {'seq': (1, None), 'good_seq': ('a', 'b')})  # type: ignore[arg-type]
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good_seq': ['a', 'b']}
+
+
+def test_metric_multiple_invalid_attributes_are_all_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    # Two invalid attributes in one call: the second reuses the already-copied ``cleaned`` dict
+    # (the ``cleaned is None`` guard is False on the second drop) rather than copying again.
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning) as records:
+        counter.add(1, {'bad1': object(), 'bad2': [1, 2], 'good': 'yes'})  # type: ignore[arg-type]
+
+    messages = [str(r.message) for r in records]
+    assert any("Dropping metric attribute 'bad1'" in m for m in messages)
+    assert any("Dropping metric attribute 'bad2'" in m for m in messages)
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_list_attribute_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    # A list is a valid OTLP attribute value in general but is unhashable and crashes the
+    # metrics SDK during aggregation, so it must be dropped for metrics specifically.
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'lst' with invalid type list"):
+        counter.add(1, {'lst': [1, 2, 3], 'good': 'yes'})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_valid_metric_attributes_do_not_warn(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('counter')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        counter.add(1, {'s': 'a', 'b': True, 'i': 1, 'f': 1.5, 'seq': (1, 2, 3)})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'s': 'a', 'b': True, 'i': 1, 'f': 1.5, 'seq': [1, 2, 3]}
+
+
+def test_metric_invalid_attribute_does_not_reach_span_collection(exporter: TestExporter) -> None:
+    # An attribute the sanitizer rejects must be dropped before the span metric too, not
+    # only before the exported instrument. `SpanMetric` keys its details dict on the
+    # attributes and `_LogfireWrappedSpan.end` JSON-serializes them, so an unserializable
+    # value reaching that path makes the serialization fail inside `handle_internal_errors`
+    # and the whole `logfire.metrics` span attribute silently disappears.
+    counter = logfire.metric_counter('tokens')
+
+    with logfire.span('span'):
+        with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+            counter.add(100, {'bad': object(), 'model': 'gpt4'})  # type: ignore[arg-type]
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
+
+
+def test_metric_unhashable_attribute_does_not_reach_span_collection(exporter: TestExporter) -> None:
+    # Same path as above with an unhashable value, which raises where `SpanMetric.increment`
+    # builds its dict key rather than at serialization time.
+    counter = logfire.metric_counter('tokens')
+
+    with logfire.span('span'):
+        with pytest.warns(UserWarning, match=r"Dropping metric attribute 'lst' with invalid type list"):
+            counter.add(100, {'lst': [1, 2], 'model': 'gpt4'})
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
+
+
+def test_metric_histogram_invalid_attribute_does_not_reach_span_collection(exporter: TestExporter) -> None:
+    histogram = logfire.metric_histogram('durations')
+
+    with logfire.span('span'):
+        with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type object"):
+            histogram.record(50, {'bad': object(), 'model': 'gpt4'})  # type: ignore[arg-type]
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'durations': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 50}], 'total': 50}
+    }
+
+
+def test_metric_oversized_int_attribute_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    # OTLP carries signed 64-bit integers. A larger `int` is hashable and aggregates fine,
+    # so it survives the metrics SDK and only raises in the exporter's protobuf encoding -
+    # the same export-thread batch drop this sanitization exists to prevent.
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'big' with invalid type int"):
+        counter.add(1, {'big': 2**63, 'good': 'yes'})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_oversized_int_in_sequence_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type tuple"):
+        counter.add(1, {'seq': (1, 2**63), 'good': 'yes'})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+class _UnhashableStr(str):
+    # isinstance(x, str) is True but hashing raises: such a value crashes the OpenTelemetry
+    # SDK's frozenset(attributes.items()) aggregation key, so it must be rejected by exact type.
+    __hash__ = None  # type: ignore[assignment]
+
+
+class _UnhashableTuple(tuple[Any, ...]):
+    # Same for a tuple subclass: isinstance(x, tuple) is True but it is unhashable.
+    __hash__ = None  # type: ignore[assignment]
+
+
+def test_metric_unhashable_str_subclass_attribute_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type _UnhashableStr"):
+        counter.add(1, {'bad': _UnhashableStr('x'), 'good': 'yes'})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_unhashable_tuple_subclass_attribute_is_dropped(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('counter')
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type _UnhashableTuple"):
+        counter.add(1, {'seq': _UnhashableTuple((1, 2)), 'good_seq': ('a', 'b')})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good_seq': ['a', 'b']}
+
+
+def test_metric_in_range_int_attributes_are_kept(metrics_reader: InMemoryMetricReader) -> None:
+    # The int bound must not reject values OTLP can carry, including the boundary itself
+    # and `bool` (an `int` subclass that is always in range).
+    counter = logfire.metric_counter('counter')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        counter.add(1, {'max': 2**63 - 1, 'min': -(2**63), 'flag': True, 'seq': (2**63 - 1, -(2**63))})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {
+        'max': 2**63 - 1,
+        'min': -(2**63),
+        'flag': True,
+        'seq': [2**63 - 1, -(2**63)],
+    }
+
+
+class _HashableIntSubclass(int):
+    # A plain, hashable subclass of ``int``: ``isinstance(x, int)`` is True, ``hash(x)``
+    # works, and OTLP encodes it as a 64-bit int. Exact-type matching drops it even though
+    # it is a perfectly valid attribute value; hash probing keeps it.
+    pass
+
+
+class _HashableFloatSubclass(float):
+    # Same for ``float``: a hashable subclass that OTLP encodes as a double.
+    pass
+
+
+def test_metric_hashable_int_and_float_subclass_attributes_are_kept(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('counter')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        counter.add(
+            1,
+            {
+                'i': _HashableIntSubclass(7),
+                'f': _HashableFloatSubclass(1.5),
+                'seq': (_HashableIntSubclass(2), _HashableFloatSubclass(3.5)),
+            },
+        )
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'i': 7, 'f': 1.5, 'seq': [2, 3.5]}
+
+
+def test_metric_intenum_attribute_is_kept(metrics_reader: InMemoryMetricReader) -> None:
+    from enum import IntEnum
+
+    class _Level(IntEnum):
+        LOW = 1
+        HIGH = 2
+
+    counter = logfire.metric_counter('counter')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        counter.add(1, {'level': _Level.HIGH})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'level': 2}
+
+
+def test_metric_numpy_scalar_attributes_are_kept(metrics_reader: InMemoryMetricReader) -> None:
+    np = pytest.importorskip('numpy')
+
+    counter = logfire.metric_counter('counter')
+
+    # ``numpy.float64`` is registered as a Python ``float`` subclass and encodes cleanly, so the
+    # hashability probe keeps it. ``numpy.int64`` is *not* an ``int`` subclass (``isinstance`` is
+    # False in numpy 2.x), so it is dropped like any other unsupported type — the probe only
+    # relaxes the gate for values that pass ``isinstance`` and the OTLP encoder.
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'i64'"):
+        counter.add(1, {'i64': np.int64(7), 'f64': np.float64(1.5), 'seq': (np.float64(2.5),)})
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'f64': 1.5, 'seq': [2.5]}
+
+
+def test_metric_bytes_attribute_kept_in_export_but_dropped_from_span_collection(
+    exporter: TestExporter, metrics_reader: InMemoryMetricReader
+) -> None:
+    # `bytes` is a legal OTLP attribute value (the proto encoder emits `bytes_value`), so
+    # the exported metric must keep it. But `SpanMetric.dump()` is JSON-serialized at span
+    # end and `json.dumps` cannot encode `bytes`, which would take the whole
+    # `logfire.metrics` attribute down with it. So the span path filters `bytes` and the
+    # export path does not.
+    counter = logfire.metric_counter('tokens')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        with logfire.span('span'):
+            counter.add(100, {'raw': b'abc', 'model': 'gpt4'})
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
+
+    # Read the metric off the reader directly rather than through
+    # `get_collected_metrics`, whose `MetricsData.to_json()` cannot encode `bytes` either.
+    data = metrics_reader.get_metrics_data()
+    assert data is not None
+    [resource_metrics] = data.resource_metrics
+    [scope_metrics] = resource_metrics.scope_metrics
+    [metric] = scope_metrics.metrics
+    metric_data = metric.data
+    assert isinstance(metric_data, Sum)
+    [data_point] = metric_data.data_points
+    assert dict(data_point.attributes or {}) == {'raw': b'abc', 'model': 'gpt4'}
+    assert data_point.value == 100
+
+
+def test_metric_multiple_bytes_attributes_all_dropped_from_span_collection(
+    exporter: TestExporter,
+) -> None:
+    # Two bytes attributes in one call: the second reuses the already-copied `cleaned`
+    # dict, i.e. the `cleaned is None` guard is False on the second drop. Without this the
+    # 104->106 branch in `_span_safe_metric_attributes` stays partial and the repo's
+    # `coverage report --fail-under 100` fails.
+    counter = logfire.metric_counter('tokens')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        with logfire.span('span'):
+            counter.add(100, {'raw1': b'abc', 'raw2': b'def', 'model': 'gpt4'})
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
+
+
+def test_metric_bytes_in_sequence_dropped_from_span_collection(exporter: TestExporter) -> None:
+    counter = logfire.metric_counter('tokens')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        with logfire.span('span'):
+            counter.add(100, {'raws': (b'a', b'b'), 'model': 'gpt4'})  # type: ignore[arg-type]
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.metrics'] == {
+        'tokens': {'details': [{'attributes': {'model': 'gpt4'}, 'total': 100}], 'total': 100}
+    }
+
+
+def test_metric_observable_callback_attributes_are_sanitized(metrics_reader: InMemoryMetricReader) -> None:
+    # Observable callbacks hand ``Observation(value, attributes=...)`` straight to the
+    # real instrument; without the wrapper added in _ProxyObservable*, an unsupported
+    # attribute value reaches the frozenset(attributes.items()) aggregation key and the
+    # exporter unsanitized - the exact failure class of issue #782, reachable through
+    # ``logfire.metric_*_callback``. The wrapper must apply the same sanitizer the
+    # synchronous paths use.
+    def observable_counter(options: CallbackOptions):
+        yield Observation(1, attributes={'bad': _UnhashableStr('x'), 'good': 'yes'})
+
+    logfire.metric_counter_callback('counter_callback', callbacks=[observable_counter])
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type _UnhashableStr"):
+        metrics_reader.collect()
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_metric_observable_callback_without_callbacks_reports_nothing(metrics_reader: InMemoryMetricReader) -> None:
+    # `_sanitize_observable_callbacks` returns early when there is nothing to wrap: an
+    # observable instrument created with an empty callback list must still be accepted and
+    # report nothing. Without this the `if not callbacks:` early return stays uncovered for
+    # the repo's `coverage report --fail-under 100`.
+    logfire.metric_counter_callback('counter_callback_without_callbacks', callbacks=[])
+
+    metrics_reader.collect()
+
+    # With no callbacks to invoke there are no observations at all, so nothing is reported.
+    data = metrics_reader.get_metrics_data()
+    assert data is None or not data.resource_metrics
+
+
+def test_metric_observable_generator_object_callback_attributes_are_sanitized(
+    metrics_reader: InMemoryMetricReader,
+) -> None:
+    # `CallbackT` also accepts a *generator object* (not just a generator function): the wrapper
+    # must prime it once with ``next()`` and pull each collection cycle with ``send(options)``,
+    # exactly like the SDK, while sanitizing each yielded observation's attributes. An indefinite
+    # generator models a real observable callback polled on every collection cycle. The SDK's
+    # generator protocol yields an *iterable* of observations and receives each CallbackOptions
+    # via ``send``, so it is primed with an initial empty yield.
+    def make_generator():
+        yield []
+        while True:
+            yield [Observation(1, attributes={'bad': _UnhashableStr('x'), 'good': 'yes'})]
+
+    generator = cast('CallbackT', make_generator())
+    logfire.metric_counter_callback('counter_callback_generator', callbacks=[generator])
+
+    with pytest.warns(UserWarning, match=r"Dropping metric attribute 'bad' with invalid type _UnhashableStr"):
+        metrics_reader.collect()
+
+    [metric] = get_collected_metrics(metrics_reader)
+    [data_point] = metric['data']['data_points']
+    assert data_point['attributes'] == {'good': 'yes'}
+
+
+def test_sanitized_observable_callback_preserves_observation_context() -> None:
+    # The wrapper rebuilds every `Observation` to sanitize its attributes, so it must carry the
+    # original `context` over rather than silently dropping it.
+    context = Context()
+
+    def callback(options: CallbackOptions):
+        yield Observation(1, attributes={'good': 'yes'}, context=context)
+
+    sanitized = _sanitize_observable_callbacks([callback])
+    assert sanitized is not None
+    [wrapped_callback] = sanitized
+
+    # `CallbackT` is `Callable[...] | Generator[...]`; only the callable arm is invocable.
+    wrapped_callable = cast('Callable[[CallbackOptions], Iterable[Observation]]', wrapped_callback)
+    [observation] = wrapped_callable(CallbackOptions())
+
+    assert observation.value == 1
+    assert observation.attributes == {'good': 'yes'}
+    assert observation.context is context

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import dataclasses
+import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Generator, Iterable, Sequence
 from threading import Lock
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 from weakref import WeakSet
 
 from opentelemetry.metrics import (
+    CallbackOptions,
     CallbackT,
     Counter,
     Histogram,
@@ -18,6 +20,7 @@ from opentelemetry.metrics import (
     ObservableCounter,
     ObservableGauge,
     ObservableUpDownCounter,
+    Observation,
     UpDownCounter,
     _Gauge as Gauge,
 )
@@ -25,8 +28,201 @@ from opentelemetry.sdk.metrics import MeterProvider as SDKMeterProvider
 from opentelemetry.trace import get_current_span
 from opentelemetry.util.types import Attributes
 
+from .constants import OTLP_MAX_INT_SIZE
 from .tracer import _LogfireWrappedSpan  # pyright: ignore[reportPrivateUsage]
 from .utils import handle_internal_errors
+
+# Types that a metric data point attribute value may have.
+# A value must be encodable by the OTLP exporter AND hashable, because the metrics SDK keys
+# aggregations on frozenset(attributes.items()). So the accepted set is a primitive, or a
+# tuple (hashable) of primitives. Unlike span attributes, metric attributes are not passed
+# through logfire's prepare_otlp_attribute, and neither the metrics SDK nor the exporter
+# cleans them, so an unsupported value only fails later: either inside the exporter thread
+# (dropping the whole batch, with no pointer to the offending call) or during aggregation
+# with a raw TypeError. See https://github.com/pydantic/logfire/issues/782.
+_VALID_METRIC_ATTRIBUTE_TYPES = (bool, str, bytes, int, float)
+
+# The same accepted scalars as a static union, used to narrow a validated tuple away from
+# ``Any`` before a hashability probe (strict pyright rejects hashing ``tuple[Any, ...]``).
+# ``bool`` precedes ``int`` because ``bool`` is an ``int`` subclass.
+_MetricScalarValue = bool | str | bytes | int | float
+
+
+def _sanitize_metric_attributes(attributes: Attributes | None) -> Attributes | None:
+    """Drop metric attribute values that break the exporter or aggregation, warning for each.
+
+    A single bad value otherwise either raises inside `PeriodicExportingMetricReader`'s
+    background thread (dropping the whole batch, with no pointer to the offending call) or
+    raises a raw TypeError during aggregation for unhashable values. Warning and dropping the
+    individual attribute keeps the metric and its other attributes instead.
+    """
+    if not attributes:
+        return attributes
+
+    cleaned: dict[str, Any] | None = None
+    for key, value in attributes.items():
+        if not _metric_attribute_value_is_valid(value):
+            warnings.warn(
+                f'Dropping metric attribute {key!r} with invalid type {type(value).__name__}. '
+                f'Metric attribute values must be one of '
+                f'{[t.__name__ for t in _VALID_METRIC_ATTRIBUTE_TYPES]}, or a tuple of those.',
+                UserWarning,
+                stacklevel=3,
+            )
+            if cleaned is None:
+                cleaned = dict(attributes)
+            del cleaned[key]
+
+    return cleaned if cleaned is not None else attributes
+
+
+def _metric_attribute_value_is_valid(value: Any) -> bool:
+    if _metric_scalar_is_valid(value):
+        return True
+    # A tuple of primitives is hashable and OTLP-encodable; a list is a valid OTLP attribute
+    # value in general but is unhashable and crashes the metrics SDK's aggregation keying
+    # (frozenset(attributes.items())), so only tuples are accepted here. `None` is not a valid
+    # element of a metric attribute sequence: the supported exporter logs an error and omits the
+    # attribute, and newer versions encode it inconsistently, so a tuple containing `None` is
+    # rejected here too.
+    if isinstance(value, tuple):
+        # Every element has just passed the runtime scalar gate, so narrow away ``Any`` to
+        # the concrete scalar union before probing hashability: under strict pyright hashing
+        # a ``tuple[Any, ...]`` is 'partially unknown'. A tuple subclass may still override
+        # ``__hash__`` to None, so probe explicitly to protect the aggregation keying
+        # (``frozenset(attributes.items())``); plain tuples of accepted scalars are hashable
+        # by construction.
+        elements = cast('tuple[_MetricScalarValue, ...]', value)
+        if not all(_metric_scalar_is_valid(element) for element in elements):
+            return False
+        try:
+            hash(elements)
+        except TypeError:
+            return False
+        return True
+    return False
+
+
+def _span_safe_metric_attributes(attributes: Attributes | None) -> Attributes | None:
+    """Drop attribute values the in-span metric collection cannot serialize.
+
+    `_LogfireWrappedSpan` stores these in `SpanMetric` and `json.dumps`es them at span
+    end, which `bytes` fails even though OTLP encodes it happily as `bytes_value`. Since
+    that failure is swallowed and takes the whole `logfire.metrics` attribute with it,
+    `bytes` is dropped here rather than from `_VALID_METRIC_ATTRIBUTE_TYPES` - the
+    exported metric keeps it.
+    """
+    if not attributes:
+        return attributes
+
+    cleaned: dict[str, Any] | None = None
+    for key, value in attributes.items():
+        if isinstance(value, bytes) or (
+            isinstance(value, tuple) and any(isinstance(el, bytes) for el in cast('tuple[Any, ...]', value))
+        ):
+            if cleaned is None:
+                cleaned = dict(attributes)
+            del cleaned[key]
+
+    return cleaned if cleaned is not None else attributes
+
+
+def _metric_scalar_is_valid(value: Any) -> bool:
+    # isinstance rather than exact type on purpose: a hashable, OTLP-encodable subclass
+    # of an accepted type is a perfectly valid attribute value. What must be rejected is an
+    # unhashable subclass (e.g. a ``str`` subclass overriding ``__hash__``), which passes
+    # ``isinstance`` but then raises inside the OpenTelemetry SDK when it builds
+    # ``frozenset(attributes.items())`` as the aggregation key. A hashability probe rejects
+    # exactly that failure mode while keeping valid subclasses. ``bool`` is an ``int``
+    # subclass and is intentionally kept. Note that ``numpy.int64`` is *not* an ``int``
+    # subclass in numpy 2.x and is therefore dropped here like any other unsupported type,
+    # while ``numpy.float64`` is registered as a ``float`` subclass and is kept.
+    if not isinstance(value, _VALID_METRIC_ATTRIBUTE_TYPES):
+        return False
+    try:
+        hash(value)
+    except TypeError:
+        return False
+    # OTLP carries signed 64-bit integers, so an oversized `int` raises in the exporter's
+    # protobuf encoding just like an un-encodable type does, taking the whole batch with it.
+    # `bool` is an `int` subclass but is always in range.
+    if isinstance(value, int) and not isinstance(value, bool):
+        return -OTLP_MAX_INT_SIZE - 1 <= value <= OTLP_MAX_INT_SIZE
+    return True
+
+
+# The wrappers ``_sanitize_observable_callbacks`` has already produced. A proxy instrument
+# re-creates its real instrument whenever a meter provider is set, so the same callbacks come
+# back through the sanitizer; recognizing its own wrapper keeps the caller's generator primed
+# once rather than advanced again on every reconfiguration.
+_SANITIZED_OBSERVABLE_CALLBACKS: WeakSet[Any] = WeakSet()
+
+
+def _sanitize_observable_callbacks(
+    callbacks: Sequence[CallbackT] | None,
+) -> Sequence[CallbackT] | None:
+    """Sanitize the attributes of every ``Observation`` an observable callback yields.
+
+    ``_ProxyCounter.add``/``_ProxyHistogram.record`` sanitize attributes before they
+    reach the SDK, but observable instruments hand user callbacks straight to the real
+    instrument: each ``Observation(value, attributes={...})`` would otherwise reach the
+    ``frozenset(attributes.items())`` aggregation key and the exporter unsanitized -
+    the same failure class as issue #782, reachable through ``logfire.metric_*_callback``.
+    Wrapping the callbacks applies the same sanitizer to every yielded observation.
+    """
+    if not callbacks:
+        return callbacks
+
+    def _sanitize_observations(
+        observations: Iterable[Observation],
+    ) -> Sequence[Observation]:
+        return [
+            Observation(
+                value=obs.value,
+                attributes=_sanitize_metric_attributes(obs.attributes),
+                # Rebuilding the observation must not drop the caller's explicit context.
+                context=obs.context,
+            )
+            for obs in observations
+        ]
+
+    def wrap(callback: CallbackT) -> CallbackT:
+        # ``CallbackT`` is
+        # ``Callable[[CallbackOptions], Iterable[Observation]] |
+        # Generator[Iterable[Observation], CallbackOptions, None]``. A generator *object* is
+        # not callable - the SDK primes it once with ``next()`` and then pulls each collection
+        # cycle with ``send(options)``. Prime it here and expose an equivalent plain callable so
+        # both arms flow through the same sanitizing wrapper instead of handing the generator
+        # (which the SDK would treat via ``send``) straight through unsanitized.
+        #
+        # A proxy instrument re-creates its real instrument every time a meter provider is set,
+        # so an already-wrapped callback comes back through here. Priming advances the caller's
+        # generator, so an existing wrapper is reused as it is instead of priming again.
+        if callback in _SANITIZED_OBSERVABLE_CALLBACKS:
+            return callback
+
+        if isinstance(callback, Generator):
+            # The ``isinstance`` leaves the generator's type parameters unknown, so narrow it
+            # explicitly before priming it with ``next`` (mirroring the SDK) and pulling each
+            # collection cycle with ``send(options)``.
+            generator = cast('Generator[Iterable[Observation], CallbackOptions, None]', callback)
+            next(generator)
+
+            def wrapped_generator(options: CallbackOptions) -> Sequence[Observation]:
+                return _sanitize_observations(generator.send(options))
+
+            _SANITIZED_OBSERVABLE_CALLBACKS.add(wrapped_generator)
+            return wrapped_generator
+
+        # After the generator arm is excluded, ``callback`` is narrowed to the plain callable
+        # arm ``(CallbackOptions) -> Iterable[Observation]``.
+        def wrapped(options: CallbackOptions) -> Sequence[Observation]:
+            return _sanitize_observations(callback(options))
+
+        _SANITIZED_OBSERVABLE_CALLBACKS.add(wrapped)
+        return wrapped
+
+    return tuple(wrap(c) for c in callbacks)
 
 
 # The following proxy classes are adapted from OTEL's SDK
@@ -202,7 +398,7 @@ class _ProxyInstrument(ABC, Generic[InstrumentT]):
     def _increment_span_metric(self, amount: float, attributes: Attributes | None = None):
         span = get_current_span()
         if isinstance(span, _LogfireWrappedSpan):
-            span.increment_metric(self._kwargs['name'], attributes or {}, amount)
+            span.increment_metric(self._kwargs['name'], _span_safe_metric_attributes(attributes) or {}, amount)
 
 
 class _ProxyCounter(_ProxyInstrument[Counter], Counter):
@@ -215,6 +411,12 @@ class _ProxyCounter(_ProxyInstrument[Counter], Counter):
         *args: Any,
         **kwargs: Any,
     ) -> None:
+        # Sanitize before the span metric, not only before the instrument: the span
+        # collection in `_LogfireWrappedSpan` uses these attributes as a dict key and
+        # JSON-serializes them at span end, so an unhashable or unserializable value
+        # would silently drop the span metric (and with it the whole `logfire.metrics`
+        # attribute) even though the exported metric itself was protected.
+        attributes = _sanitize_metric_attributes(attributes)
         self._increment_span_metric(amount, attributes)
         self._instrument.add(amount, attributes, *args, **kwargs)
 
@@ -230,6 +432,9 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
         *args: Any,
         **kwargs: Any,
     ) -> None:
+        # See the note in `_ProxyCounter.add`: the span metric needs the cleaned
+        # attributes too, not only the exported instrument.
+        attributes = _sanitize_metric_attributes(attributes)
         self._increment_span_metric(amount, attributes)
         self._instrument.record(amount, attributes, *args, **kwargs)
 
@@ -239,16 +444,20 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
 
 class _ProxyObservableCounter(_ProxyInstrument[ObservableCounter], ObservableCounter):
     def _create_real_instrument(self, meter: Meter) -> ObservableCounter:
+        # Keep the sanitized callbacks on the instrument so a re-creation reuses them.
+        self._kwargs['callbacks'] = _sanitize_observable_callbacks(self._kwargs.get('callbacks'))
         return meter.create_observable_counter(**self._kwargs)
 
 
 class _ProxyObservableGauge(_ProxyInstrument[ObservableGauge], ObservableGauge):
     def _create_real_instrument(self, meter: Meter) -> ObservableGauge:
+        self._kwargs['callbacks'] = _sanitize_observable_callbacks(self._kwargs.get('callbacks'))
         return meter.create_observable_gauge(**self._kwargs)
 
 
 class _ProxyObservableUpDownCounter(_ProxyInstrument[ObservableUpDownCounter], ObservableUpDownCounter):
     def _create_real_instrument(self, meter: Meter) -> ObservableUpDownCounter:
+        self._kwargs['callbacks'] = _sanitize_observable_callbacks(self._kwargs.get('callbacks'))
         return meter.create_observable_up_down_counter(**self._kwargs)
 
 
@@ -260,7 +469,7 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        self._instrument.add(amount, attributes, *args, **kwargs)
+        self._instrument.add(amount, _sanitize_metric_attributes(attributes), *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> UpDownCounter:
         return meter.create_up_down_counter(**self._kwargs)
@@ -274,7 +483,7 @@ class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        self._instrument.set(amount, attributes, *args, **kwargs)
+        self._instrument.set(amount, _sanitize_metric_attributes(attributes), *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter):
         return meter.create_gauge(**self._kwargs)
