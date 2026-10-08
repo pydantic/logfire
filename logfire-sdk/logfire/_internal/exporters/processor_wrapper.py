@@ -554,10 +554,10 @@ def _default_gen_ai_response_model(span: ReadableSpanDict):
 
 def _transform_google_genai_span(span: ReadableSpanDict):
     scope = span['instrumentation_scope']
-    # opentelemetry-instrumentation-google-genai >= 1.0b0 is built on opentelemetry.util.genai and emits
-    # spans under this shared scope. util.genai is generic infrastructure, so also check the provider name
-    # to avoid rewriting spans from other (future) util.genai-based integrations.
-    if not (scope and scope.name == 'opentelemetry.util.genai.handler'):
+    # Versions 1.0b0 and 1.1b0 emit spans under the shared util.genai scope; 1.2b0 restores the
+    # specific instrumentation scope. Also check the provider below to avoid rewriting spans
+    # from other integrations using the shared scope.
+    if not (scope and scope.name in ('opentelemetry.util.genai.handler', 'opentelemetry.instrumentation.google_genai')):
         return
 
     attributes = span['attributes']
