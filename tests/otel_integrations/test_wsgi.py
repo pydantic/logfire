@@ -20,7 +20,7 @@ def test_wsgi_middleware(exporter: TestExporter) -> None:
     app.wsgi_app = logfire.instrument_wsgi(app.wsgi_app)  # type: ignore
 
     @app.route('/')
-    def homepage():  # type: ignore
+    def homepage():
         logfire.info('inside request handler')
         return 'middleware test'
 

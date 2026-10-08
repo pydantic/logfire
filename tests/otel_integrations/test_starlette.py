@@ -225,6 +225,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                                         'http.method': 'GET',
                                         'http.scheme': 'http',
                                         'http.server_name': 'testserver',
+                                        'http.target': '/secret/{path_param}',
                                         'net.host.port': 80,
                                     },
                                     'total': IsInt(),

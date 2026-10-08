@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import sys
 import unittest.mock
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,10 @@ from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 # Emit both new and old semantic convention attribute names
 os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
+# Use LiteLLM's bundled prices so importing it never downloads data outside the cassettes.
+os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = 'True'
+# Monty's native tracing must not inherit a developer's Rust log filter.
+os.environ.pop('RUST_LOG', None)
 
 # Ensure that these variables in the environment don't interfere
 os.environ['LOGFIRE_TOKEN'] = ''
@@ -35,6 +40,9 @@ os.environ.setdefault('ANTHROPIC_API_KEY', os.environ.get('TEST_ANTHROPIC_API_KE
 os.environ.pop('OPENAI_BASE_URL', None)
 os.environ.pop('ANTHROPIC_BASE_URL', None)
 os.environ.pop('LOGFIRE_EMIT_CONFIGURATION_SPAN', None)
+# AnthropicBedrock reads this when no api_key is passed, and then rejects the aws_* arguments
+# that tests/otel_integrations/test_anthropic_bedrock.py passes.
+os.environ.pop('AWS_BEARER_TOKEN_BEDROCK', None)
 
 # https://github.com/openai/openai-python/issues/2644
 sys.modules['openai.resources.evals'] = unittest.mock.MagicMock()
@@ -59,7 +67,10 @@ logfire.configure(send_to_logfire=False)
 try:
     # This is just a simple way to perform this once.
     # There are multiple tests that use it and we don't currently have a way to uninstrument.
-    logfire.instrument_mcp()
+    with warnings.catch_warnings():
+        # With mcp 2 the call is unnecessary and says so with a UserWarning, which is irrelevant here.
+        warnings.filterwarnings('ignore', message=r'`logfire\.instrument_mcp\(\)` is unnecessary', category=UserWarning)
+        logfire.instrument_mcp()
 except ImportError:
     pass
 

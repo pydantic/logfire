@@ -18,7 +18,7 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
     logfire.instrument_flask(app)
 
     @app.route('/')
-    def homepage():  # type: ignore
+    def homepage():
         logfire.info('inside request handler')
         return 'middleware test'
 

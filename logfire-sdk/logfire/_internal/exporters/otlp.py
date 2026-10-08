@@ -33,6 +33,7 @@ from ..constants import (
     OTLP_MAX_INT_SIZE,
     log_level_attributes,
 )
+from ..http_transport import install_connection_policy
 from ..stack_info import STACK_INFO_KEYS
 from ..utils import logger, platform_is_emscripten, truncate_string
 from .wrapper import WrapperLogExporter, WrapperSpanExporter
@@ -80,6 +81,10 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
 
 class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        install_connection_policy(self)
 
     @staticmethod
     def _configure_timeout(kwargs: dict[str, Any]) -> None:
@@ -179,6 +184,7 @@ class DiskRetryer:
         # because thread safety of Session is questionable.
         # This assumes that the only important state is the headers.
         self.session = Session()
+        install_connection_policy(self.session)
         self.session.headers.update(headers)
 
         # The directory where the export files are stored.
@@ -280,8 +286,20 @@ class DiskRetryer:
                         # Make it at least 2 seconds, this is for when it was decreased to 0.2 in the block below.
                         delay = max(delay, 2)
                     else:
-                        # Success, set the delay to a small value (so that remaining tasks can be done quickly),
-                        # remove the file, and move on to the next task.
+                        if not response.ok:
+                            # Non-retryable HTTP error (e.g. 401/403). raise_for_retryable_status only
+                            # raises for 408/429/5xx, so a permanent refusal used to fall through as
+                            # "Success" and silently delete the payload. Drop it, but report loudly.
+                            # Do not treat these as retryable: that would retry forever at MAX_DELAY.
+                            logger.error(
+                                'Export permanently refused with HTTP %s, dropping queued payload (%s bytes)',
+                                response.status_code,
+                                len(data),
+                            )
+
+                        # Delivered (or permanently refused), so the server is reachable. Set the delay to a
+                        # small value (so that remaining tasks can be done quickly), remove the file,
+                        # and move on to the next task.
                         delay = 0.2
                         path.unlink(missing_ok=True)
                         with self.lock:

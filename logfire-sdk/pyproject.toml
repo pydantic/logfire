@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire-sdk"
-version = "6.0.0b3"
+version = "6.0.0b7"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.10"
 authors = [
@@ -46,9 +46,11 @@ classifiers = [
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
 dependencies = [
+    "opentelemetry-api >= 1.39.0, < 1.45.0",
     "opentelemetry-sdk >= 1.39.0, < 1.45.0",
     "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.45.0",
-    "opentelemetry-instrumentation >= 0.41b0",
+    "opentelemetry-instrumentation >= 0.41b0, < 0.66b0",
+    "opentelemetry-semantic-conventions >= 0.60b0, < 0.66b0",
     "rich >= 13.4.2",
     "requests >= 2.31.0",
     "protobuf >= 4.23.4",

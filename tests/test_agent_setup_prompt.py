@@ -7,50 +7,55 @@ REPO_ROOT = Path(__file__).parent.parent
 BASH_FENCE = re.compile(r'```(?:bash|sh)\n(.*?)```', re.DOTALL)
 
 
-def extract_agent_setup_prompt(path: Path, component: str) -> str:
+def extract_agent_setup_command(path: Path, component: str) -> str:
     content = path.read_text(encoding='utf-8')
-    opening_tag = f'<{component}>'
     closing_tag = f'</{component}>'
-    assert content.count(opening_tag) == 1
+    opening_tags = re.findall(rf'<{component}\b[^>]*>', content)
+    assert len(opening_tags) == 1
     assert content.count(closing_tag) == 1
 
-    component_content = content.split(opening_tag, 1)[1].split(closing_tag, 1)[0]
+    component_content = content.split(opening_tags[0], 1)[1].split(closing_tag, 1)[0]
     lines = component_content.strip().splitlines()
+    assert len(lines) == 3
     opening_fence = lines[0]
-    assert opening_fence.endswith('text')
-    fence = opening_fence.removesuffix('text')
-    assert len(fence) >= 3 and set(fence) == {'`'}
+    fence_match = re.fullmatch(r'(`{3,})(?:bash|sh)', opening_fence)
+    assert fence_match is not None
+    fence = fence_match.group(1)
     assert lines[-1] == fence
 
-    # If the prompt embeds its own code fence (it doesn't, currently -- this is a short
-    # prompt with no code block of its own), the outer fence must outrun it, or the inner
-    # fence closes the outer block early.
-    embedded_fence_lengths = [len(line) - len(line.lstrip('`')) for line in lines[1:-1] if line.startswith('`')]
-    if embedded_fence_lengths:
-        assert len(fence) > max(embedded_fence_lengths)
-
-    prompt = '\n'.join(lines[1:-1])
-    assert prompt
-    return prompt
+    command = '\n'.join(lines[1:-1])
+    assert command
+    return command
 
 
-def test_agent_setup_prompts_match() -> None:
-    index_prompt = extract_agent_setup_prompt(REPO_ROOT / 'docs' / 'index.md', 'AgentSetup')
-    first_trace_prompt = extract_agent_setup_prompt(REPO_ROOT / 'docs' / 'first-trace.md', 'CopyPrompt')
+def extract_first_bash_command_after_heading(path: Path, heading: str) -> str:
+    content = path.read_text(encoding='utf-8')
+    section = content.split(heading, 1)[1]
+    match = BASH_FENCE.search(section)
+    assert match is not None
+    return match.group(1).strip()
 
-    assert index_prompt == first_trace_prompt
+
+def test_agent_setup_commands_match() -> None:
+    index_command = extract_agent_setup_command(REPO_ROOT / 'docs' / 'index.md', 'AgentSetup')
+    first_trace_command = extract_agent_setup_command(REPO_ROOT / 'docs' / 'first-trace.md', 'AgentSetup')
+
+    assert index_command == first_trace_command
 
 
-def test_agent_setup_prompt_states_the_load_bearing_content() -> None:
-    """Pins content, not just cross-file symmetry -- a future edit that drops the
-    auth-first gate or the skill fetch would leave both pages agreeing with each
-    other but silently wrong; this fails independently of that comparison.
-    """
-    prompt = extract_agent_setup_prompt(REPO_ROOT / 'docs' / 'index.md', 'AgentSetup')
+def test_agent_setup_command_uses_the_published_cli() -> None:
+    """Pin the public, one-off CLI entry point independently of cross-file symmetry."""
+    command = extract_agent_setup_command(REPO_ROOT / 'docs' / 'index.md', 'AgentSetup')
+    skills_command = extract_first_bash_command_after_heading(
+        REPO_ROOT / 'docs' / 'how-to-guides' / 'skills.md', '## Set up Logfire from your project'
+    )
 
-    assert 'https://pydantic.dev/.well-known/agent-skills/logfire-setup/SKILL.md' in prompt
-    assert 'raw.githubusercontent.com' not in prompt
-    assert 'Authenticate first, confirmed via `whoami`, before opening or running any application file' in prompt
+    assert command == 'uvx logfire-cli wizard'
+    assert skills_command == command
+    assert 'http' not in command
+    assert '--print-prompt' not in command
+    for path in (REPO_ROOT / 'docs' / 'index.md', REPO_ROOT / 'docs' / 'first-trace.md'):
+        assert '<AgentSetup command="uvx logfire-cli wizard">' in path.read_text()
 
 
 def test_setup_skills_prioritize_one_service_reaching_first_data() -> None:
@@ -399,29 +404,26 @@ def test_braintrust_skill_and_guide_require_the_working_api_key_scopes() -> None
     assert '<your-logfire-write-token>' not in guide
 
 
-def _wrap(component: str, prompt_lines: list[str]) -> str:
-    return f'<{component}>\n\n````text\n' + '\n'.join(prompt_lines) + f'\n````\n\n</{component}>\n'
-
-
-def test_extract_agent_setup_prompt_accepts_an_embedded_fence_shorter_than_the_outer_one(tmp_path: Path) -> None:
-    path = tmp_path / 'with-embedded-fence.md'
-    path.write_text(
-        _wrap('AgentSetup', ['Some setup text with an example:', '', '```', 'inner content', '```', '', 'More text.'])
+def _wrap(component: str, command_lines: list[str]) -> str:
+    return (
+        f'<{component} command="uvx logfire-cli wizard">\n\n```bash\n'
+        + '\n'.join(command_lines)
+        + f'\n```\n\n</{component}>\n'
     )
 
-    prompt = extract_agent_setup_prompt(path, 'AgentSetup')
 
-    assert 'inner content' in prompt
+def test_extract_agent_setup_command_accepts_one_shell_command(tmp_path: Path) -> None:
+    path = tmp_path / 'setup-command.md'
+    path.write_text(_wrap('AgentSetup', ['uvx logfire-cli wizard']))
+
+    command = extract_agent_setup_command(path, 'AgentSetup')
+
+    assert command == 'uvx logfire-cli wizard'
 
 
-def test_extract_agent_setup_prompt_rejects_an_embedded_fence_as_long_as_the_outer_one(tmp_path: Path) -> None:
-    # The outer fence is 4 backticks (opened by `_wrap` as ````text); an inner fence of
-    # the same length would close the outer block early in real markdown rendering, so
-    # this must fail loudly rather than silently accept malformed content.
-    path = tmp_path / 'bad-embedded-fence.md'
-    path.write_text(
-        _wrap('AgentSetup', ['Some setup text with an example:', '', '````', 'inner content', '````', '', 'More text.'])
-    )
+def test_extract_agent_setup_command_rejects_multiline_shell(tmp_path: Path) -> None:
+    path = tmp_path / 'multiline-setup-command.md'
+    path.write_text(_wrap('AgentSetup', ['uvx logfire-cli wizard', 'echo unexpected']))
 
     with pytest.raises(AssertionError):
-        extract_agent_setup_prompt(path, 'AgentSetup')
+        extract_agent_setup_command(path, 'AgentSetup')

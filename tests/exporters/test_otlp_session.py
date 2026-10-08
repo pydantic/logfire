@@ -280,8 +280,12 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
 
     # Wait for the retryer to finish.
     # time.sleep has been mocked to return 0 so this shouldn't take long.
-    assert session.retryer.thread
-    session.retryer.thread.join()
+    # The thread may have already drained the queue and reset `retryer.thread` to None.
+    # No more tasks can be added now, so a None thread means the retryer is done.
+    with session.retryer.lock:
+        thread = session.retryer.thread
+    if thread:  # pragma: no branch
+        thread.join()
 
     # Check that everything is cleaned up after succeeding.
     assert not session.retryer.tasks
@@ -448,3 +452,81 @@ def test_disk_retryer_add_task_after_close_does_nothing() -> None:
     assert retryer.total_size == 0
     assert not retryer.tasks
     assert retryer.thread is None
+
+
+def test_disk_retryer_drops_non_retryable_http_error(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Non-retryable statuses (e.g. 401) must not be treated as a successful delivery.
+
+    raise_for_retryable_status only raises for 408/429/5xx. Previously any other response
+    fell into the success branch and silently deleted the on-disk payload (#2443).
+    """
+    monkeypatch.setattr('random.random', Mock(return_value=0.0))
+    monkeypatch.setattr('time.sleep', Mock())
+
+    retryer = DiskRetryer({})
+    refused = Response()
+    refused.status_code = 401
+    # Hold the post until the main thread has captured the worker thread,
+    # otherwise the worker can finish and clear retryer.thread first.
+    thread_captured = threading.Event()
+
+    def refuse(**kwargs: Any) -> Response:
+        thread_captured.wait(timeout=5)
+        return refused
+
+    post = Mock(side_effect=refuse)
+    monkeypatch.setattr(retryer.session, 'post', post)
+
+    with caplog.at_level('ERROR', logger='logfire'):
+        retryer.add_task(b'export-payload', {'url': 'https://example.com/v1/traces'})
+        thread = retryer.thread
+        assert thread is not None
+        thread_captured.set()
+        thread.join(timeout=5)
+
+    assert post.call_count == 1
+    assert not retryer.tasks
+    assert retryer.total_size == 0
+    assert retryer.thread is None
+    assert not list(retryer.dir.iterdir())
+    assert any(
+        'permanently refused with HTTP 401' in message and 'dropping queued payload' in message
+        for message in caplog.messages
+    )
+    retryer.close()
+
+
+def test_disk_retryer_still_retries_server_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retryable 5xx responses must keep the payload until a successful delivery."""
+    monkeypatch.setattr('random.random', Mock(return_value=0.0))
+    monkeypatch.setattr('time.sleep', Mock())
+
+    retryer = DiskRetryer({})
+    failure = Response()
+    failure.status_code = 503
+    success = Response()
+    success.status_code = 200
+    responses = iter([failure, failure, success])
+    thread_captured = threading.Event()
+
+    def respond(**kwargs: Any) -> Response:
+        thread_captured.wait(timeout=5)
+        return next(responses)
+
+    post = Mock(side_effect=respond)
+    monkeypatch.setattr(retryer.session, 'post', post)
+
+    retryer.add_task(b'export-payload', {'url': 'https://example.com/v1/traces'})
+    thread = retryer.thread
+    assert thread is not None
+    thread_captured.set()
+    thread.join(timeout=5)
+
+    assert post.call_count == 3
+    assert not retryer.tasks
+    assert retryer.total_size == 0
+    assert retryer.thread is None
+    assert not list(retryer.dir.iterdir())
+    retryer.close()
