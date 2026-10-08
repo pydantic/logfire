@@ -22,7 +22,7 @@ logfire.instrument_httpx()
 # ... your application code here ...
 ```
 
-Some platforms send OpenTelemetry data directly, without installing the Logfire SDK. See the setup guides for [Codex](codex.md), [no-code platforms](no-code/index.md), and [OpenRouter Broadcast](llms/openrouter.md).
+Some platforms send OpenTelemetry data directly, without installing the Logfire SDK. See the setup guides for [OpenTelemetry eBPF Instrumentation](obi.md), [Codex](codex.md), [no-code platforms](no-code/index.md), and [OpenRouter Broadcast](llms/openrouter.md).
 
 If a package you are using is not listed in this documentation, please let us know on our [Slack][slack]!
 
