@@ -7,6 +7,8 @@ description: "See every AI agent in your project, drill into individual runs end
 
 The **Agents view** is the entry point for finding and inspecting the AI agents running in your application. Logfire discovers an agent automatically from your traces: any span that follows the [OpenTelemetry semantic conventions for generative AI (GenAI) agents](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md), specifically an `invoke_agent` operation (`gen_ai.operation.name = 'invoke_agent'`), becomes an agent run. [Pydantic AI](https://ai.pydantic.dev) emits these spans natively, and any other SDK that follows the conventions appears here too. Logfire also detects agents instrumented with [OpenInference](https://github.com/Arize-ai/openinference), which covers many popular frameworks; see [Supported frameworks](#supported-frameworks).
 
+{{ video("02eb69ba8023a4f13c5ee3fbaf11ec48", 95, 56) }}
+
 You'll find Agents in the project sidebar. The time picker is shared with the rest of the observability surfaces.
 
 ## The Agents list

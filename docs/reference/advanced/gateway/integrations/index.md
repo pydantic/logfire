@@ -14,15 +14,14 @@ Each guide shows the two client settings you need to change: the API key and gat
 
 ## Before you start
 
-1. If your organization has not enabled the gateway, follow [Enable the gateway](../index.md#enable-the-gateway). You need to be an organization admin.
-2. In Logfire, open your organization, then select **AI Engineering** > **Gateway** > **API Keys**.
-3. Create or copy a gateway API key, then set it in the terminal where you will run the example:
+1. Follow [Send your first Gateway request](../first-request.md) to enable Gateway, choose a provider or endpoint, and get a project-scoped Gateway API key. An organization admin must enable Gateway and configure a provider.
+2. Set the Gateway API key in the terminal where you will run the example. Keep it out of source control:
 
     ```bash
     export LOGFIRE_GATEWAY_API_KEY="..."
     ```
 
-4. On the Gateway **Connect** tab, select a provider and model. Copy the gateway URL and model name into the example.
+3. On the Gateway **Connect** tab, select a route and model. Copy the gateway URL and model name into the example.
 
 The examples use the OpenAI-compatible route for the US region, `https://gateway-us.pydantic.dev/proxy/openai`. For the EU region, use `gateway-eu` instead. For a self-hosted organization, copy the URL from the **Connect** tab.
 

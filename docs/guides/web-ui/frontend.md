@@ -12,6 +12,8 @@ The page groups browser telemetry by frontend application. A frontend applicatio
 
     Frontend observability is available in early access. [Contact Pydantic](https://pydantic.dev/contact) if you are interested.
 
+{{ video("21dbd5dbf7d61fe58d7927f9c12633ef") }}
+
 ## Send browser data
 
 1. Open **Project settings → Frontend applications**.

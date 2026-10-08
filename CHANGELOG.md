@@ -1,5 +1,27 @@
 # Release Notes
 
+## [v6.0.0b7] (2026-09-25)
+
+* Configure proxy managers before other threads can use them by @adriangb in [#2479](https://github.com/pydantic/logfire/pull/2479)
+
+## [v6.0.0b6] (2026-09-25)
+
+* Make the `logfire` package own the `logfire` command and require `logfire-cli` 0.1.8 or later by @adriangb in [#2480](https://github.com/pydantic/logfire/pull/2480)
+
+## [v6.0.0b5] (2026-09-24)
+
+* Enable TCP keepalive and recycle idle connections in Logfire's HTTP sessions by @adriangb in [#2309](https://github.com/pydantic/logfire/pull/2309)
+
+## [v6.0.0b4] (2026-09-21)
+
+* Make `instrument_mcp()` work with mcp 2 / fastmcp 4 by @samuelcolvin in [#2439](https://github.com/pydantic/logfire/pull/2439)
+* Add `logfire.instrument_monty()` by @davidhewitt in [#2371](https://github.com/pydantic/logfire/pull/2371)
+* Require `logfire-cli` 0.1.7 or later in the `logfire` compatibility package.
+
+## [v6.0.0b3] (2026-09-18)
+
+* Require `logfire-cli` 0.1.5 or later in the `logfire` compatibility package.
+
 ## [v6.0.0b2] (2026-09-17)
 
 * Require `logfire-cli` 0.1.4 or later in the `logfire` compatibility package.
@@ -1313,3 +1335,8 @@ First release from new repo!
 [v5.1.0]: https://github.com/pydantic/logfire/compare/v5.0.0...v5.1.0
 [v6.0.0b1]: https://github.com/pydantic/logfire/compare/v5.1.0...v6.0.0b1
 [v6.0.0b2]: https://github.com/pydantic/logfire/compare/v6.0.0b1...v6.0.0b2
+[v6.0.0b3]: https://github.com/pydantic/logfire/compare/v6.0.0b2...v6.0.0b3
+[v6.0.0b4]: https://github.com/pydantic/logfire/compare/v6.0.0b3...v6.0.0b4
+[v6.0.0b5]: https://github.com/pydantic/logfire/compare/v6.0.0b4...v6.0.0b5
+[v6.0.0b6]: https://github.com/pydantic/logfire/compare/v6.0.0b5...v6.0.0b6
+[v6.0.0b7]: https://github.com/pydantic/logfire/compare/v6.0.0b6...v6.0.0b7
