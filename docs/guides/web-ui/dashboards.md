@@ -2,6 +2,7 @@
 title: "Logfire Dashboards: Visualize Logs & Metrics"
 description: "Logfire dashboards let you visualize your observability data. Create custom SQL-powered charts and tables, or start from standard dashboards."
 ---
+
 # Dashboards
 
 This guide explains how to use dashboards in the Logfire UI to visualize your observability data. Dashboards allow you to create custom visualizations using SQL queries.
@@ -10,8 +11,8 @@ This guide explains how to use dashboards in the Logfire UI to visualize your ob
 
 There are two types of dashboards:
 
-* **Standard dashboards**: Pre-configured dashboards created and maintained by the Logfire team, providing you with continuous updates and improvements without any effort on your part. You can enable or disable them for your project, but you can't modify them directly.
-* **Custom dashboards**: Dashboards that you create and maintain. They are fully editable and customizable, allowing you to define queries, layouts, chart types, and variables.
+- **Standard dashboards**: Pre-configured dashboards created and maintained by the Logfire team, providing you with continuous updates and improvements without any effort on your part. You can enable or disable them for your project, but you can't modify them directly. To change one, [clone it](#using-a-standard-dashboard-as-a-template) into a custom dashboard.
+- **Custom dashboards**: Dashboards that you create and maintain. They are fully editable and customizable, allowing you to define queries, layouts, chart types, and variables.
 
 In general, it's a good idea to start with standard dashboards. If they don't meet your needs, you can either use one as a [template for a custom dashboard](#using-a-standard-dashboard-as-a-template) or build a new one from scratch.
 
@@ -66,11 +67,11 @@ This dashboard shows essential system resource utilization metrics. It comes in 
 
 Both variants include the following metrics:
 
-* **Number of Processes:** Total number of running processes on the system.
-* **System CPU usage %:** Percentage of total available processing power used by the whole system, i.e. the average across all CPU cores.
-* **Process CPU usage %:** CPU used by a single process, where e.g. using 2 CPU cores to full capacity would result in a value of 200%.
-* **Memory Usage %:** Percentage of memory currently in use by the system.
-* **Swap Usage %:** Percentage of swap space currently in use by the system.
+- **Number of Processes:** Total number of running processes on the system.
+- **System CPU usage %:** Percentage of total available processing power used by the whole system, i.e. the average across all CPU cores.
+- **Process CPU usage %:** CPU used by a single process, where e.g. using 2 CPU cores to full capacity would result in a value of 200%.
+- **Memory Usage %:** Percentage of memory currently in use by the system.
+- **Swap Usage %:** Percentage of swap space currently in use by the system.
 
 ### Enabling a Standard Dashboard
 
@@ -85,14 +86,19 @@ You can view and interact with standard dashboards, but you cannot edit them.
 
 To enable dashboards and alerts for infrastructure services such as Redis, PostgreSQL, and Kafka, select **Integrations** under **Misc** in your project's sidebar. Choose the service, then select **Install**. See [Integrations](integrations.md) for setup, detection, and alert configuration.
 
-### Using a Standard Dashboard as a Template
+### Using a standard dashboard as a template
 
-You can use any standard dashboard as a template by exporting it to JSON and then importing it from JSON for a new custom dashboard.
+Standard dashboards are read-only, so they show a **Standard** badge next to their title. To get a copy you can edit:
 
-1. From a standard dashboard, click the **Download dashboard as code** icon in the toolbar on the top right. This will download a JSON file to your machine.
-![Download dashboard as code](../../images/guide/browser-download-dashboard-as-code.png)
-2. Go to the **Custom** tab and select the **Import JSON** option.
-3. Import the file you downloaded. This creates a new, fully editable custom dashboard from the template.
+1. Open the standard dashboard and click **Clone** in the toolbar on the top right.
+2. Enter a name for the copy. It defaults to "Copy of" followed by the original name.
+3. Confirm. Logfire creates a new custom dashboard with the same panels, variables, and layout, and opens it.
+
+![Toolbar of a standard dashboard showing the Standard badge and the Clone button](../../images/guide/dashboard-standard-clone.png)
+
+The copy is a snapshot. It doesn't receive the updates the Logfire team makes to the original standard dashboard.
+
+**Clone** is also available on custom dashboards, which is useful for trying out changes without touching the original. To copy a dashboard into another project, or to keep it in version control, [export it as JSON](#exporting-and-editing-the-dashboard-as-json) instead.
 
 ---
 
@@ -102,44 +108,42 @@ To create a dashboard from scratch:
 
 1. Click the **+ Dashboard** button.
 2. Select the **Custom** tab.
+3. Choose to start from scratch or to import JSON, enter a name, and create the dashboard.
 
 Custom dashboards are structured in a hierarchy:
 
 - Dashboard
-    - Panel Group (1 or more)
-        - Panel (1 or more)
-            - Chart (1 only, a [specific type](#chart-types))
+  - Panel Group (1 or more)
+    - Panel (1 or more)
+      - Chart (1 only, a [specific type](#chart-types))
 
   By default, new dashboards start with one panel group.
 
+A new dashboard opens in view mode. Click **Edit** in the top right to enter edit mode, where you add panels and groups, define variables, and arrange the layout. Nothing is saved until you click **Save**. See [Editing a dashboard](#editing-a-dashboard) for all the edit mode controls.
 
 You can add more panel groups to better organize your dashboard. This is useful for grouping related visualizations, effectively allowing you to have multiple views within a single dashboard.
 
-To add a new group, click the **Panel Group** button in the top right. You can name the group and set whether it should be expanded or collapsed by default when the dashboard loads.
+To add a new group, click **Panel Group** in the edit toolbar. You can name the group and set whether it starts expanded or collapsed when the dashboard loads. A dashboard with a single group always shows that group expanded.
 
-To add a new visualization, you add a panel to a group. Click the **Panel** button in the top right. Inside each panel, you'll configure a chart and the SQL query that powers it.
-
-You can rearrange and resize panels by dragging and dropping them after clicking the **Edit layout** button.
+To add a new visualization, add a panel to a group by clicking **Panel** in the edit toolbar. Inside each panel, you configure a chart and the SQL query that powers it.
 
 ### Chart Types
 
 Logfire uses SQL as the query language for dashboard visualizations. Each chart in your dashboard requires one of two types of queries:
 
-* **Time Series Query**: This query type is for visualizing data over time. It must include a timestamp in the selected columns, typically `time_bucket($resolution, start_timestamp)` when querying `records` or `time_bucket($resolution, recorded_timestamp)` when querying `metrics` - see [below](#resolution-variable). This will be used as the x-axis.
+- **Time Series Query**: This query type is for visualizing data over time. It must include a timestamp in the selected columns, typically `time_bucket($resolution, start_timestamp)` when querying `records` or `time_bucket($resolution, recorded_timestamp)` when querying `metrics` - see [below](#resolution-variable). This will be used as the x-axis.
 
-* **Non-Time Series Query**: This query type is for displaying data where the evolution of data over time is not the primary focus, e.g., a bar chart showing your top slowest endpoints.
+- **Non-Time Series Query**: This query type is for displaying data where the evolution of data over time is not the primary focus, e.g., a bar chart showing your top slowest endpoints.
 
 Here's a list of the chart types and the query type they require.
 
-| Chart Type  | Query Type          |
-| ----------- | ------------------  |
-| Time Series | `Time Series Query`    |
+| Chart Type  | Query Type              |
+| ----------- | ----------------------- |
+| Time Series | `Time Series Query`     |
 | Table       | `Non Time Series Query` |
-| Bar Chart   | `Non Time Series Query`
-| Pie Chart   | `Non Time Series Query`
-| Values      | `Non Time Series Query`
-
-
+| Bar Chart   | `Non Time Series Query` |
+| Pie Chart   | `Non Time Series Query` |
+| Values      | `Non Time Series Query` |
 
 To configure a chart:
 
@@ -147,35 +151,43 @@ To configure a chart:
 2. Write your SQL query.
 3. Customize the formatting, labels, and appearance.
 
+#### Values panels
+
+A Values panel shows one or more single numbers, such as a request count or an error rate. It has no header: the panel title is shown with the number. When a query returns several values, each value has its own formatting settings.
+
+To show at a glance whether a number is healthy, set a **warning** and a **critical** threshold in the panel settings. A status bar above the value turns green, yellow, or red as the value crosses them. If the critical threshold is lower than the warning threshold, Logfire treats lower values as worse, which suits a cache hit rate or a free memory percentage.
+
 ---
 
 ### Variables
 
 Variables let you change what a dashboard shows without editing its queries. You define a variable once, reference it in your SQL queries as `$variable_name`, and Logfire adds a selector for it to the top of the dashboard.
 
+![A dashboard toolbar with variable controls](../../images/guide/dashboard-variable-controls.png)
+
 To add variables to a custom dashboard:
 
-1. Open the dashboard you want to edit.
-2. Click **Variables** in the top right to open the variable settings panel.
+1. Open the dashboard and click **Edit** in the top right.
+2. Click **Variables** in the edit toolbar to open the variable settings panel.
 3. Click **+ Add variable**.
-4. Define and configure your variables.
+4. Define and configure your variables, then click **Save** on the dashboard.
 
-<!-- TODO screenshot: dashboard toolbar with variable selectors, ideally one multiple-value dropdown with All selected -->
+![A dashboard toolbar highlighting the edit variables button](../../images/guide/dashboard-edit-variables-button.png)
 
 Each variable has a **Name** (how you reference it in queries), plus an optional **Display Label** and **Description** shown on its selector. There are two variable types:
 
-* **Text variable**: viewers type any value into a text field. Check **Constant** to make the field read-only. This is useful for a value you reference in several queries and want to change in one place.
-* **List variable**: viewers pick from a dropdown of options.
+- **Text variable**: viewers type any value into a text field. Check **Constant** to make the field read-only. This is useful for a value you reference in several queries and want to change in one place.
+- **List variable**: viewers pick from a dropdown of options.
 
 #### List variables
 
 The **Source** setting controls where a list variable's options come from:
 
-* **Static List Variable**: options you type in by hand. Paste a comma-separated list to add several values at once.
-* **Logfire Query List Variable**: options are loaded from a SQL query against your data. The query must return exactly one column, and each distinct non-null value becomes an option.
-* **Time Bucket Variable**: time intervals derived from the dashboard's time range. This source powers the built-in [`$resolution`](#resolution-variable) variable, and you'll rarely need to create one yourself.
+- **Static List Variable**: options you type in by hand. Paste a comma-separated list to add several values at once.
+- **Logfire Query List Variable**: options are loaded from a SQL query against your data. The query must return exactly one column, and each distinct non-null value becomes an option.
+- **Time Bucket Variable**: time intervals derived from the dashboard's time range, like the built-in [`$resolution`](#resolution-variable) variable. You'll rarely need to create one yourself, and a variable named `resolution` is ignored in favor of the built-in one.
 
-<!-- TODO screenshot: variable editor form with the Source dropdown open, showing all three sources -->
+![A dashboard variable editor showing the source dropdown](../../images/guide/dashboard-variable-source.png)
 
 A query source keeps the dropdown in sync with your data automatically. For example, if your metrics record a `tenant_id` attribute, this query fills the dropdown with every tenant ID captured on the `api.requests` metric:
 
@@ -191,10 +203,16 @@ ORDER BY 1
 
 List variables have a few more settings:
 
-* **Allow Multiple Values**: viewers can select several options at once. The variable then resolves to a list of values in SQL, which changes how you compare it: see [using variables in queries](#using-variables-in-queries).
-* **Allow All option**: adds an **All** entry to the dropdown. By default, selecting **All** fills the variable with every option in the list. Tick **Use Custom All Value** to send a fixed placeholder string instead: the query pattern for this is also covered in [using variables in queries](#using-variables-in-queries).
-* **Capturing Regexp Filter**: a regular expression that transforms the options *after they load.* The expression must contain at least one capturing group (a part of the pattern wrapped in parentheses). An option is kept only if it matches, and its value is replaced by the captured text. For example, with the options `api-prod`, `web-prod`, and `api-staging`, the filter `(.*)-prod` produces the options `api` and `web`.
-* **Sort**: order the options alphabetically or numerically, ascending or descending. By default, options keep the order they were loaded in.
+- **Allow Multiple Values**: viewers can select several options at once. The variable then resolves to a list of values in SQL, which changes how you compare it: see [using variables in queries](#using-variables-in-queries).
+- **Allow All option**: adds an **All** entry to the dropdown. By default, selecting **All** fills the variable with every option in the list. Tick **Use Custom All Value** to send a fixed placeholder string instead: the query pattern for this is also covered in [using variables in queries](#using-variables-in-queries).
+- **Capturing Regexp Filter**: a regular expression that transforms the options _after they load._ The expression must contain at least one capturing group (a part of the pattern wrapped in parentheses). An option is kept only if it matches, and its value is replaced by the captured text. For example, with the options `api-prod`, `web-prod`, and `api-staging`, the filter `(.*)-prod` produces the options `api` and `web`.
+- **Sort**: order the options alphabetically or numerically, ascending or descending. By default, options keep the order they were loaded in.
+
+#### Variable defaults
+
+Each variable has a default value that viewers see when they first open the dashboard. To change it, enter edit mode, pick the value you want in the toolbar selector, and click **Save**. The save dialog lists what changed and asks whether to keep the new selection as the default.
+
+When a viewer changes a variable away from its default, a small reset button appears on its selector. Clicking it restores the default.
 
 #### Panel variables
 
@@ -255,21 +273,22 @@ FROM records
 GROUP BY x;
 ```
 
-By default the resolution is picked automatically to balance detail against query cost, and it adjusts as the time range changes. Viewers can select a fixed resolution instead with the resolution dropdown in the top left corner of the dashboard.
+Logfire picks the resolution automatically to balance detail against query cost, and it adjusts as the time range changes.
 
 #### Time range and context variables
 
 These variables describe the dashboard's current time range and where it lives:
 
-| Variable | Value |
-| -------- | ----- |
-| `$__from`, `$__to` | Start and end of the time range, as Unix millisecond timestamps |
-| `$__from_iso_string`, `$__to_iso_string` | Start and end of the time range, as ISO 8601 timestamps in UTC |
-| `$__range` | Length of the time range as human-readable text, e.g. `1 hour` |
-| `$__range_s`, `$__range_ms` | Length of the time range in seconds and in milliseconds |
-| `$__organization`, `$__project` | Names of the current organization and project |
-| `$__dashboard_slug` | The dashboard's URL slug |
-| `$__envs` | The environments selected in the environment filter, as one comma-separated string |
+| Variable                                 | Value                                                                                    |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `$__from`, `$__to`                       | Start and end of the time range, as Unix millisecond timestamps                          |
+| `$__from_iso_string`, `$__to_iso_string` | Start and end of the time range, as ISO 8601 timestamps in UTC                           |
+| `$__range`                               | Length of the time range as human-readable text, e.g. `1 hour`                           |
+| `$__range_s`, `$__range_ms`              | Length of the time range in seconds and in milliseconds                                  |
+| `$__organization`, `$__project`          | Names of the current organization and project                                            |
+| `$__dashboard_slug`                      | The dashboard's URL slug                                                                 |
+| `$__envs`                                | The environments selected in the environment filter, as one comma-separated string       |
+| `$resolution`                            | The automatic time bucket interval for the time range, see [above](#resolution-variable) |
 
 ---
 
@@ -282,6 +301,7 @@ As mentioned in the [Chart Types](#chart-types) section, there are two main type
 These queries visualize data over time and must include a timestamp column.
 
 **Request count over time:**
+
 ```sql
 SELECT
     time_bucket($resolution, start_timestamp) AS x,
@@ -295,6 +315,7 @@ GROUP BY x
 These queries focus on aggregating data without the time dimension, perfect for tables, bar charts, and pie charts.
 
 **Most common operations:**
+
 ```sql
 SELECT
     COUNT() AS count,
@@ -311,39 +332,61 @@ Please also refer to the [SQL Reference](../../reference/sql.md) and [Metrics Sc
 
 ---
 
-## Editing the layout
+## Editing a dashboard
 
-You can edit the layout of a dashboard by clicking the **Edit layout** button in the top left. This will allow you to drag panels to move and resize them. You can also reorder panel groups . Once you're done making changes, click the **Save** button to persist your changes.
+Click **Edit** in the top right of a custom dashboard to enter edit mode. In edit mode:
 
-![Edit layout](../../images/guide/browser-edit-layout-button.png)
+- The dashboard title becomes an editable text field.
+- The toolbar shows the **Variables**, **Panel**, and **Panel Group** buttons, plus **Edit JSON**.
+- You can move and resize panels, and reorder panel groups.
+
+Your changes stay in your browser until you click **Save**. **Cancel** discards them and restores the saved dashboard. If you leave the page without saving, Logfire keeps a local draft in your browser and restores it the next time you open the dashboard there.
+
+If you changed a variable selection while editing, the save dialog asks whether to store it as the dashboard's new default. See [Variable defaults](#variable-defaults).
+
+![Edit button](../../images/guide/browser-edit-layout-button.png)
 
 ### Move panels
 
-While in **Edit layout** mode, you can move panels by dragging them from the top right corner.
+While in edit mode, drag a panel by its title bar to move it.
 
 ![Move panels](../../images/guide/browser-move-panel.png)
 
 ### Resize panels
 
-While in **Edit layout** mode, you can resize panels by dragging the bottom right corner.
+While in edit mode, drag the bottom right corner of a panel to resize it.
 
 ![Resize panels](../../images/guide/browser-resize-panel.png)
 
 ### Reorder panel groups
 
-While in **Edit layout** mode, you can reorder panel groups by clicking the up and down arrows in the top right corner of each panel group.
+While in edit mode, click the up and down arrows in the top right corner of a panel group to move it.
 
 ![Reorder panel groups](../../images/guide/browser-reorder-panel-group.png)
 
+### Exporting and editing the dashboard as JSON
 
+Every dashboard is stored as a JSON document. This is the same format the [Terraform provider](../../how-to-guides/infrastructure-as-code.md) uses, and the format you import when creating a custom dashboard from JSON.
 
+- In view mode, click **Export dashboard** in the toolbar to open a side panel showing the dashboard's JSON. Click **Download** to save it as a file. The dashboard stays interactive while the panel is open.
+- In edit mode, click **Edit JSON** to change the JSON directly. Edits apply to the dashboard as you type. Logfire validates the JSON against the dashboard schema and shows the first problem in the editor's status line. A dashboard with invalid JSON can't be saved.
 
+![The dashboard export flyout](../../images/guide/dashboard-download-json.png)
 
+## Time range and live updates
 
-## Duration, and Refresh
+The time range picker in the top right of the dashboard controls the window of data shown. Choose a preset such as `last 5 minutes`, `last 15 minutes`, `last 30 minutes`, `last 6 hours`, up to `last 14 days`, or set a custom range.
 
-Each dashboard has settings for:
+![Time picker on a dashboard](../../images/guide/dashboard-time-picker.png)
 
-* **Duration**: Controls the time window for the data shown. You can select from predefined ranges like `last 5 minutes`, `last 15 minutes`, `last 30 minutes`, `last 6 hours` up to `last 14 days`, or specify a custom time range.
-* **Refresh Interval**: Sets how often the dashboard automatically refreshes its data. Options include `off`, `5s`, `10s`, `15s`, `30s`, and `1m`.
-The duration and refresh settings are in the top-right corner of the dashboard view.
+Turn on **Live** next to the picker to keep the dashboard current. Logfire re-runs the panel queries on an interval matched to the time range, between 15 seconds and 1 minute, and the time window keeps moving forward with the clock.
+
+Pausing **Live** freezes the time window where it is, so you can inspect the data without it moving. Resuming follows the clock again.
+
+![Live mode button](../../images/guide/dashboard-live-button.png)
+
+## Next steps
+
+- [Writing SQL Queries for Dashboards](../../how-to-guides/write-dashboard-queries.md) for query recipes and chart configuration tips.
+- [SQL Reference](../../reference/sql.md) for the tables and columns available to you.
+- [Infrastructure as Code](../../how-to-guides/infrastructure-as-code.md) to manage dashboards with Terraform.

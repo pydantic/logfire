@@ -5,7 +5,7 @@ import socket
 import threading
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import requests
@@ -35,7 +35,8 @@ def test_keepalive_socket_options_enable_keepalive_and_keep_urllib3_defaults() -
 
     assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in options
     # TCP_NODELAY is urllib3's own default and must survive.
-    for default in HTTPConnection.default_socket_options:
+    # urllib3 2.8 nests Final inside ClassVar, which Pyright does not yet unwrap.
+    for default in cast(list[tuple[int, int, int]], HTTPConnection.default_socket_options):
         assert default in options
 
 
@@ -69,7 +70,7 @@ def test_a_platform_missing_an_option_still_gets_the_rest(monkeypatch: pytest.Mo
 def test_a_platform_without_keepalive_leaves_the_defaults_alone(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delattr(socket, 'SO_KEEPALIVE', raising=False)
 
-    assert keepalive_socket_options() == list(HTTPConnection.default_socket_options)
+    assert keepalive_socket_options() == list(cast(list[tuple[int, int, int]], HTTPConnection.default_socket_options))
 
 
 def test_a_connection_class_without_default_socket_options(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -82,7 +83,7 @@ def test_a_connection_class_without_default_socket_options(monkeypatch: pytest.M
     options = keepalive_socket_options()
 
     assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in options
-    for default in HTTPConnection.default_socket_options:
+    for default in cast(list[tuple[int, int, int]], HTTPConnection.default_socket_options):
         assert default not in options
 
 
@@ -287,6 +288,68 @@ def test_a_reused_proxy_manager_is_handed_back_as_is() -> None:
 
     assert adapter.proxy_manager_for(proxy) is first
     assert first.pool_classes_by_scheme is classes
+
+
+def test_proxied_requests_recycle_idle_connections(server_url: str, clock: list[float]) -> None:
+    """A proxied session reuses a fresh connection to the proxy and replaces an idle one.
+
+    The test server doubles as the proxy: `urllib3` sends it the absolute URL, and it replies
+    with the port of the connection the request arrived on, as it does for a direct request.
+    """
+    with requests.Session() as session:
+        session.trust_env = False
+        session.proxies = {'http': server_url}
+        install_connection_policy(session)
+        url = 'http://example.invalid/'
+
+        first_port = session.get(url).text
+
+        clock[0] += IDLE_CONNECTION_RECYCLE_SECONDS - 1
+        assert session.get(url).text == first_port
+
+        clock[0] += IDLE_CONNECTION_RECYCLE_SECONDS + 1
+        assert session.get(url).text != first_port
+
+
+def test_a_proxy_manager_is_not_handed_out_before_it_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`requests` caches a new proxy manager before `LogfireHTTPAdapter` configures it.
+
+    Another caller asking for the same proxy in that window, such as a request on another thread,
+    must get a configured manager rather than the cached one, or its pools would never recycle
+    idle connections. The second call is made from inside the window, so the race is exact.
+    """
+    adapter = LogfireHTTPAdapter()
+    proxy = 'http://proxy.example.com'
+    real_install = _install_recycling_pools
+    seen_by_other_caller: list[type[HTTPConnectionPool]] = []
+    in_window = False
+
+    def install_while_another_caller_asks(manager: PoolManager) -> None:
+        nonlocal in_window
+        if not in_window:
+            in_window = True
+            # The new manager is already in the `requests` cache at this point.
+            assert adapter.proxy_manager[proxy] is manager
+            seen_by_other_caller.append(adapter.proxy_manager_for(proxy).pool_classes_by_scheme['http'])
+        real_install(manager)
+
+    monkeypatch.setattr('logfire._internal.http_transport._install_recycling_pools', install_while_another_caller_asks)
+
+    manager = adapter.proxy_manager_for(proxy)
+
+    assert issubclass(seen_by_other_caller[0], _IdleRecyclingPoolMixin)
+    # Configured once, not wrapped again by the outer call.
+    assert manager.pool_classes_by_scheme['http'] is seen_by_other_caller[0]
+
+
+def test_installing_recycling_pools_twice_does_not_wrap_them_again() -> None:
+    manager = PoolManager()
+    _install_recycling_pools(manager)
+    classes = dict(manager.pool_classes_by_scheme)
+
+    _install_recycling_pools(manager)
+
+    assert manager.pool_classes_by_scheme == classes
 
 
 def test_install_connection_policy_mounts_both_schemes() -> None:

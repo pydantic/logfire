@@ -147,9 +147,13 @@ def _install_recycling_pools(manager: PoolManager) -> None:
     a SOCKS proxy manager brings its own, and Pyodide swaps in others again. Installed on the
     manager rather than passed through `connection_pool_kw`, because `urllib3` feeds that mapping
     to its pool-key normalizer, which rejects keys it does not know.
+
+    Idempotent, so that threads racing to configure the same proxy manager all end up with the
+    same classes rather than wrapping them twice.
     """
     manager.pool_classes_by_scheme = {
-        scheme: _recycling_pool_class(cls) for scheme, cls in manager.pool_classes_by_scheme.items()
+        scheme: cls if issubclass(cls, _IdleRecyclingPoolMixin) else _recycling_pool_class(cls)
+        for scheme, cls in manager.pool_classes_by_scheme.items()
     }
 
 
@@ -168,11 +172,17 @@ class LogfireHTTPAdapter(HTTPAdapter):
         # `init_poolmanager`, so the policy has to be applied again as each one appears.
         # `requests` calls this for every proxied request and caches the managers it builds, so
         # one it has already built, and we have already configured, is handed straight back.
-        if proxy in self.proxy_manager:
-            return self.proxy_manager[proxy]
+        manager = self.proxy_manager.get(proxy)
+        if getattr(manager, '_logfire_policy_installed', False):
+            return manager
+        # `requests` puts a new manager in its cache before handing it back to us, so another
+        # thread can get it from there before the recycling classes are installed. Every caller
+        # that sees a manager without the marker therefore installs them itself before using it.
+        # No lock is needed because installing is idempotent.
         proxy_kwargs.setdefault('socket_options', keepalive_socket_options())
         manager = super().proxy_manager_for(proxy, **proxy_kwargs)
         _install_recycling_pools(manager)
+        manager._logfire_policy_installed = True
         return manager
 
 

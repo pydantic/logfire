@@ -132,6 +132,7 @@ def main() -> None:
 
         python = venv_python(venv)
         cli = venv_script(venv, 'logfire')
+        standalone_cli = venv_script(venv, 'logfire-cli')
         installer = Installer(args.installer, python, work_dir, env, dist)
 
         def assert_state(state: str, version: str) -> None:
@@ -153,15 +154,20 @@ def main() -> None:
         installer.install(str(sdk_wheel), str(meta_wheel), force=True, no_deps=True)
         assert_state('split', target_version)
         run([str(cli), '--version'], cwd=work_dir, env=env)
+        run([str(standalone_cli), '--version'], cwd=work_dir, env=env)
 
         # The compatibility distribution owns no Python package, so removing it
-        # must leave a working SDK. Removing the CLI afterwards must do the same.
+        # must leave a working SDK. It owns the `logfire` launcher, so that goes
+        # with it while logfire-cli keeps its own `logfire-cli` launcher.
         installer.uninstall('logfire')
         assert_state('sdk-and-cli', target_version)
+        if cli.exists():
+            raise AssertionError(f'The logfire launcher survived uninstalling logfire: {cli}')
+        run([str(standalone_cli), '--version'], cwd=work_dir, env=env)
         installer.uninstall('logfire-cli')
         assert_state('sdk-only', target_version)
-        if cli.exists():
-            raise AssertionError(f'The CLI launcher survived uninstalling logfire-cli: {cli}')
+        if standalone_cli.exists():
+            raise AssertionError(f'The CLI launcher survived uninstalling logfire-cli: {standalone_cli}')
 
         installer.install(str(meta_wheel))
         assert_state('split', target_version)
