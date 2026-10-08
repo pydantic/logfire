@@ -176,6 +176,9 @@ def _tweak_http_spans(span: ReadableSpanDict):
 
     Also derives `http.target` from `http.url` if needed.
 
+    Both the old HTTP semantic conventions (`http.method`, `http.target`, `http.url`)
+    and the stable ones (`http.request.method`, `url.path`, `url.query`, `url.full`) are understood.
+
     The span names from OTEL instrumentations are an inconsistent and generally lacking mess.
     This is partly due to not having a concept of 'message' separate from span names.
 
@@ -198,19 +201,30 @@ def _tweak_http_spans(span: ReadableSpanDict):
     if name != attributes.get(ATTRIBUTES_MESSAGE_KEY):  # pragma: no cover
         return
 
-    method = attributes.get('http.method')
+    method = attributes.get('http.method') or attributes.get('http.request.method')
     route = attributes.get('http.route')
-    target = attributes.get('http.target')
-    url: Any = attributes.get('http.url')
+    target = attributes.get('http.target') or attributes.get('url.path')
+    url: Any = attributes.get('http.url') or attributes.get('url.full')
     if not (method or route or target or url):
         return
 
-    if not target and url and isinstance(url, str):
+    # The query string, without the leading '?'. Shown at the end of the message in a readable form below.
+    query_string: Any = attributes.get('url.query')
+    if not (target and query_string) and url and isinstance(url, str):
         try:
-            target = urlparse(url).path
-            span['attributes'] = attributes = {**attributes, 'http.target': target}
+            parsed_url = urlparse(url)
         except Exception:  # pragma: no cover
             pass
+        else:
+            if not target:
+                # e.g. 'https://example.com' has an empty path, which should be shown as '/'.
+                target = parsed_url.path or '/'
+                if 'http.url' in attributes:
+                    target_key = 'http.target'
+                else:
+                    target_key = 'url.path'
+                span['attributes'] = attributes = {**attributes, target_key: target}
+            query_string = query_string or parsed_url.query
 
     if not method and name in ('HTTP', f'HTTP {target}', f'HTTP {route}'):
         method = 'HTTP'
@@ -261,14 +275,11 @@ def _tweak_http_spans(span: ReadableSpanDict):
 
     # Add query params to the message if:
     # 1. The message currently ends with the target
-    # 2. We have a URL to parse query params from
+    # 2. We have a query string, either parsed from the URL or from `url.query`
     # 3. Some query params exist
     # 4. The target doesn't already end with the query string
-    #       (it's supposed to according to the spec, but the OTEL libraries don't include it)
-    if (
-        url and target and isinstance(url, str) and isinstance(target, str) and message.endswith(target)
-    ):  # pragma: no branch
-        query_string = urlparse(url).query
+    #       (`http.target` is supposed to include it according to the spec, but the OTEL libraries don't include it)
+    if target and isinstance(target, str) and message.endswith(target) and isinstance(query_string, str):
         query_params = parse_qs(query_string)
         if query_params and not target.endswith(query_string):
             pairs = [(k, v) for k, vs in query_params.items() for v in vs]
@@ -543,10 +554,10 @@ def _default_gen_ai_response_model(span: ReadableSpanDict):
 
 def _transform_google_genai_span(span: ReadableSpanDict):
     scope = span['instrumentation_scope']
-    # opentelemetry-instrumentation-google-genai >= 1.0b0 is built on opentelemetry.util.genai and emits
-    # spans under this shared scope. util.genai is generic infrastructure, so also check the provider name
-    # to avoid rewriting spans from other (future) util.genai-based integrations.
-    if not (scope and scope.name == 'opentelemetry.util.genai.handler'):
+    # Versions 1.0b0 and 1.1b0 emit spans under the shared util.genai scope; 1.2b0 restores the
+    # specific instrumentation scope. Also check the provider below to avoid rewriting spans
+    # from other integrations using the shared scope.
+    if not (scope and scope.name in ('opentelemetry.util.genai.handler', 'opentelemetry.instrumentation.google_genai')):
         return
 
     attributes = span['attributes']

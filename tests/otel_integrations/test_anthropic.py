@@ -700,6 +700,66 @@ def test_messages_stream_text_block_none() -> None:
     )
 
 
+@pytest.mark.parametrize('beta', [False, True])
+def test_streamed_tool_arguments(beta: bool, exporter: TestExporter) -> None:
+    events: list[dict[str, Any]] = [
+        {
+            'type': 'message_start',
+            'message': {
+                'id': 'test_id',
+                'type': 'message',
+                'role': 'assistant',
+                'content': [],
+                'model': 'claude-haiku-4-5',
+                'usage': {'input_tokens': 10, 'output_tokens': 0},
+            },
+        },
+        {
+            'type': 'content_block_start',
+            'index': 0,
+            'content_block': {'type': 'tool_use', 'id': 'tool_id', 'name': 'weather', 'input': {}},
+        },
+        {
+            'type': 'content_block_delta',
+            'index': 0,
+            'delta': {'type': 'input_json_delta', 'partial_json': '{"city":"San'},
+        },
+        {
+            'type': 'content_block_delta',
+            'index': 0,
+            'delta': {'type': 'input_json_delta', 'partial_json': ' Francisco"}'},
+        },
+        {'type': 'content_block_stop', 'index': 0},
+        {'type': 'message_delta', 'delta': {'stop_reason': 'tool_use'}, 'usage': {'output_tokens': 10}},
+        {'type': 'message_stop'},
+    ]
+    body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in events)
+    client = anthropic.Anthropic(
+        api_key='test',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, text=body))),
+    )
+    with logfire.instrument_anthropic(client):
+        messages = client.beta.messages if beta else client.messages
+        with messages.create(
+            model='claude-haiku-4-5',
+            max_tokens=100,
+            messages=[{'role': 'user', 'content': 'What is the weather?'}],
+            stream=True,
+        ) as stream:
+            assert len(list(stream)) == len(events)
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert spans[-1]['attributes']['gen_ai.output.messages'] == [
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'tool_call', 'id': 'tool_id', 'name': 'weather', 'arguments': {'city': 'San Francisco'}}
+            ],
+            'finish_reason': 'tool_use',
+        }
+    ]
+
+
 async def test_async_messages_stream(
     instrumented_async_client: anthropic.AsyncAnthropic, exporter: TestExporter
 ) -> None:
