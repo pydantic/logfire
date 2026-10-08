@@ -96,7 +96,7 @@ Use these references:
 
 - Use the runtime package that owns SDK setup: `@pydantic/logfire-node` for Node.js, `@pydantic/logfire-browser` for browser code, `@pydantic/logfire-cf-workers` for Cloudflare Workers, and `logfire` for runtime-agnostic manual spans when OpenTelemetry is already configured.
 - Load Node instrumentation before importing the app or instrumented libraries. Prefer `node --import ./instrumentation.js` for ESM and modern Node; use `--require` only for CommonJS.
-- Never expose an ordinary Logfire write token to browser code. Direct browser export requires the restricted public token and regional trace URL generated for a frontend application.
+- Never expose an ordinary Logfire write token to browser code. Direct browser export requires the restricted public token and regional base URL generated for a frontend application, passed to `configureFrontend({ baseUrl, token })` in `@pydantic/logfire-browser` 0.21.0 or later.
 - Use the current span shape: `logfire.span('message {id}', { attributes: { id }, callback: async () => ... })`.
 - Use structured attributes instead of string interpolation when the data should be queryable.
 - For caught errors, use `logfire.reportError(message, error, attributes?, options?)` and then rethrow when preserving behavior matters.
