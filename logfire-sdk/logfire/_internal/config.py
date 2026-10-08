@@ -2304,7 +2304,16 @@ def get_git_revision_hash() -> str:
     """Get the current git commit hash."""
     import subprocess
 
-    return subprocess.check_output(['git', 'rev-parse', 'HEAD'], stderr=subprocess.STDOUT).decode('ascii').strip()
+    return (
+        subprocess.check_output(
+            ['git', 'rev-parse', 'HEAD'],
+            stderr=subprocess.STDOUT,
+            # On Windows, don't flash a console window for git. `CREATE_NO_WINDOW` only exists on Windows; 0 is the default.
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+        )
+        .decode('ascii')
+        .strip()
+    )
 
 
 def sanitize_project_name(name: str) -> str:
