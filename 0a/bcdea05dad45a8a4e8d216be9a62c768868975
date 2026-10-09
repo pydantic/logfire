@@ -1,0 +1,19 @@
+pyodide_test/test.mjs
+  s_3e5b2d224472a7::t_800e93d31fcff4 47,49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0abcdea05dad45a8a4e8d216be9a62c768868975",
+  "prompts": {},
+  "sessions": {
+    "s_3e5b2d224472a7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1214e-b0ae-74e0-a7d3-ca72a9123b69",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
