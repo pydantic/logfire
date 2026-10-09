@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 from contextvars import ContextVar
+from threading import Lock
 from types import ModuleType
 from typing import Any
 from weakref import WeakKeyDictionary
@@ -24,6 +25,7 @@ except ModuleNotFoundError as e:
 _module_settings: tuple[Logfire, bool] | None = None
 _connection_settings: WeakKeyDictionary[SnowflakeConnection, tuple[Logfire, bool]] = WeakKeyDictionary()
 _inside_executemany: ContextVar[bool] = ContextVar('logfire_snowflake_inside_executemany', default=False)
+_instrument_lock = Lock()
 
 
 def instrument_snowflake(
@@ -34,21 +36,22 @@ def instrument_snowflake(
     global _module_settings
 
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='snowflake')
-    if conn_or_module is None or conn_or_module is sf_connector:
-        if _module_settings is None:
-            _module_settings = (logfire_instance, capture_parameters)
-            _patch_connect(logfire_instance)
-        elif _module_settings[1] != capture_parameters:
-            _warn_capture_parameters_ignored(_module_settings[1])
-    elif isinstance(conn_or_module, SnowflakeConnection):
-        existing = _connection_settings.get(conn_or_module)
-        if existing is None:
-            _connection_settings[conn_or_module] = (logfire_instance, capture_parameters)
-        elif existing[1] != capture_parameters:
-            _warn_capture_parameters_ignored(existing[1])
-    else:
-        raise ValueError(f"Don't know how to instrument {conn_or_module!r}")
-    _patch_cursor_class()
+    with _instrument_lock:
+        if conn_or_module is None or conn_or_module is sf_connector:
+            if _module_settings is None:
+                _module_settings = (logfire_instance, capture_parameters)
+                _patch_connect(logfire_instance)
+            elif _module_settings[1] != capture_parameters:
+                _warn_capture_parameters_ignored(_module_settings[1])
+        elif isinstance(conn_or_module, SnowflakeConnection):
+            existing = _connection_settings.get(conn_or_module)
+            if existing is None:
+                _connection_settings[conn_or_module] = (logfire_instance, capture_parameters)
+            elif existing[1] != capture_parameters:
+                _warn_capture_parameters_ignored(existing[1])
+        else:
+            raise ValueError(f"Don't know how to instrument {conn_or_module!r}")
+        _patch_cursor_class()
 
 
 def _warn_capture_parameters_ignored(existing: bool) -> None:
