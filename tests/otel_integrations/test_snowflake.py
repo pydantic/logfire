@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from inline_snapshot import snapshot
@@ -38,11 +38,7 @@ class FakeSnowflakeConnection(SnowflakeConnection):
         self._role = kwargs.get('role')
         self._log_max_query_length = 10000
         self._reuse_results = False
-
-    def cursor(self, cursor_class: type = SnowflakeCursor) -> SnowflakeCursor:
-        # Override rather than inherit: the real cursor() checks internal connection
-        # state that __init__ never set up here.
-        return cursor_class(self)
+        self._rest = cast(Any, object())  # Let the connector's real cursor factory run without a network connection.
 
 
 @pytest.fixture(autouse=True)
