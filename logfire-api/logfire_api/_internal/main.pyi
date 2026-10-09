@@ -462,10 +462,16 @@ class Logfire:
         Instruments both the client and server side. If possible, calling this in both the client and server
         processes is recommended for nice distributed traces.
 
+        This is only needed with mcp 1.x. Version 2 of the SDK (which fastmcp 4 depends on) emits
+        OpenTelemetry spans and propagates the trace context via `_meta` by itself, so with it
+        `logfire.configure()` is all that's needed. Calling this method there does nothing
+        except emit a `UserWarning` saying so.
+
         Args:
             propagate_otel_context: Whether to enable propagation of the OpenTelemetry context
                 for distributed tracing.
                 Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+                Ignored with mcp 2, which always propagates the context.
         """
     def instrument_claude_agent_sdk(self) -> AbstractContextManager[None]:
         """Instrument the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview).
@@ -1543,7 +1549,6 @@ class FastLogfireSpan:
 
 class LogfireSpan(ReadableSpan):
     def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: _ProxyTracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]], span_kind: SpanKind = ...) -> None: ...
-    def __getattr__(self, name: str) -> Any: ...
     def __enter__(self) -> LogfireSpan: ...
     @handle_internal_errors
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
@@ -1594,7 +1599,7 @@ class NoopSpan:
 
     TODO this should also be used when tracing is disabled, e.g. before `logfire.configure()` has been called.
     """
-    def __init__(self, /, *_args: Any, **__kwargs: Any) -> None: ...
+    def __init__(self, *_args: Any, **__kwargs: Any) -> None: ...
     def __getattr__(self, _name: str) -> Any: ...
     def __enter__(self) -> NoopSpan: ...
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...

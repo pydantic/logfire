@@ -12,6 +12,7 @@ from typing import Any, TypeVar
 
 T = TypeVar('T')
 PydanticPluginRecordValues: Incomplete
+CompressionValues: Incomplete
 
 @dataclass(slots=True)
 class ConfigParam:
@@ -57,6 +58,7 @@ IGNORE_NO_CONFIG: Incomplete
 BASE_URL: Incomplete
 DISTRIBUTED_TRACING: Incomplete
 EMIT_CONFIGURATION_SPAN: Incomplete
+COMPRESSION: Incomplete
 HTTPX_CAPTURE_ALL: Incomplete
 AIOHTTP_CLIENT_CAPTURE_ALL: Incomplete
 CONFIG_PARAMS: Incomplete
