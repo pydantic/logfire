@@ -1,0 +1,29 @@
+release/versioning.py
+  s_26c70d8a914d6a::t_6ee684c4f1bfc8 1-37
+release/prepare.py
+  s_26c70d8a914d6a::t_e4fd3ee3418627 9,86-87
+tests/test_release_versioning.py
+  s_26c70d8a914d6a::t_e4fd3ee3418627 7,20,26
+  s_26c70d8a914d6a::t_6ee684c4f1bfc8 1-6,8-19,21-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d3673c30679bb0f84a2955e7a42cfd65be922101",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
