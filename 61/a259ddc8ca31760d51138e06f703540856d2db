@@ -1,0 +1,19 @@
+tests/test_configure.py
+  s_26c70d8a914d6a::t_024ab518fd2e04 827,836
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "61a259ddc8ca31760d51138e06f703540856d2db",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
