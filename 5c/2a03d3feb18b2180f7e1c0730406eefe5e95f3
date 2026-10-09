@@ -1,0 +1,14 @@
+docs/reference/cli.md
+  h_d9dd17644dded9 252-253,256-261
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5c2a03d3feb18b2180f7e1c0730406eefe5e95f3",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
