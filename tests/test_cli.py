@@ -6253,6 +6253,16 @@ def test_parse_run_script(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Captur
     assert instrument_package_mock.call_args_list == [(('openai',),)]
 
 
+def test_parse_run_instruments_installed_monty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.installed_packages', Mock(return_value={'pydantic-monty-client'}))
+    monkeypatch.setattr('logfire._internal.cli.run.instrument_package', instrument_package_mock := Mock())
+
+    main(['run', '--no-summary', run_script_test.__file__, '-x', 'foo'])
+
+    instrument_package_mock.assert_called_once_with('monty')
+
+
 def test_parse_run_script_with_summary(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setattr('logfire.configure', configure_mock := Mock())
     monkeypatch.setattr('logfire._internal.cli.run.instrument_package', instrument_package_mock := Mock())
