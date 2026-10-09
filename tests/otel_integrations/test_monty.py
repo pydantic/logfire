@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import importlib
 import sys
 from typing import Any, cast
@@ -36,6 +37,22 @@ def test_instrument_monty_dependency_errors(monkeypatch: pytest.MonkeyPatch, pac
 You can install this with:
     pip install 'pydantic-monty>=0.0.23'\
 """)
+
+
+def test_instrument_monty_preserves_transitive_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_import = builtins.__import__
+
+    def broken_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'pydantic_monty':
+            raise ModuleNotFoundError("No module named 'missing_transitive'", name='missing_transitive')
+        return original_import(name, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(builtins, '__import__', broken_import)
+        with pytest.raises(ModuleNotFoundError, match='missing_transitive'):
+            importlib.reload(monty_integration)
+
+    importlib.reload(monty_integration)
 
 
 def test_instrument_monty_passes_standard_components(
