@@ -34,7 +34,13 @@ Select a service to open its detail page. It shows:
 - Headline request, error-rate, median latency (p50), p95 latency, and operation-count cards.
 - Request, error, and latency trends, with deployment markers when version data is available.
 - Reliability targets, top operations, database dependencies, versions, and recent errors.
-- Links that preserve the service filter in **Live view** and **Explore**.
+- A **Live view** button that opens the service's records in a Beta overlay while preserving the
+  page's time range and environment filters.
+- Recent errors that open the affected trace in the same overlay.
+
+The overlay keeps the service page in place while you inspect records, change the time range, use
+the timeline, and open record details. Select **Open in Live view** in the overlay header when you
+need the full Live View. It opens in a new tab with the overlay's current filters and time range.
 
 ![Service detail page with request, error, and latency signals](../../images/services/service-detail.png)
 
