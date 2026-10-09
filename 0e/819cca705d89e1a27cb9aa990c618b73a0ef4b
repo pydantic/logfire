@@ -1,0 +1,30 @@
+logfire-api/logfire_api/__init__.py
+  h_d9dd17644dded9 156-157,249
+logfire-api/logfire_api/__init__.pyi
+  h_d9dd17644dded9 19,29
+logfire-api/logfire_api/_internal/integrations/monty.pyi
+  h_d9dd17644dded9 1-21
+logfire-api/logfire_api/_internal/main.pyi
+  h_d9dd17644dded9 507-516
+logfire/__init__.py
+  h_d9dd17644dded9 42,158
+logfire/_internal/integrations/monty.py
+  h_d9dd17644dded9 4,23-33,38-58
+logfire/_internal/main.py
+  h_d9dd17644dded9 1211-1225
+tests/otel_integrations/test_monty.py
+  h_d9dd17644dded9 3-4,7-9,11-12,14-17,20,22,24-27,29-67,69-71,122-404
+tests/test_logfire_api.py
+  h_d9dd17644dded9 338-341
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0e819cca705d89e1a27cb9aa990c618b73a0ef4b",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
