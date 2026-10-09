@@ -1,0 +1,23 @@
+logfire/_internal/tracer.py
+  s_26c70d8a914d6a::t_04952a681e9ad4 33,191-200
+tests/otel_integrations/test_mcp_v2.py
+  s_26c70d8a914d6a::t_4b6c9cf23bfec2 93
+tests/test_logfire.py
+  s_26c70d8a914d6a::t_f090ca65e83a9c 4055-4089
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bfdab6c8d4062da006a4c862ddf98510eb196cd3",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
