@@ -1,0 +1,24 @@
+uv.lock
+  s_26c70d8a914d6a::t_7fceb45eb0915f 44,52,54,634,646-673,2035,2041,2043,2194,2196,2198,2675,3020,3027,3029,3034,3038,3042,3044-3050,5715,5721,5723,5728,5853,5866,5868,6025,6035,6037,6042,6050,6052,6207,6212,6214,6653,7005,7024-7152,7378,7384,7386,8527,8529,8531
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cb51ab6cf2850d5029809fa7f5ae02ae41f28adc",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
