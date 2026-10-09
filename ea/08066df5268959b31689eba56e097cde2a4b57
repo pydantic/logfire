@@ -1,0 +1,31 @@
+logfire-api/logfire_api/__init__.py
+  s_26c70d8a914d6a::t_68cd1b73a55702 179-180,260
+logfire-api/logfire_api/__init__.pyi
+  s_26c70d8a914d6a::t_dc88e387e58934 19,57
+logfire-api/logfire_api/_internal/integrations/snowflake.pyi
+  s_26c70d8a914d6a::t_469c89e342ff13 1-7
+logfire-api/logfire_api/_internal/main.pyi
+  s_26c70d8a914d6a::t_2b400f20704f43 54,444-458
+logfire/__init__.py
+  s_26c70d8a914d6a::t_9ecf7f77c503d1 70,183
+logfire/_internal/main.py
+  s_26c70d8a914d6a::t_319b63ceca95dc 94,1016-1040
+tests/otel_integrations/test_snowflake.py
+  s_26c70d8a914d6a::t_619aed243d99d5 78,130,141,180,190,200,242,286-287,298,301,314,316,337,353,355,369-370,373,380-381,384,393-394,404,410,422,434,447-448,462-463,482,493,538,548,561,583,601
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ea08066df5268959b31689eba56e097cde2a4b57",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
