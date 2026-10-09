@@ -430,6 +430,32 @@ def test_custom_cursor_overrides_without_super(exporter: TestExporter) -> None:
     ]
 
 
+def test_inherited_custom_cursor_overrides_without_super(exporter: TestExporter) -> None:
+    class IntermediateCursor(SnowflakeCursor):
+        def execute(self, command: str, params: Any = None, *args: Any, **kwargs: Any) -> Any:
+            self._sfqid = 'custom-execute'
+            return self
+
+        def executemany(self, command: str, seqparams: Any, **kwargs: Any) -> Any:
+            self._sfqid = 'custom-executemany'
+            return self
+
+    class CustomCursor(IntermediateCursor):
+        pass
+
+    conn = FakeSnowflakeConnection(account='my_account')
+    logfire.instrument_snowflake(conn)
+
+    cursor = conn.cursor(CustomCursor)
+    cursor.execute('select 1')
+    cursor.executemany('insert into items values (%s)', [(1,)])
+
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == [
+        'snowflake execute',
+        'snowflake executemany',
+    ]
+
+
 def test_custom_cursor_keeps_other_cursor_queries(exporter: TestExporter) -> None:
     other_cursor = FakeConnection().cursor()
 

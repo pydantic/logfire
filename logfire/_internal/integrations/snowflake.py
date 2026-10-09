@@ -110,8 +110,8 @@ def _patch_cursor_factory() -> None:
 
 def _patch_custom_cursor_class(cursor_class: type[SnowflakeCursorBase[Any]]) -> None:
     for name, wrap in (('execute', _wrap_execute), ('executemany', _wrap_executemany)):
-        original = cursor_class.__dict__.get(name)
-        if original is not None and not getattr(original, '_logfire_patched', False):
+        original = getattr(cursor_class, name)
+        if not getattr(original, '_logfire_patched', False):
             setattr(cursor_class, name, wrap(original))
 
 
