@@ -1,0 +1,18 @@
+docs/integrations/index.md
+  h_d9dd17644dded9 42,51
+docs/integrations/monty.md
+  h_d9dd17644dded9 1-95
+docs/navigation.yml
+  h_d9dd17644dded9 445-447
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5d074b3c7db17fdc108b473cf853582bb7f86bf7",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
