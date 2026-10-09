@@ -89,7 +89,7 @@ With both scripts running, open the [Live view](../../guides/web-ui/live.md). Wi
 
 Version 2 of the MCP Python SDK (`mcp>=2`, which fastmcp 4 depends on) emits OpenTelemetry spans and passes the trace context between client and server on its own. With it, `logfire.configure()` is all you need on each side, and you get the same joined trace without calling `logfire.instrument_mcp()`. Calling it anyway does nothing except emit a warning saying it's unnecessary.
 
-The examples on this page target version 1 of the SDK, which is why the install command above pins `mcp<2`: `mcp.server.fastmcp` no longer exists in version 2, where the same server class is `mcp.server.mcpserver.MCPServer`.
+The examples on this page target version 1 of the SDK, which is why the install command above pins `mcp<2`: `mcp.server.fastmcp` no longer exists in version 2. If you use fastmcp 4, import `FastMCP` from `fastmcp` instead.
 
 ## Troubleshooting
 
