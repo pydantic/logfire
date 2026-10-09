@@ -1,0 +1,33 @@
+logfire/.agents/skills/logfire-instrumentation/SKILL.md
+  s_26c70d8a914d6a::t_1b25a189c30399 99
+logfire/.agents/skills/logfire-instrumentation/references/javascript/frameworks.md
+  s_26c70d8a914d6a::t_188cda518ef2c2 19
+logfire/.agents/skills/logfire-instrumentation/references/javascript/installation-and-env.md
+  s_26c70d8a914d6a::t_0eae1ed71616a0 57-58
+logfire/.agents/skills/logfire-instrumentation/references/javascript/nextjs.md
+  s_26c70d8a914d6a::t_218c14ebf16cd2 71,79-86,99-101,111,117-124
+logfire/.agents/skills/logfire-instrumentation/references/javascript/react-browser.md
+  s_26c70d8a914d6a::t_61f28bfdf8700b 9,17-23,37-39,49,55-62,88
+logfire/.agents/skills/logfire-instrumentation/references/javascript/verification-troubleshooting.md
+  s_26c70d8a914d6a::t_b6bc63ea135726 35,54
+logfire/.agents/skills/logfire-setup-offline.md
+  s_26c70d8a914d6a::t_143458f24f5500 155
+tests/test_agent_setup_prompt.py
+  s_26c70d8a914d6a::t_59af12a8b910b6 261-279,284,287
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a2f309329fb5c270794070908024fc212da9bc63",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
