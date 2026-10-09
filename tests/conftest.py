@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import anyio._backends._asyncio  # noqa  # type: ignore
+import pydantic
 import pytest
 from inline_snapshot.plugin import Builder, Import, customize
 from opentelemetry import trace
@@ -21,6 +22,7 @@ import logfire
 from logfire import configure
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire._internal.exporters.test import TestLogExporter
+from logfire._internal.utils import get_version
 from logfire.integrations.pydantic import set_pydantic_plugin_config
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
@@ -73,6 +75,10 @@ try:
         logfire.instrument_mcp()
 except ImportError:
     pass
+except (UserWarning, DeprecationWarning):
+    # Only tolerate import warnings in deliberately incompatible Pydantic jobs.
+    if get_version(pydantic.__version__) >= get_version('2.12'):
+        raise
 
 
 @pytest.fixture(scope='session', autouse=True)
