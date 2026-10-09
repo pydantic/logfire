@@ -7,7 +7,7 @@ from types import TracebackType
 from typing import Any, Generic, TypeVar, TypedDict
 from typing_extensions import Self
 
-__all__ = ['QueryExecutionError', 'QueryRequestError', 'InfoRequestError', 'UnexpectedResponseError', 'ReadTokenInfo', 'ColumnDetails', 'RowQueryResults', 'LogfireQueryClient', 'AsyncLogfireQueryClient']
+__all__ = ['QueryExecutionError', 'QueryRequestError', 'InfoRequestError', 'UnexpectedResponseError', 'QueryRateLimitedError', 'ReadTokenInfo', 'ColumnDetails', 'RowQueryResults', 'LogfireQueryClient', 'AsyncLogfireQueryClient']
 
 class _ProblemDetailsMixin:
     """Additional details about an error response."""
@@ -24,6 +24,8 @@ class InfoRequestError(RuntimeError):
     """Raised when the request for read token info fails because of unavailable information."""
 class UnexpectedResponseError(_ProblemDetailsMixin, RuntimeError):
     """Raised when the API responds with an unexpected status code, such as a `5xx` server error."""
+class QueryRateLimitedError(UnexpectedResponseError):
+    """Raised when the API responds with status code `429` because the request was rate limited."""
 
 class ReadTokenInfo(TypedDict, total=False):
     """Information about the read token."""

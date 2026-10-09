@@ -16,6 +16,7 @@ from logfire.query_client import (
     AsyncLogfireQueryClient,
     LogfireQueryClient,
     QueryExecutionError,
+    QueryRateLimitedError,
     QueryRequestError,
     UnexpectedResponseError,
 )
@@ -36,6 +37,14 @@ def test_query_errors_expose_optional_problem_details(
     assert error.problem is None
     assert error.problem_type is None
     assert error.retryable is None
+    assert error.retry_after is None
+
+
+def test_query_rate_limited_error_preserves_unexpected_response_contract() -> None:
+    error = QueryRateLimitedError('Unexpected response status code 429')
+
+    assert isinstance(error, UnexpectedResponseError)
+    assert error.args == ('Unexpected response status code 429',)
     assert error.retry_after is None
 
 
