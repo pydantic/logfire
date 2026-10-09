@@ -841,11 +841,11 @@ def test_configure_service_version(config_kwargs: dict[str, Any], exporter: Test
         os.chdir(dir)
 
 
+@pytest.mark.skipif(sys.platform != 'win32', reason='console windows only exist on Windows')
 def test_configure_service_version_git_no_window(
     config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     calls: list[dict[str, Any]] = []
-    monkeypatch.setattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000, raising=False)
 
     def check_output(cmd: list[str], **kwargs: Any) -> bytes:
         calls.append(kwargs)
