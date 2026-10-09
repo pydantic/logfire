@@ -160,6 +160,8 @@ def config_kwargs(
 def config(
     config_kwargs: dict[str, Any],
     metrics_reader: InMemoryMetricReader,
+    exporter: TestExporter,
+    logs_exporter: TestLogExporter,
 ) -> None:
     logfire.DEFAULT_LOGFIRE_INSTANCE.variables_clear()
     configure(
