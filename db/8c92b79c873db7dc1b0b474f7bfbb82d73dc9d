@@ -1,0 +1,21 @@
+docs/integrations/llms/mcp.md
+  s_26c70d8a914d6a::t_b117bd85a3c754 31,36,88-93,96
+logfire/.agents/skills/logfire-instrumentation/references/python/integrations.md
+  s_26c70d8a914d6a::t_edd9a8a7cafbf6 77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "db8c92b79c873db7dc1b0b474f7bfbb82d73dc9d",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
