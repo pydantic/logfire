@@ -1,0 +1,14 @@
+.github/workflows/main.yml
+  h_d9dd17644dded9 143-149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9f676f6e1e74008561936e6717372a885f3ddaa8",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
