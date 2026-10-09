@@ -34,7 +34,7 @@ If a package you are using is not listed in this documentation, please let us kn
 - _AI Agent Frameworks_ (Python, TypeScript, Go, Rust, .NET): CrewAI, AutoGen, Google ADK, smolagents, Strands, Agno, Haystack, Semantic Kernel, Vercel AI SDK, Mastra, Rig, and more. See [Agent Frameworks](agent-frameworks/index.md).
 - _No-code AI and workflow platforms_: Dify, Flowise, Goose, Langflow, LobeChat, n8n, and Open WebUI ([setup guides](no-code/index.md))
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
-- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery, Elasticsearch, Snowflake
+- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, Valkey, BigQuery, Elasticsearch, Snowflake
 - _HTTP Clients_: HTTPX, HTTPX2, Requests, AIOHTTP
 - _Task Queues and Schedulers_: Airflow, FastStream, Celery
 - _Logging Libraries_: Standard Library Logging, Loguru, Structlog
@@ -87,6 +87,7 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [Pytest](pytest.md)                       | Testing                 | N/A (built-in plugin, use `pytest --logfire`)                                                                                                                          |
 | [PyMongo](databases/pymongo.md)           | Database                | [`logfire.instrument_pymongo()`][logfire.Logfire.instrument_pymongo]                                                                                                   |
 | [Redis](databases/redis.md)               | Database                | [`logfire.instrument_redis()`][logfire.Logfire.instrument_redis]                                                                                                       |
+| [Valkey](databases/valkey.md)             | Database                | [`logfire.instrument_valkey()`][logfire.Logfire.instrument_valkey]                                                                                                     |
 | [Requests](http-clients/requests.md)      | HTTP Client             | [`logfire.instrument_requests()`][logfire.Logfire.instrument_requests]                                                                                                 |
 | [SQLAlchemy](databases/sqlalchemy.md)     | Database                | [`logfire.instrument_sqlalchemy()`][logfire.Logfire.instrument_sqlalchemy]                                                                                             |
 | [SQLite3](databases/sqlite3.md)           | Database                | [`logfire.instrument_sqlite3()`][logfire.Logfire.instrument_sqlite3]                                                                                                   |

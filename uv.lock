@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
@@ -25,14 +25,14 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P4D"
 
 [options.exclude-newer-package]
-pydantic-graph = false
-pydantic-ai-slim = false
-pydantic-evals = false
-pydantic-handlebars = false
 genai-prices = false
 logfire-cli = false
 pydantic = false
+pydantic-ai-slim = false
 pydantic-core = false
+pydantic-evals = false
+pydantic-graph = false
+pydantic-handlebars = false
 
 [manifest]
 members = [
@@ -3193,6 +3193,9 @@ system-metrics = [
 urllib = [
     { name = "logfire-sdk", extra = ["urllib"] },
 ]
+valkey = [
+    { name = "logfire-sdk", extra = ["valkey"] },
+]
 variables = [
     { name = "logfire-sdk", extra = ["variables"] },
 ]
@@ -3232,10 +3235,11 @@ requires-dist = [
     { name = "logfire-sdk", extras = ["starlette"], marker = "extra == 'starlette'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["system-metrics"], marker = "extra == 'system-metrics'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["urllib"], marker = "extra == 'urllib'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["valkey"], marker = "extra == 'valkey'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["variables"], marker = "extra == 'variables'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["wsgi"], marker = "extra == 'wsgi'", editable = "logfire-sdk" },
 ]
-provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "valkey", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
 
 [[package]]
 name = "logfire-api"
@@ -3386,6 +3390,7 @@ dev = [
     { name = "testcontainers" },
     { name = "types-requests" },
     { name = "uvicorn" },
+    { name = "valkey" },
     { name = "vcrpy" },
 ]
 editor-tests = [
@@ -3502,6 +3507,7 @@ dev = [
     { name = "testcontainers", specifier = "<4.13" },
     { name = "types-requests" },
     { name = "uvicorn", specifier = ">=0.30.6" },
+    { name = "valkey", specifier = ">=6.0.0" },
     { name = "vcrpy", specifier = ">=8.2.1" },
 ]
 editor-tests = [
@@ -3622,6 +3628,9 @@ system-metrics = [
 urllib = [
     { name = "opentelemetry-instrumentation-urllib" },
 ]
+valkey = [
+    { name = "valkey" },
+]
 variables = [
     { name = "pydantic" },
     { name = "pydantic-handlebars" },
@@ -3683,8 +3692,9 @@ requires-dist = [
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
     { name = "typing-extensions", specifier = ">=4.13.0" },
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30.0" },
+    { name = "valkey", marker = "extra == 'valkey'", specifier = ">=6.0.0" },
 ]
-provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "valkey", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
 
 [[package]]
 name = "loguru"
@@ -8034,6 +8044,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/da/34/30e9280707135d2cfc589dfff3cb796bd07a3aeb1a3e415ba09dd89d7bb4/uvicorn-0.54.0.tar.gz", hash = "sha256:a2e33cbfaa0306f8e6b0c13e0cb89d7d7a2da3e62b90c66e18c33d9807b28620", size = 112283, upload-time = "2026-09-25T06:52:37.601Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/38/0c/b54a4fdd7f90a3af8b02ebc9ce6712c2c208b7926a2f7bad95c33ebbe943/uvicorn-0.54.0-py3-none-any.whl", hash = "sha256:505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf", size = 87427, upload-time = "2026-09-25T06:52:35.829Z" },
+]
+
+[[package]]
+name = "valkey"
+version = "6.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "async-timeout", marker = "python_full_version < '3.11.3'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c3/ee/7fd930fc712275084722ddd464a0ea296abdb997d2da396320507968daeb/valkey-6.1.1.tar.gz", hash = "sha256:5880792990c6c2b5eb604a5ed5f98f300880b6dd92d123819b66ed54bb259731", size = 4601372, upload-time = "2025-08-11T06:41:10.63Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/a2/252afa4da08c714460f49e943070f86a02931f99f886182765194002fe33/valkey-6.1.1-py3-none-any.whl", hash = "sha256:e2691541c6e1503b53c714ad9a35551ac9b7c0bbac93865f063dbc859a46de92", size = 259474, upload-time = "2025-08-11T06:41:08.769Z" },
 ]
 
 [[package]]

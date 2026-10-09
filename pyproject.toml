@@ -16,6 +16,7 @@ dev = [
     "httpx2 >= 2.0.0",
     "aiohttp >= 3.10.9",
     "redis >= 5.1.1",
+    "valkey >= 6.0.0",
     "pymongo >= 4.10.1",
     "elasticsearch >= 8.15",
     "fastapi != 0.124.3, != 0.124.4",

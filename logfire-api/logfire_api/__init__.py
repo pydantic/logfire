@@ -165,6 +165,8 @@ except ImportError:
 
             def instrument_redis(self, *args, **kwargs) -> None: ...
 
+            def instrument_valkey(self, *args, **kwargs) -> None: ...
+
             def instrument_flask(self, *args, **kwargs) -> None: ...
 
             def instrument_starlette(self, *args, **kwargs) -> None: ...
@@ -272,6 +274,7 @@ except ImportError:
         instrument_sqlite3 = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlite3
         instrument_aws_lambda = DEFAULT_LOGFIRE_INSTANCE.instrument_aws_lambda
         instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
+        instrument_valkey = DEFAULT_LOGFIRE_INSTANCE.instrument_valkey
         instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
         instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
         instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics

@@ -120,6 +120,7 @@ if TYPE_CHECKING:
     from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
     from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
+    from ..integrations.valkey import RequestHook as ValkeyRequestHook, ResponseHook as ValkeyResponseHook
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
     from ..variables import (
         ResolveFunction,
@@ -2253,6 +2254,41 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_redis(
+            capture_statement=capture_statement,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
+
+    def instrument_valkey(
+        self,
+        capture_statement: bool = False,
+        request_hook: ValkeyRequestHook | None = None,
+        response_hook: ValkeyResponseHook | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Instrument the `valkey` module so that spans are automatically created for each operation.
+
+        Valkey is a Redis-compatible in-memory store with its own client package
+        ([`valkey-py`](https://valkey-py.readthedocs.io/en/stable/)). The OpenTelemetry
+        Redis instrumentation only patches the `redis` package, so Valkey commands would
+        otherwise produce no spans. This method applies the same style of instrumentation
+        to `valkey.Valkey` and `valkey.asyncio.Valkey`.
+
+        Args:
+            capture_statement: Set to `True` to capture the statement in the span attributes.
+            request_hook: A function that is called before performing the request.
+            response_hook: A function that is called after receiving the response.
+            **kwargs: Additional keyword arguments for future compatibility.
+        """
+        from .integrations.valkey import instrument_valkey
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_valkey(
             capture_statement=capture_statement,
             request_hook=request_hook,
             response_hook=response_hook,
