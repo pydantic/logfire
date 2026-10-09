@@ -3639,3 +3639,13 @@ def test_host_resource_attributes():
     from opentelemetry.sdk.resources import _HostResourceDetector  # pyright: ignore[reportPrivateUsage]
 
     assert config_module.host_resource_attributes() == _HostResourceDetector().detect().attributes
+
+
+@pytest.mark.parametrize('failure', [False, True])
+def test_host_resource_attributes_without_host_id(monkeypatch: pytest.MonkeyPatch, failure: bool) -> None:
+    def get_host_id() -> None:
+        if failure:
+            raise OSError('host id unavailable')
+
+    monkeypatch.setattr(config_module.otel_resources, '_get_host_id', get_host_id, raising=False)
+    assert 'host.id' not in config_module.host_resource_attributes()
