@@ -1,0 +1,18 @@
+logfire-api/logfire_api/query_client.pyi
+  h_d9dd17644dded9 12-19,21,25
+logfire/query_client.py
+  h_d9dd17644dded9 43-61,67,79
+tests/test_query_client_errors.py
+  h_d9dd17644dded9 29-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "826898029efd3a1b5d0ce1b5ca0555047cea719f",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
