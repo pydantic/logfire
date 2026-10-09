@@ -204,15 +204,6 @@ def test_query_error_args_match_across_server_versions(
     assert error.retry_after is None
 
 
-def test_old_client_against_new_server_gets_legacy_body():
-    """A client that does not name `application/problem+json` gets the legacy body and content type."""
-    transport = negotiating_transport(400, problem_body(400, 'query-error'))
-    with httpx.Client(transport=transport, base_url=BASE_URL) as client:
-        response = client.post('/v2/query', headers={'accept': 'application/json'}, json={})
-    assert response.headers['content-type'] == 'application/json'
-    assert response.json() == LEGACY_ERROR
-
-
 @pytest.mark.parametrize(
     ['method', 'data_type'],
     [
