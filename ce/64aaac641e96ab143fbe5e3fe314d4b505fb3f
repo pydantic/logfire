@@ -1,29 +1,42 @@
 logfire/.agents/skills/logfire-evals/SKILL.md
   s_226a5e3768001d::t_5a6c6453d56688 50,54,86,103,105,136,138
+  s_26c70d8a914d6a::t_ad9786bdb7354e 50,54,86,103,105,136,138
 logfire/.agents/skills/logfire-infrastructure/references/collector/host-and-infra-metrics.md
   s_226a5e3768001d::t_1cb2c286d09eb9 30
+  s_26c70d8a914d6a::t_fc2ad9c15be0ef 30
 logfire/.agents/skills/logfire-instrumentation/SKILL.md
   s_226a5e3768001d::t_246cd583dec1ec 88-89,91,99,103,194-195,197,204,211-212,218
+  s_26c70d8a914d6a::t_c783cdde905b02 88-89,91,99,103,194-195,197,204,211-212,218
 logfire/.agents/skills/logfire-instrumentation/references/auth.md
   s_226a5e3768001d::t_a4c2ac2fe8c43c 11,21-23,26-34,43,46,48-54,57,63-66,72,88
+  s_26c70d8a914d6a::t_069f8e61c9ba21 11,21-23,26-34,43,46,48-54,57,63-66,72,88
 logfire/.agents/skills/logfire-instrumentation/references/javascript/ai-sdk.md
   s_226a5e3768001d::t_4806f3cd909e03 3,15,17-46,52-56,60,66-74,76-96,116-131
+  s_26c70d8a914d6a::t_cfe3790d252cd8 3,15,17-46,52-56,60,66-74,76-96,116-131
 logfire/.agents/skills/logfire-instrumentation/references/javascript/frameworks.md
   s_226a5e3768001d::t_701fbc7bc1a2d6 19
+  s_26c70d8a914d6a::t_17f3050f73980e 19
 logfire/.agents/skills/logfire-instrumentation/references/javascript/installation-and-env.md
   s_226a5e3768001d::t_7b836ff2cf244f 11,57-59,75
+  s_26c70d8a914d6a::t_6dbfa71799dac3 11,57-59,75
 logfire/.agents/skills/logfire-instrumentation/references/javascript/nextjs.md
   s_226a5e3768001d::t_94d3539642ec64 69,71,73,75-76,79,85,88-89,91-100,108-114,118,120
+  s_26c70d8a914d6a::t_9cccc2e604c9cd 69,71,73,75-76,79,85,88-89,91-100,108-114,118,120
 logfire/.agents/skills/logfire-instrumentation/references/javascript/react-browser.md
   s_226a5e3768001d::t_a7cf70120a523a 5,7-9,14,19,23,26-27,29-38,46,48,50,52,78
+  s_26c70d8a914d6a::t_9b795f2267ab8e 5,7-9,14,19,23,26-27,29-38,46,48,50,52,78
 logfire/.agents/skills/logfire-instrumentation/references/javascript/verification-troubleshooting.md
   s_226a5e3768001d::t_83e3e522c802f0 35,54,56,68
+  s_26c70d8a914d6a::t_2265eea847fed4 35,54,56,68
 logfire/.agents/skills/logfire-instrumentation/references/python/logging-patterns.md
   s_226a5e3768001d::t_4ffb760e8eca9e 49,54,57-59,69,73
+  s_26c70d8a914d6a::t_d344c14dbc393b 49,54,57-59,69,73
 logfire/.agents/skills/logfire-setup-offline.md
   s_226a5e3768001d::t_28ddb1057976b2 144-145,147,155,159,250-251,253,260,267-268,274,457,461,493,510,512,543,545,599,609-611,614-622,631,634,636-642,645,651-654,660,676
+  s_26c70d8a914d6a::t_ae5896f7cfa1bd 144-145,147,155,159,250-251,253,260,267-268,274,457,461,493,510,512,543,545,599,609-611,614-622,631,634,636-642,645,651-654,660,676
 tests/test_agent_setup_prompt.py
   s_226a5e3768001d::t_0fc73effa3c8d4 77,94-95,108-116,124-126,138-139,222-306,311-312,350,354,367-369
+  s_26c70d8a914d6a::t_caa1a19130f1ae 77,94-95,108-116,124-126,138-139,222-306,311-312,350,354,367-369
 ---
 {
   "schema_version": "authorship/3.0.0",
@@ -36,6 +49,14 @@ tests/test_agent_setup_prompt.py
         "tool": "codex",
         "id": "01a121b1-516e-7391-b664-5ed8b24598c3",
         "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
       },
       "human_author": "Alex Hall <alex.mojaki@gmail.com>"
     }
