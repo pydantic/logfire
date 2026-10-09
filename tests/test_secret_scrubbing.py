@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
 from typing import Any
@@ -449,8 +448,8 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
     )
 
 
-def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any]):
-    os.environ[OTEL_RESOURCE_ATTRIBUTES] = 'my_password=hunter2,yours=your_password,other=safe=good'
+def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(OTEL_RESOURCE_ATTRIBUTES, 'my_password=hunter2,yours=your_password,other=safe=good')
     logfire.configure(**config_kwargs)
     logfire.info('hi')
     assert dict(exporter.exported_spans[0].resource.attributes) == IsPartialDict(
