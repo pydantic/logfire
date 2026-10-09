@@ -3,6 +3,7 @@ from __future__ import annotations as _annotations
 import os
 import sys
 import typing
+import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
@@ -22,6 +23,7 @@ from .utils import read_toml_file
 T = TypeVar('T')
 
 PydanticPluginRecordValues = Literal['off', 'all', 'failure', 'metrics']
+CompressionValues = Literal['gzip', 'zstd']
 """Possible values for the `pydantic_plugin_record` parameter."""
 
 
@@ -90,6 +92,8 @@ CONSOLE_INCLUDE_TAGS = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INCLUDE_TAGS'], al
 """Whether to include tags in the console."""
 CONSOLE_VERBOSE = ConfigParam(env_vars=['LOGFIRE_CONSOLE_VERBOSE'], allow_file_config=True, default=False, tp=bool)
 """Whether to log in verbose mode in the console."""
+CONSOLE_INCLUDE_ATTRIBUTES = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INCLUDE_ATTRIBUTES'], allow_file_config=True, default=None, tp=bool)
+"""Whether to show span and log attributes in the console. If unset, follows `console_verbose`."""
 CONSOLE_MIN_LOG_LEVEL = ConfigParam(env_vars=['LOGFIRE_CONSOLE_MIN_LOG_LEVEL'], allow_file_config=True, default='info', tp=LevelName)
 """Minimum log level to show in the console."""
 CONSOLE_SHOW_PROJECT_LINK = ConfigParam(env_vars=['LOGFIRE_CONSOLE_SHOW_PROJECT_LINK', 'LOGFIRE_SHOW_SUMMARY'], allow_file_config=True, default=True, tp=bool)
@@ -112,6 +116,8 @@ DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allo
 """Whether to extract incoming trace context. By default, will extract but warn about it."""
 EMIT_CONFIGURATION_SPAN = ConfigParam(env_vars=['LOGFIRE_EMIT_CONFIGURATION_SPAN'], allow_file_config=True, default=False, tp=bool)
 """Whether to emit a `Logfire configured` log span after `logfire.configure()`."""
+COMPRESSION = ConfigParam(env_vars=['LOGFIRE_COMPRESSION'], allow_file_config=True, default='gzip', tp=CompressionValues)
+"""Compression for data sent to Logfire: `gzip` (default) or `zstd`."""
 
 # Instrumentation packages parameters
 HTTPX_CAPTURE_ALL = ConfigParam(env_vars=['LOGFIRE_HTTPX_CAPTURE_ALL'], allow_file_config=True, default=False, tp=bool)
@@ -139,6 +145,7 @@ CONFIG_PARAMS = {
     'console_include_timestamp': CONSOLE_INCLUDE_TIMESTAMP,
     'console_include_tags': CONSOLE_INCLUDE_TAGS,
     'console_verbose': CONSOLE_VERBOSE,
+    'console_include_attributes': CONSOLE_INCLUDE_ATTRIBUTES,
     'console_min_log_level': CONSOLE_MIN_LOG_LEVEL,
     'console_show_project_link': CONSOLE_SHOW_PROJECT_LINK,
     'pydantic_plugin_record': PYDANTIC_PLUGIN_RECORD,
@@ -148,6 +155,7 @@ CONFIG_PARAMS = {
     'ignore_no_config': IGNORE_NO_CONFIG,
     'distributed_tracing': DISTRIBUTED_TRACING,
     'emit_configuration_span': EMIT_CONFIGURATION_SPAN,
+    'compression': COMPRESSION,
     # Instrumentation packages parameters
     'httpx_capture_all': HTTPX_CAPTURE_ALL,
     'aiohttp_client_capture_all': AIOHTTP_CLIENT_CAPTURE_ALL,
@@ -316,7 +324,12 @@ def normalize_token(value: str | Sequence[str] | None) -> str | list[str] | None
 
 def _load_config_from_file(config_dir: Path) -> dict[str, Any]:
     config_file = config_dir / 'pyproject.toml'
-    if not config_file.exists():
+    try:
+        if not config_file.exists():
+            return {}
+    except OSError as exc:
+        # PermissionError when the directory can't be accessed; treat it like a missing file
+        warnings.warn(f'Unable to access config file {config_file}: {exc}', stacklevel=2)
         return {}
     try:
         data = read_toml_file(config_file)

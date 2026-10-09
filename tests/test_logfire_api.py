@@ -18,7 +18,7 @@ from logfire._internal.auto_trace.import_hook import LogfireFinder
 from logfire._internal.utils import get_version
 
 pydantic_pre_2_5 = get_version(pydantic_version) < get_version('2.5.0')
-pydantic_pre_2_10 = get_version(pydantic_version) < get_version('2.10.0')
+pydantic_pre_2_11 = get_version(pydantic_version) < get_version('2.11.0')
 
 
 @pytest.fixture(autouse=True)
@@ -34,21 +34,24 @@ def uninstrument_global_instrumentors():
     span gets nested in a duplicate span from the leaked wrapper.
     """
     # The attributes instrument_mcp patches, saved here and restored afterwards.
-    # mcp itself is unimportable on old pydantic versions, matching test_runtime's guard.
-    try:
-        from mcp.client.session import ClientSession
-        from mcp.server import Server
-        from mcp.shared.session import BaseSession
-    except ImportError:
-        mcp_patched = []
-    else:
-        mcp_patched = [
-            (BaseSession, 'send_request'),
-            (BaseSession, 'send_notification'),
-            (ClientSession, '_received_notification'),
-            (ClientSession, '_received_request'),
-            (Server, '_handle_request'),
-        ]
+    # Only import MCP on Pydantic versions supported by the dev dependencies, as in test_runtime.
+    mcp_patched = []
+    if get_version(pydantic_version) >= get_version('2.12'):
+        try:
+            from mcp.client.session import ClientSession
+            from mcp.server import Server
+
+            BaseSession = importlib.import_module('mcp.shared.session').BaseSession
+        except ImportError:
+            pass
+        else:
+            mcp_patched = [
+                (BaseSession, 'send_request'),
+                (BaseSession, 'send_notification'),
+                (ClientSession, '_received_notification'),
+                (ClientSession, '_received_request'),
+                (Server, '_handle_request'),
+            ]
     saved = [(cls, name, getattr(cls, name)) for cls, name in mcp_patched]
 
     yield
@@ -283,21 +286,24 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_openai_agents')
 
     assert hasattr(logfire_api, 'instrument_pydantic_ai')
-    if get_version(pydantic_version) >= get_version('2.10.0'):
+    # pydantic-ai-slim 2.54 requires pydantic >=2.12.
+    if get_version(pydantic_version) >= get_version('2.12.0'):
         logfire_api.instrument_pydantic_ai()
     logfire__all__.remove('instrument_pydantic_ai')
 
     assert hasattr(logfire_api, 'instrument_mcp')
-    if get_version(pydantic_version) >= get_version('2.11.0'):
-        logfire_api.instrument_mcp()
+    if get_version(pydantic_version) >= get_version('2.12.0'):
+        with warnings.catch_warnings():
+            # MCP 2 is already instrumented; this test only checks that the API is callable.
+            warnings.filterwarnings(
+                'ignore', message=r'`logfire\.instrument_mcp\(\)` is unnecessary', category=UserWarning
+            )
+            logfire_api.instrument_mcp()
     logfire__all__.remove('instrument_mcp')
 
     assert hasattr(logfire_api, 'instrument_claude_agent_sdk')
-    try:
-        importlib.import_module('claude_agent_sdk')
-    except ImportError:
-        pass
-    else:
+    # The Claude SDK imports MCP, whose installed version requires pydantic >=2.12.
+    if get_version(pydantic_version) >= get_version('2.12.0'):
         logfire_api.instrument_claude_agent_sdk()
     logfire__all__.remove('instrument_claude_agent_sdk')
 
@@ -309,7 +315,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_google_genai')
 
     assert hasattr(logfire_api, 'instrument_litellm')
-    if not pydantic_pre_2_10:
+    if not pydantic_pre_2_11:
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', category=DeprecationWarning)
             try:
@@ -321,7 +327,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_litellm')
 
     assert hasattr(logfire_api, 'instrument_dspy')
-    if not pydantic_pre_2_10:
+    if not pydantic_pre_2_11:
         # DSPy emits deprecation warnings while being instrumented; pytest treats warnings as errors.
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', category=DeprecationWarning)

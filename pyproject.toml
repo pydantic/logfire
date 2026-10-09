@@ -90,6 +90,8 @@ dev = [
     "pyarrow-stubs>=20",
     # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
     "numpy>=2.0; python_version < '3.12'",
+    # Backport of `compression.zstd`, to test zstd export compression below Python 3.14.
+    "backports.zstd>=1.7.0; python_version < '3.14'",
     "pytest-recording>=0.13.2",
     # >=8.2.1 includes the aiohttp 3.14 compatibility fix and a fix for arbitrary
     # code execution via unsafe YAML deserialization of cassettes (GHSA-rpj2-4hq8-938g).
@@ -104,6 +106,7 @@ dev = [
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
     "openai-agents[voice]>=0.14.0",
+    "fastmcp-slim[server]>=4",
     "pydantic-ai-slim[mcp]>=2",
     "pydantic-evals>=2",
     "pydantic-monty>=0.0.23",
@@ -274,6 +277,7 @@ DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_tes
 # https://coverage.readthedocs.io/en/latest/config.html#run
 [tool.coverage.run]
 branch = true
+relative_files = true
 source = ["logfire-sdk/logfire", "logfire-api"]
 omit = [
     "*/tmp/*",

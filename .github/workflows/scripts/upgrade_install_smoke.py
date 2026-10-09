@@ -30,6 +30,7 @@ def assert_legacy(expected_version: str) -> None:
     assert distribution_version('logfire-sdk') is None
     assert distribution_version('logfire-cli') is None
     assert console_scripts('logfire') == {'logfire.cli:main'}
+    assert console_scripts('logfire-cli') == set()
 
 
 def assert_sdk(expected_version: str, *, meta: bool, cli: bool) -> None:
@@ -41,7 +42,9 @@ def assert_sdk(expected_version: str, *, meta: bool, cli: bool) -> None:
     assert distribution_version('logfire-sdk') == expected_version
     assert (distribution_version('logfire-cli') is not None) is cli
     assert distribution_version('opentelemetry-instrumentation-sqlite3') is not None
-    assert console_scripts('logfire') == ({'logfire_cli:main'} if cli else set())
+    # The `logfire` meta-package owns the `logfire` command and logfire-cli owns only `logfire-cli`.
+    assert console_scripts('logfire') == ({'logfire_cli:main'} if meta else set())
+    assert console_scripts('logfire-cli') == ({'logfire_cli:main'} if cli else set())
 
     if meta:
         meta_files = metadata.files('logfire')

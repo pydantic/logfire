@@ -44,7 +44,7 @@ def test_distribution_versions_and_dependencies_stay_in_sync() -> None:
     requirements = [Requirement(item) for item in meta['dependencies']]
     dependencies = {requirement.name: requirement for requirement in requirements}
     assert str(dependencies['logfire-sdk'].specifier) == f'=={sdk["version"]}'
-    assert str(dependencies['logfire-cli'].specifier) == '>=0.1.7'
+    assert str(dependencies['logfire-cli'].specifier) == '>=0.1.8'
 
     sdk_requirements = {requirement.name: requirement for requirement in map(Requirement, sdk['dependencies'])}
     assert str(sdk_requirements['requests'].specifier) == '>=2.31.0'
@@ -61,7 +61,7 @@ def test_meta_package_forwards_every_sdk_extra() -> None:
 
 
 def test_sdk_does_not_own_the_logfire_executable() -> None:
-    """Let the compatibility package forward the standalone CLI executable."""
+    """Let the compatibility package own the `logfire` command for the native CLI."""
     sdk = load_pyproject(ROOT / 'logfire-sdk' / 'pyproject.toml')['project']
     meta = load_pyproject(ROOT / 'logfire' / 'pyproject.toml')['project']
 
