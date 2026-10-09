@@ -1,7 +1,9 @@
 logfire/_internal/exporters/otlp.py
   s_26c70d8a914d6a::t_7f2b2647256363 97-105,147
+  s_26c70d8a914d6a::t_3429b4b1fdaf84 97-105,147
 tests/exporters/test_otlp_session.py
   s_26c70d8a914d6a::t_1568dc3b7328cd 8,36,76-235
+  s_26c70d8a914d6a::t_779bcdee28e709 8,36,76-235
 ---
 {
   "schema_version": "authorship/3.0.0",
