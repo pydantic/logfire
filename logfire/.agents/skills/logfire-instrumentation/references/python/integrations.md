@@ -32,6 +32,7 @@
 | MySQL | `logfire.instrument_mysql()` | `mysql` |
 | SQLite3 | `logfire.instrument_sqlite3()` | `sqlite3` |
 | Redis | `logfire.instrument_redis()` | `redis` |
+| Snowflake | `logfire.instrument_snowflake()` | no extra (`snowflake-connector-python`) |
 
 ## AI/LLM Frameworks
 
