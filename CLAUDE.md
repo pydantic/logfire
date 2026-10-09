@@ -20,6 +20,10 @@ the same PR. Its public schema provides editor validation; contributors do not n
 checkout. Verify the page and any anchor in a rendered preview, and never include the
 deployment-specific `/docs` prefix in source links.
 
+The TypeScript subtree under Instrument is imported from
+`pydantic/logfire-js/docs/navigation.yml`. Change its page order, labels, slugs,
+and aliases in logfire-js; this manifest owns only the subtree's placement.
+
 ## Writing standard
 
 **The full documentation style guide is [`dev-docs/documentation-style-guide.md`](dev-docs/documentation-style-guide.md)** — page templates, the terminology glossary, the pre-publish checklist, the anti-pattern catalog, and the rules for AI-assisted authoring. Read it before writing or substantially editing a docs page.
