@@ -33,6 +33,7 @@ from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExp
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
+from opentelemetry.sdk import resources as otel_resources
 from opentelemetry.sdk._logs import Logger as SDKLogger, LoggerProvider as SDKLoggerProvider, LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
@@ -2425,10 +2426,19 @@ def common_resource_attributes() -> dict[str, Any]:
 
 def host_resource_attributes() -> dict[str, Any]:
     # See test_host_resource_attributes
-    return {
+    attributes = {
         'host.name': socket.gethostname(),
         'host.arch': platform.machine(),
     }
+    # OpenTelemetry 1.45 added host.id. Reuse its platform-specific lookup when available.
+    get_host_id = getattr(otel_resources, '_get_host_id', None)
+    if get_host_id is not None:
+        try:
+            if host_id := get_host_id():
+                attributes['host.id'] = host_id
+        except Exception:
+            pass
+    return attributes
 
 
 class LogfireNotConfiguredWarning(UserWarning):

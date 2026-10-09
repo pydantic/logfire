@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import logging
 import random
 import shutil
 import sys
@@ -8,12 +9,12 @@ import time
 import uuid
 import weakref
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from functools import cached_property
 from pathlib import Path
 from tempfile import mkdtemp
 from threading import Lock, Thread
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import requests.exceptions
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -22,7 +23,7 @@ from opentelemetry.sdk._logs._internal.export import LogRecordExportResult
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
-from requests import Session
+from requests import Response, Session
 from typing_extensions import Buffer
 
 import logfire
@@ -41,6 +42,51 @@ from ..utils import logger, platform_is_emscripten, truncate_string
 from .wrapper import WrapperLogExporter, WrapperSpanExporter
 
 _DISK_RETRYERS: list[weakref.ref[DiskRetryer]] = []
+
+
+class _OTLPExportResult(Protocol):
+    success: bool
+    status_code: int | None
+    error: Exception | None
+
+
+class _OTLPClient(Protocol):
+    def export(self, data: bytes) -> _OTLPExportResult: ...
+
+    def shutdown(self) -> None: ...
+
+
+class _QuietConnectionErrorLogger(logging.LoggerAdapter):  # pyright: ignore[reportMissingTypeArgument]
+    def error(self, msg: object, *args: Any, **kwargs: Any) -> None:
+        # OpenTelemetry 1.45 logs this inside the HTTP client before QuietSpanExporter
+        # can handle it. DiskRetryer reports the deferred request failure instead.
+        if (
+            msg == 'Failed to export %s batch code: %s, reason: %s'
+            and len(args) > 2
+            and isinstance(args[2], SuppressedConnectionError)
+        ):
+            return
+        super().error(msg, *args, **kwargs)
+
+
+class _BodySizeCheckingOTLPClient:
+    def __init__(self, client: _OTLPClient, exporter: BodySizeCheckingOTLPSpanExporter) -> None:
+        self.client = client
+        self.exporter = exporter
+        client_logger = getattr(client, '_logger', None)
+        if isinstance(client_logger, logging.Logger):  # pragma: no branch
+            setattr(client, '_logger', _QuietConnectionErrorLogger(client_logger, {}))
+
+    def export(self, data: bytes) -> _OTLPExportResult:
+        if self.exporter.current_num_spans > 1 and len(data) > self.exporter.max_body_size:
+            raise BodyTooLargeError(len(data), self.exporter.max_body_size)
+        result = self.client.export(data)
+        if result.status_code == 413:
+            raise BodyTooLargeError(len(data), None)
+        return result
+
+    def shutdown(self) -> None:
+        self.client.shutdown()
 
 
 class ZstdCompressFn(Protocol):
@@ -89,19 +135,27 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
-        self._current_num_spans = 0
+        self.current_num_spans = 0
+        if isinstance(session := kwargs.get('session'), Session):
+            self._session = session
+        if client := getattr(self, '_client', None):
+            # OpenTelemetry 1.45 sends serialized payloads through a client instead of _export.
+            # Its own size check returns FAILURE before reaching the client, so let our
+            # wrapper split oversized batches and report oversized individual spans.
+            setattr(self, '_max_request_size', sys.maxsize)
+            setattr(self, '_client', _BodySizeCheckingOTLPClient(cast(_OTLPClient, client), self))
 
     def export(self, spans: Sequence[ReadableSpan]):
-        self._current_num_spans = len(spans)
+        self.current_num_spans = len(spans)
         return super().export(spans)
 
-    def _export(self, serialized_data: bytes, *args: Any, **kwargs: Any):
+    def _export(self, serialized_data: bytes, *args: Any, **kwargs: Any) -> Response:
         # If there are multiple spans, check the body size first.
-        if self._current_num_spans > 1 and len(serialized_data) > self.max_body_size:
+        if self.current_num_spans > 1 and len(serialized_data) > self.max_body_size:
             # Tell outer RetryFewerSpansSpanExporter to split in half
             raise BodyTooLargeError(len(serialized_data), self.max_body_size)
 
-        response = super()._export(serialized_data, *args, **kwargs)
+        response = cast(Callable[..., Response], getattr(super(), '_export'))(serialized_data, *args, **kwargs)
         if response.status_code == 413:
             # The backend checks the decompressed payload, so keep this in the same
             # pre-compression units as the local size limit above.
@@ -125,6 +179,15 @@ class OTLPExporterHttpSession(Session):
 
     def request(self, method: str, url: str, **kwargs: Any):  # pyright: ignore[reportIncompatibleMethodOverride]
         self._configure_timeout(kwargs)
+        data = kwargs.get('data')
+        # Requests uses JSON when data is empty; only raw byte bodies can be replayed.
+        if (
+            method.upper() == 'POST'
+            and isinstance(data, bytes)
+            and (data or kwargs.get('json') is None)
+            and not kwargs.get('files')
+        ):
+            return self.post(url, **kwargs)
         return super().request(method, url, **kwargs)
 
     def post(self, url: str, data: bytes, **kwargs: Any):  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -170,7 +233,7 @@ class OTLPExporterHttpSession(Session):
                 raise SuppressedConnectionError()
 
     def _post(self, url: str, data: bytes, **kwargs: Any):
-        response = super().post(url, data=data, **kwargs)
+        response = super().request('POST', url, data=data, **kwargs)
         raise_for_retryable_status(response)
         return response
 
