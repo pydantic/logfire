@@ -1,0 +1,21 @@
+logfire/query_client.py
+  s_26c70d8a914d6a::t_4cfe0a07d878d7 3,7,9,167,214-215,222-239,242-299,497,697-699
+tests/test_query_client_errors.py
+  s_26c70d8a914d6a::t_4eab71de1def5e 9-11,165-504
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b997d92c6532c942bcde5e93bfb9090d967e06fa",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
