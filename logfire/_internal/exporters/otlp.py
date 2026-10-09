@@ -94,6 +94,15 @@ class OTLPExporterHttpSession(Session):
 
     def request(self, method: str, url: str, **kwargs: Any):  # pyright: ignore[reportIncompatibleMethodOverride]
         self._configure_timeout(kwargs)
+        data = kwargs.get('data')
+        # Requests uses JSON when data is empty; only raw byte bodies can be replayed.
+        if (
+            method.upper() == 'POST'
+            and isinstance(data, bytes)
+            and (data or kwargs.get('json') is None)
+            and not kwargs.get('files')
+        ):
+            return self.post(url, **kwargs)
         return super().request(method, url, **kwargs)
 
     def post(self, url: str, data: bytes, **kwargs: Any):  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -135,7 +144,7 @@ class OTLPExporterHttpSession(Session):
                 raise SuppressedConnectionError()
 
     def _post(self, url: str, data: bytes, **kwargs: Any):
-        response = super().post(url, data=data, **kwargs)
+        response = super().request('POST', url, data=data, **kwargs)
         raise_for_retryable_status(response)
         return response
 
