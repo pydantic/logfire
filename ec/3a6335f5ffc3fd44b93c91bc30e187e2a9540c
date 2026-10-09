@@ -1,0 +1,21 @@
+logfire-sdk/logfire/.agents/skills/logfire-evals/SKILL.md
+  s_26c70d8a914d6a::t_37cfbc2ed2fe7d 103-112,146-155
+tests/test_agent_setup_prompt.py
+  s_26c70d8a914d6a::t_37cfbc2ed2fe7d 387-389
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ec3a6335f5ffc3fd44b93c91bc30e187e2a9540c",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
