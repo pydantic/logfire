@@ -1,9 +1,12 @@
 logfire/_internal/integrations/llm_providers/anthropic.py
   h_d9dd17644dded9 5-6,10,105-106,278-279,282-294
+  s_26c70d8a914d6a::t_5b9edaafab4bf9 5-6,10,105-106,278-279,282-294
 tests/otel_integrations/test_anthropic.py
   h_d9dd17644dded9 703-762
+  s_26c70d8a914d6a::t_6b61c263ace7d3 703-762
 uv.lock
   h_d9dd17644dded9 289,300,302,2080,2086,2088,2117,2127,2129,2285-2406
+  s_26c70d8a914d6a::t_8abc0c9a4f7580 289,300,302,2080,2086,2088,2117,2127,2129,2285-2406
 ---
 {
   "schema_version": "authorship/3.0.0",
@@ -13,6 +16,16 @@ uv.lock
   "humans": {
     "h_d9dd17644dded9": {
       "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
     }
   }
 }
