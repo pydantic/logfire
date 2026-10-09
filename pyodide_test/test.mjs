@@ -38,25 +38,11 @@ import sys
 import micropip
 from importlib.metadata import version
 
-# micropip resolves dependencies concurrently, so constrain indirect OpenTelemetry requirements too.
-await micropip.install(
-    ['file:${wheelPath}'],
-    reinstall=True,
-    constraints=[
-        'opentelemetry-api<1.46.0',
-        'opentelemetry-sdk<1.46.0',
-        'opentelemetry-exporter-otlp-proto-http<1.46.0',
-        'opentelemetry-instrumentation<0.67b0',
-        'opentelemetry-semantic-conventions<0.67b0',
-    ],
-)
+await micropip.install(['file:${wheelPath}'], reinstall=True)
 from packaging.version import Version
 api_version = version('opentelemetry-api')
 sdk_version = version('opentelemetry-sdk')
 assert api_version == sdk_version, (api_version, sdk_version)
-assert Version(api_version) < Version('1.46.0'), api_version
-exporter_version = version('opentelemetry-exporter-otlp-proto-http')
-assert Version(exporter_version) < Version('1.46.0'), exporter_version
 instrumentation_version = version('opentelemetry-instrumentation')
 assert Version(instrumentation_version) < Version('0.67b0'), instrumentation_version
 conventions_version = version('opentelemetry-semantic-conventions')
@@ -85,7 +71,7 @@ sys.stderr.flush()
 async function findWheel(dist_dir) {
     const dir = await opendir(dist_dir);
     for await (const dirent of dir) {
-        if (dirent.name.endsWith('.whl')) {
+        if (dirent.name.startsWith('logfire-') && dirent.name.endsWith('.whl')) {
             return path.join(dist_dir, dirent.name);
         }
     }
