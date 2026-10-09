@@ -4052,6 +4052,41 @@ def test_exit_ended_span(exporter: TestExporter):
     )
 
 
+def test_update_name_updates_message(exporter: TestExporter):
+    tracer = get_tracer(__name__)
+
+    # e.g. FastAPI's built-in telemetry starts the span before the route is known, then renames it.
+    span = tracer.start_span(
+        'GET',
+        kind=SpanKind.SERVER,
+        attributes={'http.method': 'GET', 'http.route': '/items/{item_id}', 'http.target': '/items/1'},
+    )
+    span.update_name('GET /items/{item_id}')
+    span.end()
+
+    span = tracer.start_span('old name')
+    span.update_name('new name')
+    span.end()
+
+    # An explicitly set message is kept.
+    span = tracer.start_span('old name', attributes={'logfire.msg': 'custom message'})
+    span.update_name('new name')
+    span.end()
+
+    # So is a message from a template.
+    with logfire.span('old {x}', x=1):
+        get_current_span().update_name('new name')
+
+    assert [(s['name'], s['attributes']['logfire.msg']) for s in exporter.exported_spans_as_dict()] == snapshot(
+        [
+            ('GET /items/{item_id}', 'GET /items/1'),
+            ('new name', 'new name'),
+            ('new name', 'custom message'),
+            ('new name', 'old 1'),
+        ]
+    )
+
+
 _ns_currnet_ts = 0
 
 
