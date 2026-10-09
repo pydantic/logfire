@@ -1,4 +1,5 @@
 import gc
+import gzip
 import inspect
 import os
 import subprocess
@@ -27,7 +28,7 @@ from requests.models import PreparedRequest, Response as Response
 from requests.sessions import HTTPAdapter
 
 import logfire
-from logfire._internal.config import LogfireConfig
+from logfire._internal.config import LogfireConfig, LogfireConfigWarning
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
@@ -52,9 +53,11 @@ class SinkHTTPAdapter(HTTPAdapter):
         self.timeouts: list[float | tuple[float, float] | None] = []
         self.bodies: list[bytes] = []
         self.body_sizes: list[int] = []
+        self.content_encodings: list[str | None] = []
 
     def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
         self.timeouts.append(kwargs.get('timeout'))
+        self.content_encodings.append(request.headers.get('Content-Encoding'))
         assert request.body is None or isinstance(request.body, bytes)
         body = request.body or b''
         self.bodies.append(body)
@@ -409,6 +412,121 @@ def test_other_client_errors_are_not_split() -> None:
 
     assert exporter.export(TEST_SPANS[:2]) is SpanExportResult.FAILURE
     assert len(adapter.timeouts) == 1
+
+
+def zstd_decompress(data: bytes) -> bytes:
+    if sys.version_info >= (3, 14):
+        from compression.zstd import decompress
+    else:
+        from backports.zstd import decompress
+
+    return decompress(data)
+
+
+def get_logfire_session() -> OTLPExporterHttpSession:
+    [send_to_logfire_processor, *_] = get_span_processors()
+    assert isinstance(send_to_logfire_processor, DynamicBatchSpanProcessor)
+    exporter = send_to_logfire_processor.span_exporter
+    while isinstance(exporter, WrapperSpanExporter):
+        exporter = exporter.wrapped_exporter
+    assert isinstance(exporter, BodySizeCheckingOTLPSpanExporter)
+    return exporter._session  # type: ignore
+
+
+def configure_and_export_span(monkeypatch: pytest.MonkeyPatch, **kwargs: Any) -> tuple[str | None, list[str]]:
+    """Configure sending to Logfire, export one span, and return the request's content encoding and span names."""
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
+    logfire.configure(send_to_logfire=True, console=False, token='foo', **kwargs)
+    wait_for_check_token_thread()
+    adapter = SinkHTTPAdapter()
+    get_logfire_session().mount('https://', adapter)
+
+    with logfire.span('compressed span'):
+        pass
+    logfire.force_flush()
+
+    [content_encoding] = adapter.content_encodings
+    [body] = adapter.bodies
+    body = zstd_decompress(body) if content_encoding == 'zstd' else gzip.decompress(body)
+    request = ExportTraceServiceRequest.FromString(body)
+    span_names = [
+        span.name
+        for resource_spans in request.resource_spans
+        for scope_spans in resource_spans.scope_spans
+        for span in scope_spans.spans
+    ]
+    return content_encoding, span_names
+
+
+def test_logfire_exports_use_gzip_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert configure_and_export_span(monkeypatch) == ('gzip', ['compressed span'])
+
+
+def test_logfire_exports_zstd(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert configure_and_export_span(monkeypatch, advanced=logfire.AdvancedOptions(compression='zstd')) == (
+        'zstd',
+        ['compressed span'],
+    )
+
+
+def test_logfire_exports_zstd_from_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('LOGFIRE_COMPRESSION', 'zstd')
+    assert configure_and_export_span(monkeypatch) == ('zstd', ['compressed span'])
+
+
+def test_logfire_exports_zstd_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr('logfire._internal.config.zstd_compress', None)
+
+    with pytest.warns(
+        LogfireConfigWarning,
+        match=r"`compression='zstd'` requires Python 3.14\+ or the `backports.zstd` package, using gzip instead.",
+    ):
+        result = configure_and_export_span(monkeypatch, advanced=logfire.AdvancedOptions(compression='zstd'))
+    assert result == ('gzip', ['compressed span'])
+
+
+def test_session_without_zstd_sends_data_unchanged() -> None:
+    session = OTLPExporterHttpSession()
+    adapter = SinkHTTPAdapter()
+    session.mount('http://', adapter)
+
+    session.post('http://example.com', data=b'data')
+
+    assert adapter.bodies == [b'data']
+    assert adapter.content_encodings == [None]
+
+
+def test_session_zstd_compression() -> None:
+    session = OTLPExporterHttpSession(_use_zstd=True)
+    adapter = SinkHTTPAdapter()
+    session.mount('http://', adapter)
+
+    session.post('http://example.com', data=b'data' * 1000)
+
+    assert adapter.content_encodings == ['zstd']
+    assert zstd_decompress(adapter.bodies[0]) == b'data' * 1000
+    assert adapter.body_sizes[0] < 100
+
+
+def test_zstd_is_preserved_for_disk_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = OTLPExporterHttpSession(_use_zstd=True)
+    request_error = requests.exceptions.RequestException('request failed')
+    monkeypatch.setattr(session, '_post', Mock(side_effect=request_error))
+    add_task = Mock()
+    monkeypatch.setattr(session, '_add_task', add_task)
+    monkeypatch.setattr('time.time', Mock(side_effect=[0, 11]))
+
+    with pytest.raises(requests.exceptions.RequestException, match='request failed'):
+        session.post('http://example.com', data=b'data', timeout=30)
+
+    [(data, url, kwargs, error)] = [call.args for call in add_task.call_args_list]
+    assert zstd_decompress(data) == b'data'
+    assert (url, kwargs, error) == (
+        'http://example.com',
+        {'timeout': (3, 30), 'headers': {'Content-Encoding': 'zstd'}},
+        request_error,
+    )
 
 
 def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:

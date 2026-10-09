@@ -24,6 +24,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests import Response, Session
+from typing_extensions import Buffer
 
 import logfire
 from logfire._internal.utils import handle_internal_errors
@@ -88,6 +89,34 @@ class _BodySizeCheckingOTLPClient:
         self.client.shutdown()
 
 
+class ZstdCompressFn(Protocol):
+    """Signature of `compression.zstd.compress` and `backports.zstd.compress`."""
+
+    def __call__(
+        self,
+        data: Buffer,
+        level: int | None = None,
+        options: Mapping[int, int] | None = None,
+        # Each module types this with its own `ZstdDict` class, so no single annotation matches both.
+        zstd_dict: Any = None,
+    ) -> bytes: ...
+
+
+zstd_compress: ZstdCompressFn | None = None
+if sys.version_info >= (3, 14):
+    try:
+        from compression.zstd import compress as zstd_compress
+    except ImportError:  # pragma: no cover
+        # CPython can be built without zstd support.
+        pass
+else:
+    try:
+        # Backport of `compression.zstd`, with the same API.
+        from backports.zstd import compress as zstd_compress
+    except ImportError:  # pragma: no cover
+        pass
+
+
 @atexit.register
 def cleanup_disk_retryers() -> None:
     for retryer_ref in _DISK_RETRYERS:
@@ -137,9 +166,10 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
 class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, _use_zstd: bool = False) -> None:
         super().__init__()
         install_connection_policy(self)
+        self._zstd_compress = zstd_compress if _use_zstd else None
 
     @staticmethod
     def _configure_timeout(kwargs: dict[str, Any]) -> None:
@@ -163,6 +193,10 @@ class OTLPExporterHttpSession(Session):
     def post(self, url: str, data: bytes, **kwargs: Any):  # pyright: ignore[reportIncompatibleMethodOverride]
         # Configure this before calling `_post` so disk retries preserve the split timeout.
         self._configure_timeout(kwargs)
+        if self._zstd_compress is not None:
+            # The header goes in kwargs rather than the session headers so disk retries keep it.
+            data = self._zstd_compress(data)
+            kwargs['headers'] = {**(kwargs.get('headers') or {}), 'Content-Encoding': 'zstd'}
 
         start_time = time.time()
         try:

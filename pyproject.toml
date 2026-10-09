@@ -90,6 +90,8 @@ dev = [
     "pyarrow-stubs>=20",
     # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
     "numpy>=2.0; python_version < '3.12'",
+    # Backport of `compression.zstd`, to test zstd export compression below Python 3.14.
+    "backports.zstd>=1.7.0; python_version < '3.14'",
     "pytest-recording>=0.13.2",
     # >=8.2.1 includes the aiohttp 3.14 compatibility fix and a fix for arbitrary
     # code execution via unsafe YAML deserialization of cassettes (GHSA-rpj2-4hq8-938g).
