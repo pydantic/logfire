@@ -1,0 +1,18 @@
+logfire/_internal/json_encoder.py
+  h_d9dd17644dded9 346
+logfire/_internal/json_schema.py
+  h_d9dd17644dded9 412
+tests/test_json_args.py
+  h_d9dd17644dded9 21,158-163,811-817,893-929
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "89bb1940cd64c2ebd2922cad05cfceafb63072cc",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
