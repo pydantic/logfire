@@ -378,10 +378,9 @@ def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
     assert 'If the task configures an exporter' in evals
     assert 'stop rather than claiming local-only' in evals
     assert 'reportEvaluators: dataset.reportEvaluators' in evals
-    assert 'const report = await' not in evals
-    assert evals.count('.finally(() => logfire.shutdown({ timeoutMillis: 5000 }))') == 2
-    assert 'dataset.evaluate(classifySentiment).then' in evals
-    assert 'smoke.evaluate(classifySentiment).then' in evals
+    assert evals.count('await logfire.shutdown({ timeoutMillis: 5000 })') == 2
+    assert 'const report = await dataset.evaluate(classifySentiment)' in evals
+    assert 'const report = await smoke.evaluate(classifySentiment)' in evals
     assert 'Node.js `HasMatchingSpan` can produce no evaluator result at all' in evals
     assert 'a plain class raises at run time' not in evals
     assert 'use `@dataclass` for configurable fields and portable serialization' in evals
