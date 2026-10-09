@@ -98,6 +98,8 @@ def test_logfire_standard_component_shims(
     )
 
     logger = LogfireMontyLogger(scoped.config.get_logger_provider().get_logger('test'), scoped)
+    assert not logger.enabled(severity_number=SeverityNumber.INFO)
+    assert logger.enabled(severity_number=SeverityNumber.ERROR)
     logger.emit(LogRecord(body=123, attributes={'logfire.tags': 'invalid'}))
     logger.emit(body='too quiet', severity_number=SeverityNumber.INFO)
     logger.emit(body='error', severity_number=SeverityNumber.ERROR)

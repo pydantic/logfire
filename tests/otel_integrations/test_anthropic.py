@@ -36,7 +36,7 @@ pytestmark = [
 ]
 
 
-ANY_ADAPTER = pydantic.TypeAdapter(Any)  # type: ignore
+ANY_ADAPTER: pydantic.TypeAdapter[Any] = pydantic.TypeAdapter(Any)
 
 
 def test_semconv_version_defaults() -> None:
@@ -98,7 +98,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 ),
                 MessageStopEvent(type='message_stop'),
             ]
-            chunks_dicts = ANY_ADAPTER.dump_python(chunks)  # type: ignore
+            chunks_dicts = ANY_ADAPTER.dump_python(chunks)
             return httpx.Response(
                 200, text=''.join(f'event: {chunk["type"]}\ndata: {json.dumps(chunk)}\n\n' for chunk in chunks_dicts)
             )
