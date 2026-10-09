@@ -1,6 +1,6 @@
 ---
 name: logfire-instrumentation
-description: Add Pydantic Logfire observability to application code — traces, logs, metrics, and AI/agent spans. Use when the user asks to add or configure Logfire, observability, tracing, logging, or monitoring; maximize useful telemetry; or understand what an app is doing. Supports Python, JavaScript/TypeScript, Rust, and major AI agent frameworks including Pydantic AI, OpenAI Agents SDK, Claude Agent SDK, LangChain, LangGraph, CrewAI, AutoGen, and Google ADK. For infrastructure-only monitoring (hosts, Docker, Kubernetes, databases, or cloud metrics with no app-code changes), use `logfire-infrastructure`. For evaluating AI/agent behavior against test datasets, use `logfire-evals`.
+description: Add Pydantic Logfire observability to application code — traces, logs, metrics, and AI/agent spans. Use when the user asks to add or configure Logfire, observability, tracing, logging, or monitoring; maximize useful telemetry; or understand what an app is doing. Supports Python, JavaScript/TypeScript, Rust, and major AI agent frameworks including Pydantic AI, OpenAI Agents SDK, Claude Agent SDK, LangChain, LangGraph, CrewAI, AutoGen, and Google ADK. For infrastructure-only monitoring (hosts, Docker, Kubernetes, databases, or cloud metrics with no app-code changes), use `logfire-infrastructure`. For evaluating AI/agent behavior against test datasets, use `logfire-evals`. To replace an existing vendor APM or OpenTelemetry pipeline with Logfire (removing the old one), use `logfire-migrate`.
 ---
 
 # Instrument with Logfire
@@ -67,6 +67,29 @@ logfire.instrument_httpx()        # HTTPX only
 ```
 
 FastAPI, Flask, Starlette, and raw ASGI/WSGI instrumentors need the app instance; Django, HTTP-client, and database instrumentors are global and take no app argument. Gunicorn and other pre-fork servers need `configure()` inside `post_fork`, not at module level — see the reference above for that and the rest of the placement rules.
+
+#### Joining an Existing OpenTelemetry Setup
+
+If the project already configures OpenTelemetry — its own `TracerProvider`, an OTLP exporter, a collector endpoint — keep its DESTINATION, not its provider wiring. The global tracer provider can only be set once: whichever of the app's `set_tracer_provider(...)` and `logfire.configure()` runs second is silently ignored, and one pipeline goes dark. So make Logfire the provider owner and carry the incumbent exporter over:
+
+1. Remove the app's own provider registration (`TracerProvider(...)` construction and `set_tracer_provider(...)`) — but NOT its exporter.
+2. Re-attach that exporter with `logfire.configure(additional_span_processors=[...])`, which adds it to the provider Logfire registers. One provider, two destinations: Logfire receives every span, and the dashboards and alerts watching the incumbent backend keep receiving theirs.
+
+```python
+import logfire
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+logfire.configure(
+    additional_span_processors=[
+        BatchSpanProcessor(OTLPSpanExporter(endpoint="http://collector.internal:4318/v1/traces")),
+    ],
+)
+```
+
+Leave existing manual spans and their attributes exactly as written — `tracer.start_as_current_span(...)` calls resolve through the global provider, so they flow to both destinations once Logfire owns it. Rewriting them into `logfire.span(...)` drops the attributes set on them.
+
+Prefer explicit instrumentation (`instrument_*()` calls, manual spans) over `logfire.install_auto_tracing()`. Auto-tracing must run before the modules it rewrites are imported, which tempts a restructuring of the app's entry point — and a new entry point the deployment never launches (a `run.py` beside the `uvicorn main:app` everything actually runs) means the app keeps serving while every byte of telemetry silently disappears. Never change how the project starts — its documented run command, Procfile, Dockerfile `CMD`, or systemd unit — to accommodate instrumentation.
 
 #### Structured Logging and AI/LLM Instrumentation
 

@@ -23,6 +23,7 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 | Surface | Covers | Skill |
 |---------|--------|-------|
 | App instrumentation | Traces, logs, metrics, and AI/agent spans from application code — Python, JavaScript/TypeScript, Rust, or any OpenTelemetry language | [`logfire-instrumentation`](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/SKILL.md) |
+| Migration | Replacing an existing vendor APM or OpenTelemetry pipeline with Logfire — the old one is removed | [`logfire-migrate`](https://pydantic.dev/.well-known/agent-skills/logfire-migrate/SKILL.md) |
 | Infrastructure monitoring | Hosts, Docker, Kubernetes, database/queue/cache servers, cloud-provider metrics — no application code | [`logfire-infrastructure`](https://pydantic.dev/.well-known/agent-skills/logfire-infrastructure/SKILL.md) |
 | Evals | Set up and run AI/agent evaluations against test-case datasets in Python or Node.js | [`logfire-evals`](https://pydantic.dev/.well-known/agent-skills/logfire-evals/SKILL.md) |
 | Querying telemetry | Search traces/logs/spans/metrics, summarize errors, find root cause | [`logfire-query`](https://pydantic.dev/.well-known/agent-skills/logfire-query/SKILL.md) |
@@ -31,6 +32,7 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 | AI Gateway | Spend caps, failover, and routing for model calls (`logfire gateway`) | no dedicated skill yet — see the product's own docs |
 
 - No specific scope given (e.g. "set up Logfire in this repo end to end")? Default to `logfire-instrumentation` for ordinary application code. Incidental Docker, Kubernetes, infrastructure, or eval files do not expand the initial setup: get one representative application service to verified first data, then offer the matching additional skill(s). If the repository is clearly infrastructure-only, route directly to `logfire-infrastructure` instead.
+- Adding vs replacing is a real fork: "switch to / migrate from / replace / get rid of <vendor>" → `logfire-migrate`; "add Logfire" to a repo that already has OpenTelemetry → `logfire-instrumentation`, which JOINS the existing setup rather than replacing it. If it is unclear whether the existing pipeline must keep working, ask: the two journeys make opposite changes to the same files.
 - A request already scoped to one surface ("monitor my Postgres server", "set up evals for this agent") → fetch that skill directly, skipping the rest of this table.
 - Genuinely ambiguous between two adjacent surfaces (e.g. "watch my Postgres" could mean Collector-level infrastructure metrics or app-level query instrumentation)? Ask one clarifying question rather than guessing — loading the wrong skill wastes the user's time reading instructions for a job they didn't ask for.
 
