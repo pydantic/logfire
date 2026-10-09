@@ -1,0 +1,21 @@
+tests/otel_integrations/test_monty.py
+  s_26c70d8a914d6a::t_df60b2935f1504 42-45,50,55
+logfire-sdk/logfire/_internal/integrations/monty.py
+  s_26c70d8a914d6a::t_df60b2935f1504 28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "23cf7f2113837ac8251c9d00e8ef98f0a067258d",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
