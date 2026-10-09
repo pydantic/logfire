@@ -110,7 +110,7 @@ You can install this with:
 
 @pytest.mark.vcr()
 @pytest.mark.skipif(
-    get_version(pydantic.__version__) < get_version('2.10.0'), reason='LiteLLM requires Pydantic >= 2.10'
+    get_version(pydantic.__version__) < get_version('2.11.0'), reason='LiteLLM requires Pydantic >= 2.11'
 )
 def test_dspy_instrumentation(exporter: TestExporter, isolated_litellm_event_loop: None) -> None:
     # Skip test if dspy can't be imported due to compatibility issues
@@ -125,7 +125,8 @@ def test_dspy_instrumentation(exporter: TestExporter, isolated_litellm_event_loo
     # Configure DSPy with OpenAI - disable caching
     # Use real API key if present (for recording), otherwise fake key (for VCR replay)
     api_key = os.getenv('OPENAI_API_KEY', 'fake-api-key-for-testing')
-    lm = dspy.LM('openai/gpt-5-mini', cache=False, api_key=api_key)
+    # DSPy 3.4 defaults to lm15, whose native HTTP transport bypasses VCR.
+    lm = dspy.LM('openai/gpt-5-mini', cache=False, api_key=api_key, engine='litellm')
     dspy.configure(lm=lm)
 
     # Define a simple signature
