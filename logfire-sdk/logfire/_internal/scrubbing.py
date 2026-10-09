@@ -111,15 +111,6 @@ def _valid_attribute_value(value: Any, ancestors: set[int] | None = None) -> boo
         ancestors.remove(value_id)
 
 
-def _bounded_attributes(attributes: Mapping[str, Any] | None) -> BoundedAttributes:
-    # A callback may return an unsupported object such as ScrubMatch. Its repr contains
-    # the original secret. OpenTelemetry 1.45 stringifies that object instead of dropping
-    # it, so reject unsupported values before handing them to BoundedAttributes.
-    return BoundedAttributes(
-        attributes={key: value for key, value in (attributes or {}).items() if _valid_attribute_value(value)}
-    )
-
-
 ScrubCallback = Callable[[ScrubMatch], Any]
 
 
@@ -291,19 +282,18 @@ class SpanScrubber:
         # We need to use BoundedAttributes because:
         # 1. For events and links, we get an error otherwise:
         #      https://github.com/open-telemetry/opentelemetry-python/issues/3761
-        # 2. The callback might return a value that isn't of the type required by OTEL,
-        #      in which case BoundAttributes will discard it to prevent an error.
+        # 2. The callback might return a value that isn't of the type required by OTEL.
         # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
         new_attributes = self.scrub(('attributes',), span['attributes'])
         if self.did_scrub:
-            span['attributes'] = _bounded_attributes(new_attributes)
+            span['attributes'] = BoundedAttributes(attributes=new_attributes)
 
         span['events'] = [
             Event(
                 # We don't scrub the event name because in theory it should be a low-cardinality general description,
                 # not containing actual data. The same applies to the span name, which just isn't mentioned here.
                 name=event.name,
-                attributes=_bounded_attributes(self.scrub_event_attributes(event, i)),
+                attributes=BoundedAttributes(attributes=self.scrub_event_attributes(event, i)),
                 timestamp=event.timestamp,
             )
             for i, event in enumerate(span['events'])
@@ -311,7 +301,7 @@ class SpanScrubber:
         span['links'] = [
             Link(
                 context=link.context,
-                attributes=_bounded_attributes(self.scrub(('links', i, 'attributes'), link.attributes)),
+                attributes=BoundedAttributes(attributes=self.scrub(('links', i, 'attributes'), link.attributes)),
             )
             for i, link in enumerate(span['links'])
         ]
@@ -328,7 +318,7 @@ class SpanScrubber:
             new_attributes[ATTRIBUTES_SCRUBBED_KEY] = json.dumps(self.scrubbed)
 
         result = copy.copy(log)
-        result.attributes = _bounded_attributes(new_attributes)
+        result.attributes = BoundedAttributes(attributes=new_attributes)
         result.body = new_body
         return result
 
@@ -377,6 +367,13 @@ class SpanScrubber:
     def _redact(self, match: ScrubMatch) -> Any:
         if self._callback and (result := self._callback(match)) is not None:
             self.did_scrub = self.did_scrub or result is not match.value
+            if not _valid_attribute_value(result):
+                # Stringify unsupported callback values on every OpenTelemetry version.
+                # Some versions discard them, while others stringify them themselves.
+                try:
+                    return str(result)
+                except Exception:
+                    return None
             return result
         self.did_scrub = True
         matched_substring = match.pattern_match.group(0)

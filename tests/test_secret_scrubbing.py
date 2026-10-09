@@ -369,7 +369,7 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
         if match.path[-1] == 'my_password':
             return str(match)
         elif match.path[-1] == 'bad_value':
-            # This is not a valid OTEL attribute value, so it will be removed completely.
+            # Arbitrary callback objects are converted to strings before export.
             return match
 
     config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(logs_exporter)]
@@ -381,7 +381,7 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
         **config_kwargs,
     )
 
-    # Note the values (or lack thereof) of each of these attributes in the exported span.
+    # Note the callback values in the exported span.
     logfire.info('hi', my_password='hunter2', other='matches_my_pattern', bad_value='the_password')
 
     get_logger(__name__).emit(
@@ -412,6 +412,13 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
                         ')'
                     ),
                     'other': "[Scrubbed due to 'my_pattern']",
+                    'bad_value': (
+                        'ScrubMatch('
+                        "path=('attributes', 'bad_value'), "
+                        "value='the_password', "
+                        "pattern_match=<re.Match object; span=(4, 12), match='password'>"
+                        ')'
+                    ),
                     'logfire.json_schema': '{"type":"object","properties":{"my_password":{},"other":{},"bad_value":{}}}',
                     'logfire.scrubbed': '[{"path": ["attributes", "other"], "matched_substring": "my_pattern"}]',
                 },
@@ -433,6 +440,13 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
                         "pattern_match=<re.Match object; span=(3, 11), match='password'>"
                         ')'
                     ),
+                    'bad_value': (
+                        'ScrubMatch('
+                        "path=('attributes', 'bad_value'), "
+                        "value='the_password', "
+                        "pattern_match=<re.Match object; span=(4, 12), match='password'>"
+                        ')'
+                    ),
                     'event.name': 'hi',
                 },
                 'timestamp': 2000000000,
@@ -445,9 +459,12 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
     )
 
 
-@pytest.mark.parametrize('container_type', [list, dict])
-def test_scrub_callback_cyclic_value_is_discarded(
-    exporter: TestExporter, config_kwargs: dict[str, Any], container_type: type[list[Any]] | type[dict[str, Any]]
+@pytest.mark.parametrize(('container_type', 'expected'), [(list, '[[...]]'), (dict, "{'self': {...}}")])
+def test_scrub_callback_cyclic_value_is_stringified(
+    exporter: TestExporter,
+    config_kwargs: dict[str, Any],
+    container_type: type[list[Any]] | type[dict[str, Any]],
+    expected: str,
 ) -> None:
     def callback(match: logfire.ScrubMatch) -> Any:
         cycle = container_type()
@@ -460,7 +477,20 @@ def test_scrub_callback_cyclic_value_is_discarded(
     logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=callback), **config_kwargs)
     logfire.info('hi', bad_password='hunter2')
 
-    assert 'bad_password' not in (exporter.exported_spans[0].attributes or {})
+    assert (exporter.exported_spans[0].attributes or {})['bad_password'] == expected
+
+
+def test_scrub_callback_unstringifiable_value_does_not_break_export(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    class Unstringifiable:
+        def __str__(self) -> str:
+            raise ValueError('cannot stringify')
+
+    logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=lambda _: Unstringifiable()), **config_kwargs)
+    logfire.info('hi', bad_password='hunter2')
+
+    assert exporter.exported_spans[0].name == 'hi'
 
 
 def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any]):
