@@ -1,7 +1,9 @@
 logfire/_internal/config.py
   h_d9dd17644dded9 2314-2323
+  s_26c70d8a914d6a::t_affafe7282ab5c 2314-2323
 tests/test_configure.py
   h_d9dd17644dded9 829-845
+  s_26c70d8a914d6a::t_f84e3bd1777f52 829-845
 ---
 {
   "schema_version": "authorship/3.0.0",
@@ -11,6 +13,16 @@ tests/test_configure.py
   "humans": {
     "h_d9dd17644dded9": {
       "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
     }
   }
 }
