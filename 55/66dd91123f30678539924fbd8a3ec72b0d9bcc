@@ -1,0 +1,21 @@
+tests/test_configure.py
+  s_26c70d8a914d6a::t_f84e3bd1777f52 829-845
+logfire/_internal/config.py
+  s_26c70d8a914d6a::t_affafe7282ab5c 2314-2323
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5566dd91123f30678539924fbd8a3ec72b0d9bcc",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
