@@ -645,17 +645,21 @@ def test_disk_retryer_drops_non_retryable_http_error(
         retryer.add_task(b'export-payload', {'url': 'https://example.com/v1/traces'})
         thread = retryer.thread
         assert thread is not None
+        retryer.add_task(b'another-payload', {'url': 'https://example.com/v1/traces'})
         thread_captured.set()
         thread.join(timeout=5)
 
-    assert post.call_count == 1
+    assert post.call_count == 2
     assert not retryer.tasks
     assert retryer.total_size == 0
     assert retryer.thread is None
     assert not list(retryer.dir.iterdir())
-    assert any(
-        'permanently refused with HTTP 401' in message and 'dropping queued payload' in message
-        for message in caplog.messages
+    assert (
+        sum(
+            'permanently refused with HTTP 401' in message and 'dropping queued payload' in message
+            for message in caplog.messages
+        )
+        == 1
     )
     retryer.close()
 
