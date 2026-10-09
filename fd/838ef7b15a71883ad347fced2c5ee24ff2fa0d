@@ -1,0 +1,26 @@
+tests/test_pydantic_plugin.py
+  s_3e5b2d224472a7::t_b1c7c34d62bb8e 1122
+tests/otel_integrations/test_anthropic.py
+  s_3e5b2d224472a7::t_b1c7c34d62bb8e 39,101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fd838ef7b15a71883ad347fced2c5ee24ff2fa0d",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_3e5b2d224472a7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1214e-b0ae-74e0-a7d3-ca72a9123b69",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
