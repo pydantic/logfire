@@ -1,7 +1,9 @@
 pyproject.toml
   s_26c70d8a914d6a::t_1a2b9c9436c58d 55
+  s_26c70d8a914d6a::t_2f25e4c88b709e 55
 uv.lock
   s_26c70d8a914d6a::t_bf1de1b02c1e8a 2910,3170
+  s_26c70d8a914d6a::t_73701bd48e4b3f 2910,3170
 ---
 {
   "schema_version": "authorship/3.0.0",
