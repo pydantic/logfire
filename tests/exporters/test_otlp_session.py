@@ -1,4 +1,5 @@
 import gc
+import inspect
 import os
 import subprocess
 import sys
@@ -16,6 +17,7 @@ import requests.exceptions
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry.exporter.otlp.proto.http import Compression
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan
@@ -279,6 +281,19 @@ def test_max_body_size_bytes() -> None:
     # The exact serialized size depends on the OpenTelemetry version, so match the message shape
     # rather than a hardcoded byte count.
     assert str(e.value) == IsStr(regex=r'Request body is too large \(\d+ bytes\), must be less than 10 bytes\.')
+
+
+@pytest.mark.skipif(
+    'max_request_size' not in inspect.signature(OTLPSpanExporter).parameters, reason='OpenTelemetry <1.45'
+)
+def test_upstream_request_limit_does_not_bypass_batch_splitting() -> None:
+    session = OTLPExporterHttpSession()
+    session.mount('http://', SinkHTTPAdapter())
+    exporter = BodySizeCheckingOTLPSpanExporter(session=session, max_request_size=10)
+    exporter.max_body_size = 10
+
+    with pytest.raises(BodyTooLargeError):
+        exporter.export(TEST_SPANS)
 
 
 def test_backend_payload_too_large_splits_spans() -> None:

@@ -4,6 +4,7 @@ import atexit
 import logging
 import random
 import shutil
+import sys
 import time
 import uuid
 import weakref
@@ -104,6 +105,9 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
             self._session = session
         if client := getattr(self, '_client', None):
             # OpenTelemetry 1.45 sends serialized payloads through a client instead of _export.
+            # Its own size check returns FAILURE before reaching the client, so let our
+            # wrapper split oversized batches and report oversized individual spans.
+            setattr(self, '_max_request_size', sys.maxsize)
             setattr(self, '_client', _BodySizeCheckingOTLPClient(cast(_OTLPClient, client), self))
 
     def export(self, spans: Sequence[ReadableSpan]):
