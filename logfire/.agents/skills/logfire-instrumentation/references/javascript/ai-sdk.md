@@ -25,7 +25,7 @@ registerTelemetry(new OpenTelemetry())
 
 For Next.js, put this registration in `instrumentation.ts` alongside `registerOTel()`. For Node.js, put it in the instrumentation entrypoint that loads before application modules import or call the AI SDK.
 
-Telemetry is enabled for every AI SDK call after registration, and input/output recording defaults to enabled. Before registering it, identify calls that handle secrets, personal data, or sensitive user content. Set both `recordInputs` and `recordOutputs` to `false` on those calls, default to false when sensitivity is uncertain, and enable content capture only after the user explicitly chooses it. Function identity, timing, model, and token-usage telemetry remain useful without captured content.
+Telemetry is enabled for every AI SDK call after registration, and input/output recording defaults to enabled. Set both `recordInputs` and `recordOutputs` to `false` on every call. Enable content capture for a particular call only after the user explicitly chooses it. Function identity, timing, model, and token-usage telemetry remain useful without captured content.
 
 Use the stable `telemetry` option when a call needs a function identity, content-capture controls, or must opt out:
 
