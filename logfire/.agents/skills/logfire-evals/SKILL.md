@@ -100,9 +100,12 @@ const dataset = new Dataset<string, string>({
   evaluators: [new EqualsExpected()],
 })
 
-await dataset.evaluate(classifySentiment).then((report) => {
+dataset.evaluate(classifySentiment).then((report) => {
   console.log(renderReport(report, { includeInput: true, includeOutput: true }))
-}).finally(() => logfire.shutdown({ timeoutMillis: 5000 }))
+}).finally(() => logfire.shutdown({ timeoutMillis: 5000 })).catch((error) => {
+  console.error(error)
+  process.exitCode = 1
+})
 ```
 
 Other built-ins include `Equals`, `Contains`, `IsInstance`, `MaxDuration`, `HasMatchingSpan`, and `LLMJudge`. Node.js custom evaluators extend `Evaluator`, and `LLMJudge` needs a judge callback. Use `@pydantic/logfire-node/datasets` only for hosted datasets.
@@ -133,9 +136,12 @@ const smoke = new Dataset({
   evaluators: dataset.evaluators,
   reportEvaluators: dataset.reportEvaluators,
 })
-await smoke.evaluate(classifySentiment).then((report) => {
+smoke.evaluate(classifySentiment).then((report) => {
   console.log(renderReport(report, { includeInput: true, includeOutput: true }))
-}).finally(() => logfire.shutdown({ timeoutMillis: 5000 }))
+}).finally(() => logfire.shutdown({ timeoutMillis: 5000 })).catch((error) => {
+  console.error(error)
+  process.exitCode = 1
+})
 ```
 
 Confirm the smoke run has zero unexpected errors and the assertions that should pass do. Then, if the full dataset is large or uses paid model calls, tell the user the case count and which evaluators will make model calls, and get explicit confirmation before running the full dataset — don't run an expensive full pass on the strength of a clean smoke test alone without saying so.
