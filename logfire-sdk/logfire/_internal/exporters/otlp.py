@@ -57,7 +57,13 @@ class _OTLPClient(Protocol):
 
 class _QuietConnectionErrorLogger(logging.LoggerAdapter):  # pyright: ignore[reportMissingTypeArgument]
     def error(self, msg: object, *args: Any, **kwargs: Any) -> None:
-        if msg == 'Failed to export %s batch code: %s, reason: %s' and len(args) > 1 and args[1] is None:
+        # OpenTelemetry 1.45 logs this inside the HTTP client before QuietSpanExporter
+        # can handle it. DiskRetryer reports the deferred request failure instead.
+        if (
+            msg == 'Failed to export %s batch code: %s, reason: %s'
+            and len(args) > 2
+            and isinstance(args[2], SuppressedConnectionError)
+        ):
             return
         super().error(msg, *args, **kwargs)
 
