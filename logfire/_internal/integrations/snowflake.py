@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+from contextvars import ContextVar
 from types import ModuleType
 from typing import Any
 from weakref import WeakKeyDictionary
@@ -22,6 +23,7 @@ except ModuleNotFoundError as e:
 # `None` means the module is not instrumented, so only connections registered below produce spans.
 _module_settings: tuple[Logfire, bool] | None = None
 _connection_settings: WeakKeyDictionary[SnowflakeConnection, tuple[Logfire, bool]] = WeakKeyDictionary()
+_inside_executemany: ContextVar[bool] = ContextVar('logfire_snowflake_inside_executemany', default=False)
 
 
 def instrument_snowflake(
@@ -92,6 +94,8 @@ def _settings(cursor: SnowflakeCursor) -> tuple[Logfire, bool] | None:
 def _wrap_execute(original: Any) -> Any:
     @functools.wraps(original)
     def wrapped(self: SnowflakeCursor, command: str, params: Any = None, *args: Any, **kwargs: Any) -> Any:
+        if _inside_executemany.get():
+            return original(self, command, params, *args, **kwargs)
         settings = _settings(self)
         if settings is None:
             return original(self, command, params, *args, **kwargs)
@@ -129,7 +133,11 @@ def _wrap_executemany(original: Any) -> Any:
         with logfire_instance.span(
             'snowflake executemany {command}', _span_name='snowflake executemany', **attributes
         ) as span:
-            result = original(self, command, seqparams, **kwargs)
+            token = _inside_executemany.set(True)
+            try:
+                result = original(self, command, seqparams, **kwargs)
+            finally:
+                _inside_executemany.reset(token)
             with handle_internal_errors:
                 span.set_attribute('sfqid', self.sfqid)
                 span.set_attribute('rowcount', self.rowcount)

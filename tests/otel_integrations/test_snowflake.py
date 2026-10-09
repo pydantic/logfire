@@ -235,6 +235,26 @@ def test_instrument_executemany(exporter: TestExporter) -> None:
     )
 
 
+def test_executemany_does_not_export_interpolated_parameters(
+    exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def interpolating_executemany(self: SnowflakeCursor, command: str, seqparams: Any, **kwargs: Any) -> Any:
+        self.execute(command.replace('%s', repr(seqparams[0][0])), **kwargs)
+        return self
+
+    monkeypatch.setattr(SnowflakeCursor, 'executemany', interpolating_executemany)
+    logfire.instrument_snowflake(capture_parameters=False)
+
+    cursor = FakeConnection().cursor()
+    cursor.executemany('insert into people (email) values (%s)', [('alice@example.com',)])
+    cursor.execute('select 1')
+
+    spans = exporter.exported_spans_as_dict()
+    assert [span['name'] for span in spans] == ['snowflake executemany', 'snowflake execute']
+    assert spans[0]['attributes']['command'] == 'insert into people (email) values (%s)'
+    assert 'alice@example.com' not in repr(spans)
+
+
 def test_instrument_single_connection(exporter: TestExporter) -> None:
     conn = FakeSnowflakeConnection(
         account='my_account', warehouse='my_wh', database='my_db', schema='my_schema', role='my_role'
