@@ -4191,7 +4191,7 @@ def test_http_spans_stable_semconv(exporter: TestExporter):
             ('GET', "GET example.org/ ? x='1'", False),
             ('GET', 'GET example.org/', True),
             ('GET', 'GET /items?x=1', True),
-            ('GET', "GET /old ? b='2'", True),
+            ('GET', "GET /old ? a='1'", True),
         ]
     )
 
