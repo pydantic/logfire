@@ -35,7 +35,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
     This simple version does not indent spans based on their parent(s), instead spans are printed as a
     flat list.
     """
-    def __init__(self, output: TextIO | None = None, colors: ConsoleColorsValues = 'auto', include_timestamp: bool = True, include_tags: bool = True, verbose: bool = False, min_log_level: LevelName = 'info') -> None: ...
+    def __init__(self, output: TextIO | None = None, colors: ConsoleColorsValues = 'auto', include_timestamp: bool = True, include_tags: bool = True, verbose: bool = False, min_log_level: LevelName = 'info', include_attributes: bool | None = None) -> None: ...
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         """Export the spans to the console."""
     def export_record(self, span: Record) -> None:
@@ -52,7 +52,7 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
     Spans are intended based simply on how many parents they have. This will work well when spans don't overlap,
     but will be hard to understand when multiple spans are in progress at the same time.
     """
-    def __init__(self, output: TextIO | None = None, colors: ConsoleColorsValues = 'auto', include_timestamp: bool = True, include_tags: bool = True, verbose: bool = False, min_log_level: LevelName = 'info') -> None: ...
+    def __init__(self, output: TextIO | None = None, colors: ConsoleColorsValues = 'auto', include_timestamp: bool = True, include_tags: bool = True, verbose: bool = False, min_log_level: LevelName = 'info', include_attributes: bool | None = None) -> None: ...
     def export_record(self, span: Record) -> None:
         """Get the span indent based on `self._indent_level`, then print the span with that indent."""
 
@@ -63,7 +63,7 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
     the previously displayed span is not the parent or sibling of a span, parents are printed (with "dim" color)
     so it\'s easy (or as easy as possible in a terminal) to understand how nested spans are related.
     '''
-    def __init__(self, output: TextIO | None = None, colors: ConsoleColorsValues = 'auto', include_timestamp: bool = True, include_tags: bool = True, verbose: bool = False, min_log_level: LevelName = 'info') -> None: ...
+    def __init__(self, output: TextIO | None = None, colors: ConsoleColorsValues = 'auto', include_timestamp: bool = True, include_tags: bool = True, verbose: bool = False, min_log_level: LevelName = 'info', include_attributes: bool | None = None) -> None: ...
     def export_record(self, span: Record) -> None:
         """Print any parent spans which aren't in the current stack of displayed spans, then print this span."""
 
