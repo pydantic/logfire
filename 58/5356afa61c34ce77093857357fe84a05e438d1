@@ -1,0 +1,23 @@
+docs/integrations/index.md
+  s_26c70d8a914d6a::t_aa1ea16314eb9d 42,51
+docs/integrations/monty.md
+  s_26c70d8a914d6a::t_04b61af3515bc8 1-95
+docs/navigation.yml
+  s_26c70d8a914d6a::t_132d98b9013533 445-447
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "585356afa61c34ce77093857357fe84a05e438d1",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
