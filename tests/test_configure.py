@@ -3638,5 +3638,4 @@ def test_host_resource_attributes():
     # Check that our host attributes match OTel while avoiding its private detector outside tests.
     from opentelemetry.sdk.resources import _HostResourceDetector  # pyright: ignore[reportPrivateUsage]
 
-    otel_attributes = _HostResourceDetector().detect().attributes
-    assert config_module.host_resource_attributes() == {key: otel_attributes[key] for key in ('host.name', 'host.arch')}
+    assert config_module.host_resource_attributes() == _HostResourceDetector().detect().attributes
