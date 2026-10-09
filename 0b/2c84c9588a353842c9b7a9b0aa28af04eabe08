@@ -1,0 +1,14 @@
+tests/exporters/test_otlp_session.py
+  h_d9dd17644dded9 283-288
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0b2c84c9588a353842c9b7a9b0aa28af04eabe08",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
