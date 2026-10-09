@@ -1,0 +1,26 @@
+logfire-api/logfire_api/_internal/config.pyi
+  h_d9dd17644dded9 69
+logfire-api/logfire_api/_internal/config_params.pyi
+  h_d9dd17644dded9 48
+logfire-api/logfire_api/_internal/exporters/console.pyi
+  h_d9dd17644dded9 38,55,66
+logfire/_internal/config.py
+  h_d9dd17644dded9 178-179,188-193,808,1204
+logfire/_internal/config_params.py
+  h_d9dd17644dded9 93-94,144
+logfire/_internal/exporters/console.py
+  h_d9dd17644dded9 119,147,260-261,362,364,407,409
+tests/test_console_exporter.py
+  h_d9dd17644dded9 12-13,50-159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "920d8acb94117f5cdc0b6ede2e0440e0566b4f72",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
