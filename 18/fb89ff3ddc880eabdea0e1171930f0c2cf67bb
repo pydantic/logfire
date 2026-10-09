@@ -1,0 +1,125 @@
+docs/evaluate/annotate-agent-runs.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 10,22-32
+  s_26c70d8a914d6a::t_6284027399a0a0 33
+docs/how-to-guides/otel-collector/otel-collector-overview.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 30,37
+docs/evaluate/live-evals.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 20,47-48,55-121
+  s_26c70d8a914d6a::t_81dd32694dd2f6 122
+docs/how-to-guides/otel-collector/kubernetes-collect-more.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-196
+docs/how-to-guides/otel-collector/kubernetes-monitoring.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 2,7,9,11,13-15,17-32,39-46,50-66,75,81-83,88,90-95,97-99,102,104,106,108-109,112,114-115,117,119,121,123-125,127,129-134,136,138-140
+docs/reference/advanced/gateway/integrations/index.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 17-18,24
+docs/reference/advanced/gateway/optimizations.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-47
+docs/integrations/obi.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-265
+docs/how-to-guides/infrastructure-as-code.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 26
+docs/evaluate/human-review.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 8,10-12
+docs/guides/web-ui/organizations-and-projects.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 24-40
+docs/how-to-guides/query-api.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 19-21
+docs/guides/web-ui/session-replays.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 15-16
+docs/reference/advanced/gateway/spending-policies.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-82
+docs/reference/limits.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 55
+docs/logfire-costs.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 7-13,16-36,40-41,43,45-53,55-56,58,64-65,72,126-156,158-159
+docs/reference/advanced/gateway/embeddings.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 12
+docs/reference/advanced/gateway/first-request.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-60
+docs/reference/advanced/gateway/endpoints.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-42
+docs/reference/advanced/gateway/protect-data.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-74
+docs/guides/web-ui/dashboards.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 5,14-15,70-74,89-95,97,99-101,111,116-118,122,126,128,134,136,140-142,144-146,154-159,166-167,170-171,173,175,179-180,186-188,190,206-215,276,282-291,304,318,335-341,343,345-347,351,357,363,367-376,378,380,382,384,386,388,390-392
+docs/guides/web-ui/services.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 13-14
+docs/how-to-guides/otel-collector/kubernetes-reduce-volume.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-125
+docs/evaluate/manage-datasets.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 10-21,30,32,55,61,63-64,68-73,76-107,125-126,139-146,151-153
+  s_26c70d8a914d6a::t_d175ca0e78f87a 154
+docs/reference/advanced/gateway/byok-providers.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-48
+docs/how-to-guides/setup-slack-alerts.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 43,77
+docs/scim-provisioning.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 25-29,32-38,132
+docs/guides/web-ui/kubernetes.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 2-3,7,9,11,15,21,25-36,38-44,55-83,87,89-91,93,95,102-103,105-107
+docs/reference/advanced/gateway/index.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 17,21,25-47,50-51,53,60,62-64,68,151-157,170,174,177-178,180-183
+docs/reference/sql.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 195,467
+docs/guides/web-ui/service-levels.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 11,24,41-42,47,49,53,61-65,71-73,75
+docs/guides/web-ui/docker.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 3,7,13,16,24,26-37
+docs/guides/web-ui/frontend.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 15-16
+docs/how-to-guides/mcp-access.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-85
+docs/how-to-guides/mcp-server.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 110-114,478-479,485
+docs/how-to-guides/slack-app.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 3,11,22-24,40-41,73,79,83,101
+docs/cookbook/track-llm-cost.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 128
+docs/how-to-guides/email-code-sign-in.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-63
+docs/how-to-guides/pagerduty.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 52
+docs/guides/web-ui/hosts.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 3,15,22-37,39,145
+docs/reference/advanced/public-conversations/index.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-68
+docs/how-to-guides/otel-collector/kubernetes-manual-setup.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-893
+docs/guides/web-ui/agents.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 10-11
+docs/evaluate/datasets-and-experiments.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 27-29
+docs/reference/query-limits.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 1-161
+docs/how-to-guides/write-dashboard-queries.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 197
+docs/integrations/index.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 25
+docs/evaluate/datasets-sdk.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 12,125-133,137,177-178,243
+docs/navigation.yml
+  s_26c70d8a914d6a::t_08b3c4f8af0513 162-163,187-192,199-201,602-619,742-744,770-790,892,895-970,974,980
+docs/how-to-guides/convert-to-organization.md
+  s_26c70d8a914d6a::t_08b3c4f8af0513 2-3,6,8,10,12,14-17,19,21,23,25,27,29,31,33,35-36,38,40,42,44,46,48-49,51,53,55,57,59,61,63,65,67,69,71,73,75-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "18fb89ff3ddc880eabdea0e1171930f0c2cf67bb",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
