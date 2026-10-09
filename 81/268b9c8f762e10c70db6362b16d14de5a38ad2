@@ -1,0 +1,22 @@
+logfire/_internal/integrations/mcp.py
+  h_d9dd17644dded9 4,29-46
+logfire/_internal/main.py
+  h_d9dd17644dded9 1047-1051,1056
+tests/conftest.py
+  h_d9dd17644dded9 7,63-66
+tests/otel_integrations/test_mcp_v2.py
+  h_d9dd17644dded9 1-185
+tests/otel_integrations/test_mcp_version_detection.py
+  h_d9dd17644dded9 1-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "81268b9c8f762e10c70db6362b16d14de5a38ad2",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
