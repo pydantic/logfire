@@ -1,7 +1,9 @@
 logfire/_internal/cli/run.py
   h_d9dd17644dded9 12,153-157,160-161,175-181,194-227
+  s_26c70d8a914d6a::t_95ad0e947e90f1 12,153-157,160-161,175-181,194-227
 tests/test_cli.py
   h_d9dd17644dded9 6285-6367
+  s_26c70d8a914d6a::t_65b53269a1c5b4 6285-6367
 ---
 {
   "schema_version": "authorship/3.0.0",
@@ -11,6 +13,16 @@ tests/test_cli.py
   "humans": {
     "h_d9dd17644dded9": {
       "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
     }
   }
 }
