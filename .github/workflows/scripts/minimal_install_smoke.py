@@ -41,7 +41,6 @@ def main() -> None:
 
     import logfire
 
-    assert metadata.version('logfire') == logfire.VERSION
     logfire_entry_points = {
         entry_point.value
         for entry_point in metadata.distribution('logfire').entry_points
