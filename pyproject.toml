@@ -106,6 +106,7 @@ dev = [
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
     "openai-agents[voice]>=0.14.0",
+    "fastmcp-slim[server]>=4",
     "pydantic-ai-slim[mcp]>=2",
     "pydantic-evals>=2",
     "pydantic-monty>=0.0.23",

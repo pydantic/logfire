@@ -222,13 +222,16 @@ jobs:
           -W 'ignore:Unclosed <MemoryObject:ResourceWarning'
         env:
           COVERAGE_FILE: coverage/.coverage.litestar-2.11
-      - name: Test mcp 2 / fastmcp 4 compatibility
+      - name: Test MCP 1 compatibility
         if: matrix.python-version == '3.12' && matrix.pydantic-version == '2'
         run: >-
-          uv run --no-sync --with 'fastmcp>=4' coverage run -m pytest
-          tests/otel_integrations/test_mcp_v2.py --record-mode=none
+          uv run --no-sync --with 'mcp<2' --with 'fastmcp-slim<4'
+          --with 'pydantic-ai-slim==2.39.0' coverage run -m pytest
+          tests/otel_integrations/test_openai_agents_mcp.py
+          tests/otel_integrations/test_pydantic_ai_mcp.py
+          tests/otel_integrations/test_mcp_version_detection.py --record-mode=none
         env:
-          COVERAGE_FILE: coverage/.coverage.mcp-2
+          COVERAGE_FILE: coverage/.coverage.mcp-1
       - name: Test legacy Anthropic streaming
         if: matrix.python-version == '3.12' && matrix.pydantic-version == '2'
         run: >-
@@ -404,17 +407,17 @@ jobs:
         run: uv python install 3.12
 
       - name: Check tag matches logfire-sdk version
-        uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00  # v5
+        uses: samuelcolvin/check-python-version@17d859ba0a6af9ffcaac5c70608fed36ed33e32a  # v5.1
         with:
           version_file_path: logfire-sdk/pyproject.toml
 
       - name: Check tag matches logfire version
-        uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00  # v5
+        uses: samuelcolvin/check-python-version@17d859ba0a6af9ffcaac5c70608fed36ed33e32a  # v5.1
         with:
           version_file_path: logfire/pyproject.toml
 
       - name: Check tag matches logfire-api version
-        uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00  # v5
+        uses: samuelcolvin/check-python-version@17d859ba0a6af9ffcaac5c70608fed36ed33e32a  # v5.1
         with:
           version_file_path: logfire-api/pyproject.toml
 
