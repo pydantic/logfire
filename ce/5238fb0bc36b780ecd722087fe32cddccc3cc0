@@ -1,9 +1,12 @@
 docs/integrations/databases/snowflake.md
   s_26c70d8a914d6a::t_b9e392ca820883 1-146
+  s_26c70d8a914d6a::t_044a43401142ed 1-146
 docs/integrations/index.md
   s_26c70d8a914d6a::t_577d8b508904f5 37,91
+  s_26c70d8a914d6a::t_a6d14a4068af7d 37,91
 docs/navigation.yml
   s_26c70d8a914d6a::t_13ea78d5bb72ba 387-389
+  s_26c70d8a914d6a::t_d1db190fbf8e51 387-389
 ---
 {
   "schema_version": "authorship/3.0.0",
