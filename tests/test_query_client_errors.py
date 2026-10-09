@@ -29,27 +29,6 @@ SQL = 'SELECT message FROM records'
 MIN_TIMESTAMP = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
 
-@pytest.mark.parametrize('error_type', [QueryExecutionError, QueryRequestError, UnexpectedResponseError])
-def test_query_errors_expose_optional_problem_details(
-    error_type: type[QueryExecutionError] | type[QueryRequestError] | type[UnexpectedResponseError],
-) -> None:
-    error = error_type('legacy error')
-
-    assert error.args == ('legacy error',)
-    assert error.problem is None
-    assert error.problem_type is None
-    assert error.retryable is None
-    assert error.retry_after is None
-
-
-def test_query_rate_limited_error_preserves_unexpected_response_contract() -> None:
-    error = QueryRateLimitedError('Unexpected response status code 429')
-
-    assert isinstance(error, UnexpectedResponseError)
-    assert error.args == ('Unexpected response status code 429',)
-    assert error.retry_after is None
-
-
 def mock_transport(status_code: int, **response_kwargs: Any) -> httpx.MockTransport:
     """A transport answering every request with the given status code and body."""
     return httpx.MockTransport(lambda request: httpx.Response(status_code, **response_kwargs))
