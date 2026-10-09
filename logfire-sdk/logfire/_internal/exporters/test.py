@@ -149,6 +149,8 @@ def process_attribute(
     if name == 'process.pid':
         assert value == os.getpid()
         return 1234
+    if name == 'service.name' and value == 'unknown_service:python':
+        return 'unknown_service'
     if name == 'service.instance.id':
         # OpenTelemetry <=1.42 set this to `uuid4().hex` (32 hex chars); 1.43+ uses the
         # dashed UUID form. Normalise either representation to a fixed value so snapshots
