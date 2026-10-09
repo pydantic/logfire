@@ -1,6 +1,6 @@
 ---
 title: "Logfire Hosts view: CPU, memory, disk and network per host"
-description: "Browse every host shipping system metrics to your Logfire project. Drill into a host's CPU, memory, load, disk and network charts, alongside the application traces that ran on it."
+description: "Browse every host shipping system metrics to your Logfire project, filter to hosts with findings, and inspect the application traces that ran on them."
 ---
 # Hosts
 
@@ -8,22 +8,35 @@ The <OpenInLogfire path="hosts" variant="inline" label="Hosts view" /> shows eve
 
 You'll find Hosts in the project sidebar, between **Services** and **Kubernetes**.
 
-![Hosts inventory page](../../images/hosts/inventory.png)
-
 ## The Hosts inventory
 
 Each row is a host, with at-a-glance columns:
 
-- **Status**: `live` if the host emitted a sample in the last 2 minutes, `stale` between 2 and 5 minutes, `down` once it's been over 5 minutes since the last sample.
+- **Status**: **Reporting** if the host emitted a sample in the last 2 minutes, **Delayed** between 2 and 5 minutes, and **Not reporting** once it has been over 5 minutes since the last sample.
 - **OS** and architecture.
 - **CPU** with an inline sparkline.
 - **Memory** (percent or bytes depending on what the collector reports).
 - **1-minute load**.
 - **Running process count**.
 
-Summary cards across the top of the page give you the fleet shape: total hosts, live / stale / down counts, and fleet CPU in cores.
+Summary cards across the top of the page give you the fleet shape: total hosts, **Reporting**, **Delayed**, and **Not reporting** counts, and fleet CPU in cores.
 
-Sort by any column to find the box that's hot, the box that went stale, or the host with the most processes.
+Sort by any column to find the box that's hot, the host that stopped reporting, or the host with the most processes.
+
+## Find hosts that need attention
+
+The findings summary calls out conditions you may want to investigate. Select **With findings** to show only affected hosts:
+
+- **Not reporting**: Logfire has not received host metrics for more than 5 minutes.
+- **Telemetry delayed**: the latest host metric is between 2 and 5 minutes old.
+- **High memory**: at least three readings spanning 2 minutes stayed at or above 90% memory usage.
+- **Full filesystem**: the latest reported usage for a filesystem is at least 90% of its capacity.
+
+![Host findings summary and filter](../../images/hosts/findings.png)
+
+**High memory** needs `system.memory.utilization`. **Full filesystem** needs the `used` and `free` states from `system.filesystem.usage`. The recommended [OpenTelemetry Collector configuration](../../how-to-guides/otel-collector/host-monitoring.md) enables both metrics.
+
+Memory and filesystem findings inspect the final 15 minutes of the selected range. They cover the hosts loaded into the inventory. A missing metric means Logfire cannot evaluate that condition, not that the host is healthy. Kubernetes lifecycle findings, such as a node that is not ready, appear on the [Kubernetes view](kubernetes.md) instead.
 
 ## Host detail page
 
@@ -129,5 +142,5 @@ The Hosts page populates within about a minute. To collect metrics from the host
 | Host doesn't appear in the inventory | Metrics arrived without a `host.id` (or `host.name`). Add the `system` (and any cloud) detector to your collector's `resourcedetection` processor. |
 | Same physical host shows up twice | Two sources are reporting different `host.id` values, for example the SDK reports the container ID while the Collector reports the machine ID. Pick one source per host, or set `host.id` explicitly. |
 | Every replica of a containerised collector appears as one fake host | `host.id` is being read from inside the container (so every replica reports the same value). Bind-mount the host's filesystem and set `root_path: /hostfs` so `resourcedetection`'s `system` detector reads the real machine ID. |
-| All hosts went `stale` at the same moment | The collector restarted, or a network blip is blocking exports. The page is just a window on what arrived. Confirm with the collector's own logs. |
+| All hosts became **Delayed** or **Not reporting** at the same moment | The collector restarted, or a network blip is blocking exports. The page is just a window on what arrived. Confirm with the collector's own logs. |
 | Kubernetes node appears as both a host *and* a node, but with different names | `host.name` does not match `k8s.node.name`. Set both from the downward API (`spec.nodeName`) so they dedup correctly. See [Hosts that are Kubernetes nodes](#hosts-that-are-kubernetes-nodes). |

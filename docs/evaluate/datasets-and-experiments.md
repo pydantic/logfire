@@ -24,7 +24,9 @@ The **New dataset** flow asks how you want to manage cases:
 - **Manage in Logfire** creates a hosted dataset. Your team can add and edit cases in the web UI, define JSON schemas, import cases from code, and add production traces.
 - **Manage in code** keeps the source of truth with your eval code. Experiment results still appear in Logfire. You can also sync a copy of the cases to Logfire when you want to browse or edit them there.
 
-Use stable dataset names so successive runs appear together. Names can contain `/`, which lets the Datasets page group related datasets by path prefix.
+Use stable dataset names so successive runs appear together. If you plan to create a hosted copy, choose a hosted-compatible name: start with a letter or number and use only letters, numbers, dots, underscores, and hyphens.
+
+The name is also the identity. Hosted names are unique within a project, and Logfire keys the Datasets list on them. A hosted dataset and a code-defined one sharing an exact, hosted-compatible name form a single entry carrying both the hosted cases and the experiment history. The choice above is therefore a starting point rather than a commitment: a dataset that begins in code can gain a hosted copy later under the same name.
 
 ## Use the workspace
 
