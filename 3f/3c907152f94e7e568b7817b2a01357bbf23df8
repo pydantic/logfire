@@ -1,0 +1,46 @@
+logfire-api/logfire_api/_internal/exporters/otlp.pyi
+  s_26c70d8a914d6a::t_b06819cf99cfd1 2,21-47,54,60
+logfire-api/logfire_api/_internal/integrations/monty.pyi
+  s_26c70d8a914d6a::t_b06819cf99cfd1 1,4-7,9,13-14,17-18,20-21,24-26,28
+logfire-api/logfire_api/_internal/integrations/mcp.pyi
+  s_26c70d8a914d6a::t_b06819cf99cfd1 1,5-10
+logfire-api/logfire_api/query_client.pyi
+  s_26c70d8a914d6a::t_b06819cf99cfd1 13-22,33-36
+logfire-api/logfire_api/_internal/config_params.pyi
+  s_26c70d8a914d6a::t_b06819cf99cfd1 15,61
+logfire-api/logfire_api/_internal/logs.pyi
+  s_26c70d8a914d6a::t_b06819cf99cfd1 4-6,19,32,38
+logfire-api/logfire_api/_internal/metrics.pyi
+  s_26c70d8a914d6a::t_b06819cf99cfd1 5,47,50
+logfire-api/logfire_api/_internal/config.pyi
+  s_26c70d8a914d6a::t_b06819cf99cfd1 7,12,82
+logfire-api/logfire_api/_internal/cli/run.pyi
+  s_26c70d8a914d6a::t_b06819cf99cfd1 3,37-43
+logfire-api/logfire_api/_internal/main.pyi
+  s_26c70d8a914d6a::t_b06819cf99cfd1 465-469,474,1602
+logfire-api/logfire_api/experimental/api_client.pyi
+  s_26c70d8a914d6a::t_b06819cf99cfd1 9
+logfire-api/logfire_api/_internal/tracer.pyi
+  s_26c70d8a914d6a::t_b06819cf99cfd1 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3f3c907152f94e7e568b7817b2a01357bbf23df8",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
