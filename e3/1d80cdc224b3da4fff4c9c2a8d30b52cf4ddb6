@@ -1,0 +1,19 @@
+logfire/_internal/integrations/snowflake.py
+  s_26c70d8a914d6a::t_984f34683a96f1 5,28,39-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e31d80cdc224b3da4fff4c9c2a8d30b52cf4ddb6",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
