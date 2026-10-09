@@ -5,7 +5,7 @@ from threading import Lock
 from typing import TYPE_CHECKING, Any, cast
 
 from opentelemetry import trace as trace_api
-from opentelemetry._logs import Logger, LogRecord
+from opentelemetry._logs import Logger, LogRecord, SeverityNumber
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import Tracer as SDKTracer
 from opentelemetry.trace import Link, NonRecordingSpan, Span, SpanKind, Tracer
@@ -110,6 +110,15 @@ class LogfireMontyLogger(Logger):
     def __init__(self, logger: Logger, logfire_instance: Logfire) -> None:
         self.logger = logger
         self.logfire = logfire_instance
+
+    def enabled(
+        self,
+        *,
+        context: Context | None = None,
+        severity_number: SeverityNumber | None = None,
+        event_name: str | None = None,
+    ) -> bool:
+        return self.logger.enabled(context=context, severity_number=severity_number, event_name=event_name)
 
     def emit(self, record: LogRecord | None = None, **kwargs: Any) -> None:
         if record is None:

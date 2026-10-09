@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import dataclasses
 import getpass
 import inspect
@@ -9,6 +10,7 @@ import pickle
 import signal
 import subprocess
 import sys
+import textwrap
 import threading
 import warnings
 from collections.abc import Callable, Iterable, Sequence
@@ -1388,31 +1390,28 @@ def test_otel_resource_updater_sources() -> None:
     # The fork callback manually performs the lock-free equivalent of these private methods. Fail loudly if an
     # OpenTelemetry upgrade changes the state that needs updating.
     assert {
-        name: inspect.getsource(getattr(provider_class, '_update_resource'))
+        name: ast.unparse(ast.parse(textwrap.dedent(inspect.getsource(getattr(provider_class, '_update_resource')))))
         for name, provider_class in provider_classes.items()
     } == snapshot(
         {
             'traces': """\
-    def _update_resource(self, resource: Resource) -> None:
-        with self._tracers_lock:
-            self._resource = self._resource.merge(resource)
-            for tracer in self._tracers.values():
-                tracer._set_resource(self._resource)  # pylint: disable=protected-access
+def _update_resource(self, resource: Resource) -> None:
+    with self._tracers_lock:
+        self._resource = self._resource.merge(resource)
+        for tracer in self._tracers.values():
+            tracer._set_resource(self._resource)\
 """,
             'metrics': """\
-    def _update_resource(self, resource: Resource) -> None:
-        with self._meter_lock:
-            self._sdk_config.resource = self._sdk_config.resource.merge(
-                resource
-            )
+def _update_resource(self, resource: Resource) -> None:
+    with self._meter_lock:
+        self._sdk_config.resource = self._sdk_config.resource.merge(resource)\
 """,
             'logs': """\
-    def _update_resource(self, resource: Resource) -> None:
-        with self._active_loggers_lock:
-            self._resource = self._resource.merge(resource)
-            for logger in list(self._active_loggers):
-                # pylint: disable-next=protected-access
-                logger._set_resource(self._resource)
+def _update_resource(self, resource: Resource) -> None:
+    with self._active_loggers_lock:
+        self._resource = self._resource.merge(resource)
+        for logger in list(self._active_loggers):
+            logger._set_resource(self._resource)\
 """,
         }
     )
@@ -3670,7 +3669,17 @@ def test_normalize_token():
 
 
 def test_host_resource_attributes():
-    # Check that we're copying OTel accurately while avoiding the private import outside tests.
+    # Check that our host attributes match OTel while avoiding its private detector outside tests.
     from opentelemetry.sdk.resources import _HostResourceDetector  # pyright: ignore[reportPrivateUsage]
 
     assert config_module.host_resource_attributes() == _HostResourceDetector().detect().attributes
+
+
+@pytest.mark.parametrize('failure', [False, True])
+def test_host_resource_attributes_without_host_id(monkeypatch: pytest.MonkeyPatch, failure: bool) -> None:
+    def get_host_id() -> None:
+        if failure:
+            raise OSError('host id unavailable')
+
+    monkeypatch.setattr(config_module.otel_resources, '_get_host_id', get_host_id, raising=False)
+    assert 'host.id' not in config_module.host_resource_attributes()
