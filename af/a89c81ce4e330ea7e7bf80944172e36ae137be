@@ -1,0 +1,39 @@
+pyproject.toml
+  s_26c70d8a914d6a::t_30d3e2162d7db6 205
+.github/workflows/deps_test.yml
+  s_26c70d8a914d6a::t_929a73841ec040 133-141
+.github/workflows/main.yml
+  s_26c70d8a914d6a::t_a0256a512f9c34 136,139-143,145
+logfire/_internal/integrations/mcp.py
+  s_26c70d8a914d6a::t_50dd33f92772be 5,7-8,23-29,32,49-52,55,57,86,88,95,117,119,122,128,130,133,138,141,149
+tests/conftest.py
+  s_26c70d8a914d6a::t_030dd950910a18 12,25,78-81
+tests/otel_integrations/test_mcp_v2.py
+  s_26c70d8a914d6a::t_0c3596c0fffd41 4
+tests/otel_integrations/test_mcp_version_detection.py
+  s_26c70d8a914d6a::t_c90ac57999fbb4 5
+tests/otel_integrations/test_openai_agents_mcp.py
+  s_26c70d8a914d6a::t_992707fe4db4e0 7,18-32,36-38,55,58,64-65,67,93-94,109-110,132-134,165-166,210-212,267-269,284-286,297-299,332-334,360-362,407-409,440-441,673-675,722-724
+tests/otel_integrations/test_pydantic_ai_mcp.py
+  s_26c70d8a914d6a::t_91a3581167690a 5,15-29,32-33,51,56-57,77-79,100-102,134-136,281-283,346-348,485-487,538-540
+tests/test_logfire_api.py
+  s_26c70d8a914d6a::t_e715e842fc4dce 37-54,289-290,295-301,305-306
+uv.lock
+  s_26c70d8a914d6a::t_5ecce043d2824c 1327-1378,1651,1654,1662,1664,1671,1677-1700,2564-2572,2589-2603,3131,3292,3557,3561,3563-3564,3575-3588,3590,4289-4300,5145-5153,6155-6163,6705-6717,7522-7530,7694-7736
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "afa89c81ce4e330ea7e7bf80944172e36ae137be",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
