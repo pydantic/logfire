@@ -3179,7 +3179,7 @@ name = "logfire-python"
 version = "0.0.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "logfire-sdk" },
+    { name = "logfire" },
 ]
 
 [package.dev-dependencies]
@@ -3296,7 +3296,7 @@ editor-tests = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "logfire-sdk", editable = "logfire-sdk" }]
+requires-dist = [{ name = "logfire", editable = "logfire" }]
 
 [package.metadata.requires-dev]
 dev = [
