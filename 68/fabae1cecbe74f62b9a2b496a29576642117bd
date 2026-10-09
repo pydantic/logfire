@@ -1,0 +1,23 @@
+logfire/_internal/tracer.py
+  s_26c70d8a914d6a::t_8bab1ac503c2b9 33,191-200
+tests/otel_integrations/test_mcp_v2.py
+  s_26c70d8a914d6a::t_7877b805f6d1e5 93
+tests/test_logfire.py
+  s_26c70d8a914d6a::t_5f1f8e25194a49 4055-4089
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "68fabae1cecbe74f62b9a2b496a29576642117bd",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
