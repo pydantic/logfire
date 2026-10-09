@@ -1,0 +1,19 @@
+logfire-sdk/logfire/.agents/skills/logfire-setup-offline.md
+  s_26c70d8a914d6a::t_251d9a4e4cfb66 155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f3e7b6ee66d9804a86a7b57b901aace3ad06180c",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
