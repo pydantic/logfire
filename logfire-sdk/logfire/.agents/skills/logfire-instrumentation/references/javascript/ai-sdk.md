@@ -87,6 +87,8 @@ await generateText({
     includeRuntimeContext: {
       tenant: true,
     },
+    recordInputs: false,
+    recordOutputs: false,
   },
 })
 ```
@@ -105,6 +107,8 @@ await generateText({
     metadata: {
       tenant: tenantSlug,
     },
+    recordInputs: false,
+    recordOutputs: false,
   },
 })
 ```
@@ -122,6 +126,8 @@ const result = await generateText({
   model,
   telemetry: {
     functionId: 'weather-answer',
+    recordInputs: false,
+    recordOutputs: false,
   },
   tools,
   prompt,
@@ -136,6 +142,8 @@ const result = await generateText({
   experimental_telemetry: {
     functionId: 'weather-answer',
     isEnabled: true,
+    recordInputs: false,
+    recordOutputs: false,
   },
   tools,
   prompt,
