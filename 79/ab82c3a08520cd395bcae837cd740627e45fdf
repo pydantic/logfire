@@ -1,0 +1,21 @@
+logfire-sdk/logfire/_internal/integrations/snowflake.py
+  s_26c70d8a914d6a::t_7181a14c453b28 113-114
+tests/otel_integrations/test_snowflake.py
+  s_26c70d8a914d6a::t_7181a14c453b28 433-458
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "79ab82c3a08520cd395bcae837cd740627e45fdf",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
