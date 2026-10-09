@@ -1,13 +1,18 @@
 logfire/_internal/integrations/fastapi.py
   h_d9dd17644dded9 327-329
+  s_26c70d8a914d6a::t_bbf71bb9aa9df6 327-329
 tests/otel_integrations/test_asgi.py
   h_d9dd17644dded9 113,145
+  s_26c70d8a914d6a::t_642f905055a3d6 113,145
 tests/otel_integrations/test_mcp_v2.py
   h_d9dd17644dded9 14
+  s_26c70d8a914d6a::t_e6c14a7de84d84 14
 tests/otel_integrations/test_mcp_version_detection.py
   h_d9dd17644dded9 9-10,16,18-24
+  s_26c70d8a914d6a::t_a7e3f8122b4135 9-10,16,18-24
 uv.lock
   h_d9dd17644dded9 307,312,314,316,1362,1383,1385,1560,1564,1570,1572,2997,3605,3607,3609,6810,6816,6818,7225,7232,7234,7402,7407,7409
+  s_26c70d8a914d6a::t_eeaa143257a11a 307,312,314,316,1362,1383,1385,1560,1564,1570,1572,2997,3605,3607,3609,6810,6816,6818,7225,7232,7234,7402,7407,7409
 ---
 {
   "schema_version": "authorship/3.0.0",
@@ -17,6 +22,16 @@ uv.lock
   "humans": {
     "h_d9dd17644dded9": {
       "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
     }
   }
 }
