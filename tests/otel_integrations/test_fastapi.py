@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import os
 from typing import Annotated, Any
 from unittest import mock
@@ -1388,6 +1389,24 @@ def test_get_fastapi_arguments(client: TestClient, exporter: TestExporter) -> No
             },
         ]
     )
+
+
+def test_mounted_subapp_native_telemetry_uses_parent_trace(exporter: TestExporter) -> None:
+    if 'telemetry' not in inspect.signature(FastAPI).parameters:
+        pytest.skip('FastAPI native telemetry is unavailable')
+
+    root = FastAPI()
+    child = FastAPI(telemetry={'tracing': True, 'auto_configure': False})
+    child.get('/ping')(lambda: {'ok': True})
+    root.mount('/child', child)
+
+    with logfire.instrument_fastapi(root, record_send_receive=False, extra_spans=False):
+        with TestClient(root) as client:
+            assert client.get('/child/ping').json() == {'ok': True}
+
+    spans = exporter.exported_spans_as_dict()
+    assert len({span['context']['trace_id'] for span in spans}) == 1
+    assert sum(span['name'].startswith('GET ') for span in spans) == 1
 
 
 def test_first_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
