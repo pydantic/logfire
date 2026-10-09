@@ -55,7 +55,7 @@ class _OTLPClient(Protocol):
     def shutdown(self) -> None: ...
 
 
-class _QuietConnectionErrorLogger(logging.LoggerAdapter[logging.Logger]):
+class _QuietConnectionErrorLogger(logging.LoggerAdapter):  # pyright: ignore[reportMissingTypeArgument]
     def error(self, msg: object, *args: Any, **kwargs: Any) -> None:
         if msg == 'Failed to export %s batch code: %s, reason: %s' and len(args) > 1 and args[1] is None:
             return
