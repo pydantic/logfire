@@ -1,0 +1,19 @@
+logfire/.agents/skills/logfire-instrumentation/references/javascript/ai-sdk.md
+  s_26c70d8a914d6a::t_de9e8c217c36a0 90-91,110-111,129-130,145-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f756ef192fcebc5195a1cae66f9e4fdbdcbe0276",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
