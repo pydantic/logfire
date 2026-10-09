@@ -1,5 +1,6 @@
 tests/conftest.py
   h_d9dd17644dded9 43-45
+  s_26c70d8a914d6a::t_34c95311b94fca 43-45
 ---
 {
   "schema_version": "authorship/3.0.0",
@@ -9,6 +10,16 @@ tests/conftest.py
   "humans": {
     "h_d9dd17644dded9": {
       "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
     }
   }
 }
