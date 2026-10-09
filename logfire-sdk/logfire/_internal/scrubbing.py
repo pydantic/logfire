@@ -112,7 +112,9 @@ def _valid_attribute_value(value: Any, ancestors: set[int] | None = None) -> boo
 
 
 def _bounded_attributes(attributes: Mapping[str, Any] | None) -> BoundedAttributes:
-    # OpenTelemetry 1.45 stringifies unsupported objects, which can expose values from scrub callbacks.
+    # A callback may return an unsupported object such as ScrubMatch. Its repr contains
+    # the original secret. OpenTelemetry 1.45 stringifies that object instead of dropping
+    # it, so reject unsupported values before handing them to BoundedAttributes.
     return BoundedAttributes(
         attributes={key: value for key, value in (attributes or {}).items() if _valid_attribute_value(value)}
     )
