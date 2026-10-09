@@ -89,28 +89,6 @@ class ScrubMatch:
     """
 
 
-def _valid_attribute_value(value: Any, ancestors: set[int] | None = None) -> bool:
-    if value is None or isinstance(value, (bool, str, bytes, int, float)):
-        return True
-    if not isinstance(value, (Mapping, Sequence)):
-        return False
-    if ancestors is None:
-        ancestors = set()
-    value_id = id(cast(object, value))
-    if value_id in ancestors:
-        return False
-    ancestors.add(value_id)
-    try:
-        if isinstance(value, Mapping):
-            return all(
-                isinstance(key, str) and _valid_attribute_value(item, ancestors)
-                for key, item in cast(Mapping[Any, Any], value).items()
-            )
-        return all(_valid_attribute_value(item, ancestors) for item in cast(Sequence[Any], value))
-    finally:
-        ancestors.remove(value_id)
-
-
 ScrubCallback = Callable[[ScrubMatch], Any]
 
 
@@ -282,7 +260,8 @@ class SpanScrubber:
         # We need to use BoundedAttributes because:
         # 1. For events and links, we get an error otherwise:
         #      https://github.com/open-telemetry/opentelemetry-python/issues/3761
-        # 2. The callback might return a value that isn't of the type required by OTEL.
+        # 2. The callback might return a value that isn't of the type required by OTEL;
+        #      BoundedAttributes handles it according to the installed OTEL version.
         # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
         new_attributes = self.scrub(('attributes',), span['attributes'])
         if self.did_scrub:
@@ -367,13 +346,6 @@ class SpanScrubber:
     def _redact(self, match: ScrubMatch) -> Any:
         if self._callback and (result := self._callback(match)) is not None:
             self.did_scrub = self.did_scrub or result is not match.value
-            if not _valid_attribute_value(result):
-                # Stringify unsupported callback values on every OpenTelemetry version.
-                # Some versions discard them, while others stringify them themselves.
-                try:
-                    return str(result)
-                except Exception:
-                    return None
             return result
         self.did_scrub = True
         matched_substring = match.pattern_match.group(0)
