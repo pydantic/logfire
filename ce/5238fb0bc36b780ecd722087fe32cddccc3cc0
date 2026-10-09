@@ -1,0 +1,23 @@
+docs/integrations/databases/snowflake.md
+  s_26c70d8a914d6a::t_b9e392ca820883 1-146
+docs/integrations/index.md
+  s_26c70d8a914d6a::t_577d8b508904f5 37,91
+docs/navigation.yml
+  s_26c70d8a914d6a::t_13ea78d5bb72ba 387-389
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ce5238fb0bc36b780ecd722087fe32cddccc3cc0",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
