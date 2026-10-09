@@ -30,6 +30,7 @@ __all__ = [
     'QueryRequestError',
     'InfoRequestError',
     'UnexpectedResponseError',
+    'QueryRateLimitedError',
     'ReadTokenInfo',
     'ColumnDetails',
     'RowQueryResults',
@@ -78,6 +79,15 @@ class InfoRequestError(RuntimeError):
 
 class UnexpectedResponseError(_ProblemDetailsMixin, RuntimeError):
     """Raised when the API responds with an unexpected status code, such as a `5xx` server error."""
+
+    pass
+
+
+class QueryRateLimitedError(UnexpectedResponseError):
+    """Raised when the API responds with status code `429` because the request was rate limited.
+
+    Use `retry_after` to find how long to wait before the next request.
+    """
 
     pass
 
