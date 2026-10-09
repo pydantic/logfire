@@ -1,0 +1,21 @@
+tests/test_logfire.py
+  s_26c70d8a914d6a::t_c8118cc87adb51 4086-4100,4110-4112
+logfire-sdk/logfire/_internal/tracer.py
+  s_26c70d8a914d6a::t_076024c3b287ee 153,176-177,181-182,202-203,318,339
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "58e2d8b0861dbb1f6aaddb282f1d6d08f7d2e6cb",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
