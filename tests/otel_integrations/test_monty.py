@@ -285,7 +285,6 @@ async def test_instrument_monty_async_callback(monty_async_callback_spans: dict[
 
 @pytest.mark.anyio
 @requires_native_telemetry
-@pytest.mark.xfail(reason='Monty 0.0.23 lacks callback context propagation', raises=AssertionError, strict=True)
 async def test_instrument_monty_async_callback_parent(monty_async_callback_spans: dict[str, Any]) -> None:
     spans = monty_async_callback_spans
     assert spans['host callback']['parent'] == spans['call {function_name}']['context']
@@ -331,7 +330,6 @@ def test_instrument_monty_callback_exception(
     assert error['span_id'] == run['context']['span_id']
 
 
-@pytest.mark.xfail(reason='Monty 0.0.23 lacks callback exception events', raises=AssertionError, strict=True)
 @requires_native_telemetry
 def test_instrument_monty_callback_exception_event(monty_callback_exception_spans: dict[str, Any]) -> None:
     call = monty_callback_exception_spans['call {function_name}']
