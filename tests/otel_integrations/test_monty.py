@@ -39,17 +39,20 @@ You can install this with:
 """)
 
 
-def test_instrument_monty_preserves_transitive_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize('missing_module', ['missing_transitive', 'instrument_telemetry'])
+def test_instrument_monty_preserves_transitive_import_error(
+    monkeypatch: pytest.MonkeyPatch, missing_module: str
+) -> None:
     original_import = builtins.__import__
 
     def broken_import(name: str, *args: Any, **kwargs: Any) -> Any:
         if name == 'pydantic_monty':
-            raise ModuleNotFoundError("No module named 'missing_transitive'", name='missing_transitive')
+            raise ModuleNotFoundError(f"No module named '{missing_module}'", name=missing_module)
         return original_import(name, *args, **kwargs)
 
     with monkeypatch.context() as patch:
         patch.setattr(builtins, '__import__', broken_import)
-        with pytest.raises(ModuleNotFoundError, match='missing_transitive'):
+        with pytest.raises(ModuleNotFoundError, match=missing_module):
             importlib.reload(monty_integration)
 
     importlib.reload(monty_integration)
