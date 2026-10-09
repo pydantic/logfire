@@ -122,7 +122,7 @@ jobs:
           uv pip install 'opentelemetry-exporter-otlp-proto-http==${{ matrix.otel-version }}.*'
 
       - run: mkdir coverage
-      - run: uv run --no-sync coverage run -m pytest -n logical --dist=loadgroup --junitxml=coverage/test-results.xml
+      - run: uv run --no-sync coverage run -m pytest -n logical --dist=loadgroup
         env:
           COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}-otel-${{ matrix.otel-version }}
       - name: Test Litestar 2.11 compatibility
@@ -133,6 +133,23 @@ jobs:
           -W 'ignore:Unclosed <MemoryObject:ResourceWarning'
         env:
           COVERAGE_FILE: coverage/.coverage.litestar-2.11
+      - name: Test MCP 1 compatibility
+        if: matrix.python-version == '3.12' && matrix.pydantic-version == '2'
+        run: >-
+          uv run --no-sync --with 'mcp<2' --with 'fastmcp-slim<4'
+          --with 'pydantic-ai-slim==2.39.0' coverage run -m pytest
+          tests/otel_integrations/test_openai_agents_mcp.py
+          tests/otel_integrations/test_pydantic_ai_mcp.py
+          tests/otel_integrations/test_mcp_version_detection.py --record-mode=none
+        env:
+          COVERAGE_FILE: coverage/.coverage.mcp-1
+      - name: Test legacy Anthropic streaming
+        if: matrix.python-version == '3.12' && matrix.pydantic-version == '2'
+        run: >-
+          uv run --no-sync --with 'anthropic==1.2.0' coverage run -m pytest
+          tests/otel_integrations/test_anthropic.py -k streamed_tool_arguments --record-mode=none
+        env:
+          COVERAGE_FILE: coverage/.coverage.anthropic-1.2
       - name: store coverage files
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
         with:
@@ -143,8 +160,10 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     needs: [ test ]
+    outputs:
+      data-uploaded: ${{ steps.store-coverage-data.outcome == 'success' }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           persist-credentials: false
 
@@ -161,20 +180,62 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           merge-multiple: true
+          pattern: coverage-*
           path: coverage
 
       - run: uv pip install coverage[toml]
       - run: uv run coverage combine coverage
-      - run: uv run coverage xml
-      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2  # v6.0.0
+      - run: uv run coverage html --title "logfire coverage for ${{ github.sha }}"
+
+      - name: Store coverage data
+        id: store-coverage-data
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
         with:
-          file: ./coverage.xml
-          env_vars: PYTHON
+          name: coverage-data
+          path: .coverage
+          include-hidden-files: true
+
+      - name: Store coverage HTML
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
+        with:
+          name: coverage-html
+          path: htmlcov
+
       - run: uv run coverage report --fail-under 100
-      - name: Upload test results to Codecov
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3  #v1.2.1
+
+  coverage-pr-comment:
+    needs: [ coverage ]
+    runs-on: ubuntu-latest
+    # Also comment when the 100% gate fails, since that is when the missing lines matter most.
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.coverage.outputs.data-uploaded == 'true' }}
+    concurrency:
+      group: coverage-pr-comment-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
-          files: coverage/test-results.xml
+          persist-credentials: false
+
+      - name: Download coverage data
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: coverage-data
+
+      - name: Generate coverage comment
+        id: coverage-comment
+        uses: py-cov-action/python-coverage-comment-action@5d8df5979747514c914e1c5a12335a7cf9a2745f  # v4.1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Store coverage comment
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
+        if: steps.coverage-comment.outputs.COMMENT_FILE_WRITTEN == 'true'
+        with:
+          name: python-coverage-comment-action
+          path: python-coverage-comment-action.txt
 
   test-pyodide:
     name: test on Pyodide
@@ -256,13 +317,18 @@ jobs:
       - name: Set up Python 3.12
         run: uv python install 3.12
 
-      - name: check GITHUB_REF matches package version
-        uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00  # v5
+      - name: Check tag matches logfire version
+        uses: samuelcolvin/check-python-version@17d859ba0a6af9ffcaac5c70608fed36ed33e32a  # v5.1
         with:
           version_file_path: pyproject.toml
 
+      - name: Check tag matches logfire-api version
+        uses: samuelcolvin/check-python-version@17d859ba0a6af9ffcaac5c70608fed36ed33e32a  # v5.1
+        with:
+          version_file_path: logfire-api/pyproject.toml
+
       - name: Build artifacts
-        run: uv build --all
+        run: uv build --all --no-sources
 
       - name: Publish logfire and logfire-api to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2

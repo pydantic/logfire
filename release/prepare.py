@@ -5,18 +5,8 @@ from pathlib import Path
 
 import requests
 
-from release.shared import API_PYPROJECT, CHANGELOG_FILE, GITHUB_TOKEN, REPO, ROOT_PYPROJECT, run_command
-
-
-def update_version(pyproject_file: str, new_version: str) -> None:
-    """Update the version in a given pyproject.toml."""
-    with open(pyproject_file) as f:
-        content = f.read()
-
-    updated_content = re.sub(r'version\s*=\s*"[^\"]+"', f'version = "{new_version}"', content)
-
-    with open(pyproject_file, 'w') as f:
-        f.write(updated_content)
+from release.shared import API_PYPROJECT, CHANGELOG_FILE, REPO, ROOT_PYPROJECT, get_github_token, run_command
+from release.versioning import update_project_version
 
 
 def generate_stubs() -> None:
@@ -43,7 +33,7 @@ def get_notes(new_version: str) -> str:
         f'https://api.github.com/repos/{REPO}/releases/generate-notes',
         headers={
             'Accept': 'application/vnd.github+json',
-            'Authorization': f'Bearer {GITHUB_TOKEN}',
+            'Authorization': f'Bearer {get_github_token()}',
         },
         json=data,
     )
@@ -93,8 +83,8 @@ if __name__ == '__main__':
 
     version = sys.argv[1]
 
-    update_version(ROOT_PYPROJECT, version)
-    update_version(API_PYPROJECT, version)
+    update_project_version(ROOT_PYPROJECT, version)
+    update_project_version(API_PYPROJECT, version)
     print(f'Updated version to v{version} in both pyproject.toml files.')
 
     generate_stubs()

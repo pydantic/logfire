@@ -1301,6 +1301,59 @@ def test_projects_status_reports_a_failed_query(tmp_dir_cwd: Path, capsys: pytes
     assert 'Invalid read token' in err
 
 
+def test_auth_base_url_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    base_url = 'http://localhost:8080'
+    monkeypatch.setenv('LOGFIRE_BASE_URL', base_url)
+    auth_file = tmp_path / 'default.toml'
+    with (
+        patch('logfire._internal.auth.DEFAULT_FILE', auth_file),
+        patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file),
+        patch('logfire._internal.cli.auth.input', return_value='') as auth_input,
+        patch('logfire._internal.cli.auth.webbrowser.open'),
+        requests_mock.Mocker() as request_mocker,
+    ):
+        request_mocker.post(
+            f'{base_url}/v1/device-auth/new/',
+            json={'device_code': 'DC', 'frontend_auth_url': 'http://example.com/auth'},
+        )
+        request_mocker.get(
+            f'{base_url}/v1/device-auth/wait/DC',
+            json={'token': 'fake_token', 'expiration': 'fake_exp'},
+        )
+
+        main(['auth'])
+
+        # `_read_line()` passes its default empty prompt straight through to `input`.
+        auth_input.assert_called_once_with('')
+        assert [request.url.partition('?')[0] for request in request_mocker.request_history] == [
+            f'{base_url}/v1/device-auth/new/',
+            f'{base_url}/v1/device-auth/wait/DC',
+        ]
+
+
+@pytest.mark.parametrize(
+    ('args', 'expected_url'),
+    [
+        (['--base-url', 'http://cli:8080', 'auth'], 'http://cli:8080'),
+        (['--region', 'us', 'auth'], 'https://logfire-us.pydantic.dev'),
+    ],
+    ids=['base-url', 'region'],
+)
+def test_auth_cli_url_overrides_env(monkeypatch: pytest.MonkeyPatch, args: list[str], expected_url: str) -> None:
+    monkeypatch.setenv('LOGFIRE_BASE_URL', 'http://env:8080')
+    parse_auth = Mock()
+
+    def capture_args(args: argparse.Namespace) -> None:
+        """Capture the parsed auth arguments."""
+        parse_auth(args)
+
+    monkeypatch.setattr(logfire._internal.cli, 'parse_auth', capture_args)
+
+    main(args)
+
+    assert parse_auth.call_args.args[0].logfire_url == expected_url
+
+
 def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
@@ -1386,9 +1439,12 @@ def test_auth_logout_wrong_region(default_credentials: Path, capsys: pytest.Capt
     assert 'No user token was found matching' in capsys.readouterr().err
 
 
-def test_auth_no_region_specified(tmp_path: Path) -> None:
+@pytest.mark.parametrize('env', [{}, {'LOGFIRE_BASE_URL': ''}], ids=['unset', 'empty'])
+def test_auth_no_region_specified(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, env: dict[str, str]) -> None:
+    monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
+        stack.enter_context(patch.dict(os.environ, env))
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         # Necessary to assert that credentials are written to the `auth_file` (which happens from the `cli` module)
         stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
@@ -6253,6 +6309,16 @@ def test_parse_run_script(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Captur
     assert instrument_package_mock.call_args_list == [(('openai',),)]
 
 
+def test_parse_run_instruments_installed_monty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.installed_packages', Mock(return_value={'pydantic-monty-client'}))
+    monkeypatch.setattr('logfire._internal.cli.run.instrument_package', instrument_package_mock := Mock())
+
+    main(['run', '--no-summary', run_script_test.__file__, '-x', 'foo'])
+
+    instrument_package_mock.assert_called_once_with('monty')
+
+
 def test_parse_run_script_with_summary(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setattr('logfire.configure', configure_mock := Mock())
     monkeypatch.setattr('logfire._internal.cli.run.instrument_package', instrument_package_mock := Mock())
@@ -6280,6 +6346,89 @@ def test_parse_run_module(
     assert configure_mock.call_count == 1
     assert capsys.readouterr().out == snapshot('hi from run_script_test.py\n')
     assert instrument_package_mock.call_args_list == [(('openai',),)]
+
+
+def test_parse_run_console_entry_point(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen_argv: list[str] = []
+
+    def console_main() -> None:
+        seen_argv.extend(sys.argv)
+
+    entry_point = Mock()
+    entry_point.load.return_value = console_main
+    entry_points = Mock(return_value=[entry_point])
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', entry_points)
+
+    main(['run', '--no-summary', 'demo-cli', '--target-option'])
+
+    assert seen_argv == ['demo-cli', '--target-option']
+    entry_points.assert_called_once_with(group='console_scripts', name='demo-cli')
+    entry_point.load.assert_called_once_with()
+
+
+def test_parse_run_console_entry_point_is_loaded_before_working_directory(
+    tmp_dir_cwd: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    installed_dir = tmp_path / 'installed'
+    installed_dir.mkdir()
+    marker = tmp_path / 'ran-installed-entry-point'
+    module_name = 'shadowed_console_entry_point'
+    (installed_dir / f'{module_name}.py').write_text(
+        f'from pathlib import Path\ndef main():\n    Path({str(marker)!r}).touch()\n'
+    )
+    (tmp_dir_cwd / f'{module_name}.py').write_text("def main():\n    raise AssertionError('loaded local module')\n")
+    monkeypatch.setattr(sys, 'path', [str(installed_dir), *sys.path])
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+    entry_point = importlib.metadata.EntryPoint(name='demo-cli', value=f'{module_name}:main', group='console_scripts')
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[entry_point]))
+
+    main(['run', '--no-summary', 'demo-cli'])
+
+    assert marker.exists()
+
+
+def test_parse_run_console_entry_point_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    entry_point = Mock()
+    entry_point.load.return_value = lambda: 17
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[entry_point]))
+
+    with pytest.raises(SystemExit, match='17'):
+        main(['run', '--no-summary', 'demo-cli'])
+
+
+def test_parse_run_console_entry_point_ambiguity(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr(
+        'logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[Mock(), Mock()])
+    )
+
+    with pytest.raises(SystemExit):
+        main(['run', '--no-summary', 'demo-cli'])
+
+    assert capsys.readouterr().err == 'Multiple installed packages provide the `demo-cli` console command.\n'
+
+
+def test_parse_run_unknown_console_entry_point(monkeypatch: pytest.MonkeyPatch) -> None:
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[]))
+
+    with pytest.raises(FileNotFoundError):
+        main(['run', '--no-summary', 'missing-cli'])
 
 
 @pytest.fixture()

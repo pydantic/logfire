@@ -1,10 +1,13 @@
 import gc
+import gzip
+import inspect
 import os
 import subprocess
 import sys
 import textwrap
 import threading
 import weakref
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
@@ -15,6 +18,7 @@ import requests.exceptions
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry.exporter.otlp.proto.http import Compression
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan
@@ -24,7 +28,7 @@ from requests.models import PreparedRequest, Response as Response
 from requests.sessions import HTTPAdapter
 
 import logfire
-from logfire._internal.config import LogfireConfig
+from logfire._internal.config import LogfireConfig, LogfireConfigWarning
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
@@ -32,6 +36,7 @@ from logfire._internal.exporters.otlp import (
     DiskRetryer,
     OTLPExporterHttpSession,
     RetryFewerSpansSpanExporter,
+    SuppressedConnectionError,
     cleanup_disk_retryers,
 )
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
@@ -48,9 +53,11 @@ class SinkHTTPAdapter(HTTPAdapter):
         self.timeouts: list[float | tuple[float, float] | None] = []
         self.bodies: list[bytes] = []
         self.body_sizes: list[int] = []
+        self.content_encodings: list[str | None] = []
 
     def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
         self.timeouts.append(kwargs.get('timeout'))
+        self.content_encodings.append(request.headers.get('Content-Encoding'))
         assert request.body is None or isinstance(request.body, bytes)
         body = request.body or b''
         self.bodies.append(body)
@@ -69,6 +76,166 @@ class StatusCodeHTTPAdapter(SinkHTTPAdapter):
         response = super().send(request, *args, **kwargs)
         response.status_code = self.status_codes.pop(0)
         return response
+
+
+@pytest.mark.parametrize('method', [None, 'POST', 'post'])
+@pytest.mark.parametrize('data', [b'payload', b''])
+def test_post_dispatch_retries_transient_failure(
+    method: str | None, data: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def no_sleep(_: float) -> None:
+        pass
+
+    monkeypatch.setattr('time.sleep', no_sleep)
+    with OTLPExporterHttpSession() as session:
+        adapter = StatusCodeHTTPAdapter(503, 200)
+        session.mount('http://', adapter)
+
+        if method is None:
+            response = session.post('http://example.com', data=data, timeout=30)
+        else:
+            response = session.request(method, 'http://example.com', data=data, timeout=30)
+
+        assert response.status_code == 200
+        assert adapter.bodies == [data, data]
+        assert adapter.timeouts == [(3, 30), (3, 30)]
+        assert 'retryer' not in session.__dict__
+
+
+@pytest.mark.parametrize('method', [None, 'POST', 'post'])
+@pytest.mark.parametrize('connection_error', [False, True])
+def test_post_dispatch_delivers_through_disk_retryer(
+    method: str | None, connection_error: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def no_sleep(_: float) -> None:
+        pass
+
+    monkeypatch.setattr('time.sleep', no_sleep)
+
+    class FailingHTTPAdapter(SinkHTTPAdapter):
+        def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
+            response = super().send(request, *args, **kwargs)
+            if connection_error:
+                raise requests.exceptions.ConnectionError('connection failed')
+            response.status_code = 503
+            return response
+
+    with OTLPExporterHttpSession() as session:
+        adapter = FailingHTTPAdapter()
+        session.mount('http://', adapter)
+        retryer = session.retryer
+        retry_adapter = SinkHTTPAdapter()
+        retryer.session.mount('http://', retry_adapter)
+
+        expected_error = SuppressedConnectionError if connection_error else requests.exceptions.HTTPError
+        with pytest.raises(expected_error):
+            if method is None:
+                session.post('http://example.com', data=b'payload', timeout=30)
+            else:
+                session.request(method, 'http://example.com', data=b'payload', timeout=30)
+
+        with retryer.lock:
+            thread = retryer.thread
+        if thread is not None:
+            thread.join(timeout=5)
+            assert not thread.is_alive()
+        assert adapter.bodies == [b'payload', b'payload']
+        assert retry_adapter.bodies == [b'payload']
+        assert retry_adapter.timeouts == [(3, 30)]
+        assert not retryer.tasks
+        assert retryer.total_size == 0
+        assert not list(retryer.dir.iterdir())
+
+
+@pytest.mark.parametrize('method', [None, 'POST', 'post'])
+def test_post_dispatch_preserves_request_options(method: str | None) -> None:
+    sent: list[PreparedRequest] = []
+
+    class RedirectAdapter(HTTPAdapter):
+        def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
+            sent.append(request)
+            assert len(sent) == 1, 'redirects should be disabled'
+            response = Response()
+            response.status_code = 302
+            response.request = request
+            assert request.url is not None
+            response.url = request.url
+            response.headers['Location'] = 'http://example.com/redirect'
+            response._content = b''
+            return response
+
+    with OTLPExporterHttpSession() as session:
+        session.mount('http://', RedirectAdapter())
+        kwargs: dict[str, Any] = dict(
+            data=b'payload', params={'source': 'test'}, headers={'X-Test': 'value'}, allow_redirects=False
+        )
+        if method is None:
+            response = session.post('http://example.com', **kwargs)
+        else:
+            response = session.request(method, 'http://example.com', **kwargs)
+
+        assert response.status_code == 302
+        assert len(sent) == 1
+        assert sent[0].method == 'POST'
+        assert sent[0].url == 'http://example.com/?source=test'
+        assert sent[0].headers['X-Test'] == 'value'
+        assert sent[0].body == b'payload'
+
+
+@pytest.mark.parametrize('method', ['GET', 'PUT'])
+def test_other_request_methods_do_not_retry(method: str) -> None:
+    with OTLPExporterHttpSession() as session:
+        adapter = StatusCodeHTTPAdapter(503)
+        session.mount('http://', adapter)
+
+        response = session.request(method, 'http://example.com', data=b'payload', timeout=30)
+
+        assert response.status_code == 503
+        assert adapter.bodies == [b'payload']
+        assert adapter.timeouts == [(3, 30)]
+        assert 'retryer' not in session.__dict__
+
+
+@pytest.mark.parametrize(
+    ('kwargs', 'expected_body'),
+    [
+        ({}, None),
+        ({'json': {'span': 1}}, b'{"span": 1}'),
+        ({'data': b'', 'json': {'span': 1}}, b'{"span": 1}'),
+        ({'data': {'span': '1'}}, 'span=1'),
+    ],
+)
+def test_request_nonbytes_body_does_not_retry(kwargs: dict[str, Any], expected_body: bytes | str | None) -> None:
+    bodies: list[Any] = []
+
+    class HTTPErrorAdapter(HTTPAdapter):
+        def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
+            bodies.append(request.body)
+            response = Response()
+            response.status_code = 503
+            return response
+
+    with OTLPExporterHttpSession() as session:
+        session.mount('http://', HTTPErrorAdapter())
+
+        response = session.request('POST', 'http://example.com', timeout=30, **kwargs)
+
+        assert response.status_code == 503
+        assert bodies == [expected_body]
+        assert 'retryer' not in session.__dict__
+
+
+def test_request_multipart_body_does_not_retry() -> None:
+    with OTLPExporterHttpSession() as session, BytesIO(b'file payload') as stream:
+        adapter = StatusCodeHTTPAdapter(503, 200)
+        session.mount('http://', adapter)
+
+        response = session.request('POST', 'http://example.com', data=b'', files={'file': ('test.bin', stream)})
+
+        assert response.status_code == 503
+        assert len(adapter.bodies) == 1
+        assert b'file payload' in adapter.bodies[0]
+        assert 'retryer' not in session.__dict__
 
 
 @pytest.mark.parametrize(
@@ -117,6 +284,24 @@ def test_max_body_size_bytes() -> None:
     # The exact serialized size depends on the OpenTelemetry version, so match the message shape
     # rather than a hardcoded byte count.
     assert str(e.value) == IsStr(regex=r'Request body is too large \(\d+ bytes\), must be less than 10 bytes\.')
+
+
+def test_exporter_without_custom_session() -> None:
+    exporter = BodySizeCheckingOTLPSpanExporter()
+    exporter.shutdown()
+
+
+@pytest.mark.skipif(
+    'max_request_size' not in inspect.signature(OTLPSpanExporter).parameters, reason='OpenTelemetry <1.45'
+)
+def test_upstream_request_limit_does_not_bypass_batch_splitting() -> None:
+    session = OTLPExporterHttpSession()
+    session.mount('http://', SinkHTTPAdapter())
+    exporter = BodySizeCheckingOTLPSpanExporter(session=session, max_request_size=10)
+    exporter.max_body_size = 10
+
+    with pytest.raises(BodyTooLargeError):
+        exporter.export(TEST_SPANS)
 
 
 def test_backend_payload_too_large_splits_spans() -> None:
@@ -229,6 +414,121 @@ def test_other_client_errors_are_not_split() -> None:
     assert len(adapter.timeouts) == 1
 
 
+def zstd_decompress(data: bytes) -> bytes:
+    if sys.version_info >= (3, 14):
+        from compression.zstd import decompress
+    else:
+        from backports.zstd import decompress
+
+    return decompress(data)
+
+
+def get_logfire_session() -> OTLPExporterHttpSession:
+    [send_to_logfire_processor, *_] = get_span_processors()
+    assert isinstance(send_to_logfire_processor, DynamicBatchSpanProcessor)
+    exporter = send_to_logfire_processor.span_exporter
+    while isinstance(exporter, WrapperSpanExporter):
+        exporter = exporter.wrapped_exporter
+    assert isinstance(exporter, BodySizeCheckingOTLPSpanExporter)
+    return exporter._session  # type: ignore
+
+
+def configure_and_export_span(monkeypatch: pytest.MonkeyPatch, **kwargs: Any) -> tuple[str | None, list[str]]:
+    """Configure sending to Logfire, export one span, and return the request's content encoding and span names."""
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
+    logfire.configure(send_to_logfire=True, console=False, token='foo', **kwargs)
+    wait_for_check_token_thread()
+    adapter = SinkHTTPAdapter()
+    get_logfire_session().mount('https://', adapter)
+
+    with logfire.span('compressed span'):
+        pass
+    logfire.force_flush()
+
+    [content_encoding] = adapter.content_encodings
+    [body] = adapter.bodies
+    body = zstd_decompress(body) if content_encoding == 'zstd' else gzip.decompress(body)
+    request = ExportTraceServiceRequest.FromString(body)
+    span_names = [
+        span.name
+        for resource_spans in request.resource_spans
+        for scope_spans in resource_spans.scope_spans
+        for span in scope_spans.spans
+    ]
+    return content_encoding, span_names
+
+
+def test_logfire_exports_use_gzip_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert configure_and_export_span(monkeypatch) == ('gzip', ['compressed span'])
+
+
+def test_logfire_exports_zstd(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert configure_and_export_span(monkeypatch, advanced=logfire.AdvancedOptions(compression='zstd')) == (
+        'zstd',
+        ['compressed span'],
+    )
+
+
+def test_logfire_exports_zstd_from_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('LOGFIRE_COMPRESSION', 'zstd')
+    assert configure_and_export_span(monkeypatch) == ('zstd', ['compressed span'])
+
+
+def test_logfire_exports_zstd_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr('logfire._internal.config.zstd_compress', None)
+
+    with pytest.warns(
+        LogfireConfigWarning,
+        match=r"`compression='zstd'` requires Python 3.14\+ or the `backports.zstd` package, using gzip instead.",
+    ):
+        result = configure_and_export_span(monkeypatch, advanced=logfire.AdvancedOptions(compression='zstd'))
+    assert result == ('gzip', ['compressed span'])
+
+
+def test_session_without_zstd_sends_data_unchanged() -> None:
+    session = OTLPExporterHttpSession()
+    adapter = SinkHTTPAdapter()
+    session.mount('http://', adapter)
+
+    session.post('http://example.com', data=b'data')
+
+    assert adapter.bodies == [b'data']
+    assert adapter.content_encodings == [None]
+
+
+def test_session_zstd_compression() -> None:
+    session = OTLPExporterHttpSession(_use_zstd=True)
+    adapter = SinkHTTPAdapter()
+    session.mount('http://', adapter)
+
+    session.post('http://example.com', data=b'data' * 1000)
+
+    assert adapter.content_encodings == ['zstd']
+    assert zstd_decompress(adapter.bodies[0]) == b'data' * 1000
+    assert adapter.body_sizes[0] < 100
+
+
+def test_zstd_is_preserved_for_disk_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = OTLPExporterHttpSession(_use_zstd=True)
+    request_error = requests.exceptions.RequestException('request failed')
+    monkeypatch.setattr(session, '_post', Mock(side_effect=request_error))
+    add_task = Mock()
+    monkeypatch.setattr(session, '_add_task', add_task)
+    monkeypatch.setattr('time.time', Mock(side_effect=[0, 11]))
+
+    with pytest.raises(requests.exceptions.RequestException, match='request failed'):
+        session.post('http://example.com', data=b'data', timeout=30)
+
+    [(data, url, kwargs, error)] = [call.args for call in add_task.call_args_list]
+    assert zstd_decompress(data) == b'data'
+    assert (url, kwargs, error) == (
+        'http://example.com',
+        {'timeout': (3, 30), 'headers': {'Content-Encoding': 'zstd'}},
+        request_error,
+    )
+
+
 def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
 
@@ -280,8 +580,12 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
 
     # Wait for the retryer to finish.
     # time.sleep has been mocked to return 0 so this shouldn't take long.
-    assert session.retryer.thread
-    session.retryer.thread.join()
+    # The thread may have already drained the queue and reset `retryer.thread` to None.
+    # No more tasks can be added now, so a None thread means the retryer is done.
+    with session.retryer.lock:
+        thread = session.retryer.thread
+    if thread:  # pragma: no branch
+        thread.join()
 
     # Check that everything is cleaned up after succeeding.
     assert not session.retryer.tasks
@@ -448,3 +752,81 @@ def test_disk_retryer_add_task_after_close_does_nothing() -> None:
     assert retryer.total_size == 0
     assert not retryer.tasks
     assert retryer.thread is None
+
+
+def test_disk_retryer_drops_non_retryable_http_error(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Non-retryable statuses (e.g. 401) must not be treated as a successful delivery.
+
+    raise_for_retryable_status only raises for 408/429/5xx. Previously any other response
+    fell into the success branch and silently deleted the on-disk payload (#2443).
+    """
+    monkeypatch.setattr('random.random', Mock(return_value=0.0))
+    monkeypatch.setattr('time.sleep', Mock())
+
+    retryer = DiskRetryer({})
+    refused = Response()
+    refused.status_code = 401
+    # Hold the post until the main thread has captured the worker thread,
+    # otherwise the worker can finish and clear retryer.thread first.
+    thread_captured = threading.Event()
+
+    def refuse(**kwargs: Any) -> Response:
+        thread_captured.wait(timeout=5)
+        return refused
+
+    post = Mock(side_effect=refuse)
+    monkeypatch.setattr(retryer.session, 'post', post)
+
+    with caplog.at_level('ERROR', logger='logfire'):
+        retryer.add_task(b'export-payload', {'url': 'https://example.com/v1/traces'})
+        thread = retryer.thread
+        assert thread is not None
+        thread_captured.set()
+        thread.join(timeout=5)
+
+    assert post.call_count == 1
+    assert not retryer.tasks
+    assert retryer.total_size == 0
+    assert retryer.thread is None
+    assert not list(retryer.dir.iterdir())
+    assert any(
+        'permanently refused with HTTP 401' in message and 'dropping queued payload' in message
+        for message in caplog.messages
+    )
+    retryer.close()
+
+
+def test_disk_retryer_still_retries_server_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retryable 5xx responses must keep the payload until a successful delivery."""
+    monkeypatch.setattr('random.random', Mock(return_value=0.0))
+    monkeypatch.setattr('time.sleep', Mock())
+
+    retryer = DiskRetryer({})
+    failure = Response()
+    failure.status_code = 503
+    success = Response()
+    success.status_code = 200
+    responses = iter([failure, failure, success])
+    thread_captured = threading.Event()
+
+    def respond(**kwargs: Any) -> Response:
+        thread_captured.wait(timeout=5)
+        return next(responses)
+
+    post = Mock(side_effect=respond)
+    monkeypatch.setattr(retryer.session, 'post', post)
+
+    retryer.add_task(b'export-payload', {'url': 'https://example.com/v1/traces'})
+    thread = retryer.thread
+    assert thread is not None
+    thread_captured.set()
+    thread.join(timeout=5)
+
+    assert post.call_count == 3
+    assert not retryer.tasks
+    assert retryer.total_size == 0
+    assert retryer.thread is None
+    assert not list(retryer.dir.iterdir())
+    retryer.close()

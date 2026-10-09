@@ -43,9 +43,6 @@ You'll see five headline metric cards (Calls, Errors, Avg latency, Cost, Speed),
 
 Time to first token measures how long a streaming model call waits before surfacing its first chunk to your application. Unlike total latency, it shows how quickly a user starts seeing the response.
 
-!!! note "Early access"
-    In **Settings → Early access**, enable **Time-to-first-token metrics** to show these panels.
-
 Open <OpenInLogfire path="dashboards" variant="inline" label="Dashboards" /> and enable either built-in **LLM Tokens and Costs** dashboard. Expand **Time to first token (streaming)** to see:
 
 - 95th percentile (p95) time to first token for each model
@@ -165,6 +162,5 @@ The inventory groups rows by `(provider, model)`. Beyond the text search at the 
 | Tokens or Cost columns are 0 | Streaming is closing the span on the first chunk, so the final `gen_ai.usage.{input,output}_tokens` attributes never land on the span. See [Streaming gotchas](#streaming-gotchas). |
 | Truncated rate is 0% even though responses are being cut off | Missing `gen_ai.response.finish_reasons` array on the span (or the legacy singular `gen_ai.response.finish_reason` is being emitted; the LLMs page reads the plural form). |
 | Tool-call rate is 0% on a model you know calls tools | Instrumentation isn't recording tool-call attributes on the LLM span. The [supported instrumentations](#supported-instrumentations) all do this; custom ones may not. |
-| Time to first token section is missing from the LLM dashboards | Enable **Time-to-first-token metrics** in **Settings → Early access**. |
 | Time to first token panels are empty | Only streaming calls populate these panels. With Pydantic AI, use version 2.6.0 or later. With another instrumentation, verify that it emits `gen_ai.client.operation.time_to_first_chunk`. Widen the dashboard time range to include recent streaming calls. |
 | Average per-model latency dropped after enabling the Collector | The Collector is tail-sampling out non-error spans, so the page is averaging only the errored calls. Either disable tail sampling or sample independently of the `gen_ai.*` pipeline. |

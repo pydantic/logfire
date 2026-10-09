@@ -39,6 +39,7 @@ log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
 install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
 instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
 instrument_pydantic_ai = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic_ai
+instrument_monty = DEFAULT_LOGFIRE_INSTANCE.instrument_monty
 instrument_asgi = DEFAULT_LOGFIRE_INSTANCE.instrument_asgi
 instrument_wsgi = DEFAULT_LOGFIRE_INSTANCE.instrument_wsgi
 instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
@@ -67,6 +68,7 @@ instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
 instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
 instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
 instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb
+instrument_snowflake = DEFAULT_LOGFIRE_INSTANCE.instrument_snowflake
 instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
 instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp
 instrument_claude_agent_sdk = DEFAULT_LOGFIRE_INSTANCE.instrument_claude_agent_sdk
@@ -153,6 +155,7 @@ __all__ = (
     'instrument_wsgi',
     'instrument_pydantic',
     'instrument_pydantic_ai',
+    'instrument_monty',
     'instrument_fastapi',
     'instrument_openai',
     'instrument_openai_agents',
@@ -179,6 +182,7 @@ __all__ = (
     'instrument_pymongo',
     'instrument_mysql',
     'instrument_surrealdb',
+    'instrument_snowflake',
     'instrument_system_metrics',
     'instrument_mcp',
     'instrument_claude_agent_sdk',

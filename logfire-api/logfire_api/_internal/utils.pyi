@@ -18,9 +18,6 @@ from types import TracebackType
 from typing import Any, ParamSpec, TypeVar, TypedDict
 
 _ = BaseExceptionGroup
-
-class BaseExceptionGroup(BaseException):
-    """Stub for BaseExceptionGroup for Python < 3.11."""
 SysExcInfo = tuple[type[BaseException], BaseException, TracebackType | None] | tuple[None, None, None]
 P = ParamSpec('P')
 T = TypeVar('T')

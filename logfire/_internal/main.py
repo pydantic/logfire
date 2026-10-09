@@ -91,6 +91,7 @@ if TYPE_CHECKING:
     from opentelemetry.metrics import _Gauge as Gauge
     from pydantic_evals.reporting import EvaluationReport
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
+    from snowflake.connector.connection import SnowflakeConnection
     from sqlalchemy import Engine
     from sqlalchemy.ext.asyncio import AsyncEngine
     from starlette.applications import Starlette
@@ -1012,16 +1013,47 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         instrument_surrealdb(obj, self)
 
+    def instrument_snowflake(
+        self,
+        conn_or_module: ModuleType | SnowflakeConnection | None = None,
+        *,
+        capture_parameters: bool = False,
+    ) -> None:
+        """Instrument the [Snowflake Connector for Python](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector) so that a span is created for each query.
+
+        Calls to `execute_async()` create a `snowflake execute async` span that measures query submission,
+        not server-side execution.
+
+        Args:
+            conn_or_module: Pass a single connection instance to instrument only that connection.
+                By default (`None`), all connections are instrumented, including ones created later.
+            capture_parameters: Set to `True` to capture query parameters as span attributes.
+                Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
+                Instrumenting the same target again has no effect; the first call determines this setting,
+                and a later call with a different value emits a warning.
+                A connection keeps the setting it was instrumented with, even if the module is instrumented later.
+        """
+        from .integrations.snowflake import instrument_snowflake
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_snowflake(self, conn_or_module, capture_parameters)
+
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
         """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
 
         Instruments both the client and server side. If possible, calling this in both the client and server
         processes is recommended for nice distributed traces.
 
+        This is only needed with mcp 1.x. Version 2 of the SDK (which fastmcp 4 depends on) emits
+        OpenTelemetry spans and propagates the trace context via `_meta` by itself, so with it
+        `logfire.configure()` is all that's needed. Calling this method there does nothing
+        except emit a `UserWarning` saying so.
+
         Args:
             propagate_otel_context: Whether to enable propagation of the OpenTelemetry context
                 for distributed tracing.
                 Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+                Ignored with mcp 2, which always propagates the context.
         """
         from .integrations.mcp import instrument_mcp
 
@@ -1175,6 +1207,21 @@ class Logfire:
             include_binary_content=include_binary_content,
             **kwargs,
         )
+
+    def instrument_monty(self) -> None:
+        """Instrument Pydantic Monty.
+
+        Call this once after [`configure()`][logfire.configure] and before creating a Monty pool.
+        The first call selects the Logfire instance and its settings for the whole process;
+        subsequent calls do not replace them.
+
+        It records Monty sessions, executed code, inputs, outputs, external calls,
+        exceptions, printed text, and pool metrics. Recorded values are subject to Logfire's configured scrubbing.
+        """
+        from .integrations.monty import instrument_monty
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_monty(self)
 
     def instrument_fastapi(
         self,
@@ -3405,10 +3452,11 @@ def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
     if isinstance(value, Enum):
         return logfire_json_dumps(value)
     elif isinstance(value, int):
-        if value > OTLP_MAX_INT_SIZE:
+        if not -OTLP_MAX_INT_SIZE - 1 <= value <= OTLP_MAX_INT_SIZE:
             warnings.warn(
-                f'Integer value {value} is larger than the maximum OTLP integer size of {OTLP_MAX_INT_SIZE} (64-bits), '
-                ' if you need support for sending larger integers, please open a feature request',
+                f'Integer value {value} is outside the range of OTLP integers (signed 64-bit), '
+                'so it will be sent as a string. '
+                'If you need support for sending such integers, please open a feature request',
                 UserWarning,
             )
             return str(value)

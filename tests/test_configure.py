@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import dataclasses
 import getpass
 import inspect
@@ -9,6 +10,7 @@ import pickle
 import signal
 import subprocess
 import sys
+import textwrap
 import threading
 import warnings
 from collections.abc import Callable, Iterable, Sequence
@@ -549,6 +551,19 @@ def test_logfire_invalid_config_dir(tmp_path: Path):
         LogfireConfig(config_dir=tmp_path)
 
 
+def test_logfire_config_dir_permission_denied(tmp_path: Path):
+    original_exists = Path.exists
+
+    def exists(self: Path, *args: Any, **kwargs: Any) -> bool:
+        if self.name == 'pyproject.toml':
+            raise PermissionError(13, 'Permission denied', str(self))
+        return original_exists(self, *args, **kwargs)
+
+    with patch.object(Path, 'exists', exists):
+        with pytest.warns(UserWarning, match='Unable to access config file'):
+            LogfireConfig(config_dir=tmp_path)
+
+
 def test_logfire_config_console_options() -> None:
     assert LogfireConfig().console == ConsoleOptions()
     assert LogfireConfig(console=False).console is False
@@ -824,6 +839,23 @@ def test_configure_service_version(config_kwargs: dict[str, Any], exporter: Test
         assert resource_service_version() is None
     finally:
         os.chdir(dir)
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='console windows only exist on Windows')
+def test_configure_service_version_git_no_window(
+    config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def check_output(cmd: list[str], **kwargs: Any) -> bytes:
+        calls.append(kwargs)
+        return b'abc123\n'
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    configure(**config_kwargs)
+    assert calls[-1]['creationflags'] == 0x08000000  # subprocess.CREATE_NO_WINDOW, which only exists on Windows
+    assert GLOBAL_CONFIG.service_version == 'abc123'
 
 
 def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
@@ -1357,31 +1389,28 @@ def test_otel_resource_updater_sources() -> None:
     # The fork callback manually performs the lock-free equivalent of these private methods. Fail loudly if an
     # OpenTelemetry upgrade changes the state that needs updating.
     assert {
-        name: inspect.getsource(getattr(provider_class, '_update_resource'))
+        name: ast.unparse(ast.parse(textwrap.dedent(inspect.getsource(getattr(provider_class, '_update_resource')))))
         for name, provider_class in provider_classes.items()
     } == snapshot(
         {
             'traces': """\
-    def _update_resource(self, resource: Resource) -> None:
-        with self._tracers_lock:
-            self._resource = self._resource.merge(resource)
-            for tracer in self._tracers.values():
-                tracer._set_resource(self._resource)  # pylint: disable=protected-access
+def _update_resource(self, resource: Resource) -> None:
+    with self._tracers_lock:
+        self._resource = self._resource.merge(resource)
+        for tracer in self._tracers.values():
+            tracer._set_resource(self._resource)\
 """,
             'metrics': """\
-    def _update_resource(self, resource: Resource) -> None:
-        with self._meter_lock:
-            self._sdk_config.resource = self._sdk_config.resource.merge(
-                resource
-            )
+def _update_resource(self, resource: Resource) -> None:
+    with self._meter_lock:
+        self._sdk_config.resource = self._sdk_config.resource.merge(resource)\
 """,
             'logs': """\
-    def _update_resource(self, resource: Resource) -> None:
-        with self._active_loggers_lock:
-            self._resource = self._resource.merge(resource)
-            for logger in list(self._active_loggers):
-                # pylint: disable-next=protected-access
-                logger._set_resource(self._resource)
+def _update_resource(self, resource: Resource) -> None:
+    with self._active_loggers_lock:
+        self._resource = self._resource.merge(resource)
+        for logger in list(self._active_loggers):
+            logger._set_resource(self._resource)\
 """,
         }
     )
@@ -3639,7 +3668,17 @@ def test_normalize_token():
 
 
 def test_host_resource_attributes():
-    # Check that we're copying OTel accurately while avoiding the private import outside tests.
+    # Check that our host attributes match OTel while avoiding its private detector outside tests.
     from opentelemetry.sdk.resources import _HostResourceDetector  # pyright: ignore[reportPrivateUsage]
 
     assert config_module.host_resource_attributes() == _HostResourceDetector().detect().attributes
+
+
+@pytest.mark.parametrize('failure', [False, True])
+def test_host_resource_attributes_without_host_id(monkeypatch: pytest.MonkeyPatch, failure: bool) -> None:
+    def get_host_id() -> None:
+        if failure:
+            raise OSError('host id unavailable')
+
+    monkeypatch.setattr(config_module.otel_resources, '_get_host_id', get_host_id, raising=False)
+    assert 'host.id' not in config_module.host_resource_attributes()

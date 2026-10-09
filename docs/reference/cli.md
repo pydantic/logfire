@@ -30,6 +30,8 @@ via the cli instead of interactively, use `logfire --region eu auth` or `logfire
 !!! note
     If you're using a [self-hosted Logfire instance](./self-hosted/overview.md), you can authenticate by specifying your instance's URL using the `--base-url` flag:
     `logfire --base-url="https://<your_logfire_hostname>" auth`
+    Alternatively, set `LOGFIRE_BASE_URL`, which is also read by the SDK, to authenticate against the same instance:
+    `LOGFIRE_BASE_URL="https://<your_logfire_hostname>" logfire auth`
 
 Then you will be given the option to open logfire in your browser:
 ![Terminal screenshot with Logfire auth command](../images/cli/terminal-screenshot-auth-1.png)
@@ -249,7 +251,15 @@ To run a Python script or module with **Logfire** instrumentation enabled automa
 logfire run script.py
 # or run a module, forwarding any arguments after it:
 logfire run -m my_module --my-arg
+# or run an installed Python console command:
+logfire run pytest tests/
 ```
+
+Console commands are resolved from the selected Python environment's installed
+`console_scripts` metadata, which maps each command name to the Python function
+that runs it. This keeps automatic instrumentation in the same
+Python process on macOS, Linux, and Windows, including platforms where package
+installers generate native launcher executables.
 
 By default a summary box is printed to stderr showing which packages were instrumented; disable it with `--no-summary`. Use `--exclude` to skip instrumenting specific packages:
 

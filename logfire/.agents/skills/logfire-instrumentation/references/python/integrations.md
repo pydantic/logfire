@@ -32,6 +32,7 @@
 | MySQL | `logfire.instrument_mysql()` | `mysql` |
 | SQLite3 | `logfire.instrument_sqlite3()` | `sqlite3` |
 | Redis | `logfire.instrument_redis()` | `redis` |
+| Snowflake | `logfire.instrument_snowflake()` | no extra (`snowflake-connector-python`) |
 
 ## AI/LLM Frameworks
 
@@ -74,7 +75,7 @@ For PydanticAI, each agent run becomes a parent span containing child spans for 
 | Pydantic model validation | `logfire.instrument_pydantic()` | no extra (distinct from `instrument_pydantic_ai()` above) |
 | AWS Lambda | handler wrapper | `aws-lambda` extra |
 | SurrealDB | `logfire.instrument_surrealdb()` | no extra |
-| MCP (client and server) | `logfire.instrument_mcp()` | no extra |
+| MCP (client and server) | `logfire.instrument_mcp()` (mcp 1 only; mcp 2 and fastmcp 4 emit spans by themselves, so `logfire.configure()` is enough and the call just warns) | no extra |
 | `print()` redirection | `logfire.instrument_print()` | no extra |
 
 `gateway`, `datasets`, and `variables` are extras too, but for separate product features, not app instrumentation: the AI Gateway proxy, the evals SDK (see the `logfire-evals` skill), and managed feature flags respectively.
