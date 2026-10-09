@@ -79,7 +79,7 @@ from logfire.version import VERSION
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
-from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
+from .config_params import CompressionValues, ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
     ATTRIBUTES_CONFIG,
     ATTRIBUTES_PACKAGE_VERSIONS,
@@ -108,6 +108,7 @@ from .exporters.otlp import (
     QuietSpanExporter,
     RetryFewerSpansSpanExporter,
     cleanup_disk_retryers,
+    zstd_compress,
 )
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
@@ -283,6 +284,18 @@ class AdvancedOptions:
     precedence list and how to query the resulting attributes.
 
     Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
+    """
+
+    compression: CompressionValues | None = None
+    """Compression used for data sent to Logfire.
+
+    * `'gzip'`: Use gzip for compression (the default).
+    * `'zstd'`: Use Zstandard for compression. This compression is experimental, and can only be used under Python 3.14 or greater,
+      or if the [`backports.zstd`](https://pypi.org/project/backports.zstd/) backport is available.
+
+    This only affects data sent to Logfire, not to other OpenTelemetry endpoints.
+
+    Defaults to the `LOGFIRE_COMPRESSION` environment variable, or `'gzip'`.
     """
 
     def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
@@ -854,6 +867,7 @@ class _LogfireConfigData:
         advanced.emit_configuration_span = param_manager.load_param(
             'emit_configuration_span', advanced.emit_configuration_span
         )
+        advanced.compression = param_manager.load_param('compression', advanced.compression)
         resource_detectors = param_manager.load_param('resource_detectors', advanced.resource_detectors)
         if isinstance(resource_detectors, str):
             # A bare string satisfies `Sequence[str]` statically but would be iterated character by
@@ -1284,17 +1298,29 @@ class LogfireConfig(_LogfireConfigData):
                         thread = Thread(target=check_tokens, name='check_logfire_token')
                         thread.start()
 
+                    use_zstd = self.advanced.compression == 'zstd'
+                    if use_zstd and zstd_compress is None:
+                        warn_at_user_stacklevel(
+                            "`compression='zstd'` requires Python 3.14+ or the `backports.zstd` package, using gzip instead.",
+                            category=LogfireConfigWarning,
+                        )
+                        use_zstd = False
+                    # The OpenTelemetry exporters don't support zstd yet, so the session compresses the data itself
+                    # (see https://github.com/open-telemetry/opentelemetry-specification/pull/5321).
+                    # TODO: pass the OTel SDK's zstd `Compression` value instead once it exists.
+                    compression = Compression.NoCompression if use_zstd else Compression.Gzip
+
                     # Create exporters for each token
                     for token in token_list:
                         base_url = self.advanced.generate_base_url(token)
                         otlp_forwarding_destinations.append((base_url, token))
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
-                        session = OTLPExporterHttpSession()
+                        session = OTLPExporterHttpSession(_use_zstd=use_zstd)
                         install_logfire_response_hook(session, self.advanced.server_response_hook)
                         span_exporter = BodySizeCheckingOTLPSpanExporter(
                             endpoint=urljoin(base_url, '/v1/traces'),
                             session=session,
-                            compression=Compression.Gzip,
+                            compression=compression,
                             headers=headers,
                         )
                         span_exporter = QuietSpanExporter(span_exporter)
@@ -1317,7 +1343,7 @@ class LogfireConfig(_LogfireConfigData):
                                             endpoint=urljoin(base_url, '/v1/metrics'),
                                             headers=headers,
                                             session=session,
-                                            compression=Compression.Gzip,
+                                            compression=compression,
                                             # I'm pretty sure that this line here is redundant,
                                             # and that passing it to the QuietMetricExporter is what matters
                                             # because the PeriodicExportingMetricReader will read it from there.
@@ -1332,7 +1358,7 @@ class LogfireConfig(_LogfireConfigData):
                             endpoint=urljoin(base_url, '/v1/logs'),
                             session=session,
                             headers=headers,
-                            compression=Compression.Gzip,
+                            compression=compression,
                         )
                         log_exporter = QuietLogExporter(log_exporter)
 
