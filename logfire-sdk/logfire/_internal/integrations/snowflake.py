@@ -25,6 +25,7 @@ except ModuleNotFoundError as e:
 _module_settings: tuple[Logfire, bool] | None = None
 _connection_settings: WeakKeyDictionary[SnowflakeConnection, tuple[Logfire, bool]] = WeakKeyDictionary()
 _inside_executemany: ContextVar[bool] = ContextVar('logfire_snowflake_inside_executemany', default=False)
+_inside_execute: ContextVar[bool] = ContextVar('logfire_snowflake_inside_execute', default=False)
 _instrument_lock = Lock()
 
 
@@ -52,6 +53,7 @@ def instrument_snowflake(
         else:
             raise ValueError(f"Don't know how to instrument {conn_or_module!r}")
         _patch_cursor_class()
+        _patch_cursor_factory()
 
 
 def _warn_capture_parameters_ignored(existing: bool) -> None:
@@ -86,6 +88,29 @@ def _patch_cursor_class() -> None:
         SnowflakeCursorBase.executemany = _wrap_executemany(original_executemany)
 
 
+def _patch_cursor_factory() -> None:
+    original_cursor: Any = SnowflakeConnection.__dict__['cursor']
+    if getattr(original_cursor, '_logfire_patched', False):
+        return
+
+    @functools.wraps(original_cursor)
+    def wrapped_cursor(self: SnowflakeConnection, *args: Any, **kwargs: Any) -> SnowflakeCursorBase[Any]:
+        cursor: SnowflakeCursorBase[Any] = original_cursor(self, *args, **kwargs)
+        with _instrument_lock:
+            _patch_custom_cursor_class(type(cursor))
+        return cursor
+
+    wrapped_cursor._logfire_patched = True  # type: ignore[attr-defined]
+    SnowflakeConnection.cursor = wrapped_cursor
+
+
+def _patch_custom_cursor_class(cursor_class: type[SnowflakeCursorBase[Any]]) -> None:
+    for name, wrap in (('execute', _wrap_execute), ('executemany', _wrap_executemany)):
+        original = cursor_class.__dict__.get(name)
+        if original is not None and not getattr(original, '_logfire_patched', False):
+            setattr(cursor_class, name, wrap(original))
+
+
 def _settings(cursor: SnowflakeCursor) -> tuple[Logfire, bool] | None:
     """Return the settings this cursor was instrumented with, or `None` if it isn't instrumented."""
     settings = None
@@ -97,7 +122,7 @@ def _settings(cursor: SnowflakeCursor) -> tuple[Logfire, bool] | None:
 def _wrap_execute(original: Any) -> Any:
     @functools.wraps(original)
     def wrapped(self: SnowflakeCursor, command: str, params: Any = None, *args: Any, **kwargs: Any) -> Any:
-        if _inside_executemany.get():
+        if _inside_executemany.get() or _inside_execute.get():
             return original(self, command, params, *args, **kwargs)
         settings = _settings(self)
         if settings is None:
@@ -113,7 +138,11 @@ def _wrap_execute(original: Any) -> Any:
             template = 'snowflake execute {command}'
             span_name = 'snowflake execute'
         with logfire_instance.span(template, _span_name=span_name, **attributes) as span:
-            result = original(self, command, params, *args, **kwargs)
+            token = _inside_execute.set(True)
+            try:
+                result = original(self, command, params, *args, **kwargs)
+            finally:
+                _inside_execute.reset(token)
             with handle_internal_errors:
                 span.set_attribute('sfqid', self.sfqid)
                 span.set_attribute('rowcount', self.rowcount)
@@ -126,6 +155,8 @@ def _wrap_execute(original: Any) -> Any:
 def _wrap_executemany(original: Any) -> Any:
     @functools.wraps(original)
     def wrapped(self: SnowflakeCursor, command: str, seqparams: Any, **kwargs: Any) -> Any:
+        if _inside_executemany.get():
+            return original(self, command, seqparams, **kwargs)
         settings = _settings(self)
         if settings is None:
             return original(self, command, seqparams, **kwargs)
