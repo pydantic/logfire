@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from types import ModuleType
 from typing import Any
 
 import pytest
@@ -11,18 +10,6 @@ from snowflake.connector.cursor import SnowflakeCursor
 import logfire
 import logfire._internal.integrations.snowflake as snowflake_integration
 from logfire._internal.exporters.test import TestExporter
-
-
-def instrument_snowflake(
-    conn_or_module: ModuleType | SnowflakeConnection | None = None,
-    *,
-    capture_parameters: bool = False,
-    logfire_instance: logfire.Logfire | None = None,
-) -> None:
-    """Exercise the integration until the public Logfire method is added."""
-    from logfire._internal.integrations.snowflake import instrument_snowflake as instrument
-
-    instrument(logfire_instance or logfire.DEFAULT_LOGFIRE_INSTANCE, conn_or_module, capture_parameters)
 
 
 class FakeConnection:
@@ -88,7 +75,7 @@ def fake_snowflake_execute(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_instrument_connect(exporter: TestExporter) -> None:
-    instrument_snowflake()
+    logfire.instrument_snowflake()
 
     import snowflake.connector
 
@@ -140,7 +127,7 @@ def test_instrument_connect_positional_connection_name(exporter: TestExporter, m
         return FakeConnection(**kwargs)
 
     monkeypatch.setattr('snowflake.connector.connect', connect)
-    instrument_snowflake()
+    logfire.instrument_snowflake()
 
     import snowflake.connector
 
@@ -151,7 +138,7 @@ def test_instrument_connect_positional_connection_name(exporter: TestExporter, m
 
 
 def test_instrument_execute(exporter: TestExporter) -> None:
-    instrument_snowflake()
+    logfire.instrument_snowflake()
 
     conn = FakeConnection(account='my_account', warehouse='my_wh', database='my_db', schema='my_schema', role='my_role')
     cursor = conn.cursor()
@@ -190,7 +177,7 @@ def test_instrument_execute(exporter: TestExporter) -> None:
 
 
 def test_instrument_execute_scrubs_statement(exporter: TestExporter) -> None:
-    instrument_snowflake()
+    logfire.instrument_snowflake()
 
     FakeConnection().cursor().execute("select 'password=hunter2'")
 
@@ -200,7 +187,7 @@ def test_instrument_execute_scrubs_statement(exporter: TestExporter) -> None:
 
 
 def test_instrument_execute_async(exporter: TestExporter) -> None:
-    instrument_snowflake()
+    logfire.instrument_snowflake()
 
     FakeConnection().cursor().execute_async('select 1')
 
@@ -210,7 +197,7 @@ def test_instrument_execute_async(exporter: TestExporter) -> None:
 
 
 def test_instrument_executemany(exporter: TestExporter) -> None:
-    instrument_snowflake()
+    logfire.instrument_snowflake()
 
     conn = FakeConnection(account='my_account', warehouse='my_wh', database='my_db', schema='my_schema', role='my_role')
     cursor = conn.cursor()
@@ -252,7 +239,7 @@ def test_instrument_single_connection(exporter: TestExporter) -> None:
     conn = FakeSnowflakeConnection(
         account='my_account', warehouse='my_wh', database='my_db', schema='my_schema', role='my_role'
     )
-    instrument_snowflake(conn)
+    logfire.instrument_snowflake(conn)
 
     cursor = conn.cursor()
     cursor.execute('select 1')
@@ -296,8 +283,8 @@ def test_instrument_single_connection(exporter: TestExporter) -> None:
 
 def test_instrument_single_connection_idempotent(exporter: TestExporter) -> None:
     conn = FakeSnowflakeConnection(account='my_account')
-    instrument_snowflake(conn)
-    instrument_snowflake(conn)
+    logfire.instrument_snowflake(conn)
+    logfire.instrument_snowflake(conn)
 
     cursor = conn.cursor()
     cursor.execute('select 1')
@@ -308,10 +295,10 @@ def test_instrument_single_connection_idempotent(exporter: TestExporter) -> None
 
 
 def test_instrument_module_then_connection_no_double_wrap(exporter: TestExporter) -> None:
-    instrument_snowflake()
+    logfire.instrument_snowflake()
 
     conn = FakeSnowflakeConnection(account='my_account')
-    instrument_snowflake(conn)
+    logfire.instrument_snowflake(conn)
 
     cursor = conn.cursor()
     cursor.execute('select 1')
@@ -324,9 +311,9 @@ def test_instrument_module_then_connection_no_double_wrap(exporter: TestExporter
 
 def test_instrument_connection_then_module_no_double_wrap(exporter: TestExporter) -> None:
     conn = FakeSnowflakeConnection(account='my_account')
-    instrument_snowflake(conn)
+    logfire.instrument_snowflake(conn)
 
-    instrument_snowflake()
+    logfire.instrument_snowflake()
 
     # Cursor created *after* the module-level patch.
     cursor = conn.cursor()
@@ -347,7 +334,7 @@ def test_instrument_single_connection_custom_cursor_class(exporter: TestExporter
             return super().execute(command, params, *args, **kwargs)  # pyright: ignore[reportUnknownVariableType]
 
     conn = FakeSnowflakeConnection(account='my_account')
-    instrument_snowflake(conn)
+    logfire.instrument_snowflake(conn)
 
     conn.cursor(CustomCursor).execute('select 1')
 
@@ -363,9 +350,9 @@ def test_custom_cursor_super_call_with_module_and_connection_instrumented(export
         def executemany(self, command: str, seqparams: Any, **kwargs: Any) -> Any:
             return super().executemany(command, seqparams, **kwargs)
 
-    instrument_snowflake()
+    logfire.instrument_snowflake()
     conn = FakeSnowflakeConnection(account='my_account')
-    instrument_snowflake(conn)
+    logfire.instrument_snowflake(conn)
 
     cursor = conn.cursor(CustomCursor)
     cursor.execute('select 1')
@@ -379,22 +366,22 @@ def test_custom_cursor_super_call_with_module_and_connection_instrumented(export
 
 def test_instrument_connection_capture_parameters_change_warns(exporter: TestExporter) -> None:
     conn = FakeSnowflakeConnection(account='my_account')
-    instrument_snowflake(conn)
-    instrument_snowflake(conn)
+    logfire.instrument_snowflake(conn)
+    logfire.instrument_snowflake(conn)
 
     with pytest.warns(UserWarning, match='already instrumented with `capture_parameters=False`'):
-        instrument_snowflake(conn, capture_parameters=True)
+        logfire.instrument_snowflake(conn, capture_parameters=True)
 
     conn.cursor().execute('select %s', ('person@example.com',))
     assert 'params' not in exporter.exported_spans_as_dict()[0]['attributes']
 
 
 def test_instrument_module_capture_parameters_change_warns(exporter: TestExporter) -> None:
-    instrument_snowflake()
-    instrument_snowflake()
+    logfire.instrument_snowflake()
+    logfire.instrument_snowflake()
 
     with pytest.warns(UserWarning, match='already instrumented with `capture_parameters=False`'):
-        instrument_snowflake(capture_parameters=True)
+        logfire.instrument_snowflake(capture_parameters=True)
 
     FakeConnection().cursor().execute('select %s', ('person@example.com',))
     assert 'params' not in exporter.exported_spans_as_dict()[0]['attributes']
@@ -403,8 +390,8 @@ def test_instrument_module_capture_parameters_change_warns(exporter: TestExporte
 def test_instrument_connections_with_different_logfire_instances(exporter: TestExporter) -> None:
     conn_a = FakeSnowflakeConnection(account='a')
     conn_b = FakeSnowflakeConnection(account='b')
-    instrument_snowflake(conn_a, logfire_instance=logfire.with_settings(tags=['a']))
-    instrument_snowflake(conn_b, logfire_instance=logfire.with_settings(tags=['b']))
+    logfire.with_settings(tags=['a']).instrument_snowflake(conn_a)
+    logfire.with_settings(tags=['b']).instrument_snowflake(conn_b)
 
     conn_a.cursor().execute('select 1')
     conn_b.cursor().execute('select 2')
@@ -414,13 +401,13 @@ def test_instrument_connections_with_different_logfire_instances(exporter: TestE
 
 def test_instrument_snowflake_invalid_argument() -> None:
     with pytest.raises(ValueError, match=r"Don't know how to instrument 'not a connection'"):
-        instrument_snowflake('not a connection')  # pyright: ignore[reportArgumentType]
+        logfire.instrument_snowflake('not a connection')  # pyright: ignore[reportArgumentType]
 
 
 def test_instrument_snowflake_connector_module(exporter: TestExporter) -> None:
     import snowflake.connector
 
-    instrument_snowflake(snowflake.connector)
+    logfire.instrument_snowflake(snowflake.connector)
 
     conn = snowflake.connector.connect(account='my_account')  # pyright: ignore[reportUnknownMemberType]
     conn.cursor().execute('select 1')
@@ -432,7 +419,7 @@ def test_instrument_snowflake_connector_module(exporter: TestExporter) -> None:
 
 
 def test_instrument_snowflake_does_not_capture_parameters_by_default(exporter: TestExporter) -> None:
-    instrument_snowflake()
+    logfire.instrument_snowflake()
 
     conn = FakeConnection()
     conn.cursor().execute('select %s', ('person@example.com',))
@@ -444,7 +431,7 @@ def test_instrument_snowflake_does_not_capture_parameters_by_default(exporter: T
 
 
 def test_instrument_snowflake_captures_parameters_when_enabled(exporter: TestExporter) -> None:
-    instrument_snowflake(capture_parameters=True)
+    logfire.instrument_snowflake(capture_parameters=True)
 
     conn = FakeConnection()
     conn.cursor().execute('select %s', ('person@example.com',))
@@ -457,8 +444,8 @@ def test_instrument_snowflake_captures_parameters_when_enabled(exporter: TestExp
 
 def test_connection_capture_parameters_survives_module_instrumentation(exporter: TestExporter) -> None:
     conn = FakeSnowflakeConnection(account='my_account')
-    instrument_snowflake(conn, capture_parameters=True)
-    instrument_snowflake()
+    logfire.instrument_snowflake(conn, capture_parameters=True)
+    logfire.instrument_snowflake()
 
     conn.cursor().execute('select %s', ('person@example.com',))
     conn.cursor().executemany('insert into my_table values (%s)', [('person@example.com',)])
@@ -472,8 +459,8 @@ def test_connection_capture_parameters_survives_module_instrumentation(exporter:
 
 
 def test_instrument_snowflake_idempotent(exporter: TestExporter) -> None:
-    instrument_snowflake()
-    instrument_snowflake()  # should not double-wrap
+    logfire.instrument_snowflake()
+    logfire.instrument_snowflake()  # should not double-wrap
 
     import snowflake.connector
 
@@ -492,7 +479,7 @@ class SnowflakeQueryError(Exception):
 
 
 def test_instrument_execute_error(exporter: TestExporter) -> None:
-    instrument_snowflake()
+    logfire.instrument_snowflake()
 
     conn = FakeConnection(account='my_account')
     cursor = conn.cursor()
@@ -503,7 +490,7 @@ def test_instrument_execute_error(exporter: TestExporter) -> None:
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(SnowflakeCursor, 'execute', broken_execute)
         # Re-instrument so our wrapper picks up broken_execute as the new "original" to wrap.
-        instrument_snowflake()
+        logfire.instrument_snowflake()
         with pytest.raises(SnowflakeQueryError):
             cursor.execute('select * from does_not_exist')
 
@@ -548,7 +535,7 @@ def test_instrument_execute_error(exporter: TestExporter) -> None:
 
 
 def test_instrument_executemany_error(exporter: TestExporter) -> None:
-    instrument_snowflake()
+    logfire.instrument_snowflake()
 
     conn = FakeConnection(account='my_account')
     cursor = conn.cursor()
@@ -558,7 +545,7 @@ def test_instrument_executemany_error(exporter: TestExporter) -> None:
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(SnowflakeCursor, 'executemany', broken_executemany)
-        instrument_snowflake()
+        logfire.instrument_snowflake()
         with pytest.raises(SnowflakeQueryError, match='syntax error'):
             cursor.executemany('insert into does_not_exist values (%s)', [(1,)])
 
@@ -571,7 +558,7 @@ def test_instrument_executemany_error(exporter: TestExporter) -> None:
 # running test's name contains the literal substring `test_internal_exception` (it checks
 # `PYTEST_CURRENT_TEST`); otherwise it re-raises. Renaming this test would silently break it.
 def test_internal_exception_error_does_not_break_query(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch) -> None:
-    instrument_snowflake()
+    logfire.instrument_snowflake()
 
     conn = FakeConnection(account='my_account')
     cursor = conn.cursor()
@@ -593,7 +580,7 @@ def test_instrument_snowflake_missing_dependency(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setitem(sys.modules, 'snowflake.connector', None)
 
     with pytest.raises(ImportError, match=r'pip install snowflake-connector-python'):
-        instrument_snowflake()
+        logfire.instrument_snowflake()
 
 
 def test_instrument_snowflake_preserves_transitive_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -611,5 +598,5 @@ def test_instrument_snowflake_preserves_transitive_import_error(monkeypatch: pyt
     monkeypatch.setattr(builtins, '__import__', broken_import)
 
     with pytest.raises(ModuleNotFoundError, match='missing_transitive') as exc_info:
-        instrument_snowflake()
+        logfire.instrument_snowflake()
     assert exc_info.value.name == 'missing_transitive'

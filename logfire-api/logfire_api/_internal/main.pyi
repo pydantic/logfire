@@ -51,6 +51,7 @@ from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
 from pydantic_evals.reporting import EvaluationReport
 from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
+from snowflake.connector.connection import SnowflakeConnection
 from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.applications import Starlette
@@ -439,6 +440,21 @@ class Logfire:
             obj: Pass a single connection instance to instrument only that connection.
                 Pass a connection class to instrument all instances of that class.
                 By default, all connection classes are instrumented.
+        """
+    def instrument_snowflake(self, conn_or_module: ModuleType | SnowflakeConnection | None = None, *, capture_parameters: bool = False) -> None:
+        """Instrument the [Snowflake Connector for Python](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector) so that a span is created for each query.
+
+        Calls to `execute_async()` create a `snowflake execute async` span that measures query submission,
+        not server-side execution.
+
+        Args:
+            conn_or_module: Pass a single connection instance to instrument only that connection.
+                By default (`None`), all connections are instrumented, including ones created later.
+            capture_parameters: Set to `True` to capture query parameters as span attributes.
+                Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
+                Instrumenting the same target again has no effect; the first call determines this setting,
+                and a later call with a different value emits a warning.
+                A connection keeps the setting it was instrumented with, even if the module is instrumented later.
         """
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
         """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
