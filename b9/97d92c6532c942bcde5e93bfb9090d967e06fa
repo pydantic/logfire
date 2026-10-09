@@ -1,7 +1,11 @@
 logfire/query_client.py
   s_26c70d8a914d6a::t_4cfe0a07d878d7 3,7,9,167,214-215,222-239,242-299,497,697-699
+  s_26c70d8a914d6a::t_689f1955345f31 3,7,9,167,214-215,222-239,242-299
+  s_26c70d8a914d6a::t_0ca4dced270fc7 497,697-699
 tests/test_query_client_errors.py
   s_26c70d8a914d6a::t_4eab71de1def5e 9-11,165-504
+  s_26c70d8a914d6a::t_94c3aecf6f88ae 9-11
+  s_26c70d8a914d6a::t_f51a7753c73953 165-504
 ---
 {
   "schema_version": "authorship/3.0.0",
