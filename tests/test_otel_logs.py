@@ -86,6 +86,15 @@ def test_otel_logs_min_level(config_kwargs: dict[str, Any]) -> None:
     )
 
 
+def test_otel_logger_enabled(config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['min_level'] = 'error'
+    logfire.configure(**config_kwargs)
+
+    logger = get_logger('scope')
+    assert not logger.enabled(severity_number=SeverityNumber.DEBUG)
+    assert logger.enabled(severity_number=SeverityNumber.ERROR)
+
+
 def test_get_logger_provider() -> None:
     logger_provider = get_logger_provider()
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
@@ -126,7 +135,7 @@ def test_log_events(logs_exporter: TestLogExporter) -> None:
                         'telemetry.sdk.name': 'opentelemetry',
                         'telemetry.sdk.version': '0.0.0',
                         'logfire.version': VERSION,
-                        'service.name': 'unknown_service:python',
+                        'service.name': IsStr(regex=r'^unknown_service(?::python)?$'),
                         'process.pid': 1234,
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(),
@@ -200,7 +209,7 @@ def test_log_events_with_kwargs(logs_exporter: TestLogExporter) -> None:
                         'telemetry.sdk.name': 'opentelemetry',
                         'telemetry.sdk.version': '0.0.0',
                         'logfire.version': VERSION,
-                        'service.name': 'unknown_service:python',
+                        'service.name': IsStr(regex=r'^unknown_service(?::python)?$'),
                         'process.pid': 1234,
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(),

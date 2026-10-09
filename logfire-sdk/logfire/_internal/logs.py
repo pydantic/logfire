@@ -135,7 +135,8 @@ class ProxyLogger(Logger):
     ) -> bool:
         if severity_number is not None and severity_number.value < self.min_level:
             return False
-        return self.logger.enabled(context=context, severity_number=severity_number, event_name=event_name)
+        enabled = getattr(self.logger, 'enabled', None)
+        return enabled(context=context, severity_number=severity_number, event_name=event_name) if enabled else True
 
     def __getattr__(self, item: str):
         return getattr(self.logger, item)
