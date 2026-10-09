@@ -79,6 +79,7 @@ OTEL_INSTRUMENTATION_MAP = {
     'opentelemetry-instrumentation-urllib3': 'urllib3',
     # Those are not OpenTelemetry packages, but Logfire instruments them.
     'pydantic-ai-slim': 'pydantic_ai',
+    'pydantic-monty-client': 'monty',
     'anthropic': 'anthropic',
     'openai': 'openai',
     'openai-agents': 'openai_agents',
