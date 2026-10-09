@@ -283,6 +283,11 @@ def test_max_body_size_bytes() -> None:
     assert str(e.value) == IsStr(regex=r'Request body is too large \(\d+ bytes\), must be less than 10 bytes\.')
 
 
+def test_exporter_without_custom_session() -> None:
+    exporter = BodySizeCheckingOTLPSpanExporter()
+    exporter.shutdown()
+
+
 @pytest.mark.skipif(
     'max_request_size' not in inspect.signature(OTLPSpanExporter).parameters, reason='OpenTelemetry <1.45'
 )
