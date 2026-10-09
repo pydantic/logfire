@@ -5,6 +5,7 @@ import os
 import sys
 import unittest.mock
 import warnings
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -145,10 +146,21 @@ def config_kwargs(
 
 
 @pytest.fixture(autouse=True)
-def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
+def config(
+    config_kwargs: dict[str, Any],
+    metrics_reader: InMemoryMetricReader,
+    exporter: TestExporter,
+    logs_exporter: TestLogExporter,
+) -> None:
     logfire.DEFAULT_LOGFIRE_INSTANCE.variables_clear()
-    configure(
+    # Tests that reconfigure Logfire need processors that have not been shut down.
+    initial_config_kwargs: dict[str, Any] = {
         **config_kwargs,
+        'advanced': replace(config_kwargs['advanced'], log_record_processors=[SimpleLogRecordProcessor(logs_exporter)]),
+        'additional_span_processors': [SimpleSpanProcessor(exporter)],
+    }
+    configure(
+        **initial_config_kwargs,
         metrics=logfire.MetricsOptions(
             additional_readers=[metrics_reader],
             collect_in_spans=True,
