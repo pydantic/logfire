@@ -1,0 +1,23 @@
+pyodide_test/test.mjs
+  s_26c70d8a914d6a::t_aa229f030cf956 39,41-63
+pyproject.toml
+  s_26c70d8a914d6a::t_656a8f10668feb 49,52-53
+uv.lock
+  s_26c70d8a914d6a::t_38a58b89e465f7 2867,2871,3094,3096,3124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a286868bc82f3f7a1115618a6cc0ca97f0e40a27",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
