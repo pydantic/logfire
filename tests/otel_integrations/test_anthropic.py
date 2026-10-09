@@ -36,7 +36,7 @@ pytestmark = [
 ]
 
 
-ANY_ADAPTER: pydantic.TypeAdapter[Any] = pydantic.TypeAdapter(Any)
+ANY_ADAPTER = pydantic.TypeAdapter(Any)
 
 
 def test_semconv_version_defaults() -> None:

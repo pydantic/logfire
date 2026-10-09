@@ -21,11 +21,6 @@ from logfire._internal.integrations import monty as monty_integration
 from logfire._internal.integrations.monty import LogfireMontyLogger, LogfireMontyTracer
 from logfire.testing import TestExporter, TestLogExporter, TimeGenerator, get_collected_metrics
 
-requires_native_telemetry = pytest.mark.skipif(
-    sys.platform == 'darwin',
-    reason='Monty macOS wheels do not emit telemetry through instrument_telemetry; Linux wheels do',
-)
-
 
 @pytest.mark.parametrize('package_installed', [False, True])
 def test_instrument_monty_dependency_errors(monkeypatch: pytest.MonkeyPatch, package_installed: bool) -> None:
@@ -123,7 +118,6 @@ def test_logfire_standard_component_shims(
     )
 
 
-@requires_native_telemetry
 def test_instrument_monty(exporter: TestExporter, logs_exporter: TestLogExporter) -> None:
     logfire.instrument_monty()
     output = CollectString()
@@ -180,7 +174,6 @@ def test_instrument_monty(exporter: TestExporter, logs_exporter: TestLogExporter
     assert printed['attributes']['logfire.level_num'] == snapshot(9)
 
 
-@requires_native_telemetry
 def test_instrument_monty_sampling(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
     logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions(head=0))
     logfire.instrument_monty()
@@ -192,7 +185,6 @@ def test_instrument_monty_sampling(exporter: TestExporter, config_kwargs: dict[s
     assert exporter.exported_spans == snapshot([])
 
 
-@requires_native_telemetry
 def test_instrument_monty_is_idempotent(exporter: TestExporter) -> None:
     logfire.instrument_monty()
     logfire.instrument_monty()
@@ -206,7 +198,6 @@ def test_instrument_monty_is_idempotent(exporter: TestExporter) -> None:
     )
 
 
-@requires_native_telemetry
 def test_instrument_monty_metrics(metrics_reader: InMemoryMetricReader) -> None:
     logfire.instrument_monty()
 
@@ -234,7 +225,6 @@ def test_instrument_monty_metrics(metrics_reader: InMemoryMetricReader) -> None:
     assert run['data']['data_points'][0]['attributes'] == snapshot({'outcome': 'complete'})
 
 
-@requires_native_telemetry
 def test_instrument_monty_metrics_use_host_views(config_kwargs: dict[str, Any]) -> None:
     metrics_reader = InMemoryMetricReader()
     logfire.configure(
@@ -274,7 +264,6 @@ async def monty_async_callback_spans(exporter: TestExporter, request: pytest.Fix
 
 
 @pytest.mark.anyio
-@requires_native_telemetry
 async def test_instrument_monty_async_callback(monty_async_callback_spans: dict[str, Any]) -> None:
     spans = monty_async_callback_spans
     assert spans['session {script_name}']['parent'] == spans['parent']['context']
@@ -286,7 +275,6 @@ async def test_instrument_monty_async_callback(monty_async_callback_spans: dict[
 
 
 @pytest.mark.anyio
-@requires_native_telemetry
 async def test_instrument_monty_async_callback_parent(monty_async_callback_spans: dict[str, Any]) -> None:
     spans = monty_async_callback_spans
     assert spans['host callback']['parent'] == spans['call {function_name}']['context']
@@ -307,7 +295,6 @@ def monty_callback_exception_spans(exporter: TestExporter) -> dict[str, Any]:
     return {span['name']: span for span in exporter.exported_spans_as_dict(parse_json_attributes=True)}
 
 
-@requires_native_telemetry
 def test_instrument_monty_callback_exception(
     monty_callback_exception_spans: dict[str, Any], logs_exporter: TestLogExporter
 ) -> None:
@@ -332,7 +319,6 @@ def test_instrument_monty_callback_exception(
     assert error['span_id'] == run['context']['span_id']
 
 
-@requires_native_telemetry
 def test_instrument_monty_callback_exception_event(monty_callback_exception_spans: dict[str, Any]) -> None:
     call = monty_callback_exception_spans['call {function_name}']
     assert [event['attributes'] for event in call.get('events', [])] == snapshot(
@@ -347,7 +333,6 @@ def test_instrument_monty_callback_exception_event(monty_callback_exception_span
     )
 
 
-@requires_native_telemetry
 def test_instrument_monty_scrubbing(exporter: TestExporter, logs_exporter: TestLogExporter) -> None:
     logfire.instrument_monty()
     output = CollectString()
