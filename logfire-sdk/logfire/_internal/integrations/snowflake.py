@@ -24,8 +24,12 @@ except ModuleNotFoundError as e:
 # `None` means the module is not instrumented, so only connections registered below produce spans.
 _module_settings: tuple[Logfire, bool] | None = None
 _connection_settings: WeakKeyDictionary[SnowflakeConnection, tuple[Logfire, bool]] = WeakKeyDictionary()
-_inside_executemany: ContextVar[bool] = ContextVar('logfire_snowflake_inside_executemany', default=False)
-_inside_execute: ContextVar[bool] = ContextVar('logfire_snowflake_inside_execute', default=False)
+_inside_executemany: ContextVar[SnowflakeCursorBase[Any] | None] = ContextVar(
+    'logfire_snowflake_inside_executemany', default=None
+)
+_inside_execute: ContextVar[SnowflakeCursorBase[Any] | None] = ContextVar(
+    'logfire_snowflake_inside_execute', default=None
+)
 _instrument_lock = Lock()
 
 
@@ -122,7 +126,7 @@ def _settings(cursor: SnowflakeCursor) -> tuple[Logfire, bool] | None:
 def _wrap_execute(original: Any) -> Any:
     @functools.wraps(original)
     def wrapped(self: SnowflakeCursor, command: str, params: Any = None, *args: Any, **kwargs: Any) -> Any:
-        if _inside_executemany.get() or _inside_execute.get():
+        if _inside_executemany.get() is self or _inside_execute.get() is self:
             return original(self, command, params, *args, **kwargs)
         settings = _settings(self)
         if settings is None:
@@ -138,7 +142,7 @@ def _wrap_execute(original: Any) -> Any:
             template = 'snowflake execute {command}'
             span_name = 'snowflake execute'
         with logfire_instance.span(template, _span_name=span_name, **attributes) as span:
-            token = _inside_execute.set(True)
+            token = _inside_execute.set(self)
             try:
                 result = original(self, command, params, *args, **kwargs)
             finally:
@@ -155,7 +159,7 @@ def _wrap_execute(original: Any) -> Any:
 def _wrap_executemany(original: Any) -> Any:
     @functools.wraps(original)
     def wrapped(self: SnowflakeCursor, command: str, seqparams: Any, **kwargs: Any) -> Any:
-        if _inside_executemany.get():
+        if _inside_executemany.get() is self:
             return original(self, command, seqparams, **kwargs)
         settings = _settings(self)
         if settings is None:
@@ -167,7 +171,7 @@ def _wrap_executemany(original: Any) -> Any:
         with logfire_instance.span(
             'snowflake executemany {command}', _span_name='snowflake executemany', **attributes
         ) as span:
-            token = _inside_executemany.set(True)
+            token = _inside_executemany.set(self)
             try:
                 result = original(self, command, seqparams, **kwargs)
             finally:
