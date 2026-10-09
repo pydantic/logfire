@@ -1,7 +1,9 @@
 docs/integrations/llms/mcp.md
   s_26c70d8a914d6a::t_b6653f90273dc5 31,36,88-93,96
+  s_26c70d8a914d6a::t_b117bd85a3c754 31,36,88-93,96
 logfire/.agents/skills/logfire-instrumentation/references/python/integrations.md
   s_26c70d8a914d6a::t_044f1fa1417286 77
+  s_26c70d8a914d6a::t_edd9a8a7cafbf6 77
 ---
 {
   "schema_version": "authorship/3.0.0",
