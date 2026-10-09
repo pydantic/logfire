@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 from opentelemetry import trace as trace_api
+from opentelemetry._logs import Logger, LogRecord
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import Tracer as SDKTracer
 from opentelemetry.trace import Link, NonRecordingSpan, Span, SpanKind, Tracer
@@ -15,6 +16,7 @@ from logfire._internal.constants import (
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_TAGS_KEY,
+    DISABLE_CONSOLE_KEY,
 )
 from logfire._internal.formatter import logfire_format
 
@@ -65,6 +67,37 @@ class LogfireMontyTracer(Tracer):
         )
 
     start_as_current_span = SDKTracer.start_as_current_span
+
+
+class LogfireMontyLogger(Logger):
+    """Standard OTel logger adding settings from a specific Logfire instance."""
+
+    def __init__(self, logger: Logger, logfire_instance: Logfire) -> None:
+        self.logger = logger
+        self.logfire = logfire_instance
+
+    def emit(self, record: LogRecord | None = None, **kwargs: Any) -> None:
+        if record is None:
+            attributes = dict(kwargs.get('attributes') or {})
+            body = kwargs.get('body')
+            self._enrich(attributes, body, kwargs.get('severity_number'))
+            kwargs['attributes'] = attributes
+            self.logger.emit(**kwargs)
+        else:
+            attributes = dict(record.attributes or {})
+            self._enrich(attributes, record.body, record.severity_number)
+            record.attributes = attributes
+            self.logger.emit(record)
+
+    def _enrich(self, attributes: dict[str, Any], body: Any, severity_number: Any) -> None:
+        if isinstance(body, str):
+            attributes.setdefault(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, body)
+            attributes.setdefault(ATTRIBUTES_MESSAGE_KEY, body)
+        if severity_number is not None:
+            attributes.setdefault(ATTRIBUTES_LOG_LEVEL_NUM_KEY, severity_number.value)
+        _add_tags(attributes, self.logfire)
+        if not self.logfire._console_log:  # pyright: ignore[reportPrivateUsage]
+            attributes[DISABLE_CONSOLE_KEY] = True
 
 
 def _add_tags(attributes: dict[str, Any], logfire_instance: Logfire) -> None:
