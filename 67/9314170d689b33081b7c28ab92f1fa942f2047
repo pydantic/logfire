@@ -1,0 +1,16 @@
+logfire/_internal/integrations/monty.py
+  h_d9dd17644dded9 7,19,72-102
+tests/otel_integrations/test_monty.py
+  h_d9dd17644dded9 6-7,11-12,45-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "679314170d689b33081b7c28ab92f1fa942f2047",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
