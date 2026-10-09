@@ -1,19 +1,27 @@
 logfire/.agents/skills/logfire-instrumentation/SKILL.md
   s_26c70d8a914d6a::t_1b25a189c30399 99
+  s_26c70d8a914d6a::t_345bc01b430e88 99
 logfire/.agents/skills/logfire-instrumentation/references/javascript/frameworks.md
   s_26c70d8a914d6a::t_188cda518ef2c2 19
+  s_26c70d8a914d6a::t_935cd6fb827868 19
 logfire/.agents/skills/logfire-instrumentation/references/javascript/installation-and-env.md
   s_26c70d8a914d6a::t_0eae1ed71616a0 57-58
+  s_26c70d8a914d6a::t_a48adb853f7160 57-58
 logfire/.agents/skills/logfire-instrumentation/references/javascript/nextjs.md
   s_26c70d8a914d6a::t_218c14ebf16cd2 71,79-86,99-101,111,117-124
+  s_26c70d8a914d6a::t_d51b01a4a75463 71,79-86,99-101,111,117-124
 logfire/.agents/skills/logfire-instrumentation/references/javascript/react-browser.md
   s_26c70d8a914d6a::t_61f28bfdf8700b 9,17-23,37-39,49,55-62,88
+  s_26c70d8a914d6a::t_281fef6c8b9740 9,17-23,37-39,49,55-62,88
 logfire/.agents/skills/logfire-instrumentation/references/javascript/verification-troubleshooting.md
   s_26c70d8a914d6a::t_b6bc63ea135726 35,54
+  s_26c70d8a914d6a::t_603d923b77255b 35,54
 logfire/.agents/skills/logfire-setup-offline.md
   s_26c70d8a914d6a::t_143458f24f5500 155
+  s_26c70d8a914d6a::t_8f688286815982 155
 tests/test_agent_setup_prompt.py
   s_26c70d8a914d6a::t_59af12a8b910b6 261-279,284,287
+  s_26c70d8a914d6a::t_cd431f5d9c5a70 261-279,284,287
 ---
 {
   "schema_version": "authorship/3.0.0",
