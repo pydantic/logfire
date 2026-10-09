@@ -1,0 +1,18 @@
+logfire/_internal/integrations/llm_providers/anthropic.py
+  h_d9dd17644dded9 5-6,10,105-106,278-279,282-294
+tests/otel_integrations/test_anthropic.py
+  h_d9dd17644dded9 703-762
+uv.lock
+  h_d9dd17644dded9 289,300,302,2080,2086,2088,2117,2127,2129,2285-2406
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aa2df52b57962377168585f6c7aa37f9820b339d",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
