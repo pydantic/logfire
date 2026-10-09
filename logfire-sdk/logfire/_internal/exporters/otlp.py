@@ -73,7 +73,7 @@ class _BodySizeCheckingOTLPClient:
         self.client = client
         self.exporter = exporter
         client_logger = getattr(client, '_logger', None)
-        if isinstance(client_logger, logging.Logger):
+        if isinstance(client_logger, logging.Logger):  # pragma: no branch
             setattr(client, '_logger', _QuietConnectionErrorLogger(client_logger, {}))
 
     def export(self, data: bytes) -> _OTLPExportResult:
