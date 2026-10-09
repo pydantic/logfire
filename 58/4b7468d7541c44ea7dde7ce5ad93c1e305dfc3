@@ -1,0 +1,22 @@
+logfire/_internal/integrations/fastapi.py
+  h_d9dd17644dded9 327-329
+tests/otel_integrations/test_asgi.py
+  h_d9dd17644dded9 113,145
+tests/otel_integrations/test_mcp_v2.py
+  h_d9dd17644dded9 14
+tests/otel_integrations/test_mcp_version_detection.py
+  h_d9dd17644dded9 9-10,16,18-24
+uv.lock
+  h_d9dd17644dded9 307,312,314,316,1362,1383,1385,1560,1564,1570,1572,2997,3605,3607,3609,6810,6816,6818,7225,7232,7234,7402,7407,7409
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "584b7468d7541c44ea7dde7ce5ad93c1e305dfc3",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
