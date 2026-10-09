@@ -1,0 +1,25 @@
+logfire/_internal/integrations/monty.py
+  s_26c70d8a914d6a::t_d914ca110ecc70 1-80
+pyproject.toml
+  s_26c70d8a914d6a::t_78cb0d9c83aff0 204
+tests/otel_integrations/test_monty.py
+  s_26c70d8a914d6a::t_0f2b902a305493 1-42
+uv.lock
+  s_26c70d8a914d6a::t_70956a3560969e 3056,3213,5548-5651
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "403d1a6bea48a093b9fedd573c11af0519c6e644",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
