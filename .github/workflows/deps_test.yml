@@ -130,6 +130,15 @@ jobs:
 
       - run: uv run --no-sync pytest
 
+      - name: Test MCP 1 with supported Pydantic minor versions
+        if: matrix.pydantic-version == '2.12' || matrix.pydantic-version == '2.13'
+        run: >-
+          uv run --no-sync --with 'mcp<2' --with 'fastmcp-slim<4'
+          --with 'pydantic-ai-slim==2.39.0' --with 'pydantic==${{ matrix.pydantic-version }}.*'
+          pytest tests/otel_integrations/test_openai_agents_mcp.py
+          tests/otel_integrations/test_pydantic_ai_mcp.py
+          tests/otel_integrations/test_mcp_version_detection.py --record-mode=none
+
   notify-on-failure:
     name: Notify maintainers on CI failure
     runs-on: ubuntu-latest
