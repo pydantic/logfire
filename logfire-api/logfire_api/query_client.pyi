@@ -9,13 +9,20 @@ from typing_extensions import Self
 
 __all__ = ['QueryExecutionError', 'QueryRequestError', 'InfoRequestError', 'UnexpectedResponseError', 'ReadTokenInfo', 'ColumnDetails', 'RowQueryResults', 'LogfireQueryClient', 'AsyncLogfireQueryClient']
 
-class QueryExecutionError(RuntimeError):
+class _ProblemDetailsMixin:
+    """Additional details about an error response."""
+    problem: dict[str, Any] | None = None
+    problem_type: str | None = None
+    retryable: bool | None = None
+    retry_after: float | None = None
+
+class QueryExecutionError(_ProblemDetailsMixin, RuntimeError):
     """Raised when the query execution fails on the server."""
-class QueryRequestError(RuntimeError):
+class QueryRequestError(_ProblemDetailsMixin, RuntimeError):
     """Raised when the query request is invalid."""
 class InfoRequestError(RuntimeError):
     """Raised when the request for read token info fails because of unavailable information."""
-class UnexpectedResponseError(RuntimeError):
+class UnexpectedResponseError(_ProblemDetailsMixin, RuntimeError):
     """Raised when the API responds with an unexpected status code, such as a `5xx` server error."""
 
 class ReadTokenInfo(TypedDict, total=False):
