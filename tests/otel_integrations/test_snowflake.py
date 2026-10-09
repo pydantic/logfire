@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from inline_snapshot import snapshot
 from snowflake.connector.connection import SnowflakeConnection
-from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor, SnowflakeCursorBase
 
 import logfire
 import logfire._internal.integrations.snowflake as snowflake_integration
@@ -70,8 +70,8 @@ def fake_snowflake_execute(monkeypatch: pytest.MonkeyPatch) -> None:
         self._total_rowcount = len(seqparams)  # pyright: ignore[reportPrivateUsage]
         return self
 
-    monkeypatch.setattr(SnowflakeCursor, 'execute', fake_execute)
-    monkeypatch.setattr(SnowflakeCursor, 'executemany', fake_executemany)
+    monkeypatch.setattr(SnowflakeCursorBase, 'execute', fake_execute)
+    monkeypatch.setattr(SnowflakeCursorBase, 'executemany', fake_executemany)
 
 
 def test_instrument_connect(exporter: TestExporter) -> None:
@@ -186,6 +186,19 @@ def test_instrument_execute_scrubs_statement(exporter: TestExporter) -> None:
     assert attributes['db.statement'] == "[Scrubbed due to 'password']"
 
 
+def test_instrument_dict_cursor(exporter: TestExporter) -> None:
+    logfire.instrument_snowflake()
+
+    cursor = DictCursor(FakeConnection())  # type: ignore[arg-type]
+    cursor.execute('select 1')
+    cursor.executemany('insert into items values (%s)', [(1,)])
+
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == [
+        'snowflake execute',
+        'snowflake executemany',
+    ]
+
+
 def test_instrument_execute_async(exporter: TestExporter) -> None:
     logfire.instrument_snowflake()
 
@@ -260,7 +273,7 @@ def test_executemany_does_not_export_interpolated_parameters(
         self.execute(command.replace('%s', repr(seqparams[0][0])), **kwargs)
         return self
 
-    monkeypatch.setattr(SnowflakeCursor, 'executemany', interpolating_executemany)
+    monkeypatch.setattr(SnowflakeCursorBase, 'executemany', interpolating_executemany)
     logfire.instrument_snowflake(capture_parameters=False)
 
     cursor = FakeConnection().cursor()
@@ -526,7 +539,7 @@ def test_instrument_execute_error(exporter: TestExporter) -> None:
         raise SnowflakeQueryError('syntax error')
 
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(SnowflakeCursor, 'execute', broken_execute)
+        mp.setattr(SnowflakeCursorBase, 'execute', broken_execute)
         # Re-instrument so our wrapper picks up broken_execute as the new "original" to wrap.
         logfire.instrument_snowflake()
         with pytest.raises(SnowflakeQueryError):
@@ -582,7 +595,7 @@ def test_instrument_executemany_error(exporter: TestExporter) -> None:
         raise SnowflakeQueryError('syntax error')
 
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(SnowflakeCursor, 'executemany', broken_executemany)
+        mp.setattr(SnowflakeCursorBase, 'executemany', broken_executemany)
         logfire.instrument_snowflake()
         with pytest.raises(SnowflakeQueryError, match='syntax error'):
             cursor.executemany('insert into does_not_exist values (%s)', [(1,)])

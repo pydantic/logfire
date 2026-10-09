@@ -14,7 +14,7 @@ from logfire._internal.utils import handle_internal_errors
 try:
     import snowflake.connector as sf_connector
     from snowflake.connector.connection import SnowflakeConnection
-    from snowflake.connector.cursor import SnowflakeCursor
+    from snowflake.connector.cursor import SnowflakeCursor, SnowflakeCursorBase
 except ModuleNotFoundError as e:
     if e.name not in {'snowflake', 'snowflake.connector'}:
         raise
@@ -77,13 +77,13 @@ def _patch_connect(logfire_instance: Logfire) -> None:
 
 
 def _patch_cursor_class() -> None:
-    original_execute = SnowflakeCursor.__dict__.get('execute', SnowflakeCursor.execute)
+    original_execute = SnowflakeCursorBase.__dict__['execute']
     if not getattr(original_execute, '_logfire_patched', False):
-        SnowflakeCursor.execute = _wrap_execute(original_execute)
+        SnowflakeCursorBase.execute = _wrap_execute(original_execute)
 
-    original_executemany = SnowflakeCursor.__dict__.get('executemany', SnowflakeCursor.executemany)
+    original_executemany = SnowflakeCursorBase.__dict__['executemany']
     if not getattr(original_executemany, '_logfire_patched', False):
-        SnowflakeCursor.executemany = _wrap_executemany(original_executemany)
+        SnowflakeCursorBase.executemany = _wrap_executemany(original_executemany)
 
 
 def _settings(cursor: SnowflakeCursor) -> tuple[Logfire, bool] | None:
