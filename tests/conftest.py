@@ -117,6 +117,12 @@ def logs_exporter(time_generator: TimeGenerator) -> TestLogExporter:
     return TestLogExporter(time_generator)
 
 
+class ReusableSimpleSpanProcessor(SimpleSpanProcessor):
+    def shutdown(self) -> None:
+        # Tests reconfigure Logfire with the same exporter, so keep it available.
+        pass
+
+
 @pytest.fixture
 def config_kwargs(
     exporter: TestExporter,
@@ -137,7 +143,7 @@ def config_kwargs(
             ns_timestamp_generator=time_generator,
             log_record_processors=[SimpleLogRecordProcessor(logs_exporter)],
         ),
-        additional_span_processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[ReusableSimpleSpanProcessor(exporter)],
         # Ensure that inspect_arguments doesn't break things even in versions where it's off by default
         inspect_arguments=True,
         distributed_tracing=True,
@@ -153,11 +159,9 @@ def config(
     logs_exporter: TestLogExporter,
 ) -> None:
     logfire.DEFAULT_LOGFIRE_INSTANCE.variables_clear()
-    # Tests that reconfigure Logfire need processors that have not been shut down.
     initial_config_kwargs: dict[str, Any] = {
         **config_kwargs,
         'advanced': replace(config_kwargs['advanced'], log_record_processors=[SimpleLogRecordProcessor(logs_exporter)]),
-        'additional_span_processors': [SimpleSpanProcessor(exporter)],
     }
     configure(
         **initial_config_kwargs,
