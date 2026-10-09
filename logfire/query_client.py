@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import math
 import platform
 import sys
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar, cast
 
 from typing_extensions import Self
 
@@ -162,6 +164,7 @@ T = TypeVar('T', bound=BaseClient)
 
 
 _ACCEPT = Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv']
+_PROBLEM_JSON = 'application/problem+json'
 _USER_AGENT = f'logfire-sdk-python/{VERSION} (Python {platform.python_version()}, os {platform.platform()}, arch {platform.machine()})'
 
 
@@ -208,22 +211,92 @@ class _BaseLogfireQueryClient(Generic[T]):
         return body
 
     def handle_response_errors(self, response: Response) -> None:
+        if response.status_code == 200:
+            return
         # Note: the MDN spec does not specify any default for content types,
         # although it is common to assume `application/octet-stream`.
         # In our case, our API isn't supposed to return binary data, so
         # we assume text/plain if not set.
         content_type = response.headers.get('content-type', 'text/plain')
         media_type = content_type.split(';', 1)[0].strip().lower()
-        if response.status_code == 400:
-            data = response.json() if media_type == 'application/json' else response.text
-            raise QueryExecutionError(data)
-        if response.status_code == 422:
-            data = response.json() if media_type == 'application/json' else response.text
-            raise QueryRequestError(data)
-        if response.status_code != 200:
+        problem = _parse_problem(response) if media_type == _PROBLEM_JSON else None
+        error: QueryExecutionError | QueryRequestError | UnexpectedResponseError
+        if response.status_code in (400, 422):
+            error_details = problem.get('error_details') if problem is not None else None
+            if error_details is not None:
+                # The problem detail carries the legacy error body in `error_details`,
+                # so `args[0]` is the same whether or not the server sends a problem detail.
+                data = error_details
+            elif media_type == _PROBLEM_JSON:
+                # A problem detail body that is not a JSON object is passed as text.
+                data = problem if problem is not None else response.text
+            elif media_type == 'application/json':
+                data = response.json()
+            else:
+                data = response.text
+            error_cls = QueryExecutionError if response.status_code == 400 else QueryRequestError
+            error = error_cls(data)
+        else:
             # Unlike the statuses above, an unexpected response (e.g. a `5xx`, or an error page from a
             # proxy) isn't guaranteed to have a well-formed body, so don't try to decode it as JSON.
-            raise UnexpectedResponseError(f'Unexpected response status code {response.status_code}: {response.text!r}')
+            error_cls = QueryRateLimitedError if response.status_code == 429 else UnexpectedResponseError
+            error = error_cls(f'Unexpected response status code {response.status_code}: {response.text!r}')
+        _set_problem_attributes(error, response, problem)
+        raise error
+
+
+def _parse_problem(response: Response) -> dict[str, Any] | None:
+    try:
+        problem = response.json()
+    except ValueError:
+        return None
+    return cast('dict[str, Any]', problem) if isinstance(problem, dict) else None
+
+
+def _set_problem_attributes(error: _ProblemDetailsMixin, response: Response, problem: dict[str, Any] | None) -> None:
+    error.problem = problem
+    # The `Retry-After` header takes precedence. The problem body is used only when the header is absent or invalid.
+    retry_after = _parse_retry_after_header(response.headers.get('retry-after'))
+    if problem is not None:
+        problem_type = problem.get('type')
+        error.problem_type = problem_type if isinstance(problem_type, str) else None
+        retryable = problem.get('retryable')
+        error.retryable = retryable if isinstance(retryable, bool) else None
+        if retry_after is None:
+            retry_after = _parse_retry_after_member(problem.get('retry_after'))
+    error.retry_after = retry_after
+
+
+def _parse_retry_after_header(value: str | None) -> float | None:
+    """Return the delay in seconds from a `Retry-After` header, or `None` if the header is absent or invalid.
+
+    The header is either the `delay-seconds` form of RFC 9110, a non-negative integer, or an HTTP date.
+    An HTTP date in the past gives a delay of zero.
+    """
+    if value is None:
+        return None
+    value = value.strip()
+    if value.isascii() and value.isdigit():
+        # `float` has no digit limit. A value too large for a float becomes infinity, which is rejected.
+        return _parse_retry_after_member(float(value))
+    try:
+        retry_at = parsedate_to_datetime(value)
+    except (TypeError, ValueError, IndexError, OverflowError):
+        return None
+    if retry_at.tzinfo is None:
+        retry_at = retry_at.replace(tzinfo=timezone.utc)
+    return max(0.0, (retry_at - datetime.now(timezone.utc)).total_seconds())
+
+
+def _parse_retry_after_member(value: Any) -> float | None:
+    """Return a finite, non-negative delay in seconds from a JSON number, or `None` for any other value."""
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    try:
+        delay = float(value)
+    except OverflowError:
+        return None
+    return delay if math.isfinite(delay) and delay >= 0 else None
 
 
 class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
@@ -421,7 +494,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             environment=environment,
             explain=explain,
         )
-        response = self.client.post('/v2/query', headers={'accept': accept}, json=body)
+        response = self.client.post('/v2/query', headers={'accept': f'{accept}, {_PROBLEM_JSON};q=0.9'}, json=body)
         self.handle_response_errors(response)
         return response
 
@@ -621,6 +694,8 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             environment=environment,
             explain=explain,
         )
-        response = await self.client.post('/v2/query', headers={'accept': accept}, json=body)
+        response = await self.client.post(
+            '/v2/query', headers={'accept': f'{accept}, {_PROBLEM_JSON};q=0.9'}, json=body
+        )
         self.handle_response_errors(response)
         return response
