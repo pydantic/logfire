@@ -1,0 +1,34 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Host:
+      - httpbin.org
+      User-Agent:
+      - python-urllib3/2.4.0
+    method: GET
+    uri: https://httpbin.org:443/get
+  response:
+    body:
+      string: '{"args":{},"headers":{"Accept":"*/*","Accept-Encoding":"gzip, deflate","Host":"httpbin.org","User-Agent":"python-urllib3/2.4.0"},"origin":"10.0.0.1","url":"https://httpbin.org/get"}'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Access-Control-Allow-Origin:
+      - '*'
+      Content-Length:
+      - '219'
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 17 Jan 2026 12:00:00 GMT
+      Server:
+      - gunicorn/19.9.0
+    status:
+      code: 200
+      message: OK
+version: 1
