@@ -1,9 +1,12 @@
 logfire/_internal/exporters/processor_wrapper.py
   h_d9dd17644dded9 557-560
+  s_26c70d8a914d6a::t_31bb97c1d2c5b6 557-560
 tests/otel_integrations/test_google_genai.py
   h_d9dd17644dded9 149,157,160-161,248-249,303-306,312,323-347
+  s_26c70d8a914d6a::t_49a430799a760c 149,157,160-161,248-249,303-306,312,323-347
 uv.lock
   h_d9dd17644dded9 1865,1871,1873,1883,1897,1899,1904,1909,1911,4284,4293,4295,4544,4552,4554,5046,5048,5050-5056
+  s_26c70d8a914d6a::t_4df39388006dad 1865,1871,1873,1883,1897,1899,1904,1909,1911,4284,4293,4295,4544,4552,4554,5046,5048,5050-5056
 ---
 {
   "schema_version": "authorship/3.0.0",
@@ -13,6 +16,16 @@ uv.lock
   "humans": {
     "h_d9dd17644dded9": {
       "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
     }
   }
 }
