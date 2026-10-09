@@ -1,0 +1,51 @@
+pyproject.toml
+  s_26c70d8a914d6a::t_22c20fd42ca83c 49-53
+tests/otel_integrations/test_anthropic.py
+  s_26c70d8a914d6a::t_bf421b698c9ea4 39,101
+tests/test_pydantic_plugin.py
+  s_26c70d8a914d6a::t_bf421b698c9ea4 1122
+pyodide_test/test.mjs
+  s_26c70d8a914d6a::t_22c20fd42ca83c 46-50,57,59,61,63
+logfire/_internal/config.py
+  s_26c70d8a914d6a::t_021aa8ac3068ba 36,2410,2414-2422
+logfire/_internal/exporters/otlp.py
+  s_26c70d8a914d6a::t_28df6ee4dcf32a 4,7,12,17,26,46-90,109-117,120,123,125,129
+logfire/_internal/exporters/test.py
+  s_26c70d8a914d6a::t_deb9e9989ee5a1 117-120,156-157,243-244
+logfire/_internal/integrations/monty.py
+  s_26c70d8a914d6a::t_179efed12c4346 8,114-122
+logfire/_internal/logs.py
+  s_26c70d8a914d6a::t_39628c124674d1 12,17,37,96,129-140
+logfire/_internal/scrubbing.py
+  s_26c70d8a914d6a::t_d34bc9a531c19f 263-264
+tests/conftest.py
+  s_26c70d8a914d6a::t_c4448eb84f900d 119-130,149,151
+tests/exporters/test_otlp_session.py
+  s_26c70d8a914d6a::t_a8fba80e65171e 2,20,286-303
+tests/otel_integrations/test_monty.py
+  s_26c70d8a914d6a::t_1d908d6635979d 121-122
+tests/test_configure.py
+  s_26c70d8a914d6a::t_28c4059af31c28 3,13,1393,1398-1402,1405-1407,1410-1414,3672,3676-3685
+tests/test_otel_logs.py
+  s_26c70d8a914d6a::t_bf92ed20df11cb 6-7,13-14,27,92-115
+tests/test_secret_scrubbing.py
+  s_26c70d8a914d6a::t_ff24d08189ecc5 372,384,391-393,424-426
+uv.lock
+  s_26c70d8a914d6a::t_b7e90706ef927a 3224-3226,3253-3254,4363,4368,4370-4399,4404,4409,4411,4416,4421-4422,4428,4430,4435,4443,4445,4450,4459,4461,4466,4475,4477,4482,4491,4493,4498,4505,4507,4512,4519,4521,4526,4533,4535,4540,4548,4550,4555,4564,4566,4571,4580,4582,4587,4597,4599,4620,4629,4631,4636,4643,4645,4650,4657,4659,4664,4671,4673,4678,4685,4687,4692,4700,4702,4707,4715,4717,4722,4731,4733,4738,4745,4747,4752,4761,4763,4768,4776,4778,4783,4791,4793,4798,4806,4808,4825,4830,4832,4837,4844,4846,4851,4857,4859,4879,4881,4883
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7e7f56efb2961283cff160dd4745d85994833204",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
