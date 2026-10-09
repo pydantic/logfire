@@ -42,6 +42,7 @@ os.environ.setdefault('ANTHROPIC_API_KEY', os.environ.get('TEST_ANTHROPIC_API_KE
 os.environ.pop('OPENAI_BASE_URL', None)
 os.environ.pop('ANTHROPIC_BASE_URL', None)
 os.environ.pop('LOGFIRE_EMIT_CONFIGURATION_SPAN', None)
+os.environ.pop('LOGFIRE_COMPRESSION', None)
 # AnthropicBedrock reads this when no api_key is passed, and then rejects the aws_* arguments
 # that tests/otel_integrations/test_anthropic_bedrock.py passes.
 os.environ.pop('AWS_BEARER_TOKEN_BEDROCK', None)
