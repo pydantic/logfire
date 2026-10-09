@@ -1,0 +1,27 @@
+logfire/_internal/integrations/fastapi.py
+  s_26c70d8a914d6a::t_bbf71bb9aa9df6 327-329
+tests/otel_integrations/test_asgi.py
+  s_26c70d8a914d6a::t_642f905055a3d6 113,145
+tests/otel_integrations/test_mcp_v2.py
+  s_26c70d8a914d6a::t_e6c14a7de84d84 14
+tests/otel_integrations/test_mcp_version_detection.py
+  s_26c70d8a914d6a::t_a7e3f8122b4135 9-10,16,18-24
+uv.lock
+  s_26c70d8a914d6a::t_eeaa143257a11a 307,312,314,316,1362,1383,1385,1560,1564,1570,1572,2997,3605,3607,3609,6810,6816,6818,7225,7232,7234,7402,7407,7409
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "784a039e5fad58759fcd46f4e6147cf7fc5b32dc",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
