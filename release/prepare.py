@@ -5,7 +5,7 @@ from pathlib import Path
 
 import requests
 
-from release.shared import API_PYPROJECT, CHANGELOG_FILE, GITHUB_TOKEN, REPO, ROOT_PYPROJECT, run_command
+from release.shared import API_PYPROJECT, CHANGELOG_FILE, REPO, ROOT_PYPROJECT, get_github_token, run_command
 
 
 def update_version(pyproject_file: str, new_version: str) -> None:
@@ -43,7 +43,7 @@ def get_notes(new_version: str) -> str:
         f'https://api.github.com/repos/{REPO}/releases/generate-notes',
         headers={
             'Accept': 'application/vnd.github+json',
-            'Authorization': f'Bearer {GITHUB_TOKEN}',
+            'Authorization': f'Bearer {get_github_token()}',
         },
         json=data,
     )

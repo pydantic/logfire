@@ -2,7 +2,7 @@ import re
 
 import requests
 
-from release.shared import CHANGELOG_FILE, GITHUB_TOKEN, REPO, run_command
+from release.shared import CHANGELOG_FILE, REPO, get_github_token, run_command
 
 
 def get_latest_version_from_changelog() -> str:
@@ -36,7 +36,7 @@ def get_latest_release_notes_from_changelog() -> str:
 def create_github_release_draft(version: str, release_notes: str):
     """Create a GitHub release draft."""
     url = f'https://api.github.com/repos/{REPO}/releases'
-    headers = {'Authorization': f'token {GITHUB_TOKEN}'}
+    headers = {'Authorization': f'token {get_github_token()}'}
     data = {
         'tag_name': f'v{version}',
         'name': f'v{version}',
@@ -64,7 +64,7 @@ def commit_and_push_changes(version: str) -> None:
 def open_pull_request(version: str):
     """Open a pull request on GitHub."""
     url = f'https://api.github.com/repos/{REPO}/pulls'
-    headers = {'Authorization': f'token {GITHUB_TOKEN}'}
+    headers = {'Authorization': f'token {get_github_token()}'}
     data = {
         'title': f'Release v{version}',
         'head': f'release/v{version}',
