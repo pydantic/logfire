@@ -824,6 +824,7 @@ def test_configure_service_version(config_kwargs: dict[str, Any], exporter: Test
     # No explicit version: the git commit hash is used in the resource as a low-precedence fallback (so
     # `OTEL_RESOURCE_ATTRIBUTES` can still override it here), and is stored back on the config so it's reflected
     # in the configuration span and serialized to child processes.
+    config_kwargs['additional_span_processors'] = [SimpleSpanProcessor(exporter)]
     configure(**config_kwargs)
     assert GLOBAL_CONFIG.service_version == git_sha
     assert resource_service_version() == git_sha
@@ -832,6 +833,7 @@ def test_configure_service_version(config_kwargs: dict[str, Any], exporter: Test
     dir = os.getcwd()
     try:
         os.chdir(tmp_path)
+        config_kwargs['additional_span_processors'] = [SimpleSpanProcessor(exporter)]
         configure(**config_kwargs)
         assert GLOBAL_CONFIG.service_version is None
         assert resource_service_version() is None
