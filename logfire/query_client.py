@@ -40,13 +40,31 @@ __all__ = [
 DEFAULT_TIMEOUT = Timeout(30.0)  # queries might typically be slower than the 5s default from AsyncClient
 
 
-class QueryExecutionError(RuntimeError):
+class _ProblemDetailsMixin:
+    """Additional details about an error response.
+
+    The server sends an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem detail body when the client
+    asks for one. When the server sends a different body, `problem` is `None`, and the other attributes are
+    `None` unless the response has a `Retry-After` header.
+    """
+
+    problem: dict[str, Any] | None = None
+    """The full problem detail body, when the server sent one."""
+    problem_type: str | None = None
+    """The `type` URI of the problem detail, which identifies the kind of error."""
+    retryable: bool | None = None
+    """Whether the server indicated that the same request can succeed later."""
+    retry_after: float | None = None
+    """The number of seconds the server asks the client to wait before it retries."""
+
+
+class QueryExecutionError(_ProblemDetailsMixin, RuntimeError):
     """Raised when the query execution fails on the server."""
 
     pass
 
 
-class QueryRequestError(RuntimeError):
+class QueryRequestError(_ProblemDetailsMixin, RuntimeError):
     """Raised when the query request is invalid."""
 
     pass
@@ -58,7 +76,7 @@ class InfoRequestError(RuntimeError):
     pass
 
 
-class UnexpectedResponseError(RuntimeError):
+class UnexpectedResponseError(_ProblemDetailsMixin, RuntimeError):
     """Raised when the API responds with an unexpected status code, such as a `5xx` server error."""
 
     pass
