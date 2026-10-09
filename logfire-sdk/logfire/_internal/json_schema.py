@@ -31,7 +31,7 @@ from types import GeneratorType
 from typing import Any, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
-from .json_encoder import is_attrs, is_sqlalchemy, to_json_value
+from .json_encoder import is_attrs, is_sqlalchemy, pandas_display_slices, to_json_value
 from .stack_info import STACK_INFO_KEYS
 from .utils import JsonDict, dump_json, log_internal_error, safe_repr
 
@@ -374,13 +374,13 @@ def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:
 
     row_count, column_count = obj.shape
 
-    max_columns = pandas.get_option('display.max_columns')
-    col_middle = min(max_columns, column_count) // 2
-    columns = list(obj.columns[:col_middle]) + list(obj.columns[-col_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+    columns: list[Any] = []
+    for column_slice in pandas_display_slices(column_count, pandas.get_option('display.max_columns')):
+        columns.extend(cast(Iterable[Any], obj.columns[column_slice]))
 
-    max_rows = pandas.get_option('display.max_rows')
-    row_middle = min(max_rows, row_count) // 2
-    indices = list(obj.index[:row_middle]) + list(obj.index[-row_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+    indices: list[Any] = []
+    for row_slice in pandas_display_slices(row_count, pandas.get_option('display.max_rows')):
+        indices.extend(cast(Iterable[Any], obj.index[row_slice]))
 
     return {
         'type': 'array',
