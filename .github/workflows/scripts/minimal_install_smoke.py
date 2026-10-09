@@ -41,6 +41,21 @@ def main() -> None:
 
     import logfire
 
+    assert metadata.version('logfire') == logfire.VERSION
+    logfire_entry_points = {
+        entry_point.value
+        for entry_point in metadata.distribution('logfire').entry_points
+        if entry_point.group == 'console_scripts' and entry_point.name == 'logfire'
+    }
+    assert logfire_entry_points == {'logfire.cli:main'}
+    for distribution in ('logfire-sdk', 'logfire-cli'):
+        try:
+            metadata.version(distribution)
+        except metadata.PackageNotFoundError:
+            pass
+        else:
+            raise AssertionError(f'{distribution} should not be installed')
+
     for package in optional_packages:
         assert_not_available(package)
 
