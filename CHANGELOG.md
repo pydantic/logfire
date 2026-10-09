@@ -1,5 +1,26 @@
 # Release Notes
 
+## [v6.0.0b8] (2026-10-09)
+
+* Support OpenTelemetry 1.45 by @alexmojaki in [#2536](https://github.com/pydantic/logfire/pull/2536)
+* Allow console attributes without verbose output by @rudrakshkarpe in [#2488](https://github.com/pydantic/logfire/pull/2488)
+* Add `compression` option and zstd experimental support by @Viicos in [#2535](https://github.com/pydantic/logfire/pull/2535)
+* Update FastAPI instrumentation to prevent duplicate telemetry by @alexmojaki in [#2524](https://github.com/pydantic/logfire/pull/2524)
+* Update Anthropic instrumentation by @alexmojaki in [#2521](https://github.com/pydantic/logfire/pull/2521)
+* Keep span message in sync with the name after `update_name` by @darshjoshi in [#2514](https://github.com/pydantic/logfire/pull/2514)
+* Expose RFC 9457 problem details on query client errors by @adriangb in [#2511](https://github.com/pydantic/logfire/pull/2511)
+* Read stable HTTP semconv attributes when building HTTP span messages by @samuelcolvin in [#2516](https://github.com/pydantic/logfire/pull/2516)
+* Update Google GenAI instrumentation by @alexmojaki in [#2523](https://github.com/pydantic/logfire/pull/2523)
+* Convert span attribute ints below the int64 minimum to strings by @JoeyTan21 in [#2502](https://github.com/pydantic/logfire/pull/2502)
+* Respect repr=False when logging attrs fields by @harbinresearcher in [#2518](https://github.com/pydantic/logfire/pull/2518)
+* Default the CLI base URL to LOGFIRE_BASE_URL by @jgjoe in [#2260](https://github.com/pydantic/logfire/pull/2260)
+* Create subprocess with no console windows on windows by @marcelotrevisani in [#2507](https://github.com/pydantic/logfire/pull/2507)
+* Fix when logfire tries to access a file that has no permission by @marcelotrevisani in [#2464](https://github.com/pydantic/logfire/pull/2464)
+* fix: do not treat non-retryable DiskRetryer responses as success by @alexmojaki in [#2529](https://github.com/pydantic/logfire/pull/2529)
+* fix explicit context for logfire metrics by @alexmojaki in [#2532](https://github.com/pydantic/logfire/pull/2532)
+* Fix OTLP byte POST retries through Session.request by @SAY-5 in [#2503](https://github.com/pydantic/logfire/pull/2503)
+* Handle project setup for accounts without organizations by @strawgate in [#2469](https://github.com/pydantic/logfire/pull/2469)
+
 ## [v6.0.0b7] (2026-09-25)
 
 * Configure proxy managers before other threads can use them by @adriangb in [#2479](https://github.com/pydantic/logfire/pull/2479)
@@ -1340,3 +1361,4 @@ First release from new repo!
 [v6.0.0b5]: https://github.com/pydantic/logfire/compare/v6.0.0b4...v6.0.0b5
 [v6.0.0b6]: https://github.com/pydantic/logfire/compare/v6.0.0b5...v6.0.0b6
 [v6.0.0b7]: https://github.com/pydantic/logfire/compare/v6.0.0b6...v6.0.0b7
+[v6.0.0b8]: https://github.com/pydantic/logfire/compare/v6.0.0b7...v6.0.0b8
