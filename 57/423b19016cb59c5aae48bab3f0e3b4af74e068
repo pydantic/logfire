@@ -1,0 +1,26 @@
+logfire-api/logfire_api/__init__.py
+  h_d9dd17644dded9 179-180,260
+logfire-api/logfire_api/__init__.pyi
+  h_d9dd17644dded9 19,57
+logfire-api/logfire_api/_internal/integrations/snowflake.pyi
+  h_d9dd17644dded9 1-7
+logfire-api/logfire_api/_internal/main.pyi
+  h_d9dd17644dded9 54,444-458
+logfire/__init__.py
+  h_d9dd17644dded9 70,183
+logfire/_internal/main.py
+  h_d9dd17644dded9 94,1016-1040
+tests/otel_integrations/test_snowflake.py
+  h_d9dd17644dded9 78,130,141,180,190,200,242,286-287,298,301,314,316,337,353,355,369-370,373,380-381,384,393-394,404,410,422,434,447-448,462-463,482,493,538,548,561,583,601
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "57423b19016cb59c5aae48bab3f0e3b4af74e068",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
