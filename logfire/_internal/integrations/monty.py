@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from threading import Lock
 from typing import TYPE_CHECKING, Any, cast
 
 from opentelemetry import trace as trace_api
@@ -19,9 +20,41 @@ from logfire._internal.constants import (
     DISABLE_CONSOLE_KEY,
 )
 from logfire._internal.formatter import logfire_format
+from logfire.version import VERSION
+
+try:
+    from pydantic_monty import instrument_telemetry
+except ImportError:
+    raise RuntimeError(
+        '`logfire.instrument_monty()` requires a version of the `pydantic-monty` package '
+        'which supports OpenTelemetry instrumentation.\n'
+        'You can install this with:\n'
+        "    pip install 'pydantic-monty>=0.0.23'"
+    ) from None
 
 if TYPE_CHECKING:
     from logfire import Logfire
+
+_install_lock = Lock()
+_installed = False
+
+
+def instrument_monty(logfire_instance: Logfire) -> None:
+    """Install process-wide Monty instrumentation using Logfire's OpenTelemetry components."""
+    global _installed
+
+    with _install_lock:
+        if _installed:
+            return
+        scoped = logfire_instance.with_settings(custom_scope_suffix='monty')
+        config = scoped.config
+        tracer = LogfireMontyTracer(scoped)
+        logger = LogfireMontyLogger(
+            config.get_logger_provider().get_logger(scoped._otel_scope, VERSION),  # pyright: ignore[reportPrivateUsage]
+            scoped,
+        )
+        instrument_telemetry(tracer=tracer, meter=scoped._meter, logger=logger)  # pyright: ignore[reportPrivateUsage]
+        _installed = True
 
 
 class LogfireMontyTracer(Tracer):
