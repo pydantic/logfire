@@ -150,6 +150,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     span: Span
     ns_timestamp_generator: Callable[[], int]
     record_metrics: bool
+    message_defaulted: bool
     metrics: dict[str, SpanMetric] = field(default_factory=lambda: defaultdict(SpanMetric))
     exception_callback: ExceptionCallback | None = None
 
@@ -172,9 +173,13 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         return self.span.get_span_context()
 
     def set_attributes(self, attributes: Mapping[str, otel_types.AttributeValue]) -> None:
+        if ATTRIBUTES_MESSAGE_KEY in attributes:
+            self.message_defaulted = False
         self.span.set_attributes(attributes)
 
     def set_attribute(self, key: str, value: otel_types.AttributeValue) -> None:
+        if key == ATTRIBUTES_MESSAGE_KEY:
+            self.message_defaulted = False
         self.span.set_attribute(key, value)
 
     def add_link(self, context: SpanContext, attributes: otel_types.Attributes = None) -> None:
@@ -194,7 +199,8 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
             # The message defaults to the span name at the start (see `_ProxyTracer.start_span`),
             # so keep it in sync when the name changes, unless the message was set explicitly.
             if (
-                ATTRIBUTES_MESSAGE_TEMPLATE_KEY not in attributes
+                self.message_defaulted
+                and ATTRIBUTES_MESSAGE_TEMPLATE_KEY not in attributes
                 and attributes.get(ATTRIBUTES_MESSAGE_KEY) == self.span.name
             ):
                 self.span.set_attribute(ATTRIBUTES_MESSAGE_KEY, name)
@@ -306,6 +312,7 @@ class _ProxyTracer(Tracer):
         attributes = {**(attributes or {})}
         if self.is_span_tracer:
             attributes[ATTRIBUTES_SPAN_TYPE_KEY] = 'span'
+        message_defaulted = ATTRIBUTES_MESSAGE_KEY not in attributes
         attributes.setdefault(ATTRIBUTES_MESSAGE_KEY, name)
 
         span = self.tracer.start_span(
@@ -326,6 +333,7 @@ class _ProxyTracer(Tracer):
             span,
             ns_timestamp_generator=ns_timestamp_generator,
             record_metrics=record_metrics,
+            message_defaulted=message_defaulted,
             exception_callback=exception_callback,
         )
 

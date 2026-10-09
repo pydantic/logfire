@@ -4083,6 +4083,21 @@ def test_update_name_updates_message(exporter: TestExporter):
     span.update_name('new name')
     span.end()
 
+    # An explicit message remains explicit even when it equals the initial span name.
+    span = tracer.start_span('old name', attributes={'logfire.msg': 'old name'})
+    span.update_name('new name')
+    span.end()
+
+    span = tracer.start_span('old name')
+    span.set_attribute('logfire.msg', 'old name')
+    span.update_name('new name')
+    span.end()
+
+    span = tracer.start_span('old name')
+    span.set_attributes({'logfire.msg': 'old name'})
+    span.update_name('new name')
+    span.end()
+
     # So is a message from a template.
     with logfire.span('old {x}', x=1):
         get_current_span().update_name('new name')
@@ -4092,6 +4107,9 @@ def test_update_name_updates_message(exporter: TestExporter):
             ('GET /items/{item_id}', 'GET /items/1'),
             ('new name', 'new name'),
             ('new name', 'custom message'),
+            ('new name', 'old name'),
+            ('new name', 'old name'),
+            ('new name', 'old name'),
             ('new name', 'old 1'),
         ]
     )
