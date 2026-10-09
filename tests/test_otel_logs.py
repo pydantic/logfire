@@ -3,13 +3,15 @@ from __future__ import annotations
 import logging
 import warnings
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
+from unittest.mock import Mock
 
 import pytest
 import requests.exceptions
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
-from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider
+from opentelemetry._logs import Logger, LogRecord, SeverityNumber, get_logger, get_logger_provider
+from opentelemetry.context import Context
 from opentelemetry.sdk._logs import LoggingHandler, LogRecordProcessor, ReadableLogRecord, ReadWriteLogRecord
 from opentelemetry.sdk._logs.export import (
     InMemoryLogRecordExporter,
@@ -22,6 +24,7 @@ from opentelemetry.sdk.resources import Resource
 import logfire
 from logfire import VERSION, suppress_instrumentation
 from logfire._internal.exporters.otlp import QuietLogExporter
+from logfire._internal.logs import ProxyLogger
 from logfire.testing import TestLogExporter
 
 
@@ -83,6 +86,30 @@ def test_otel_logs_min_level(config_kwargs: dict[str, Any]) -> None:
             (SeverityNumber.FATAL, 'FATAL'),
             (None, 'unknown'),
         ]
+    )
+
+
+def test_otel_logger_enabled(config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['min_level'] = 'error'
+    logfire.configure(**config_kwargs)
+
+    logger = get_logger('scope')
+    assert not logger.enabled(severity_number=SeverityNumber.DEBUG)
+    assert logger.enabled(severity_number=SeverityNumber.ERROR)
+
+
+def test_proxy_logger_enabled_delegates() -> None:
+    inner_logger = Mock()
+    inner_logger.enabled.return_value = False
+    logger = ProxyLogger(cast(Logger, inner_logger), SeverityNumber.ERROR.value, 'scope')
+    context = Context()
+
+    assert not logger.enabled(context=context, severity_number=SeverityNumber.DEBUG, event_name='event')
+    inner_logger.enabled.assert_not_called()
+
+    assert not logger.enabled(context=context, severity_number=SeverityNumber.ERROR, event_name='event')
+    inner_logger.enabled.assert_called_once_with(
+        context=context, severity_number=SeverityNumber.ERROR, event_name='event'
     )
 
 
