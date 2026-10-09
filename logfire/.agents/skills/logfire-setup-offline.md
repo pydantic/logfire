@@ -586,7 +586,11 @@ Close with a final report built from what you just confirmed — the run name, e
 
 # Reference Files
 
+<a id="reference-logfire-instrumentation-references-auth-md"></a>
+
 ## logfire-instrumentation/references/auth.md
+
+<a id="reference-logfire-instrumentation-references-auth-md--authenticate-and-select-the-exact-project"></a>
 
 # Authenticate and Select the Exact Project
 
@@ -659,6 +663,8 @@ run_logfire_js <target> whoami
 - `whoami`'s org/project/region is what every later step must match — instrumentation, verification, any link you give the user. Never substitute a different or "latest" project.
 - If both `.logfire/` credentials and `LOGFIRE_TOKEN` are present, `LOGFIRE_TOKEN` wins silently — `whoami` reports whichever is actually in effect. If they'd point at different projects, fix or unset the one you don't want before continuing.
 - Never print, log, hard-code, commit, or echo a token, and don't read `~/.logfire/default.toml`'s contents — a bad or missing credential surfaces as a CLI error, not a prompt. The one exception is reading `.logfire/logfire_credentials.json`'s `token` key programmatically, and only to hand it to a non-native-SDK application language that needs the actual value (see below) — never to print, display, or otherwise surface it.
+
+<a id="reference-logfire-instrumentation-references-auth-md--if-the-calling-skill-needs-a-write-token-not-just-a-cli-session"></a>
 
 ## If the calling skill needs a write token, not just a CLI session
 
