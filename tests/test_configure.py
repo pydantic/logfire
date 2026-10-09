@@ -558,8 +558,9 @@ def test_logfire_config_dir_permission_denied(tmp_path: Path):
         return original_exists(self, *args, **kwargs)
 
     with patch.object(Path, 'exists', exists):
-        with pytest.warns(UserWarning, match='Unable to access config file'):
+        with pytest.warns(UserWarning, match='Unable to access config file') as caught:
             LogfireConfig(config_dir=tmp_path)
+    assert caught[0].filename == __file__
 
 
 def test_logfire_config_console_options() -> None:
