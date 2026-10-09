@@ -1,13 +1,18 @@
 logfire/_internal/metrics.py
   s_26c70d8a914d6a::t_61430abca1e50a 10,203-206,216,220-221,232,236-237
+  s_26c70d8a914d6a::t_26d7e860afbfeb 10,203-206,216,220-221,232,236-237
 logfire/_internal/tracer.py
   s_26c70d8a914d6a::t_bbe1c655dc93f4 231,233-234,246-247
+  s_26c70d8a914d6a::t_4bc33d2288228c 231,233-234,246-247
 tests/otel_integrations/test_starlette.py
   s_26c70d8a914d6a::t_3c6e9672abaa8b 8,218-250
+  s_26c70d8a914d6a::t_32113f7a7e3c12 8,218-250
 tests/otel_integrations/test_wsgi.py
   s_26c70d8a914d6a::t_cb6a9ab8208bcc 80-113
+  s_26c70d8a914d6a::t_70b4064e7b8b51 80-113
 tests/test_metrics.py
   s_26c70d8a914d6a::t_58213252c002ce 10,21,445-526
+  s_26c70d8a914d6a::t_ce5d88de23e8cf 10,21,445-526
 ---
 {
   "schema_version": "authorship/3.0.0",
