@@ -1,0 +1,23 @@
+logfire/.agents/skills/logfire-setup-offline.md
+  s_26c70d8a914d6a::t_2d39776e022fc2 589-590,593-594,667-668
+scripts/build_offline_skill_prompt.py
+  s_26c70d8a914d6a::t_90b4110cb4d513 26,29,58-62,92-141,157-171,175,184-190,194,199-200,202-208,215-216,239-245,248
+tests/test_build_offline_skill_prompt.py
+  s_26c70d8a914d6a::t_2de9ef977075b2 2,9-11,29,70-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fbdc4ec221aba3c9db4c74c6fedf373bbd8cde36",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
