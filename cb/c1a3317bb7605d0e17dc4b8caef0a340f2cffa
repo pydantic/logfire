@@ -1,0 +1,19 @@
+docs/integrations/monty.md
+  s_d805b8bf249c6c::t_bfbae99990a3dc 91-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cbc1a3317bb7605d0e17dc4b8caef0a340f2cffa",
+  "prompts": {},
+  "sessions": {
+    "s_d805b8bf249c6c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a121dd-b211-7443-9093-6ec32bc340c2",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
