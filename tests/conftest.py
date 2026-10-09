@@ -5,7 +5,6 @@ import os
 import sys
 import unittest.mock
 import warnings
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -123,6 +122,12 @@ class ReusableSimpleSpanProcessor(SimpleSpanProcessor):
         pass
 
 
+class ReusableSimpleLogRecordProcessor(SimpleLogRecordProcessor):
+    def shutdown(self) -> None:
+        # Tests reconfigure Logfire with the same exporter, so keep it available.
+        pass
+
+
 @pytest.fixture
 def config_kwargs(
     exporter: TestExporter,
@@ -141,7 +146,7 @@ def config_kwargs(
         advanced=logfire.AdvancedOptions(
             id_generator=id_generator,
             ns_timestamp_generator=time_generator,
-            log_record_processors=[SimpleLogRecordProcessor(logs_exporter)],
+            log_record_processors=[ReusableSimpleLogRecordProcessor(logs_exporter)],
         ),
         additional_span_processors=[ReusableSimpleSpanProcessor(exporter)],
         # Ensure that inspect_arguments doesn't break things even in versions where it's off by default
@@ -155,16 +160,10 @@ def config_kwargs(
 def config(
     config_kwargs: dict[str, Any],
     metrics_reader: InMemoryMetricReader,
-    exporter: TestExporter,
-    logs_exporter: TestLogExporter,
 ) -> None:
     logfire.DEFAULT_LOGFIRE_INSTANCE.variables_clear()
-    initial_config_kwargs: dict[str, Any] = {
-        **config_kwargs,
-        'advanced': replace(config_kwargs['advanced'], log_record_processors=[SimpleLogRecordProcessor(logs_exporter)]),
-    }
     configure(
-        **initial_config_kwargs,
+        **config_kwargs,
         metrics=logfire.MetricsOptions(
             additional_readers=[metrics_reader],
             collect_in_spans=True,
