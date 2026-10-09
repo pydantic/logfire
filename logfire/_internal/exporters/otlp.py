@@ -191,7 +191,7 @@ class DiskRetryer:
         self.dir = Path(mkdtemp(prefix='logfire-retryer-'))
         _DISK_RETRYERS.append(weakref.ref(self))
 
-        self.last_log_time = -float('inf')
+        self.last_log_time: dict[str, float] = {}
 
     @staticmethod
     def _cleanup_dir(path: Path) -> None:
@@ -247,10 +247,11 @@ class DiskRetryer:
             if self._should_log():
                 logger.error('Export and retry failed: %s', e)
 
-    def _should_log(self) -> bool:
-        result = time.monotonic() - self.last_log_time >= self.LOG_INTERVAL
+    def _should_log(self, category: str = 'general') -> bool:
+        now = time.monotonic()
+        result = now - self.last_log_time.get(category, -float('inf')) >= self.LOG_INTERVAL
         if result:
-            self.last_log_time = time.monotonic()
+            self.last_log_time[category] = now
         return result
 
     def _run(self):
@@ -291,11 +292,12 @@ class DiskRetryer:
                             # raises for 408/429/5xx, so a permanent refusal used to fall through as
                             # "Success" and silently delete the payload. Drop it, but report loudly.
                             # Do not treat these as retryable: that would retry forever at MAX_DELAY.
-                            logger.error(
-                                'Export permanently refused with HTTP %s, dropping queued payload (%s bytes)',
-                                response.status_code,
-                                len(data),
-                            )
+                            if self._should_log('permanent_refusal'):
+                                logger.error(
+                                    'Export permanently refused with HTTP %s, dropping queued payload (%s bytes)',
+                                    response.status_code,
+                                    len(data),
+                                )
 
                         # Delivered (or permanently refused), so the server is reachable. Set the delay to a
                         # small value (so that remaining tasks can be done quickly), remove the file,
