@@ -317,13 +317,18 @@ jobs:
       - name: Set up Python 3.12
         run: uv python install 3.12
 
-      - name: check GITHUB_REF matches package version
-        uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00  # v5
+      - name: Check tag matches logfire version
+        uses: samuelcolvin/check-python-version@17d859ba0a6af9ffcaac5c70608fed36ed33e32a  # v5.1
         with:
           version_file_path: pyproject.toml
 
+      - name: Check tag matches logfire-api version
+        uses: samuelcolvin/check-python-version@17d859ba0a6af9ffcaac5c70608fed36ed33e32a  # v5.1
+        with:
+          version_file_path: logfire-api/pyproject.toml
+
       - name: Build artifacts
-        run: uv build --all
+        run: uv build --all --no-sources
 
       - name: Publish logfire and logfire-api to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
