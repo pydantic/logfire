@@ -1,0 +1,28 @@
+tests/exporters/test_otlp_session.py
+  s_3e5b2d224472a7::t_376c83a4ae3039 2,20,289-296
+  s_3e5b2d224472a7::t_210833b10946f6 286-288
+  s_3e5b2d224472a7::t_2914dfbdc92910 297-298
+logfire-sdk/logfire/_internal/exporters/otlp.py
+  s_3e5b2d224472a7::t_9b1e24bc4ba78b 7,108-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ed8970cbb38107df38baccf54f0a3ee3fc680cce",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_3e5b2d224472a7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1214e-b0ae-74e0-a7d3-ca72a9123b69",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
