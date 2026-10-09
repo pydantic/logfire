@@ -103,7 +103,7 @@ def _wrap_execute(original: Any) -> Any:
         attributes = _query_span_attributes(command, self, logfire_instance)
         if capture_parameters:
             attributes['params'] = params
-        if kwargs.get('_exec_async'):
+        if kwargs.get('_exec_async') or (len(args) > 2 and args[2]):
             template = 'snowflake execute async {command}'
             span_name = 'snowflake execute async'
         else:

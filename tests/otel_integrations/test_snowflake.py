@@ -196,6 +196,16 @@ def test_instrument_execute_async(exporter: TestExporter) -> None:
     assert span['attributes']['logfire.msg_template'] == 'snowflake execute async {command}'
 
 
+def test_instrument_execute_async_positional(exporter: TestExporter) -> None:
+    logfire.instrument_snowflake()
+
+    FakeConnection().cursor().execute('select 1', None, None, None, True)
+
+    span = exporter.exported_spans_as_dict()[0]
+    assert span['name'] == 'snowflake execute async'
+    assert span['attributes']['logfire.msg_template'] == 'snowflake execute async {command}'
+
+
 def test_instrument_executemany(exporter: TestExporter) -> None:
     logfire.instrument_snowflake()
 
