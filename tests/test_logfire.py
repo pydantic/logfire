@@ -4304,6 +4304,7 @@ def test_start_end_attach_detach(exporter: TestExporter, caplog: pytest.LogCaptu
 
 def test_min_level(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
     config_kwargs['min_level'] = 'notice'
+    config_kwargs['additional_span_processors'] = [SimpleSpanProcessor(exporter)]
     logfire.configure(**config_kwargs)
 
     with logfire.span('default span') as span:
