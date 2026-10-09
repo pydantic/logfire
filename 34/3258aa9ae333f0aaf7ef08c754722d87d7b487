@@ -1,0 +1,37 @@
+logfire-api/logfire_api/__init__.pyi
+  s_26c70d8a914d6a::t_67ed72be49d77f 29
+  s_26c70d8a914d6a::t_5ce9bf9f6e4e9e 19
+tests/otel_integrations/test_monty.py
+  s_26c70d8a914d6a::t_d7dfde83668cbc 3-4,7-9,11-12,14-17,20,22,24-27,29-67,69-71,122-404
+logfire-api/logfire_api/_internal/integrations/monty.pyi
+  s_26c70d8a914d6a::t_67ed72be49d77f 1-21
+logfire-api/logfire_api/_internal/main.pyi
+  s_26c70d8a914d6a::t_67ed72be49d77f 507-516
+logfire/_internal/integrations/monty.py
+  s_26c70d8a914d6a::t_1063400883b72e 4,23-33,38-57
+  s_26c70d8a914d6a::t_9806ef1f1ecbbe 58
+logfire-api/logfire_api/__init__.py
+  s_26c70d8a914d6a::t_9f147a5fc203b5 156-157,249
+logfire/__init__.py
+  s_26c70d8a914d6a::t_42ed0a784ad9fb 42,158
+logfire/_internal/main.py
+  s_26c70d8a914d6a::t_210c63a8848066 1211-1225
+tests/test_logfire_api.py
+  s_26c70d8a914d6a::t_2574b70138c32e 338-341
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "343258aa9ae333f0aaf7ef08c754722d87d7b487",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
