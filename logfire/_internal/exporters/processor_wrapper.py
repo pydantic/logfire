@@ -210,7 +210,7 @@ def _tweak_http_spans(span: ReadableSpanDict):
 
     # The query string, without the leading '?'. Shown at the end of the message in a readable form below.
     query_string: Any = attributes.get('url.query')
-    if not (target and query_string) and url and isinstance(url, str):
+    if url and isinstance(url, str):
         try:
             parsed_url = urlparse(url)
         except Exception:  # pragma: no cover
@@ -224,7 +224,7 @@ def _tweak_http_spans(span: ReadableSpanDict):
                 else:
                     target_key = 'url.path'
                 span['attributes'] = attributes = {**attributes, target_key: target}
-            query_string = query_string or parsed_url.query
+            query_string = parsed_url.query or query_string
 
     if not method and name in ('HTTP', f'HTTP {target}', f'HTTP {route}'):
         method = 'HTTP'
