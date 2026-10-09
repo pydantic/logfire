@@ -1,0 +1,32 @@
+tests/otel_integrations/test_snowflake.py
+  s_26c70d8a914d6a::t_068880a8e25e66 285-302,433-447
+  s_3e5b2d224472a7::t_b0137e47c6967c 448-450
+logfire-sdk/logfire/_internal/integrations/snowflake.py
+  s_26c70d8a914d6a::t_fe76011890e4dc 27-30
+  s_26c70d8a914d6a::t_02735768ad6540 31-32
+  s_3e5b2d224472a7::t_15f45ed72728ba 129,145,162,174
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "573129abc5c966af49d3215836fbe4009e37b7b4",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_3e5b2d224472a7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1214e-b0ae-74e0-a7d3-ca72a9123b69",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
