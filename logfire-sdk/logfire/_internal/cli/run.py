@@ -194,13 +194,13 @@ def parse_run(args: argparse.Namespace) -> None:
 
 def load_console_entry_point(name: str) -> Callable[[], object] | None:
     """Load one installed `console_scripts` entry point before local modules can shadow it."""
+    entry_points = list(importlib.metadata.entry_points(group='console_scripts', name=name))
+    if not entry_points:
+        return None
+    if len(entry_points) > 1:
+        print(f'Multiple installed packages provide the `{name}` console command.', file=sys.stderr)
+        sys.exit(1)
     with without_working_directory_on_sys_path():
-        entry_points = list(importlib.metadata.entry_points(group='console_scripts', name=name))
-        if not entry_points:
-            return None
-        if len(entry_points) > 1:
-            print(f'Multiple installed packages provide the `{name}` console command.', file=sys.stderr)
-            sys.exit(1)
         return cast(Callable[[], object], entry_points[0].load())
 
 

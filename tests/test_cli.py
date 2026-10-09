@@ -7,6 +7,7 @@ import importlib
 import importlib.metadata
 import io
 import json
+import math
 import os
 import re
 import shlex
@@ -56,6 +57,7 @@ from logfire._internal.cli.run import (
     get_recommendation_texts,
     instrument_packages,
     instrumented_packages_text,
+    load_console_entry_point,
 )
 from logfire._internal.config import LogfireConfigWarning, LogfireCredentials, sanitize_project_name
 from logfire._internal.utils import READ_TOKEN_FILENAME
@@ -6310,6 +6312,17 @@ def test_parse_run_console_entry_point(monkeypatch: pytest.MonkeyPatch) -> None:
     assert seen_argv == ['demo-cli', '--target-option']
     entry_points.assert_called_once_with(group='console_scripts', name='demo-cli')
     entry_point.load.assert_called_once_with()
+
+
+def test_local_console_entry_point_metadata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    dist_info = tmp_path / 'local_cli-0.0.1.dist-info'
+    dist_info.mkdir()
+    (dist_info / 'METADATA').write_text('Name: local-cli\nVersion: 0.0.1\n')
+    (dist_info / 'entry_points.txt').write_text('[console_scripts]\ndemo-local-cli = math:sqrt\n')
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, 'path', [str(tmp_path), *sys.path])
+
+    assert load_console_entry_point('demo-local-cli') is math.sqrt
 
 
 def test_parse_run_console_entry_point_is_loaded_before_working_directory(
