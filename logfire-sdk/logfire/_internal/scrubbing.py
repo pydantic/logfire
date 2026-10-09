@@ -89,6 +89,26 @@ class ScrubMatch:
     """
 
 
+def _valid_attribute_value(value: Any) -> bool:
+    if value is None or isinstance(value, (bool, str, bytes, int, float)):
+        return True
+    if isinstance(value, Mapping):
+        return all(
+            isinstance(key, str) and _valid_attribute_value(item)
+            for key, item in cast(Mapping[Any, Any], value).items()
+        )
+    if isinstance(value, Sequence):
+        return all(_valid_attribute_value(item) for item in cast(Sequence[Any], value))
+    return False
+
+
+def _bounded_attributes(attributes: Mapping[str, Any] | None) -> BoundedAttributes:
+    # OpenTelemetry 1.45 stringifies unsupported objects, which can expose values from scrub callbacks.
+    return BoundedAttributes(
+        attributes={key: value for key, value in (attributes or {}).items() if _valid_attribute_value(value)}
+    )
+
+
 ScrubCallback = Callable[[ScrubMatch], Any]
 
 
@@ -265,14 +285,14 @@ class SpanScrubber:
         # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
         new_attributes = self.scrub(('attributes',), span['attributes'])
         if self.did_scrub:
-            span['attributes'] = BoundedAttributes(attributes=new_attributes)
+            span['attributes'] = _bounded_attributes(new_attributes)
 
         span['events'] = [
             Event(
                 # We don't scrub the event name because in theory it should be a low-cardinality general description,
                 # not containing actual data. The same applies to the span name, which just isn't mentioned here.
                 name=event.name,
-                attributes=BoundedAttributes(attributes=self.scrub_event_attributes(event, i)),
+                attributes=_bounded_attributes(self.scrub_event_attributes(event, i)),
                 timestamp=event.timestamp,
             )
             for i, event in enumerate(span['events'])
@@ -280,7 +300,7 @@ class SpanScrubber:
         span['links'] = [
             Link(
                 context=link.context,
-                attributes=BoundedAttributes(attributes=self.scrub(('links', i, 'attributes'), link.attributes)),
+                attributes=_bounded_attributes(self.scrub(('links', i, 'attributes'), link.attributes)),
             )
             for i, link in enumerate(span['links'])
         ]
@@ -297,7 +317,7 @@ class SpanScrubber:
             new_attributes[ATTRIBUTES_SCRUBBED_KEY] = json.dumps(self.scrubbed)
 
         result = copy.copy(log)
-        result.attributes = BoundedAttributes(attributes=new_attributes)
+        result.attributes = _bounded_attributes(new_attributes)
         result.body = new_body
         return result
 
