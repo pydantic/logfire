@@ -1,0 +1,26 @@
+.github/workflows/coverage.yml
+  s_26c70d8a914d6a::t_792ba8045c5d2e 1-27
+.github/workflows/main.yml
+  s_26c70d8a914d6a::t_d08ffefcf18987 125,163-164,166,183,188-199,201-203,205-235,237-238
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b99eecf9df1197c0cdad9a8bb0366867c9d909e2",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
