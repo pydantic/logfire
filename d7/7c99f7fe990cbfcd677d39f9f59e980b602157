@@ -1,0 +1,27 @@
+logfire/_internal/integrations/mcp.py
+  s_26c70d8a914d6a::t_7775f73786254e 4,29-46
+logfire/_internal/main.py
+  s_26c70d8a914d6a::t_d8f040a2f957f5 1047-1051,1056
+tests/conftest.py
+  s_26c70d8a914d6a::t_cf960eca8cc8e8 7,63-66
+tests/otel_integrations/test_mcp_v2.py
+  s_26c70d8a914d6a::t_8ed76e0c38ed4d 1-185
+tests/otel_integrations/test_mcp_version_detection.py
+  s_26c70d8a914d6a::t_20f23ad5ac3c14 1-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d77c99f7fe990cbfcd677d39f9f59e980b602157",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
