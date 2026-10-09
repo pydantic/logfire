@@ -445,6 +445,24 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
     )
 
 
+@pytest.mark.parametrize('container_type', [list, dict])
+def test_scrub_callback_cyclic_value_is_discarded(
+    exporter: TestExporter, config_kwargs: dict[str, Any], container_type: type[list[Any]] | type[dict[str, Any]]
+) -> None:
+    def callback(match: logfire.ScrubMatch) -> Any:
+        cycle = container_type()
+        if isinstance(cycle, list):
+            cycle.append(cycle)
+        else:
+            cycle['self'] = cycle
+        return cycle
+
+    logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=callback), **config_kwargs)
+    logfire.info('hi', bad_password='hunter2')
+
+    assert 'bad_password' not in (exporter.exported_spans[0].attributes or {})
+
+
 def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any]):
     os.environ[OTEL_RESOURCE_ATTRIBUTES] = 'my_password=hunter2,yours=your_password,other=safe=good'
     logfire.configure(**config_kwargs)

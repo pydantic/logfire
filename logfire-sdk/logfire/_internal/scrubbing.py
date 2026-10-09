@@ -89,17 +89,26 @@ class ScrubMatch:
     """
 
 
-def _valid_attribute_value(value: Any) -> bool:
+def _valid_attribute_value(value: Any, ancestors: set[int] | None = None) -> bool:
     if value is None or isinstance(value, (bool, str, bytes, int, float)):
         return True
-    if isinstance(value, Mapping):
-        return all(
-            isinstance(key, str) and _valid_attribute_value(item)
-            for key, item in cast(Mapping[Any, Any], value).items()
-        )
-    if isinstance(value, Sequence):
-        return all(_valid_attribute_value(item) for item in cast(Sequence[Any], value))
-    return False
+    if not isinstance(value, (Mapping, Sequence)):
+        return False
+    if ancestors is None:
+        ancestors = set()
+    value_id = id(cast(object, value))
+    if value_id in ancestors:
+        return False
+    ancestors.add(value_id)
+    try:
+        if isinstance(value, Mapping):
+            return all(
+                isinstance(key, str) and _valid_attribute_value(item, ancestors)
+                for key, item in cast(Mapping[Any, Any], value).items()
+            )
+        return all(_valid_attribute_value(item, ancestors) for item in cast(Sequence[Any], value))
+    finally:
+        ancestors.remove(value_id)
 
 
 def _bounded_attributes(attributes: Mapping[str, Any] | None) -> BoundedAttributes:
