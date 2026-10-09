@@ -1,0 +1,31 @@
+logfire/_internal/config.py
+  s_26c70d8a914d6a::t_189b2024763d08 83,112,290-301,871,1302-1313,1319,1324,1347,1362
+logfire/_internal/config_params.py
+  s_26c70d8a914d6a::t_4b86f8c84d8750 26,119-120,158
+logfire/_internal/exporters/otlp.py
+  s_26c70d8a914d6a::t_d27423da74edbe 27,92-119,169,172,196-199
+pyproject.toml
+  s_26c70d8a914d6a::t_5f64f83ac8b973 191-192
+tests/conftest.py
+  s_26c70d8a914d6a::t_cd46ea4773b66b 45
+tests/exporters/test_otlp_session.py
+  s_26c70d8a914d6a::t_29882bcfd0704e 2,31,56,60,417-531
+uv.lock
+  s_26c70d8a914d6a::t_6d1586d7d526b5 521-613,3210,3373
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "16225d1f5b94d79cae1b8c6ab74a7aece2c10138",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
