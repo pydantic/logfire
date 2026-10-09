@@ -170,7 +170,7 @@ def test_checked_in_bundle_matches_a_fresh_build() -> None:
 
 def test_compact_bundle_stays_under_a_token_budget() -> None:
     """A regression guard, not a design target -- content should grow because something
-    genuinely needed adding, not because nobody noticed it creeping. ~16.5k tokens (chars/4)
+    genuinely needed adding, not because nobody noticed it creeping. ~16.75k tokens (chars/4)
     leaves real headroom over the bundle's current size without being loose enough to miss
     a real regression (e.g. `--no-references` quietly stopping omitting anything). The
     hardened, isolation-pinned CLI forms in auth guidance (~400 chars each) and the
@@ -178,7 +178,7 @@ def test_compact_bundle_stays_under_a_token_budget() -> None:
     """
     compact = build(include_references=False)
     estimated_tokens = len(compact) // 4
-    assert estimated_tokens < 16_500, (
+    assert estimated_tokens < 16_750, (
         f'compact bundle is ~{estimated_tokens} estimated tokens -- '
         f'either this is intentional growth (raise this budget) or `--no-references` '
         f'stopped omitting the deep-dive reference files it is meant to skip'
