@@ -1,9 +1,12 @@
 logfire/_internal/tracer.py
   s_26c70d8a914d6a::t_8bab1ac503c2b9 33,191-200
+  s_26c70d8a914d6a::t_04952a681e9ad4 33,191-200
 tests/otel_integrations/test_mcp_v2.py
   s_26c70d8a914d6a::t_7877b805f6d1e5 93
+  s_26c70d8a914d6a::t_4b6c9cf23bfec2 93
 tests/test_logfire.py
   s_26c70d8a914d6a::t_5f1f8e25194a49 4055-4089
+  s_26c70d8a914d6a::t_f090ca65e83a9c 4055-4089
 ---
 {
   "schema_version": "authorship/3.0.0",
