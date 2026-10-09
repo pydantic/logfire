@@ -1,0 +1,25 @@
+logfire/_internal/integrations/monty.py
+  s_26c70d8a914d6a::t_f6371b09ebf619 1-80
+pyproject.toml
+  s_26c70d8a914d6a::t_94d6507fc4a8a4 204
+tests/otel_integrations/test_monty.py
+  s_26c70d8a914d6a::t_b989be374394e5 1-42
+uv.lock
+  s_26c70d8a914d6a::t_0a5e47b8f5e87d 3056,3213,5548-5651
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "56a22fb70ee473b9b166b3a19d959c4f772e4893",
+  "prompts": {},
+  "sessions": {
+    "s_26c70d8a914d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12112-f5e7-7533-8a9f-149644616d7d",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
