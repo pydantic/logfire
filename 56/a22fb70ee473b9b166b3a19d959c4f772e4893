@@ -1,11 +1,15 @@
 logfire/_internal/integrations/monty.py
   s_26c70d8a914d6a::t_f6371b09ebf619 1-80
+  s_26c70d8a914d6a::t_d914ca110ecc70 1-80
 pyproject.toml
   s_26c70d8a914d6a::t_94d6507fc4a8a4 204
+  s_26c70d8a914d6a::t_78cb0d9c83aff0 204
 tests/otel_integrations/test_monty.py
   s_26c70d8a914d6a::t_b989be374394e5 1-42
+  s_26c70d8a914d6a::t_0f2b902a305493 1-42
 uv.lock
   s_26c70d8a914d6a::t_0a5e47b8f5e87d 3056,3213,5548-5651
+  s_26c70d8a914d6a::t_70956a3560969e 3056,3213,5548-5651
 ---
 {
   "schema_version": "authorship/3.0.0",
