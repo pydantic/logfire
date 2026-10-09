@@ -1,0 +1,24 @@
+tests/conftest.py
+  s_3e5b2d224472a7::t_c0523480ce9ba7 120-125,146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1a4b020b2796e0c096db78cf20bfc0a9595953ab",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_3e5b2d224472a7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1214e-b0ae-74e0-a7d3-ca72a9123b69",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
