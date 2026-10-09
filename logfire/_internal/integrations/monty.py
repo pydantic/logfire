@@ -25,7 +25,7 @@ from logfire.version import VERSION
 try:
     from pydantic_monty import instrument_telemetry
 except ImportError as exc:
-    if exc.name not in {'pydantic_monty', 'instrument_telemetry'}:
+    if exc.name != 'pydantic_monty':
         raise
     raise RuntimeError(
         '`logfire.instrument_monty()` requires a version of the `pydantic-monty` package '
