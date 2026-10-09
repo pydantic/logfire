@@ -100,9 +100,16 @@ const dataset = new Dataset<string, string>({
   evaluators: [new EqualsExpected()],
 })
 
-dataset.evaluate(classifySentiment).then((report) => {
-  console.log(renderReport(report, { includeInput: true, includeOutput: true }))
-}).finally(() => logfire.shutdown({ timeoutMillis: 5000 })).catch((error) => {
+async function runEvaluation() {
+  try {
+    const report = await dataset.evaluate(classifySentiment)
+    console.log(renderReport(report, { includeInput: true, includeOutput: true }))
+  } finally {
+    await logfire.shutdown({ timeoutMillis: 5000 })
+  }
+}
+
+runEvaluation().catch((error) => {
   console.error(error)
   process.exitCode = 1
 })
@@ -136,9 +143,16 @@ const smoke = new Dataset({
   evaluators: dataset.evaluators,
   reportEvaluators: dataset.reportEvaluators,
 })
-smoke.evaluate(classifySentiment).then((report) => {
-  console.log(renderReport(report, { includeInput: true, includeOutput: true }))
-}).finally(() => logfire.shutdown({ timeoutMillis: 5000 })).catch((error) => {
+async function runSmoke() {
+  try {
+    const report = await smoke.evaluate(classifySentiment)
+    console.log(renderReport(report, { includeInput: true, includeOutput: true }))
+  } finally {
+    await logfire.shutdown({ timeoutMillis: 5000 })
+  }
+}
+
+runSmoke().catch((error) => {
   console.error(error)
   process.exitCode = 1
 })
