@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Callable, Generator, Iterable, Iterator
 from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
 from functools import wraps
@@ -241,13 +242,23 @@ def record_streaming(
 
     timer = logire_llm._config.advanced.ns_timestamp_generator  # pyright: ignore[reportPrivateUsage]
     start = timer()
+    stream_error: BaseException | None = None
     try:
         yield record_chunk
+    except (Exception, asyncio.CancelledError) as exc:
+        stream_error = exc
+        raise
     finally:
         duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
         with attach_context(original_context):
-            logire_llm.info(
+            attributes = stream_state.get_attributes(span_data)
+            if stream_error is not None:
+                attributes['error.type'] = type(stream_error).__name__
+            logire_llm.log(
+                'error' if stream_error is not None else 'info',
                 'streaming response from {request_data[model]!r} took {duration:.2f}s',
-                duration=duration,
-                **stream_state.get_attributes(span_data),
+                {'duration': duration, **attributes},
+                exc_info=(type(stream_error), stream_error, stream_error.__traceback__)
+                if stream_error is not None
+                else False,
             )
