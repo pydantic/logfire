@@ -8,7 +8,7 @@ description: "Connect PagerDuty services to Logfire, route alerts to the right o
 Page the right on-call team when a [Logfire alert](../guides/web-ui/alerts.md) fires, then resolve the PagerDuty incident automatically when the alert clears.
 
 !!! info "Experimental"
-    The PagerDuty integration is experimental and available to selected Logfire organizations. Email [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+    The PagerDuty integration is experimental and available to selected Logfire organizations. Email [support@pydantic.dev](mailto:support@pydantic.dev) if you want to try it.
 
 You connect a PagerDuty account once at the organization level. Notification channels also belong to the organization. Every project in that organization can reuse them to route alerts to the approved PagerDuty services.
 
@@ -112,4 +112,4 @@ Disconnecting removes the encrypted service keys and approved service references
 
 **Disconnect is blocked.** Resolve open incidents and delete every Logfire notification channel that uses the connection, then disconnect again.
 
-For more help, see [Getting help with Pydantic Logfire](../help.md) or email [engineering@pydantic.dev](mailto:engineering@pydantic.dev).
+For more help, see [Getting help with Pydantic Logfire](../help.md) or email [support@pydantic.dev](mailto:support@pydantic.dev).
