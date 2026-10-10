@@ -1,5 +1,6 @@
 from __future__ import annotations as _annotations
 
+import asyncio
 import json
 from collections.abc import AsyncIterator, Iterator
 from inspect import signature
@@ -25,6 +26,7 @@ from openai.types import (
 )
 from openai.types.chat import chat_completion, chat_completion_chunk as cc_chunk, chat_completion_message
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from opentelemetry.trace import get_current_span
 
 import logfire
 from logfire._internal.utils import get_version, suppress_instrumentation
@@ -5028,3 +5030,373 @@ def test_get_endpoint_config_responses_agent_span() -> None:
 
     assert config.message_template == ''
     assert config.span_data == {}
+
+
+class StreamingResponseBody(httpx.SyncByteStream, httpx.AsyncByteStream):
+    def __init__(self, data: bytes) -> None:
+        self.data = data
+        self.was_read = False
+        self.was_closed = False
+
+    def __iter__(self) -> Iterator[bytes]:
+        self.was_read = True
+        yield self.data
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        for chunk in self:
+            yield chunk
+
+    def close(self) -> None:
+        self.was_closed = True
+
+    async def aclose(self) -> None:
+        self.close()
+
+
+@pytest.fixture
+def streaming_response_body() -> StreamingResponseBody:
+    return StreamingResponseBody(
+        json.dumps(
+            {
+                'id': 'test_id',
+                'object': 'chat.completion',
+                'created': 0,
+                'model': 'gpt-4',
+                'choices': [{'index': 0, 'finish_reason': 'stop', 'message': {'role': 'assistant', 'content': 'Nine'}}],
+                'usage': {'prompt_tokens': 2, 'completion_tokens': 1, 'total_tokens': 3},
+            }
+        ).encode()
+    )
+
+
+@pytest.fixture
+def streaming_response_client(streaming_response_body: StreamingResponseBody) -> Iterator[openai.Client]:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, stream=streaming_response_body, headers={'content-type': 'application/json'})
+
+    with openai.Client(api_key='foobar', http_client=httpx.Client(transport=MockTransport(handler))) as client:
+        with logfire.instrument_openai(client):
+            yield client
+
+
+@pytest.fixture
+async def async_streaming_response_client(
+    streaming_response_body: StreamingResponseBody,
+) -> AsyncIterator[openai.AsyncClient]:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, stream=streaming_response_body, headers={'content-type': 'application/json'})
+
+    async with openai.AsyncClient(
+        api_key='foobar', http_client=httpx.AsyncClient(transport=MockTransport(handler))
+    ) as client:
+        with logfire.instrument_openai(client):
+            yield client
+
+
+def test_sync_chat_completions_with_streaming_response(
+    instrumented_client: openai.Client, exporter: TestExporter
+) -> None:
+    with instrumented_client.chat.completions.with_streaming_response.create(
+        model='gpt-4',
+        messages=[
+            {'role': 'system', 'content': 'You are a helpful assistant.'},
+            {'role': 'user', 'content': 'What is four plus five?'},
+        ],
+    ) as response:
+        # The body hasn't been read yet, so the span stays open until it's parsed.
+        assert exporter.exported_spans_as_dict() == []
+        assert response.parse().choices[0].message.content == 'Nine'
+        # Parsing again doesn't record or end anything twice.
+        response.parse()
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_sync_chat_completions_with_streaming_response',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'messages': [
+                            {'role': 'system', 'content': 'You are a helpful assistant.'},
+                            {'role': 'user', 'content': 'What is four plus five?'},
+                        ],
+                        'model': 'gpt-4',
+                    },
+                    'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.input.messages': [
+                        {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]},
+                    ],
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'gpt-4',
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
+                    'operation.cost': 0.00012,
+                    'response_data': {
+                        'message': {
+                            'content': 'Nine',
+                            'refusal': None,
+                            'role': 'assistant',
+                            'annotations': None,
+                            'audio': None,
+                            'function_call': None,
+                            'tool_calls': None,
+                        },
+                        'usage': {
+                            'completion_tokens': 1,
+                            'prompt_tokens': 2,
+                            'total_tokens': 3,
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
+                    'gen_ai.response.finish_reasons': ['stop'],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'message': {
+                                        'type': 'object',
+                                        'title': 'ChatCompletionMessage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                },
+                            },
+                            'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_async_chat_completions_with_streaming_response(
+    instrumented_async_client: openai.AsyncClient, exporter: TestExporter
+) -> None:
+    async with instrumented_async_client.chat.completions.with_streaming_response.create(
+        model='gpt-4', messages=[{'role': 'user', 'content': 'What is four plus five?'}]
+    ) as response:
+        assert exporter.exported_spans_as_dict() == []
+        assert (await response.parse()).choices[0].message.content == 'Nine'
+        await response.parse()
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attributes = span['attributes']
+    assert attributes['async'] is True
+    assert attributes['gen_ai.response.id'] == 'test_id'
+    assert attributes['gen_ai.response.model'] == 'gpt-4'
+    assert attributes['gen_ai.response.finish_reasons'] == ['stop']
+    assert attributes['gen_ai.usage.input_tokens'] == 2
+    assert attributes['gen_ai.usage.output_tokens'] == 1
+    assert attributes['gen_ai.output.messages'] == snapshot(
+        [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}]
+    )
+
+
+def test_streaming_response_custom_parse_does_not_parse_default_model(
+    streaming_response_client: openai.Client,
+    streaming_response_body: StreamingResponseBody,
+    exporter: TestExporter,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    streaming_response_body.data = b'not-json'
+    with streaming_response_client.chat.completions.with_streaming_response.create(
+        model='gpt-4', messages=[{'role': 'user', 'content': 'hi'}]
+    ) as response:
+        assert response.parse(to=str) == 'not-json'
+        assert response.parse(to=str) == 'not-json'
+        assert exporter.exported_spans_as_dict() == []
+        # Only the app's explicit default parse may fail, not telemetry's hidden second parse.
+        with pytest.raises(json.JSONDecodeError):
+            response.parse()
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes'].get('gen_ai.response.id') is None
+    assert streaming_response_body.was_closed
+    assert caplog.records == []
+
+
+@pytest.mark.anyio
+async def test_async_streaming_response_custom_parse_does_not_parse_default_model(
+    async_streaming_response_client: openai.AsyncClient,
+    streaming_response_body: StreamingResponseBody,
+    exporter: TestExporter,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    streaming_response_body.data = b'not-json'
+    async with async_streaming_response_client.chat.completions.with_streaming_response.create(
+        model='gpt-4', messages=[{'role': 'user', 'content': 'hi'}]
+    ) as response:
+        assert await response.parse(to=str) == 'not-json'
+        assert await response.parse(to=str) == 'not-json'
+        assert exporter.exported_spans_as_dict() == []
+        with pytest.raises(json.JSONDecodeError):
+            await response.parse()
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes'].get('gen_ai.response.id') is None
+    assert streaming_response_body.was_closed
+    assert caplog.records == []
+
+
+def test_streaming_response_parse_after_failed_parse(
+    instrumented_client: openai.Client, exporter: TestExporter
+) -> None:
+    with instrumented_client.chat.completions.with_streaming_response.create(
+        model='gpt-4', messages=[{'role': 'user', 'content': 'hi'}]
+    ) as response:
+        with pytest.raises(ValueError):
+            response.parse(to=int)
+        assert exporter.exported_spans_as_dict() == []
+        assert 'Nine' in response.parse(to=str)
+        assert exporter.exported_spans_as_dict() == []
+        assert response.parse().id == 'test_id'
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['gen_ai.response.id'] == 'test_id'
+    assert span['attributes']['gen_ai.usage.output_tokens'] == 1
+
+
+@pytest.mark.anyio
+async def test_async_streaming_response_parse_after_failed_parse(
+    instrumented_async_client: openai.AsyncClient, exporter: TestExporter
+) -> None:
+    async with instrumented_async_client.chat.completions.with_streaming_response.create(
+        model='gpt-4', messages=[{'role': 'user', 'content': 'hi'}]
+    ) as response:
+        with pytest.raises(ValueError):
+            await response.parse(to=int)
+        assert exporter.exported_spans_as_dict() == []
+        assert 'Nine' in await response.parse(to=str)
+        assert exporter.exported_spans_as_dict() == []
+        assert (await response.parse()).id == 'test_id'
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['gen_ai.response.id'] == 'test_id'
+    assert span['attributes']['gen_ai.usage.output_tokens'] == 1
+
+
+@pytest.mark.parametrize('mode', ['unread', 'read', 'parse'])
+def test_streaming_response_lazy_body_and_parent_context(
+    streaming_response_client: openai.Client,
+    streaming_response_body: StreamingResponseBody,
+    exporter: TestExporter,
+    caplog: pytest.LogCaptureFixture,
+    mode: str,
+) -> None:
+    with logfire.span('parent'):
+        parent_context = get_current_span().get_span_context()
+        with streaming_response_client.chat.completions.with_streaming_response.create(
+            model='gpt-4', messages=[{'role': 'user', 'content': 'hi'}]
+        ) as response:
+            assert not streaming_response_body.was_read
+            assert exporter.exported_spans_as_dict() == []
+            assert get_current_span().get_span_context() == parent_context
+            if mode == 'parse':
+                assert response.parse().id == 'test_id'
+                assert len(exporter.exported_spans_as_dict()) == 1
+            elif mode == 'read':
+                assert b'Nine' in response.read()
+                assert exporter.exported_spans_as_dict() == []
+            assert get_current_span().get_span_context() == parent_context
+        assert streaming_response_body.was_closed
+        assert streaming_response_body.was_read == (mode != 'unread')
+        if mode != 'unread':
+            # Buffered bodies remain parseable after close, without writing to the ended span.
+            assert response.parse().id == 'test_id'
+            response.close()
+        assert len(exporter.exported_spans_as_dict()) == 1
+        assert get_current_span().get_span_context() == parent_context
+    [request_span, parent_span] = exporter.exported_spans_as_dict()
+    assert request_span['parent'] == parent_span['context']
+    assert request_span['attributes'].get('gen_ai.response.id') == ('test_id' if mode == 'parse' else None)
+    assert caplog.records == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('mode', ['unread', 'read', 'parse'])
+async def test_async_streaming_response_lazy_body_and_parent_context(
+    async_streaming_response_client: openai.AsyncClient,
+    streaming_response_body: StreamingResponseBody,
+    exporter: TestExporter,
+    caplog: pytest.LogCaptureFixture,
+    mode: str,
+) -> None:
+    with logfire.span('parent'):
+        parent_context = get_current_span().get_span_context()
+        async with async_streaming_response_client.chat.completions.with_streaming_response.create(
+            model='gpt-4', messages=[{'role': 'user', 'content': 'hi'}]
+        ) as response:
+            assert not streaming_response_body.was_read
+            assert exporter.exported_spans_as_dict() == []
+            assert get_current_span().get_span_context() == parent_context
+            if mode == 'parse':
+                assert (await asyncio.create_task(response.parse())).id == 'test_id'
+                assert len(exporter.exported_spans_as_dict()) == 1
+            elif mode == 'read':
+                assert b'Nine' in await response.read()
+                assert exporter.exported_spans_as_dict() == []
+            assert get_current_span().get_span_context() == parent_context
+        assert streaming_response_body.was_closed
+        assert streaming_response_body.was_read == (mode != 'unread')
+        if mode != 'unread':
+            assert (await response.parse()).id == 'test_id'
+            await response.close()
+        assert len(exporter.exported_spans_as_dict()) == 1
+        assert get_current_span().get_span_context() == parent_context
+    [request_span, parent_span] = exporter.exported_spans_as_dict()
+    assert request_span['parent'] == parent_span['context']
+    assert request_span['attributes'].get('gen_ai.response.id') == ('test_id' if mode == 'parse' else None)
+    assert caplog.records == []
+
+
+def test_request_error_ends_span(exporter: TestExporter) -> None:
+    def error_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={'error': {'message': 'bad request'}})
+
+    with httpx.Client(transport=MockTransport(error_handler)) as httpx_client:
+        client = openai.Client(api_key='foobar', http_client=httpx_client, max_retries=0)
+        logfire.instrument_openai(client)
+        with pytest.raises(openai.BadRequestError):
+            client.chat.completions.create(model='gpt-4', messages=[{'role': 'user', 'content': 'hi'}])
+    [span] = exporter.exported_spans_as_dict()
+    assert span['end_time'] > span['start_time']
+    assert span['events'][0]['name'] == 'exception'
+    assert span['events'][0]['attributes']['exception.type'] == 'openai.BadRequestError'
+    assert span['events'][0]['attributes']['exception.escaped'] == 'True'
+    assert span['attributes']['logfire.level_num'] == 17
