@@ -92,7 +92,9 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 dict(delta=TextDelta(text=' is secret', type='text_delta'), index=0, type='content_block_delta'),
                 dict(index=0, type='content_block_stop'),
                 dict(
-                    delta=dict(stop_reason='end_turn', stop_sequence=None),
+                    delta=dict(
+                        stop_reason=None if json_body['system'] == 'no stop reason' else 'end_turn', stop_sequence=None
+                    ),
                     type='message_delta',
                     usage=MessageDeltaUsage(output_tokens=55),
                 ),
@@ -601,6 +603,8 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                             'finish_reason': 'end_turn',
                         }
                     ],
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 25,
                     'gen_ai.usage.output_tokens': 55,
                     'gen_ai.usage.raw': {'input_tokens': 25, 'output_tokens': 55},
@@ -621,6 +625,8 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                             'async': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -868,6 +874,8 @@ async def test_async_messages_stream(
                             'finish_reason': 'end_turn',
                         }
                     ],
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 25,
                     'gen_ai.usage.output_tokens': 55,
                     'gen_ai.usage.raw': {'input_tokens': 25, 'output_tokens': 55},
@@ -888,6 +896,8 @@ async def test_async_messages_stream(
                             'async': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -1731,6 +1741,8 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
                             'finish_reason': 'end_turn',
                         }
                     ],
+                    'gen_ai.response.id': 'msg_01CpLvutrn5ZEYqp6J9PqxDN',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 19,
                     'gen_ai.usage.output_tokens': 9,
                     'gen_ai.usage.raw': {
@@ -1757,6 +1769,8 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
                             'gen_ai.system_instructions': {'type': 'array'},
                             'async': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -1863,6 +1877,8 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.request.max_tokens': 1000,
                     'async': False,
                     'response_data': {'combined_chunk_content': 'Four plus five equals nine.', 'chunk_count': IsInt()},
+                    'gen_ai.response.id': 'msg_01Pp3btiCYxbWhMJWewiYg5s',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 19,
                     'gen_ai.usage.output_tokens': 9,
                     'gen_ai.usage.raw': {
@@ -1887,6 +1903,8 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.request.max_tokens': {},
                             'async': {},
                             'response_data': {'type': 'object'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -2013,6 +2031,8 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
                             'finish_reason': 'end_turn',
                         }
                     ],
+                    'gen_ai.response.id': 'msg_015ZdAGWSyZwVr5WxHaN3vaf',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 19,
                     'gen_ai.usage.output_tokens': 9,
                     'gen_ai.usage.raw': {
@@ -2040,6 +2060,8 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
                             'async': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -2179,3 +2201,28 @@ async def test_async_beta_messages(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+@pytest.mark.parametrize('version', [1, 2, [1, 2]])
+@pytest.mark.parametrize('complete', [False, True])
+def test_stream_response_metadata(version: Any, complete: bool, exporter: TestExporter) -> None:
+    client = anthropic.Anthropic(
+        api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(request_handler))
+    )
+    with logfire.instrument_anthropic(client, version=version):
+        list(
+            client.messages.create(
+                model='claude-3-haiku-20240307',
+                system='system message' if complete else 'no stop reason',
+                max_tokens=10,
+                messages=[{'role': 'user', 'content': 'hello'}],
+                stream=True,
+            )
+        )
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
+    assert attributes['gen_ai.response.id'] == 'test_id'
+    if complete:
+        assert attributes['gen_ai.response.finish_reasons'] == ['end_turn']
+    else:
+        assert 'gen_ai.response.finish_reasons' not in attributes
+    client.close()

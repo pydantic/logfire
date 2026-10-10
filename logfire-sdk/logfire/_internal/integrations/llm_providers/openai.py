@@ -580,6 +580,10 @@ try:
             except AssertionError:
                 pass
             else:
+                result[RESPONSE_ID] = final_completion.id
+                finish_reasons = [choice.finish_reason for choice in final_completion.choices if choice.finish_reason]
+                if finish_reasons:
+                    result[RESPONSE_FINISH_REASONS] = finish_reasons
                 result.update(get_openai_usage_attributes(final_completion, self.base_url))
             return result
 

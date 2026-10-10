@@ -1093,6 +1093,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     ],
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
+                    'gen_ai.response.id': '1',
                     'response_data': {'message': None, 'usage': None},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -1106,6 +1107,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                             'gen_ai.input.messages': {'type': 'array'},
                             'duration': {},
                             'response_data': {'type': 'object'},
+                            'gen_ai.response.id': {},
                         },
                     },
                     'gen_ai.response.model': 'gpt-4',
@@ -1353,6 +1355,8 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.response.id': '1',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
                     'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
@@ -1402,6 +1406,8 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -1658,6 +1664,8 @@ async def test_async_chat_tool_call_stream(
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.response.id': '1',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
                     'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
@@ -1707,6 +1715,8 @@ async def test_async_chat_tool_call_stream(
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -1816,6 +1826,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'The answer is secret'}]}
                     ],
+                    'gen_ai.response.id': '1',
                     'response_data': {
                         'message': {
                             'content': 'The answer is secret',
@@ -1851,6 +1862,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
                         },
                     },
                     'gen_ai.response.model': 'gpt-4',
@@ -1958,6 +1970,7 @@ async def test_async_chat_completions_stream(
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'The answer is secret'}]}
                     ],
+                    'gen_ai.response.id': '1',
                     'response_data': {
                         'message': {
                             'content': 'The answer is secret',
@@ -1993,6 +2006,7 @@ async def test_async_chat_completions_stream(
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
                         },
                     },
                     'gen_ai.response.model': 'gpt-4',
@@ -2401,6 +2415,8 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.response.id': 'chatcmpl-D8EA5nZ0hOZP7LH1T8J9NNIiYa8n1',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2413,6 +2429,8 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                             'gen_ai.input.messages': {'type': 'array'},
                             'async': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -2522,6 +2540,8 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                         },
                         'usage': None,
                     },
+                    'gen_ai.response.id': 'chatcmpl-D8EA5fF3qB9JXQ0fMSoKp3Li7ab0g',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2542,6 +2562,8 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                                     }
                                 },
                             },
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -3984,6 +4006,8 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.response.id': 'gen-1751918758-SZqPQwzFgmd8JdDUxRuL',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.usage.input_tokens': 13,
                     'gen_ai.usage.output_tokens': 1003,
                     'gen_ai.usage.raw': {'completion_tokens': 1003, 'prompt_tokens': 13, 'total_tokens': 1016},
@@ -4015,6 +4039,8 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -5028,3 +5054,24 @@ def test_get_endpoint_config_responses_agent_span() -> None:
 
     assert config.message_template == ''
     assert config.span_data == {}
+
+
+@pytest.mark.parametrize('version', [1, 2, [1, 2]])
+@pytest.mark.parametrize('complete', [False, True])
+def test_stream_response_metadata(version: Any, complete: bool, exporter: TestExporter) -> None:
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(request_handler)))
+    with logfire.instrument_openai(client, version=version):
+        list(
+            client.chat.completions.create(
+                model='gpt-4',
+                messages=[{'role': 'user', 'content': 'streamed tool call' if complete else 'hello'}],
+                stream=True,
+            )
+        )
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
+    assert attributes['gen_ai.response.id'] == '1'
+    if complete:
+        assert attributes['gen_ai.response.finish_reasons'] == ['stop']
+    else:
+        assert 'gen_ai.response.finish_reasons' not in attributes
+    client.close()
