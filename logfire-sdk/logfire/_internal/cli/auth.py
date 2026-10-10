@@ -40,11 +40,13 @@ def parse_auth(args: argparse.Namespace) -> None:
     logged_in = tokens_collection.is_logged_in(logfire_url)
 
     if logged_in:
+        target = f'--base-url {logfire_url}' if logfire_url else '--region <region>'
         sys.stderr.writelines(
             (
                 f'You are already logged in. (Your credentials are stored in {DEFAULT_FILE})\n',
-                'If you would like to log in using a different account, use the --region argument:\n',
-                'logfire --region <region> auth\n',
+                'To log in using a different account, log out first, then authenticate again:\n',
+                f'logfire {target} auth logout\n',
+                f'logfire {target} auth\n',
             )
         )
         return
@@ -129,7 +131,11 @@ def parse_auth(args: argparse.Namespace) -> None:
 
 
 def parse_logout(args: argparse.Namespace) -> None:
-    """Log out from Logfire."""
+    """Log out from Logfire.
+
+    Remove stored user tokens for --region, --base-url, or a non-empty LOGFIRE_BASE_URL.
+    With no target configured, remove all stored user tokens.
+    """
     logfire_url: str | None = args.logfire_url
 
     tokens_collection = UserTokenCollection()
