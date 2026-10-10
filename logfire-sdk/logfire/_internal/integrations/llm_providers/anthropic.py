@@ -313,6 +313,9 @@ class AnthropicMessageStreamState(StreamState):
         if 2 in versions and self._message and self._message.content:
             result[OUTPUT_MESSAGES] = [convert_response_to_semconv(self._message)]
         if self._message is not None:
+            result[RESPONSE_ID] = self._message.id
+            if self._message.stop_reason:
+                result[RESPONSE_FINISH_REASONS] = [self._message.stop_reason]
             result.update(get_anthropic_usage_attributes(self._message, self.base_url))
         return result
 
