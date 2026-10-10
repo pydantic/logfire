@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import openai
 from openai._legacy_response import LegacyAPIResponse
+from openai._response import APIResponse, AsyncAPIResponse
 from openai.lib.streaming.responses import ResponseStreamState
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
@@ -20,6 +21,7 @@ from opentelemetry.trace import get_current_span
 from logfire import LogfireSpan
 
 from ...utils import handle_internal_errors, log_internal_error
+from .llm_provider import end_span_later
 from .semconv import (
     INPUT_MESSAGES,
     OPERATION_NAME,
@@ -610,6 +612,64 @@ def get_openai_usage_attributes(response: Any, base_url: str | None = None) -> d
     )
 
 
+def _record_when_parsed(
+    response: APIResponse[Any] | AsyncAPIResponse[Any],
+    span: LogfireSpan,
+    versions: frozenset[NormalizedSemconvVersion],
+    base_url: str | None,
+) -> None:
+    """Record the first successful default parse, keeping the span open until then or close.
+
+    Custom parses don't force a second parse into the default model. The span stays
+    open in case the app later requests a default parse, and close always ends it.
+    """
+    if isinstance(response, AsyncAPIResponse):
+        original_parse = response.parse
+        original_close = response.close
+
+        async def parse_async(*, to: Any = None) -> Any:
+            parsed = await original_parse(to=to)
+            if to is None and span.is_recording():
+                try:
+                    on_response(parsed, span, version=versions, base_url=base_url)
+                finally:
+                    end_span()
+            return parsed
+
+        async def close_async() -> None:
+            try:
+                await original_close()
+            finally:
+                end_span()
+
+        response.parse = parse_async
+        response.close = close_async
+    else:
+        original_parse = response.parse
+        original_close = response.close
+
+        def parse(*, to: Any = None) -> Any:
+            parsed = original_parse(to=to)
+            if to is None and span.is_recording():
+                try:
+                    on_response(parsed, span, version=versions, base_url=base_url)
+                finally:
+                    end_span()
+            return parsed
+
+        def close() -> None:
+            try:
+                original_close()
+            finally:
+                end_span()
+
+        response.parse = parse
+        response.close = close
+
+    # Register only after both wrappers are installed, so failed setup cannot leave the span open.
+    end_span = end_span_later(span)
+
+
 @handle_internal_errors
 def on_response(
     response: ResponseT,
@@ -623,6 +683,11 @@ def on_response(
 
     if isinstance(response, LegacyAPIResponse):  # pragma: no cover
         on_response(response.parse(), span, version=versions, base_url=base_url)  # pyright: ignore[reportUnknownArgumentType]
+        return cast('ResponseT', response)
+
+    if isinstance(response, (APIResponse, AsyncAPIResponse)):
+        # `with_streaming_response`: the body hasn't been read yet, so record it when the app parses it.
+        _record_when_parsed(response, span, versions, base_url)  # pyright: ignore[reportUnknownArgumentType]
         return cast('ResponseT', response)
 
     if isinstance(response_model := getattr(response, 'model', None), str):
