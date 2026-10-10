@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator, Callable, Generator, Iterable, Iterat
 from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Protocol, cast
+from weakref import WeakSet
 
 from opentelemetry.trace import SpanKind
 
@@ -18,7 +19,22 @@ if TYPE_CHECKING:
     from .types import EndpointConfig, StreamState
 
 
-__all__ = ('instrument_llm_provider',)
+__all__ = ('instrument_llm_provider', 'end_span_later')
+
+
+_spans_ended_later: WeakSet[LogfireSpan] = WeakSet()
+
+
+def end_span_later(span: LogfireSpan) -> Callable[[], None]:
+    """Keep the request span open after the request method returns.
+
+    For responses whose body is only read after the request method returns
+    (e.g. OpenAI's `with_streaming_response`), the provider calls this from its
+    `on_response_fn` and calls the returned function once the response has been
+    consumed or closed. Calling the returned function more than once is a no-op.
+    """
+    _spans_ended_later.add(span)
+    return span._end  # pyright: ignore[reportPrivateUsage]
 
 
 class OnResponseFn(Protocol):
@@ -163,7 +179,8 @@ def instrument_llm_provider(
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return original_request_method(*args, **kwargs)
-        with logfire_llm.span(message_template, _span_kind=SpanKind.CLIENT, **span_data) as span:
+        span = logfire_llm.span(message_template, _span_kind=SpanKind.CLIENT, **span_data)
+        with _request_span(span):
             with maybe_suppress_instrumentation(suppress_otel):
                 if kwargs.get('stream'):
                     return original_request_method(*args, **kwargs)
@@ -178,7 +195,8 @@ def instrument_llm_provider(
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return await original_request_method(*args, **kwargs)
-        with logfire_llm.span(message_template, _span_kind=SpanKind.CLIENT, **span_data) as span:
+        span = logfire_llm.span(message_template, _span_kind=SpanKind.CLIENT, **span_data)
+        with _request_span(span):
             with maybe_suppress_instrumentation(suppress_otel):
                 if kwargs.get('stream'):
                     return await original_request_method(*args, **kwargs)
@@ -251,3 +269,20 @@ def record_streaming(
                 duration=duration,
                 **stream_state.get_attributes(span_data),
             )
+
+
+@contextmanager
+def _request_span(span: LogfireSpan) -> Generator[None]:
+    """Like `with span:`, but leaves the span open if the provider called `end_span_later`."""
+    span.__enter__()
+    try:
+        yield
+    except BaseException as e:
+        _spans_ended_later.discard(span)
+        span.__exit__(type(e), e, e.__traceback__)
+        raise
+    if span in _spans_ended_later:
+        _spans_ended_later.discard(span)
+        span._detach()  # pyright: ignore[reportPrivateUsage]
+    else:
+        span.__exit__(None, None, None)
