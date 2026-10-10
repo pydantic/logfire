@@ -2,6 +2,7 @@ import dataclasses
 from .utils import handle_internal_errors as handle_internal_errors
 from abc import ABC
 from collections.abc import Sequence
+from opentelemetry.context import Context
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, Instrument, Meter, MeterProvider, ObservableCounter, ObservableGauge, ObservableUpDownCounter, UpDownCounter, _Gauge as Gauge
 from opentelemetry.util.types import Attributes
 from threading import Lock
@@ -43,10 +44,10 @@ class _ProxyInstrument(ABC, Generic[InstrumentT]):
         """Called when a real meter is set on the creating _ProxyMeter."""
 
 class _ProxyCounter(_ProxyInstrument[Counter], Counter):
-    def add(self, amount: int | float, attributes: Attributes | None = None, *args: Any, **kwargs: Any) -> None: ...
+    def add(self, amount: int | float, attributes: Attributes | None = None, context: Context | None = None, *args: Any, **kwargs: Any) -> None: ...
 
 class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
-    def record(self, amount: int | float, attributes: Attributes | None = None, *args: Any, **kwargs: Any) -> None: ...
+    def record(self, amount: int | float, attributes: Attributes | None = None, context: Context | None = None, *args: Any, **kwargs: Any) -> None: ...
 
 class _ProxyObservableCounter(_ProxyInstrument[ObservableCounter], ObservableCounter): ...
 class _ProxyObservableGauge(_ProxyInstrument[ObservableGauge], ObservableGauge): ...

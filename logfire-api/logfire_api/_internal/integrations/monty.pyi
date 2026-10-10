@@ -4,7 +4,7 @@ from logfire import Logfire as Logfire
 from logfire._internal.constants import ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY
 from logfire._internal.formatter import logfire_format as logfire_format
 from logfire.version import VERSION as VERSION
-from opentelemetry._logs import LogRecord, Logger
+from opentelemetry._logs import LogRecord, Logger, SeverityNumber
 from opentelemetry.context import Context
 from opentelemetry.trace import Link as Link, Span, SpanKind, Tracer
 from opentelemetry.util import types as otel_types
@@ -25,4 +25,5 @@ class LogfireMontyLogger(Logger):
     logger: Incomplete
     logfire: Incomplete
     def __init__(self, logger: Logger, logfire_instance: Logfire) -> None: ...
+    def enabled(self, *, context: Context | None = None, severity_number: SeverityNumber | None = None, event_name: str | None = None) -> bool: ...
     def emit(self, record: LogRecord | None = None, **kwargs: Any) -> None: ...
