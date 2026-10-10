@@ -1399,13 +1399,61 @@ def test_auth_permanent_failure(tmp_path: Path) -> None:
                 main(['--region', 'us', 'auth'])
 
 
-def test_auth_on_authenticated_user(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.parametrize(
+    ('args', 'target'),
+    [
+        (['--region', 'us', 'auth'], '--base-url https://logfire-us.pydantic.dev'),
+        (['--base-url', 'https://logfire-us.pydantic.dev', 'auth'], '--base-url https://logfire-us.pydantic.dev'),
+        (['auth'], '--region <region>'),
+    ],
+)
+def test_auth_on_authenticated_user(
+    default_credentials: Path, capsys: pytest.CaptureFixture[str], args: list[str], target: str
+) -> None:
+    original_credentials = default_credentials.read_text()
     with patch('logfire._internal.auth.DEFAULT_FILE', default_credentials):
-        # US is the default region in the default credentials fixture:
-        main(['--region', 'us', 'auth'])
+        main(args)
 
-        _, err = capsys.readouterr()
-        assert 'You are already logged in' in err
+    _, err = capsys.readouterr()
+    assert 'You are already logged in' in err
+    assert f'logfire {target} auth logout' in err
+    assert f'logfire {target} auth\n' in err
+    assert err.index('auth logout') < err.rindex('auth')
+    assert default_credentials.read_text() == original_credentials
+
+
+@pytest.mark.parametrize('args', [['auth', '--help'], ['auth', 'logout', '--help']])
+def test_auth_logout_help(args: list[str], capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(args)
+
+    assert exc_info.value.code == 0
+    output = ' '.join(capsys.readouterr().out.split())
+    assert '--region' in output
+    assert '--base-url' in output
+    assert 'LOGFIRE_BASE_URL' in output
+    assert 'all stored user tokens' in output
+
+
+@pytest.mark.parametrize('base_url', [None, '', 'https://logfire-us.pydantic.dev'])
+def test_auth_logout_scope_from_env(
+    default_credentials: Path, monkeypatch: pytest.MonkeyPatch, base_url: str | None
+) -> None:
+    with default_credentials.open('a', encoding='utf-8') as auth_file:
+        auth_file.write(
+            '\n[tokens."https://logfire-eu.pydantic.dev"]\ntoken = "test-token"\nexpiration = "2099-12-31T23:59:59"\n'
+        )
+    if base_url is None:
+        monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
+    else:
+        monkeypatch.setenv('LOGFIRE_BASE_URL', base_url)
+
+    with patch('logfire._internal.auth.DEFAULT_FILE', default_credentials):
+        main(['auth', 'logout'])
+
+    credentials = default_credentials.read_text()
+    assert 'https://logfire-us.pydantic.dev' not in credentials
+    assert ('https://logfire-eu.pydantic.dev' in credentials) is bool(base_url)
 
 
 def test_auth_logout(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
