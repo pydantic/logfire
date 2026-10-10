@@ -731,7 +731,7 @@ def test_json_args_value_formatting_compact(value: Any, schema: JSONSchema, form
     ],
 )
 def test_range_formatting(formatter: Any, schema: JSONSchema, value: list[int], formatted: str) -> None:
-    # 2026-10-09: Both range schemas must preserve the encoded sequence, including empty and stepped ranges.
+    # Both range schemas must preserve the encoded sequence, including empty and stepped ranges.
     assert formatter(value, schema=schema) == formatted
 
 

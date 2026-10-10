@@ -28,7 +28,7 @@ class JsonArgsValueFormatter:
             'Mapping': partial(self._format_items, '({', ': ', '})', True),
             'tuple': partial(self._format_list_like, '(', ')'),
             'Sequence': partial(self._format_sequence, '([', '])'),
-            'range': self._format_range,  # 2026-10-09
+            'range': self._format_range,
             'set': partial(self._format_list_like, '{', '}'),
             'frozenset': partial(self._format_list_like, 'frozenset({', '})'),
             'deque': partial(self._format_list_like, 'deque([', '])'),
@@ -117,12 +117,12 @@ class JsonArgsValueFormatter:
     ) -> None:
         schema = schema or {}
         if (cls := schema.get('title')) == 'range':
-            self._format_range(indent_current, value, schema)  # 2026-10-09
+            self._format_range(indent_current, value, schema)
         else:
             self._format_list_like(f'{cls}{open_}', close_, indent_current, value, None)
 
     def _format_range(self, _indent_current: int, value: Any, _schema: JSONSchema | None) -> None:
-        # 2026-10-09: Reconstruct an equivalent range from encoded values, which omit the original bounds.
+        # Reconstruct an equivalent range from encoded values, which omit the original bounds.
         if value:
             step = value[1] - value[0] if len(value) > 1 else 1
             args = f'{value[0]}, {value[-1] + step}'

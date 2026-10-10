@@ -109,7 +109,7 @@ def test_console_range_attributes(
     formatted: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # 2026-10-09: Exercise the schema emitted by the public API and keep later attributes visible.
+    # Exercise the schema emitted by the public API and keep later attributes visible.
     output = io.StringIO()
     config_kwargs['console'] = ConsoleOptions(
         output=output, colors=colors, include_timestamps=False, include_attributes=True
