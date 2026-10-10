@@ -24,7 +24,8 @@ have opened, with shortcuts to pages you used in each project. This section hide
 
 Projects that have never sent data show **No data yet**. Select **Add data** to connect your application.
 These projects do not show activity charts or issue and alert counts. Once a project has sent data,
-its activity chart and counts remain visible even when it has no recent activity.
+its activity chart remains visible even when it has no recent activity.
+Recent-project cards show issue and alert counts for projects that have sent data.
 Private projects still show their member count.
 
 If your organization permits AI and the assistant is available, you can start a conversation from
