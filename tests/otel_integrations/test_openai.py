@@ -5037,6 +5037,7 @@ class StreamingResponseBody(httpx.SyncByteStream, httpx.AsyncByteStream):
         self.data = data
         self.was_read = False
         self.was_closed = False
+        self.fail_on_close = False
 
     def __iter__(self) -> Iterator[bytes]:
         self.was_read = True
@@ -5048,6 +5049,8 @@ class StreamingResponseBody(httpx.SyncByteStream, httpx.AsyncByteStream):
 
     def close(self) -> None:
         self.was_closed = True
+        if self.fail_on_close:
+            raise RuntimeError('cannot close body')
 
     async def aclose(self) -> None:
         self.close()
@@ -5400,3 +5403,36 @@ def test_request_error_ends_span(exporter: TestExporter) -> None:
     assert span['events'][0]['attributes']['exception.type'] == 'openai.BadRequestError'
     assert span['events'][0]['attributes']['exception.escaped'] == 'True'
     assert span['attributes']['logfire.level_num'] == 17
+
+
+def test_streaming_response_close_error_ends_span(
+    streaming_response_client: openai.Client,
+    streaming_response_body: StreamingResponseBody,
+    exporter: TestExporter,
+) -> None:
+    streaming_response_body.fail_on_close = True
+    with pytest.raises(RuntimeError, match='cannot close body'):
+        with streaming_response_client.chat.completions.with_streaming_response.create(
+            model='gpt-4', messages=[{'role': 'user', 'content': 'hi'}]
+        ):
+            assert exporter.exported_spans_as_dict() == []
+    assert streaming_response_body.was_closed
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes'].get('gen_ai.response.id') is None
+
+
+@pytest.mark.anyio
+async def test_async_streaming_response_close_error_ends_span(
+    async_streaming_response_client: openai.AsyncClient,
+    streaming_response_body: StreamingResponseBody,
+    exporter: TestExporter,
+) -> None:
+    streaming_response_body.fail_on_close = True
+    with pytest.raises(RuntimeError, match='cannot close body'):
+        async with async_streaming_response_client.chat.completions.with_streaming_response.create(
+            model='gpt-4', messages=[{'role': 'user', 'content': 'hi'}]
+        ):
+            assert exporter.exported_spans_as_dict() == []
+    assert streaming_response_body.was_closed
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes'].get('gen_ai.response.id') is None
