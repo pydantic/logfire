@@ -890,4 +890,4 @@ If nothing appears, the usual suspects in order:
 - [`k8sattributesprocessor` README](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/k8sattributesprocessor): every extractable attribute and the full `pod_association` syntax.
 - [`filelogreceiver` README](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/filelogreceiver) and the [container operator](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/stanza/docs/operators/container.md): for advanced log parsing.
 - [OpenTelemetry Collector on Kubernetes](https://opentelemetry.io/docs/platforms/kubernetes/collector/components): upstream deployment-pattern reference (sidecar / DaemonSet / Deployment / Gateway).
-- [Advanced scrubbing with the OTel Collector](./otel-collector-scrubbing.md): if you need to redact PII before it leaves the cluster.
+- [Scrub sensitive data in the Collector](./otel-collector-scrubbing.md): if you need to redact PII before it leaves the cluster.

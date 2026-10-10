@@ -1,0 +1,142 @@
+---
+title: "Send data through a Collector"
+description: "Run an OpenTelemetry Collector in front of Logfire in a few minutes, with the smallest configuration that works."
+---
+# Send data through a Collector
+
+Get an OpenTelemetry Collector running in front of Logfire, with your application sending through it instead of straight to Logfire. This is the base that every other guide in this section builds on.
+
+A Collector is a separate program that sits between your apps and Logfire, gathering telemetry and forwarding it. If the words in the configuration below are unfamiliar, [how a configuration is put together](otel-collector-overview.md#how-a-configuration-is-put-together) explains the four blocks it is built from; [when you need one](otel-collector-overview.md#when-you-need-one) covers whether to run one at all.
+
+## Before you start
+
+You need a [write token](../create-write-tokens.md) for the project you want data to land in, and either Docker or a downloaded Collector binary. The commands below use the official image; to run the binary instead, use `LOGFIRE_TOKEN='<your-write-token>' otelcol-contrib --config=file:otel-collector-config.yaml`. The configuration reads the token from the environment either way.
+
+## Write the configuration
+
+This is the smallest configuration that does something useful: accept data from your applications and forward it to Logfire.
+
+```yaml title="otel-collector-config.yaml"
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+
+exporters:
+  otlphttp:
+    endpoint: "https://logfire-us.pydantic.dev"  # or https://logfire-eu.pydantic.dev
+    headers:
+      Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp]
+```
+
+Two things in that file matter beyond the shape:
+
+- The endpoint must match the [data region](../../reference/data-regions.md) your project lives in. A token works only against its own region.
+- The `batch` processor groups data into fewer, larger requests. It belongs in every pipeline you run.
+
+## Run it
+
+```bash
+docker run --rm \
+  -p 127.0.0.1:4318:4318 \
+  -e LOGFIRE_TOKEN='<your-write-token>' \
+  -v "$(pwd)/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro" \
+  otel/opentelemetry-collector-contrib:latest
+```
+
+Binding the published port to `127.0.0.1` keeps the receiver reachable from your machine and nowhere else. An OTLP receiver has no authentication, so anything that can reach it can write to your project; when you deploy one for real, keep it on a private network or put authentication in front of it.
+
+The `contrib` build includes every component the other guides in this section use. The core build is smaller and is missing them.
+
+To check a configuration before starting anything, run `validate` in the same image:
+
+```bash
+docker run --rm \
+  -v "$(pwd)/otel-collector-config.yaml:/tmp/config.yaml:ro" \
+  otel/opentelemetry-collector-contrib:latest \
+  validate --config=file:/tmp/config.yaml
+```
+
+## Point your application at it
+
+Set the endpoint and turn off sending straight to Logfire, so the Collector is the only path out:
+
+```python skip-run="true" skip-reason="external-connection"
+import os
+
+os.environ['OTEL_EXPORTER_OTLP_ENDPOINT'] = 'http://localhost:4318'
+
+import logfire
+
+logfire.configure(send_to_logfire=False)
+
+with logfire.span('hello from the collector'):
+    logfire.info('it works')
+```
+
+The SDK appends `/v1/traces`, `/v1/metrics`, and `/v1/logs` to that endpoint on its own.
+
+Non-Python applications need no Logfire-specific setup, but the receiver above accepts OpenTelemetry Protocol (OTLP), the standard wire format Logfire uses to receive data, over HTTP only. Some OpenTelemetry SDKs default to sending it over gRPC, a different transport, on port 4317 instead. Set the protocol as well as the endpoint:
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+```
+
+To accept gRPC instead, add a `grpc` protocol block to the receiver alongside `http`.
+
+## Verify data arrives
+
+Open your project's Live view. The `hello from the collector` span should arrive within a few seconds.
+
+If nothing appears, add a `debug` exporter so the Collector prints what it is handling:
+
+```yaml title="otel-collector-config.yaml"
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp, debug]
+```
+
+Spans in the Collector's output but not in Logfire means the problem is the exporter: check the region and the token. No spans in the output means the problem is upstream: check that your application is pointed at the right port.
+
+## Troubleshoot the Collector
+
+**The Collector starts and exits immediately.** A configuration error. Run `validate` as shown above; the error names the block it could not read.
+
+**`401 Unauthorized` in the Collector's logs.** The write token is wrong, or the endpoint does not match the project's [data region](../../reference/data-regions.md). Check the token first, then compare the endpoint against the region shown in your project settings.
+
+**The Collector runs and logs nothing at all.** A component that is defined but not listed under `service.pipelines` does nothing. Check that your receiver and exporter both appear in a pipeline.
+
+**Connection refused from the application.** The receiver binds to `0.0.0.0:4318` inside the container, so the port has to be published with `-p 4318:4318`. From another container, use the Collector's service name rather than `localhost`.
+
+## Next steps
+
+- [Collect host metrics](host-monitoring.md) from the machine the Collector runs on, with no application changes.
+- [Control volume and cost](control-volume-and-cost.md) by dropping traffic you never look at.
+- [Scrub sensitive data](otel-collector-scrubbing.md) centrally, so every application inherits the same rules.
