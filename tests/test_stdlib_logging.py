@@ -220,6 +220,20 @@ def test_stdlib_logging_tags(exporter: TestExporter, logger: Logger) -> None:
     )
 
 
+def test_stdlib_logging_tags_merged_with_instance_tags(exporter: TestExporter) -> None:
+    tagged_logger = getLogger(f'{__name__}.tagged')
+    tagged_logger.propagate = False
+    handler = LogfireLoggingHandler(logfire_instance=logfire.with_tags('instance'))
+    tagged_logger.addHandler(handler)
+    try:
+        tagged_logger.error('tagged', extra={'logfire.tags': ['foo']})
+    finally:
+        tagged_logger.removeHandler(handler)
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.tags'] == ('instance', 'foo')
+
+
 class MockLoggingHandler(logging.Handler):
     def __init__(self):
         super().__init__()
