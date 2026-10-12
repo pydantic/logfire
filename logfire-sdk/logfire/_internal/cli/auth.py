@@ -40,7 +40,7 @@ def parse_auth(args: argparse.Namespace) -> None:
     logged_in = tokens_collection.is_logged_in(logfire_url)
 
     if logged_in:
-        target = f'--base-url {logfire_url}' if logfire_url else '--region <region>'
+        target = f'--base-url {logfire_url or "<base-url>"}'
         sys.stderr.writelines(
             (
                 f'You are already logged in. (Your credentials are stored in {DEFAULT_FILE})\n',

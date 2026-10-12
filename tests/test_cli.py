@@ -1404,7 +1404,7 @@ def test_auth_permanent_failure(tmp_path: Path) -> None:
     [
         (['--region', 'us', 'auth'], '--base-url https://logfire-us.pydantic.dev'),
         (['--base-url', 'https://logfire-us.pydantic.dev', 'auth'], '--base-url https://logfire-us.pydantic.dev'),
-        (['auth'], '--region <region>'),
+        (['auth'], '--base-url <base-url>'),
     ],
 )
 def test_auth_on_authenticated_user(
@@ -1420,6 +1420,26 @@ def test_auth_on_authenticated_user(
     assert f'logfire {target} auth\n' in err
     assert err.index('auth logout') < err.rindex('auth')
     assert default_credentials.read_text() == original_credentials
+
+
+@pytest.mark.parametrize('env', [{}, {'LOGFIRE_BASE_URL': ''}], ids=['unset', 'empty'])
+def test_auth_on_authenticated_self_hosted_user(
+    default_credentials: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], env: dict[str, str]
+) -> None:
+    credentials = default_credentials.read_text().replace(
+        'https://logfire-us.pydantic.dev', 'https://logfire.example.com'
+    )
+    default_credentials.write_text(credentials)
+    monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
+
+    with patch.dict(os.environ, env), patch('logfire._internal.auth.DEFAULT_FILE', default_credentials):
+        main(['auth'])
+
+    _, err = capsys.readouterr()
+    assert 'logfire --base-url <base-url> auth logout' in err
+    assert 'logfire --base-url <base-url> auth\n' in err
+    assert '--region' not in err
+    assert default_credentials.read_text() == credentials
 
 
 @pytest.mark.parametrize('args', [['auth', '--help'], ['auth', 'logout', '--help']])
