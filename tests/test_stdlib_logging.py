@@ -192,6 +192,34 @@ def test_stdlib_logging_warning(exporter: TestExporter, logger: Logger) -> None:
     )
 
 
+def test_stdlib_logging_tags(exporter: TestExporter, logger: Logger) -> None:
+    logger.error('tagged', extra={'logfire.tags': ['foo', 'bar']})
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'tagged',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': 'tagged',
+                    'logfire.msg': 'tagged',
+                    'code.filepath': 'test_stdlib_logging.py',
+                    'code.function': 'test_stdlib_logging_tags',
+                    'code.lineno': 123,
+                    'logfire.logger_name': 'tests.test_stdlib_logging',
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{}}}',
+                    'logfire.tags': ('foo', 'bar'),
+                },
+            }
+        ]
+    )
+
+
 class MockLoggingHandler(logging.Handler):
     def __init__(self):
         super().__init__()

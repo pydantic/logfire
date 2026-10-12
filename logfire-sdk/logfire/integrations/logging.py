@@ -13,6 +13,7 @@ from .._internal.constants import (
     ATTRIBUTES_LOGGING_NAME,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    ATTRIBUTES_TAGS_KEY,
     LOGGING_TO_OTEL_LEVEL_NUMBERS,
 )
 from .._internal.utils import is_instrumentation_suppressed
@@ -85,11 +86,13 @@ class LogfireLoggingHandler(LoggingHandler):
             return
 
         attributes = self.fill_attributes(record)
+        tags = attributes.pop(ATTRIBUTES_TAGS_KEY, None)
 
         self.logfire_instance.log(
             msg_template=attributes.pop(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, record.msg),
             level=LOGGING_TO_OTEL_LEVEL_NUMBERS.get(record.levelno, record.levelno),
             attributes=attributes,
+            tags=tags,
             exc_info=record.exc_info,
         )
 

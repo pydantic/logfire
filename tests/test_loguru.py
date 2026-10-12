@@ -122,3 +122,52 @@ def test_loguru(exporter: TestExporter) -> None:
 
     for span in exporter.exported_spans:
         assert span.instrumentation_scope.name == 'logfire.loguru'  # type: ignore
+
+
+def test_loguru_tags(exporter: TestExporter) -> None:
+    logger.info('Hello {name}', name='World', **{'logfire.tags': ['foo', 'bar']})
+    logger.bind(**{'logfire.tags': ['bound']}).info('bound')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'Hello {name}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'Hello {name}',
+                    'logfire.msg': 'Hello World',
+                    'code.filepath': 'test_loguru.py',
+                    'code.function': 'test_loguru_tags',
+                    'code.lineno': 123,
+                    'logfire.logger_name': 'tests.test_loguru',
+                    'name': 'World',
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"name":{}}}',
+                    'logfire.tags': ('foo', 'bar'),
+                },
+            },
+            {
+                'name': 'bound',
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'parent': None,
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'bound',
+                    'logfire.msg': 'bound',
+                    'code.filepath': 'test_loguru.py',
+                    'code.function': 'test_loguru_tags',
+                    'code.lineno': 123,
+                    'logfire.logger_name': 'tests.test_loguru',
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{}}}',
+                    'logfire.tags': ('bound',),
+                },
+            },
+        ]
+    )
