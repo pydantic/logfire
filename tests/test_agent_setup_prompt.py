@@ -170,7 +170,14 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
 def test_setup_hub_routes_each_surface_to_its_skill() -> None:
     hub = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
 
-    for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals', 'logfire-query', 'logfire-ui'):
+    for skill in (
+        'logfire-instrumentation',
+        'logfire-migrate',
+        'logfire-infrastructure',
+        'logfire-evals',
+        'logfire-query',
+        'logfire-ui',
+    ):
         assert f'[`{skill}`](https://pydantic.dev/.well-known/agent-skills/{skill}/SKILL.md)' in hub
     assert '"set up evals for this agent"' in hub
     assert 'evaluations against test-case datasets in Python or Node.js' in hub
@@ -203,7 +210,13 @@ def test_offline_setup_bundle_keeps_inlined_skill_links_local() -> None:
     skills_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills'
     offline = (skills_root / 'logfire-setup-offline.md').read_text()
 
-    for skill in ('logfire-setup', 'logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
+    for skill in (
+        'logfire-setup',
+        'logfire-instrumentation',
+        'logfire-migrate',
+        'logfire-infrastructure',
+        'logfire-evals',
+    ):
         assert f'https://pydantic.dev/.well-known/agent-skills/{skill}/' not in offline
     assert '[Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project)' in offline
     assert '[auth.md](#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session)' in offline
