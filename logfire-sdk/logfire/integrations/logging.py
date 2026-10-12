@@ -87,6 +87,8 @@ class LogfireLoggingHandler(LoggingHandler):
 
         attributes = self.fill_attributes(record)
         tags = attributes.pop(ATTRIBUTES_TAGS_KEY, None)
+        if isinstance(tags, str):
+            tags = (tags,)
 
         self.logfire_instance.log(
             msg_template=attributes.pop(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, record.msg),
