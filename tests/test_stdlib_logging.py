@@ -234,6 +234,13 @@ def test_stdlib_logging_tags_merged_with_instance_tags(exporter: TestExporter) -
     assert span['attributes']['logfire.tags'] == ('instance', 'foo')
 
 
+def test_stdlib_logging_single_string_tag(exporter: TestExporter, logger: Logger) -> None:
+    logger.error('tagged', extra={'logfire.tags': 'production'})
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.tags'] == ('production',)
+
+
 class MockLoggingHandler(logging.Handler):
     def __init__(self):
         super().__init__()
