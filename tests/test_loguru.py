@@ -171,3 +171,10 @@ def test_loguru_tags(exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+def test_loguru_single_string_tag(exporter: TestExporter) -> None:
+    logger.bind(**{'logfire.tags': 'production'}).info('single tag')
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.tags'] == ('production',)
