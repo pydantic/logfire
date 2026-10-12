@@ -31,7 +31,7 @@ jobs:
           enable-cache: true  # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
 
       - name: Install dependencies
-        run: uv sync --python 3.12 --frozen
+        run: uv sync --python 3.14 --frozen
 
       - name: Test docs navigation dispatcher contract
         run: uv run pytest .github/workflows/scripts/test_docs_navigation_workflow.py
