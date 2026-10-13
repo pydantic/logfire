@@ -52,7 +52,7 @@ from .constants import (
 )
 from .formatter import logfire_format, logfire_format_with_magic
 from .instrument import instrument
-from .json_encoder import logfire_json_dumps, to_otlp_native_value
+from .json_encoder import logfire_json_dumps, to_otlp_value
 from .json_schema import (
     JsonSchemaProperties,
     attributes_json_schema,
@@ -3329,6 +3329,14 @@ class LogfireSpan(ReadableSpan):
         if self._span is not None:  # pragma: no branch
             self._span.set_attribute(key, otel_value)
 
+    def _set_json_text_attribute(self, key: str, text: str) -> None:
+        """Set a string attribute containing JSON text, and tell the backend to parse it as JSON."""
+        self._added_attributes = True
+        self._json_schema_properties[key] = {'type': 'object'}
+        self._otlp_attributes[key] = text
+        if self._span is not None:  # pragma: no branch
+            self._span.set_attribute(key, text)
+
     def set_attributes(self, attributes: dict[str, Any]) -> None:
         """Sets the given attributes on the span."""
         for key, value in attributes.items():
@@ -3477,10 +3485,8 @@ def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
         return value
     elif isinstance(value, (str, bool)):
         return value
-    elif (native_value := to_otlp_native_value(value)) is not None:
-        return native_value
     else:
-        return logfire_json_dumps(value)
+        return to_otlp_value(value)
 
 
 def prune_json_schema_properties(
@@ -3513,9 +3519,24 @@ def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> N
         return
 
     otlp_attributes = prepare_otlp_attributes(attributes)
-    if json_schema_properties := prune_json_schema_properties(
+    json_schema_properties = prune_json_schema_properties(
         attributes_json_schema_properties(attributes), otlp_attributes
-    ):
+    )
+    _set_attributes_on_raw_span(span, otlp_attributes, json_schema_properties)
+
+
+def set_json_text_attribute_on_raw_span(span: Span, key: str, text: str) -> None:
+    """Set a string attribute containing JSON text, and tell the backend to parse it as JSON."""
+    if not span.is_recording():
+        return
+
+    _set_attributes_on_raw_span(span, {key: text}, JsonSchemaProperties({key: {'type': 'object'}}))
+
+
+def _set_attributes_on_raw_span(
+    span: Span, otlp_attributes: dict[str, otel_types.AttributeValue], json_schema_properties: JsonSchemaProperties
+) -> None:
+    if json_schema_properties:
         existing_properties = JsonSchemaProperties({})
         existing_json_schema_str = (span.attributes or {}).get(ATTRIBUTES_JSON_SCHEMA_KEY)
         if existing_json_schema_str and isinstance(existing_json_schema_str, str):

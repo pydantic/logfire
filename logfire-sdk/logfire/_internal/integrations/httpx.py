@@ -35,7 +35,7 @@ except ImportError:
     )
 
 from logfire import Logfire, LogfireSpan
-from logfire._internal.main import set_user_attributes_on_raw_span
+from logfire._internal.main import set_json_text_attribute_on_raw_span, set_user_attributes_on_raw_span
 from logfire._internal.utils import handle_internal_errors
 
 HTTPXClientInstrumentor = otel_httpx.HTTPXClientInstrumentor
@@ -269,8 +269,7 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
         return True
 
     def capture_text_as_json(self, attr_name: str, text: str):
-        self.set_complex_span_attributes({attr_name: {}})  # Set the JSON schema
-        self.span.set_attribute(attr_name, text)
+        set_json_text_attribute_on_raw_span(self.span, attr_name, text)  # pyright: ignore[reportArgumentType]
 
     @property
     def body_is_streaming(self):
@@ -386,9 +385,7 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
             yield
 
     def capture_text_as_json(self, span: LogfireSpan, *, text: str, attr_name: str):
-        span.set_attribute(attr_name, {})  # Set the JSON schema
-        # Set the attribute to the raw text so that the backend can parse it
-        span._span.set_attribute(attr_name, text)  # pyright: ignore[reportOptionalMemberAccess, reportPrivateUsage]
+        span._set_json_text_attribute(attr_name, text)  # pyright: ignore[reportPrivateUsage]
 
 
 def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_body: bool) -> RequestHook | None:

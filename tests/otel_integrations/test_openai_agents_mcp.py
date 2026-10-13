@@ -2,6 +2,7 @@
 # because it breaks `ctx: Context` being recognised by `@fastmcp.tool()` properly.
 
 import asyncio
+import json
 import os
 from contextlib import asynccontextmanager
 from importlib import import_module
@@ -97,7 +98,10 @@ async def test_mcp(exporter: TestExporter):
                     types.ClientRequest(types.PingRequest(method='ping', params=params)), types.EmptyResult
                 )
 
-    assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+    # Structured attribute values come back as tuples. Convert them to lists so that the snapshot
+    # is the same for every version of `mcp` that this test runs with.
+    spans = json.loads(json.dumps(simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True))))
+    assert spans == snapshot(
         [
             {
                 'name': 'MCP request: initialize',

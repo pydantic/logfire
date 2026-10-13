@@ -304,20 +304,17 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
     return safe_repr(o)
 
 
-def to_otlp_native_value(obj: Any) -> dict[str, Any] | list[Any] | None:
-    """Convert `obj` to a structured OTLP attribute value (a map or an array), or return `None`.
+def to_otlp_value(obj: Any) -> dict[str, Any] | list[Any] | str:
+    """Convert `obj` to a structured OTLP attribute value (a map or an array), or to a JSON string.
 
-    `None` means that the value can't be sent faithfully as a structured value and should be JSON-encoded instead,
+    A JSON string is returned when the value can't be sent faithfully as a structured value,
     e.g. because it isn't a mapping or sequence, or because it contains a `None` inside an array
     (which the Logfire backend would drop), an empty key, or an integer outside the signed 64-bit range.
     """
-    try:
-        value = to_json_value(obj, set())
-    except Exception:  # pragma: no cover
-        return None
+    value = to_json_value(obj, set())
     if isinstance(value, (dict, list)) and _is_otlp_native_safe(value):
         return value
-    return None
+    return json.dumps(value, separators=(',', ':'), ensure_ascii=False, allow_nan=False)
 
 
 def _is_otlp_native_safe(value: JsonValue) -> bool:
