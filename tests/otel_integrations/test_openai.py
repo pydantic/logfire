@@ -2786,6 +2786,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus five equals **nine**.'}]}
                     ],
+                    'gen_ai.response.id': 'resp_079fceed100a827c0068e011e9cefc81969ea6a843546705e6',
                     'gen_ai.usage.input_tokens': 13,
                     'gen_ai.usage.output_tokens': 9,
                     'gen_ai.usage.raw': {
@@ -2809,6 +2810,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'gen_ai.input.messages': {'type': 'array'},
                             'duration': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
