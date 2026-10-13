@@ -36,6 +36,7 @@ from ..constants import (
     LevelName,
 )
 from ..json_formatter import json_args_value_formatter
+from ..json_types import JSONSchema
 from ..utils import truncate_string
 
 ConsoleColorsValues = Literal['auto', 'always', 'never']
@@ -270,6 +271,12 @@ class SimpleConsoleSpanExporter(SpanExporter):
                     value = json.loads(value)
                 except json.JSONDecodeError:
                     schema = None
+            elif isinstance(value, Mapping):
+                # A structured OTLP value, which the SDK sends without a schema when it's a plain dict or list.
+                schema = schema or cast('JSONSchema', {'type': 'object'})
+            elif isinstance(value, Sequence) and not isinstance(value, str):
+                value = list(cast('Sequence[Any]', value))
+                schema = schema or cast('JSONSchema', {'type': 'array'})
             value = json_args_value_formatter(value, schema=schema)
             arguments[key] = value
 

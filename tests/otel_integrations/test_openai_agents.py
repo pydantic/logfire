@@ -390,7 +390,7 @@ def test_manual_parents(exporter: TestExporter):
                     'logfire.msg': 'Custom span: my_custom_span',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'data': {'type': 'object'}, 'gen_ai.system': {}},
+                        'properties': {'name': {}, 'data': {}, 'gen_ai.system': {}},
                     },
                 },
             },
@@ -538,8 +538,8 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
-                    'raw_input': [{'content': 'Generate a random number then, hand off to agent2.', 'role': 'user'}],
-                    'events': [
+                    'raw_input': ({'content': 'Generate a random number then, hand off to agent2.', 'role': 'user'},),
+                    'events': (
                         {
                             'event.name': 'gen_ai.user.message',
                             'content': 'Generate a random number then, hand off to agent2.',
@@ -548,26 +548,26 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                         {
                             'event.name': 'gen_ai.assistant.message',
                             'role': 'assistant',
-                            'tool_calls': [
+                            'tool_calls': (
                                 {
                                     'id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
                                     'type': 'function',
                                     'function': {'name': 'random_number', 'arguments': '{}'},
-                                }
-                            ],
+                                },
+                            ),
                         },
                         {
                             'event.name': 'gen_ai.assistant.message',
                             'role': 'assistant',
-                            'tool_calls': [
+                            'tool_calls': (
                                 {
                                     'id': 'call_oEA0MnUXCwKevx8txteoopNL',
                                     'type': 'function',
                                     'function': {'name': 'transfer_to_agent2', 'arguments': '{}'},
-                                }
-                            ],
+                                },
+                            ),
                         },
-                    ],
+                    ),
                 },
             },
             {
@@ -642,8 +642,8 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                     'logfire.msg_template': 'Agent run: {name!r}',
                     'logfire.span_type': 'span',
                     'name': 'agent1',
-                    'handoffs': ['agent2'],
-                    'tools': ['random_number'],
+                    'handoffs': ('agent2',),
+                    'tools': ('random_number',),
                     'output_type': 'str',
                     'logfire.msg': "Agent run: 'agent1'",
                     'gen_ai.system': 'openai',
@@ -675,7 +675,7 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.operation.name': 'chat',
                     'operation.cost': 0.0004025,
-                    'raw_input': [
+                    'raw_input': (
                         {'content': 'Generate a random number then, hand off to agent2.', 'role': 'user'},
                         {
                             'arguments': '{}',
@@ -699,7 +699,7 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                             'output': '{"assistant": "agent2"}',
                             'type': 'function_call_output',
                         },
-                    ],
+                    ),
                     'gen_ai.usage.raw': {
                         'input_tokens': 89,
                         'input_tokens_details': {'cached_tokens': 0},
@@ -707,7 +707,7 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                         'output_tokens_details': {'reasoning_tokens': 0},
                         'total_tokens': 107,
                     },
-                    'events': [
+                    'events': (
                         {
                             'event.name': 'gen_ai.system.message',
                             'content': 'Return double the number',
@@ -721,24 +721,24 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                         {
                             'event.name': 'gen_ai.assistant.message',
                             'role': 'assistant',
-                            'tool_calls': [
+                            'tool_calls': (
                                 {
                                     'id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
                                     'type': 'function',
                                     'function': {'name': 'random_number', 'arguments': '{}'},
-                                }
-                            ],
+                                },
+                            ),
                         },
                         {
                             'event.name': 'gen_ai.assistant.message',
                             'role': 'assistant',
-                            'tool_calls': [
+                            'tool_calls': (
                                 {
                                     'id': 'call_oEA0MnUXCwKevx8txteoopNL',
                                     'type': 'function',
                                     'function': {'name': 'transfer_to_agent2', 'arguments': '{}'},
-                                }
-                            ],
+                                },
+                            ),
                         },
                         {
                             'event.name': 'gen_ai.tool.message',
@@ -759,7 +759,7 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                             'content': "The random number generated is 4, and it's been handed off to agent2.",
                             'role': 'assistant',
                         },
-                    ],
+                    ),
                     'gen_ai.usage.input_tokens': 89,
                     'gen_ai.usage.output_tokens': 18,
                     'gen_ai.system': 'openai',
@@ -805,8 +805,8 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                     'logfire.msg_template': 'Agent run: {name!r}',
                     'logfire.span_type': 'span',
                     'name': 'agent2',
-                    'handoffs': [],
-                    'tools': [],
+                    'handoffs': (),
+                    'tools': (),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
                     'logfire.msg': "Agent run: 'agent2'",
@@ -924,11 +924,11 @@ async def test_input_guardrails(exporter: TestExporter):
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
-                    'raw_input': [{'content': '1+1?', 'role': 'user'}],
-                    'events': [
+                    'raw_input': ({'content': '1+1?', 'role': 'user'},),
+                    'events': (
                         {'event.name': 'gen_ai.user.message', 'content': '1+1?', 'role': 'user'},
                         {'event.name': 'gen_ai.assistant.message', 'content': '1 + 1 equals 2.', 'role': 'assistant'},
-                    ],
+                    ),
                     'gen_ai.usage.input_tokens': 29,
                     'gen_ai.usage.raw': {
                         'input_tokens': 29,
@@ -979,8 +979,8 @@ async def test_input_guardrails(exporter: TestExporter):
                     'code.function': 'test_input_guardrails',
                     'code.lineno': 123,
                     'name': 'my_agent',
-                    'handoffs': [],
-                    'tools': [],
+                    'handoffs': (),
+                    'tools': (),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
                     'logfire.msg_template': 'Agent run: {name!r}',
@@ -1100,8 +1100,8 @@ async def test_input_guardrails(exporter: TestExporter):
                     'logfire.msg_template': 'Agent run: {name!r}',
                     'logfire.span_type': 'span',
                     'name': 'my_agent',
-                    'handoffs': [],
-                    'tools': [],
+                    'handoffs': (),
+                    'tools': (),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
                     'logfire.msg': "Agent run: 'my_agent'",
@@ -1172,18 +1172,18 @@ async def test_chat_completions(exporter: TestExporter):
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
                     'logfire.msg': "Chat completion with 'gpt-4o'",
-                    'input': [{'role': 'user', 'content': '1+1?'}],
-                    'output': [
+                    'input': ({'role': 'user', 'content': '1+1?'},),
+                    'output': (
                         {
                             'content': '1 + 1 = 2',
                             'refusal': None,
                             'role': 'assistant',
+                            'annotations': (),
                             'audio': None,
                             'function_call': None,
                             'tool_calls': None,
-                            'annotations': [],
-                        }
-                    ],
+                        },
+                    ),
                     'model_config': IsPartialDict(),
                     'usage': {
                         'requests': 1,
@@ -1199,18 +1199,18 @@ async def test_chat_completions(exporter: TestExporter):
                     'gen_ai.usage.input_tokens': 11,
                     'gen_ai.usage.output_tokens': 8,
                     'request_data': {
-                        'messages': [
+                        'messages': (
                             {'role': 'user', 'content': '1+1?'},
                             {
                                 'content': '1 + 1 = 2',
                                 'refusal': None,
                                 'role': 'assistant',
-                                'annotations': [],
+                                'annotations': (),
                                 'audio': None,
                                 'function_call': None,
                                 'tool_calls': None,
                             },
-                        ],
+                        ),
                         'model': 'gpt-4o',
                     },
                 },
@@ -1253,8 +1253,8 @@ async def test_chat_completions(exporter: TestExporter):
                     'code.function': 'test_chat_completions',
                     'code.lineno': 123,
                     'name': 'my_agent',
-                    'handoffs': [],
-                    'tools': [],
+                    'handoffs': (),
+                    'tools': (),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
                     'logfire.msg_template': 'Agent run: {name!r}',
@@ -1371,7 +1371,7 @@ def test_custom_span(exporter: TestExporter):
                     'logfire.msg': 'Custom span: my_span',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'data': {'type': 'object'}, 'gen_ai.system': {}},
+                        'properties': {'name': {}, 'data': {}, 'gen_ai.system': {}},
                     },
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000001',
@@ -1395,7 +1395,7 @@ def test_custom_span(exporter: TestExporter):
                     'data': {'foo': 'bar'},
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'data': {'type': 'object'}, 'gen_ai.system': {}},
+                        'properties': {'name': {}, 'data': {}, 'gen_ai.system': {}},
                     },
                 },
             },
@@ -1573,11 +1573,11 @@ async def test_responses_simple(exporter: TestExporter):
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
-                    'raw_input': [{'content': '2+2?', 'role': 'user'}],
-                    'events': [
+                    'raw_input': ({'content': '2+2?', 'role': 'user'},),
+                    'events': (
                         {'event.name': 'gen_ai.user.message', 'content': '2+2?', 'role': 'user'},
                         {'event.name': 'gen_ai.assistant.message', 'content': '2 + 2 = 4', 'role': 'assistant'},
-                    ],
+                    ),
                     'gen_ai.usage.input_tokens': 11,
                     'gen_ai.usage.raw': {
                         'input_tokens': 11,
@@ -1630,8 +1630,8 @@ async def test_responses_simple(exporter: TestExporter):
                     'logfire.msg_template': 'Agent run: {name!r}',
                     'logfire.span_type': 'span',
                     'name': 'agent1',
-                    'handoffs': [],
-                    'tools': [],
+                    'handoffs': (),
+                    'tools': (),
                     'output_type': 'str',
                     'logfire.msg': "Agent run: 'agent1'",
                     'gen_ai.system': 'openai',
@@ -1684,20 +1684,20 @@ async def test_responses_simple(exporter: TestExporter):
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.operation.name': 'chat',
-                    'raw_input': [
+                    'raw_input': (
                         {'content': '2+2?', 'role': 'user'},
                         {
                             'id': 'msg_01544eeb9f4d9c9100699336d96a4081a1ab96132d47d6fabe',
-                            'content': [
-                                {'annotations': [], 'text': '2 + 2 = 4', 'type': 'output_text', 'logprobs': []}
-                            ],
+                            'content': (
+                                {'annotations': (), 'text': '2 + 2 = 4', 'type': 'output_text', 'logprobs': ()},
+                            ),
                             'role': 'assistant',
                             'status': 'completed',
                             'type': 'message',
                         },
                         {'role': 'user', 'content': '4?'},
-                    ],
-                    'events': [
+                    ),
+                    'events': (
                         {'event.name': 'gen_ai.user.message', 'content': '2+2?', 'role': 'user'},
                         {'event.name': 'gen_ai.assistant.message', 'content': '2 + 2 = 4', 'role': 'assistant'},
                         {'event.name': 'gen_ai.user.message', 'content': '4?', 'role': 'user'},
@@ -1706,7 +1706,7 @@ async def test_responses_simple(exporter: TestExporter):
                             'content': "Yes, that's correct!",
                             'role': 'assistant',
                         },
-                    ],
+                    ),
                     'gen_ai.usage.input_tokens': 28,
                     'gen_ai.usage.output_tokens': 6,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
@@ -1762,8 +1762,8 @@ async def test_responses_simple(exporter: TestExporter):
                     'logfire.msg_template': 'Agent run: {name!r}',
                     'logfire.span_type': 'span',
                     'name': 'agent1',
-                    'handoffs': [],
-                    'tools': [],
+                    'handoffs': (),
+                    'tools': (),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
                     'logfire.msg': "Agent run: 'agent1'",
@@ -1859,8 +1859,8 @@ async def test_file_search(exporter: TestExporter):
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
-                    'raw_input': [{'content': 'Who made Logfire?', 'role': 'user'}],
-                    'events': [
+                    'raw_input': ({'content': 'Who made Logfire?', 'role': 'user'},),
+                    'events': (
                         {'event.name': 'gen_ai.user.message', 'content': 'Who made Logfire?', 'role': 'user'},
                         {
                             'event.name': 'gen_ai.unknown',
@@ -1872,7 +1872,7 @@ See JSON for details\
 """,
                             'data': {
                                 'id': 'fs_05cdfcc11457b63e0069933709b8ec81a0b339e16bec80b213',
-                                'queries': ['Who made Logfire?'],
+                                'queries': ('Who made Logfire?',),
                                 'status': 'completed',
                                 'type': 'file_search_call',
                                 'results': None,
@@ -1883,7 +1883,7 @@ See JSON for details\
                             'content': 'Logfire is made by Pydantic.',
                             'role': 'assistant',
                         },
-                    ],
+                    ),
                     'gen_ai.usage.input_tokens': 1144,
                     'gen_ai.usage.raw': {
                         'input_tokens': 1144,
@@ -1936,8 +1936,8 @@ See JSON for details\
                     'logfire.msg_template': 'Agent run: {name!r}',
                     'logfire.span_type': 'span',
                     'name': 'agent',
-                    'handoffs': [],
-                    'tools': ['file_search'],
+                    'handoffs': (),
+                    'tools': ('file_search',),
                     'output_type': 'str',
                     'logfire.msg': "Agent run: 'agent'",
                     'gen_ai.system': 'openai',
@@ -1990,39 +1990,39 @@ See JSON for details\
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.operation.name': 'chat',
-                    'raw_input': [
+                    'raw_input': (
                         {'content': 'Who made Logfire?', 'role': 'user'},
                         {
                             'id': 'fs_05cdfcc11457b63e0069933709b8ec81a0b339e16bec80b213',
-                            'queries': ['Who made Logfire?'],
+                            'queries': ('Who made Logfire?',),
                             'status': 'completed',
                             'type': 'file_search_call',
                             'results': None,
                         },
                         {
                             'id': 'msg_05cdfcc11457b63e006993370ae66881a0bddd68b7a653056f',
-                            'content': [
+                            'content': (
                                 {
-                                    'annotations': [
+                                    'annotations': (
                                         {
                                             'file_id': 'file-CmKZQn5qLRRgcAjS61GSqv',
                                             'filename': 'test.txt',
                                             'index': 27,
                                             'type': 'file_citation',
-                                        }
-                                    ],
+                                        },
+                                    ),
                                     'text': 'Logfire is made by Pydantic.',
                                     'type': 'output_text',
-                                    'logprobs': [],
-                                }
-                            ],
+                                    'logprobs': (),
+                                },
+                            ),
                             'role': 'assistant',
                             'status': 'completed',
                             'type': 'message',
                         },
                         {'role': 'user', 'content': '2+2?'},
-                    ],
-                    'events': [
+                    ),
+                    'events': (
                         {'event.name': 'gen_ai.user.message', 'content': 'Who made Logfire?', 'role': 'user'},
                         {
                             'event.name': 'gen_ai.unknown',
@@ -2034,7 +2034,7 @@ See JSON for details\
 """,
                             'data': {
                                 'id': 'fs_05cdfcc11457b63e0069933709b8ec81a0b339e16bec80b213',
-                                'queries': ['Who made Logfire?'],
+                                'queries': ('Who made Logfire?',),
                                 'status': 'completed',
                                 'type': 'file_search_call',
                                 'results': None,
@@ -2047,7 +2047,7 @@ See JSON for details\
                         },
                         {'event.name': 'gen_ai.user.message', 'content': '2+2?', 'role': 'user'},
                         {'event.name': 'gen_ai.assistant.message', 'content': '2 + 2 equals 4.', 'role': 'assistant'},
-                    ],
+                    ),
                     'gen_ai.usage.input_tokens': 862,
                     'gen_ai.usage.output_tokens': 10,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
@@ -2103,8 +2103,8 @@ See JSON for details\
                     'logfire.msg_template': 'Agent run: {name!r}',
                     'logfire.span_type': 'span',
                     'name': 'agent',
-                    'handoffs': [],
-                    'tools': ['file_search'],
+                    'handoffs': (),
+                    'tools': ('file_search',),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
                     'logfire.msg': "Agent run: 'agent'",
@@ -2197,21 +2197,21 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
-                    'raw_input': [{'content': 'Call the tool.', 'role': 'user'}],
-                    'events': [
+                    'raw_input': ({'content': 'Call the tool.', 'role': 'user'},),
+                    'events': (
                         {'event.name': 'gen_ai.user.message', 'content': 'Call the tool.', 'role': 'user'},
                         {
                             'event.name': 'gen_ai.assistant.message',
                             'role': 'assistant',
-                            'tool_calls': [
+                            'tool_calls': (
                                 {
                                     'id': 'call_OpJ32C09GImFzxYLe01MiOOd',
                                     'type': 'function',
                                     'function': {'name': 'tool', 'arguments': '{}'},
-                                }
-                            ],
+                                },
+                            ),
                         },
-                    ],
+                    ),
                     'gen_ai.usage.input_tokens': 244,
                     'gen_ai.usage.output_tokens': 10,
                     'gen_ai.usage.raw': {
@@ -2310,7 +2310,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                     },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.operation.name': 'chat',
-                    'raw_input': [
+                    'raw_input': (
                         {'content': 'Call the tool.', 'role': 'user'},
                         {
                             'arguments': '{}',
@@ -2325,19 +2325,19 @@ async def test_function_tool_exception(exporter: TestExporter):
                             'output': "An error occurred while running the tool. Please try again. Error: Ouch, don't do that again!",
                             'type': 'function_call_output',
                         },
-                    ],
-                    'events': [
+                    ),
+                    'events': (
                         {'event.name': 'gen_ai.user.message', 'content': 'Call the tool.', 'role': 'user'},
                         {
                             'event.name': 'gen_ai.assistant.message',
                             'role': 'assistant',
-                            'tool_calls': [
+                            'tool_calls': (
                                 {
                                     'id': 'call_OpJ32C09GImFzxYLe01MiOOd',
                                     'type': 'function',
                                     'function': {'name': 'tool', 'arguments': '{}'},
-                                }
-                            ],
+                                },
+                            ),
                         },
                         {
                             'event.name': 'gen_ai.tool.message',
@@ -2351,7 +2351,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                             'content': 'It seems there was an error when trying to call the tool. If you need help with something specific, feel free to let me know!',
                             'role': 'assistant',
                         },
-                    ],
+                    ),
                     'gen_ai.usage.input_tokens': 283,
                     'gen_ai.usage.output_tokens': 30,
                     'gen_ai.system': 'openai',
@@ -2406,8 +2406,8 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'logfire.msg_template': 'Agent run: {name!r}',
                     'logfire.span_type': 'span',
                     'name': 'Start Agent',
-                    'handoffs': [],
-                    'tools': ['tool'],
+                    'handoffs': (),
+                    'tools': ('tool',),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
                     'logfire.msg': "Agent run: 'Start Agent'",
@@ -2527,15 +2527,15 @@ async def test_voice_pipeline(exporter: TestExporter):
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.operation.name': 'chat',
-                    'raw_input': [{'role': 'user', 'content': 'あたし'}],
-                    'events': [
+                    'raw_input': ({'role': 'user', 'content': 'あたし'},),
+                    'events': (
                         {'event.name': 'gen_ai.user.message', 'content': 'あたし', 'role': 'user'},
                         {
                             'event.name': 'gen_ai.assistant.message',
                             'content': '「"あたし"」は日本語で「私」を意味する女性が多く使う一人称です。何か特定のことについてお話ししますか？',
                             'role': 'assistant',
                         },
-                    ],
+                    ),
                     'gen_ai.usage.input_tokens': 10,
                     'gen_ai.usage.output_tokens': 41,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
@@ -2585,8 +2585,8 @@ async def test_voice_pipeline(exporter: TestExporter):
                     'logfire.msg_template': 'Agent run: {name!r}',
                     'logfire.span_type': 'span',
                     'name': 'Assistant',
-                    'handoffs': [],
-                    'tools': [],
+                    'handoffs': (),
+                    'tools': (),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
                     'logfire.msg': "Agent run: 'Assistant'",
