@@ -28,6 +28,7 @@ class JsonArgsValueFormatter:
             'Mapping': partial(self._format_items, '({', ': ', '})', True),
             'tuple': partial(self._format_list_like, '(', ')'),
             'Sequence': partial(self._format_sequence, '([', '])'),
+            'range': self._format_range,
             'set': partial(self._format_list_like, '{', '}'),
             'frozenset': partial(self._format_list_like, 'frozenset({', '})'),
             'deque': partial(self._format_list_like, 'deque([', '])'),
@@ -116,9 +117,20 @@ class JsonArgsValueFormatter:
     ) -> None:
         schema = schema or {}
         if (cls := schema.get('title')) == 'range':
-            self._write('(', ')', False, 0, f'{value[0]}, {value[-1] + 1}', schema)
+            self._format_range(indent_current, value, schema)
         else:
             self._format_list_like(f'{cls}{open_}', close_, indent_current, value, None)
+
+    def _format_range(self, _indent_current: int, value: Any, _schema: JSONSchema | None) -> None:
+        # Reconstruct an equivalent range from encoded values, which omit the original bounds.
+        if value:
+            step = value[1] - value[0] if len(value) > 1 else 1
+            args = f'{value[0]}, {value[-1] + step}'
+            if step != 1:
+                args += f', {step}'
+        else:
+            args = '0, 0'
+        self._write('range(', ')', False, 0, args, None)
 
     def _format_list_like(
         self, open_: str, close_: str, indent_current: int, value: Any, schema: JSONSchema | None
