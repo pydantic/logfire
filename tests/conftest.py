@@ -42,6 +42,7 @@ os.environ.setdefault('ANTHROPIC_API_KEY', os.environ.get('TEST_ANTHROPIC_API_KE
 os.environ.pop('OPENAI_BASE_URL', None)
 os.environ.pop('ANTHROPIC_BASE_URL', None)
 os.environ.pop('LOGFIRE_EMIT_CONFIGURATION_SPAN', None)
+os.environ.pop('LOGFIRE_COMPRESSION', None)
 # AnthropicBedrock reads this when no api_key is passed, and then rejects the aws_* arguments
 # that tests/otel_integrations/test_anthropic_bedrock.py passes.
 os.environ.pop('AWS_BEARER_TOKEN_BEDROCK', None)
@@ -116,6 +117,18 @@ def logs_exporter(time_generator: TimeGenerator) -> TestLogExporter:
     return TestLogExporter(time_generator)
 
 
+class ReusableSimpleSpanProcessor(SimpleSpanProcessor):
+    def shutdown(self) -> None:
+        # Tests reconfigure Logfire with the same exporter, so keep it available.
+        pass
+
+
+class ReusableSimpleLogRecordProcessor(SimpleLogRecordProcessor):
+    def shutdown(self) -> None:
+        # Tests reconfigure Logfire with the same exporter, so keep it available.
+        pass
+
+
 @pytest.fixture
 def config_kwargs(
     exporter: TestExporter,
@@ -134,9 +147,9 @@ def config_kwargs(
         advanced=logfire.AdvancedOptions(
             id_generator=id_generator,
             ns_timestamp_generator=time_generator,
-            log_record_processors=[SimpleLogRecordProcessor(logs_exporter)],
+            log_record_processors=[ReusableSimpleLogRecordProcessor(logs_exporter)],
         ),
-        additional_span_processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[ReusableSimpleSpanProcessor(exporter)],
         # Ensure that inspect_arguments doesn't break things even in versions where it's off by default
         inspect_arguments=True,
         distributed_tracing=True,
