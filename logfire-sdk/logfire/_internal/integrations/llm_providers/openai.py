@@ -525,6 +525,9 @@ class OpenaiResponsesStreamState(StreamState):
                 span_data[OUTPUT_MESSAGES] = output_messages
             if 1 in versions:
                 span_data['events'] = (span_data.get('events') or []) + responses_output_events(response)
+            response_id = getattr(response, 'id', None)
+            if isinstance(response_id, str):
+                span_data[RESPONSE_ID] = response_id
             span_data.update(get_openai_usage_attributes(response, self.base_url))
         return span_data
 
@@ -580,6 +583,10 @@ try:
             except AssertionError:
                 pass
             else:
+                result[RESPONSE_ID] = final_completion.id
+                finish_reasons = [choice.finish_reason for choice in final_completion.choices if choice.finish_reason]
+                if finish_reasons:
+                    result[RESPONSE_FINISH_REASONS] = finish_reasons
                 result.update(get_openai_usage_attributes(final_completion, self.base_url))
             return result
 
