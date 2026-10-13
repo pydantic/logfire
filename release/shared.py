@@ -11,8 +11,4 @@ REPO = 'pydantic/logfire'
 CHANGELOG_FILE = 'CHANGELOG.md'
 ROOT_PYPROJECT = 'pyproject.toml'
 API_PYPROJECT = 'logfire-api/pyproject.toml'
-
-
-def get_github_token() -> str:
-    """Read the GitHub token only when a release operation needs it."""
-    return run_command('gh', 'auth', 'token')
+GITHUB_TOKEN = run_command('gh', 'auth', 'token')
