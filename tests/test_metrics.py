@@ -931,7 +931,7 @@ def test_metric_attributes_with_none_sequence_element_are_dropped(metrics_reader
     counter = logfire.metric_counter('counter')
 
     with pytest.warns(UserWarning, match=r"Dropping metric attribute 'seq' with invalid type tuple"):
-        counter.add(1, {'seq': (1, None), 'good_seq': ('a', 'b')})  # type: ignore[arg-type]
+        counter.add(1, {'seq': (1, None), 'good_seq': ('a', 'b')})
 
     [metric] = get_collected_metrics(metrics_reader)
     [data_point] = metric['data']['data_points']
@@ -1229,7 +1229,7 @@ def test_metric_bytes_in_sequence_dropped_from_span_collection(exporter: TestExp
     with warnings.catch_warnings():
         warnings.simplefilter('error')
         with logfire.span('span'):
-            counter.add(100, {'raws': (b'a', b'b'), 'model': 'gpt4'})  # type: ignore[arg-type]
+            counter.add(100, {'raws': (b'a', b'b'), 'model': 'gpt4'})
 
     [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
     assert span['attributes']['logfire.metrics'] == {
