@@ -13,8 +13,8 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 
 Choose a runner below and run the setup command from your application's directory. `uvx` requires
 [`uv`](https://docs.astral.sh/uv/), while `npx` requires Node.js. The command signs you in, connects
-the directory to a Logfire project, then asks an installed Codex or Claude Code agent to add Logfire
-and verify that data arrives:
+the directory to a Logfire project, then starts an installed coding agent (Codex, Claude Code,
+GitHub Copilot CLI, Cursor CLI, or Google Antigravity CLI) to add Logfire and verify that data arrives:
 
 <AgentSetup command="uvx logfire-cli wizard">
 
