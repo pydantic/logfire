@@ -40,6 +40,7 @@ DataType = Literal[
     'generator',
     'Mapping',
     'Sequence',
+    'range',
     'dataclass',
     # exceptions
     'Exception',

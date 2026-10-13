@@ -30,6 +30,7 @@ DEFAULT_PATTERN_EXAMPLES = {
     'social[._ -]?security': 'has_social security_value',
     'credit[._ -]?card': 'has_credit_card_value',
     'logfire[._ -]?token': 'has_logfire-token_value',
+    r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token': 'has_access_token_value',
     r'pylf_v\d+_': 'has_pylf_v12_token',
     r'(?:\b|_)csrf(?:\b|_)': 'has csrf value',
     r'(?:\b|_)xsrf(?:\b|_)': 'has xsrf value',
@@ -98,6 +99,11 @@ def test_default_pattern_start_chars_cover_each_pattern():
         (r'(?:\b|_)xsrf(?:\b|_)', 'has_xsrf_value'),
         (r'(?:\b|_)jwt(?:\b|_)', 'has_jwt_value'),
         (r'(?:\b|_)ssn(?:\b|_)', 'has_ssn_value'),
+        (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has refresh-token value'),
+        (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has bearer token value'),
+        (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has_id_token_value'),
+        (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has idtoken value'),
+        (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has access.token value'),
         ('secret', 'has \u017fecret value'),
         ('credential', 'has credent\u0131al value'),
     ]
@@ -724,4 +730,44 @@ def test_logfire_token_prefix_scrubbing(exporter: TestExporter):
                 },
             }
         ]
+    )
+
+
+def test_oauth_token_names_scrubbed(exporter: TestExporter):
+    logfire.info(
+        'hi',
+        access_token='ya29.a0Af',
+        refresh_token='1//0gLk',
+        id_token='eyJhbGciOi',
+        bearer_token='abc123',
+        input_tokens=10,
+        max_tokens=100,
+        token='kept',
+        error='invalid token',
+    )
+    # A bare `token`, LLM token counts, and prose like 'invalid token' are deliberately not matched.
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert {
+        k: attributes[k]
+        for k in [
+            'access_token',
+            'refresh_token',
+            'id_token',
+            'bearer_token',
+            'input_tokens',
+            'max_tokens',
+            'token',
+            'error',
+        ]
+    } == snapshot(
+        {
+            'access_token': "[Scrubbed due to 'access_token']",
+            'refresh_token': "[Scrubbed due to 'refresh_token']",
+            'id_token': "[Scrubbed due to 'id_token']",
+            'bearer_token': "[Scrubbed due to 'bearer_token']",
+            'input_tokens': 10,
+            'max_tokens': 100,
+            'token': 'kept',
+            'error': 'invalid token',
+        }
     )

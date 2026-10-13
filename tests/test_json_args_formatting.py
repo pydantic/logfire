@@ -712,6 +712,29 @@ def test_json_args_value_formatting_compact(value: Any, schema: JSONSchema, form
     assert json_args_value_formatter_compact(value, schema=schema) == formatted_value
 
 
+@pytest.mark.parametrize('formatter', [json_args_value_formatter, json_args_value_formatter_compact])
+@pytest.mark.parametrize(
+    'schema',
+    [
+        {'type': 'array', 'x-python-datatype': 'range'},
+        {'type': 'array', 'x-python-datatype': 'Sequence', 'title': 'range'},
+    ],
+)
+@pytest.mark.parametrize(
+    'value,formatted',
+    [
+        ([], 'range(0, 0)'),
+        ([3], 'range(3, 4)'),
+        ([0, 1, 2, 3], 'range(0, 4)'),
+        ([1, 4, 7], 'range(1, 10, 3)'),
+        ([5, 3, 1], 'range(5, -1, -2)'),
+    ],
+)
+def test_range_formatting(formatter: Any, schema: JSONSchema, value: list[int], formatted: str) -> None:
+    # Both range schemas must preserve the encoded sequence, including empty and stepped ranges.
+    assert formatter(value, schema=schema) == formatted
+
+
 def test_all_types_covered():
     types = set(DataType.__args__)
     assert types == set(json_args_value_formatter_compact._data_type_map.keys())  # type: ignore
