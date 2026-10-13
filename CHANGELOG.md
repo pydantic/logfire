@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v5.2.0] (2026-10-13)
+
+...TODO
+
 ## [v5.1.1] (2026-09-25)
 
 ### Fixes
@@ -1310,3 +1314,4 @@ First release from new repo!
 [v5.0.0]: https://github.com/pydantic/logfire/compare/v4.41.0...v5.0.0
 [v5.1.0]: https://github.com/pydantic/logfire/compare/v5.0.0...v5.1.0
 [v5.1.1]: https://github.com/pydantic/logfire/compare/v5.1.0...v5.1.1
+[v5.2.0]: https://github.com/pydantic/logfire/compare/v5.1.1...v5.2.0
