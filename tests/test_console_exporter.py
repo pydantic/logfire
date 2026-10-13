@@ -1430,3 +1430,16 @@ def test_console_exporter_invalid_json_text_argument() -> None:
     SimpleConsoleSpanExporter(output=out, verbose=True, colors='never', include_timestamp=False).export([span])
 
     assert "body='not json'" in out.getvalue()
+
+
+def test_console_exporter_nested_structured_arrays(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+    )
+
+    logfire.info('hi', x={'a': [[1, 2], ['b']]})
+
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        ['hi', IsStr(), '│ x={', "│       'a': [[1, 2], ['b']],", '│   }']
+    )

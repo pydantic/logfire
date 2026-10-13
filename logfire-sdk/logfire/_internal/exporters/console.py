@@ -273,9 +273,10 @@ class SimpleConsoleSpanExporter(SpanExporter):
                     schema = None
             elif isinstance(value, Mapping):
                 # A structured OTLP value, which the SDK sends without a schema when it's a plain dict or list.
+                value = _structured_value_to_json(value)
                 schema = schema or cast('JSONSchema', {'type': 'object'})
             elif isinstance(value, Sequence) and not isinstance(value, str):
-                value = list(cast('Sequence[Any]', value))
+                value = _structured_value_to_json(value)
                 schema = schema or cast('JSONSchema', {'type': 'array'})
             value = json_args_value_formatter(value, schema=schema)
             arguments[key] = value
@@ -522,3 +523,12 @@ class ConsoleLogExporter(LogRecordExporter):
 
     def shutdown(self):
         self.span_exporter.shutdown()
+
+
+def _structured_value_to_json(value: Any) -> Any:
+    """Convert the tuples of a structured OTLP attribute value to lists, like a parsed JSON value."""
+    if isinstance(value, Mapping):
+        return {k: _structured_value_to_json(v) for k, v in cast('Mapping[str, Any]', value).items()}
+    elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return [_structured_value_to_json(v) for v in cast('Sequence[Any]', value)]
+    return value
