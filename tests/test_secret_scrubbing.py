@@ -103,6 +103,7 @@ def test_default_pattern_start_chars_cover_each_pattern():
         (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has bearer token value'),
         (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has_id_token_value'),
         (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has idtoken value'),
+        (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has access.token value'),
         ('secret', 'has \u017fecret value'),
         ('credential', 'has credent\u0131al value'),
     ]
