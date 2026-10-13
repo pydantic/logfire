@@ -21,6 +21,7 @@ import pytest
 from attrs import define, field as attrs_field
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
+from opentelemetry import trace
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, RootModel, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
@@ -30,7 +31,9 @@ from sqlalchemy.sql.schema import ForeignKey
 from sqlmodel import SQLModel
 
 import logfire
+from logfire._internal.json_encoder import logfire_json_dumps
 from logfire._internal.json_schema import create_json_schema
+from logfire._internal.main import set_json_text_attribute_on_raw_span
 from logfire.testing import TestExporter
 
 if sys.version_info >= (3, 11):  # pragma: no branch
@@ -1765,3 +1768,12 @@ def test_structured_attribute_values(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_logfire_json_dumps_non_str_keys() -> None:
+    assert logfire_json_dumps({(1, 2): 3}) == '{"(1, 2)":3}'
+
+
+def test_set_json_text_attribute_on_non_recording_span() -> None:
+    span = trace.NonRecordingSpan(trace.INVALID_SPAN_CONTEXT)
+    set_json_text_attribute_on_raw_span(span, 'body', '{"a": 1}')  # type: ignore[arg-type]

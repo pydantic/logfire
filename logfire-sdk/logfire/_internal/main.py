@@ -311,7 +311,7 @@ class Logfire:
             otlp_args = prepare_otlp_attributes(function_args)
             if json_schema_properties := prune_json_schema_properties(
                 attributes_json_schema_properties(function_args), otlp_args
-            ):
+            ):  # pragma: no branch
                 attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
             attributes.update(otlp_args)
             return self._fast_span(name, attributes, **kwargs)
@@ -3536,7 +3536,7 @@ def set_json_text_attribute_on_raw_span(span: Span, key: str, text: str) -> None
 def _set_attributes_on_raw_span(
     span: Span, otlp_attributes: dict[str, otel_types.AttributeValue], json_schema_properties: JsonSchemaProperties
 ) -> None:
-    if json_schema_properties:
+    if json_schema_properties:  # pragma: no branch
         existing_properties = JsonSchemaProperties({})
         existing_json_schema_str = (span.attributes or {}).get(ATTRIBUTES_JSON_SCHEMA_KEY)
         if existing_json_schema_str and isinstance(existing_json_schema_str, str):

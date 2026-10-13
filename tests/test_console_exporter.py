@@ -1407,3 +1407,26 @@ def test_console_exporter_log_pydantic_root_model(capsys: pytest.CaptureFixture[
             '│ with_order_inner=Order(1)',
         ]
     )
+
+
+def test_console_exporter_invalid_json_text_argument() -> None:
+    span = ReadableSpan(
+        name='hi',
+        context=trace.SpanContext(trace_id=1, span_id=1, is_remote=False),
+        parent=None,
+        attributes={
+            'logfire.span_type': 'log',
+            'logfire.level_num': 9,
+            'logfire.msg': 'hi',
+            'body': 'not json',
+            'logfire.json_schema': json.dumps({'type': 'object', 'properties': {'body': {'type': 'object'}}}),
+        },
+        events=[],
+        start_time=NANOSECONDS_PER_SECOND,
+        end_time=NANOSECONDS_PER_SECOND,
+    )
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, verbose=True, colors='never', include_timestamp=False).export([span])
+
+    assert "body='not json'" in out.getvalue()
