@@ -1,0 +1,33 @@
+CHANGELOG.md
+  s_b94cd9681eeb9e::t_47ceae9b03ddc3 57-73
+  s_b94cd9681eeb9e::t_45646ce8b13970 75
+  h_d9dd17644dded9 76
+  s_b94cd9681eeb9e::t_370fa1fb79efa0 78-80
+  s_b94cd9681eeb9e::t_e73f5433eebea9 1384-1385
+  s_b94cd9681eeb9e::t_6f7bf6e2709094 55
+  s_b94cd9681eeb9e::t_88416e2c65be1e 56
+  s_b94cd9681eeb9e::t_dea5684ba9cbaa 74
+  s_b94cd9681eeb9e::t_21dfd7413c7ded 81
+  h_d9dd17644dded9 77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a0ee4068896ce0db6c71cc4c753e147dd93701b3",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_b94cd9681eeb9e": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1791906937136",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
