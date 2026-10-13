@@ -343,4 +343,4 @@ def is_attrs(cls: type) -> bool:
 def _get_attrs_data(o: Any, seen: set[int]) -> JsonValue:
     import attrs
 
-    return {f.name: to_json_value(getattr(o, f.name), seen) for f in attrs.fields(o.__class__)}
+    return {f.name: to_json_value(getattr(o, f.name), seen) for f in attrs.fields(o.__class__) if f.repr is not False}

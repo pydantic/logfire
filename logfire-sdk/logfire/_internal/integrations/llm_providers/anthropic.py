@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import contextlib
 import json
+from collections.abc import Callable
+from inspect import signature
 from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
+from anthropic._utils import is_given
 from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
 from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
 from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaTextDelta, BetaToolUseBlock
@@ -99,7 +102,8 @@ def get_endpoint_config(
     if not isinstance(raw_json_data, dict):  # pragma: no cover
         # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
         raw_json_data = {}
-    json_data = cast('dict[str, Any]', raw_json_data)
+    # Recent SDKs remove omitted parameters inside request(), after our hook runs.
+    json_data = {key: value for key, value in cast('dict[str, Any]', raw_json_data).items() if is_given(value)}
     model = json_data.get('model')
     request_data = json_data if 1 in versions else {'model': model}
 
@@ -271,17 +275,23 @@ class AnthropicMessageStreamState(StreamState):
     def __init__(self):
         self._message: Any = None
         self._chunk_count: int = 0
+        self._accumulate_event: Callable[..., Any] | None = None
+        self._accumulate_kwargs: dict[str, Any] = {}
 
     def record_chunk(self, chunk: anthropic.types.MessageStreamEvent) -> None:
-        from anthropic.lib.streaming._beta_messages import accumulate_event as beta_accumulate_event
-        from anthropic.lib.streaming._messages import accumulate_event
+        if self._accumulate_event is None:
+            if type(chunk).__module__.startswith('anthropic.types.beta'):
+                from anthropic.lib.streaming._beta_messages import accumulate_event
 
-        if type(chunk).__module__.startswith('anthropic.types.beta'):
-            self._message = beta_accumulate_event(
-                event=cast(Any, chunk), current_snapshot=self._message, request_headers=cast(Any, {})
-            )
-        else:
-            self._message = accumulate_event(event=chunk, current_snapshot=self._message)
+                self._accumulate_kwargs['request_headers'] = {}
+            else:
+                from anthropic.lib.streaming._messages import accumulate_event
+
+            self._accumulate_event = accumulate_event
+            # Newer SDKs keep partial tool-call JSON outside the message snapshot.
+            if 'json_bufs' in signature(accumulate_event).parameters:
+                self._accumulate_kwargs['json_bufs'] = {}
+        self._message = self._accumulate_event(event=chunk, current_snapshot=self._message, **self._accumulate_kwargs)
         if isinstance(getattr(chunk, 'delta', None), (TextDelta, BetaTextDelta)):
             self._chunk_count += 1
 

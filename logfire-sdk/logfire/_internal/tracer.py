@@ -30,6 +30,7 @@ from opentelemetry.util import types as otel_types
 from .constants import (
     ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY,
     ATTRIBUTES_MESSAGE_KEY,
+    ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
     ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
@@ -187,7 +188,16 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     ) -> None:
         self.span.add_event(name, attributes, timestamp or self.ns_timestamp_generator())
 
-    def update_name(self, name: str) -> None:  # pragma: no cover
+    def update_name(self, name: str) -> None:
+        if isinstance(self.span, ReadableSpan):  # pragma: no branch
+            attributes = self.span.attributes or {}
+            # The message defaults to the span name at the start (see `_ProxyTracer.start_span`),
+            # so keep it in sync when the name changes, unless the message was set explicitly.
+            if (
+                ATTRIBUTES_MESSAGE_TEMPLATE_KEY not in attributes
+                and attributes.get(ATTRIBUTES_MESSAGE_KEY) == self.span.name
+            ):
+                self.span.set_attribute(ATTRIBUTES_MESSAGE_KEY, name)
         self.span.update_name(name)
 
     def is_recording(self) -> bool:
@@ -218,8 +228,10 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         )
 
     def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None:
+        is_recording = self.is_recording()
         if not (
-            self.is_recording()
+            # Ended SDK spans retain their parent, allowing updates to open ancestors.
+            (is_recording or isinstance(self.span, SDKSpan))
             and (
                 (
                     self.record_metrics
@@ -231,7 +243,8 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         ):
             return
 
-        self.metrics[name].increment(attributes, value)
+        if is_recording:
+            self.metrics[name].increment(attributes, value)
         if parent := get_parent_span(self):
             parent.increment_metric(name, attributes, value)
 

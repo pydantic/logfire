@@ -146,6 +146,7 @@ def test_instrument_google_genai(capfire: CaptureLogfire) -> None:
                                 {'content': 'What is the weather like in Boston?', 'type': 'text'},
                                 {'mime_type': 'text/plain', 'modality': 'text', 'content': 'MTIz', 'type': 'blob'},
                             ],
+                            'name': None,
                         }
                     ],
                     'gen_ai.output.messages': [
@@ -153,8 +154,11 @@ def test_instrument_google_genai(capfire: CaptureLogfire) -> None:
                             'role': 'assistant',
                             'parts': [{'content': 'It is rainy in Boston, MA.\n', 'type': 'text'}],
                             'finish_reason': 'stop',
+                            'name': None,
                         }
                     ],
+                    'gen_ai.usage.text.input_tokens': 58,
+                    'gen_ai.usage.text.output_tokens': 9,
                     'gen_ai.system_instructions': [{'content': 'help', 'type': 'text'}],
                     'gen_ai.tool.definitions': [
                         {
@@ -240,15 +244,9 @@ def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
                     'gen_ai.response.id': 'aWOnaLbzLaDPvdIPz4nJ0QI',
                     'gen_ai.usage.input_tokens': 39,
                     'gen_ai.usage.output_tokens': 7,
-                    'gen_ai.tool.definitions': [
-                        {
-                            'name': 'get_current_weather',
-                            'description': 'Returns the current weather.',
-                            'parameters': None,
-                            'type': 'function',
-                        }
-                    ],
                     'gen_ai.response.finish_reasons': ('stop',),
+                    'gen_ai.usage.text.input_tokens': 39,
+                    'gen_ai.usage.text.output_tokens': 7,
                     'logfire.metrics': IsPartialDict(),
                     'gen_ai.response.model': 'gemini-2.0-flash-001',
                     'gen_ai.system': 'gemini',
@@ -302,12 +300,16 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
                     'gen_ai.usage.reasoning.output_tokens': 58,
                     'gen_ai.response.finish_reasons': ('stop',),
                     'logfire.metrics': IsPartialDict(),
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'content': 'Hi', 'type': 'text'}]}],
+                    'gen_ai.usage.text.input_tokens': 2,
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'content': 'Hi', 'type': 'text'}], 'name': None}
+                    ],
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
                             'parts': [{'content': '{"answer":"Hello! How can I help you today?"}', 'type': 'text'}],
                             'finish_reason': 'stop',
+                            'name': None,
                         }
                     ],
                     'gen_ai.response.model': 'gemini-2.5-flash',
@@ -315,6 +317,31 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
                 },
             }
         ]
+    )
+
+
+def test_legacy_google_genai_scope(exporter: TestExporter) -> None:
+    """Retain the chat attributes and specific scope for instrumentor versions before 1.2b0."""
+    from opentelemetry.sdk.util.instrumentation import InstrumentationScope
+    from opentelemetry.trace import get_tracer
+
+    tracer = get_tracer(
+        'opentelemetry.util.genai.handler',
+        '1.1b0',
+        schema_url='https://example.com/schema',
+        attributes={'source': 'legacy'},
+    )
+    with tracer.start_as_current_span(
+        'generate_content gemini-test',
+        attributes={'gen_ai.provider.name': 'gemini', 'gen_ai.operation.name': 'generate_content'},
+    ):
+        pass
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['gen_ai.operation.name'] == 'chat'
+    assert span['attributes']['gen_ai.system'] == 'gemini'
+    assert exporter.exported_spans[0].instrumentation_scope == InstrumentationScope(
+        'opentelemetry.instrumentation.google_genai', '1.1b0', 'https://example.com/schema', {'source': 'legacy'}
     )
 
 

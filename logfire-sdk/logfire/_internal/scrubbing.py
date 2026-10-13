@@ -260,8 +260,8 @@ class SpanScrubber:
         # We need to use BoundedAttributes because:
         # 1. For events and links, we get an error otherwise:
         #      https://github.com/open-telemetry/opentelemetry-python/issues/3761
-        # 2. The callback might return a value that isn't of the type required by OTEL,
-        #      in which case BoundAttributes will discard it to prevent an error.
+        # 2. The callback might return a value that isn't of the type required by OTEL;
+        #      BoundedAttributes handles it according to the installed OTEL version.
         # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
         new_attributes = self.scrub(('attributes',), span['attributes'])
         if self.did_scrub:

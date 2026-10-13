@@ -1301,6 +1301,59 @@ def test_projects_status_reports_a_failed_query(tmp_dir_cwd: Path, capsys: pytes
     assert 'Invalid read token' in err
 
 
+def test_auth_base_url_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    base_url = 'http://localhost:8080'
+    monkeypatch.setenv('LOGFIRE_BASE_URL', base_url)
+    auth_file = tmp_path / 'default.toml'
+    with (
+        patch('logfire._internal.auth.DEFAULT_FILE', auth_file),
+        patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file),
+        patch('logfire._internal.cli.auth.input', return_value='') as auth_input,
+        patch('logfire._internal.cli.auth.webbrowser.open'),
+        requests_mock.Mocker() as request_mocker,
+    ):
+        request_mocker.post(
+            f'{base_url}/v1/device-auth/new/',
+            json={'device_code': 'DC', 'frontend_auth_url': 'http://example.com/auth'},
+        )
+        request_mocker.get(
+            f'{base_url}/v1/device-auth/wait/DC',
+            json={'token': 'fake_token', 'expiration': 'fake_exp'},
+        )
+
+        main(['auth'])
+
+        # `_read_line()` passes its default empty prompt straight through to `input`.
+        auth_input.assert_called_once_with('')
+        assert [request.url.partition('?')[0] for request in request_mocker.request_history] == [
+            f'{base_url}/v1/device-auth/new/',
+            f'{base_url}/v1/device-auth/wait/DC',
+        ]
+
+
+@pytest.mark.parametrize(
+    ('args', 'expected_url'),
+    [
+        (['--base-url', 'http://cli:8080', 'auth'], 'http://cli:8080'),
+        (['--region', 'us', 'auth'], 'https://logfire-us.pydantic.dev'),
+    ],
+    ids=['base-url', 'region'],
+)
+def test_auth_cli_url_overrides_env(monkeypatch: pytest.MonkeyPatch, args: list[str], expected_url: str) -> None:
+    monkeypatch.setenv('LOGFIRE_BASE_URL', 'http://env:8080')
+    parse_auth = Mock()
+
+    def capture_args(args: argparse.Namespace) -> None:
+        """Capture the parsed auth arguments."""
+        parse_auth(args)
+
+    monkeypatch.setattr(logfire._internal.cli, 'parse_auth', capture_args)
+
+    main(args)
+
+    assert parse_auth.call_args.args[0].logfire_url == expected_url
+
+
 def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
@@ -1386,9 +1439,12 @@ def test_auth_logout_wrong_region(default_credentials: Path, capsys: pytest.Capt
     assert 'No user token was found matching' in capsys.readouterr().err
 
 
-def test_auth_no_region_specified(tmp_path: Path) -> None:
+@pytest.mark.parametrize('env', [{}, {'LOGFIRE_BASE_URL': ''}], ids=['unset', 'empty'])
+def test_auth_no_region_specified(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, env: dict[str, str]) -> None:
+    monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
+        stack.enter_context(patch.dict(os.environ, env))
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         # Necessary to assert that credentials are written to the `auth_file` (which happens from the `cli` module)
         stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
@@ -1786,6 +1842,53 @@ def test_projects_new_with_project_name_multiple_organizations(
             **create_project_response['json'],
             'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
+
+
+@pytest.mark.parametrize(
+    ('default_organization', 'expected_remedies'),
+    [
+        (None, '  logfire projects new PROJECT_NAME --org ORGANIZATION'),
+        (
+            {'organization_name': 'fake_default_org'},
+            '  logfire projects new PROJECT_NAME --org ORGANIZATION\n  logfire projects new PROJECT_NAME --default-org',
+        ),
+    ],
+)
+def test_projects_new_non_interactive_multiple_organizations_guidance(
+    default_credentials: Path,
+    capsys: pytest.CaptureFixture[str],
+    default_organization: dict[str, str] | None,
+    expected_remedies: str,
+) -> None:
+    with (
+        patch(
+            'logfire._internal.auth.UserTokenCollection.get_token',
+            return_value=UserToken(
+                token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+            ),
+        ),
+        requests_mock.Mocker() as m,
+    ):
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
+        )
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/account/me',
+            json={'default_organization': default_organization},
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['--non-interactive', 'projects', 'new', 'myproject'])
+
+    assert exc_info.value.code == 1
+    assert capsys.readouterr().err == (
+        'Several organizations are available and none was selected: fake_org, fake_default_org\n'
+        'Cannot prompt because --non-interactive was passed.\n'
+        'Supply it instead with:\n'
+        f'{expected_remedies}\n'
+    )
 
 
 def test_projects_new_with_project_name_and_default_org_multiple_organizations(

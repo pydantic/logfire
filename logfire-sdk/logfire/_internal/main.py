@@ -3452,10 +3452,11 @@ def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
     if isinstance(value, Enum):
         return logfire_json_dumps(value)
     elif isinstance(value, int):
-        if value > OTLP_MAX_INT_SIZE:
+        if not -OTLP_MAX_INT_SIZE - 1 <= value <= OTLP_MAX_INT_SIZE:
             warnings.warn(
-                f'Integer value {value} is larger than the maximum OTLP integer size of {OTLP_MAX_INT_SIZE} (64-bits), '
-                ' if you need support for sending larger integers, please open a feature request',
+                f'Integer value {value} is outside the range of OTLP integers (signed 64-bit), '
+                'so it will be sent as a string. '
+                'If you need support for sending such integers, please open a feature request',
                 UserWarning,
             )
             return str(value)

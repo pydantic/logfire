@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import anyio._backends._asyncio  # noqa  # type: ignore
+import pydantic
 import pytest
 from inline_snapshot.plugin import Builder, Import, customize
 from opentelemetry import trace
@@ -21,11 +22,16 @@ import logfire
 from logfire import configure
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire._internal.exporters.test import TestLogExporter
+from logfire._internal.utils import get_version
 from logfire.integrations.pydantic import set_pydantic_plugin_config
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 
 # Emit both new and old semantic convention attribute names
 os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
+# Use LiteLLM's bundled prices so importing it never downloads data outside the cassettes.
+os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = 'True'
+# Monty's native tracing must not inherit a developer's Rust log filter.
+os.environ.pop('RUST_LOG', None)
 
 # Ensure that these variables in the environment don't interfere
 os.environ['LOGFIRE_TOKEN'] = ''
@@ -36,6 +42,10 @@ os.environ.setdefault('ANTHROPIC_API_KEY', os.environ.get('TEST_ANTHROPIC_API_KE
 os.environ.pop('OPENAI_BASE_URL', None)
 os.environ.pop('ANTHROPIC_BASE_URL', None)
 os.environ.pop('LOGFIRE_EMIT_CONFIGURATION_SPAN', None)
+os.environ.pop('LOGFIRE_COMPRESSION', None)
+# AnthropicBedrock reads this when no api_key is passed, and then rejects the aws_* arguments
+# that tests/otel_integrations/test_anthropic_bedrock.py passes.
+os.environ.pop('AWS_BEARER_TOKEN_BEDROCK', None)
 
 # https://github.com/openai/openai-python/issues/2644
 sys.modules['openai.resources.evals'] = unittest.mock.MagicMock()
@@ -66,6 +76,10 @@ try:
         logfire.instrument_mcp()
 except ImportError:
     pass
+except (UserWarning, DeprecationWarning):
+    # Only tolerate import warnings in deliberately incompatible Pydantic jobs.
+    if get_version(pydantic.__version__) >= get_version('2.12'):
+        raise
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -103,6 +117,18 @@ def logs_exporter(time_generator: TimeGenerator) -> TestLogExporter:
     return TestLogExporter(time_generator)
 
 
+class ReusableSimpleSpanProcessor(SimpleSpanProcessor):
+    def shutdown(self) -> None:
+        # Tests reconfigure Logfire with the same exporter, so keep it available.
+        pass
+
+
+class ReusableSimpleLogRecordProcessor(SimpleLogRecordProcessor):
+    def shutdown(self) -> None:
+        # Tests reconfigure Logfire with the same exporter, so keep it available.
+        pass
+
+
 @pytest.fixture
 def config_kwargs(
     exporter: TestExporter,
@@ -121,9 +147,9 @@ def config_kwargs(
         advanced=logfire.AdvancedOptions(
             id_generator=id_generator,
             ns_timestamp_generator=time_generator,
-            log_record_processors=[SimpleLogRecordProcessor(logs_exporter)],
+            log_record_processors=[ReusableSimpleLogRecordProcessor(logs_exporter)],
         ),
-        additional_span_processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[ReusableSimpleSpanProcessor(exporter)],
         # Ensure that inspect_arguments doesn't break things even in versions where it's off by default
         inspect_arguments=True,
         distributed_tracing=True,

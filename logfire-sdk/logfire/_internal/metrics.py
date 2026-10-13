@@ -8,6 +8,7 @@ from threading import Lock
 from typing import Any, Generic, TypeVar, cast
 from weakref import WeakSet
 
+from opentelemetry.context import Context
 from opentelemetry.metrics import (
     CallbackOptions,
     CallbackT,
@@ -395,8 +396,10 @@ class _ProxyInstrument(ABC, Generic[InstrumentT]):
         """Create an instance of the real instrument. Implement this."""
 
     @handle_internal_errors
-    def _increment_span_metric(self, amount: float, attributes: Attributes | None = None):
-        span = get_current_span()
+    def _increment_span_metric(
+        self, amount: float, attributes: Attributes | None = None, context: Context | None = None
+    ) -> None:
+        span = get_current_span(context)
         if isinstance(span, _LogfireWrappedSpan):
             span.increment_metric(self._kwargs['name'], _span_safe_metric_attributes(attributes) or {}, amount)
 
@@ -406,8 +409,7 @@ class _ProxyCounter(_ProxyInstrument[Counter], Counter):
         self,
         amount: int | float,
         attributes: Attributes | None = None,
-        # Starting with opentelemetry-sdk 1.28.0, these methods accept an additional optional `context` argument.
-        # This is passed to the underlying instrument using `*args, **kwargs` for compatibility with older versions.
+        context: Context | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -417,8 +419,8 @@ class _ProxyCounter(_ProxyInstrument[Counter], Counter):
         # would silently drop the span metric (and with it the whole `logfire.metrics`
         # attribute) even though the exported metric itself was protected.
         attributes = _sanitize_metric_attributes(attributes)
-        self._increment_span_metric(amount, attributes)
-        self._instrument.add(amount, attributes, *args, **kwargs)
+        self._increment_span_metric(amount, attributes, context)
+        self._instrument.add(amount, attributes, context, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Counter:
         return meter.create_counter(**self._kwargs)
@@ -429,14 +431,15 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
         self,
         amount: int | float,
         attributes: Attributes | None = None,
+        context: Context | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
         # See the note in `_ProxyCounter.add`: the span metric needs the cleaned
         # attributes too, not only the exported instrument.
         attributes = _sanitize_metric_attributes(attributes)
-        self._increment_span_metric(amount, attributes)
-        self._instrument.record(amount, attributes, *args, **kwargs)
+        self._increment_span_metric(amount, attributes, context)
+        self._instrument.record(amount, attributes, context, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Histogram:
         return meter.create_histogram(**self._kwargs)

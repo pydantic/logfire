@@ -84,6 +84,7 @@ def test_native_elasticsearch_instrumentation(exporter: TestExporter) -> None:
                     'server.address': 'localhost',
                     'server.port': 9200,
                     'db.response.status_code': '200',
+                    'url.path': '/products/_search',
                 },
             }
         ]

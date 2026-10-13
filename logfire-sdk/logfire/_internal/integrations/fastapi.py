@@ -324,6 +324,9 @@ def _server_request_hook(user_hook: ServerRequestHook | None):
     # Also call the user's hook if they passed one.
     def hook(span: Span, scope: dict[str, Any]):
         scope[LOGFIRE_SPAN_SCOPE_KEY] = span
+        # FastAPI's native telemetry detects legacy OTel on the root app, but not
+        # mounted apps. Its scope marker keeps those apps from starting new traces.
+        scope.setdefault('fastapi.telemetry', None)
         if user_hook:
             user_hook(span, scope)
 
