@@ -1,0 +1,20 @@
+CHANGELOG.md
+  h_d9dd17644dded9 3-6,1317
+logfire-api/pyproject.toml
+  h_d9dd17644dded9 7
+pyproject.toml
+  h_d9dd17644dded9 7
+uv.lock
+  h_d9dd17644dded9 3089,3478
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4c98d5df8d3db4744028ac087fc6889bf82c0ed2",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
