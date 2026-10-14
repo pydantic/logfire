@@ -168,9 +168,10 @@ def instrument_llm_provider(
                 if kwargs.get('stream'):
                     return original_request_method(*args, **kwargs)
                 else:
-                    response = on_response_fn(
-                        original_request_method(*args, **kwargs), span, base_url=_client_base_url(args)
-                    )
+                    response = original_request_method(*args, **kwargs)
+                    # `on_response_fn` returns `None` when recording fails with an internal error,
+                    # so its return value must not replace the response the caller gets.
+                    on_response_fn(response, span, base_url=_client_base_url(args))
                     return response
 
     @wraps(original_request_method)
@@ -183,9 +184,8 @@ def instrument_llm_provider(
                 if kwargs.get('stream'):
                     return await original_request_method(*args, **kwargs)
                 else:
-                    response = on_response_fn(
-                        await original_request_method(*args, **kwargs), span, base_url=_client_base_url(args)
-                    )
+                    response = await original_request_method(*args, **kwargs)
+                    on_response_fn(response, span, base_url=_client_base_url(args))
                     return response
 
     if is_async:
