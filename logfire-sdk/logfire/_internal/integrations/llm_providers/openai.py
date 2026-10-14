@@ -587,7 +587,7 @@ try:
                 pass
             else:
                 result[RESPONSE_ID] = final_completion.id
-                if final_completion.model:
+                if final_completion.model:  # pragma: no branch
                     result[RESPONSE_MODEL] = final_completion.model
                 finish_reasons = [choice.finish_reason for choice in final_completion.choices if choice.finish_reason]
                 if finish_reasons:
