@@ -10,6 +10,7 @@ from unittest import mock
 import pytest
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
+from opentelemetry.instrumentation._semconv import _OpenTelemetrySemanticConventionStability  # type: ignore
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
 from sqlalchemy.engine import Engine, create_engine
@@ -583,6 +584,60 @@ SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_n
                     'logfire.msg': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.statement': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.system': 'sqlite',
+                },
+            },
+        ]
+    )
+
+
+def test_sqlalchemy_instrumentation_stable_semconv(exporter: TestExporter):
+    """With the stable database semantic conventions, the query is in `db.query.text` rather than `db.statement`."""
+    with mock.patch.dict('os.environ', {'OTEL_SEMCONV_STABILITY_OPT_IN': 'database'}):
+        # Pick up the new value of OTEL_SEMCONV_STABILITY_OPT_IN
+        _OpenTelemetrySemanticConventionStability._initialized = False  # type: ignore
+        try:
+            with sqlite_engine(Path('example_stable_semconv.db')) as engine:
+                logfire.instrument_sqlalchemy(engine=engine)
+                with engine.connect() as conn:
+                    conn.execute(
+                        text(
+                            'select name, type, tbl_name, rootpage, sql from sqlite_master '
+                            "where type = 'table' and name = 'auth_records'"
+                        )
+                    )
+        finally:
+            # Now let other tests get the original value set in conftest.py
+            _OpenTelemetrySemanticConventionStability._initialized = False  # type: ignore
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'connect',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'connect',
+                    'db.namespace': 'example_stable_semconv.db',
+                    'db.system.name': 'sqlite',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'select example_stable_semconv.db',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'SELECT name, type…tpage, sql FROM sqlite_master WHERE …',
+                    'db.namespace': 'example_stable_semconv.db',
+                    'db.query.text': "select name, type, tbl_name, rootpage, sql from sqlite_master where type = 'table' and name = 'auth_records'",
+                    'db.system.name': 'sqlite',
+                    'db.operation.name': IsStr(),
                 },
             },
         ]

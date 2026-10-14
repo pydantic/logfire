@@ -121,9 +121,12 @@ def _tweak_sqlalchemy_connect_spans(span: ReadableSpanDict) -> None:
     if scope is None or scope.name != 'opentelemetry.instrumentation.sqlalchemy':  # pragma: no cover
         return
     attributes = span['attributes']
-    # We never expect db.statement to be in the attributes here.
+    # `db.system.name` and `db.query.text` are the stable semantic convention names for `db.system` and `db.statement`.
+    has_system = 'db.system' in attributes or 'db.system.name' in attributes
+    # We never expect a statement to be in the attributes here.
     # This is just to be extra sure that we're not accidentally hiding an actual query span.
-    if 'db.system' not in attributes or 'db.statement' in attributes:  # pragma: no cover
+    has_statement = 'db.statement' in attributes or 'db.query.text' in attributes
+    if not has_system or has_statement:  # pragma: no cover
         return
     span['attributes'] = {**attributes, **log_level_attributes('debug')}
 
