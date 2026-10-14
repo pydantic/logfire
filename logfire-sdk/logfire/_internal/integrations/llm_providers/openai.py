@@ -528,6 +528,9 @@ class OpenaiResponsesStreamState(StreamState):
             response_id = getattr(response, 'id', None)
             if isinstance(response_id, str):
                 span_data[RESPONSE_ID] = response_id
+            response_model = getattr(response, 'model', None)
+            if isinstance(response_model, str):
+                span_data[RESPONSE_MODEL] = response_model
             span_data.update(get_openai_usage_attributes(response, self.base_url))
         return span_data
 
@@ -584,6 +587,8 @@ try:
                 pass
             else:
                 result[RESPONSE_ID] = final_completion.id
+                if final_completion.model:
+                    result[RESPONSE_MODEL] = final_completion.model
                 finish_reasons = [choice.finish_reason for choice in final_completion.choices if choice.finish_reason]
                 if finish_reasons:
                     result[RESPONSE_FINISH_REASONS] = finish_reasons
