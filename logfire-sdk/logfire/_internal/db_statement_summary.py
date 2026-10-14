@@ -14,7 +14,7 @@ def message_from_db_statement(attributes: Mapping[str, Any], message: str | None
     """
     # `db.query.text` and `db.namespace` are the stable semantic convention names
     # for `db.statement` and `db.name`, e.g. with `OTEL_SEMCONV_STABILITY_OPT_IN=database`.
-    db_statement = attributes.get('db.statement') or attributes.get('db.query.text')
+    db_statement = attributes.get('db.statement', attributes.get('db.query.text'))
     if not isinstance(db_statement, str):
         # covers `None` and anything any other unexpected type
         return None
@@ -29,7 +29,7 @@ def message_from_db_statement(attributes: Mapping[str, Any], message: str | None
         # A JSON query body, e.g. from Elasticsearch's native instrumentation, not SQL.
         return None
     if isinstance(message, str):
-        db_name = attributes.get('db.name') or attributes.get('db.namespace')
+        db_name = attributes.get('db.name', attributes.get('db.namespace'))
         if db_name and isinstance(db_name, str) and message.endswith(db_name):
             operation = message[: -len(db_name) - 1]
         else:
