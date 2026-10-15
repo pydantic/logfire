@@ -180,13 +180,13 @@ Call `logfire.configure()` before you create the client. You don't need any othe
     It's currently cloudy in Berlin, with a temperature of 15°C.
     ```
 
-`open_telemetry={'traces': {'content_mode': 'content'}}` adds prompts and responses to your app's spans too. Leave it out to keep them to metadata only.
+`open_telemetry={'traces': {'content_mode': 'content'}}` adds prompts and responses to your app's spans too. Leave it out to keep them to metadata only, unless the environment variable `ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE` is set to `content`.
 
 Good to know:
 
 - **Web apps:** if you already [instrument your web framework](../web-frameworks/index.md), Claude's spans appear under each incoming request, for example `GET /chat`, with no extra code.
 - **Sampling:** if you [sample](../../how-to-guides/sampling.md) traces in `logfire.configure()`, Claude follows your choice. A trace you don't keep has no Claude spans.
-- **Don't also call `logfire.instrument_anthropic()`.** The SDK already records its calls. With both, Claude's spans lose their link to your trace.
+- **Don't also call `logfire.instrument_anthropic()`.** The SDK already records its calls. With both, Claude's spans point to a parent span that never reaches Logfire, so they show up detached from your app's spans.
 
 ### Group calls into a conversation
 
@@ -211,27 +211,36 @@ conversation.messages.create(
 
 ### Without the Claude SDK
 
-If you call the API another way, for example with `httpx`, add your trace context to the request headers yourself. Claude reads it from the `traceparent` header:
+Claude reads your trace context from the `traceparent` request header. If you call the API with `httpx`, [`logfire.instrument_httpx()`](../http-clients/httpx.md) adds that header for you:
 
-```python hl_lines="10-11 16" skip-run="true" skip-reason="external-connection"
-from anthropic import Anthropic
-from opentelemetry.propagate import inject
+```python hl_lines="8" skip-run="true" skip-reason="external-connection"
+import os
+
+import httpx
 
 import logfire
 
 logfire.configure()
-client = Anthropic(open_telemetry=False)  # stands in for any HTTP client
+logfire.instrument_httpx()
 
 with logfire.span('summarize'):
-    headers = {}
-    inject(headers)
-    client.messages.create(
-        model='claude-haiku-5-5',
-        max_tokens=100,
-        messages=[{'role': 'user', 'content': 'Hello, Claude'}],
-        extra_headers=headers,
+    response = httpx.post(
+        'https://api.anthropic.com/v1/messages',
+        headers={
+            'x-api-key': os.environ['ANTHROPIC_API_KEY'],
+            'anthropic-version': '2023-06-01',
+        },
+        json={
+            'model': 'claude-haiku-5-5',
+            'max_tokens': 100,
+            'messages': [{'role': 'user', 'content': 'Hello, Claude'}],
+        },
+        timeout=60,
     )
+    print(response.json()['content'][0]['text'])
 ```
+
+With another HTTP client, add the header yourself with `opentelemetry.propagate.inject(headers)` before you send the request.
 
 ## See it in Logfire
 
