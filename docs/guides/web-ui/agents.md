@@ -65,7 +65,7 @@ Click a row (or its `>` chevron) to expand the run detail inline; the **Expand**
 
 A run detail has four tabs:
 
-- **Summary**: a strip of the run's provider, model, token usage, cost, and duration; an AI-generated summary of what the run did (when AI features are enabled for your project); and the run's input and final output.
+- **Summary**: a strip of the run's provider, model, token usage, cost, and duration; an AI-generated summary of what the run did (when AI features are enabled for your organization); and the run's input and final output.
 - **Tools**: a combined view of the tools the agent had available and how it used them. Each tool shows its parameter schema and a count of how many times it was called, and expands to the arguments and result of every call.
 - **Messages**: the full conversation for the run.
 - **Trace**: the underlying span tree, so you can drop into the raw trace.

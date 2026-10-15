@@ -41,7 +41,7 @@ You do not need a paid plan to send Gateway requests or set basic spending limit
 | Custom provider base URLs and custom OpenAI- or Anthropic-compatible providers | Team, Growth, Enterprise, or self-hosted Logfire. |
 | Prebuilt and custom-pattern Guardrails | All Gateway plans, in Beta. |
 | Optimizations | Via Early Access on Growth, Enterprise, or self-hosted Logfire. |
-| Spending policies | Experimental, enabled through the same Early Access settings, on Enterprise or self-hosted Logfire. Not required for the included spending limits. |
+| Spending policies | Experimental, enabled through the same Early Access settings. Creating or changing a policy requires Enterprise or self-hosted Logfire. Not required for the included spending limits. |
 | Presidio protections | Enterprise Cloud or self-hosted Logfire, with Guardrails enabled. |
 
 [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access) is available when your account belongs to an eligible organization. Its feature choices apply to your account in this browser, not automatically to every member. Individual guides explain which option to enable. For pricing and Enterprise contract details, see [Logfire plans](https://pydantic.dev/pricing).
