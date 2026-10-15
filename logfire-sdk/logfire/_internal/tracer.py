@@ -154,11 +154,14 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     exception_callback: ExceptionCallback | None = None
 
     def __post_init__(self):
-        OPEN_SPANS[self._open_spans_key()] = self
+        # A suppressed span shares the current span's context, so it mustn't replace that span's entry.
+        OPEN_SPANS.setdefault(self._open_spans_key(), self)
 
     def end(self, end_time: int | None = None) -> None:
         with handle_internal_errors:
-            OPEN_SPANS.pop(self._open_spans_key(), None)
+            key = self._open_spans_key()
+            if OPEN_SPANS.get(key) is self:
+                del OPEN_SPANS[key]
             if self.metrics:
                 self.span.set_attribute(
                     'logfire.metrics', json.dumps({name: metric.dump() for name, metric in self.metrics.items()})

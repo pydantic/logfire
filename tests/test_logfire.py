@@ -3776,11 +3776,34 @@ def test_span_started_while_suppressed_propagates_outer_span(exporter: TestExpor
             with get_tracer('sdk').start_as_current_span('sdk request') as sdk_span:
                 inject(headers)
                 assert not sdk_span.is_recording()
+            # Like a streamed response, which ends after the integration's suppressed call returns.
+            stream_span = get_tracer('sdk').start_span('sdk stream')
+        stream_span.end()
+        # The outer span still collects metrics from its children.
+        with logfire.span('child'):
+            logfire.metric_counter('operation.cost').add(1)
 
     outer_context = outer.get_span_context()
     assert outer_context is not None
     assert headers == {'traceparent': f'00-{outer_context.trace_id:032x}-{outer_context.span_id:016x}-01'}
-    assert [span['name'] for span in exporter.exported_spans_as_dict()] == ['outer']
+    assert [
+        (span['name'], span['attributes'].get('logfire.metrics'))
+        for span in exporter.exported_spans_as_dict(parse_json_attributes=True)
+    ] == snapshot(
+        [
+            ('child', {'operation.cost': {'details': [{'attributes': {}, 'total': 1}], 'total': 1}}),
+            ('outer', {'operation.cost': {'details': [{'attributes': {}, 'total': 1}], 'total': 1}}),
+        ]
+    )
+
+
+def test_suppressed_span_from_underlying_provider_is_not_exported(exporter: TestExporter):
+    # A tracer taken from the SDK provider behind Logfire's proxy bypasses the proxy's suppression check.
+    tracer = GLOBAL_CONFIG.get_tracer_provider().provider.get_tracer('sdk')
+    with suppress_instrumentation():
+        tracer.start_span('suppressed').end()
+
+    assert exporter.exported_spans_as_dict() == []
 
 
 def test_internal_exception_span(caplog: pytest.LogCaptureFixture, exporter: TestExporter):
