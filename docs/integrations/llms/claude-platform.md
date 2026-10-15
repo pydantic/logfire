@@ -14,7 +14,7 @@ There are two parts:
 2. **Optional: link them to your app.** Add `logfire.configure()` to your Python app, and Claude's spans appear inside your own traces (the full journey of one request, made of nested spans).
 
 !!! note "Beta"
-    Sending traces from the Claude Platform is in beta at Anthropic. Span and attribute names can change between versions of the Claude SDK.
+    Sending traces from the Claude Platform is in beta at Anthropic. Span names and attributes can change during the beta.
 
 ## What you'll see
 
@@ -28,7 +28,7 @@ There are two parts:
 Claude's spans have the service name `claude-platform`. Spans from your own app have your app's service name.
 
 !!! warning "Prompts and responses are sent to Logfire"
-    With **Full content**, spans include prompts, responses, and tool inputs and outputs. Anthropic sends them to Logfire directly, so Logfire's [scrubbing](../../how-to-guides/scrubbing.md) (which hides sensitive values before your app sends them) doesn't apply. Choose **Metadata only** to send only IDs, timing, status, and token counts. These spans count toward your Logfire usage like any other span.
+    With **Full content**, spans include prompts, responses, and tool inputs and outputs. Anthropic sends them to Logfire directly, so Logfire's [scrubbing](../../how-to-guides/scrubbing.md) (which hides sensitive values before your app sends them) doesn't apply. Choose **Metadata only** to leave out prompts, responses, and tool inputs and outputs. These spans count toward your Logfire usage like any other span.
 
 ## Before you start
 
@@ -299,8 +299,8 @@ GROUP BY trace_id
 | **Delivery** shows **Disabled** | Anthropic turns a destination off after 24 hours of failed deliveries. Fix the cause, then click **Enable** in its **⋮** menu. Spans from while it was off aren't sent later. |
 | **Test** works but your requests don't show up | The destination doesn't include the workspace of your API key. Check its **Workspaces**. |
 | Claude's spans aren't inside your app's traces | Call `logfire.configure()` before creating the client, and make calls inside a span. |
-| No prompts or responses | The destination is set to **Metadata only**. If your organization has a HIPAA, FERPA, or K-12 agreement with Anthropic, it can only send metadata. |
-| Calls through Amazon Bedrock or Google Vertex AI don't show up | This export only covers the Claude Platform. Use the [Anthropic integration](anthropic.md) for those. |
+| No prompts or responses | The destination is set to **Metadata only**. If your organization has a HIPAA, FERPA, or K-12 data-handling restriction with Anthropic, Claude's spans only contain metadata, whatever the content mode. |
+| Calls through Amazon Bedrock or Google Vertex AI don't show up | The Console export only covers the Claude Platform, including Claude Platform on AWS. For Amazon Bedrock, use the [Anthropic integration](anthropic.md#amazon-bedrock). |
 
 ## Next steps
 
