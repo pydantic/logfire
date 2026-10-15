@@ -37,7 +37,7 @@ from .constants import (
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     log_level_attributes,
 )
-from .utils import handle_internal_errors, sha256_string
+from .utils import handle_internal_errors, is_instrumentation_suppressed, sha256_string
 
 if TYPE_CHECKING:
     from ..types import ExceptionCallback
@@ -301,6 +301,17 @@ class _ProxyTracer(Tracer):
         ns_timestamp_generator = config.advanced.ns_timestamp_generator
         record_metrics: bool = not isinstance(config.metrics, (bool, type(None))) and config.metrics.collect_in_spans
         exception_callback = config.advanced.exception_callback
+
+        if is_instrumentation_suppressed():
+            # Suppressed spans are never exported, so don't give them span IDs of their own.
+            # Code that sends the current span's context onward (e.g. a `traceparent` header)
+            # then sends the nearest exported span instead of one that never arrives.
+            return _LogfireWrappedSpan(
+                NonRecordingSpan(get_current_span(context).get_span_context()),
+                ns_timestamp_generator=ns_timestamp_generator,
+                record_metrics=record_metrics,
+                exception_callback=exception_callback,
+            )
 
         start_time = start_time or ns_timestamp_generator()
 

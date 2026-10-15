@@ -19,6 +19,7 @@ import pytest
 from dirty_equals import IsInt, IsJson, IsStr
 from inline_snapshot import Is, snapshot
 from opentelemetry.metrics import get_meter
+from opentelemetry.propagate import inject
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
@@ -3748,7 +3749,7 @@ def test_suppress_instrumentation(exporter: TestExporter):
             },
             {
                 'name': 'log3',
-                'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
                 'end_time': 3000000000,
@@ -3764,6 +3765,22 @@ def test_suppress_instrumentation(exporter: TestExporter):
             },
         ]
     )
+
+
+def test_span_started_while_suppressed_propagates_outer_span(exporter: TestExporter):
+    # Like an SDK that traces its own requests, called by a Logfire integration inside `suppress_instrumentation()`:
+    # the `traceparent` it sends must point at the exported outer span, not at its own span that's never exported.
+    headers: dict[str, str] = {}
+    with logfire.span('outer') as outer:
+        with suppress_instrumentation():
+            with get_tracer('sdk').start_as_current_span('sdk request') as sdk_span:
+                inject(headers)
+                assert not sdk_span.is_recording()
+
+    outer_context = outer.get_span_context()
+    assert outer_context is not None
+    assert headers == {'traceparent': f'00-{outer_context.trace_id:032x}-{outer_context.span_id:016x}-01'}
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == ['outer']
 
 
 def test_internal_exception_span(caplog: pytest.LogCaptureFixture, exporter: TestExporter):
