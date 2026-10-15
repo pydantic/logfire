@@ -929,7 +929,7 @@ class Logfire:
         Args:
             report: An evaluation report from `pydantic_evals`.
             dataset_name: The `name` of the `Dataset` that produced the report.
-                Leave as `None` for datasets without a name.
+                Defaults to `report.dataset_name` when available (pydantic-evals with that field).
 
         Returns:
             The URL string, or `None` if the project URL or trace/span IDs are not available.
@@ -939,6 +939,7 @@ class Logfire:
         span_id = report.span_id
         if not project_url or not trace_id or not span_id:
             return None
+        dataset_name = dataset_name or getattr(report, 'dataset_name', None)
         dataset = quote(dataset_name or '<unnamed>', safe='')
         return f'{project_url.rstrip("/")}/evals/{dataset}/compare?experiment={trace_id}-{span_id}'
 
