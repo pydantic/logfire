@@ -82,7 +82,7 @@ Install `logfire` and the Claude SDK (version 1.14.0 or later):
 pip install logfire anthropic
 ```
 
-Call `logfire.configure()` before you create the client. You don't need any other setup: the SDK sends its spans through Logfire, and tells Claude which of your spans made each call.
+Call `logfire.configure()` before you create the client. You don't need any other setup.
 
 === "Claude Managed Agents"
 
@@ -173,7 +173,7 @@ Call `logfire.configure()` before you create the client. You don't need any othe
     It's currently cloudy in Berlin, with a temperature of 15°C.
     ```
 
-`open_telemetry={'traces': {'content_mode': 'content'}}` adds prompts and responses to your app's spans too. Leave it out to keep them to metadata only, unless the environment variable `ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE` is set to `content`.
+`open_telemetry={'traces': {'content_mode': 'content'}}` adds prompts and responses to your app's spans too. Leave it out to keep them to metadata only.
 
 Good to know:
 
