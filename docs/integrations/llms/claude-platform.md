@@ -270,7 +270,7 @@ FROM records
 WHERE attributes->>'anthropic.request.id' = 'req_...'
 ```
 
-**Token usage.** The same tokens are recorded on more than one span of a request: on your app's span, on Claude's request span, and on the model call. Because of this, Logfire's trace totals show Messages API tokens twice. To count each token once, add up only the model calls (and, for Managed Agents, outcome evaluations):
+**Token usage.** The same tokens are recorded on more than one span of a request: on your app's span, on Claude's request span, and on the model call. Because of this, Logfire's trace totals show Messages API tokens twice. To count each token once, add up only the model calls, context compactions, and (for Managed Agents) outcome evaluations:
 
 ```sql
 SELECT
@@ -278,7 +278,7 @@ SELECT
   sum((attributes->>'gen_ai.usage.input_tokens')::int) AS input_tokens,
   sum((attributes->>'gen_ai.usage.output_tokens')::int) AS output_tokens
 FROM records
-WHERE span_name IN ('anthropic.model_request', 'anthropic.session.outcome_evaluation')
+WHERE span_name IN ('anthropic.model_request', 'anthropic.compaction', 'anthropic.session.outcome_evaluation')
 GROUP BY trace_id
 ```
 
