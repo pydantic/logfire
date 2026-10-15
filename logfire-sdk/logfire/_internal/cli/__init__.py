@@ -916,7 +916,7 @@ def _main(args: list[str] | None = None) -> None:
     cmd_auth.set_defaults(func=parse_auth)
     auth_subparsers = cmd_auth.add_subparsers()
 
-    cmd_logout = auth_subparsers.add_parser('logout', help=parse_logout.__doc__)
+    cmd_logout = auth_subparsers.add_parser('logout', help=parse_logout.__doc__, description=parse_logout.__doc__)
     cmd_logout.set_defaults(func=parse_logout)
 
     cmd_clean = subparsers.add_parser('clean', help=parse_clean.__doc__)

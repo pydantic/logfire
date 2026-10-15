@@ -49,6 +49,8 @@ DEFAULT_PATTERNS = [
     'social[._ -]?security',
     'credit[._ -]?card',
     'logfire[._ -]?token',
+    # OAuth-style token names. A bare 'token' is left out because it would also match LLM usage fields like input_tokens.
+    r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token',
     r'pylf_v\d+_',
     *[
         # Require these to be surrounded by word boundaries or underscores,
@@ -66,7 +68,7 @@ DEFAULT_PATTERNS = [
 # Every default pattern starts matching at one of these characters. Checking this
 # inexpensive character class first avoids trying every alternative at every
 # position in large strings. Custom patterns are not constrained by this prefix.
-_DEFAULT_PATTERN_START_CHARS = 'pmsacljx_'
+_DEFAULT_PATTERN_START_CHARS = 'pmsacljx_rbi'
 _DEFAULT_PATTERN = rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(DEFAULT_PATTERNS)})'
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'

@@ -49,9 +49,22 @@ Then, if you go back to the terminal, you'll see that you are authenticated! :ta
 
 To log out and remove the locally stored credentials, run:
 
+!!! warning "Logout scope"
+    Without `--region`, `--base-url`, or a non-empty `LOGFIRE_BASE_URL`, this removes user tokens for **all** stored regions and servers.
+    Otherwise, only the selected region or server's user token is removed.
+
 ```bash
 logfire auth logout
 ```
+
+To switch accounts in one region, log out of that region, then authenticate again:
+
+```bash
+logfire --region us auth logout
+logfire --region us auth
+```
+
+For a self-hosted instance, use the same `--base-url` value in both commands instead of `--region`.
 
 ## Clean (`clean`)
 
