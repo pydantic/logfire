@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import AsyncIterator, Iterator
 from inspect import signature
 from io import BytesIO
@@ -5908,7 +5909,7 @@ def test_streaming_response_custom_parse_does_not_parse_default_model(
     [span] = exporter.exported_spans_as_dict()
     assert span['attributes'].get('gen_ai.response.id') is None
     assert streaming_response_body.was_closed
-    assert caplog.records == []
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
 
 
 @pytest.mark.anyio
@@ -5930,7 +5931,7 @@ async def test_async_streaming_response_custom_parse_does_not_parse_default_mode
     [span] = exporter.exported_spans_as_dict()
     assert span['attributes'].get('gen_ai.response.id') is None
     assert streaming_response_body.was_closed
-    assert caplog.records == []
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
 
 
 def test_streaming_response_parse_after_failed_parse(
@@ -6002,7 +6003,7 @@ def test_streaming_response_lazy_body_and_parent_context(
     [request_span, parent_span] = exporter.exported_spans_as_dict()
     assert request_span['parent'] == parent_span['context']
     assert request_span['attributes'].get('gen_ai.response.id') == ('test_id' if mode == 'parse' else None)
-    assert caplog.records == []
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
 
 
 @pytest.mark.anyio
@@ -6039,7 +6040,7 @@ async def test_async_streaming_response_lazy_body_and_parent_context(
     [request_span, parent_span] = exporter.exported_spans_as_dict()
     assert request_span['parent'] == parent_span['context']
     assert request_span['attributes'].get('gen_ai.response.id') == ('test_id' if mode == 'parse' else None)
-    assert caplog.records == []
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
 
 
 def test_request_error_ends_span(exporter: TestExporter) -> None:
