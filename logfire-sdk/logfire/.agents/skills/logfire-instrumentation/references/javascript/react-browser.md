@@ -75,7 +75,7 @@ logfire.configureFrontend({
 })
 ```
 
-Pass React Router the same `routes` as the router, and its `basename` when it has one. In React Router 6, import `createBrowserRouter` and `matchRoutes` from `react-router-dom`. The React Router helper does not support hash or memory routers. If the TanStack or Vue router is created after `configureFrontend()`, pass `() => router`. Do not write a callback that reads `router.state.matches` or `router.currentRoute`: router state keeps the previous route during back and forward navigation.
+Pass React Router the same `routes` as the router, and its `basename` when it has one. In React Router 6, import from `react-router-dom` instead of `react-router`. The React Router helper does not support hash or memory routers. If the TanStack or Vue router is created after `configureFrontend()`, pass `() => router`. Do not write a callback that reads `router.state.matches` or `router.currentRoute`: router state keeps the previous route during back and forward navigation.
 
 For other routers, follow the browser SDK guide's [route-name contract](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#route-names): return the matched route template such as `/projects/:id`, never the concrete path; return a fixed name such as `/*` for not-found routes; keep the callback synchronous; and return `undefined` until the first route resolves.
 
