@@ -18,7 +18,7 @@ Each link says why it's here.
 3. **Tie changes back to usage**: every managed-variable resolution is recorded in your traces. That means you can correlate a flag or prompt change directly with what happened next (the basis for A/B tests and online experiments) using the same data your app already sends. See [Explore](../guides/web-ui/explore.md) to query that data in SQL and [Dashboards](../guides/web-ui/dashboards.md) to watch it over time.
 
 !!! note "Frontend observability and session replay"
-    [Frontend monitoring](../guides/web-ui/frontend.md) and [session replay](../guides/web-ui/session-replays.md) are available in early access. [Contact Pydantic](https://pydantic.dev/contact) if you are interested.
+    [Frontend monitoring](../guides/web-ui/frontend.md) and [session replay](../guides/web-ui/session-replays.md) are available in early access on Growth, Enterprise, and self-hosted Logfire. Enable **Frontend observability** under [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access) to try them.
 
 ## No code required
 

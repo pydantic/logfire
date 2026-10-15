@@ -40,11 +40,12 @@ See the integration guide for your framework to set up the instrumentation that 
 
 ## Agent detail
 
-The detail page has three tabs:
+The detail page has these tabs:
 
 - **Metrics**: run volume, error rate, latency, cost, and token usage for the agent over time.
 - **Runs**: every individual run of the agent (see below).
 - **Info**: the agent's model, tools, and other metadata.
+- **Optimize** (Beta): reviews the agent's recent runs, weighting failing runs highest, and proposes changes to its system prompt that you can refine. This tab appears when AI features are enabled for your organization.
 
 ## The Runs tab
 
