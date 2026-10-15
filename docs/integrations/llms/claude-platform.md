@@ -13,13 +13,6 @@ There are two parts:
 1. **Add Logfire in the Claude Console.** Anthropic then sends Claude's spans to Logfire for every request, from any language, with no code changes. A span is one unit of work, such as a model call, with a name, a start, and a duration.
 2. **Optional: link them to your app.** Add `logfire.configure()` to your Python app, and Claude's spans appear inside your own traces (the full journey of one request, made of nested spans).
 
-```mermaid
-flowchart LR
-    A[Your app] -->|"calls Claude"| C[Claude Platform]
-    C -->|"Claude's spans (step 1)"| L[Logfire]
-    A -->|"your app's spans (step 2)"| L
-```
-
 !!! note "Beta"
     Sending traces from the Claude Platform is in beta at Anthropic. Span and attribute names can change between versions of the Claude SDK.
 
