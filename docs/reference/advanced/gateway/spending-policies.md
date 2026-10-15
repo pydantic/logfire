@@ -31,8 +31,8 @@ For finer control without spending policies, use **Project Spending Limits** on 
 
 ## Create and attach an advanced spending policy
 
-!!! note "Experimental: Growth, Enterprise, or self-hosted"
-    Spending policies provide reusable, provider- and model-specific budgets beyond the included limits above. Access to [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access) requires membership in a Growth or Enterprise organization, or a self-hosted deployment. Choose **Show experimental features** and turn on **AI Gateway spending policies**. These choices apply to your account in this browser.
+!!! note "Experimental: Enterprise or self-hosted"
+    Spending policies provide reusable, provider- and model-specific budgets beyond the included limits above. Creating or changing a policy requires an Enterprise organization or a self-hosted deployment. To see them, open [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access). Choose **Show experimental features** and turn on **AI Gateway spending policies**. These choices apply to your account in this browser.
 
 A **spending policy** does nothing until you **attach** it to an organization, project, member, or API key. Use **Block** to reject requests after a limit is reached, or **Alert only** to record an overage without stopping requests. Policies work alongside the included limits; they do not replace them, upstream quotas, or the built-in balance.
 
