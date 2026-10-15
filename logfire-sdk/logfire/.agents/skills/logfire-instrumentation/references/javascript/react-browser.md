@@ -50,6 +50,35 @@ Mount this provider once at the app root and do not return the asynchronous SDK 
 
 For non-React browser entrypoints, run the same generated configuration from the client entry file before adding manual spans. Do not set `serviceName`, `serviceNamespace`, or the environment; the frontend application pins those values at ingest.
 
+## Group Pages By Route
+
+Every single-page application should set `rum.session.getRouteName`. Without it, each id in a URL makes a separate page, so `/projects/1` and `/projects/2` show as two rows in page tables, filters, and Web Vitals breakdowns.
+
+Use `@pydantic/logfire-browser` 0.28.0 or later for the router helpers. Use the helper for the app's router and add it to the existing `configureFrontend()` call:
+
+| Router | Import | `getRouteName` value |
+| --- | --- | --- |
+| React Router 7 or 8 with `createBrowserRouter` or `<BrowserRouter>` (6 expected to work, not tested) | `reactRouterRouteName` from `@pydantic/logfire-browser/react-router` | `reactRouterRouteName({ routes, matchRoutes, basename })` |
+| TanStack Router (tested with React; Solid and Vue share its core, not tested) | `tanStackRouterRouteName` from `@pydantic/logfire-browser/tanstack-router` | `tanStackRouterRouteName(router)` |
+| Vue Router 4 or 5 | `vueRouterRouteName` from `@pydantic/logfire-browser/vue-router` | `vueRouterRouteName(router)` |
+
+```ts
+import { reactRouterRouteName } from '@pydantic/logfire-browser/react-router'
+import { createBrowserRouter, matchRoutes } from 'react-router'
+
+const router = createBrowserRouter(routes)
+
+logfire.configureFrontend({
+  baseUrl: '<generated-regional-base-url>',
+  token: '<frontend-application-token>',
+  rum: { session: { getRouteName: reactRouterRouteName({ matchRoutes, routes }) } },
+})
+```
+
+Pass React Router the same `routes` as the router, and its `basename` when it has one. In React Router 6, import `matchRoutes` from `react-router-dom`. The React Router helper does not support hash or memory routers. If the TanStack or Vue router is created after `configureFrontend()`, pass `() => router`. Do not write a callback that reads `router.state.matches` or `router.currentRoute`: router state keeps the previous route during back and forward navigation.
+
+For other routers, follow the browser SDK guide's [route-name contract](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#route-names): return the matched route template such as `/projects/:id`, never the concrete path; return a fixed name such as `/*` for not-found routes; keep the callback synchronous; and return `undefined` until the first route resolves.
+
 ## Optional Backend Proxy
 
 A backend proxy is not required to hide the restricted frontend token. Preserve one when the application already uses it, or add one only when the application specifically needs its own authentication, origin checks, or rate limits. Use the lower-level `configure()` for custom proxy transports. Follow the browser SDK guide's [optional-proxy contract](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#optional-backend-proxy) and keep its existing security controls.

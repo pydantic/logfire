@@ -304,6 +304,25 @@ def test_browser_framework_examples_configure_once_without_strict_mode_shutdown(
     assert 'Import this Client Component normally' in (references / 'javascript/nextjs.md').read_text()
 
 
+def test_browser_guidance_groups_single_page_applications_by_route() -> None:
+    references = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
+    react = (references / 'javascript' / 'react-browser.md').read_text()
+    nextjs = (references / 'javascript' / 'nextjs.md').read_text()
+    frameworks = (references / 'javascript' / 'frameworks.md').read_text()
+    route_names = 'https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#route-names'
+
+    assert 'Every single-page application should set `rum.session.getRouteName`' in react
+    assert 'Use `@pydantic/logfire-browser` 0.28.0 or later for the router helpers' in react
+    assert '`reactRouterRouteName` from `@pydantic/logfire-browser/react-router`' in react
+    assert '`tanStackRouterRouteName` from `@pydantic/logfire-browser/tanstack-router`' in react
+    assert '`vueRouterRouteName` from `@pydantic/logfire-browser/vue-router`' in react
+    assert 'getRouteName: reactRouterRouteName({ matchRoutes, routes })' in react
+    assert f'[route-name contract]({route_names})' in react
+    assert route_names in nextjs
+    assert '0.28.0 or later' in frameworks
+    assert './react-browser.md#group-pages-by-route' in frameworks
+
+
 def test_python_logging_guidance_preserves_existing_configuration() -> None:
     logging = (
         REPO_ROOT

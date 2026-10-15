@@ -112,6 +112,8 @@ Mount this component once at the app root and do not return the asynchronous SDK
 
 Import this Client Component normally from an App Router Server Component. If the app needs `next/dynamic` with `ssr: false`, put that dynamic import in another Client Component; Next.js rejects `ssr: false` directly in a Server Component.
 
+Set `rum.session.getRouteName` so each id in a URL does not make a separate page. Next.js has no SDK helper; use the browser SDK guide's [Pages Router and App Router recipes](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#route-names).
+
 Do not set `serviceName`, `serviceNamespace`, or the environment in browser configuration; the frontend application pins those values. Never substitute the server's `LOGFIRE_TOKEN` or another ordinary write token for the frontend application token.
 
 If the repository already routes browser telemetry through a backend, preserve that architecture using the lower-level `configure()` and follow the browser SDK guide's [optional-proxy contract](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#optional-backend-proxy). Do not add a new Next.js rewrite merely to hide the restricted frontend token.
