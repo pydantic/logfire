@@ -44,7 +44,7 @@ def test_loguru(exporter: TestExporter) -> None:
                     'code.function': 'test_loguru',
                     'code.lineno': 20,
                     'logfire.logger_name': 'tests.test_loguru',
-                    'logfire.logging_args': '["positional"]',
+                    'logfire.logging_args': ('positional',),
                     'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"logfire.logging_args":{"type":"array","x-python-datatype":"tuple"}}}',
                 },
             },

@@ -145,7 +145,11 @@ def main() -> None:
 
         # Installing through an extra-bearing direct URL exercises both local
         # wheel resolution and the meta-package's forwarding of SDK extras.
-        installer.install(f'logfire[sqlite3] @ {meta_wheel.as_uri()}', upgrade=True)
+        # The SDK wheel is also passed as a direct URL: between releases its version can
+        # already exist on PyPI with different dependencies, and pip may otherwise pick that one.
+        installer.install(
+            f'logfire[sqlite3] @ {meta_wheel.as_uri()}', f'logfire-sdk @ {sdk_wheel.as_uri()}', upgrade=True
+        )
         assert_state('split', target_version)
         run([str(cli), '--version'], cwd=work_dir, env=env)
 

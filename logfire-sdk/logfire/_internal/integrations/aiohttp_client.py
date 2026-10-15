@@ -16,7 +16,7 @@ from opentelemetry.trace import NonRecordingSpan, Span, use_span
 from yarl import URL
 
 from logfire._internal.config import GLOBAL_CONFIG
-from logfire._internal.main import set_user_attributes_on_raw_span
+from logfire._internal.main import set_json_text_attribute_on_raw_span, set_user_attributes_on_raw_span
 
 try:
     from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
@@ -143,8 +143,7 @@ class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin)
             self._set_complex_span_attributes({'http.request.body.form': data})
 
     def _capture_text_as_json(self, attr_name: str, text: str) -> None:
-        self._set_complex_span_attributes({attr_name: {}})
-        self.span.set_attribute(attr_name, text)
+        set_json_text_attribute_on_raw_span(self.span, attr_name, text)  # pyright: ignore[reportArgumentType]
 
     def _set_complex_span_attributes(self, attributes: dict[str, Any]) -> None:
         set_user_attributes_on_raw_span(self.span, attributes)  # pyright: ignore[reportArgumentType]
@@ -195,8 +194,7 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
         response.read = read
 
     def capture_text_as_json(self, span: LogfireSpan, *, text: str, attr_name: str) -> None:
-        span.set_attribute(attr_name, {})
-        span._span.set_attribute(attr_name, text)  # pyright: ignore[reportOptionalMemberAccess, reportPrivateUsage]
+        span._set_json_text_attribute(attr_name, text)  # pyright: ignore[reportPrivateUsage]
 
     @classmethod
     def create_from_trace_params(

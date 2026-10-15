@@ -68,16 +68,6 @@ jobs:
           - python-version: '3.14'
             pydantic-version: '2.13'
             otel-version: '1'
-          # OpenTelemetry versions
-          - python-version: '3.14'
-            pydantic-version: 'main'
-            otel-version: '1.39'
-          - python-version: '3.14'
-            pydantic-version: 'main'
-            otel-version: '1.40'
-          - python-version: '3.14'
-            pydantic-version: 'main'
-            otel-version: '1.41'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:

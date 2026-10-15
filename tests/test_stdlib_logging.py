@@ -73,7 +73,7 @@ def test_stdlib_logging_with_positional_params(exporter: TestExporter, logger: L
                     'code.function': 'test_stdlib_logging_with_positional_params',
                     'code.lineno': IsPositiveInt(),
                     'logfire.logger_name': 'tests.test_stdlib_logging',
-                    'logfire.logging_args': '["with a parameter"]',
+                    'logfire.logging_args': ('with a parameter',),
                     'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"logfire.logging_args":{"type":"array","x-python-datatype":"tuple"}}}',
                 },
             }
@@ -101,7 +101,7 @@ def test_stdlib_logging_with_positional_dict_param(exporter: TestExporter, logge
                     'code.function': 'test_stdlib_logging_with_positional_dict_param',
                     'code.lineno': 123,
                     'logfire.logger_name': 'tests.test_stdlib_logging',
-                    'logfire.logging_args': '[{"param":"with a parameter"}]',
+                    'logfire.logging_args': ({'param': 'with a parameter'},),
                     'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"logfire.logging_args":{"type":"array","x-python-datatype":"tuple"}}}',
                 },
             }
@@ -184,7 +184,7 @@ def test_stdlib_logging_warning(exporter: TestExporter, logger: Logger) -> None:
                     'code.function': 'test_stdlib_logging_warning',
                     'code.lineno': IsPositiveInt(),
                     'logfire.logger_name': 'tests.test_stdlib_logging',
-                    'logfire.logging_args': '["Fred"]',
+                    'logfire.logging_args': ('Fred',),
                     'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"logfire.logging_args":{"type":"array","x-python-datatype":"tuple"}}}',
                 },
             }

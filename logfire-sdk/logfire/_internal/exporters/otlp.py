@@ -9,7 +9,7 @@ import time
 import uuid
 import weakref
 from collections import deque
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from functools import cached_property
 from pathlib import Path
 from tempfile import mkdtemp
@@ -23,7 +23,7 @@ from opentelemetry.sdk._logs._internal.export import LogRecordExportResult
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
-from requests import Response, Session
+from requests import Session
 from typing_extensions import Buffer
 
 import logfire
@@ -138,29 +138,15 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
         self.current_num_spans = 0
         if isinstance(session := kwargs.get('session'), Session):
             self._session = session
-        if client := getattr(self, '_client', None):
-            # OpenTelemetry 1.45 sends serialized payloads through a client instead of _export.
-            # Its own size check returns FAILURE before reaching the client, so let our
-            # wrapper split oversized batches and report oversized individual spans.
-            setattr(self, '_max_request_size', sys.maxsize)
-            setattr(self, '_client', _BodySizeCheckingOTLPClient(cast(_OTLPClient, client), self))
+        # OpenTelemetry sends serialized payloads through a client.
+        # Its own size check returns FAILURE before reaching the client, so let our
+        # wrapper split oversized batches and report oversized individual spans.
+        setattr(self, '_max_request_size', sys.maxsize)
+        setattr(self, '_client', _BodySizeCheckingOTLPClient(cast(_OTLPClient, getattr(self, '_client')), self))
 
     def export(self, spans: Sequence[ReadableSpan]):
         self.current_num_spans = len(spans)
         return super().export(spans)
-
-    def _export(self, serialized_data: bytes, *args: Any, **kwargs: Any) -> Response:
-        # If there are multiple spans, check the body size first.
-        if self.current_num_spans > 1 and len(serialized_data) > self.max_body_size:
-            # Tell outer RetryFewerSpansSpanExporter to split in half
-            raise BodyTooLargeError(len(serialized_data), self.max_body_size)
-
-        response = cast(Callable[..., Response], getattr(super(), '_export'))(serialized_data, *args, **kwargs)
-        if response.status_code == 413:
-            # The backend checks the decompressed payload, so keep this in the same
-            # pre-compression units as the local size limit above.
-            raise BodyTooLargeError(len(serialized_data), None)
-        return response
 
 
 class OTLPExporterHttpSession(Session):

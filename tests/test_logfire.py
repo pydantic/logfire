@@ -1840,8 +1840,8 @@ def test_instrument_complex_args(exporter: TestExporter):
                     'code.function': 'test_instrument_complex_args.<locals>.hello_world',
                     'logfire.msg_template': 'hello {thing}!',
                     'logfire.msg': "hello {'a': 123}!",
-                    'logfire.json_schema': '{"type":"object","properties":{"thing":{"type":"object"}}}',
-                    'thing': '{"a":123}',
+                    'logfire.json_schema': '{"type":"object","properties":{"thing":{}}}',
+                    'thing': {'a': 123},
                     'logfire.span_type': 'span',
                 },
             }
@@ -2009,12 +2009,12 @@ def test_json_args(exporter: TestExporter) -> None:
     s = exporter.exported_spans[0]
     assert s.attributes
     assert s.attributes['logfire.msg'] == 'test message foo=Foo(x=1, y=2)'
-    assert s.attributes['foo'] == '{"x":1,"y":2}'
+    assert s.attributes['foo'] == {'x': 1, 'y': 2}
 
     s = exporter.exported_spans[1]
     assert s.attributes
     assert s.attributes['logfire.msg'] == 'test message foos=[Foo(x=1, y=2)]'
-    assert s.attributes['foos'] == '[{"x":1,"y":2}]'
+    assert s.attributes['foos'] == ({'x': 1, 'y': 2},)
 
 
 def test_int_span_id_encoding():
@@ -2318,14 +2318,14 @@ def test_complex_attribute_added_after_span_started(exporter: TestExporter) -> N
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'test_complex_attribute_added_after_span_started',
                     'code.lineno': 123,
-                    'a': '{"b":1}',
+                    'a': {'b': 1},
                     'logfire.msg_template': 'hi',
                     'logfire.msg': 'hi',
                     'logfire.span_type': 'span',
-                    'c': '{"d":2}',
+                    'c': {'d': 2},
                     'e': 'null',
                     'f': 'null',
-                    'logfire.json_schema': '{"type":"object","properties":{"a":{"type":"object"},"c":{"type":"object"},"e":{"type":"null"},"f":{"type":"null"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"c":{},"e":{"type":"null"},"f":{"type":"null"}}}',
                 },
             }
         ]
@@ -3357,7 +3357,7 @@ def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPat
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'test_executing_failure',
                     'code.lineno': 123,
-                    'things': '[]',
+                    'things': (),
                     'local_var': 3,
                     'logfire.json_schema': '{"type":"object","properties":{"things":{"type":"array","x-python-datatype":"set"},"local_var":{}}}',
                 },

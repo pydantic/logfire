@@ -2704,8 +2704,8 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
-                            'logfire.config': {'type': 'object'},
-                            'logfire.package_versions': {'type': 'object'},
+                            'logfire.config': {},
+                            'logfire.package_versions': {},
                         },
                     },
                     'logfire.disable_console_log': True,

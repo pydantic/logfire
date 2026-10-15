@@ -53,7 +53,7 @@ from .constants import (
 )
 from .formatter import logfire_format, logfire_format_with_magic
 from .instrument import instrument
-from .json_encoder import logfire_json_dumps
+from .json_encoder import logfire_json_dumps, to_otlp_value
 from .json_schema import (
     JsonSchemaProperties,
     attributes_json_schema,
@@ -252,7 +252,10 @@ class Logfire:
 
             otlp_attributes = prepare_otlp_attributes(merged_attributes)
 
-            if json_schema_properties := attributes_json_schema_properties(attributes):
+            json_schema_properties = prune_json_schema_properties(
+                attributes_json_schema_properties(attributes), otlp_attributes
+            )
+            if json_schema_properties:
                 otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
             tags = (self._tags or ()) + tuple(_tags or ())
@@ -306,9 +309,12 @@ class Logfire:
             attributes = attributes.copy()
             msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # pyright: ignore[reportAssignmentType]
             attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
-            if json_schema_properties := attributes_json_schema_properties(function_args):  # pragma: no branch
+            otlp_args = prepare_otlp_attributes(function_args)
+            if json_schema_properties := prune_json_schema_properties(
+                attributes_json_schema_properties(function_args), otlp_args
+            ):  # pragma: no branch
                 attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
-            attributes.update(prepare_otlp_attributes(function_args))
+            attributes.update(otlp_args)
             return self._fast_span(name, attributes, **kwargs)
         except Exception:  # pragma: no cover
             log_internal_error()
@@ -796,7 +802,9 @@ class Logfire:
                 ATTRIBUTES_MESSAGE_KEY: msg,
                 **otlp_attributes,
             }
-            if json_schema_properties := attributes_json_schema_properties(attributes):
+            if json_schema_properties := prune_json_schema_properties(
+                attributes_json_schema_properties(attributes), otlp_attributes
+            ):
                 otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
             tags = self._tags + tuple(tags or ())
@@ -3319,10 +3327,19 @@ class LogfireSpan(ReadableSpan):
             value: The value of the attribute.
         """
         self._added_attributes = True
-        self._json_schema_properties[key] = create_json_schema(value, set())
         otel_value = self._otlp_attributes[key] = prepare_otlp_attribute(value)
+        schema = create_json_schema(value, set())
+        self._json_schema_properties[key] = {} if _is_plain_native_collection(schema, otel_value) else schema
         if self._span is not None:  # pragma: no branch
             self._span.set_attribute(key, otel_value)
+
+    def _set_json_text_attribute(self, key: str, text: str) -> None:
+        """Set a string attribute containing JSON text, and tell the backend to parse it as JSON."""
+        self._added_attributes = True
+        self._json_schema_properties[key] = {'type': 'object'}
+        self._otlp_attributes[key] = text
+        if self._span is not None:  # pragma: no branch
+            self._span.set_attribute(key, text)
 
     def set_attributes(self, attributes: dict[str, Any]) -> None:
         """Sets the given attributes on the span."""
@@ -3473,7 +3490,32 @@ def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
     elif isinstance(value, (str, bool)):
         return value
     else:
-        return logfire_json_dumps(value)
+        return to_otlp_value(value)
+
+
+def prune_json_schema_properties(
+    properties: JsonSchemaProperties, otlp_attributes: Mapping[str, Any]
+) -> JsonSchemaProperties:
+    """Simplify schema entries that carry no information beyond the structured OTLP value itself.
+
+    A plain `dict` or `list` sent as a structured OTLP value doesn't need `{'type': 'object'}` or `{'type': 'array'}`:
+    the backend only uses those to know that a string must be parsed as JSON.
+    The entry becomes `{}` (like for `str` or `int`) so that the key is still listed as a user attribute.
+    Entries that carry extra type information (e.g. dates, dataclasses, Pydantic models) are kept.
+    """
+    return JsonSchemaProperties(
+        {
+            key: {} if _is_plain_native_collection(schema, otlp_attributes.get(key)) else schema
+            for key, schema in properties.items()
+        }
+    )
+
+
+def _is_plain_native_collection(schema: Any, otlp_value: Any) -> bool:
+    return schema in PLAIN_COLLECTION_SCHEMAS and not isinstance(otlp_value, str)
+
+
+PLAIN_COLLECTION_SCHEMAS = ({'type': 'object'}, {'type': 'array'})
 
 
 def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None:
@@ -3481,7 +3523,24 @@ def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> N
         return
 
     otlp_attributes = prepare_otlp_attributes(attributes)
-    if json_schema_properties := attributes_json_schema_properties(attributes):  # pragma: no branch
+    json_schema_properties = prune_json_schema_properties(
+        attributes_json_schema_properties(attributes), otlp_attributes
+    )
+    _set_attributes_on_raw_span(span, otlp_attributes, json_schema_properties)
+
+
+def set_json_text_attribute_on_raw_span(span: Span, key: str, text: str) -> None:
+    """Set a string attribute containing JSON text, and tell the backend to parse it as JSON."""
+    if not span.is_recording():
+        return
+
+    _set_attributes_on_raw_span(span, {key: text}, JsonSchemaProperties({key: {'type': 'object'}}))
+
+
+def _set_attributes_on_raw_span(
+    span: Span, otlp_attributes: dict[str, otel_types.AttributeValue], json_schema_properties: JsonSchemaProperties
+) -> None:
+    if json_schema_properties:  # pragma: no branch
         existing_properties = JsonSchemaProperties({})
         existing_json_schema_str = (span.attributes or {}).get(ATTRIBUTES_JSON_SCHEMA_KEY)
         if existing_json_schema_str and isinstance(existing_json_schema_str, str):

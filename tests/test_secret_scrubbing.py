@@ -170,14 +170,14 @@ def test_scrub_attribute(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_scrub_attribute',
                     'code.lineno': 123,
-                    'user_password': "[Scrubbed due to 'password']",
+                    'user_password': ("[Scrubbed due to 'password']",),
                     'mode': 'password',
                     'modes': "[Scrubbed due to 'password']",
                     'Author': 'Alice1',
                     'authors': 'Alice2',
                     'authr': "[Scrubbed due to 'auth']",
                     'authorization': "[Scrubbed due to 'auth']",
-                    'logfire.json_schema': '{"type":"object","properties":{"user_password":{"type":"array"},"mode":{},"modes":{},"Author":{},"authors":{},"authr":{},"authorization":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"user_password":{},"mode":{},"modes":{},"Author":{},"authors":{},"authr":{},"authorization":{}}}',
                     'logfire.scrubbed': IsJson(
                         [
                             {'path': ['attributes', 'user_password'], 'matched_substring': 'password'},
@@ -272,14 +272,14 @@ def test_scrub_message(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_scrub_message',
                     'code.lineno': 123,
-                    'user': '[{"name": "John", "password": "[Scrubbed due to \'password\']"}]',
+                    'user': ({'name': 'John', 'password': "[Scrubbed due to 'password']"},),
                     'logfire.scrubbed': IsJson(
                         [
                             {'path': ['message', 'user'], 'matched_substring': 'password'},
                             {'path': ['attributes', 'user', 0, 'password'], 'matched_substring': 'password'},
                         ]
                     ),
-                    'logfire.json_schema': '{"type":"object","properties":{"user":{"type":"array"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"user":{}}}',
                 },
             }
         ]
@@ -549,12 +549,12 @@ def test_do_not_scrub(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_do_not_scrub',
                     'code.lineno': 123,
-                    'x': [
+                    'x': (
                         {'do_not_scrub': 'not_secret'},
                         {'not_secret': "[Scrubbed due to 'secret']"},
                         {'not_secret': "[Scrubbed due to 'secret']"},
-                    ],
-                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
+                    ),
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {}}},
                     'logfire.scrubbed': [
                         {'path': ['attributes', 'x', 1, 'not_secret'], 'matched_substring': 'secret'},
                         {'path': ['attributes', 'x', 2, 'not_secret'], 'matched_substring': 'secret'},
@@ -631,7 +631,7 @@ def test_word_boundaries(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_word_boundaries',
                     'code.lineno': 123,
-                    'x': [
+                    'x': (
                         'abcjwt',
                         "[Scrubbed due to '_jwt']",
                         "[Scrubbed due to 'jwt']",
@@ -639,8 +639,8 @@ def test_word_boundaries(exporter: TestExporter):
                         "[Scrubbed due to 'csrf_']",
                         "[Scrubbed due to 'csrf']",
                         "[Scrubbed due to 'csrf']",
-                    ],
-                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
+                    ),
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {}}},
                     'logfire.scrubbed': [
                         {'path': ['attributes', 'x', 1], 'matched_substring': '_jwt'},
                         {'path': ['attributes', 'x', 2], 'matched_substring': 'jwt'},
@@ -713,14 +713,14 @@ def test_logfire_token_prefix_scrubbing(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_logfire_token_prefix_scrubbing',
                     'code.lineno': 123,
-                    'x': [
+                    'x': (
                         "[Scrubbed due to 'pylf_v1_']",
                         "[Scrubbed due to 'pylf_v2_']",
                         "[Scrubbed due to 'pylf_v10_']",
                         "[Scrubbed due to 'pylf_v1_']",
                         'pylf_v1_',
-                    ],
-                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
+                    ),
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {}}},
                     'logfire.scrubbed': [
                         {'path': ['attributes', 'x', 0], 'matched_substring': 'pylf_v1_'},
                         {'path': ['attributes', 'x', 1], 'matched_substring': 'pylf_v2_'},

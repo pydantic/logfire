@@ -111,7 +111,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                     'request_data': {
                         'max_tokens': 1000,
                         'system': 'You are a helpful assistant.',
-                        'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                        'messages': ({'role': 'user', 'content': 'What is four plus five?'},),
                         'model': model_id,
                     },
                     'gen_ai.system': 'anthropic',
@@ -119,10 +119,10 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': model_id,
                     'gen_ai.request.max_tokens': 1000,
-                    'gen_ai.input.messages': [
-                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
-                    ],
-                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
+                    'gen_ai.input.messages': (
+                        {'role': 'user', 'parts': ({'type': 'text', 'content': 'What is four plus five?'},)},
+                    ),
+                    'gen_ai.system_instructions': ({'type': 'text', 'content': 'You are a helpful assistant.'},),
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': f"Message with '{model_id}'",
@@ -145,31 +145,31 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                             }
                         ),
                     },
-                    'gen_ai.output.messages': [
+                    'gen_ai.output.messages': (
                         {
                             'role': 'assistant',
-                            'parts': [{'type': 'text', 'content': 'Nine'}],
+                            'parts': ({'type': 'text', 'content': 'Nine'},),
                             'finish_reason': 'end_turn',
-                        }
-                    ],
+                        },
+                    ),
                     'gen_ai.response.model': model_id,
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
                     'gen_ai.usage.raw': {'input_tokens': 2, 'output_tokens': 3},
                     'operation.cost': 4.25e-06,
-                    'gen_ai.response.finish_reasons': ['end_turn'],
+                    'gen_ai.response.finish_reasons': ('end_turn',),
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
-                            'request_data': {'type': 'object'},
+                            'request_data': {},
                             'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.request.max_tokens': {},
-                            'gen_ai.input.messages': {'type': 'array'},
-                            'gen_ai.system_instructions': {'type': 'array'},
+                            'gen_ai.input.messages': {},
+                            'gen_ai.system_instructions': {},
                             'async': {},
                             'response_data': {
                                 'type': 'object',
@@ -181,14 +181,14 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                                     },
                                 },
                             },
-                            'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.output.messages': {},
                             'gen_ai.response.model': {},
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
-                            'gen_ai.usage.raw': {'type': 'object'},
+                            'gen_ai.usage.raw': {},
                             'operation.cost': {},
-                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'gen_ai.response.finish_reasons': {},
                         },
                     },
                 },
