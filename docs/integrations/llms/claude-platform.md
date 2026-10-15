@@ -186,7 +186,6 @@ Good to know:
 
 - **Web apps:** if you already [instrument your web framework](../web-frameworks/index.md), Claude's spans appear under each incoming request, for example `GET /chat`, with no extra code.
 - **Sampling:** if you [sample](../../how-to-guides/sampling.md) traces in `logfire.configure()`, Claude follows your choice. A trace you don't keep has no Claude spans.
-- **You don't need `logfire.instrument_anthropic()` for this.** The Claude SDK records its own calls once `logfire.configure()` has run.
 
 ### Group calls into a conversation
 
@@ -306,7 +305,7 @@ GROUP BY trace_id
 | **Delivery** shows **Failing** (404) | The endpoint has a path. Use only `https://logfire-us.pydantic.dev` or `https://logfire-eu.pydantic.dev`. |
 | **Delivery** shows **Disabled** | Anthropic turns a destination off after 24 hours of failed deliveries. Fix the cause, then click **Enable** in its **⋮** menu. Spans from while it was off aren't sent later. |
 | **Test** works but your requests don't show up | The destination doesn't include the workspace of your API key. Check its **Workspaces**. |
-| Claude's spans aren't inside your app's traces | Call `logfire.configure()` before creating the client, and make calls inside a span. If you also call `logfire.instrument_anthropic()`, remove that call. |
+| Claude's spans aren't inside your app's traces | Call `logfire.configure()` before creating the client, and make calls inside a span. |
 | No prompts or responses | The destination is set to **Metadata only**. If your organization has a HIPAA, FERPA, or K-12 agreement with Anthropic, it can only send metadata. |
 | Calls through Amazon Bedrock or Google Vertex AI don't show up | This export only covers the Claude Platform. Use the [Anthropic integration](anthropic.md) for those. |
 
