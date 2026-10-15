@@ -937,8 +937,10 @@ class Logfire:
         span_id = report.span_id
         if not project_url or not trace_id or not span_id:
             return None
-        dataset = quote(getattr(report, 'dataset_name', None) or '<unnamed>', safe='')
-        return f'{project_url.rstrip("/")}/evals/{dataset}/compare?experiment={trace_id}-{span_id}'
+        evals_url = f'{project_url.rstrip("/")}/evals'
+        if dataset_name := getattr(report, 'dataset_name', None):
+            evals_url = f'{evals_url}/{quote(dataset_name, safe="")}'
+        return f'{evals_url}/compare?experiment={trace_id}-{span_id}'
 
     def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.

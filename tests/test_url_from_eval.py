@@ -22,9 +22,7 @@ def test_url_from_eval_with_project_url() -> None:
 
     report = _make_report(trace_id='abc123', span_id='def456')
     result = instance.url_from_eval(report)
-    assert (
-        result == 'https://logfire.pydantic.dev/my-org/my-project/evals/%3Cunnamed%3E/compare?experiment=abc123-def456'
-    )
+    assert result == 'https://logfire.pydantic.dev/my-org/my-project/evals/compare?experiment=abc123-def456'
 
 
 def test_url_from_eval_with_report_dataset_name() -> None:
@@ -75,9 +73,7 @@ def test_url_from_eval_trailing_slash() -> None:
 
     report = _make_report(trace_id='abc123', span_id='def456')
     result = instance.url_from_eval(report)
-    assert (
-        result == 'https://logfire.pydantic.dev/my-org/my-project/evals/%3Cunnamed%3E/compare?experiment=abc123-def456'
-    )
+    assert result == 'https://logfire.pydantic.dev/my-org/my-project/evals/compare?experiment=abc123-def456'
 
 
 def test_url_from_eval_no_ids() -> None:
