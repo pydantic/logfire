@@ -211,7 +211,13 @@ conversation.messages.create(
 
 ### Without the Claude SDK
 
-Claude reads your trace context from the `traceparent` request header. If you call the API with `httpx`, [`logfire.instrument_httpx()`](../http-clients/httpx.md) adds that header for you:
+Claude reads your trace context from the `traceparent` request header. If you call the API with `httpx`, [`logfire.instrument_httpx()`](../http-clients/httpx.md) adds that header for you. Install the `httpx` extra first:
+
+```bash
+pip install 'logfire[httpx]'
+```
+
+Then:
 
 ```python hl_lines="8" skip-run="true" skip-reason="external-connection"
 import os
