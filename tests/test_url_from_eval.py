@@ -22,7 +22,21 @@ def test_url_from_eval_with_project_url() -> None:
 
     report = _make_report(trace_id='abc123', span_id='def456')
     result = instance.url_from_eval(report)
-    assert result == 'https://logfire.pydantic.dev/my-org/my-project/evals/compare?experiment=abc123-def456'
+    assert (
+        result == 'https://logfire.pydantic.dev/my-org/my-project/evals/%3Cunnamed%3E/compare?experiment=abc123-def456'
+    )
+
+
+def test_url_from_eval_with_dataset_name() -> None:
+    config = LogfireConfig(send_to_logfire=False, console=False)
+    config._project_url = 'https://logfire.pydantic.dev/my-org/my-project'  # type: ignore[reportPrivateUsage]
+    instance = logfire.Logfire(config=config)
+
+    report = _make_report(trace_id='abc123', span_id='def456')
+    result = instance.url_from_eval(report, dataset_name='qa/smoke tests')
+    assert result == (
+        'https://logfire.pydantic.dev/my-org/my-project/evals/qa%2Fsmoke%20tests/compare?experiment=abc123-def456'
+    )
 
 
 def test_url_from_eval_no_project_url() -> None:
@@ -61,7 +75,9 @@ def test_url_from_eval_trailing_slash() -> None:
 
     report = _make_report(trace_id='abc123', span_id='def456')
     result = instance.url_from_eval(report)
-    assert result == 'https://logfire.pydantic.dev/my-org/my-project/evals/compare?experiment=abc123-def456'
+    assert (
+        result == 'https://logfire.pydantic.dev/my-org/my-project/evals/%3Cunnamed%3E/compare?experiment=abc123-def456'
+    )
 
 
 def test_url_from_eval_no_ids() -> None:

@@ -21,6 +21,7 @@ from typing import (  # NOQA UP035
     cast,
     overload,
 )
+from urllib.parse import quote
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
@@ -922,11 +923,13 @@ class Logfire:
         """
         return self._config.force_flush(timeout_millis)
 
-    def url_from_eval(self, report: EvaluationReport[Any, Any, Any]) -> str | None:
+    def url_from_eval(self, report: EvaluationReport[Any, Any, Any], dataset_name: str | None = None) -> str | None:
         """Generate a Logfire URL to view an evaluation report.
 
         Args:
             report: An evaluation report from `pydantic_evals`.
+            dataset_name: The `name` of the `Dataset` that produced the report.
+                Leave as `None` for datasets without a name.
 
         Returns:
             The URL string, or `None` if the project URL or trace/span IDs are not available.
@@ -936,7 +939,8 @@ class Logfire:
         span_id = report.span_id
         if not project_url or not trace_id or not span_id:
             return None
-        return f'{project_url.rstrip("/")}/evals/compare?experiment={trace_id}-{span_id}'
+        dataset = quote(dataset_name or '<unnamed>', safe='')
+        return f'{project_url.rstrip("/")}/evals/{dataset}/compare?experiment={trace_id}-{span_id}'
 
     def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
