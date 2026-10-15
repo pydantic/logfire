@@ -1,41 +1,54 @@
 ---
 title: "Send Claude Platform traces to Logfire"
-description: "Add Logfire as an OpenTelemetry destination in the Claude Console to see Claude Managed Agents sessions and Messages API requests in Logfire, nested under your own application's traces."
+description: "Add Logfire as a destination in the Claude Console to see Claude Managed Agents sessions and Messages API requests in Logfire, inside your own application's traces."
 integration: otel
 ---
 
 # Send Claude Platform traces to Logfire
 
-See what Claude did for each request your app sends: every Claude Managed Agents turn, each model request, each tool the agent ran, and the tokens it used. Logfire shows them as a trace (the full journey of one request, made of nested spans). A span is one unit of work: a single operation, with a name, a start, and a duration.
+See what Claude did for each request your app sends: every Claude Managed Agents turn, each model call, each tool the agent ran, and the tokens it used.
 
-The Claude Platform runs the Messages API and Claude Managed Agents. Anthropic's servers send these spans directly to Logfire using the OpenTelemetry Protocol (OTLP), the standard wire format Logfire uses to receive telemetry. You set this up once in the Claude Console. Add `logfire.configure()` to your app as well, and Claude's spans appear inside your own traces.
+There are two parts:
+
+1. **Add Logfire in the Claude Console.** Anthropic then sends Claude's spans to Logfire for every request, from any language, with no code changes. A span is one unit of work, such as a model call, with a name, a start, and a duration.
+2. **Optional: link them to your app.** Add `logfire.configure()` to your Python app, and Claude's spans appear inside your own traces (the full journey of one request, made of nested spans).
+
+```mermaid
+flowchart LR
+    A[Your app] -->|"calls Claude"| C[Claude Platform]
+    C -->|"Claude's spans (step 1)"| L[Logfire]
+    A -->|"your app's spans (step 2)"| L
+```
 
 !!! note "Beta"
-    OpenTelemetry export from the Claude Platform is in beta at Anthropic. Span and attribute names can change between versions of the Claude SDK.
+    Sending traces from the Claude Platform is in beta at Anthropic. Span and attribute names can change between versions of the Claude SDK.
 
-## What you'll capture
+## What you'll see
 
-- **Managed Agents sessions:** an `anthropic.session.turn` span for each agent turn, which holds the conversation, and a span for each tool the agent ran in its sandbox, such as `bash`, with its input and output.
-- **Messages API requests:** an `anthropic.messages.create` span for each request, with the prompt and the response, and a span for each server tool the API ran, such as web search.
-- **Model requests:** an `anthropic.model_request` span for each model call, with its token usage.
-- **Your application's side:** a span for each call your code makes with the Claude SDK, and a span for each tool that the SDK's tool runner runs in your process.
+| Span | What it shows |
+| --- | --- |
+| `anthropic.session.turn` | One Managed Agents turn: the conversation, including the system prompt and tool calls. |
+| `anthropic.tool_use <tool>` | A tool the agent ran, such as `bash` or web search, with its input and output. |
+| `anthropic.messages.create` | One Messages API request: the prompt and the response. |
+| `anthropic.model_request` | One model call: the model, token usage, and timing. It has no prompt or response. |
+
+Claude's spans have the service name `claude-platform`. Spans from your own app have your app's service name.
 
 !!! warning "Prompts and responses are sent to Logfire"
-    With **Full content**, spans include prompts, responses, and tool inputs and results. Anthropic's servers send this data directly to Logfire, so Logfire's [scrubbing](../../how-to-guides/scrubbing.md) (which hides sensitive values before your app sends them) does not apply to it. Choose **Metadata only** to send only identifiers, timing, status, and token counts.
+    With **Full content**, spans include prompts, responses, and tool inputs and outputs. Anthropic sends them to Logfire directly, so Logfire's [scrubbing](../../how-to-guides/scrubbing.md) (which hides sensitive values before your app sends them) doesn't apply. Choose **Metadata only** to send only IDs, timing, status, and token counts. These spans count toward your Logfire usage like any other span.
 
 ## Before you start
 
 You need:
 
-- A Logfire project and a [write token](../../how-to-guides/create-write-tokens.md) (the credential that lets a service send data to a Logfire project), from your project's **Settings → Write tokens**.
-- The **admin** role in your Claude Console organization.
-- An Anthropic API key from the [Claude Console](https://platform.claude.com/settings/keys), to run the examples below.
+- A Logfire project and a [write token](../../how-to-guides/create-write-tokens.md) (the credential that lets a service send data to a project), from **Settings → Write tokens** in your project.
+- The **admin** role in your organization in the [Claude Console](https://platform.claude.com). This is the organization that owns your API keys, which is separate from any claude.ai organization.
 
-## Step 1: Add Logfire as a destination in the Claude Console
+## Step 1: Add Logfire in the Claude Console
 
 1. Open the Console's [OpenTelemetry settings](https://platform.claude.com/settings/telemetry-destinations) and click **Add destination**.
-2. Leave **Provider** set to **Custom**, and set **Name** to `Logfire`.
-3. For **OTLP endpoint URL**, enter the base URL of your Logfire [data region](../../reference/data-regions.md), without a path:
+2. Leave **Provider** as **Custom**, and set **Name** to `Logfire`.
+3. Set **OTLP endpoint URL** to the address of your Logfire [data region](../../reference/data-regions.md). Don't add a path: the Console adds it.
 
     === "US"
 
@@ -49,31 +62,34 @@ You need:
         https://logfire-eu.pydantic.dev
         ```
 
-4. Under **Request headers**, add a header named `Authorization`, with your write token as the value. Use the token as it is, without a `Bearer` prefix.
-5. For **Content mode**, choose **Full content** to read conversations in Logfire, or **Metadata only** to leave them out.
-6. For **Workspaces**, choose the Claude workspaces whose spans go to Logfire: **All**, **Selected**, or **All except**.
+4. Under **Request headers**, add a header named `Authorization` with your write token as the value. Paste the token on its own, without `Bearer` in front.
+5. Choose a **Content mode**: **Full content** to read conversations in Logfire, or **Metadata only** to leave them out.
+6. Under **Workspaces**, choose which Claude workspaces send spans: **All**, **Selected**, or **All except**.
 7. Click **Add destination**.
 
 <figure markdown="span">
-  ![Add destination form in the Claude Console, filled in for Logfire](../../images/logfire-screenshot-claude-platform-console-add-destination.png){ width="600" }
-  <figcaption>The destination form, filled in for a US Logfire project</figcaption>
+  ![The Add destination form in the Claude Console, filled in for Logfire](../../images/logfire-screenshot-claude-platform-console-add-destination.png){ width="600" }
 </figure>
 
-To check the connection, open the destination's **⋮** menu and click **Test**. An `anthropic.test` span appears in Logfire's [Live view](../../guides/web-ui/live.md) within about a minute.
+**Check it:** open the destination's **⋮** menu and click **Test**. An `anthropic.test` span appears in Logfire's [Live view](../../guides/web-ui/live.md) within about a minute. After your next real request, the **Delivery** column shows **Healthy**.
 
-From now on, Claude's spans for every request in those workspaces arrive in Logfire with the service name `claude-platform`. You don't need to change your code for this. Each request starts its own trace.
+<figure markdown="span">
+  ![The Logfire destination in the Claude Console with Delivery showing Healthy](../../images/logfire-screenshot-claude-platform-console-delivery.png){ width="700" }
+</figure>
 
-## Step 2: Put Claude's spans inside your app's traces
+That's all you need to see Claude's spans in Logfire. Each request shows up as its own trace.
 
-Without this step, you see what Claude did but not which part of your app asked for it. With it, one trace shows your code, each call it made, and what Claude did for that call.
+## Step 2: Link Claude's spans to your app
 
-Install `logfire` and the Claude SDK:
+This step puts Claude's spans inside the trace of the code that made the call, so you can see which user request or job asked Claude for what.
+
+Install `logfire` and the Claude SDK (version 1.14.0 or later):
 
 ```bash
 pip install logfire anthropic
 ```
 
-Call `logfire.configure()` before you create the Claude client. You don't need any other tracing setup: the Claude SDK sends its spans through Logfire, and with each request it tells the API which of your spans made the call.
+Call `logfire.configure()` before you create the client. You don't need any other setup: the SDK sends its spans through Logfire, and tells Claude which of your spans made each call.
 
 === "Claude Managed Agents"
 
@@ -118,6 +134,12 @@ Call `logfire.configure()` before you create the Claude client. You don't need a
                     break
     ```
 
+    The agent runs the command in its sandbox and replies with something like:
+
+    ```text
+    Output: `0 1 1 2 3 5 8 13 21 34`
+    ```
+
 === "Messages API"
 
     ```python hl_lines="5 7" skip-run="true" skip-reason="external-connection"
@@ -152,9 +174,23 @@ Call `logfire.configure()` before you create the Claude client. You don't need a
         print(message.content[-1].text)
     ```
 
-`open_telemetry={'traces': {'content_mode': 'content'}}` adds prompts and responses to the spans from your app. Leave it out to keep them to metadata only, or set the environment variable `ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE=content` instead.
+    Claude calls `get_weather` in your app, then replies with something like:
 
-To group several calls into one conversation, pass a `conversation_id`. The SDK records it as `gen_ai.conversation.id` on the spans from your app. It is sent in both content modes, so don't put personal data in it:
+    ```text
+    It's currently cloudy in Berlin, with a temperature of 15°C.
+    ```
+
+`open_telemetry={'traces': {'content_mode': 'content'}}` adds prompts and responses to your app's spans too. Leave it out to keep them to metadata only.
+
+Good to know:
+
+- **Web apps:** if you already [instrument your web framework](../web-frameworks/index.md), Claude's spans appear under each incoming request, for example `GET /chat`, with no extra code.
+- **Sampling:** if you [sample](../../how-to-guides/sampling.md) traces in `logfire.configure()`, Claude follows your choice. A trace you don't keep has no Claude spans.
+- **Don't also call `logfire.instrument_anthropic()`.** The SDK already records its calls. With both, Claude's spans lose their link to your trace.
+
+### Group calls into a conversation
+
+Give related calls the same `conversation_id`. The SDK records it as `gen_ai.conversation.id` on your app's spans. It is sent in both content modes, so don't put personal data in it.
 
 ```python hl_lines="8" skip-run="true" skip-reason="external-connection"
 from anthropic import Anthropic
@@ -173,31 +209,51 @@ conversation.messages.create(
 )
 ```
 
-!!! warning "Don't also call `logfire.instrument_anthropic()`"
-    The Claude SDK records its own calls here. If you also call [`logfire.instrument_anthropic()`](anthropic.md), Claude's spans lose their link to your trace and show up without a parent. Use this page's setup when you send Claude Platform spans to Logfire, and `instrument_anthropic()` when you don't.
+### Without the Claude SDK
 
-These examples were checked with `anthropic` 1.14.0.
+If you call the API another way, for example with `httpx`, add your trace context to the request headers yourself. Claude reads it from the `traceparent` header:
 
-## Verify
+```python hl_lines="10-11 16" skip-run="true" skip-reason="external-connection"
+from anthropic import Anthropic
+from opentelemetry.propagate import inject
 
-1. In the Console's [OpenTelemetry settings](https://platform.claude.com/settings/telemetry-destinations), check that the **Delivery** column shows **Healthy**. This can take about a minute after the first span.
+import logfire
 
-    <figure markdown="span">
-      ![Claude Console destination list showing the Logfire destination as Healthy](../../images/logfire-screenshot-claude-platform-console-delivery.png){ width="700" }
-    </figure>
+logfire.configure()
+client = Anthropic(open_telemetry=False)  # stands in for any HTTP client
 
-2. Run an example, then open the [Live view](../../guides/web-ui/live.md). Within about a minute you should see a `fibonacci agent` or `answer question` trace. Expand it: under each call from your app you should see Claude's spans from the `claude-platform` service. Click an `anthropic.session.turn` span to read the agent's conversation.
+with logfire.span('summarize'):
+    headers = {}
+    inject(headers)
+    client.messages.create(
+        model='claude-haiku-5-5',
+        max_tokens=100,
+        messages=[{'role': 'user', 'content': 'Hello, Claude'}],
+        extra_headers=headers,
+    )
+```
+
+## See it in Logfire
+
+Run an example, then open the [Live view](../../guides/web-ui/live.md). Within about a minute you should see your trace. Expand it to see your app's spans with Claude's spans under them. Click a span to read the conversation, with the model, tokens, and cost.
+
+A Managed Agents session, with the turn open:
 
 <figure markdown="span">
-  ![Logfire Live view of a Managed Agents session trace with the turn span open](../../images/logfire-screenshot-claude-platform-logfire-trace.png){ width="800" }
-  <figcaption>A Managed Agents session in Logfire: your app's spans, Claude's spans, and the turn's conversation</figcaption>
+  ![Logfire Live view of a Managed Agents session with the turn span open](../../images/logfire-screenshot-claude-platform-logfire-trace.png){ width="800" }
 </figure>
 
-## Read your traces
+A Messages API request, with the second call open after the tool ran:
 
-**Where the content is.** In a Managed Agents session, the conversation is on the `anthropic.session.turn` span, and each tool's input and output is on its tool span. In a Messages API request, the prompt and the response are on `anthropic.messages.create`. The `anthropic.model_request` spans have token usage but no prompt or response, so an empty preview there doesn't mean content is missing.
+<figure markdown="span">
+  ![Logfire Live view of a Messages API request with the tool runner, with a request span open](../../images/logfire-screenshot-claude-platform-messages-trace.png){ width="800" }
+</figure>
 
-**Find all the spans of one session.** A session can span several traces, for example when you send a later message from a new request. Every Claude span of a session has the `anthropic.session.id` attribute, so a [SQL query](../../guides/web-ui/explore.md) finds them all:
+## Find what you need with SQL
+
+Use the [Explore view](../../guides/web-ui/explore.md) to query Claude's spans.
+
+**All spans of one session.** A session can be spread over several traces, for example when you send a later message from a new request:
 
 ```sql
 SELECT start_timestamp, span_name, duration
@@ -206,7 +262,15 @@ WHERE attributes->>'anthropic.session.id' = 'sesn_...'
 ORDER BY start_timestamp
 ```
 
-**Count tokens.** The same usage appears on more than one span: a Messages API request has it on the span from your app, on Claude's `anthropic.messages.create` span, and on its `anthropic.model_request` spans. Because of this, the token totals that Logfire shows on a Messages API trace count each token twice. To count each token once, add up only the model request spans (and, for Managed Agents, outcome evaluation spans):
+**One request.** Each response has a `request-id` header. Find its spans with:
+
+```sql
+SELECT trace_id, span_name, service_name
+FROM records
+WHERE attributes->>'anthropic.request.id' = 'req_...'
+```
+
+**Token usage.** The same tokens are recorded on more than one span of a request: on your app's span, on Claude's request span, and on the model call. Because of this, Logfire's trace totals show Messages API tokens twice. To count each token once, add up only the model calls (and, for Managed Agents, outcome evaluations):
 
 ```sql
 SELECT
@@ -220,17 +284,18 @@ GROUP BY trace_id
 
 ## Troubleshooting
 
-| Symptom | Cause and fix |
+| Problem | Fix |
 | --- | --- |
-| **Delivery** shows **Failing** with status 401 or 403 | The `Authorization` header is wrong. Use a valid write token for this project, without a `Bearer` prefix. |
-| **Delivery** shows **Failing** with status 404 | The **OTLP endpoint URL** has a path. Use only the base URL, such as `https://logfire-us.pydantic.dev`. |
-| **Delivery** shows **Disabled** | Anthropic turns a destination off after 24 hours of failed deliveries. Fix the cause, then click **Enable** in the destination's **⋮** menu. Spans from while it was disabled are not sent later. |
-| **Test** works but your requests don't appear | The destination doesn't cover the workspace of your API key. Check **Workspaces** on the destination. |
-| Claude's spans are in their own traces | Call `logfire.configure()` before you create the client, make the calls inside one of your own spans, and don't call `logfire.instrument_anthropic()` in the same app. |
-| Spans have no prompts or responses | The destination is set to **Metadata only**: edit it and choose **Full content**. If your organization has a HIPAA, FERPA, or K-12 data agreement with Anthropic, destinations send metadata only. |
+| No **Add destination** button | Clear the **Workspace** filter at the top of the page with its **×**. The button only shows when no workspace is selected. Also check that you have the admin role. |
+| **Delivery** shows **Failing** (401 or 403) | The write token is wrong. Paste a valid token for this project, without `Bearer`. |
+| **Delivery** shows **Failing** (404) | The endpoint has a path. Use only `https://logfire-us.pydantic.dev` or `https://logfire-eu.pydantic.dev`. |
+| **Delivery** shows **Disabled** | Anthropic turns a destination off after 24 hours of failed deliveries. Fix the cause, then click **Enable** in its **⋮** menu. Spans from while it was off aren't sent later. |
+| **Test** works but your requests don't show up | The destination doesn't include the workspace of your API key. Check its **Workspaces**. |
+| Claude's spans aren't inside your app's traces | Call `logfire.configure()` before creating the client, make calls inside a span, and don't use `logfire.instrument_anthropic()` too. |
+| No prompts or responses | The destination is set to **Metadata only**. If your organization has a HIPAA, FERPA, or K-12 agreement with Anthropic, it can only send metadata. |
+| Calls through Amazon Bedrock or Google Vertex AI don't show up | This export only covers the Claude Platform. Use the [Anthropic integration](anthropic.md) for those. |
 
-## Learn more
+## Next steps
 
-- Anthropic's [OpenTelemetry guide](https://platform.claude.com/docs/en/manage-claude/opentelemetry) covers content size limits, delivery, and the Admin API for creating destinations in code.
-- The [span reference](https://platform.claude.com/docs/en/api/opentelemetry/spans) lists every span and attribute Claude sends.
-- To trace Claude calls without the Claude Platform's export, for example on Amazon Bedrock, see the [Anthropic integration](anthropic.md).
+- [Set up an alert](../../guides/web-ui/alerts.md) for failed turns or slow tool calls.
+- Learn more in Anthropic's [OpenTelemetry guide](https://platform.claude.com/docs/en/manage-claude/opentelemetry) and the [span reference](https://platform.claude.com/docs/en/api/opentelemetry/spans), which lists every span and attribute.
