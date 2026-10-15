@@ -300,7 +300,7 @@ GROUP BY trace_id
 | **Test** works but your requests don't show up | The destination doesn't include the workspace of your API key. Check its **Workspaces**. |
 | Claude's spans aren't inside your app's traces | Call `logfire.configure()` before creating the client, and make calls inside a span. |
 | No prompts or responses | The destination is set to **Metadata only**. If your organization has a HIPAA, FERPA, or K-12 data-handling restriction with Anthropic, Claude's spans only contain metadata, whatever the content mode. |
-| Calls through Amazon Bedrock or Google Vertex AI don't show up | The Console export only covers the Claude Platform, including Claude Platform on AWS. For Amazon Bedrock, use the [Anthropic integration](anthropic.md#amazon-bedrock). |
+| Calls through Amazon Bedrock don't show up | The Console export only covers the Claude Platform, including Claude Platform on AWS. For Amazon Bedrock, use the [Anthropic integration](anthropic.md#amazon-bedrock). |
 
 ## Next steps
 
