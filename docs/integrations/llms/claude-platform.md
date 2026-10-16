@@ -173,7 +173,7 @@ Call `logfire.configure()` before you create the client. You don't need any othe
     It's currently cloudy in Berlin, with a temperature of 15°C.
     ```
 
-`open_telemetry={'traces': {'content_mode': 'content'}}` adds prompts and responses to your app's spans too. Leave it out to keep them to metadata only.
+`open_telemetry={'traces': {'content_mode': 'content'}}` adds prompts and responses to your app's spans too. Leave it out to keep them to metadata only, unless the environment variable `ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE` is set to `content`.
 
 Good to know:
 
