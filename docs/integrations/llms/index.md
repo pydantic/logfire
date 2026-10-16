@@ -34,6 +34,10 @@ Trace the model calls, agent steps, and tool calls in your AI application. Instr
     <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/anthropic.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/anthropic.svg) center/contain no-repeat"></span>
     <span class="integration-name">Anthropic</span>
   </a>
+  <a class="integration-card" href="claude-platform.md">
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/anthropic.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/anthropic.svg) center/contain no-repeat"></span>
+    <span class="integration-name">Claude Platform</span>
+  </a>
   <a class="integration-card" href="langchain.md">
     <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/langchain.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/langchain.svg) center/contain no-repeat"></span>
     <span class="integration-name">LangChain</span>
