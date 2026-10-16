@@ -37,10 +37,15 @@ Select a service to open its detail page. It shows:
 - A **Live view** button that opens the service's records in a Beta overlay while preserving the
   page's time range and environment filters.
 - Recent errors that open the affected trace in the same overlay.
+- A **SQL Workbench** link that opens Explore with the service filter.
 
-The overlay keeps the service page in place while you inspect records, change the time range, use
-the timeline, and open record details. Select **Open in Live view** in the overlay header when you
-need the full Live View. It opens in a new tab with the overlay's current filters and time range.
+The overlay keeps the service page in place while you inspect records, use the timeline, and open
+record details. The service overlay also has a range picker to change the time range. Select
+**Open in Live view** in the overlay header when you need the full Live View. It opens in a new tab
+with the overlay's current filters and time range.
+
+A modified click (for example, Cmd-click or Ctrl-click) opens the full Live View instead of the
+overlay. A calendar preset or an open-ended time range also opens the full Live View.
 
 ![Service detail page with request, error, and latency signals](../../images/services/service-detail.png)
 
