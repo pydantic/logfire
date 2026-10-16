@@ -114,7 +114,7 @@ Within two minutes:
 1. Open **Kubernetes** in Logfire. You should see your cluster, nodes, namespaces, workloads, and pods.
 2. Open **Live** and filter by `k8s.cluster.name`. You should see pod logs and Kubernetes Events.
 
-To inspect the same records from a resource's dedicated **Logs** and **Events** tabs, follow [Enable experimental Logs and Events](../../guides/web-ui/kubernetes.md#enable-experimental-logs-and-events). The tabs retain your resource scope, time range, and environment; enabling them does not change collection or send additional data.
+To inspect the same records from a resource's dedicated **Logs** and **Events** tabs, open the [Kubernetes view](../../guides/web-ui/kubernetes.md#logs-and-events-tabs). The tabs retain your resource scope, time range, and environment.
 
 ## Monitor hosts too
 
