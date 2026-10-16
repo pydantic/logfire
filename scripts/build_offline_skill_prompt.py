@@ -224,6 +224,8 @@ def _preamble(*, include_references: bool) -> str:
         'routes to (`logfire-instrumentation`, `logfire-infrastructure`,\n'
         '`logfire-evals`), for use when you cannot fetch URLs. Read top to bottom;\n'
         'nothing below needs a network fetch to resolve.\n\n'
+        'Frontend, Gateway, coding-agent, and MCP query/UI specialists are not bundled.\n'
+        'If fetching them is unavailable, report that limitation; do not substitute SDK setup.\n\n'
         'A pointer to "the `logfire-infrastructure` skill" (or any other skill named\n'
         'above) means the section below headed `# Skill: logfire-infrastructure` --\n'
         f'read it in place of fetching it.{references_note}\n'
