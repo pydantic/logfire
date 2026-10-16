@@ -453,13 +453,15 @@ def _build_push_dataset_kwargs(
     create_kwargs: dict[str, Any] = {'name': target_name}
     update_kwargs: dict[str, Any] = {}
 
-    if input_type is not None:
+    # `get_dataset()` fills in `Any` for types it wasn't given. Its schema is `{}`, which would
+    # overwrite the hosted schema, so `Any` is treated as "no schema" like `None`.
+    if input_type is not None and input_type is not Any:
         create_kwargs['input_type'] = input_type
         update_kwargs['input_type'] = input_type
-    if output_type is not None:
+    if output_type is not None and output_type is not Any:
         create_kwargs['output_type'] = output_type
         update_kwargs['output_type'] = output_type
-    if metadata_type is not None:
+    if metadata_type is not None and metadata_type is not Any:
         create_kwargs['metadata_type'] = metadata_type
         update_kwargs['metadata_type'] = metadata_type
     if description is not _UNSET:
