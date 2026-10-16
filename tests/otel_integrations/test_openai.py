@@ -4416,6 +4416,55 @@ def test_convert_responses_inputs_no_instructions() -> None:
     )
 
 
+def test_convert_openai_response_refusal() -> None:
+    """A refusal is recorded as a text part, since the message has no content."""
+    from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
+
+    message = chat_completion_message.ChatCompletionMessage(
+        role='assistant', content=None, refusal="I can't help with that."
+    )
+    assert convert_openai_response_to_semconv(message, 'stop') == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [{'type': 'text', 'content': "I can't help with that."}],
+            'finish_reason': 'stop',
+        }
+    )
+
+
+def test_chat_completion_stream_state_refusal() -> None:
+    """A streamed refusal ends up in the output messages."""
+    from logfire._internal.integrations.llm_providers.openai import OpenaiChatCompletionStreamState
+
+    state = OpenaiChatCompletionStreamState()
+    for delta, finish_reason in [
+        ({'role': 'assistant', 'refusal': "I'm sorry, "}, None),
+        ({'refusal': "I can't help with that."}, None),
+        ({}, 'stop'),
+    ]:
+        state.record_chunk(
+            cc_chunk.ChatCompletionChunk.model_validate(
+                {
+                    'id': 'chatcmpl-1',
+                    'object': 'chat.completion.chunk',
+                    'created': 0,
+                    'model': 'gpt-4o-mini',
+                    'choices': [{'index': 0, 'delta': delta, 'finish_reason': finish_reason}],
+                }
+            )
+        )
+
+    assert state.get_attributes({})['gen_ai.output.messages'] == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [{'type': 'text', 'content': "I'm sorry, I can't help with that."}],
+                'finish_reason': 'stop',
+            }
+        ]
+    )
+
+
 def test_convert_responses_inputs_no_inputs() -> None:
     """Test convert_responses_inputs_to_semconv with no inputs."""
     from logfire._internal.integrations.llm_providers.openai import convert_responses_inputs_to_semconv

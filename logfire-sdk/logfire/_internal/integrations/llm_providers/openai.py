@@ -395,6 +395,10 @@ def convert_openai_response_to_semconv(
     """Convert an OpenAI ChatCompletionMessage to OTel Gen AI Semantic Convention format."""
     parts: list[MessagePart] = _convert_content_part_or_parts(message.content)
 
+    # A refused request carries its text in `refusal` and leaves `content` empty.
+    if refusal := getattr(message, 'refusal', None):
+        parts.append(TextPart(type='text', content=refusal))
+
     if message.tool_calls:  # pragma: no cover
         for tc in message.tool_calls:
             # Only handle function tool calls (not custom tool calls)
