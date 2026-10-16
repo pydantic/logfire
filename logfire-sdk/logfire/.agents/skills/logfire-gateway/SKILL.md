@@ -6,13 +6,13 @@ description: Configure an application's model calls to use the Pydantic AI Gatew
 # Configure an Application with Pydantic AI Gateway
 
 For observing or routing Claude Code/Codex itself, use
-[coding-agent setup](../logfire-coding-agents/SKILL.md) instead. Keep this
+[coding-agent setup](https://pydantic.dev/.well-known/agent-skills/logfire-coding-agents/SKILL.md) instead. Keep this
 application workflow separate from coding-session recording and provider setup.
 
 Preserve the user's confirmed project, region, provider, and existing credential
 mechanism. An existing application Gateway key needs no CLI login or SDK write
 token. To create a key through the CLI, follow the
-[CLI Gateway credential procedure](../logfire-coding-agents/references/application-gateway.md).
+[CLI Gateway credential procedure](https://pydantic.dev/.well-known/agent-skills/logfire-coding-agents/references/application-gateway.md).
 Use the UI's Gateway Connect flow when CLI access is unavailable.
 
 Use this skill for model traffic, provider routing, and Gateway credentials. It
@@ -47,13 +47,18 @@ abstraction, dependency versions, and environment conventions.
 
 Reuse an existing Gateway credential provided through the repository's secret
 mechanism. Otherwise obtain a project-scoped Gateway key using the UI's Connect
-flow or the [CLI credential procedure](../logfire-coding-agents/references/application-gateway.md).
+flow or the [CLI credential procedure](https://pydantic.dev/.well-known/agent-skills/logfire-coding-agents/references/application-gateway.md).
 Do not create a telemetry write token merely to configure an existing Gateway key.
 Never print the one-time secret in a recorded terminal or agent messages.
-Store it through the repository's existing secret mechanism as `PYDANTIC_AI_GATEWAY_API_KEY`. Keep unrelated values intact. For a
-local environment file, require a gitignored regular file with user-only
-permissions, replace exactly one existing assignment or insert one, and commit
-the update atomically. Do not append duplicate assignments. If the existing
+Store it using the environment variable read by the selected SDK or Connect
+snippet: `PYDANTIC_AI_GATEWAY_API_KEY` for Pydantic AI. For other clients, keep
+the application's existing variable, or use `LOGFIRE_GATEWAY_API_KEY` and
+explicitly read it into the client's API-key option. Setting a variable alone
+does not make an arbitrary client consume it.
+Keep unrelated values intact. For a local environment file, require a gitignored
+regular file with user-only permissions, replace exactly one existing assignment
+or insert one, and write the file atomically. Never stage or commit the
+secret-bearing file or key to source control. Do not append duplicate assignments. If the existing
 secret mechanism cannot be updated safely, ask the user to install the key
 through their normal secret manager.
 
@@ -82,8 +87,15 @@ Use the Gateway model form when the selected provider and model are known:
 ```python
 from pydantic_ai import Agent
 
+# Set PYDANTIC_AI_GATEWAY_API_KEY and PYDANTIC_AI_GATEWAY_BASE_URL from Connect.
 agent = Agent('gateway/openai:gpt-5.2')
 ```
+
+Set `PYDANTIC_AI_GATEWAY_BASE_URL` to the Gateway root URL supplied by Connect
+for the selected region or self-hosted deployment, alongside the API key.
+Use the Pydantic AI snippet's root URL, not a provider-specific endpoint copied
+from another client's snippet. Preserve an explicitly configured matching URL;
+do not rely on SDK region inference or a default to select the user's destination.
 
 The normal credential is `PYDANTIC_AI_GATEWAY_API_KEY`. When the application
 needs an explicit key or custom route, use the installed Pydantic AI version's
@@ -95,8 +107,8 @@ handoff. Do not guess a provider slug from a model name.
 Use the exact Gateway base URL and route supplied by Connect, or derive the
 documented regional route from the handoff and existing provider protocol. Read
 the provider-specific examples in the Gateway documentation when needed. Preserve the
-client's existing API shape and set its API-key option to
-`PYDANTIC_AI_GATEWAY_API_KEY` through the repository's normal environment
+client's existing API shape and load its API key from the application's selected
+environment variable into the client's API-key option through its normal environment
 loading mechanism. Do not hard-code a regional URL when the handoff already
 provides one. A self-hosted origin is not a hosted region: use its confirmed
 Gateway resource and configured route, or ask for them. A documented provider
@@ -113,7 +125,13 @@ example compile.
 
 ## 4. Verify one real request
 
-Run one representative model request through the selected route. Check the
+Explain that a live request sends its prompt to the selected provider through
+Gateway and may incur usage charges. Use one small synthetic payload with no
+application, customer, or secret data. An explicit request to configure and test
+the selected route authorizes this bounded check; otherwise ask for approval
+before sending it. Do not activate paid access or run production workloads as a test.
+
+Run that request through the selected route. Check the
 response and the application's normal error handling. A successful import,
 configuration parse, or process exit is not proof that the request used the
 Gateway.
