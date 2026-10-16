@@ -4649,6 +4649,89 @@ def test_responses_stream_state_version_specific() -> None:
     assert 'events' not in result_none
 
 
+@pytest.mark.parametrize(
+    'terminal_type, status', [('response.incomplete', 'incomplete'), ('response.failed', 'failed')]
+)
+def test_responses_stream_state_terminal_incomplete_or_failed(terminal_type: str, status: str) -> None:
+    """A stream that ends on response.incomplete or response.failed still records its final response."""
+    from openai.types.responses import (
+        ResponseCreatedEvent,
+        ResponseFailedEvent,
+        ResponseIncompleteEvent,
+        ResponseOutputItemAddedEvent,
+        ResponseOutputItemDoneEvent,
+    )
+
+    from logfire._internal.integrations.llm_providers.openai import (
+        OpenaiResponsesStreamState,
+        _versioned_stream_cls,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    message: dict[str, Any] = {
+        'id': 'msg_1',
+        'type': 'message',
+        'role': 'assistant',
+        'status': 'incomplete',
+        'content': [{'type': 'output_text', 'text': 'Four plus five', 'annotations': []}],
+    }
+    response: dict[str, Any] = {
+        'id': 'resp_1',
+        'object': 'response',
+        'created_at': 1,
+        'model': 'gpt-4.1',
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+    }
+    usage = {
+        'input_tokens': 12,
+        'output_tokens': 4,
+        'total_tokens': 16,
+        'input_tokens_details': {'cached_tokens': 0, 'cache_write_tokens': 0},
+        'output_tokens_details': {'reasoning_tokens': 0},
+    }
+    terminal_event = ResponseIncompleteEvent if status == 'incomplete' else ResponseFailedEvent
+    events = [
+        ResponseCreatedEvent.model_validate(
+            {
+                'type': 'response.created',
+                'sequence_number': 0,
+                'response': {**response, 'status': 'in_progress', 'output': []},
+            }
+        ),
+        ResponseOutputItemAddedEvent.model_validate(
+            {
+                'type': 'response.output_item.added',
+                'sequence_number': 1,
+                'output_index': 0,
+                'item': {**message, 'status': 'in_progress', 'content': []},
+            }
+        ),
+        ResponseOutputItemDoneEvent.model_validate(
+            {'type': 'response.output_item.done', 'sequence_number': 2, 'output_index': 0, 'item': message}
+        ),
+        terminal_event.model_validate(
+            {
+                'type': terminal_type,
+                'sequence_number': 3,
+                'response': {**response, 'status': status, 'output': [message], 'usage': usage},
+            }
+        ),
+    ]
+
+    state = _versioned_stream_cls(OpenaiResponsesStreamState, frozenset({2}))()
+    for event in events:
+        state.record_chunk(event)
+    attributes = state.get_attributes({})
+
+    assert attributes['gen_ai.output.messages'] == [
+        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus five'}]}
+    ]
+    assert attributes['gen_ai.response.id'] == 'resp_1'
+    assert attributes['gen_ai.usage.input_tokens'] == 12
+    assert attributes['gen_ai.usage.output_tokens'] == 4
+
+
 @pytest.mark.vcr()
 def test_completions_version_v1_only(exporter: TestExporter) -> None:
     """Test text completions with version=1 only."""
