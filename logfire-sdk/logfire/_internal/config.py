@@ -287,6 +287,18 @@ class AdvancedOptions:
     Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
     """
 
+    compression: CompressionValues | None = None
+    """Compression used for data sent to Logfire.
+
+    * `'gzip'`: Use gzip for compression (the default).
+    * `'zstd'`: Use Zstandard for compression. This compression is experimental, and can only be used under Python 3.14 or greater,
+      or if the [`backports.zstd`](https://pypi.org/project/backports.zstd/) backport is available.
+
+    This only affects data sent to Logfire, not to other OpenTelemetry endpoints.
+
+    Defaults to the `LOGFIRE_COMPRESSION` environment variable, or `'gzip'`.
+    """
+
     send_pending_spans_to_logfire: bool | None = None
     """Whether to send pending spans to Logfire.
 
@@ -298,18 +310,6 @@ class AdvancedOptions:
     This does not affect console output.
 
     Defaults to the `LOGFIRE_SEND_PENDING_SPANS_TO_LOGFIRE` environment variable, or `True`.
-    """
-
-    compression: CompressionValues | None = None
-    """Compression used for data sent to Logfire.
-
-    * `'gzip'`: Use gzip for compression (the default).
-    * `'zstd'`: Use Zstandard for compression. This compression is experimental, and can only be used under Python 3.14 or greater,
-      or if the [`backports.zstd`](https://pypi.org/project/backports.zstd/) backport is available.
-
-    This only affects data sent to Logfire, not to other OpenTelemetry endpoints.
-
-    Defaults to the `LOGFIRE_COMPRESSION` environment variable, or `'gzip'`.
     """
 
     def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
