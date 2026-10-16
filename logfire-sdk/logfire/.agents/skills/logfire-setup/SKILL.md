@@ -1,15 +1,18 @@
 ---
 name: logfire-setup
-description: Route broad requests to set up Pydantic Logfire across application instrumentation, infrastructure, evals, frontend observability, Gateway, or coding agents. Use for "set up Logfire" or unclear scope; use the matching specialist directly for an already scoped request.
+description: Route broad requests to set up Pydantic Logfire across application instrumentation, infrastructure, evals, frontend observability, Gateway, or coding agents. Use for "set up Logfire", "add Logfire to my project", "get me set up properly with Logfire", "send as much data as would be useful", mentions of Logfire without specific scope, or multi-surface requests; use the matching specialist directly for an already scoped request.
 ---
 
 # Set Up Logfire
 
-Route the user's request to one specialist below; leave installation and verification to it.
+Route each explicitly requested surface to its specialist below; leave installation
+and verification to those specialists. Do not expand an otherwise scoped request.
 
-Proceed through ordinary, reversible setup with short updates. Pause for browser
+Proceed through ordinary, reversible setup with short updates without asking
+approval; no clean tree, branch, commits, or plan is required. Pause for browser
 auth, unresolved app/project ambiguity, material production cost or telemetry
-increases, deploy/infra changes, or destructive/unrelated work. Report only
+increases, deploy/infra changes, or destructive/unrelated work, then ask one
+concrete question. Report only
 verification observed in this session.
 
 ## Step 1: Authenticate and Select the Exact Project

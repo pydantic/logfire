@@ -1,9 +1,8 @@
 # Pydantic Logfire — Offline Setup Prompt
 
-This is a self-contained bundle of the `logfire-setup` hub skill and every skill it
-routes to (`logfire-instrumentation`, `logfire-infrastructure`,
-`logfire-evals`), for use when you cannot fetch URLs. Read top to bottom;
-nothing below needs a network fetch to resolve.
+This bundle includes the `logfire-setup` hub and its SDK specialists:
+`logfire-instrumentation`, `logfire-infrastructure`, and `logfire-evals`.
+Their bundled references resolve without a network fetch.
 
 Frontend, Gateway, coding-agent, and MCP query/UI specialists are not bundled.
 If fetching them is unavailable, report that limitation; do not substitute SDK setup.
@@ -17,15 +16,18 @@ read it in place of fetching it. Authentication links jump directly to the inlin
 
 # Skill: logfire-setup
 
-*Route broad requests to set up Pydantic Logfire across application instrumentation, infrastructure, evals, frontend observability, Gateway, or coding agents. Use for "set up Logfire" or unclear scope; use the matching specialist directly for an already scoped request.*
+*Route broad requests to set up Pydantic Logfire across application instrumentation, infrastructure, evals, frontend observability, Gateway, or coding agents. Use for "set up Logfire", "add Logfire to my project", "get me set up properly with Logfire", "send as much data as would be useful", mentions of Logfire without specific scope, or multi-surface requests; use the matching specialist directly for an already scoped request.*
 
 # Set Up Logfire
 
-Route the user's request to one specialist below; leave installation and verification to it.
+Route each explicitly requested surface to its specialist below; leave installation
+and verification to those specialists. Do not expand an otherwise scoped request.
 
-Proceed through ordinary, reversible setup with short updates. Pause for browser
+Proceed through ordinary, reversible setup with short updates without asking
+approval; no clean tree, branch, commits, or plan is required. Pause for browser
 auth, unresolved app/project ambiguity, material production cost or telemetry
-increases, deploy/infra changes, or destructive/unrelated work. Report only
+increases, deploy/infra changes, or destructive/unrelated work, then ask one
+concrete question. Report only
 verification observed in this session.
 
 ## Step 1: Authenticate and Select the Exact Project
@@ -78,7 +80,7 @@ Never print, log, hard-code, commit, or echo a token, in any of these skills, at
 
 # Instrument with Logfire
 
-For browser-only errors, RUM, Web Vitals, or session replays, use the
+For browser observability, including tracing, errors, RUM, Web Vitals, route grouping, or session replays, use the
 [frontend specialist](https://pydantic.dev/.well-known/agent-skills/logfire-frontend/SKILL.md)
 before the SDK authentication steps below. For recording Claude Code or Codex
 itself, use [coding-agent setup](https://pydantic.dev/.well-known/agent-skills/logfire-coding-agents/SKILL.md).

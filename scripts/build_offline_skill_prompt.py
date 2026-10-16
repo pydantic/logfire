@@ -220,10 +220,9 @@ def _preamble(*, include_references: bool) -> str:
     )
     return (
         '# Pydantic Logfire — Offline Setup Prompt\n\n'
-        'This is a self-contained bundle of the `logfire-setup` hub skill and every skill it\n'
-        'routes to (`logfire-instrumentation`, `logfire-infrastructure`,\n'
-        '`logfire-evals`), for use when you cannot fetch URLs. Read top to bottom;\n'
-        'nothing below needs a network fetch to resolve.\n\n'
+        'This bundle includes the `logfire-setup` hub and its SDK specialists:\n'
+        '`logfire-instrumentation`, `logfire-infrastructure`, and `logfire-evals`.\n'
+        'Their bundled references resolve without a network fetch.\n\n'
         'Frontend, Gateway, coding-agent, and MCP query/UI specialists are not bundled.\n'
         'If fetching them is unavailable, report that limitation; do not substitute SDK setup.\n\n'
         'A pointer to "the `logfire-infrastructure` skill" (or any other skill named\n'

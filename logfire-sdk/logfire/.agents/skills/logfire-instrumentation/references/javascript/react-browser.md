@@ -13,4 +13,6 @@ to instrument a server.
 ## Group Pages By Route
 
 The frontend specialist owns router integration and route-template grouping.
-Follow its browser setup reference rather than deriving templates from raw URLs.
+Follow its browser setup reference and the browser SDK's
+[route-name contract](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#route-names)
+rather than deriving templates from raw URLs.

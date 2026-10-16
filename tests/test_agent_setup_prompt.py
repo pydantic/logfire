@@ -261,7 +261,10 @@ def test_browser_setup_delegates_to_its_owner(browser_doc: str) -> None:
     else:
         assert './nextjs.md' in source
         # Preserve the SDK framework reference's existing deep link.
+        frameworks = (references / 'javascript' / 'frameworks.md').read_text()
+        assert './react-browser.md#group-pages-by-route' in frameworks
         assert '## Group Pages By Route' in source
+        assert '/packages/browser/#route-names' in source
 
 
 def test_python_logging_guidance_preserves_existing_configuration() -> None:
