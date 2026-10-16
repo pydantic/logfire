@@ -51,6 +51,8 @@ These examples use `uv run --with` so the temporary Logfire CLI can still see th
 
 Install `logfire` with the extra matching each detected framework/library (e.g. `uv add 'logfire[fastapi,httpx,asyncpg]'`) — each needs its own, or the matching `instrument_*()` call fails at runtime with a missing dependency error. Full extras/instrumentor table, including which need no extra at all (PydanticAI, OpenAI, Anthropic, SurrealDB, MCP, `print()` redirection): [Python integration reference](./references/python/integrations.md).
 
+If a `logfire` CLI binary is already on `PATH` (e.g. the Rust CLI that may have launched this session), install into a virtual environment, not system-wide — a system-wide install's own `logfire` console script can silently overwrite it.
+
 **Ordering is the one rule that matters most**: `logfire.configure()` must run before any `instrument_*()` call, once per process, in the entry point — not inside a request handler, not in library code. Calling `instrument_*()` first registers the hook but traces go nowhere, silently.
 
 For example, a detected FastAPI service that also uses HTTPX needs both matching
@@ -67,6 +69,18 @@ logfire.instrument_httpx()        # HTTPX only
 ```
 
 FastAPI, Flask, Starlette, and raw ASGI/WSGI instrumentors need the app instance; Django, HTTP-client, and database instrumentors are global and take no app argument. Gunicorn and other pre-fork servers need `configure()` inside `post_fork`, not at module level — see the reference above for that and the rest of the placement rules.
+
+#### Coexisting with an Existing OpenTelemetry Pipeline
+
+If the project already has its own `TracerProvider` (e.g. exporting to another vendor), do **not** call `logfire.configure()` — it installs a new global provider and silently replaces the existing one. Add Logfire as an *additional* span processor instead:
+
+```python
+provider.add_span_processor(
+    BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{base_url}/v1/traces", headers={"Authorization": token})),
+)
+```
+
+Don't assume `token` is in an environment variable — resolve it as [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section describes: read `.logfire/logfire_credentials.json`'s `token` key programmatically.
 
 #### Structured Logging and AI/LLM Instrumentation
 
