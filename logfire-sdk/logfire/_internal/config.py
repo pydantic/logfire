@@ -61,7 +61,7 @@ from opentelemetry.sdk.trace import (
     Tracer as SDKTracer,
     TracerProvider as SDKTracerProvider,
 )
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from rich.console import Console
@@ -285,6 +285,19 @@ class AdvancedOptions:
     precedence list and how to query the resulting attributes.
 
     Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
+    """
+
+    send_pending_spans_to_logfire: bool | None = None
+    """Whether to send pending spans to Logfire.
+
+    A pending span is a placeholder that Logfire sends when a span starts, so the Logfire UI can show
+    spans that are still running. Set this to `False` to send only finished spans to Logfire, which
+    reduces the volume of data sent. Spans that are still running then do not show in the Logfire UI
+    until they finish.
+
+    This does not affect console output.
+
+    Defaults to the `LOGFIRE_SEND_PENDING_SPANS_TO_LOGFIRE` environment variable, or `True`.
     """
 
     compression: CompressionValues | None = None
@@ -868,6 +881,9 @@ class _LogfireConfigData:
         advanced.emit_configuration_span = param_manager.load_param(
             'emit_configuration_span', advanced.emit_configuration_span
         )
+        advanced.send_pending_spans_to_logfire = param_manager.load_param(
+            'send_pending_spans_to_logfire', advanced.send_pending_spans_to_logfire
+        )
         advanced.compression = param_manager.load_param('compression', advanced.compression)
         resource_detectors = param_manager.load_param('resource_detectors', advanced.resource_detectors)
         if isinstance(resource_detectors, str):
@@ -1182,15 +1198,16 @@ class LogfireConfig(_LogfireConfigData):
             user_deferred_processors: list[SpanProcessor] = []
             main_multiprocessor = SynchronousMultiSpanProcessor()
 
+            pending_span_exporter_types: tuple[type[SpanExporter], ...] = (TestExporter, SimpleConsoleSpanExporter)
+            if self.advanced.send_pending_spans_to_logfire:
+                pending_span_exporter_types += (RemovePendingSpansExporter,)
+
             def add_span_processor(span_processor: SpanProcessor) -> None:
                 if self.sampling.tail and getattr(span_processor, 'tail_sampling_defer_on_start', False):
                     user_deferred_processors.append(span_processor)
                 else:
                     main_multiprocessor.add_span_processor(span_processor)
-                has_pending = isinstance(
-                    getattr(span_processor, 'span_exporter', None),
-                    (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
-                )
+                has_pending = isinstance(getattr(span_processor, 'span_exporter', None), pending_span_exporter_types)
                 if has_pending:
                     processors_with_pending_spans.append(span_processor)
 

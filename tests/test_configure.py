@@ -2745,6 +2745,27 @@ def test_send_to_logfire_under_pytest():
     assert GLOBAL_CONFIG.send_to_logfire is False
 
 
+@pytest.mark.parametrize('use_env_var', [False, True])
+def test_send_pending_spans_to_logfire_false(monkeypatch: pytest.MonkeyPatch, use_env_var: bool):
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+    if use_env_var:
+        monkeypatch.setenv('LOGFIRE_SEND_PENDING_SPANS_TO_LOGFIRE', 'false')
+        advanced = None
+    else:
+        advanced = logfire.AdvancedOptions(send_pending_spans_to_logfire=False)
+    logfire.configure(send_to_logfire=True, token='foo', advanced=advanced)
+    wait_for_check_token_thread()
+
+    [console_span_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
+
+    assert isinstance(send_to_logfire_processor, DynamicBatchSpanProcessor)
+    assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
+
+    # Only the console still receives pending spans.
+    assert isinstance(pending_span_processor, PendingSpanProcessor)
+    assert pending_span_processor.processor.processor._span_processors == (console_span_processor,)  # type: ignore
+
+
 def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
     logfire.configure(send_to_logfire=True, token='foo')
