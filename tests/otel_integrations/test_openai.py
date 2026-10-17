@@ -2855,6 +2855,70 @@ def test_responses_stream_error_propagates() -> None:
             raise StreamingError('API connection lost')
 
 
+@pytest.mark.parametrize(
+    'final_fields',
+    [
+        {'status': 'incomplete', 'incomplete_details': {'reason': 'max_output_tokens'}},
+        {'status': 'failed', 'error': {'code': 'server_error', 'message': 'The model failed to generate a response.'}},
+    ],
+)
+def test_responses_stream_incomplete_or_failed(final_fields: dict[str, Any], exporter: TestExporter) -> None:
+    """A stream can end with `response.incomplete` or `response.failed` instead of `response.completed`."""
+    response: dict[str, Any] = {
+        'id': 'resp_1',
+        'object': 'response',
+        'created_at': 1,
+        'model': 'gpt-4.1',
+        'output': [],
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+    }
+    final_response: dict[str, Any] = {
+        **response,
+        **final_fields,
+        'output': [
+            {
+                'id': 'msg_1',
+                'type': 'message',
+                'status': 'incomplete',
+                'role': 'assistant',
+                'content': [{'type': 'output_text', 'text': 'Four plus', 'annotations': []}],
+            }
+        ],
+        'usage': {
+            'input_tokens': 13,
+            'input_tokens_details': {'cached_tokens': 0},
+            'output_tokens': 16,
+            'output_tokens_details': {'reasoning_tokens': 0},
+            'total_tokens': 29,
+        },
+    }
+    events: list[dict[str, Any]] = [
+        {'type': 'response.created', 'sequence_number': 0, 'response': {**response, 'status': 'in_progress'}},
+        {'type': f'response.{final_fields["status"]}', 'sequence_number': 1, 'response': final_response},
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in events)
+        return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream'})
+
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    with logfire.instrument_openai(client):
+        list(
+            client.responses.create(model='gpt-4.1', input='What is four plus five?', max_output_tokens=16, stream=True)
+        )
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
+    assert attributes['gen_ai.response.id'] == 'resp_1'
+    assert attributes['gen_ai.usage.input_tokens'] == 13
+    assert attributes['gen_ai.usage.output_tokens'] == 16
+    assert attributes['operation.cost'] == snapshot(0.000154)
+    assert attributes['gen_ai.output.messages'] == snapshot(
+        [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus'}]}]
+    )
+    client.close()
+
+
 def test_completions_stream(instrumented_client: openai.Client, exporter: TestExporter) -> None:
     response = instrumented_client.completions.create(
         model='gpt-3.5-turbo-instruct',

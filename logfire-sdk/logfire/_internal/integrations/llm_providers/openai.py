@@ -507,14 +507,23 @@ class OpenaiResponsesStreamState(StreamState):
 
     def __init__(self):
         self._state = ResponseStreamState(input_tools=openai.omit, text_format=openai.omit)
+        self._incomplete_or_failed_response: Response | None = None
 
     def record_chunk(self, chunk: Any) -> None:
-        self._state.handle_event(chunk)
+        # ResponseStreamState only keeps the final response from `response.completed`, but a stream
+        # can also end with `response.incomplete` (e.g. when `max_output_tokens` is reached) or `response.failed`.
+        # Take that response from the events returned here, where newer SDKs fill in a missing `output`,
+        # and skip it if `output` is still missing.
+        for event in self._state.handle_event(chunk):
+            if (event.type == 'response.incomplete' or event.type == 'response.failed') and (
+                getattr(event.response, 'output', None) is not None
+            ):
+                self._incomplete_or_failed_response = event.response
 
     def get_response_data(self) -> Any:
         response = self._state._completed_response  # pyright: ignore[reportPrivateUsage]
 
-        return response
+        return response or self._incomplete_or_failed_response
 
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         versions = self._versions
