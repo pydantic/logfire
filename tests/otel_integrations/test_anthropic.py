@@ -1411,6 +1411,130 @@ def test_on_response_unknown_block_type() -> None:
     )
 
 
+def test_on_response_unwraps_raw_response() -> None:
+    """``with_raw_response`` returns a raw response; response attributes must still be recorded."""
+    from logfire._internal.integrations.llm_providers.anthropic import on_response
+
+    payload = Message.model_construct(
+        id='test_id',
+        content=[TextBlock(text='Nine', type='text')],
+        model='claude-3-haiku-20240307',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=2, output_tokens=3),
+    ).model_dump(mode='json')
+
+    class FakeRawResponse:
+        def json(self) -> dict[str, Any]:
+            return payload
+
+        def parse(self) -> None:
+            return None
+
+    class MockSpan:
+        def __init__(self) -> None:
+            self.attributes: dict[str, Any] = {}
+
+        def set_attribute(self, key: str, value: Any) -> None:
+            self.attributes[key] = value
+
+        def set_attributes(self, attributes: dict[str, Any]) -> None:
+            for key, value in attributes.items():
+                self.set_attribute(key, value)
+
+    span = MockSpan()
+    raw = FakeRawResponse()
+    returned = on_response(raw, span, version=2)  # type: ignore[arg-type]
+
+    # The caller's raw response is returned untouched.
+    assert returned is raw
+    assert span.attributes['gen_ai.response.id'] == 'test_id'
+    assert span.attributes['gen_ai.response.model'] == 'claude-3-haiku-20240307'
+    assert span.attributes['gen_ai.response.finish_reasons'] == ['end_turn']
+    assert span.attributes['gen_ai.usage.input_tokens'] == 2
+    assert span.attributes['gen_ai.usage.output_tokens'] == 3
+    assert span.attributes['gen_ai.output.messages']
+
+
+def test_on_response_passes_through_unknown_response() -> None:
+    """A response that is neither a Message nor a raw SDK response is returned unchanged."""
+    from logfire._internal.integrations.llm_providers.anthropic import on_response
+
+    class UnknownResponse:
+        pass
+
+    class MockSpan:
+        def __init__(self) -> None:
+            self.attributes: dict[str, Any] = {}
+
+        def set_attribute(self, key: str, value: Any) -> None:
+            self.attributes[key] = value
+
+        def set_attributes(self, attributes: dict[str, Any]) -> None:
+            for key, value in attributes.items():
+                self.set_attribute(key, value)
+
+    unknown = UnknownResponse()
+    returned = on_response(unknown, MockSpan(), version=2)  # type: ignore[arg-type]
+    assert returned is unknown
+
+
+def test_on_response_unwrap_fallbacks() -> None:
+    """Raw-response unwrap fails soft on bad payloads; the original response passes through."""
+    from logfire._internal.integrations.llm_providers.anthropic import on_response
+
+    class MockSpan:
+        def __init__(self) -> None:
+            self.attributes: dict[str, Any] = {}
+
+        def set_attribute(self, key: str, value: Any) -> None:
+            self.attributes[key] = value
+
+        def set_attributes(self, attributes: dict[str, Any]) -> None:
+            for key, value in attributes.items():
+                self.set_attribute(key, value)
+
+    class NoRaw:
+        pass
+
+    class RaisingRaw:
+        def json(self) -> None:
+            raise ValueError('boom')
+
+        def parse(self) -> None:
+            return None
+
+    class NonDictRaw:
+        def json(self) -> list[int]:
+            return [1, 2]
+
+        def parse(self) -> None:
+            return None
+
+    class WrongTypeRaw:
+        def json(self) -> dict[str, Any]:
+            return {'type': 'error', 'error': 'nope'}
+
+        def parse(self) -> None:
+            return None
+
+    class InvalidModelRaw:
+        def json(self) -> dict[str, Any]:
+            # Valid message envelope but missing required fields, so model_validate fails.
+            return {'type': 'message'}
+
+        def parse(self) -> None:
+            return None
+
+    for raw in (NoRaw(), RaisingRaw(), NonDictRaw(), WrongTypeRaw(), InvalidModelRaw()):
+        span = MockSpan()
+        returned = on_response(raw, span, version=2)  # type: ignore[arg-type]
+        # Unwrap failed: the input object is returned unchanged and nothing is recorded.
+        assert returned is raw
+        assert span.attributes == {}
+
+
 def test_get_endpoint_config_v2_no_messages_no_system() -> None:
     """Test get_endpoint_config with version 2 and empty messages plus no system."""
     from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
