@@ -10,7 +10,7 @@ Use an OAuth app for a partner integration that connects to customers' Logfire r
 For automation within your own organization, you can use an [API key](../reference/advanced/use-api-keys.md).
 For connecting an existing AI tool, follow the [MCP server guide](mcp-server.md).
 
-We are happy to help you integrate with Logfire. Email [engineering@pydantic.dev](mailto:engineering@pydantic.dev) to discuss your integration or get help with setup.
+We are happy to help you integrate with Logfire. Email [support@pydantic.dev](mailto:support@pydantic.dev) to discuss your integration or get help with setup.
 
 ## Register your app
 
