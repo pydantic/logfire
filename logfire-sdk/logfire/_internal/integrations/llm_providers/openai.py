@@ -14,7 +14,7 @@ from openai.types.chat.chat_completion_message_function_tool_call import ChatCom
 from openai.types.completion import Completion
 from openai.types.create_embedding_response import CreateEmbeddingResponse
 from openai.types.images_response import ImagesResponse
-from openai.types.responses import Response
+from openai.types.responses import Response, ResponseFailedEvent, ResponseIncompleteEvent
 from opentelemetry.trace import get_current_span
 
 from logfire import LogfireSpan
@@ -507,14 +507,20 @@ class OpenaiResponsesStreamState(StreamState):
 
     def __init__(self):
         self._state = ResponseStreamState(input_tools=openai.omit, text_format=openai.omit)
+        self._terminal_response: Any = None
 
     def record_chunk(self, chunk: Any) -> None:
-        self._state.handle_event(chunk)
+        for event in self._state.handle_event(chunk):
+            # The SDK only keeps the final response for `response.completed`; a stream
+            # can also end on `response.incomplete` (e.g. max_output_tokens) or
+            # `response.failed`, whose event carries the final response.
+            if isinstance(event, (ResponseIncompleteEvent, ResponseFailedEvent)):
+                self._terminal_response = event.response
 
     def get_response_data(self) -> Any:
         response = self._state._completed_response  # pyright: ignore[reportPrivateUsage]
 
-        return response
+        return response or self._terminal_response
 
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         versions = self._versions
