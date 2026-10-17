@@ -407,7 +407,10 @@ def _unwrap_raw_message(response: Any) -> Message | None:
         payload = raw_json()
     except Exception:
         return None
-    if not isinstance(payload, dict) or payload.get('type') != 'message':
+    if not isinstance(payload, dict):
+        return None
+    payload = cast(dict[str, Any], payload)
+    if payload.get('type') != 'message':
         return None
     try:
         return Message.model_validate(payload)
