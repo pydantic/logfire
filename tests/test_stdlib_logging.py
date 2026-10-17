@@ -414,3 +414,124 @@ def test_logging_non_string(exporter: TestExporter, logger: Logger):
             }
         ]
     )
+
+
+@pytest.mark.parametrize(
+    'template, args, expected_message, expected_attributes',
+    [
+        (
+            'model %s finished',
+            ('gemini',),
+            'model gemini finished',
+            {'logfire.logging_args': ['gemini']},
+        ),
+        (
+            'model %(model)s finished',
+            ({'model': 'gemini'},),
+            'model gemini finished',
+            {'model': 'gemini'},
+        ),
+        (
+            'model %s finished',
+            ({'model': 'gemini'},),
+            "model {'model': 'gemini'} finished",
+            {'logfire.logging_args': [{'model': 'gemini'}]},
+        ),
+    ],
+    ids=['positional', 'mapping', 'positional-mapping'],
+)
+def test_logging_non_string_template_with_args(
+    exporter: TestExporter,
+    logger: Logger,
+    caplog: pytest.LogCaptureFixture,
+    template: str,
+    args: tuple[Any, ...],
+    expected_message: str,
+    expected_attributes: dict[str, Any],
+) -> None:
+    class Message:
+        def __str__(self) -> str:
+            return template
+
+    message = Message()
+    logger.error(template, *args, extra={'request_id': 'request-1'})
+    logger.error(message, *args, extra={'request_id': 'request-1'})
+
+    # Other handlers must still receive the original object and unformatted arguments.
+    record = caplog.records[-1]
+    assert record.msg is message
+    if isinstance(args[0], dict):
+        assert record.args is args[0]
+    else:
+        assert record.args == args
+    assert record.getMessage() == expected_message
+
+    string_span, object_span = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert object_span['name'] == string_span['name'] == template
+    attributes = object_span['attributes']
+    assert attributes == string_span['attributes']
+    assert attributes['logfire.msg_template'] == template
+    assert attributes['logfire.msg'] == expected_message
+    assert attributes['request_id'] == 'request-1'
+    for key, value in expected_attributes.items():
+        assert attributes[key] == value
+    if 'model' in expected_attributes:
+        assert 'logfire.logging_args' not in attributes
+
+
+@pytest.mark.parametrize(
+    'logger_level, handler_level', [(logging.ERROR, logging.NOTSET), (logging.DEBUG, logging.ERROR)]
+)
+def test_logging_non_string_template_disabled_level(
+    exporter: TestExporter, logger_level: int, handler_level: int
+) -> None:
+    class Message:
+        def __str__(self) -> str:
+            raise AssertionError('Disabled logging must not format the message')
+
+    logger = Logger(__name__, level=logger_level)
+    logger.addHandler(LogfireLoggingHandler(level=handler_level))
+    logger.debug(Message(), 'gemini')
+
+    assert exporter.exported_spans == []
+
+
+def test_logging_non_string_disabled_logfire_level(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    class Message:
+        def __str__(self) -> str:
+            raise AssertionError('Disabled logging must not format the message')
+
+    logfire.configure(**config_kwargs, min_level='error')
+    logger = Logger(__name__)
+    logger.addHandler(LogfireLoggingHandler())
+    logger.warning(Message())
+
+    assert exporter.exported_spans == []
+
+
+@pytest.mark.parametrize('non_string', [False, True])
+@pytest.mark.parametrize(
+    'template, args, error',
+    [
+        ('model %s %s finished', ('gemini',), TypeError),
+        ('model %(missing)s finished', ({'model': 'gemini'},), KeyError),
+        ('model %q finished', ('gemini',), ValueError),
+    ],
+    ids=['missing-positional', 'missing-mapping-key', 'invalid-format'],
+)
+def test_logging_invalid_template(
+    exporter: TestExporter,
+    logger: Logger,
+    non_string: bool,
+    template: str,
+    args: tuple[Any, ...],
+    error: type[Exception],
+) -> None:
+    class Message:
+        def __str__(self) -> str:
+            return template
+
+    with pytest.raises(error):
+        logger.error(Message() if non_string else template, *args)
+
+    assert exporter.exported_spans == []
