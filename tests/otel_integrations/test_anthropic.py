@@ -1500,7 +1500,7 @@ def test_on_response_unwrap_fallbacks() -> None:
 
     class RaisingRaw:
         def json(self) -> None:
-            raise ValueError("boom")
+            raise ValueError('boom')
 
         def parse(self) -> None:
             return None
