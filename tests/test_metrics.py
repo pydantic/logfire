@@ -836,3 +836,117 @@ def test_replace_default_views(metrics_reader: InMemoryMetricReader, config_kwar
             },
         ]
     )
+
+
+@pytest.mark.parametrize('instrument_type', ['counter', 'histogram'])
+@pytest.mark.parametrize('explicit_context', [False, True])
+@pytest.mark.parametrize('depth', [1, 2])
+def test_metrics_in_sampled_out_child(
+    exporter: TestExporter,
+    config_kwargs: dict[str, Any],
+    instrument_type: str,
+    explicit_context: bool,
+    depth: int,
+) -> None:
+    from contextlib import ExitStack
+
+    from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, ParentBased
+
+    reader = InMemoryMetricReader()
+    logfire.configure(
+        **config_kwargs,
+        sampling=logfire.SamplingOptions(head=ParentBased(ALWAYS_ON, local_parent_sampled=ALWAYS_OFF)),
+        metrics=logfire.MetricsOptions(collect_in_spans=True, additional_readers=[reader]),
+    )
+    record = (
+        logfire.metric_counter('measurement').add
+        if instrument_type == 'counter'
+        else logfire.metric_histogram('measurement').record
+    )
+    with logfire.span('parent'):
+        with ExitStack() as stack:
+            child = stack.enter_context(get_tracer(__name__).start_as_current_span('sampled out'))
+            assert not child.is_recording()
+            for _ in range(depth - 1):
+                child = stack.enter_context(get_tracer(__name__).start_as_current_span('sampled out'))
+                assert not child.is_recording()
+            record(10, context=set_span_in_context(child) if explicit_context else None)
+        record(20)
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert not any(span['name'] == 'sampled out' for span in spans)
+    parent = next(
+        span for span in spans if span['name'] == 'parent' and span['attributes']['logfire.span_type'] == 'span'
+    )
+    assert parent['attributes']['logfire.metrics']['measurement']['total'] == 30
+    [metric] = [metric for metric in get_collected_metrics(reader) if metric['name'] == 'measurement']
+    value_key = 'value' if instrument_type == 'counter' else 'sum'
+    assert sum(point[value_key] for point in metric['data']['data_points']) == 30
+
+
+@pytest.mark.parametrize('instrument_type', ['counter', 'histogram'])
+def test_sampled_child_of_ended_parent(exporter: TestExporter, config_kwargs: dict[str, Any], instrument_type: str):
+    from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, Sampler, SamplingResult
+
+    class SelectiveSampler(Sampler):
+        def should_sample(self, *args: Any, **kwargs: Any) -> SamplingResult:
+            sampler = ALWAYS_OFF if args[2] == 'sampled out' else ALWAYS_ON
+            return sampler.should_sample(*args, **kwargs)
+
+        def get_description(self) -> str:
+            return 'drop sampled out children'
+
+    logfire.configure(
+        **config_kwargs,
+        sampling=logfire.SamplingOptions(head=SelectiveSampler()),
+        metrics=logfire.MetricsOptions(collect_in_spans=True),
+    )
+    record = (
+        logfire.metric_counter('measurement').add
+        if instrument_type == 'counter'
+        else logfire.metric_histogram('measurement').record
+    )
+    with logfire.span('grandparent'):
+        with get_tracer(__name__).start_span('parent') as parent:
+            assert parent.is_recording()
+        with get_tracer(__name__).start_span('sampled out', context=set_span_in_context(parent)) as child:
+            assert not child.is_recording()
+            record(10, context=set_span_in_context(child))
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    grandparent = next(
+        s for s in spans if s['name'] == 'grandparent' and s['attributes']['logfire.span_type'] == 'span'
+    )
+    assert grandparent['attributes']['logfire.metrics']['measurement']['total'] == 10
+
+
+def test_suppressed_span_metrics_do_not_reach_parent(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    logfire.configure(**config_kwargs, metrics=logfire.MetricsOptions(collect_in_spans=True))
+    logfire.suppress_scopes('suppressed-test')
+    counter = logfire.metric_counter('measurement')
+    with logfire.span('parent'):
+        with get_tracer('suppressed-test').start_as_current_span('suppressed'):
+            counter.add(10)
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    parent = next(s for s in spans if s['name'] == 'parent' and s['attributes']['logfire.span_type'] == 'span')
+    assert 'logfire.metrics' not in parent['attributes']
+
+
+def test_sampled_child_does_not_retain_ended_parent(config_kwargs: dict[str, Any]):
+    import gc
+    from weakref import ref
+
+    from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, ParentBased
+
+    logfire.configure(
+        **config_kwargs,
+        sampling=logfire.SamplingOptions(head=ParentBased(ALWAYS_ON, local_parent_sampled=ALWAYS_OFF)),
+        metrics=logfire.MetricsOptions(collect_in_spans=True),
+    )
+    parent = get_tracer(__name__).start_span('parent')
+    child = get_tracer(__name__).start_span('sampled out', context=set_span_in_context(parent))
+    parent_ref = ref(parent)
+    parent.end()
+    del parent
+    gc.collect()
+    assert parent_ref() is None
+    child.end()
