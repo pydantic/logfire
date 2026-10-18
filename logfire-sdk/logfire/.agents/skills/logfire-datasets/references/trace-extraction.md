@@ -20,7 +20,7 @@ Logfire runs Apache DataFusion with Postgres-like syntax. It is not Postgres.
 - Filter on `span_name`, `service_name`, `otel_scope_name`, `trace_id` and the time window
   first; they are indexed.
 - One query spans at most 14 days. For more history, run several windows and merge (dedupe
-  on `span_id`).
+  on `trace_id` and `span_id`).
 - A JSON subtree selected with `->` may arrive as a JSON-encoded string. Decode it with
   `json.loads` in the script before mapping.
 - Correlated subqueries, `EXISTS` and `IN (SELECT ...)` often fail to plan. Use a CTE plus a
@@ -31,16 +31,17 @@ Logfire runs Apache DataFusion with Postgres-like syntax. It is not Postgres.
 Run these before writing the extraction query, and read the results. Never guess span names
 or attribute keys.
 
-**1. Inventory what produces spans.** Find the span whose lifetime brackets one unit of the
-behaviour the dataset is about. Root spans (`parent_span_id IS NULL`) are a good first view;
-drop that filter if the unit of work is nested.
+**1. Inventory what produces records.** Find the span whose lifetime brackets one unit of the
+behaviour the dataset is about, or the log record that carries it (`kind = 'log'`). Add
+`AND parent_span_id IS NULL` for a first view of root spans; leave it off when the unit of
+work is nested or the source is logs.
 
 ```sql
-SELECT service_name, otel_scope_name, span_name, count(*) AS n,
+SELECT kind, service_name, otel_scope_name, span_name, count(*) AS n,
        min(start_timestamp) AS first_seen, max(start_timestamp) AS last_seen
 FROM records
-WHERE kind = 'span'
-GROUP BY service_name, otel_scope_name, span_name
+WHERE kind IN ('span', 'log')
+GROUP BY kind, service_name, otel_scope_name, span_name
 ORDER BY n DESC
 LIMIT 40
 ```

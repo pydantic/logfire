@@ -44,7 +44,9 @@ def test_datasets_skill_keeps_secrets_out_of_output_and_tracked_files() -> None:
     assert 'never print or log it' in skill
     assert 'never write it into a tracked file' in skill
     assert 'git check-ignore -q .env' in skill
-    assert 'printf \'LOGFIRE_READ_TOKEN=%s\\n\' "$token" >> .env' in skill
+    assert 'write the file atomically' in skill
+    assert 'mktemp .env.XXXXXX' in skill
+    assert 'Never stage or commit `.env` or the token' in skill
     assert 'Do not use `--save`' in skill
 
 

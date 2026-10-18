@@ -77,10 +77,10 @@ rows = result['rows']        # list of dicts keyed by column name
   retrieval stays the same. Writing the file means re-typing the MCP result, so select
   `md5(<expr>)` next to each long text column in the export query and compare it with
   `hashlib.md5(text.encode()).hexdigest()` before pushing. Any mismatch means the copy is wrong.
-- `min_timestamp` is effectively required: omitting it is deprecated. Use timezone-aware
+- `min_timestamp` is a required keyword argument. Use timezone-aware
   datetimes; naive ones are assumed to be UTC.
 - One query spans at most 14 days. For a longer history, loop over windows of 14 days or less
-  and dedupe on `span_id`.
+  and dedupe on `trace_id` and `span_id`.
 - Do not pass `limit=` unless you mean it. It takes priority over the `LIMIT` in the SQL.
 - `environment='production'` (or a list) restricts rows to a deployment environment
   without editing the SQL.
@@ -100,7 +100,7 @@ The SQL itself should return one row per case and include `trace_id` and `span_i
 | Key | Required | Notes |
 |-----|----------|-------|
 | `inputs` | yes | JSON object. Exactly what the task under test receives |
-| `name` | strongly recommended | Stable and unique, for example `f"span-{row['span_id']}"`. It makes re-runs update cases instead of duplicating them |
+| `name` | strongly recommended | Stable and unique, for example `f"{row['trace_id']}-{row['span_id']}"` (a span id is only guaranteed unique within its trace). It makes re-runs update cases instead of duplicating them |
 | `expected_output` | no | JSON object. The API rejects a bare scalar. Wrap it, for example `{"value": ...}` |
 | `metadata` | no | JSON object of whatever the user will want to slice results by |
 | `source_trace_id`, `source_span_id` | no | Links the case to its trace in the UI. Only the dict form can set these |

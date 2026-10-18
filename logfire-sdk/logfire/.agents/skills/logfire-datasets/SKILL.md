@@ -31,7 +31,8 @@ Two different credentials are involved. They are not interchangeable:
 The query API accepts only read tokens. An API key fails there with `401 Invalid read token`,
 even when it has `project:read`. The dataset is created in **the project the API key belongs
 to**. Neither credential spans projects. The region (US/EU) is inferred from each credential.
-Set `LOGFIRE_BASE_URL` only for self-hosted Logfire.
+For self-hosted Logfire, the script reads `LOGFIRE_BASE_URL` and passes it as `base_url=` to
+both clients; neither client reads it on its own.
 
 A read token is not needed when there is no script-side query: for example, the cases already
 exist in code, or the set is small enough to export with MCP `query_run` into a JSON file that
@@ -81,19 +82,26 @@ message naming the variable, the project, and the scopes if neither is found:
 UI, the agent can mint it with the Python Logfire CLI. First authenticate and select the target
 with [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md):
 derive `<target>` (`--region` or `--base-url`), use its verified CLI prefix, and run its
-`whoami` check. Skip the rest of that reference if `whoami` already reports a signed-in user.
-`read-tokens create` prints the token to stdout, so capture it straight into `.env` and never
-let it reach the terminal or transcript:
+`whoami` check. Skip the rest of that reference only if `whoami` reports a signed-in user on
+the resolved `--region` or `--base-url` target. The project it reports doesn't matter here,
+because `read-tokens` takes `--project` explicitly. `read-tokens create` prints the token to
+stdout, so never let it reach the terminal or transcript. Capture it and write the file
+atomically: build the new `.env` in a temporary file, then rename it into place.
 
 ```bash
 # <logfire> = auth.md's verified Python CLI prefix, including --non-interactive <target>
-token="$(<logfire> read-tokens --project '<org>/<traces project>' create)" \
-  && printf 'LOGFIRE_READ_TOKEN=%s\n' "$token" >> .env; unset token
+token="$(<logfire> read-tokens --project '<org>/<traces project>' create)" && [ -n "$token" ] \
+  && tmp="$(mktemp .env.XXXXXX)" \
+  && { if [ -s .env ]; then cat .env; [ -z "$(tail -c1 .env)" ] || echo; fi
+       printf 'LOGFIRE_READ_TOKEN=%s\n' "$token"; } > "$tmp" \
+  && mv "$tmp" .env
+rm -f "${tmp:-}"; unset token tmp
 ```
 
 Run it only when `.env` has no `LOGFIRE_READ_TOKEN` line. If an empty one exists, remove it
 first, because a second line overrides the first. Do not use `--save`: it stores the token under
-`.logfire/`, where dataset scripts don't look. The API key still has to come from the UI.
+`.logfire/`, where dataset scripts don't look. Never stage or commit `.env` or the token. The
+API key still has to come from the UI.
 
 Never ask for a credential in chat, never print or log it (not even a prefix), and never write
 it into a tracked file. Do not take credentials from other tools' config files unless the user
@@ -179,7 +187,7 @@ The script must:
   behind an explicit flag such as `--push`;
 - query a bounded window (at most 14 days per query) with SQL that returns one row per case,
   including `trace_id` and `span_id`;
-- give every case a stable `name` (for example from `span_id`) so re-runs upsert instead of
+- give every case a stable `name` (for example from `trace_id` and `span_id`) so re-runs upsert instead of
   duplicating;
 - create the dataset only if it is missing, then upload with `add_cases()` using dicts that
   carry `source_trace_id` / `source_span_id`. On an existing dataset, `push_dataset()`
@@ -219,7 +227,7 @@ to re-run it. To run an experiment over the dataset next, use
 - Cases are validated against the dataset's JSON schemas on write. Schemas do not apply
   retroactively.
 - Telemetry queries cover at most 14 days per call. For a longer history, query several
-  windows and merge on `span_id`.
+  windows and merge on `trace_id` and `span_id`.
 
 ## Common Mistakes
 
@@ -229,7 +237,7 @@ to re-run it. To run an experiment over the dataset next, use
 | `401 Invalid read token` from `LogfireQueryClient` | The query API needs a read token, not an API key |
 | Dataset appears in the wrong project | The key decides the project. Use a key from the target project |
 | `dict_type: Input should be a valid dictionary` | Wrap scalar `expected_output` (or inputs/metadata) in an object |
-| Duplicate cases after re-running | Give every case a stable `name` (for example from `span_id`) |
+| Duplicate cases after re-running | Give every case a stable `name` (for example from `trace_id` and `span_id`) |
 | Using unreviewed production output as `expected_output` | Put it in `metadata`, or have the user review it first |
 | Overwriting evaluators configured in the UI | Use `add_cases()` for existing datasets, not `push_dataset()` |
 | Expecting local deletions to propagate | Neither upload path deletes; call `delete_case()` explicitly |
