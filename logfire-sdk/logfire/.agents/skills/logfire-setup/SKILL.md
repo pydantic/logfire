@@ -18,8 +18,8 @@ verification observed in this session.
 ## Step 1: Authenticate and Select the Exact Project
 
 If the request is already scoped to frontend observability, application Gateway,
-coding-agent setup, querying, or opening the UI, load that specialist from the
-table below first. Its credential requirements differ from ordinary SDK
+coding-agent setup, hosted datasets, querying, or opening the UI, load that
+specialist from the table below first. Its credential requirements differ from ordinary SDK
 instrumentation; do not create a project write token merely to route the request.
 
 For ordinary SDK instrumentation, confirm the exact project with `whoami`
@@ -38,6 +38,7 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 | Frontend observability | Browser errors, RUM, Web Vitals, and session replays | [`logfire-frontend`](https://pydantic.dev/.well-known/agent-skills/logfire-frontend/SKILL.md) |
 | Infrastructure monitoring | Hosts, Docker, Kubernetes, database/queue/cache servers, cloud-provider metrics — no application code | [`logfire-infrastructure`](https://pydantic.dev/.well-known/agent-skills/logfire-infrastructure/SKILL.md) |
 | Evals | Set up and run AI/agent evaluations against test-case datasets in Python or Node.js | [`logfire-evals`](https://pydantic.dev/.well-known/agent-skills/logfire-evals/SKILL.md) |
+| Hosted datasets | Build Logfire-hosted datasets from traces or case files | [`logfire-datasets`](https://pydantic.dev/.well-known/agent-skills/logfire-datasets/SKILL.md) |
 | Querying telemetry | Search traces/logs/spans/metrics, summarize errors, find root cause | [`logfire-query`](https://pydantic.dev/.well-known/agent-skills/logfire-query/SKILL.md) |
 | Live UI | Open project pages, the live view, trace links, or the Explore page in a browser | [`logfire-ui`](https://pydantic.dev/.well-known/agent-skills/logfire-ui/SKILL.md) |
 | Feature flags | Runtime-managed variables (`logfire.var()`, `logfire.template_var()`) | no dedicated skill yet — see the product's own docs |
