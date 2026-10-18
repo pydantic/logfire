@@ -15,11 +15,15 @@ Amazon Data Firehose buffers the data and delivers it to Logfire over HTTPS.
 
 You need:
 
-- A Logfire project and a project write token from **Settings → API keys**.
+- A Logfire project and permission to create an ingest credential.
+  The Cloud guide can create an ingest-only API key for you.
+  For manual setup, create a token under **Settings → Write tokens**, or an API key with the
+  `project:write_otlp` scope under **Settings → API keys**.
 - The deployment's public HTTPS ingest base URL, without a path or trailing slash.
 - An AWS account and region that contain the data you want to collect.
 - Permission to create a CloudFormation stack, Identity and Access Management (IAM) roles,
-  Firehose delivery streams, CloudWatch subscriptions and metric streams, and an Amazon S3 bucket.
+  Firehose delivery streams, CloudWatch subscriptions and metric streams, delivery log groups and streams, and an Amazon S3 bucket.
+  Your identity or CloudFormation execution role also needs `iam:PassRole` for the roles passed to these services.
 - For logs, an existing CloudWatch log group with an available subscription filter slot.
 - For metrics, a CloudWatch namespace to collect, such as `AWS/EC2`.
   A namespace groups related metrics from one AWS service or application.
@@ -27,6 +31,8 @@ You need:
 AWS collection, delivery, storage, and network traffic can incur charges.
 Logfire also charges for ingested data.
 Start with one log group and one metric namespace.
+The template forwards all new events from the selected log group to Logfire.
+It does not redact or filter their contents. Review sensitive data and sanitize it at the source before you enable collection.
 Avoid collecting the same metrics through both Firehose and an OpenTelemetry Collector.
 
 ## Create the AWS resources
@@ -60,7 +66,7 @@ For a manual setup, expand **Manual setup and template details** to download the
 Open CloudFormation and choose **Create stack → With new resources → Upload a template file**.
 The downloaded file contains the endpoint and setup ID. It does not contain a token.
 
-You can also [download the unconfigured version 1 template](https://raw.githubusercontent.com/pydantic/logfire/main/docs/assets/cloudformation/logfire-firehose-v1.json).
+You can also [download the unconfigured version 1 template](https://s3.us-east-1.amazonaws.com/pydantic-logfire-templates-dev-e9ec7424/firehose/v1/81441fe08a03caee4f4605d0b3298b86cb3f0e15c97ab7fcfaa4bb6612d36fe9.json).
 Enter the endpoint and a distinct setup ID yourself when you use this file.
 CloudFormation masks the write token with `NoEcho`.
 Enter the token only in AWS. Do not put it in a launch URL or source control.
@@ -85,7 +91,7 @@ It checks every five seconds and stops after success, an error, or ten minutes.
 Use **Check again** to restart a paused or failed check.
 A successful check proves receipt of data. It does not prove that every source event arrived.
 
-The AWS overview lists services with CloudWatch metrics received through Firehose or an OTel Collector in the last 24 hours.
+The AWS overview lists services with CloudWatch metrics received through Firehose or an OpenTelemetry Collector in the last 24 hours.
 It shows observed accounts, regions, metric names, and last received times.
 Statistic variants count as one metric name. Custom namespaces appear separately.
 The overview describes received telemetry. It does not discover every resource in your AWS account.

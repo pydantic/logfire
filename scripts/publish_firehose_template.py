@@ -33,6 +33,8 @@ def main() -> None:
         parser.error('Invalid S3 bucket name')
     if not re.fullmatch(r'[a-z]{2}(-[a-z]+)+-\d', args.region):
         parser.error('Invalid AWS region')
+    if args.region.startswith(('cn-', 'us-gov-', 'us-iso')):
+        parser.error('This publisher supports AWS commercial regions only')
     aws = ['aws', '--profile', args.profile, '--region', args.region]
 
     def run(*command: str) -> str:
@@ -53,6 +55,7 @@ def main() -> None:
         with urlopen(url, timeout=30) as response:
             existing = response.read(len(source) + 1)
     except HTTPError as error:
+        error.close()
         if error.code not in {403, 404}:
             raise
         existing = None

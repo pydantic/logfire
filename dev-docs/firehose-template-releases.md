@@ -18,7 +18,10 @@ It writes an object under `firehose/v1/<sha256>.json` without replacing existing
 It verifies the public object bytes before it writes the manifest and optional bundle.
 The consumer must check the bundled bytes against the manifest fingerprint.
 Update the source, public object, manifest, and consumer bundle as one release.
-Use a new version when parameter or output compatibility changes.
+This publisher releases version 1 in AWS commercial regions.
+For an incompatible release, add a new versioned template file.
+Update `TEMPLATE`, the `firehose/v1/` key prefix, and the manifest version in the publisher together.
+Keep the old versioned source and published objects available.
 
 The bucket must serve only public templates.
 Keep public access blocked on the customer backup bucket that the template creates.

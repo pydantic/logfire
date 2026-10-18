@@ -4,7 +4,7 @@
   "Parameters": {
     "LogfireEndpoint": {
       "Type": "String",
-      "AllowedPattern": "https://[^/\\s]+",
+      "AllowedPattern": "https://[^/?#@\\s]+",
       "Description": "The public HTTPS ingest base URL from the Logfire Cloud setup page. Do not include a path or trailing slash."
     },
     "LogfireWriteToken": {
@@ -117,7 +117,6 @@
                 {
                   "Effect": "Allow",
                   "Action": [
-                    "s3:AbortMultipartUpload",
                     "s3:GetBucketLocation",
                     "s3:ListBucket",
                     "s3:ListBucketMultipartUploads"
@@ -128,7 +127,7 @@
                 },
                 {
                   "Effect": "Allow",
-                  "Action": ["s3:GetObject", "s3:PutObject"],
+                  "Action": ["s3:AbortMultipartUpload", "s3:GetObject", "s3:PutObject"],
                   "Resource": {
                     "Fn::Sub": "${BackupBucket.Arn}/*"
                   }
