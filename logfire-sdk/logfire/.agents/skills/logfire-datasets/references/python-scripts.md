@@ -37,7 +37,7 @@ up in shell history.
 |----------|--------|-----------------|
 | `LOGFIRE_API_KEY` | `LogfireAPIClient(api_key=...)` | An API key from the project that will hold the dataset, with `project:read_datasets` and `project:write_datasets` |
 | `LOGFIRE_READ_TOKEN` | `LogfireQueryClient(read_token=...)` | A read token for the project holding the traces. An API key is rejected here with `401 Invalid read token` |
-| `LOGFIRE_BASE_URL` | Both, as `base_url=` | Self-hosted Logfire only |
+| `LOGFIRE_BASE_URL` | Both, as `base_url=` | Self-hosted Logfire only. Neither client reads this variable; the script must read it and pass `base_url=` to each |
 
 Both clients infer the region (US/EU) from the credential. If one is missing, fail with a
 message that names the variable, what kind of credential it is, and where to create it. That
