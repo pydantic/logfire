@@ -755,6 +755,9 @@ navigation:
         slug: "guides/cloud-metrics"
         aliases:
           - "how-to-guides/cloud-metrics"
+      - page: "Send AWS logs and metrics through Firehose"
+        path: "how-to-guides/aws-firehose.md"
+        slug: "guides/aws-firehose"
       - section: "OpenTelemetry Collector"
         contents:
           - page: "Overview"

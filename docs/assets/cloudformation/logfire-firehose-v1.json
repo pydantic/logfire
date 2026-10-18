@@ -1,0 +1,486 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Send selected CloudWatch logs and metrics to Logfire through Amazon Data Firehose.",
+  "Parameters": {
+    "LogfireEndpoint": {
+      "Type": "String",
+      "AllowedPattern": "https://[^/\\s]+",
+      "Description": "The public HTTPS ingest base URL from the Logfire Cloud setup page. Do not include a path or trailing slash."
+    },
+    "LogfireWriteToken": {
+      "Type": "String",
+      "NoEcho": true,
+      "MinLength": 1,
+      "Description": "A write token for your Logfire project. Do not add a Bearer prefix."
+    },
+    "LogGroupName": {
+      "Type": "String",
+      "MinLength": 0,
+      "AllowedPattern": "[.\\-_/#A-Za-z0-9]*",
+      "Description": "An existing CloudWatch log group in this AWS account and region.",
+      "Default": ""
+    },
+    "CollectionMode": {
+      "Type": "String",
+      "Default": "LogsAndMetrics",
+      "AllowedValues": ["LogsAndMetrics", "Logs", "Metrics"],
+      "Description": "Choose logs, metrics, or both. Each enabled signal creates its own Firehose delivery stream."
+    },
+    "MetricNamespace": {
+      "Type": "String",
+      "Default": "AWS/EC2",
+      "MinLength": 1,
+      "MaxLength": 255,
+      "Description": "One CloudWatch metric namespace to stream from this account and region. AWS/EC2 is the initial scope."
+    },
+    "SetupId": {
+      "Type": "String",
+      "Default": "manual",
+      "AllowedPattern": "[A-Za-z0-9_-]{1,64}",
+      "Description": "The setup identifier from the Logfire wizard. It links incoming telemetry to this setup without sharing credentials."
+    }
+  },
+  "Resources": {
+    "BackupBucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "Id": "ExpireBackups",
+              "Status": "Enabled",
+              "ExpirationInDays": 30
+            }
+          ]
+        }
+      }
+    },
+    "DeliveryLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "RetentionInDays": 14
+      }
+    },
+    "DeliveryLogStream": {
+      "Type": "AWS::Logs::LogStream",
+      "Properties": {
+        "LogGroupName": {
+          "Ref": "DeliveryLogGroup"
+        }
+      }
+    },
+    "FirehoseRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "firehose.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "sts:ExternalId": {
+                    "Ref": "AWS::AccountId"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "DeliveryBackup",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:AbortMultipartUpload",
+                    "s3:GetBucketLocation",
+                    "s3:ListBucket",
+                    "s3:ListBucketMultipartUploads"
+                  ],
+                  "Resource": {
+                    "Fn::GetAtt": ["BackupBucket", "Arn"]
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": ["s3:GetObject", "s3:PutObject"],
+                  "Resource": {
+                    "Fn::Sub": "${BackupBucket.Arn}/*"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "logs:PutLogEvents",
+                  "Resource": {
+                    "Fn::GetAtt": ["DeliveryLogGroup", "Arn"]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "DeliveryStream": {
+      "Type": "AWS::KinesisFirehose::DeliveryStream",
+      "Properties": {
+        "DeliveryStreamType": "DirectPut",
+        "HttpEndpointDestinationConfiguration": {
+          "EndpointConfiguration": {
+            "Url": {
+              "Fn::Sub": "${LogfireEndpoint}/v1/firehose/logs"
+            },
+            "AccessKey": {
+              "Ref": "LogfireWriteToken"
+            },
+            "Name": "Logfire"
+          },
+          "RoleARN": {
+            "Fn::GetAtt": ["FirehoseRole", "Arn"]
+          },
+          "BufferingHints": {
+            "IntervalInSeconds": 60,
+            "SizeInMBs": 1
+          },
+          "RequestConfiguration": {
+            "ContentEncoding": "GZIP",
+            "CommonAttributes": [
+              {
+                "AttributeName": "logfire.cloud_setup.id",
+                "AttributeValue": {
+                  "Ref": "SetupId"
+                }
+              },
+              {
+                "AttributeName": "service.name",
+                "AttributeValue": "aws-cloudwatch"
+              }
+            ]
+          },
+          "RetryOptions": {
+            "DurationInSeconds": 300
+          },
+          "S3BackupMode": "FailedDataOnly",
+          "S3Configuration": {
+            "BucketARN": {
+              "Fn::GetAtt": ["BackupBucket", "Arn"]
+            },
+            "RoleARN": {
+              "Fn::GetAtt": ["FirehoseRole", "Arn"]
+            },
+            "Prefix": "failed/logs/",
+            "CompressionFormat": "GZIP",
+            "BufferingHints": {
+              "IntervalInSeconds": 300,
+              "SizeInMBs": 5
+            }
+          },
+          "CloudWatchLoggingOptions": {
+            "Enabled": true,
+            "LogGroupName": {
+              "Ref": "DeliveryLogGroup"
+            },
+            "LogStreamName": {
+              "Ref": "DeliveryLogStream"
+            }
+          }
+        }
+      },
+      "Condition": "CollectLogs"
+    },
+    "SubscriptionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "logs.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "aws:SourceAccount": {
+                    "Ref": "AWS::AccountId"
+                  }
+                },
+                "ArnLike": {
+                  "aws:SourceArn": {
+                    "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "SendToFirehose",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "firehose:PutRecord",
+                  "Resource": {
+                    "Fn::GetAtt": ["DeliveryStream", "Arn"]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "Condition": "CollectLogs"
+    },
+    "LogSubscription": {
+      "Type": "AWS::Logs::SubscriptionFilter",
+      "Properties": {
+        "DestinationArn": {
+          "Fn::GetAtt": ["DeliveryStream", "Arn"]
+        },
+        "FilterPattern": "",
+        "LogGroupName": {
+          "Ref": "LogGroupName"
+        },
+        "RoleArn": {
+          "Fn::GetAtt": ["SubscriptionRole", "Arn"]
+        }
+      },
+      "Condition": "CollectLogs"
+    },
+    "MetricsDeliveryStream": {
+      "Type": "AWS::KinesisFirehose::DeliveryStream",
+      "Properties": {
+        "DeliveryStreamType": "DirectPut",
+        "HttpEndpointDestinationConfiguration": {
+          "EndpointConfiguration": {
+            "Url": {
+              "Fn::Sub": "${LogfireEndpoint}/v1/firehose/metrics"
+            },
+            "AccessKey": {
+              "Ref": "LogfireWriteToken"
+            },
+            "Name": "Logfire"
+          },
+          "RoleARN": {
+            "Fn::GetAtt": ["FirehoseRole", "Arn"]
+          },
+          "BufferingHints": {
+            "IntervalInSeconds": 60,
+            "SizeInMBs": 1
+          },
+          "RequestConfiguration": {
+            "ContentEncoding": "GZIP",
+            "CommonAttributes": [
+              {
+                "AttributeName": "logfire.cloud_setup.id",
+                "AttributeValue": {
+                  "Ref": "SetupId"
+                }
+              },
+              {
+                "AttributeName": "service.name",
+                "AttributeValue": "aws-cloudwatch"
+              }
+            ]
+          },
+          "RetryOptions": {
+            "DurationInSeconds": 300
+          },
+          "S3BackupMode": "FailedDataOnly",
+          "S3Configuration": {
+            "BucketARN": {
+              "Fn::GetAtt": ["BackupBucket", "Arn"]
+            },
+            "RoleARN": {
+              "Fn::GetAtt": ["FirehoseRole", "Arn"]
+            },
+            "Prefix": "failed/metrics/",
+            "CompressionFormat": "GZIP",
+            "BufferingHints": {
+              "IntervalInSeconds": 300,
+              "SizeInMBs": 5
+            }
+          },
+          "CloudWatchLoggingOptions": {
+            "Enabled": true,
+            "LogGroupName": {
+              "Ref": "DeliveryLogGroup"
+            },
+            "LogStreamName": {
+              "Ref": "DeliveryLogStream"
+            }
+          }
+        }
+      },
+      "Condition": "CollectMetrics"
+    },
+    "MetricStreamRole": {
+      "Type": "AWS::IAM::Role",
+      "Condition": "CollectMetrics",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "streams.metrics.cloudwatch.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "SendMetricsToFirehose",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": ["firehose:PutRecord", "firehose:PutRecordBatch"],
+                  "Resource": {
+                    "Fn::GetAtt": ["MetricsDeliveryStream", "Arn"]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "MetricStream": {
+      "Type": "AWS::CloudWatch::MetricStream",
+      "Condition": "CollectMetrics",
+      "Properties": {
+        "FirehoseArn": {
+          "Fn::GetAtt": ["MetricsDeliveryStream", "Arn"]
+        },
+        "RoleArn": {
+          "Fn::GetAtt": ["MetricStreamRole", "Arn"]
+        },
+        "OutputFormat": "json",
+        "IncludeLinkedAccountsMetrics": false,
+        "IncludeFilters": [
+          {
+            "Namespace": {
+              "Ref": "MetricNamespace"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "DeliveryStreamArn": {
+      "Value": {
+        "Fn::GetAtt": ["DeliveryStream", "Arn"]
+      },
+      "Condition": "CollectLogs"
+    },
+    "BackupBucket": {
+      "Value": {
+        "Ref": "BackupBucket"
+      }
+    },
+    "MetricsDeliveryStreamArn": {
+      "Condition": "CollectMetrics",
+      "Value": {
+        "Fn::GetAtt": ["MetricsDeliveryStream", "Arn"]
+      }
+    },
+    "SetupId": {
+      "Value": {
+        "Ref": "SetupId"
+      }
+    }
+  },
+  "Conditions": {
+    "CollectLogs": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "CollectionMode"
+            },
+            "Metrics"
+          ]
+        }
+      ]
+    },
+    "CollectMetrics": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "CollectionMode"
+            },
+            "Logs"
+          ]
+        }
+      ]
+    }
+  },
+  "Rules": {
+    "LogGroupRequired": {
+      "RuleCondition": {
+        "Fn::Not": [
+          {
+            "Fn::Equals": [
+              {
+                "Ref": "CollectionMode"
+              },
+              "Metrics"
+            ]
+          }
+        ]
+      },
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Equals": [
+                  {
+                    "Ref": "LogGroupName"
+                  },
+                  ""
+                ]
+              }
+            ]
+          },
+          "AssertDescription": "LogGroupName is required when collecting logs."
+        }
+      ]
+    }
+  }
+}
