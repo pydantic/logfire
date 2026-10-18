@@ -10,13 +10,11 @@ Add `logfire[datasets]` to the project (`uv add 'logfire[datasets]'`, or the pro
 equivalent). The extra brings `httpx` and `pydantic-evals`. Both clients below exist in
 `logfire>=4.39`; check the project's pinned version before relying on them.
 
-```python
-from logfire.query_client import LogfireQueryClient            # or AsyncLogfireQueryClient
-from logfire.experimental.api_client import (
-    LogfireAPIClient,                                           # or AsyncLogfireAPIClient
-    DatasetNotFoundError, CaseNotFoundError, DatasetApiError,
-)
-```
+The names used below:
+
+- `logfire.query_client`: `LogfireQueryClient` (or `AsyncLogfireQueryClient`).
+- `logfire.experimental.api_client`: `LogfireAPIClient` (or `AsyncLogfireAPIClient`),
+  `DatasetNotFoundError`, `CaseNotFoundError`, and `DatasetApiError`.
 
 `api_client` is experimental. Its API may change between releases.
 
