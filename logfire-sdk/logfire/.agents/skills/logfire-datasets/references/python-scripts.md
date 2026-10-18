@@ -66,6 +66,8 @@ adapts the dataset later.
 ## Retrieving Rows
 
 ```python
+from logfire.query_client import LogfireQueryClient
+
 with LogfireQueryClient(read_token=read_token) as query:
     result = query.query_json_rows(sql=SQL, min_timestamp=start, max_timestamp=end)
 rows = result['rows']        # list of dicts keyed by column name
@@ -127,6 +129,10 @@ Unnamed cases always count as new, so they duplicate on every re-run. Warn when 
 ## Pushing
 
 ```python
+import sys
+
+from logfire.experimental.api_client import DatasetNotFoundError, LogfireAPIClient
+
 with LogfireAPIClient(api_key=dest_key) as client:
     try:
         detail = client.get_dataset(NAME, include_cases=False)   # exists: leave its settings alone
@@ -169,6 +175,9 @@ evaluators, and upserts named cases. Use it for a new dataset, or when the user 
 to own those settings:
 
 ```python
+from logfire.experimental.api_client import LogfireAPIClient
+from pydantic_evals import Dataset
+
 dataset = Dataset[MyInputs, MyOutput, MyMetadata].from_file('cases.yaml')
 with LogfireAPIClient(api_key=dest_key) as client:
     client.push_dataset(dataset, description=DESCRIPTION)
