@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
@@ -25,14 +25,14 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P4D"
 
 [options.exclude-newer-package]
-pydantic-graph = false
-pydantic-ai-slim = false
-pydantic-evals = false
-pydantic-handlebars = false
 genai-prices = false
 logfire-cli = false
 pydantic = false
+pydantic-ai-slim = false
 pydantic-core = false
+pydantic-evals = false
+pydantic-graph = false
+pydantic-handlebars = false
 
 [manifest]
 members = [
@@ -3637,8 +3637,8 @@ requires-dist = [
     { name = "litestar", marker = "extra == 'litestar'", specifier = ">=2.11.0" },
     { name = "openinference-instrumentation-dspy", marker = "extra == 'dspy'", specifier = ">=0" },
     { name = "openinference-instrumentation-litellm", marker = "extra == 'litellm'", specifier = ">=0" },
-    { name = "opentelemetry-api", specifier = ">=1.39.0,<1.46.0" },
-    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.39.0,<1.46.0" },
+    { name = "opentelemetry-api", specifier = ">=1.45.0,<1.46.0" },
+    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.45.0,<1.46.0" },
     { name = "opentelemetry-instrumentation", specifier = ">=0.41b0,<0.67b0" },
     { name = "opentelemetry-instrumentation-aiohttp-client", marker = "extra == 'aiohttp'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-aiohttp-client", marker = "extra == 'aiohttp-client'", specifier = ">=0.42b0" },
@@ -3666,8 +3666,8 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-system-metrics", marker = "extra == 'system-metrics'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-urllib", marker = "extra == 'urllib'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-wsgi", marker = "extra == 'wsgi'", specifier = ">=0.42b0" },
-    { name = "opentelemetry-sdk", specifier = ">=1.39.0,<1.46.0" },
-    { name = "opentelemetry-semantic-conventions", specifier = ">=0.60b0,<0.67b0" },
+    { name = "opentelemetry-sdk", specifier = ">=1.45.0,<1.46.0" },
+    { name = "opentelemetry-semantic-conventions", specifier = ">=0.66b0,<0.67b0" },
     { name = "packaging", marker = "extra == 'psycopg'" },
     { name = "packaging", marker = "extra == 'psycopg2'" },
     { name = "protobuf", specifier = ">=4.23.4" },

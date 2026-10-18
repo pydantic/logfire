@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import openai
@@ -695,7 +696,10 @@ def on_response(
             span.set_attribute(OUTPUT_MESSAGES, response_output_messages)
         if 1 in versions:
             try:
-                events = json.loads(span.attributes['events'])  # pyright: ignore[reportArgumentType, reportOptionalSubscript]
+                raw_events: Any = span.attributes['events']  # pyright: ignore[reportOptionalSubscript,reportUnknownVariableType]
+                events: list[Any] = (
+                    json.loads(raw_events) if isinstance(raw_events, str) else list(cast('Sequence[Any]', raw_events))
+                )
             except Exception:
                 pass
             else:

@@ -168,9 +168,6 @@ jobs:
           - python-version: "3.12"
             pydantic-version: "2.4"
             otel-version: "1" # i.e. the latest
-          - python-version: '3.14'
-            pydantic-version: '2'  # i.e. the latest
-            otel-version: '1.39'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:

@@ -2437,14 +2437,12 @@ def host_resource_attributes() -> dict[str, Any]:
         'host.name': socket.gethostname(),
         'host.arch': platform.machine(),
     }
-    # OpenTelemetry 1.45 added host.id. Reuse its platform-specific lookup when available.
-    get_host_id = getattr(otel_resources, '_get_host_id', None)
-    if get_host_id is not None:
-        try:
-            if host_id := get_host_id():
-                attributes['host.id'] = host_id
-        except Exception:
-            pass
+    # Reuse OpenTelemetry's platform-specific host.id lookup.
+    try:
+        if host_id := otel_resources._get_host_id():  # pyright: ignore[reportPrivateUsage]
+            attributes['host.id'] = host_id
+    except Exception:
+        pass
     return attributes
 
 

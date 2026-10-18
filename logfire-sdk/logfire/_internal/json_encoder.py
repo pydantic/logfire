@@ -304,6 +304,29 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
     return safe_repr(o)
 
 
+def to_otlp_value(obj: Any) -> dict[str, Any] | list[Any] | str:
+    """Convert `obj` to a structured OTLP attribute value (a map or an array), or to a JSON string.
+
+    A JSON string is returned when the value can't be sent faithfully as a structured value,
+    e.g. because it isn't a mapping or sequence, or because it contains a `None` inside an array
+    (which the Logfire backend would drop), an empty key, or an integer outside the signed 64-bit range.
+    """
+    value = to_json_value(obj, set())
+    if isinstance(value, (dict, list)) and _is_otlp_native_safe(value):
+        return value
+    return json.dumps(value, separators=(',', ':'), ensure_ascii=False, allow_nan=False)
+
+
+def _is_otlp_native_safe(value: JsonValue) -> bool:
+    if isinstance(value, list):
+        return all(item is not None and _is_otlp_native_safe(item) for item in value)
+    elif isinstance(value, dict):
+        return all(key and _is_otlp_native_safe(item) for key, item in value.items())
+    elif isinstance(value, int) and not isinstance(value, bool):
+        return -(2**63) <= value < 2**63
+    return True
+
+
 def logfire_json_dumps(obj: Any) -> str:
     try:
         return json.dumps(
