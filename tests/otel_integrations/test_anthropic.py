@@ -2285,6 +2285,7 @@ async def test_message_iterables_preserve_request(
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
     attrs = [span['attributes'] for span in spans if 'LLM' in span['attributes'].get('logfire.tags', ())]
     assert attrs
+    assert len(sent) == 2, {'sent': sent, 'span_attributes': attrs}
     assert sent[1] == sent[0], {'sent': sent, 'span_attributes': attrs}
     for attributes in attrs:
         if version != 1:
