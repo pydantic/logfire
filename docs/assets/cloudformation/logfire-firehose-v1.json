@@ -116,11 +116,7 @@
               "Statement": [
                 {
                   "Effect": "Allow",
-                  "Action": [
-                    "s3:GetBucketLocation",
-                    "s3:ListBucket",
-                    "s3:ListBucketMultipartUploads"
-                  ],
+                  "Action": ["s3:GetBucketLocation", "s3:ListBucket", "s3:ListBucketMultipartUploads"],
                   "Resource": {
                     "Fn::GetAtt": ["BackupBucket", "Arn"]
                   }

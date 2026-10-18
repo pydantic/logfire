@@ -66,7 +66,7 @@ For a manual setup, expand **Manual setup and template details** to download the
 Open CloudFormation and choose **Create stack → With new resources → Upload a template file**.
 The downloaded file contains the endpoint and setup ID. It does not contain a token.
 
-You can also [download the unconfigured version 1 template](https://s3.us-east-1.amazonaws.com/pydantic-logfire-templates-dev-e9ec7424/firehose/v1/81441fe08a03caee4f4605d0b3298b86cb3f0e15c97ab7fcfaa4bb6612d36fe9.json).
+You can also [download the unconfigured version 1 template](https://s3.us-east-1.amazonaws.com/pydantic-logfire-templates-dev-e9ec7424/firehose/v1/51c9d30f52b1dbbc112d4b6d0bf5eb6168a6ad8d7d2b17b40728d305994106f1.json).
 Enter the endpoint and a distinct setup ID yourself when you use this file.
 CloudFormation masks the write token with `NoEcho`.
 Enter the token only in AWS. Do not put it in a launch URL or source control.
