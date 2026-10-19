@@ -50,6 +50,7 @@ from logfire._internal.cli import (
     main,
 )
 from logfire._internal.cli.run import (
+    OTEL_INSTRUMENTATION_MAP,
     InstrumentationRecommendation,
     collect_instrumentation_context,
     find_recommended_instrumentations_to_install,
@@ -6385,6 +6386,63 @@ def test_parse_run_no_script(monkeypatch: pytest.MonkeyPatch) -> None:
         main(['run', '--no-summary'])
 
     assert configure_mock.call_count == 1
+
+
+@pytest.mark.parametrize('module', [False, True])
+@pytest.mark.parametrize('exclude_flask', [False, True])
+def test_parse_run_flask_in_fresh_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: bool, exclude_flask: bool
+) -> None:
+    script = tmp_path / 'flask_app.py'
+    script.write_text(
+        """
+import json
+
+from flask import Flask
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+import logfire
+from logfire.testing import TestExporter
+
+exporter = TestExporter()
+logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[SimpleSpanProcessor(exporter)])
+app = Flask(__name__)
+
+@app.get('/')
+def homepage():
+    return 'hello'
+
+response = app.test_client().get('/')
+assert response.status_code == 200
+assert response.text == 'hello'
+print(json.dumps(exporter.exported_spans_as_dict()))
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    # Exercise discovery and dispatch with only Flask enabled, regardless of other installed integrations.
+    excluded = set(OTEL_INSTRUMENTATION_MAP.values()) - {'flask'}
+    if exclude_flask:
+        excluded.add('flask')
+    target = ['-m', 'flask_app'] if module else [str(script)]
+    result = subprocess.run(
+        [sys.executable, '-m', 'logfire', 'run', '--summary', '--exclude', ','.join(sorted(excluded)), *target],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    spans = json.loads(result.stdout)
+    if exclude_flask:
+        assert spans == []
+        assert 'flask (installed and instrumented)' not in result.stderr
+    else:
+        assert [span['name'] for span in spans] == ['GET /']
+        assert spans[0]['attributes']['http.route'] == '/'
+        assert spans[0]['attributes']['http.status_code'] == 200
+        assert spans[0]['attributes']['logfire.msg'] == 'GET /'
+        assert 'flask (installed and instrumented)' in result.stderr
 
 
 def test_parse_run_script(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
