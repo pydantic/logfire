@@ -252,3 +252,54 @@ def test_global_fastapi_mounted_app_privacy(
         spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
         assert len(spans) == (3 if nested else 2)
         assert any(span['attributes'].get('fastapi.arguments.values') == {'payload': payload} for span in spans)
+
+
+def test_global_fastapi_parent_preserves_instrumented_child(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    local_exporter = TestExporter()
+    local_kwargs = config_kwargs.copy()
+    local_kwargs['additional_span_processors'] = [SimpleSpanProcessor(local_exporter)]
+    local = logfire.configure(local=True, **local_kwargs)
+
+    with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE):
+        parent = fastapi.FastAPI()
+        child = fastapi.FastAPI()
+        parent.mount('/child', child)
+
+        async def endpoint(payload: dict[str, str]) -> dict[str, str]:
+            return payload
+
+        child.post('/private')(endpoint)
+        child.post('/public')(endpoint)
+        payload = {'message': 'child-value'}
+
+        with local.instrument_fastapi(child, excluded_urls='/private'):
+            with logfire.instrument_fastapi(parent):
+                with TestClient(child) as client:
+                    assert client.post('/private', json=payload).json() == payload
+                assert exporter.exported_spans_as_dict() == []
+                assert local_exporter.exported_spans_as_dict() == []
+
+                with TestClient(parent) as client:
+                    assert client.post('/child/private', json=payload).json() == payload
+                private_spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+                assert not any('fastapi.arguments.values' in span['attributes'] for span in private_spans)
+                assert local_exporter.exported_spans_as_dict() == []
+                exporter.clear()
+
+                with TestClient(parent) as client:
+                    assert client.post('/child/public', json=payload).json() == payload
+                global_spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+                assert not any('fastapi.arguments.values' in span['attributes'] for span in global_spans)
+                local_spans = local_exporter.exported_spans_as_dict(parse_json_attributes=True)
+                assert [span['attributes']['fastapi.arguments.values'] for span in local_spans] == [
+                    {'payload': payload}
+                ]
+
+            exporter.clear()
+            local_exporter.clear()
+            with TestClient(child) as client:
+                assert client.post('/public', json=payload).json() == payload
+            assert exporter.exported_spans_as_dict() == []
+            assert len(local_exporter.exported_spans_as_dict()) == 1

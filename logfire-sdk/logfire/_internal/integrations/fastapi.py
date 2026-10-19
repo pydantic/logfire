@@ -96,6 +96,7 @@ def instrument_fastapi(
             logfire_instance,
             request_attributes_mapper or _default_request_attributes_mapper,
             extra_spans=extra_spans,
+            has_own_middleware=True,
         )
 
         @contextmanager
@@ -109,15 +110,17 @@ def instrument_fastapi(
 
         return uninstrument_global()
 
-    mounted_apps = find_mounted_apps(app)
-    mounted_apps.append(app)
+    # A mounted child may already have its own per-app settings. This context owns only
+    # apps that were not registered by an earlier per-app call.
+    owned_apps = [_app for _app in find_mounted_apps(app) if _app not in registry.per_app]
+    owned_apps.append(app)
     # Restore middleware owned by global instrumentation when a per-app context ends.
     globally_instrumented_apps = {
         _app
-        for _app in mounted_apps
+        for _app in owned_apps
         if registry.global_instrumentation is not None and getattr(_app, '_is_instrumented_by_opentelemetry', False)
     }
-    for _app in mounted_apps:
+    for _app in owned_apps:
         if _app is app or _app in globally_instrumented_apps:
             if _app in globally_instrumented_apps:
                 FastAPIInstrumentor.uninstrument_app(_app)
@@ -125,11 +128,12 @@ def instrument_fastapi(
                 _app.middleware_stack = None
             FastAPIInstrumentor.instrument_app(_app, **opentelemetry_kwargs)
 
-    for _app in mounted_apps:
+    for _app in owned_apps:
         registry.per_app[_app] = FastAPIInstrumentation(
             logfire_instance,
             request_attributes_mapper or _default_request_attributes_mapper,
             extra_spans=extra_spans,
+            has_own_middleware=_app is app or _app in globally_instrumented_apps,
         )
 
     @contextmanager
@@ -140,7 +144,7 @@ def instrument_fastapi(
         try:
             yield
         finally:
-            for _app in mounted_apps:
+            for _app in owned_apps:
                 del registry.per_app[_app]
                 FastAPIInstrumentor.uninstrument_app(_app)
                 if _app in globally_instrumented_apps and registry.global_opentelemetry_kwargs is not None:
@@ -213,11 +217,13 @@ class FastAPIInstrumentation:
             dict[str, Any] | None,
         ],
         extra_spans: bool,
+        has_own_middleware: bool,
     ):
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='fastapi')
         self.timestamp_generator = self.logfire_instance.config.advanced.ns_timestamp_generator
         self.request_attributes_mapper = request_attributes_mapper
         self.extra_spans = extra_spans
+        self.has_own_middleware = has_own_middleware
 
     @contextmanager
     def pseudo_span(self, namespace: str, root_span: Span):
@@ -241,7 +247,11 @@ class FastAPIInstrumentation:
 
     async def solve_dependencies(self, request: Request | WebSocket, original: Awaitable[Any]) -> Any:
         root_span = request.scope.get(LOGFIRE_SPAN_SCOPE_KEY)
-        if not (root_span and root_span.is_recording()):
+        if not (
+            root_span
+            and root_span.is_recording()
+            and (not self.has_own_middleware or request.scope.get(LOGFIRE_SPAN_APP_SCOPE_KEY) is request.app)
+        ):
             return await original
 
         with self.logfire_instance.span('FastAPI arguments') if self.extra_spans else NoopSpan() as span:
@@ -363,6 +373,7 @@ class _InstrumentedValues(dict):  # pyright: ignore[reportMissingTypeArgument]
 
 
 LOGFIRE_SPAN_SCOPE_KEY = 'logfire.span'
+LOGFIRE_SPAN_APP_SCOPE_KEY = 'logfire.span.app'
 
 
 def _server_request_hook(user_hook: ServerRequestHook | None):
@@ -370,6 +381,7 @@ def _server_request_hook(user_hook: ServerRequestHook | None):
     # Also call the user's hook if they passed one.
     def hook(span: Span, scope: dict[str, Any]):
         scope[LOGFIRE_SPAN_SCOPE_KEY] = span
+        scope[LOGFIRE_SPAN_APP_SCOPE_KEY] = scope.get('app')
         # FastAPI's native telemetry detects legacy OTel on the root app, but not
         # mounted apps. Its scope marker keeps those apps from starting new traces.
         scope.setdefault('fastapi.telemetry', None)
