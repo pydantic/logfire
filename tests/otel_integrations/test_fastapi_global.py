@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from opentelemetry.trace import Span
+from starlette.requests import Request
 from starlette.testclient import TestClient
 from starlette.types import Scope
+from starlette.websockets import WebSocket
 
 pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7', exc_type=ImportError)
 
@@ -69,3 +73,43 @@ def test_global_fastapi_enrichment(exporter: TestExporter, extra_spans: bool, ex
     assert sum(span['name'] == 'inside request handler' for span in spans) == 1
     assert not any('fastapi.arguments.start_timestamp' in span['attributes'] for span in spans)
     assert not any('test.path' in span['attributes'] for span in spans)
+
+
+@pytest.mark.parametrize('preexisting_app', [False, True])
+def test_global_fastapi_per_app_override(exporter: TestExporter, preexisting_app: bool) -> None:
+    def global_mapper(_request: Request | WebSocket, attributes: dict[str, Any]) -> dict[str, Any]:
+        return {**attributes, 'mapper.source': 'global'}
+
+    def per_app_mapper(_request: Request | WebSocket, attributes: dict[str, Any]) -> dict[str, Any]:
+        return {**attributes, 'mapper.source': 'per-app'}
+
+    app = fastapi.FastAPI() if preexisting_app else None
+    with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE, request_attributes_mapper=global_mapper):
+        if app is None:
+            app = fastapi.FastAPI()
+        child = fastapi.FastAPI()
+        app.mount('/child', child)
+
+        async def homepage(item_id: int) -> int:
+            return item_id
+
+        app.get('/items/{item_id}')(homepage)
+        child.get('/items/{item_id}')(homepage)
+        with logfire.instrument_fastapi(app, request_attributes_mapper=per_app_mapper, extra_spans=True):
+            for target in (app, child):
+                with TestClient(target) as client:
+                    assert client.get('/items/123').json() == 123
+            spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+            roots = [span for span in spans if span['name'] == 'GET /items/{item_id}']
+            assert len(roots) == 2
+            assert all(span['attributes']['mapper.source'] == 'per-app' for span in roots)
+            assert len(spans) == 6
+
+        # Ending the per-app context restores global enrichment and keeps its middleware active.
+        exporter.clear()
+        for target in (child,) if preexisting_app else (app, child):
+            with TestClient(target) as client:
+                assert client.get('/items/123').json() == 123
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert len(spans) == (1 if preexisting_app else 2)
+        assert all(span['attributes']['mapper.source'] == 'global' for span in spans)
