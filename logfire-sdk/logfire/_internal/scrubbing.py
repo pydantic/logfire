@@ -167,6 +167,22 @@ class BaseScrubber(ABC):
         'model_request_parameters',
         'langsmith.metadata.session_id',
         'langsmith.trace.session_name',
+        # The Agent Control config hint (`agent_control_config_hint`), the span an Agent Control SDK
+        # such as `pydantic-ai-harness`'s `AgentControl` reports an agent's code baseline on, for the
+        # Logfire UI to create a config from. `agent_control.baseline` is the agent's own source text -- the
+        # prompt and tool descriptions its author wrote, with request-derived values already kept out
+        # by the contract that builds it -- and it is the document a config is created from, digested
+        # by `agent_control.baseline_sha256` and sized by `agent_control.baseline_bytes`. Redacting a
+        # word inside it corrupts that document and silently breaks both. The identity and deployment
+        # attributes go with it: the same service name, environment and version already arrive
+        # unscrubbed as OTel resource attributes, which spans are not scrubbed against, so redacting
+        # the copy on this span protects nothing and costs the consumer the agent it names.
+        'agent_control.baseline',
+        'agent_control.variable_name',
+        'agent_control.agent_name',
+        'agent_control.service_name',
+        'agent_control.environment',
+        'agent_control.service_version',
         gen_ai_semconv.INPUT_MESSAGES,
         gen_ai_semconv.OUTPUT_MESSAGES,
         gen_ai_semconv.SYSTEM_INSTRUCTIONS,
@@ -184,6 +200,24 @@ class BaseScrubber(ABC):
         gen_ai_semconv.REQUEST_MODEL,
         gen_ai_semconv.RESPONSE_MODEL,
     }
+
+    # Attribute keys under these prefixes are safe, for the same reason as `SAFE_KEYS` but where the
+    # key is built at runtime and cannot be listed. This is the SDK exempting its own instrumentation's
+    # namespace, not a general opt-out: nothing outside this module adds to it.
+    SAFE_KEY_PREFIXES = (
+        # `logfire.variables.<name>` carries which label of a managed variable served the run, and
+        # `.version` the version number, for every span inside the resolution. The name is the
+        # developer's variable name, so a variable called `agent__auth_router` or
+        # `prompt__session_summary` matched on its *key* and had its label redacted -- losing the
+        # version attribution that makes a managed variable auditable, on every span of the run,
+        # while protecting nothing: what the value holds is a label the same developer chose.
+        'logfire.variables.',
+    )
+
+    @classmethod
+    def is_safe_key(cls, key: str) -> bool:
+        """Whether an attribute key and everything under it is kept whatever the patterns match."""
+        return key in cls.SAFE_KEYS or key.startswith(cls.SAFE_KEY_PREFIXES)
 
     @abstractmethod
     def scrub_span(self, span: ReadableSpanDict): ...
@@ -335,7 +369,7 @@ class SpanScrubber:
         elif isinstance(value, Mapping):
             result: dict[str, Any] = {}
             for k, v in cast('Mapping[str, Any]', value).items():
-                if k in BaseScrubber.SAFE_KEYS:
+                if BaseScrubber.is_safe_key(k):
                     result[k] = v
                 elif match := self._pattern.search(k):
                     redacted = self._redact(ScrubMatch(path + (k,), v, match))
