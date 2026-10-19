@@ -349,8 +349,8 @@ def instrumented_packages_text(
 ) -> Text:
     installed_versions = installed_versions or {}
 
-    # Filter out special cases for display
-    if 'fastapi' in installed_pkgs:
+    # Hide Starlette only when FastAPI instrumentation actually succeeded.
+    if 'fastapi' in instrumented_packages:
         installed_otel_pkgs = installed_otel_pkgs - {'opentelemetry-instrumentation-starlette'}
     if 'requests' in installed_pkgs:
         installed_otel_pkgs = installed_otel_pkgs - {'opentelemetry-instrumentation-urllib3'}
@@ -370,7 +370,7 @@ def instrumented_packages_text(
                 text.append(f'✓ {target_package} (installed and instrumented)\n', style='green')
             else:
                 # This is the case on OTel packages that don't have a Logfire method, methods that need the app
-                # like Starlette, FastAPI and Flask, and client families unsupported by an older OTel package.
+                # like FastAPI, and client families unsupported by an older OTel package.
                 text.append(f'⚠️ {target_package} (installed but not automatically instrumented)\n', style='yellow')
     return text
 

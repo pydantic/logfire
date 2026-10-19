@@ -6378,6 +6378,17 @@ Your instrumentation checklist:
     )
 
 
+@pytest.mark.parametrize('fastapi_instrumentor_installed', [False, True])
+def test_instrumented_packages_text_shows_starlette_without_fastapi_instrumentation(
+    fastapi_instrumentor_installed: bool,
+) -> None:
+    installed_otel_pkgs = {'opentelemetry-instrumentation-starlette'}
+    if fastapi_instrumentor_installed:
+        installed_otel_pkgs.add('opentelemetry-instrumentation-fastapi')
+    text = instrumented_packages_text(installed_otel_pkgs, ['starlette'], {'fastapi', 'starlette'})
+    assert '✓ starlette (installed and instrumented)' in str(text)
+
+
 def test_parse_run_no_script(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr('logfire.configure', configure_mock := Mock())
     monkeypatch.setattr('logfire._internal.cli.run.instrument_package', Mock())
@@ -6497,12 +6508,14 @@ print(json.dumps(exporter.exported_spans_as_dict()))
     spans = json.loads(result.stdout)
     if exclude_starlette:
         assert spans == []
+        assert 'starlette (installed and instrumented)' not in result.stderr
     else:
         # The default CLI configuration keeps the server span and filters send/receive spans.
         assert [span['name'] for span in spans] == ['GET /hello/{name}']
         assert spans[0]['attributes']['http.route'] == '/hello/{name}'
         assert spans[0]['attributes']['http.status_code'] == 200
         assert spans[0]['attributes']['logfire.msg'] == 'GET /hello/world'
+        assert 'starlette (installed and instrumented)' in result.stderr
 
 
 def test_parse_run_script(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
