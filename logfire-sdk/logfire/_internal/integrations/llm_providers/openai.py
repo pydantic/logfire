@@ -58,7 +58,6 @@ from .usage import get_usage_attributes
 
 if TYPE_CHECKING:
     from openai._models import FinalRequestOptions
-    from openai._types import ResponseT
 
     from ...main import LogfireSpan
 
@@ -619,18 +618,18 @@ def get_openai_usage_attributes(response: Any, base_url: str | None = None) -> d
 
 @handle_internal_errors
 def on_response(
-    response: ResponseT,
+    response: Any,
     span: LogfireSpan,
     *,
     version: NormalizedSemconvVersion | frozenset[NormalizedSemconvVersion] = 2,
     base_url: str | None = None,
-) -> ResponseT:
+) -> None:
     """Updates the span based on the type of response."""
     versions: frozenset[NormalizedSemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
     if isinstance(response, LegacyAPIResponse):  # pragma: no cover
-        on_response(response.parse(), span, version=versions, base_url=base_url)  # pyright: ignore[reportUnknownArgumentType]
-        return cast('ResponseT', response)
+        on_response(response.parse(), span, version=versions, base_url=base_url)
+        return
 
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute(RESPONSE_MODEL, response_model)
@@ -701,7 +700,6 @@ def on_response(
             else:
                 events += responses_output_events(response)
                 span.set_attribute('events', events)
-    return response
 
 
 def is_async_client(client: type[openai.OpenAI] | type[openai.AsyncOpenAI]):

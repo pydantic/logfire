@@ -28,7 +28,7 @@ class OnResponseFn(Protocol):
     provider that actually served the request.
     """
 
-    def __call__(self, response: Any, span: LogfireSpan, *, base_url: str | None = None) -> Any: ...
+    def __call__(self, response: Any, span: LogfireSpan, *, base_url: str | None = None) -> None: ...
 
 
 def instrument_llm_provider(

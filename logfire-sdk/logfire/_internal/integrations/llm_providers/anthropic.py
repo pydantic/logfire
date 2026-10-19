@@ -47,7 +47,6 @@ from .usage import get_usage_attributes
 
 if TYPE_CHECKING:
     from anthropic._models import FinalRequestOptions
-    from anthropic._types import ResponseT
 
     from ...main import LogfireSpan
 
@@ -355,12 +354,12 @@ def get_anthropic_usage_attributes(response: Any, base_url: str | None = None) -
 
 @handle_internal_errors
 def on_response(
-    response: ResponseT,
+    response: Any,
     span: LogfireSpan,
     *,
     version: NormalizedSemconvVersion | frozenset[NormalizedSemconvVersion] = 2,
     base_url: str | None = None,
-) -> ResponseT:
+) -> None:
     """Updates the span based on the type of response."""
     versions: frozenset[NormalizedSemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
@@ -394,8 +393,6 @@ def on_response(
 
         if response.stop_reason:
             span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])
-
-    return response
 
 
 def is_async_client(
