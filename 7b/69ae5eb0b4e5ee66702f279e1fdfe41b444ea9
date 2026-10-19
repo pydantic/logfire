@@ -1,0 +1,19 @@
+logfire-sdk/logfire/_internal/integrations/fastapi.py
+  s_30ca6041e94a4e::t_96d6b9f4050133 92,99,114,120-128,130-132,139,156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7b69ae5eb0b4e5ee66702f279e1fdfe41b444ea9",
+  "prompts": {},
+  "sessions": {
+    "s_30ca6041e94a4e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1540a-9b9a-7f92-80eb-1325db218932",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
