@@ -20,11 +20,12 @@ from logfire.integrations.flask import CommenterOptions, RequestHook, ResponseHo
 
 def instrument_flask(
     logfire_instance: Logfire,
-    app: Flask,
+    # Only the CLI omits app: instrument before application code imports `Flask` from `flask`.
+    app: Flask | None = None,
     *,
-    capture_headers: bool,
-    enable_commenter: bool,
-    commenter_options: CommenterOptions | None,
+    capture_headers: bool = False,
+    enable_commenter: bool = True,
+    commenter_options: CommenterOptions | None = None,
     excluded_urls: str | None = None,
     request_hook: RequestHook | None = None,
     response_hook: ResponseHook | None = None,
@@ -36,16 +37,17 @@ def instrument_flask(
     """
     maybe_capture_server_headers(capture_headers)
 
-    FlaskInstrumentor().instrument_app(  # pyright: ignore[reportUnknownMemberType]
-        app,
-        enable_commenter=enable_commenter,
-        commenter_options=commenter_options,
-        excluded_urls=excluded_urls,
-        request_hook=request_hook,
-        response_hook=response_hook,
-        **{
-            'tracer_provider': logfire_instance.config.get_tracer_provider(),
-            'meter_provider': logfire_instance.config.get_meter_provider(),
-            **kwargs,
-        },
-    )
+    opentelemetry_kwargs: dict[str, Any] = {
+        'enable_commenter': enable_commenter,
+        'commenter_options': commenter_options or {},
+        'excluded_urls': excluded_urls,
+        'request_hook': request_hook,
+        'response_hook': response_hook,
+        'tracer_provider': logfire_instance.config.get_tracer_provider(),
+        'meter_provider': logfire_instance.config.get_meter_provider(),
+        **kwargs,
+    }
+    if app is None:
+        FlaskInstrumentor().instrument(**opentelemetry_kwargs)
+    else:
+        FlaskInstrumentor().instrument_app(app, **opentelemetry_kwargs)  # pyright: ignore[reportUnknownMemberType]
