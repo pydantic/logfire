@@ -824,9 +824,9 @@ def test_agent_control_hint_attributes_are_not_scrubbed(exporter: TestExporter):
 
 def test_a_safe_key_does_not_exempt_its_neighbours(exporter: TestExporter):
     """The exemption is per key: an unlisted key on the same span is still scrubbed."""
-    attributes: dict[str, Any] = {'agent_control.agent_name': 'auth_router', 'agent_control.note': 'auth'}
+    attributes: dict[str, Any] = {'agent_control.agent_name': 'auth_router', 'agent_control.auth_note': 'x'}
     logfire.info('hint', **attributes)
 
     [span] = exporter.exported_spans_as_dict()
     assert span['attributes']['agent_control.agent_name'] == 'auth_router'
-    assert span['attributes']['agent_control.note'] == "[Scrubbed due to 'auth']"
+    assert span['attributes']['agent_control.auth_note'] == "[Scrubbed due to 'auth']"
