@@ -30,6 +30,7 @@ from sqlalchemy.sql.schema import ForeignKey
 from sqlmodel import SQLModel
 
 import logfire
+from logfire._internal.json_formatter import json_args_value_formatter
 from logfire._internal.json_schema import create_json_schema
 from logfire.testing import TestExporter
 
@@ -925,6 +926,133 @@ def test_attrs_falsey_callable_repr(exporter: TestExporter) -> None:
         'x-python-datatype': 'attrs',
         'properties': {'value': {'type': 'object', 'title': 'MyDataclass', 'x-python-datatype': 'dataclass'}},
     }
+
+
+@pytest.mark.parametrize(
+    'row_count,row_positions', [(0, []), (1, [0]), (3, [0, 1, 2]), (4, [0, 1, 2, 3]), (5, [0, 1, 3, 4])]
+)
+@pytest.mark.parametrize(
+    'column_count,column_positions', [(0, []), (1, [0]), (3, [0, 1, 2]), (4, [0, 1, 2, 3]), (5, [0, 1, 3, 4])]
+)
+def test_log_dataframe_labels_match_data(
+    exporter: TestExporter,
+    row_count: int,
+    row_positions: list[int],
+    column_count: int,
+    column_positions: list[int],
+) -> None:
+    frame = pandas.DataFrame(
+        [[row * column_count + column for column in range(column_count)] for row in range(row_count)],
+        columns=[f'col{column}' for column in range(column_count)],
+        index=[f'row{row}' for row in range(row_count)],
+    )
+    with pandas.option_context('display.max_rows', 4, 'display.max_columns', 4):  # pyright: ignore[reportUnknownMemberType]
+        logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    value = attributes['frame']
+    schema = attributes['logfire.json_schema']
+    assert isinstance(value, str)
+    assert isinstance(schema, str)
+    assert json.loads(value) == [[row * column_count + column for column in column_positions] for row in row_positions]
+    assert json.loads(schema)['properties']['frame'] == {
+        'type': 'array',
+        'x-python-datatype': 'DataFrame',
+        'x-columns': [f'col{column}' for column in column_positions],
+        'x-indices': [f'row{row}' for row in row_positions],
+        'x-column-count': column_count,
+        'x-row-count': row_count,
+    }
+
+
+@pytest.mark.parametrize(
+    'max_rows,max_columns,row_positions,column_positions',
+    [
+        (None, None, [0, 1, 2, 3, 4], [0, 1, 2, 3, 4]),
+        (None, 2, [0, 1, 2, 3, 4], [0, 4]),
+        (2, None, [0, 4], [0, 1, 2, 3, 4]),
+        (0, 0, [0, 1, 2, 3, 4], [0, 1, 2, 3, 4]),
+        (1, 1, [0], [0]),
+        (3, 3, [0, 1, 4], [0, 1, 4]),
+    ],
+)
+def test_log_dataframe_with_unlimited_and_odd_display_limits(
+    exporter: TestExporter,
+    max_rows: int | None,
+    max_columns: int | None,
+    row_positions: list[int],
+    column_positions: list[int],
+) -> None:
+    frame = pandas.DataFrame(
+        [[row * 5 + column for column in range(5)] for row in range(5)],
+        columns=[f'col{column}' for column in range(5)],
+        index=[f'row{row}' for row in range(5)],
+    )
+    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):  # pyright: ignore[reportUnknownMemberType]
+        logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    assert isinstance(attributes['frame'], str)
+    assert isinstance(attributes['logfire.json_schema'], str)
+    assert json.loads(attributes['frame']) == [
+        [row * 5 + column for column in column_positions] for row in row_positions
+    ]
+    assert json.loads(attributes['logfire.json_schema'])['properties']['frame'] == {
+        'type': 'array',
+        'x-python-datatype': 'DataFrame',
+        'x-columns': [f'col{column}' for column in column_positions],
+        'x-indices': [f'row{row}' for row in row_positions],
+        'x-column-count': 5,
+        'x-row-count': 5,
+    }
+
+
+@pytest.mark.parametrize(
+    'max_rows,row_labels',
+    [(1, ['row0', '...']), (3, ['row0', 'row1', '...', 'row6']), (5, ['row0', 'row1', 'row2', '...', 'row5', 'row6'])],
+)
+@pytest.mark.parametrize(
+    'max_columns,column_labels',
+    [(1, ['col0', '...']), (3, ['col0', 'col1', '...', 'col6']), (5, ['col0', 'col1', 'col2', '...', 'col5', 'col6'])],
+)
+def test_log_dataframe_odd_display_limits_formatting(
+    exporter: TestExporter,
+    max_rows: int,
+    row_labels: list[str],
+    max_columns: int,
+    column_labels: list[str],
+) -> None:
+    frame = pandas.DataFrame(
+        [[row * 7 + column for column in range(7)] for row in range(7)],
+        columns=[f'col{column}' for column in range(7)],
+        index=[f'row{row}' for row in range(7)],
+    )
+    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):  # pyright: ignore[reportUnknownMemberType]
+        logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    assert isinstance(attributes['frame'], str)
+    assert isinstance(attributes['logfire.json_schema'], str)
+    formatted = json_args_value_formatter(
+        json.loads(attributes['frame']), schema=json.loads(attributes['logfire.json_schema'])['properties']['frame']
+    )
+    cells = [[cell.strip() for cell in line.split('|')] for line in formatted.splitlines() if '|' in line]
+    assert cells == [
+        ['', *column_labels],
+        *[
+            [
+                row,
+                *[
+                    '...' if '...' in (row, column) else str(int(row[3:]) * 7 + int(column[3:]))
+                    for column in column_labels
+                ],
+            ]
+            for row in row_labels
+        ],
+    ]
 
 
 def test_log_non_finite_scalar_float_args(exporter: TestExporter) -> None:
