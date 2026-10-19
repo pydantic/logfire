@@ -7,6 +7,7 @@ Send new CloudWatch logs and metric samples to a Logfire project without running
 Amazon Data Firehose buffers the data and delivers it to Logfire over HTTPS.
 
 !!! warning "Experimental"
+    The Cloud onboarding guide is available in staging and local development.
     Your Logfire deployment must enable Firehose ingestion.
     Confirm support for both selected signals with your administrator before you create resources.
     This guide does not enable Firehose on your deployment.
@@ -15,10 +16,12 @@ Amazon Data Firehose buffers the data and delivers it to Logfire over HTTPS.
 
 You need:
 
-- A Logfire project and permission to create an ingest credential.
-  The Cloud guide can create an ingest-only API key for you.
+- A Logfire project and a service write token for the project.
+  A project administrator can use the Cloud guide to create an ingest-only service API key.
   For manual setup, create a token under **Settings → Write tokens**, or an API key with the
   `project:write_otlp` scope under **Settings → API keys**.
+  Ask an administrator to create the key without the personal-key option.
+  A personal API key stops working if its owner loses project access.
 - The deployment's public HTTPS ingest base URL, without a path or trailing slash.
 - An AWS account and region that contain the data you want to collect.
 - Permission to create a CloudFormation stack, Identity and Access Management (IAM) roles,
@@ -57,7 +60,8 @@ Avoid collecting the same metrics through both Firehose and an OpenTelemetry Col
 
 4. Acknowledge the IAM resources and create the stack. Wait for `CREATE_COMPLETE`.
 
-The token is shown once in Logfire. Keep it until you create the stack.
+The token is shown once in Logfire. Copy and save it before you leave the AWS page.
+Keep it until you create the stack.
 CloudFormation does not prefill secret parameters from a quick-create link.
 Paste the token into its masked field in AWS.
 Organization lifetime policies apply to generated tokens. Update the stack when you rotate an expiring token.
