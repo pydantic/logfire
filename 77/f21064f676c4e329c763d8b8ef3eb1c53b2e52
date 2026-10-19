@@ -1,0 +1,24 @@
+tests/otel_integrations/test_litestar.py
+  s_7cef6b51647ed2::t_cbffa7a9acdf8a 588-590
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "77f21064f676c4e329c763d8b8ef3eb1c53b2e52",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_7cef6b51647ed2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a154c9-5c63-7390-9804-e9228453d4cb",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
