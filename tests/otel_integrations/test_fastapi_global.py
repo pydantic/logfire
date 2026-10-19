@@ -113,3 +113,23 @@ def test_global_fastapi_per_app_override(exporter: TestExporter, preexisting_app
         spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
         assert len(spans) == (1 if preexisting_app else 2)
         assert all(span['attributes']['mapper.source'] == 'global' for span in spans)
+
+
+def test_global_fastapi_rejects_duplicate_instrumentation(exporter: TestExporter) -> None:
+    with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE):
+        with pytest.raises(ValueError, match='already been globally instrumented'):
+            instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE)
+        app = fastapi.FastAPI()
+
+        @app.get('/items/{item_id}')
+        async def homepage(item_id: int) -> int:
+            return item_id
+
+        with logfire.instrument_fastapi(app):
+            with pytest.raises(ValueError, match='This app has already been instrumented'):
+                logfire.instrument_fastapi(app)
+            with TestClient(app) as client:
+                assert client.get('/items/123').json() == 123
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert [span['name'] for span in spans] == ['GET /items/{item_id}']
+        assert spans[0]['attributes']['fastapi.arguments.values'] == {'item_id': 123}
