@@ -1,5 +1,6 @@
 from __future__ import annotations as _annotations
 
+import contextlib
 import gc
 import json
 import logging
@@ -2251,3 +2252,106 @@ def test_stream_response_metadata(version: Any, complete: bool, exporter: TestEx
     else:
         assert 'gen_ai.response.finish_reasons' not in attributes
     client.close()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('async_client', [False, True])
+@pytest.mark.parametrize('stream', [False, True])
+@pytest.mark.parametrize('form', ['list', 'tuple', 'generator'])
+@pytest.mark.parametrize('version', [1, 'latest', [1, 'latest']])
+async def test_message_iterables_preserve_request(
+    exporter: TestExporter, async_client: bool, stream: bool, form: str, version: Any
+) -> None:
+    sent: list[dict[str, Any]] = []
+    messages = [{'role': 'user', 'content': 'What is four plus five?'}]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content))
+        return request_handler(request)
+
+    def input_messages() -> Any:
+        if form == 'generator':
+            return (message for message in messages)
+        return tuple(messages) if form == 'tuple' else messages
+
+    for instrument in [False, True]:
+        if async_client:
+            async with anthropic.AsyncAnthropic(
+                api_key='synthetic', max_retries=0, http_client=httpx.AsyncClient(transport=MockTransport(handler))
+            ) as client:
+                with logfire.instrument_anthropic(client, version=version) if instrument else contextlib.nullcontext():
+                    result = await client.messages.create(
+                        model='claude-3-haiku-20240307',
+                        max_tokens=20,
+                        system='Synthetic system',
+                        messages=input_messages(),
+                        stream=stream,
+                    )
+                    if stream:
+                        assert isinstance(result, anthropic.AsyncStream)
+                        async for _ in result:
+                            pass
+        else:
+            with anthropic.Anthropic(
+                api_key='synthetic', max_retries=0, http_client=httpx.Client(transport=MockTransport(handler))
+            ) as client:
+                with logfire.instrument_anthropic(client, version=version) if instrument else contextlib.nullcontext():
+                    result = client.messages.create(
+                        model='claude-3-haiku-20240307',
+                        max_tokens=20,
+                        system='Synthetic system',
+                        messages=input_messages(),
+                        stream=stream,
+                    )
+                    if stream:
+                        list(result)
+
+    assert sent[0]['messages'] == messages
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attrs = [span['attributes'] for span in spans if 'LLM' in span['attributes'].get('logfire.tags', ())]
+    assert attrs
+    assert len(sent) == 2, {'sent': sent, 'span_attributes': attrs}
+    assert sent[1] == sent[0], {'sent': sent, 'span_attributes': attrs}
+    for attributes in attrs:
+        if version != 1:
+            assert attributes['gen_ai.system_instructions'] == [{'type': 'text', 'content': 'Synthetic system'}]
+        if version == 1 or form == 'generator':
+            assert 'gen_ai.input.messages' not in attributes
+        else:
+            assert attributes['gen_ai.input.messages'] == [
+                {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+            ]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('async_client', [False, True])
+@pytest.mark.parametrize('stream', [False, True])
+async def test_message_generator_errors_are_not_swallowed(async_client: bool, stream: bool) -> None:
+    sent: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return request_handler(request)
+
+    def messages() -> Iterator[Any]:
+        yield {'role': 'user', 'content': 'Before error'}
+        raise ValueError('synthetic generator error')
+
+    for instrument in [False, True]:
+        if async_client:
+            async with anthropic.AsyncAnthropic(
+                api_key='synthetic', max_retries=0, http_client=httpx.AsyncClient(transport=MockTransport(handler))
+            ) as client:
+                with logfire.instrument_anthropic(client) if instrument else contextlib.nullcontext():
+                    with pytest.raises(ValueError, match='synthetic generator error'):
+                        await client.messages.create(
+                            model='synthetic', max_tokens=20, messages=messages(), stream=stream
+                        )
+        else:
+            with anthropic.Anthropic(
+                api_key='synthetic', max_retries=0, http_client=httpx.Client(transport=MockTransport(handler))
+            ) as client:
+                with logfire.instrument_anthropic(client) if instrument else contextlib.nullcontext():
+                    with pytest.raises(ValueError, match='synthetic generator error'):
+                        client.messages.create(model='synthetic', max_tokens=20, messages=messages(), stream=stream)
+    assert sent == []

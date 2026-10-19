@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from inspect import signature
 from typing import TYPE_CHECKING, Any, cast
 
@@ -117,11 +117,15 @@ def get_endpoint_config(
 
         if 2 in versions:
             # Convert messages to semantic convention format
-            messages: list[dict[str, Any]] = json_data.get('messages', [])
+            messages = json_data.get('messages', [])
             system: str | list[dict[str, Any]] | None = json_data.get('system')
             if messages or system:
-                input_messages, system_instructions = convert_messages_to_semconv(messages, system)
-                span_data[INPUT_MESSAGES] = input_messages
+                # Do not consume iterators before the SDK serializes the request.
+                input_messages, system_instructions = convert_messages_to_semconv(
+                    cast('Sequence[dict[str, Any]]', messages) if isinstance(messages, (list, tuple)) else [], system
+                )
+                if isinstance(messages, (list, tuple)):
+                    span_data[INPUT_MESSAGES] = input_messages
                 if system_instructions:
                     span_data[SYSTEM_INSTRUCTIONS] = system_instructions
 
@@ -218,7 +222,7 @@ def make_tool_call_part(
 
 
 def convert_messages_to_semconv(
-    messages: list[dict[str, Any]],
+    messages: Sequence[dict[str, Any]],
     system: str | list[dict[str, Any]] | None = None,
 ) -> tuple[InputMessages, SystemInstructions]:
     """Convert Anthropic messages format to OTel Gen AI Semantic Convention format.
