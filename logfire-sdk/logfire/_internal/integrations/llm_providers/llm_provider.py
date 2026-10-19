@@ -169,8 +169,6 @@ def instrument_llm_provider(
                     return original_request_method(*args, **kwargs)
                 else:
                     response = original_request_method(*args, **kwargs)
-                    # `on_response_fn` returns `None` when recording fails with an internal error,
-                    # so its return value must not replace the response the caller gets.
                     on_response_fn(response, span, base_url=_client_base_url(args))
                     return response
 
