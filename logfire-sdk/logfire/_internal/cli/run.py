@@ -369,8 +369,8 @@ def instrumented_packages_text(
             if is_instrumented:
                 text.append(f'✓ {target_package} (installed and instrumented)\n', style='green')
             else:
-                # This covers packages without a Logfire method, integrations requiring explicit app setup,
-                # and client families unsupported by an older OTel package.
+                # This covers packages without a Logfire method and client families
+                # unsupported by an older OTel package.
                 text.append(f'⚠️ {target_package} (installed but not automatically instrumented)\n', style='yellow')
     return text
 
