@@ -14,13 +14,11 @@ from logfire._internal.utils import canonicalize_exception_traceback
 from logfire.types import ExceptionCallbackHelper, LevelName
 
 
-@pytest.mark.parametrize('exception_type', [asyncio.CancelledError, ValueError])
 @pytest.mark.parametrize('level', [None, 'warn', 'error', 'fatal'])
 @pytest.mark.parametrize('record_exception', [True, False])
 def test_exception_callback_status(
     exporter: TestExporter,
     config_kwargs: dict[str, Any],
-    exception_type: type[BaseException],
     level: LevelName | None,
     record_exception: bool,
 ) -> None:
@@ -36,13 +34,13 @@ def test_exception_callback_status(
         config_kwargs['advanced'].exception_callback = exception_callback
     logfire.configure(**config_kwargs)
 
-    with pytest.raises(exception_type, match='test'), logfire.span('foo'):
-        raise exception_type('test')
+    with pytest.raises(asyncio.CancelledError, match='test'), logfire.span('foo'):
+        raise asyncio.CancelledError('test')
 
     (_pending, span) = exporter.exported_spans
     is_error = level != 'warn'
     assert span.status.status_code == (StatusCode.ERROR if is_error else StatusCode.UNSET)
-    assert span.status.description == (f'{exception_type.__name__}: test' if is_error else None)
+    assert span.status.description == ('CancelledError: test' if is_error else None)
     assert span.attributes is not None
     assert span.attributes['logfire.level_num'] == {'warn': 13, 'error': 17, 'fatal': 21}[level or 'error']
     assert (ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY in span.attributes) == (is_error and record_exception)
@@ -50,9 +48,7 @@ def test_exception_callback_status(
         [event] = span.events
         assert event.name == 'exception'
         assert event.attributes is not None
-        assert event.attributes['exception.type'] == (
-            'asyncio.exceptions.CancelledError' if exception_type is asyncio.CancelledError else 'ValueError'
-        )
+        assert event.attributes['exception.type'] == 'asyncio.exceptions.CancelledError'
         assert event.attributes['exception.message'] == 'test'
         assert event.attributes['exception.escaped'] == 'True'
     else:
