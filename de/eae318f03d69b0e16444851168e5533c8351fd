@@ -1,0 +1,23 @@
+logfire-sdk/logfire/_internal/integrations/llm_providers/anthropic.py
+  s_8ac639d9f88a9a::t_ffab393ece1df9 357,362
+logfire-sdk/logfire/_internal/integrations/llm_providers/llm_provider.py
+  s_8ac639d9f88a9a::t_1a947e8105c0e6 31
+logfire-sdk/logfire/_internal/integrations/llm_providers/openai.py
+  s_8ac639d9f88a9a::t_f2df258e88bd08 621,626,631-632
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "deeae318f03d69b0e16444851168e5533c8351fd",
+  "prompts": {},
+  "sessions": {
+    "s_8ac639d9f88a9a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a153b3-9391-7fd3-8ccb-4593f22aca4c",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
