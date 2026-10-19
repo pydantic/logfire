@@ -1617,6 +1617,28 @@ def test_mock(exporter: TestExporter):
     )
 
 
+def test_array_schema_reuses_consecutive_equal_schemas():
+    schema = create_json_schema([None, [MyDataclass(1)], [MyDataclass(2)], None, None], set())
+    dataclass_array_schema = {
+        'type': 'array',
+        'items': {'type': 'object', 'title': 'MyDataclass', 'x-python-datatype': 'dataclass'},
+    }
+    assert schema == {
+        'type': 'array',
+        'prefixItems': [
+            {'type': 'null'},
+            dataclass_array_schema,
+            dataclass_array_schema,
+            {'type': 'null'},
+            {'type': 'null'},
+        ],
+    }
+    prefix_items = schema['prefixItems']
+    assert isinstance(prefix_items, list)
+    assert prefix_items[1] is prefix_items[2]
+    assert prefix_items[3] is prefix_items[4]
+
+
 def test_homogeneous_dict_schema():
     """Small dicts (≤10 keys) always use per-key properties."""
     # All values are datetimes → small dict → per-key properties
