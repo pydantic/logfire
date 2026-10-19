@@ -34,6 +34,7 @@ class JsonArgsValueFormatter:
             'deque': partial(self._format_list_like, 'deque([', '])'),
             'generator': partial(self._format_list_like, 'generator((', '))'),
             'bytes': self._format_bytes,
+            'bytearray': self._format_bytearray,
             'Decimal': partial(self._write, 'Decimal(', ')', True),
             'date': self._format_date,
             'datetime': self._format_datetime,
@@ -220,6 +221,10 @@ class JsonArgsValueFormatter:
         cls = schema and schema.get('title')
         output = f'{cls}({value})' if cls else value
         self._stream.write(output)
+
+    def _format_bytearray(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        cls = (schema and schema.get('title')) or 'bytearray'
+        self._stream.write(f'{cls}({value})')
 
     def _format_string(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
         """Format string value.
