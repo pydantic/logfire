@@ -118,6 +118,8 @@ For example, a sum of 90 and a count of 3 produce an average of 30.
 These four source statistics normally produce five stored data points per sample.
 Additional statistics produce more points.
 Logfire preserves fractional sample counts and does not infer histogram buckets or a counter interval.
+Counts and trimmed counts use the dimensionless unit `1`. Percentile ranks use `%`.
+Each metric point keeps the original CloudWatch unit in its `Unit` attribute.
 Use these gauge values directly. Do not calculate counter rates from them.
 
 ## Troubleshooting
