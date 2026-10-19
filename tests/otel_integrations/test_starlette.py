@@ -338,3 +338,51 @@ def test_global_starlette_instrumentation(
         assert len(spans) == 2 + len(io_spans)
     finally:
         StarletteInstrumentor().uninstrument()
+
+
+def test_global_starlette_websocket(exporter: TestExporter) -> None:
+    logfire._internal.integrations.starlette.instrument_starlette(logfire.DEFAULT_LOGFIRE_INSTANCE)
+    try:
+        from starlette.applications import Starlette
+
+        app = Starlette(routes=[WebSocketRoute('/ws/{name}', websocket_endpoint)])
+        with TestClient(app) as client, client.websocket_connect('/ws/foo') as websocket:
+            websocket.send_text('ping')
+            assert websocket.receive_text() == 'pong'
+
+        assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+            [
+                {
+                    'name': '/ws/{name}',
+                    'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'parent': None,
+                    'start_time': 1000000000,
+                    'end_time': 2000000000,
+                    'attributes': {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': '/ws/foo',
+                        'http.scheme': 'ws',
+                        'url.scheme': 'ws',
+                        'http.host': 'testserver',
+                        'server.address': 'testserver',
+                        'net.host.port': 80,
+                        'server.port': 80,
+                        'http.target': '/ws/foo',
+                        'url.path': '/ws/foo',
+                        'http.url': 'ws://testserver/ws/foo',
+                        'http.server_name': 'testserver',
+                        'http.user_agent': 'testclient',
+                        'user_agent.original': 'testclient',
+                        'net.peer.ip': 'testclient',
+                        'client.address': 'testclient',
+                        'net.peer.port': 50000,
+                        'client.port': 50000,
+                        'http.route': '/ws/{name}',
+                        'http.status_code': 200,
+                        'http.response.status_code': 200,
+                    },
+                }
+            ]
+        )
+    finally:
+        StarletteInstrumentor().uninstrument()
