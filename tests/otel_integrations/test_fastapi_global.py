@@ -152,7 +152,7 @@ def test_global_fastapi_websocket(exporter: TestExporter, record_send_receive: b
             assert websocket.receive_text() == 'foo'
 
         spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-        roots = [span for span in spans if span['name'] == '/ws/{name}']
+        roots = [span for span in spans if span['name'] == 'HTTP /ws/{name}']
         assert len(roots) == 1
         assert roots[0]['attributes']['fastapi.route.name'] == 'echo'
         assert roots[0]['attributes']['fastapi.arguments.values'] == {'name': 'foo'}
