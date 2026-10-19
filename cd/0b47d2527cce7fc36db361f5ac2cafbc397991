@@ -1,0 +1,19 @@
+tests/otel_integrations/test_fastapi_global.py
+  s_5e7e89187fff9e::t_468f0bf83f1ee8 116-135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cd0b47d2527cce7fc36db361f5ac2cafbc397991",
+  "prompts": {},
+  "sessions": {
+    "s_5e7e89187fff9e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15404-1e87-7213-901f-70d1ea07c9d0",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
