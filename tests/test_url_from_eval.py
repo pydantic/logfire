@@ -25,6 +25,18 @@ def test_url_from_eval_with_project_url() -> None:
     assert result == 'https://logfire.pydantic.dev/my-org/my-project/evals/compare?experiment=abc123-def456'
 
 
+def test_url_from_eval_with_report_dataset_name() -> None:
+    config = LogfireConfig(send_to_logfire=False, console=False)
+    config._project_url = 'https://logfire.pydantic.dev/my-org/my-project'  # type: ignore[reportPrivateUsage]
+    instance = logfire.Logfire(config=config)
+
+    report = _make_report(trace_id='abc123', span_id='def456')
+    setattr(report, 'dataset_name', 'qa/smoke tests')
+    assert instance.url_from_eval(report) == (
+        'https://logfire.pydantic.dev/my-org/my-project/evals/qa%2Fsmoke%20tests/compare?experiment=abc123-def456'
+    )
+
+
 def test_url_from_eval_no_project_url() -> None:
     config = LogfireConfig(send_to_logfire=False, console=False)
     instance = logfire.Logfire(config=config)
