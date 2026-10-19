@@ -265,7 +265,8 @@ class JsonArgsValueFormatter:
         """
 
         def insert_into_list_middle(items: list[Any], item: str | list[str]) -> list[Any]:
-            midpoint = len(items) // 2
+            # Odd display limits retain one more leading item than trailing items.
+            midpoint = (len(items) + 1) // 2
             return items[0:midpoint] + [item] + items[midpoint:]
 
         # add a column at the begging for index

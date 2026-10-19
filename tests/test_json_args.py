@@ -30,6 +30,7 @@ from sqlalchemy.sql.schema import ForeignKey
 from sqlmodel import SQLModel
 
 import logfire
+from logfire._internal.json_formatter import json_args_value_formatter
 from logfire._internal.json_schema import create_json_schema
 from logfire.testing import TestExporter
 
@@ -1006,6 +1007,52 @@ def test_log_dataframe_with_unlimited_and_odd_display_limits(
         'x-column-count': 5,
         'x-row-count': 5,
     }
+
+
+@pytest.mark.parametrize(
+    'max_rows,row_labels',
+    [(1, ['row0', '...']), (3, ['row0', 'row1', '...', 'row6']), (5, ['row0', 'row1', 'row2', '...', 'row5', 'row6'])],
+)
+@pytest.mark.parametrize(
+    'max_columns,column_labels',
+    [(1, ['col0', '...']), (3, ['col0', 'col1', '...', 'col6']), (5, ['col0', 'col1', 'col2', '...', 'col5', 'col6'])],
+)
+def test_log_dataframe_odd_display_limits_formatting(
+    exporter: TestExporter,
+    max_rows: int,
+    row_labels: list[str],
+    max_columns: int,
+    column_labels: list[str],
+) -> None:
+    frame = pandas.DataFrame(
+        [[row * 7 + column for column in range(7)] for row in range(7)],
+        columns=[f'col{column}' for column in range(7)],
+        index=[f'row{row}' for row in range(7)],
+    )
+    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):  # pyright: ignore[reportUnknownMemberType]
+        logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    assert isinstance(attributes['frame'], str)
+    assert isinstance(attributes['logfire.json_schema'], str)
+    formatted = json_args_value_formatter(
+        json.loads(attributes['frame']), schema=json.loads(attributes['logfire.json_schema'])['properties']['frame']
+    )
+    cells = [[cell.strip() for cell in line.split('|')] for line in formatted.splitlines() if '|' in line]
+    assert cells == [
+        ['', *column_labels],
+        *[
+            [
+                row,
+                *[
+                    '...' if '...' in (row, column) else str(int(row[3:]) * 7 + int(column[3:]))
+                    for column in column_labels
+                ],
+            ]
+            for row in row_labels
+        ],
+    ]
 
 
 def test_log_non_finite_scalar_float_args(exporter: TestExporter) -> None:
