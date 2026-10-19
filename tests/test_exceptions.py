@@ -1,15 +1,62 @@
+import asyncio
 import sys
 import types
 from typing import Any
 
 import pytest
 from inline_snapshot import snapshot
+from opentelemetry.trace import StatusCode
 
 import logfire
 from logfire._internal.constants import ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY
 from logfire._internal.exporters.test import TestExporter
 from logfire._internal.utils import canonicalize_exception_traceback
-from logfire.types import ExceptionCallbackHelper
+from logfire.types import ExceptionCallbackHelper, LevelName
+
+
+@pytest.mark.parametrize('exception_type', [asyncio.CancelledError, ValueError])
+@pytest.mark.parametrize('level', [None, 'warn', 'error', 'fatal'])
+@pytest.mark.parametrize('record_exception', [True, False])
+def test_exception_callback_status(
+    exporter: TestExporter,
+    config_kwargs: dict[str, Any],
+    exception_type: type[BaseException],
+    level: LevelName | None,
+    record_exception: bool,
+) -> None:
+    def exception_callback(helper: ExceptionCallbackHelper) -> None:
+        assert helper.span.status.status_code == StatusCode.UNSET
+        if level is not None:
+            helper.level = level
+        if not record_exception:
+            helper.no_record_exception()
+
+    # Include the default behavior without a callback.
+    if level is not None or not record_exception:
+        config_kwargs['advanced'].exception_callback = exception_callback
+    logfire.configure(**config_kwargs)
+
+    with pytest.raises(exception_type, match='test'), logfire.span('foo'):
+        raise exception_type('test')
+
+    (_pending, span) = exporter.exported_spans
+    is_error = level != 'warn'
+    assert span.status.status_code == (StatusCode.ERROR if is_error else StatusCode.UNSET)
+    assert span.status.description == (f'{exception_type.__name__}: test' if is_error else None)
+    assert span.attributes is not None
+    assert span.attributes['logfire.level_num'] == {'warn': 13, 'error': 17, 'fatal': 21}[level or 'error']
+    assert (ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY in span.attributes) == (is_error and record_exception)
+    if record_exception:
+        [event] = span.events
+        assert event.name == 'exception'
+        assert event.attributes is not None
+        assert event.attributes['exception.type'] == (
+            'asyncio.exceptions.CancelledError' if exception_type is asyncio.CancelledError else 'ValueError'
+        )
+        assert event.attributes['exception.message'] == 'test'
+        assert event.attributes['exception.escaped'] == 'True'
+    else:
+        assert not span.events
 
 
 def test_exception_callback_set_level(exporter: TestExporter, config_kwargs: dict[str, Any]):
