@@ -91,6 +91,7 @@ def instrument_fastapi(
     }
     if app is None:
         FastAPIInstrumentor().instrument(**opentelemetry_kwargs)
+        registry.global_opentelemetry_kwargs = opentelemetry_kwargs
         registry.global_instrumentation = FastAPIInstrumentation(
             logfire_instance,
             request_attributes_mapper or _default_request_attributes_mapper,
@@ -103,20 +104,24 @@ def instrument_fastapi(
                 yield
             finally:
                 registry.global_instrumentation = None
+                registry.global_opentelemetry_kwargs = None
                 FastAPIInstrumentor().uninstrument()
 
         return uninstrument_global()
 
     mounted_apps = find_mounted_apps(app)
     mounted_apps.append(app)
-    # Keep middleware owned by global instrumentation when a per-app context ends.
+    # Restore middleware owned by global instrumentation when a per-app context ends.
     globally_instrumented_apps = {
         _app
         for _app in mounted_apps
         if registry.global_instrumentation is not None and getattr(_app, '_is_instrumented_by_opentelemetry', False)
     }
-    if app not in globally_instrumented_apps:
-        FastAPIInstrumentor.instrument_app(app, **opentelemetry_kwargs)
+    if app in globally_instrumented_apps:
+        FastAPIInstrumentor.uninstrument_app(app)
+        # uninstrument_app rebuilds the old stack; clear it so the new settings take effect.
+        app.middleware_stack = None
+    FastAPIInstrumentor.instrument_app(app, **opentelemetry_kwargs)
 
     for _app in mounted_apps:
         registry.per_app[_app] = FastAPIInstrumentation(
@@ -135,8 +140,11 @@ def instrument_fastapi(
         finally:
             for _app in mounted_apps:
                 del registry.per_app[_app]
-                if _app not in globally_instrumented_apps:
+                if _app is app or _app not in globally_instrumented_apps:
                     FastAPIInstrumentor.uninstrument_app(_app)
+                    if _app in globally_instrumented_apps and registry.global_opentelemetry_kwargs is not None:
+                        FastAPIInstrumentor.instrument_app(_app, **registry.global_opentelemetry_kwargs)
+                        _app.middleware_stack = None
 
     return uninstrument_context()
 
@@ -146,6 +154,7 @@ class _FastAPIRegistry:
     """Track Logfire instrumentation settings for FastAPI apps."""
 
     global_instrumentation: FastAPIInstrumentation | None = None
+    global_opentelemetry_kwargs: dict[str, Any] | None = None
     per_app: WeakKeyDictionary[FastAPI, FastAPIInstrumentation] = dataclasses.field(
         default_factory=lambda: WeakKeyDictionary[FastAPI, FastAPIInstrumentation]()
     )

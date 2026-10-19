@@ -161,3 +161,46 @@ def test_global_fastapi_websocket(exporter: TestExporter, record_send_receive: b
         assert bool(io_spans) == record_send_receive
         assert all(span['attributes']['logfire.level_num'] == 5 for span in io_spans)
         assert len(spans) == 1 + len(io_spans)
+
+
+def test_global_fastapi_per_app_middleware_options(exporter: TestExporter) -> None:
+    def global_hook(span: Span, _scope: Scope) -> None:
+        span.set_attribute('test.hook', 'global')
+
+    def per_app_hook(span: Span, _scope: Scope) -> None:
+        span.set_attribute('test.hook', 'per-app')
+
+    with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE, server_request_hook=global_hook):
+        app = fastapi.FastAPI()
+
+        @app.post('/items/{item_id}')
+        async def homepage(item_id: int, request: Request) -> int:
+            assert await request.body() == b'input'
+            return item_id
+
+        @app.get('/health')
+        async def health() -> str:
+            return 'ok'
+
+        with logfire.instrument_fastapi(
+            app, server_request_hook=per_app_hook, excluded_urls='/health', record_send_receive=True
+        ):
+            with TestClient(app) as client:
+                assert client.post('/items/123', content=b'input').json() == 123
+                assert client.get('/health').status_code == 200
+            spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+            roots = [span for span in spans if span['name'] == 'POST /items/{item_id}']
+            assert len(roots) == 1
+            assert roots[0]['attributes']['test.hook'] == 'per-app'
+            io_spans = [span for span in spans if 'asgi.event.type' in span['attributes']]
+            assert len(io_spans) == 3
+            assert all(span['attributes']['logfire.level_num'] == 5 for span in io_spans)
+            assert len(spans) == 4
+
+        exporter.clear()
+        with TestClient(app) as client:
+            assert client.get('/health').status_code == 200
+            assert client.post('/items/123', content=b'input').json() == 123
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert [span['name'] for span in spans] == ['GET /health', 'POST /items/{item_id}']
+        assert all(span['attributes']['test.hook'] == 'global' for span in spans)
