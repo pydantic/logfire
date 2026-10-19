@@ -6445,6 +6445,66 @@ print(json.dumps(exporter.exported_spans_as_dict()))
         assert 'flask (installed and instrumented)' in result.stderr
 
 
+@pytest.mark.parametrize('module', [False, True])
+@pytest.mark.parametrize('exclude_starlette', [False, True])
+def test_parse_run_starlette_in_fresh_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: bool, exclude_starlette: bool
+) -> None:
+    script = tmp_path / 'starlette_app.py'
+    script.write_text(
+        """
+import json
+
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
+from starlette.routing import Route
+from starlette.testclient import TestClient
+
+import logfire
+from logfire.testing import TestExporter
+
+exporter = TestExporter()
+logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[SimpleSpanProcessor(exporter)])
+
+async def homepage(request: Request) -> PlainTextResponse:
+    return PlainTextResponse('hello')
+
+app = Starlette(routes=[Route('/hello/{name}', homepage)])
+with TestClient(app) as client:
+    response = client.get('/hello/world')
+assert response.status_code == 200
+assert response.text == 'hello'
+print(json.dumps(exporter.exported_spans_as_dict()))
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    # Exercise discovery and dispatch with only Starlette enabled, regardless of other installed integrations.
+    excluded = set(OTEL_INSTRUMENTATION_MAP.values()) - {'starlette'}
+    if exclude_starlette:
+        excluded.add('starlette')
+    target = ['-m', 'starlette_app'] if module else [str(script)]
+    result = subprocess.run(
+        [sys.executable, '-m', 'logfire', 'run', '--summary', '--exclude', ','.join(sorted(excluded)), *target],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    spans = json.loads(result.stdout)
+    if exclude_starlette:
+        assert spans == []
+    else:
+        # The default CLI configuration keeps the server span and filters send/receive spans.
+        assert [span['name'] for span in spans] == ['GET /hello/{name}']
+        assert spans[0]['attributes']['http.route'] == '/hello/{name}'
+        assert spans[0]['attributes']['http.status_code'] == 200
+        assert spans[0]['attributes']['logfire.msg'] == 'GET /hello/world'
+
+
 def test_parse_run_script(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setattr('logfire.configure', configure_mock := Mock())
     monkeypatch.setattr('logfire._internal.cli.run.instrument_package', instrument_package_mock := Mock())

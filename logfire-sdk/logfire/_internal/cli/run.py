@@ -267,13 +267,12 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
 
 
 def instrument_package(import_name: str, *args: str) -> None:
-    if import_name == 'flask':
-        # The public API requires an app; the CLI must instrument apps created later.
-        from ..integrations.flask import instrument_flask
-
-        instrument_flask(logfire.DEFAULT_LOGFIRE_INSTANCE)
+    instrument_attr = f'instrument_{import_name}'
+    if import_name in ('flask', 'starlette'):
+        # The public APIs require an app; the CLI must instrument apps created later.
+        module = importlib.import_module(f'logfire._internal.integrations.{import_name}')
+        getattr(module, instrument_attr)(logfire.DEFAULT_LOGFIRE_INSTANCE)
     else:
-        instrument_attr = f'instrument_{import_name}'
         getattr(logfire, instrument_attr)(*args)
 
 
