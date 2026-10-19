@@ -39,8 +39,9 @@ You do not need a paid plan to send Gateway requests or set basic spending limit
 | Connect, endpoint priorities and weights, and key, organization, project, and member spending limits | All Gateway plans, including Personal. |
 | BYOK providers | Up to 3 on Personal and Team; unlimited on Growth, Enterprise, and self-hosted Logfire. |
 | Custom provider base URLs and custom OpenAI- or Anthropic-compatible providers | Team, Growth, Enterprise, or self-hosted Logfire. |
-| Prebuilt and custom-pattern Guardrails; Optimizations | Via Early Access on Growth, Enterprise, or self-hosted Logfire. |
-| Spending policies | Experimental, enabled through the same Early Access settings. Not required for the included spending limits. |
+| Prebuilt and custom-pattern Guardrails | All Gateway plans, in Beta. |
+| Optimizations | Via Early Access on Growth, Enterprise, or self-hosted Logfire. |
+| Spending policies | Experimental, enabled through the same Early Access settings. Creating or changing a policy requires Enterprise or self-hosted Logfire. Not required for the included spending limits. |
 | Presidio protections | Enterprise Cloud or self-hosted Logfire, with Guardrails enabled. |
 
 [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access) is available when your account belongs to an eligible organization. Its feature choices apply to your account in this browser, not automatically to every member. Individual guides explain which option to enable. For pricing and Enterprise contract details, see [Logfire plans](https://pydantic.dev/pricing).
@@ -178,7 +179,7 @@ The **Spending** tab shows usage analytics for the organization, broken down by 
 - **Per-project limits**: daily, weekly, and monthly caps for a selected project, also in **Gateway → Settings**.
 - **Per-member limits**: daily, weekly, and monthly caps that admins can set for individual organization members.
 
-**Spending policies** add reusable provider- and model-scoped budgets attached to an organization, project, member, or API key. They are experimental and available through Growth and Enterprise Early Access, or on self-hosted Logfire. They are not required to limit spending. See [Control Gateway spending](spending-policies.md) for both included limits and advanced policy setup.
+**Spending policies** add reusable provider- and model-scoped budgets attached to an organization, project, member, or API key. They are experimental, enabled through Early Access, and creating or changing a policy requires Enterprise or self-hosted Logfire. They are not required to limit spending. See [Control Gateway spending](spending-policies.md) for both included limits and advanced policy setup.
 
 Separately, built-in provider usage draws from a **prepaid balance**. You can enable auto-recharge with a threshold and a top-up target. Auto-recharge adds funds; it does not increase your configured spending limits.
 
