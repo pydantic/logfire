@@ -1108,6 +1108,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                             'duration': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                         },
                     },
                     'gen_ai.response.model': 'gpt-4',
@@ -1407,6 +1408,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                             },
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -1716,6 +1718,7 @@ async def test_async_chat_tool_call_stream(
                             },
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -1729,6 +1732,26 @@ async def test_async_chat_tool_call_stream(
             },
         ]
     )
+
+
+def test_chat_completions_stream_records_served_model(
+    instrumented_client: openai.Client, exporter: TestExporter
+) -> None:
+    # The request names an alias, and the chunks report the model that actually served it.
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4-latest',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        stream=True,
+    )
+    with response as stream:
+        for _ in stream:
+            pass
+
+    [streaming_span] = [
+        span for span in exporter.exported_spans_as_dict() if span['name'].startswith('streaming response from')
+    ]
+    assert streaming_span['attributes']['gen_ai.request.model'] == 'gpt-4-latest'
+    assert streaming_span['attributes']['gen_ai.response.model'] == 'gpt-4'
 
 
 def test_sync_chat_completions_stream(instrumented_client: openai.Client, exporter: TestExporter) -> None:
@@ -1863,6 +1886,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                             },
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                         },
                     },
                     'gen_ai.response.model': 'gpt-4',
@@ -2007,6 +2031,7 @@ async def test_async_chat_completions_stream(
                             },
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                         },
                     },
                     'gen_ai.response.model': 'gpt-4',
@@ -2430,6 +2455,7 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                             'async': {},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
@@ -2563,6 +2589,7 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                                 },
                             },
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
@@ -2811,6 +2838,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'duration': {},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -2818,7 +2846,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         },
                     },
                     'logfire.tags': ('LLM',),
-                    'gen_ai.response.model': 'gpt-4.1',
+                    'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                 },
             },
         ]
@@ -4042,6 +4070,7 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                             },
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
