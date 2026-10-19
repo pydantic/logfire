@@ -133,3 +133,31 @@ def test_global_fastapi_rejects_duplicate_instrumentation(exporter: TestExporter
         spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
         assert [span['name'] for span in spans] == ['GET /items/{item_id}']
         assert spans[0]['attributes']['fastapi.arguments.values'] == {'item_id': 123}
+
+
+@pytest.mark.parametrize('record_send_receive', [False, True])
+def test_global_fastapi_websocket(exporter: TestExporter, record_send_receive: bool) -> None:
+    with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE, record_send_receive=record_send_receive):
+        app = fastapi.FastAPI()
+
+        @app.websocket('/ws/{name}')
+        async def echo(websocket: WebSocket, name: str) -> None:
+            await websocket.accept()
+            assert await websocket.receive_text() == 'ping'
+            await websocket.send_text(name)
+            await websocket.close()
+
+        with TestClient(app) as client, client.websocket_connect('/ws/foo') as websocket:
+            websocket.send_text('ping')
+            assert websocket.receive_text() == 'foo'
+
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        roots = [span for span in spans if span['name'] == '/ws/{name}']
+        assert len(roots) == 1
+        assert roots[0]['attributes']['fastapi.route.name'] == 'echo'
+        assert roots[0]['attributes']['fastapi.arguments.values'] == {'name': 'foo'}
+        assert roots[0]['attributes']['fastapi.arguments.errors'] == []
+        io_spans = [span for span in spans if 'asgi.event.type' in span['attributes']]
+        assert bool(io_spans) == record_send_receive
+        assert all(span['attributes']['logfire.level_num'] == 5 for span in io_spans)
+        assert len(spans) == 1 + len(io_spans)
