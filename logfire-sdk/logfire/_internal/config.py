@@ -299,7 +299,7 @@ class AdvancedOptions:
     Defaults to the `LOGFIRE_COMPRESSION` environment variable, or `'gzip'`.
     """
 
-    send_pending_spans_to_logfire: bool | None = None
+    pending_spans: bool | None = None
     """Whether to send pending spans to Logfire.
 
     A pending span is a placeholder that Logfire sends when a span starts, so the Logfire UI can show
@@ -309,7 +309,7 @@ class AdvancedOptions:
 
     This does not affect console output.
 
-    Defaults to the `LOGFIRE_SEND_PENDING_SPANS_TO_LOGFIRE` environment variable, or `True`.
+    Defaults to the `LOGFIRE_PENDING_SPANS` environment variable, or `True`.
     """
 
     def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
@@ -881,9 +881,7 @@ class _LogfireConfigData:
         advanced.emit_configuration_span = param_manager.load_param(
             'emit_configuration_span', advanced.emit_configuration_span
         )
-        advanced.send_pending_spans_to_logfire = param_manager.load_param(
-            'send_pending_spans_to_logfire', advanced.send_pending_spans_to_logfire
-        )
+        advanced.pending_spans = param_manager.load_param('pending_spans', advanced.pending_spans)
         advanced.compression = param_manager.load_param('compression', advanced.compression)
         resource_detectors = param_manager.load_param('resource_detectors', advanced.resource_detectors)
         if isinstance(resource_detectors, str):
@@ -1199,7 +1197,7 @@ class LogfireConfig(_LogfireConfigData):
             main_multiprocessor = SynchronousMultiSpanProcessor()
 
             pending_span_exporter_types: tuple[type[SpanExporter], ...] = (TestExporter, SimpleConsoleSpanExporter)
-            if self.advanced.send_pending_spans_to_logfire:
+            if self.advanced.pending_spans:
                 pending_span_exporter_types += (RemovePendingSpansExporter,)
 
             def add_span_processor(span_processor: SpanProcessor) -> None:

@@ -116,8 +116,8 @@ DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allo
 """Whether to extract incoming trace context. By default, will extract but warn about it."""
 EMIT_CONFIGURATION_SPAN = ConfigParam(env_vars=['LOGFIRE_EMIT_CONFIGURATION_SPAN'], allow_file_config=True, default=False, tp=bool)
 """Whether to emit a `Logfire configured` log span after `logfire.configure()`."""
-SEND_PENDING_SPANS_TO_LOGFIRE = ConfigParam(
-    env_vars=['LOGFIRE_SEND_PENDING_SPANS_TO_LOGFIRE'], allow_file_config=True, default=True, tp=bool
+PENDING_SPANS = ConfigParam(
+    env_vars=['LOGFIRE_PENDING_SPANS'], allow_file_config=True, default=True, tp=bool
 )
 """Whether to send pending spans (placeholders for spans that are still running) to Logfire."""
 COMPRESSION = ConfigParam(env_vars=['LOGFIRE_COMPRESSION'], allow_file_config=True, default='gzip', tp=CompressionValues)
@@ -159,7 +159,7 @@ CONFIG_PARAMS = {
     'ignore_no_config': IGNORE_NO_CONFIG,
     'distributed_tracing': DISTRIBUTED_TRACING,
     'emit_configuration_span': EMIT_CONFIGURATION_SPAN,
-    'send_pending_spans_to_logfire': SEND_PENDING_SPANS_TO_LOGFIRE,
+    'pending_spans': PENDING_SPANS,
     'compression': COMPRESSION,
     # Instrumentation packages parameters
     'httpx_capture_all': HTTPX_CAPTURE_ALL,

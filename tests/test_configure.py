@@ -2746,13 +2746,13 @@ def test_send_to_logfire_under_pytest():
 
 
 @pytest.mark.parametrize('use_env_var', [False, True])
-def test_send_pending_spans_to_logfire_false(monkeypatch: pytest.MonkeyPatch, use_env_var: bool):
+def test_pending_spans_false(monkeypatch: pytest.MonkeyPatch, use_env_var: bool):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
     if use_env_var:
-        monkeypatch.setenv('LOGFIRE_SEND_PENDING_SPANS_TO_LOGFIRE', 'false')
+        monkeypatch.setenv('LOGFIRE_PENDING_SPANS', 'false')
         advanced = None
     else:
-        advanced = logfire.AdvancedOptions(send_pending_spans_to_logfire=False)
+        advanced = logfire.AdvancedOptions(pending_spans=False)
     logfire.configure(send_to_logfire=True, token='foo', advanced=advanced)
     wait_for_check_token_thread()
 
