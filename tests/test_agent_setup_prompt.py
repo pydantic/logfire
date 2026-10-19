@@ -248,79 +248,23 @@ def test_ai_sdk_guidance_matches_the_installed_major_and_patch_version() -> None
     assert 'AI SDK 5/6' in troubleshooting
 
 
-def test_browser_guidance_uses_restricted_frontend_application_direct_ingest() -> None:
+@pytest.mark.parametrize('browser_doc', ['nextjs.md', 'react-browser.md'])
+def test_browser_setup_delegates_to_its_owner(browser_doc: str) -> None:
     references = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
-    skill = (references.parent / 'SKILL.md').read_text()
-    nextjs = (references / 'javascript' / 'nextjs.md').read_text()
-    react = (references / 'javascript' / 'react-browser.md').read_text()
-    installation = (references / 'javascript' / 'installation-and-env.md').read_text()
-    frameworks = (references / 'javascript' / 'frameworks.md').read_text()
-    troubleshooting = (references / 'javascript' / 'verification-troubleshooting.md').read_text()
-
-    for source in (skill, nextjs, react, installation, frameworks, troubleshooting):
-        assert 'Browser telemetry must go through an authenticated backend proxy' not in source
-        assert 'Browser traces must go through an authenticated same-origin backend proxy' not in source
-        assert 'Browser code must use a proxy URL' not in source
-
-    for source in (nextjs, react):
-        guidance = ' '.join(source.split())
-        assert 'logfire.configureFrontend({' in source
-        assert "baseUrl: '<generated-regional-base-url>'" in source
-        assert "token: '<frontend-application-token>'" in source
-        assert 'Replace both placeholders before deploying' in source
-        assert 'Frontend → Applications' in source
-        assert '0.21.0 or later' in source
-        assert 'auto-instrumentation and Web Vitals metrics by default' in source
-        assert '`autoInstrumentations: false` to disable automatic instrumentation' in source
-        assert '`rum: { webVitals: false }` to disable Web Vitals spans and metrics' in source
-        assert '`rum: { webVitals: { metrics: false } }` to keep Web Vitals spans without metrics' in source
-        assert 'LOGFIRE_PROXY_ALLOWED_ORIGIN' in source
-        assert 'Reject requests when that configuration is absent' in guidance
-        assert 'the `Origin` header is missing, or it does not match' in source
-        assert 'Do not derive the allowed origin from the incoming request' in guidance
-        assert (
-            'https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#optional-backend-proxy' in source
-        )
-        assert 'traceExporterHeaders:' not in source
-        assert '@opentelemetry/auto-instrumentations-web' not in source
-
-    assert 'optional-proxy contract' in nextjs
-    assert 'Optional Backend Proxy' in react
-    assert 'restricted public token and regional base URL generated for a frontend application' in skill
-    assert 'restricted public token' in installation
-    assert 'Never reuse `LOGFIRE_TOKEN` or another ordinary write token in the browser' in installation
-    assert '`/v1/traces` URL derived from the regional `baseUrl`' in troubleshooting
-
-
-def test_browser_framework_examples_configure_once_without_strict_mode_shutdown() -> None:
-    references = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
-    for browser_doc in ('javascript/nextjs.md', 'javascript/react-browser.md'):
-        browser = (references / browser_doc).read_text()
-        assert 'useRef(false)' in browser
-        assert 'if (!configured.current)' in browser
-        effect_body = browser.split('useEffect(() => {', 1)[1].split('\n  }, [])', 1)[0]
-        assert '\n    return ' not in effect_body
-        assert '\n      return ' not in effect_body
-    assert 'Import this Client Component normally' in (references / 'javascript/nextjs.md').read_text()
-
-
-def test_browser_guidance_groups_single_page_applications_by_route() -> None:
-    references = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
-    react = (references / 'javascript' / 'react-browser.md').read_text()
-    nextjs = (references / 'javascript' / 'nextjs.md').read_text()
-    frameworks = (references / 'javascript' / 'frameworks.md').read_text()
-    route_names = 'https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#route-names'
-
-    assert 'Every single-page application should set `rum.session.getRouteName`' in react
-    assert 'Use `@pydantic/logfire-browser` 0.28.0 or later for the router helpers' in react
-    assert '`reactRouterRouteName` from `@pydantic/logfire-browser/react-router`' in react
-    assert '`tanStackRouterRouteName` from `@pydantic/logfire-browser/tanstack-router`' in react
-    assert '`vueRouterRouteName` from `@pydantic/logfire-browser/vue-router`' in react
-    assert 'getRouteName: reactRouterRouteName({ matchRoutes, routes })' in react
-    assert f'[route-name contract]({route_names})' in react
-    assert route_names in nextjs
-    assert '0.28.0 or later' in frameworks
-    assert './react-browser.md#group-pages-by-route' in frameworks
+    source = (references / 'javascript' / browser_doc).read_text()
+    assert 'https://pydantic.dev/.well-known/agent-skills/logfire-frontend/SKILL.md' in source
+    assert 'logfire.configureFrontend({' not in source
+    assert 'write token' in ' '.join(source.split())
+    if browser_doc == 'nextjs.md':
+        assert 'registerOTel({' in source
+        assert 'LOGFIRE_SERVICE_NAME=nextjs-app' in source
+    else:
+        assert './nextjs.md' in source
+        # Preserve the SDK framework reference's existing deep link.
+        frameworks = (references / 'javascript' / 'frameworks.md').read_text()
+        assert './react-browser.md#group-pages-by-route' in frameworks
+        assert '## Group Pages By Route' in source
+        assert '/packages/browser/#route-names' in source
 
 
 def test_python_logging_guidance_preserves_existing_configuration() -> None:

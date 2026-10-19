@@ -498,6 +498,26 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
     )
 
 
+def test_messages_stream_records_served_model(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    # The request names an alias, and `message_start` reports the model that actually served it.
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-latest',
+        system='You are a helpful assistant.',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        stream=True,
+    )
+    with response as stream:
+        for _ in stream:
+            pass
+
+    [streaming_span] = [
+        span for span in exporter.exported_spans_as_dict() if span['name'].startswith('streaming response from')
+    ]
+    assert streaming_span['attributes']['gen_ai.request.model'] == 'claude-3-haiku-latest'
+    assert streaming_span['attributes']['gen_ai.response.model'] == 'claude-3-haiku-20240307'
+
+
 def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
     response = instrumented_client.messages.create(
         max_tokens=1000,
@@ -626,6 +646,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -897,6 +918,7 @@ async def test_async_messages_stream(
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -1770,6 +1792,7 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
                             'async': {},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -1904,6 +1927,7 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
                             'async': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -2061,6 +2085,7 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -2226,3 +2251,36 @@ def test_stream_response_metadata(version: Any, complete: bool, exporter: TestEx
     else:
         assert 'gen_ai.response.finish_reasons' not in attributes
     client.close()
+
+
+def test_internal_exception_in_on_response_keeps_the_response(
+    exporter: TestExporter, caplog: pytest.LogCaptureFixture
+) -> None:
+    """If recording a response fails inside Logfire, the caller still gets the response."""
+    # `usage.input_tokens` is missing. The SDK accepts that without validation,
+    # and recording the usage then raises inside the instrumentation.
+    body = {
+        'id': 'msg_1',
+        'type': 'message',
+        'role': 'assistant',
+        'model': 'claude-haiku-4-5',
+        'content': [{'type': 'text', 'text': 'Nine'}],
+        'stop_reason': 'end_turn',
+        'stop_sequence': None,
+        'usage': {'output_tokens': 3},
+    }
+    client = anthropic.Anthropic(
+        api_key='test',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_anthropic(client):
+        response = client.messages.create(
+            max_tokens=1000,
+            model='claude-haiku-4-5',
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        )
+
+    assert isinstance(response, anthropic.types.Message)
+    assert response.id == 'msg_1'
+    assert 'Caught an internal error in Logfire' in caplog.text
+    assert len(exporter.exported_spans_as_dict()) == 1
