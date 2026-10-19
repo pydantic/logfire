@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import ExitStack
 from typing import Any
 
 import pytest
@@ -252,3 +253,41 @@ def test_global_fastapi_mounted_app_privacy(
         spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
         assert len(spans) == (3 if nested else 2)
         assert any(span['attributes'].get('fastapi.arguments.values') == {'payload': payload} for span in spans)
+
+
+@pytest.mark.parametrize('per_app_first', [False, True])
+def test_global_fastapi_cleanup_preserves_per_app(exporter: TestExporter, per_app_first: bool) -> None:
+    def per_app_hook(span: Span, _scope: Scope) -> None:
+        span.set_attribute('test.hook', 'per-app')
+
+    with ExitStack() as global_stack, ExitStack() as per_app_stack:
+        if not per_app_first:
+            global_stack.enter_context(instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE))
+        app = fastapi.FastAPI()
+
+        @app.get('/items/{item_id}')
+        async def homepage(item_id: int) -> int:
+            return item_id
+
+        per_app_stack.enter_context(logfire.instrument_fastapi(app, server_request_hook=per_app_hook))
+        if per_app_first:
+            global_stack.enter_context(instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE))
+        global_stack.close()
+
+        with TestClient(app) as client:
+            assert client.get('/items/123').json() == 123
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert [span['name'] for span in spans] == ['GET /items/{item_id}']
+        assert spans[0]['attributes']['test.hook'] == 'per-app'
+        assert spans[0]['attributes']['fastapi.arguments.values'] == {'item_id': 123}
+        per_app_stack.close()
+
+        # Final per-app cleanup must also remove metadata used by future global contexts.
+        with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE):
+            pass
+        exporter.clear()
+        with TestClient(app) as client:
+            assert client.get('/items/456').json() == 456
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert not any('test.hook' in span['attributes'] for span in spans)
+        assert not any('fastapi.arguments.start_timestamp' in span['attributes'] for span in spans)
