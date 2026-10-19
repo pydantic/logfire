@@ -807,7 +807,7 @@ def test_agent_control_hint_attributes_are_not_scrubbed(exporter: TestExporter):
     created from and is digested before export, so a redaction inside it is a corrupted document
     rather than a hidden secret, and a redacted variable name names no variable at all.
     """
-    attributes = {
+    attributes: dict[str, Any] = {
         'agent_control.baseline': '{"instructions":"Order tools are authoritative for refunds."}',
         'agent_control.variable_name': 'agent__auth_router',
         'agent_control.agent_name': 'auth_router',
@@ -824,7 +824,8 @@ def test_agent_control_hint_attributes_are_not_scrubbed(exporter: TestExporter):
 
 def test_a_safe_key_does_not_exempt_its_neighbours(exporter: TestExporter):
     """The exemption is per key: an unlisted key on the same span is still scrubbed."""
-    logfire.info('hint', **{'agent_control.agent_name': 'auth_router', 'agent_control.note': 'auth'})
+    attributes: dict[str, Any] = {'agent_control.agent_name': 'auth_router', 'agent_control.note': 'auth'}
+    logfire.info('hint', **attributes)
 
     [span] = exporter.exported_spans_as_dict()
     assert span['attributes']['agent_control.agent_name'] == 'auth_router'
