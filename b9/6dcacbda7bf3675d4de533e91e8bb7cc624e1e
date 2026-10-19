@@ -1,0 +1,29 @@
+tests/otel_integrations/test_flask.py
+  s_5e7e89187fff9e::t_25ad37c39c8a5d 9,15,214-258
+logfire-sdk/logfire/_internal/integrations/flask.py
+  s_30ca6041e94a4e::t_53f5ac02a3fb19 23-24,26-28,40-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b96dcacbda7bf3675d4de533e91e8bb7cc624e1e",
+  "prompts": {},
+  "sessions": {
+    "s_30ca6041e94a4e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1540a-9b9a-7f92-80eb-1325db218932",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_5e7e89187fff9e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15404-1e87-7213-901f-70d1ea07c9d0",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
