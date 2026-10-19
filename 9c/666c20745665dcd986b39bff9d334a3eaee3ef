@@ -1,0 +1,19 @@
+tests/test_exceptions.py
+  s_c08a6008f241fe::t_1a9265918ac0a3 37-38,43,51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9c666c20745665dcd986b39bff9d334a3eaee3ef",
+  "prompts": {},
+  "sessions": {
+    "s_c08a6008f241fe": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a153ca-71be-7230-ae35-27b0d6650075",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
