@@ -117,11 +117,13 @@ def instrument_fastapi(
         for _app in mounted_apps
         if registry.global_instrumentation is not None and getattr(_app, '_is_instrumented_by_opentelemetry', False)
     }
-    if app in globally_instrumented_apps:
-        FastAPIInstrumentor.uninstrument_app(app)
-        # uninstrument_app rebuilds the old stack; clear it so the new settings take effect.
-        app.middleware_stack = None
-    FastAPIInstrumentor.instrument_app(app, **opentelemetry_kwargs)
+    for _app in mounted_apps:
+        if _app is app or _app in globally_instrumented_apps:
+            if _app in globally_instrumented_apps:
+                FastAPIInstrumentor.uninstrument_app(_app)
+                # uninstrument_app rebuilds the old stack; clear it so the new settings take effect.
+                _app.middleware_stack = None
+            FastAPIInstrumentor.instrument_app(_app, **opentelemetry_kwargs)
 
     for _app in mounted_apps:
         registry.per_app[_app] = FastAPIInstrumentation(
@@ -140,11 +142,10 @@ def instrument_fastapi(
         finally:
             for _app in mounted_apps:
                 del registry.per_app[_app]
-                if _app is app or _app not in globally_instrumented_apps:
-                    FastAPIInstrumentor.uninstrument_app(_app)
-                    if _app in globally_instrumented_apps and registry.global_opentelemetry_kwargs is not None:
-                        FastAPIInstrumentor.instrument_app(_app, **registry.global_opentelemetry_kwargs)
-                        _app.middleware_stack = None
+                FastAPIInstrumentor.uninstrument_app(_app)
+                if _app in globally_instrumented_apps and registry.global_opentelemetry_kwargs is not None:
+                    FastAPIInstrumentor.instrument_app(_app, **registry.global_opentelemetry_kwargs)
+                    _app.middleware_stack = None
 
     return uninstrument_context()
 

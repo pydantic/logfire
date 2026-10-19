@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.trace import Span
 from starlette.requests import Request
 from starlette.testclient import TestClient
@@ -204,3 +205,50 @@ def test_global_fastapi_per_app_middleware_options(exporter: TestExporter) -> No
         spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
         assert [span['name'] for span in spans] == ['GET /health', 'POST /items/{item_id}']
         assert all(span['attributes']['test.hook'] == 'global' for span in spans)
+
+
+@pytest.mark.parametrize('nested', [False, True])
+def test_global_fastapi_mounted_app_privacy(
+    exporter: TestExporter, config_kwargs: dict[str, Any], nested: bool
+) -> None:
+    local_exporter = TestExporter()
+    local_kwargs = config_kwargs.copy()
+    local_kwargs['additional_span_processors'] = [SimpleSpanProcessor(local_exporter)]
+    local = logfire.configure(local=True, **local_kwargs)
+    with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE):
+        app = fastapi.FastAPI()
+        child = fastapi.FastAPI()
+        app.mount('/child', child)
+        prefix = '/child'
+        if nested:
+            grandchild = fastapi.FastAPI()
+            child.mount('/nested', grandchild)
+            child = grandchild
+            prefix += '/nested'
+
+        async def endpoint(payload: dict[str, str]) -> dict[str, str]:
+            return payload
+
+        child.post('/private')(endpoint)
+        child.post('/public')(endpoint)
+        payload = {'message': 'private-value'}
+        with local.instrument_fastapi(app, excluded_urls=prefix + '/private', extra_spans=True):
+            with TestClient(app) as client:
+                assert client.post(prefix + '/private', json=payload).json() == payload
+                assert exporter.exported_spans_as_dict() == []
+                assert local_exporter.exported_spans_as_dict() == []
+                assert client.post(prefix + '/public', json=payload).json() == payload
+            assert exporter.exported_spans_as_dict() == []
+            local_spans = local_exporter.exported_spans_as_dict(parse_json_attributes=True)
+            assert any(
+                span['attributes'].get('fastapi.arguments.values') == {'payload': payload} for span in local_spans
+            )
+
+        # Context cleanup restores global instrumentation for the parent and all mounted children.
+        local_exporter.clear()
+        with TestClient(app) as client:
+            assert client.post(prefix + '/private', json=payload).json() == payload
+        assert local_exporter.exported_spans_as_dict() == []
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert len(spans) == (3 if nested else 2)
+        assert any(span['attributes'].get('fastapi.arguments.values') == {'payload': payload} for span in spans)
