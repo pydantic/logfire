@@ -8,9 +8,13 @@ import pytest
 from dirty_equals import IsAnyStr, IsFloat, IsInt
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
+from opentelemetry.trace import Span
 from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
 from starlette.routing import Route, WebSocketRoute
 from starlette.testclient import TestClient
+from starlette.types import Scope
 from starlette.websockets import WebSocket
 
 import logfire
@@ -279,3 +283,58 @@ def test_missing_opentelemetry_dependency() -> None:
 You can install this with:
     pip install 'logfire[starlette]'\
 """)
+
+
+@pytest.mark.parametrize('record_send_receive', [False, True])
+@pytest.mark.parametrize('manually_instrument', [False, True])
+def test_global_starlette_instrumentation(
+    exporter: TestExporter, monkeypatch: pytest.MonkeyPatch, record_send_receive: bool, manually_instrument: bool
+) -> None:
+    # Let monkeypatch restore the environment after capture_headers enables both settings.
+    monkeypatch.setenv('OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST', '')
+    monkeypatch.setenv('OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE', '')
+
+    def server_request_hook(span: Span, scope: Scope) -> None:
+        span.set_attribute('test.path', scope['path'])
+
+    logfire._internal.integrations.starlette.instrument_starlette(
+        logfire.DEFAULT_LOGFIRE_INSTANCE,
+        capture_headers=True,
+        record_send_receive=record_send_receive,
+        server_request_hook=server_request_hook,
+    )
+    try:
+        # Obtain the patched class after global instrumentation, just as application code does.
+        from starlette.applications import Starlette
+
+        async def homepage(request: Request) -> PlainTextResponse:
+            assert await request.body() == b'input'
+            logfire.info('inside request handler')
+            return PlainTextResponse('hello', headers={'x-test-response': 'out'})
+
+        app = Starlette(routes=[Route('/hello/{name}', homepage, methods=['POST'])])
+        if manually_instrument:
+            logfire.instrument_starlette(app)
+
+        with TestClient(app) as client:
+            response = client.post('/hello/world', content=b'input', headers={'x-test-request': 'in'})
+        assert response.status_code == 200
+        assert response.text == 'hello'
+
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        root_spans = [span for span in spans if span['name'] == 'POST /hello/{name}']
+        assert len(root_spans) == 1
+        root_span = root_spans[0]
+        assert root_span['attributes']['http.route'] == '/hello/{name}'
+        assert root_span['attributes']['http.status_code'] == 200
+        assert root_span['attributes']['test.path'] == '/hello/world'
+        assert root_span['attributes']['http.request.header.x_test_request'] == ('in',)
+        assert root_span['attributes']['http.response.header.x_test_response'] == ('out',)
+        log_span = next(span for span in spans if span['name'] == 'inside request handler')
+        assert log_span['parent'] == root_span['context']
+        io_spans = [span for span in spans if 'asgi.event.type' in span['attributes']]
+        assert len(io_spans) == (3 if record_send_receive else 0)
+        assert all(span['attributes']['logfire.level_num'] == 5 for span in io_spans)
+        assert len(spans) == 2 + len(io_spans)
+    finally:
+        StarletteInstrumentor().uninstrument()
