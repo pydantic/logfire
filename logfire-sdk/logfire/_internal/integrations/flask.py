@@ -13,11 +13,13 @@ except ImportError:
         "    pip install 'logfire[flask]'"
     )
 
+from logfire import Logfire
 from logfire._internal.utils import maybe_capture_server_headers
 from logfire.integrations.flask import CommenterOptions, RequestHook, ResponseHook
 
 
 def instrument_flask(
+    logfire_instance: Logfire,
     app: Flask,
     *,
     capture_headers: bool,
@@ -27,7 +29,7 @@ def instrument_flask(
     request_hook: RequestHook | None = None,
     response_hook: ResponseHook | None = None,
     **kwargs: Any,
-):
+) -> None:
     """Instrument `app` so that spans are automatically created for each request.
 
     See the `Logfire.instrument_flask` method for details.
@@ -41,5 +43,9 @@ def instrument_flask(
         excluded_urls=excluded_urls,
         request_hook=request_hook,
         response_hook=response_hook,
-        **kwargs,
+        **{
+            'tracer_provider': logfire_instance.config.get_tracer_provider(),
+            'meter_provider': logfire_instance.config.get_meter_provider(),
+            **kwargs,
+        },
     )

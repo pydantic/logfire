@@ -1885,6 +1885,7 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_flask(
+            self,
             app,
             capture_headers=capture_headers,
             enable_commenter=enable_commenter,
@@ -1892,11 +1893,7 @@ class Logfire:
             excluded_urls=excluded_urls,
             request_hook=request_hook,
             response_hook=response_hook,
-            **{
-                'tracer_provider': self._config.get_tracer_provider(),
-                'meter_provider': self._config.get_meter_provider(),
-                **kwargs,
-            },
+            **kwargs,
         )
 
     def instrument_litestar(
