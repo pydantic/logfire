@@ -5106,3 +5106,28 @@ def test_stream_response_metadata(version: Any, complete: bool, exporter: TestEx
     else:
         assert 'gen_ai.response.finish_reasons' not in attributes
     client.close()
+
+
+async def test_internal_exception_in_on_response_keeps_the_response(
+    exporter: TestExporter, caplog: pytest.LogCaptureFixture
+) -> None:
+    """If recording a response fails inside Logfire, the caller still gets the response."""
+    # A choice without a message makes converting the output raise inside the instrumentation.
+    body = {
+        'id': 'chatcmpl-1',
+        'object': 'chat.completion',
+        'created': 0,
+        'model': 'gpt-4o',
+        'choices': [{'index': 0, 'message': None, 'finish_reason': 'content_filter'}],
+    }
+    async with httpx.AsyncClient(transport=MockTransport(lambda _: httpx.Response(200, json=body))) as http_client:
+        client = openai.AsyncClient(api_key='foobar', http_client=http_client)
+        with logfire.instrument_openai(client):
+            response = await client.chat.completions.create(
+                model='gpt-4o', messages=[{'role': 'user', 'content': 'hi'}]
+            )
+
+    assert isinstance(response, chat_completion.ChatCompletion)
+    assert response.id == 'chatcmpl-1'
+    assert 'Caught an internal error in Logfire' in caplog.text
+    assert len(exporter.exported_spans_as_dict()) == 1
