@@ -1,0 +1,20 @@
+tests/test_exceptions.py
+  s_c08a6008f241fe::t_140848028b0507 1,8,14-52,56-59
+  s_c08a6008f241fe::t_80e8c4eb0bd073 53-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5f0efb7de6fa14bd529a60d3c2790c714804ee0b",
+  "prompts": {},
+  "sessions": {
+    "s_c08a6008f241fe": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a153ca-71be-7230-ae35-27b0d6650075",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
