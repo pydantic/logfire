@@ -10,7 +10,9 @@ A session replay records changes to the page's document structure and user inter
 
 !!! note "Early access"
 
-    Session Replay is available in early access. [Contact Pydantic](https://pydantic.dev/contact) if you are interested.
+    Session Replay is available in early access on Growth, Enterprise, and self-hosted Logfire, as part of frontend observability. To turn it on, enable **Frontend observability** under [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access). The choice applies to your account in this browser, not automatically to every member.
+
+{{ video("e49bf181d6a087689147e170f104b86a") }}
 
 ## Record sessions
 

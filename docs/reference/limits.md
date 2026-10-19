@@ -52,3 +52,4 @@ A `Summary` is dropped on arrival. When a request carries `Summary` metrics alon
 - [Alternative clients](../how-to-guides/alternative-clients.md): send data with any OpenTelemetry SDK.
 - [Scrubbing](../how-to-guides/scrubbing.md): stop sensitive values leaving your machine, which also keeps large payload fields out of your telemetry.
 - [Sampling](../how-to-guides/sampling.md): keep a representative subset of traces to control volume and cost.
+- [Query limits](query-limits.md): the limits Logfire applies to the queries that you run.

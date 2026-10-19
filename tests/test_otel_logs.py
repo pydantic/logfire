@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import logging
+import warnings
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
+from unittest.mock import Mock
 
 import pytest
 import requests.exceptions
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
-from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider
-from opentelemetry.sdk._logs import ReadableLogRecord
+from opentelemetry._logs import Logger, LogRecord, SeverityNumber, get_logger, get_logger_provider
+from opentelemetry.context import Context
+from opentelemetry.sdk._logs import LoggingHandler, LogRecordProcessor, ReadableLogRecord, ReadWriteLogRecord
 from opentelemetry.sdk._logs.export import (
     InMemoryLogRecordExporter,
     LogRecordExporter,
@@ -20,6 +24,7 @@ from opentelemetry.sdk.resources import Resource
 import logfire
 from logfire import VERSION, suppress_instrumentation
 from logfire._internal.exporters.otlp import QuietLogExporter
+from logfire._internal.logs import ProxyLogger
 from logfire.testing import TestLogExporter
 
 
@@ -81,6 +86,30 @@ def test_otel_logs_min_level(config_kwargs: dict[str, Any]) -> None:
             (SeverityNumber.FATAL, 'FATAL'),
             (None, 'unknown'),
         ]
+    )
+
+
+def test_otel_logger_enabled(config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['min_level'] = 'error'
+    logfire.configure(**config_kwargs)
+
+    logger = get_logger('scope')
+    assert not logger.enabled(severity_number=SeverityNumber.DEBUG)
+    assert logger.enabled(severity_number=SeverityNumber.ERROR)
+
+
+def test_proxy_logger_enabled_delegates() -> None:
+    inner_logger = Mock()
+    inner_logger.enabled.return_value = False
+    logger = ProxyLogger(cast(Logger, inner_logger), SeverityNumber.ERROR.value, 'scope')
+    context = Context()
+
+    assert not logger.enabled(context=context, severity_number=SeverityNumber.DEBUG, event_name='event')
+    inner_logger.enabled.assert_not_called()
+
+    assert not logger.enabled(context=context, severity_number=SeverityNumber.ERROR, event_name='event')
+    inner_logger.enabled.assert_called_once_with(
+        context=context, severity_number=SeverityNumber.ERROR, event_name='event'
     )
 
 
@@ -214,3 +243,41 @@ def test_log_events_with_kwargs(logs_exporter: TestLogExporter) -> None:
             }
         ]
     )
+
+
+@pytest.mark.timeout(5)
+def test_otel_logging_handler_during_force_flush_does_not_deadlock(config_kwargs: dict[str, Any]) -> None:
+    emitted: list[ReadWriteLogRecord] = []
+
+    class ExportFailureProcessor(LogRecordProcessor):
+        def on_emit(self, log_record: ReadWriteLogRecord) -> None:
+            emitted.append(log_record)
+
+        def shutdown(self) -> None:
+            pass
+
+        def force_flush(self, timeout_millis: int = 30_000) -> bool:
+            logging.getLogger('opentelemetry.exporter.otlp.proto.http._log_exporter').error(
+                'Failed to export logs batch code: 404, reason: Not Found'
+            )
+            return True
+
+    config_kwargs['advanced'].log_record_processors = [ExportFailureProcessor()]
+    logfire.configure(**config_kwargs)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', DeprecationWarning)
+        handler = LoggingHandler(logger_provider=get_logger_provider())
+
+    logger = logging.getLogger('opentelemetry.exporter.otlp.proto.http._log_exporter')
+    propagate = logger.propagate
+    logger.addHandler(handler)
+    logger.propagate = False
+    try:
+        logfire.force_flush(timeout_millis=1_000)
+        assert [record.log_record.body for record in emitted] == [
+            'Failed to export logs batch code: 404, reason: Not Found'
+        ]
+    finally:
+        logger.removeHandler(handler)
+        logger.propagate = propagate

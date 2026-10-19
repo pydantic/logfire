@@ -30,6 +30,8 @@ via the cli instead of interactively, use `logfire --region eu auth` or `logfire
 !!! note
     If you're using a [self-hosted Logfire instance](./self-hosted/overview.md), you can authenticate by specifying your instance's URL using the `--base-url` flag:
     `logfire --base-url="https://<your_logfire_hostname>" auth`
+    Alternatively, set `LOGFIRE_BASE_URL`, which is also read by the SDK, to authenticate against the same instance:
+    `LOGFIRE_BASE_URL="https://<your_logfire_hostname>" logfire auth`
 
 !!! note
     To add optional signup attribution, set `LOGFIRE_AUTH_SOURCE` before running `logfire auth`. It
@@ -60,9 +62,22 @@ Then, if you go back to the terminal, you'll see that you are authenticated! :ta
 
 To log out and remove the locally stored credentials, run:
 
+!!! warning "Logout scope"
+    Without `--region`, `--base-url`, or a non-empty `LOGFIRE_BASE_URL`, this removes user tokens for **all** stored regions and servers.
+    Otherwise, only the selected region or server's user token is removed.
+
 ```bash
 logfire auth logout
 ```
+
+To switch accounts in one region, log out of that region, then authenticate again:
+
+```bash
+logfire --region us auth logout
+logfire --region us auth
+```
+
+For a self-hosted instance, use the same `--base-url` value in both commands instead of `--region`.
 
 ## Clean (`clean`)
 
@@ -262,7 +277,15 @@ To run a Python script or module with **Logfire** instrumentation enabled automa
 logfire run script.py
 # or run a module, forwarding any arguments after it:
 logfire run -m my_module --my-arg
+# or run an installed Python console command:
+logfire run pytest tests/
 ```
+
+Console commands are resolved from the selected Python environment's installed
+`console_scripts` metadata, which maps each command name to the Python function
+that runs it. This keeps automatic instrumentation in the same
+Python process on macOS, Linux, and Windows, including platforms where package
+installers generate native launcher executables.
 
 By default a summary box is printed to stderr showing which packages were instrumented; disable it with `--no-summary`. Use `--exclude` to skip instrumenting specific packages:
 

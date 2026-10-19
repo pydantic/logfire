@@ -1,5 +1,110 @@
 # Release Notes
 
+## [v6.0.0b8] (2026-10-09)
+
+* Support OpenTelemetry 1.45 by @alexmojaki in [#2536](https://github.com/pydantic/logfire/pull/2536)
+* Allow console attributes without verbose output by @rudrakshkarpe in [#2488](https://github.com/pydantic/logfire/pull/2488)
+* Add `compression` option and zstd experimental support by @Viicos in [#2535](https://github.com/pydantic/logfire/pull/2535)
+* Update FastAPI instrumentation to prevent duplicate telemetry by @alexmojaki in [#2524](https://github.com/pydantic/logfire/pull/2524)
+* Update Anthropic instrumentation by @alexmojaki in [#2521](https://github.com/pydantic/logfire/pull/2521)
+* Keep span message in sync with the name after `update_name` by @darshjoshi in [#2514](https://github.com/pydantic/logfire/pull/2514)
+* Expose RFC 9457 problem details on query client errors by @adriangb in [#2511](https://github.com/pydantic/logfire/pull/2511)
+* Read stable HTTP semconv attributes when building HTTP span messages by @samuelcolvin in [#2516](https://github.com/pydantic/logfire/pull/2516)
+* Update Google GenAI instrumentation by @alexmojaki in [#2523](https://github.com/pydantic/logfire/pull/2523)
+* Convert span attribute ints below the int64 minimum to strings by @JoeyTan21 in [#2502](https://github.com/pydantic/logfire/pull/2502)
+* Respect repr=False when logging attrs fields by @harbinresearcher in [#2518](https://github.com/pydantic/logfire/pull/2518)
+* Default the CLI base URL to LOGFIRE_BASE_URL by @jgjoe in [#2260](https://github.com/pydantic/logfire/pull/2260)
+* Create subprocess with no console windows on windows by @marcelotrevisani in [#2507](https://github.com/pydantic/logfire/pull/2507)
+* Fix when logfire tries to access a file that has no permission by @marcelotrevisani in [#2464](https://github.com/pydantic/logfire/pull/2464)
+* fix: do not treat non-retryable DiskRetryer responses as success by @alexmojaki in [#2529](https://github.com/pydantic/logfire/pull/2529)
+* fix explicit context for logfire metrics by @alexmojaki in [#2532](https://github.com/pydantic/logfire/pull/2532)
+* Fix OTLP byte POST retries through Session.request by @SAY-5 in [#2503](https://github.com/pydantic/logfire/pull/2503)
+* Handle project setup for accounts without organizations by @strawgate in [#2469](https://github.com/pydantic/logfire/pull/2469)
+
+## [v6.0.0b7] (2026-09-25)
+
+* Configure proxy managers before other threads can use them by @adriangb in [#2479](https://github.com/pydantic/logfire/pull/2479)
+
+## [v6.0.0b6] (2026-09-25)
+
+* Make the `logfire` package own the `logfire` command and require `logfire-cli` 0.1.8 or later by @adriangb in [#2480](https://github.com/pydantic/logfire/pull/2480)
+
+## [v6.0.0b5] (2026-09-24)
+
+* Enable TCP keepalive and recycle idle connections in Logfire's HTTP sessions by @adriangb in [#2309](https://github.com/pydantic/logfire/pull/2309)
+
+## [v6.0.0b4] (2026-09-21)
+
+* Make `instrument_mcp()` work with mcp 2 / fastmcp 4 by @samuelcolvin in [#2439](https://github.com/pydantic/logfire/pull/2439)
+* Add `logfire.instrument_monty()` by @davidhewitt in [#2371](https://github.com/pydantic/logfire/pull/2371)
+* Require `logfire-cli` 0.1.7 or later in the `logfire` compatibility package.
+
+## [v6.0.0b3] (2026-09-18)
+
+* Require `logfire-cli` 0.1.5 or later in the `logfire` compatibility package.
+
+## [v6.0.0b2] (2026-09-17)
+
+* Require `logfire-cli` 0.1.4 or later in the `logfire` compatibility package.
+* Support console scripts in `logfire run` by @strawgate in [#2427](https://github.com/pydantic/logfire/pull/2427)
+
+## [v6.0.0b1] (2026-09-15)
+
+* **Breaking Change:** Split the `logfire` distribution into the `logfire-sdk` Python SDK and the standalone `logfire-cli`. The `logfire` package now installs both while preserving upgrades from Logfire 5, the existing `import logfire` API, and optional extras. Install `logfire-sdk` directly when the CLI is not needed.
+
+## [v5.2.0] (2026-10-13)
+
+* Support OpenTelemetry 1.45 by @alexmojaki in [#2536](https://github.com/pydantic/logfire/pull/2536)
+* Allow console attributes without verbose output by @rudrakshkarpe in [#2488](https://github.com/pydantic/logfire/pull/2488)
+* Add `compression` option and zstd experimental support by @Viicos in [#2535](https://github.com/pydantic/logfire/pull/2535)
+* Update FastAPI instrumentation to prevent duplicate telemetry by @alexmojaki in [#2524](https://github.com/pydantic/logfire/pull/2524)
+* Update Anthropic instrumentation by @alexmojaki in [#2521](https://github.com/pydantic/logfire/pull/2521)
+* Keep span message in sync with the name after `update_name` by @darshjoshi in [#2514](https://github.com/pydantic/logfire/pull/2514)
+* Expose RFC 9457 problem details on query client errors by @adriangb in [#2511](https://github.com/pydantic/logfire/pull/2511)
+* Read stable HTTP semconv attributes when building HTTP span messages by @samuelcolvin in [#2516](https://github.com/pydantic/logfire/pull/2516)
+* Update Google GenAI instrumentation by @alexmojaki in [#2523](https://github.com/pydantic/logfire/pull/2523)
+* Convert span attribute ints below the int64 minimum to strings by @JoeyTan21 in [#2502](https://github.com/pydantic/logfire/pull/2502)
+* Respect repr=False when logging attrs fields by @harbinresearcher in [#2518](https://github.com/pydantic/logfire/pull/2518)
+* Default the CLI base URL to LOGFIRE_BASE_URL by @jgjoe in [#2260](https://github.com/pydantic/logfire/pull/2260)
+* Create subprocess with no console windows on windows by @marcelotrevisani in [#2507](https://github.com/pydantic/logfire/pull/2507)
+* Fix when logfire tries to access a file that has no permission by @marcelotrevisani in [#2464](https://github.com/pydantic/logfire/pull/2464)
+* fix: do not treat non-retryable DiskRetryer responses as success by @alexmojaki in [#2529](https://github.com/pydantic/logfire/pull/2529)
+* fix explicit context for logfire metrics by @alexmojaki in [#2532](https://github.com/pydantic/logfire/pull/2532)
+* Fix OTLP byte POST retries through Session.request by @SAY-5 in [#2503](https://github.com/pydantic/logfire/pull/2503)
+
+(These are the same changes as in v6.0.0b8, but backported to the v5 line.)
+
+## [v5.1.1] (2026-09-25)
+
+* Handle project setup for accounts without organizations by @strawgate in [#2470](https://github.com/pydantic/logfire/pull/2470)
+* Enable TCP keepalive and recycle idle connections in Logfire's HTTP sessions by @adriangb in [#2476](https://github.com/pydantic/logfire/pull/2476)
+
+## [v5.1.0] (2026-09-11)
+
+### Integrations
+
+* Add `logfire.instrument_litestar()` with support for Litestar 2.11 and later by @dmontagu in [#2249](https://github.com/pydantic/logfire/pull/2249)
+* Recommend Logfire extras when `logfire run` detects missing instrumentation packages by @krishna3554 in [#2082](https://github.com/pydantic/logfire/pull/2082)
+
+### Agent setup
+
+* Use canonical URLs between published Logfire skills by @strawgate in [#2373](https://github.com/pydantic/logfire/pull/2373)
+* Preserve the selected Logfire region or custom base URL throughout setup by @strawgate in [#2377](https://github.com/pydantic/logfire/pull/2377)
+* Continue project selection and verification after browser authentication by @strawgate in [#2384](https://github.com/pydantic/logfire/pull/2384)
+* Make eval setup executable for Python and Node.js by @strawgate in [#2400](https://github.com/pydantic/logfire/pull/2400) and [#2402](https://github.com/pydantic/logfire/pull/2402)
+* Correct setup guidance for Python, Node.js, Rust, and Gunicorn by @adtyavrdhn in [#2365](https://github.com/pydantic/logfire/pull/2365)
+
+### Fixes
+
+* Prevent OpenTelemetry logging from deadlocking during `force_flush()` by @L4XB in [#2404](https://github.com/pydantic/logfire/pull/2404)
+* Require directory boundaries when identifying non-user code paths by @yhz5613813 in [#2375](https://github.com/pydantic/logfire/pull/2375)
+
+## New Contributors
+
+* @yhz5613813 made their first contribution in [#2375](https://github.com/pydantic/logfire/pull/2375)
+* @krishna3554 made their first contribution in [#2082](https://github.com/pydantic/logfire/pull/2082)
+* @L4XB made their first contribution in [#2404](https://github.com/pydantic/logfire/pull/2404)
+
 ## [v5.0.0] (2026-09-04)
 
 ### Major changes
@@ -1275,3 +1380,14 @@ First release from new repo!
 [v4.40.0]: https://github.com/pydantic/logfire/compare/v4.39.0...v4.40.0
 [v4.41.0]: https://github.com/pydantic/logfire/compare/v4.40.0...v4.41.0
 [v5.0.0]: https://github.com/pydantic/logfire/compare/v4.41.0...v5.0.0
+[v5.1.0]: https://github.com/pydantic/logfire/compare/v5.0.0...v5.1.0
+[v5.1.1]: https://github.com/pydantic/logfire/compare/v5.1.0...v5.1.1
+[v5.2.0]: https://github.com/pydantic/logfire/compare/v5.1.1...v5.2.0
+[v6.0.0b1]: https://github.com/pydantic/logfire/compare/v5.1.0...v6.0.0b1
+[v6.0.0b2]: https://github.com/pydantic/logfire/compare/v6.0.0b1...v6.0.0b2
+[v6.0.0b3]: https://github.com/pydantic/logfire/compare/v6.0.0b2...v6.0.0b3
+[v6.0.0b4]: https://github.com/pydantic/logfire/compare/v6.0.0b3...v6.0.0b4
+[v6.0.0b5]: https://github.com/pydantic/logfire/compare/v6.0.0b4...v6.0.0b5
+[v6.0.0b6]: https://github.com/pydantic/logfire/compare/v6.0.0b5...v6.0.0b6
+[v6.0.0b7]: https://github.com/pydantic/logfire/compare/v6.0.0b6...v6.0.0b7
+[v6.0.0b8]: https://github.com/pydantic/logfire/compare/v6.0.0b7...v6.0.0b8

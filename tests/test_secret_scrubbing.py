@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
 from typing import Any
@@ -25,12 +24,15 @@ DEFAULT_PATTERN_EXAMPLES = {
     r'auth(?!ors?\b)': 'has_authorization_value',
     'credential': 'has_credential_value',
     'private[._ -]?key': 'has_private-key_value',
+    'passphrase': 'has_passphrase_value',
+    '(?:signing|hmac)[._ -]?key': 'has_signing_key_value',
     'api[._ -]?key': 'has_api.key_value',
     'session': 'has_session_value',
     'cookie': 'has_cookie_value',
     'social[._ -]?security': 'has_social security_value',
     'credit[._ -]?card': 'has_credit_card_value',
     'logfire[._ -]?token': 'has_logfire-token_value',
+    r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token': 'has_access_token_value',
     r'pylf_v\d+_': 'has_pylf_v12_token',
     r'(?:\b|_)csrf(?:\b|_)': 'has csrf value',
     r'(?:\b|_)xsrf(?:\b|_)': 'has xsrf value',
@@ -99,6 +101,12 @@ def test_default_pattern_start_chars_cover_each_pattern():
         (r'(?:\b|_)xsrf(?:\b|_)', 'has_xsrf_value'),
         (r'(?:\b|_)jwt(?:\b|_)', 'has_jwt_value'),
         (r'(?:\b|_)ssn(?:\b|_)', 'has_ssn_value'),
+        (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has refresh-token value'),
+        (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has bearer token value'),
+        (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has_id_token_value'),
+        (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has idtoken value'),
+        (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has access.token value'),
+        ('(?:signing|hmac)[._ -]?key', 'has hmac-key value'),
         ('secret', 'has \u017fecret value'),
         ('credential', 'has credent\u0131al value'),
     ]
@@ -369,7 +377,7 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
         if match.path[-1] == 'my_password':
             return str(match)
         elif match.path[-1] == 'bad_value':
-            # This is not a valid OTEL attribute value, so it will be removed completely.
+            # OpenTelemetry versions may drop or stringify unsupported objects.
             return match
 
     config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(logs_exporter)]
@@ -381,14 +389,16 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
         **config_kwargs,
     )
 
-    # Note the values (or lack thereof) of each of these attributes in the exported span.
+    # Ignore the version-specific representation of the arbitrary callback object.
     logfire.info('hi', my_password='hunter2', other='matches_my_pattern', bad_value='the_password')
 
     get_logger(__name__).emit(
         LogRecord(attributes={'my_password': 'hunter2', 'bad_value': 'the_password', 'event.name': 'hi'})
     )
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    spans = exporter.exported_spans_as_dict()
+    spans[0]['attributes'].pop('bad_value', None)
+    assert spans == snapshot(
         [
             {
                 'name': 'hi',
@@ -419,7 +429,9 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
         ]
     )
 
-    assert logs_exporter.exported_logs_as_dicts() == snapshot(
+    logs = logs_exporter.exported_logs_as_dicts()
+    logs[0]['attributes'].pop('bad_value', None)
+    assert logs == snapshot(
         [
             {
                 'body': None,
@@ -445,8 +457,8 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
     )
 
 
-def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any]):
-    os.environ[OTEL_RESOURCE_ATTRIBUTES] = 'my_password=hunter2,yours=your_password,other=safe=good'
+def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(OTEL_RESOURCE_ATTRIBUTES, 'my_password=hunter2,yours=your_password,other=safe=good')
     logfire.configure(**config_kwargs)
     logfire.info('hi')
     assert dict(exporter.exported_spans[0].resource.attributes) == IsPartialDict(
@@ -671,7 +683,7 @@ def test_default_patterns_match_docs():
         docs.write_text(content[: match.start(2)] + expected_block + content[match.end(2) :])
         pytest.fail(
             f'The scrubbing patterns documented in {docs} were out of sync with `DEFAULT_PATTERNS` '
-            'in logfire/_internal/scrubbing.py. The docs have been updated to match; re-run to confirm.'
+            'in logfire-sdk/logfire/_internal/scrubbing.py. The docs have been updated to match; re-run to confirm.'
         )
 
 
@@ -721,4 +733,67 @@ def test_logfire_token_prefix_scrubbing(exporter: TestExporter):
                 },
             }
         ]
+    )
+
+
+def test_oauth_token_names_scrubbed(exporter: TestExporter):
+    logfire.info(
+        'hi',
+        access_token='ya29.a0Af',
+        refresh_token='1//0gLk',
+        id_token='eyJhbGciOi',
+        bearer_token='abc123',
+        input_tokens=10,
+        max_tokens=100,
+        token='kept',
+        error='invalid token',
+    )
+    # A bare `token`, LLM token counts, and prose like 'invalid token' are deliberately not matched.
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert {
+        k: attributes[k]
+        for k in [
+            'access_token',
+            'refresh_token',
+            'id_token',
+            'bearer_token',
+            'input_tokens',
+            'max_tokens',
+            'token',
+            'error',
+        ]
+    } == snapshot(
+        {
+            'access_token': "[Scrubbed due to 'access_token']",
+            'refresh_token': "[Scrubbed due to 'refresh_token']",
+            'id_token': "[Scrubbed due to 'id_token']",
+            'bearer_token': "[Scrubbed due to 'bearer_token']",
+            'input_tokens': 10,
+            'max_tokens': 100,
+            'token': 'kept',
+            'error': 'invalid token',
+        }
+    )
+
+
+def test_passphrase_and_signing_keys_scrubbed(exporter: TestExporter):
+    logfire.info(
+        'hi',
+        passphrase='correct horse',
+        signing_key='k1',
+        hmac_key='k2',
+        webhook_hmac_key='k3',
+        keyboard_layout='uk',
+    )
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert {
+        k: attributes[k] for k in ['passphrase', 'signing_key', 'hmac_key', 'webhook_hmac_key', 'keyboard_layout']
+    } == snapshot(
+        {
+            'passphrase': "[Scrubbed due to 'passphrase']",
+            'signing_key': "[Scrubbed due to 'signing_key']",
+            'hmac_key': "[Scrubbed due to 'hmac_key']",
+            'webhook_hmac_key': "[Scrubbed due to 'hmac_key']",
+            'keyboard_layout': 'uk',
+        }
     )

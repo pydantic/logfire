@@ -9,7 +9,8 @@ import re
 import sys
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from pathlib import Path
+from typing import Any, Literal
 from unittest import mock
 
 import pytest
@@ -44,6 +45,159 @@ else:  # pragma: no cover
 tracer = trace.get_tracer('test')
 
 NANOSECONDS_PER_SECOND = int(1e9)
+
+
+@pytest.mark.parametrize('span_style', ['simple', 'indented', 'show-parents'])
+@pytest.mark.parametrize('colors', ['never', 'always'])
+@pytest.mark.parametrize(
+    'verbose,include_attributes,expect_attributes',
+    [
+        (False, None, False),
+        (True, None, True),
+        (False, True, True),
+        (True, True, True),
+        (False, False, False),
+        (True, False, False),
+    ],
+)
+def test_console_include_attributes(
+    config_kwargs: dict[str, Any],
+    span_style: Literal['simple', 'indented', 'show-parents'],
+    colors: Literal['never', 'always'],
+    verbose: bool,
+    include_attributes: bool | None,
+    expect_attributes: bool,
+) -> None:
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output,
+        colors=colors,
+        span_style=span_style,
+        include_timestamps=False,
+        verbose=verbose,
+        include_attributes=include_attributes,
+    )
+    logfire.configure(**config_kwargs)
+    with logfire.span('loading_users', num_users=13070):
+        logfire.info('loaded', result={'count': 13070})
+
+    text = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', output.getvalue())
+    assert 'loading_users' in text
+    assert 'loaded' in text
+    assert ('num_users=13070' in text) is expect_attributes
+    assert ('result={' in text) is expect_attributes
+    assert ("'count': 13070" in text) is expect_attributes
+    assert ('test_console_exporter.py:' in text) is verbose
+    assert (' info' in text) is verbose
+
+
+@pytest.mark.parametrize('colors', ['never', 'always'])
+@pytest.mark.parametrize(
+    'value,formatted',
+    [
+        (range(4), 'range(0, 4)'),
+        (range(0), 'range(0, 0)'),
+        (range(3, 4), 'range(3, 4)'),
+        (range(1, 8, 3), 'range(1, 10, 3)'),
+        (range(5, -1, -2), 'range(5, -1, -2)'),
+    ],
+)
+def test_console_range_attributes(
+    config_kwargs: dict[str, Any],
+    colors: Literal['never', 'always'],
+    value: range,
+    formatted: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Exercise the schema emitted by the public API and keep later attributes visible.
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors=colors, include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('loaded', values=value, count=len(value))
+
+    text = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', output.getvalue())
+    assert text == f'loaded\n│ values={formatted}\n│ count={len(value)}\n'
+    assert not caplog.records
+
+
+def test_console_bytearray_attribute(config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture) -> None:
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('loaded', data=bytearray(b'a\nb'), count=3)
+
+    assert output.getvalue() == 'loaded\n│ data=bytearray(a\\nb)\n│ count=3\n'
+    assert not caplog.records
+
+
+@pytest.mark.parametrize('source', ['file', 'environment', 'options'])
+@pytest.mark.parametrize('include_attributes', [True, False])
+def test_console_include_attributes_config_sources(
+    config_kwargs: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    source: str,
+    include_attributes: bool,
+) -> None:
+    monkeypatch.delenv('LOGFIRE_CONSOLE_INCLUDE_ATTRIBUTES', raising=False)
+    file_value = include_attributes if source == 'file' else not include_attributes
+    (tmp_path / 'pyproject.toml').write_text(
+        f'[tool.logfire]\nconsole_include_attributes = {str(file_value).lower()}\n'
+    )
+    config_kwargs.update(console=None, config_dir=tmp_path)
+    if source != 'file':
+        env_value = include_attributes if source == 'environment' else not include_attributes
+        monkeypatch.setenv('LOGFIRE_CONSOLE_INCLUDE_ATTRIBUTES', str(env_value).lower())
+    if source == 'options':
+        config_kwargs['console'] = ConsoleOptions(include_attributes=include_attributes)
+
+    logfire.configure(**config_kwargs)
+    logfire.info('loaded', num_users=13070)
+    assert ('num_users=13070' in capsys.readouterr().out) is include_attributes
+
+
+@pytest.mark.parametrize('include_attributes', [True, False])
+def test_console_include_attributes_otel_logs(
+    config_kwargs: dict[str, Any], capsys: pytest.CaptureFixture[str], include_attributes: bool
+) -> None:
+    config_kwargs['console'] = ConsoleOptions(
+        include_attributes=include_attributes, include_timestamps=False, colors='never'
+    )
+    logfire.configure(**config_kwargs)
+    get_logger('logs').emit(
+        LogRecord(
+            body='loaded',
+            severity_number=SeverityNumber.INFO,
+            attributes={
+                'num_users': 13070,
+                'code.filepath': 'example.py',
+                'code.lineno': 42,
+                'logfire.json_schema': '{"type":"object","properties":{"num_users":{}}}',
+            },
+        )
+    )
+    assert capsys.readouterr().out == ('loaded\n│ num_users=13070\n' if include_attributes else 'loaded\n')
+
+
+@pytest.mark.parametrize('include_attributes', [None, True, False])
+@pytest.mark.parametrize('body', ['loaded', None])
+def test_console_include_attributes_preserves_otel_log_messages(
+    config_kwargs: dict[str, Any],
+    capsys: pytest.CaptureFixture[str],
+    include_attributes: bool | None,
+    body: str | None,
+) -> None:
+    config_kwargs['console'] = ConsoleOptions(
+        include_attributes=include_attributes, include_timestamps=False, colors='never'
+    )
+    logfire.configure(**config_kwargs)
+    get_logger('logs').emit(LogRecord(body=body, attributes={'num_users': 13070}))
+    assert capsys.readouterr().out == ("{'num_users': 13070}\n" if body is None else 'loaded\n')
 
 
 @pytest.fixture

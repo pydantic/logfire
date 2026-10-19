@@ -49,7 +49,7 @@ For each service you approve, Logfire receives a key that lets it send alerts an
 
 A notification channel is an organization-level destination that you attach to one or more alerts.
 
-1. From your project's sidebar, open **Delivery**, then **Channels**.
+1. Open **Project settings** → **Notifications** → **Delivery** → **Channels**.
 2. Click **New channel**.
 3. Enter a name that explains who receives the page, such as `PagerDuty on-call`.
 4. Select **PagerDuty** as the type.

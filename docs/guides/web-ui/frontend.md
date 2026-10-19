@@ -10,7 +10,9 @@ The page groups browser telemetry by frontend application. A frontend applicatio
 
 !!! note "Early access"
 
-    Frontend observability is available in early access. [Contact Pydantic](https://pydantic.dev/contact) if you are interested.
+    Frontend observability is available in early access on Growth, Enterprise, and self-hosted Logfire. To turn it on, enable **Frontend observability** under [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access). The choice applies to your account in this browser, not automatically to every member.
+
+{{ video("21dbd5dbf7d61fe58d7927f9c12633ef") }}
 
 ## Send browser data
 

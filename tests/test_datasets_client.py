@@ -1028,6 +1028,35 @@ class TestLogfireAPIClient:
         assert _get_dataset_type_args(result) == (list[int], Any, Any)
         assert result.cases[0].inputs == [1, 2]
 
+    def test_push_dataset_fetched_with_only_input_type_sends_no_other_schemas(self):
+        requests_seen: list[httpx.Request] = []
+        export = {'name': 'test-dataset', 'cases': [{'name': 'test-case', 'inputs': [1, 2]}]}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            if request.method == 'GET' and request.url.path == '/v1/datasets/test-dataset/export/':
+                return httpx.Response(200, json=export)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/':
+                return httpx.Response(409, json={'detail': 'Dataset already exists'})
+            if request.method == 'POST' and request.url.path == '/v1/datasets/test-dataset/import/':
+                return httpx.Response(200, json=[FAKE_CASE])
+            if request.url.path == '/v1/datasets/test-dataset/':
+                return httpx.Response(200, json=FAKE_DATASET)
+            return httpx.Response(404, json={'detail': 'Not found'})
+
+        client = LogfireAPIClient(
+            client=httpx.Client(transport=httpx.MockTransport(handler), base_url='https://test.logfire.dev')
+        )
+
+        client.push_dataset(client.get_dataset('test-dataset', input_type=list[int]))
+
+        create_request = next(r for r in requests_seen if r.method == 'POST' and r.url.path == '/v1/datasets/')
+        update_request = next(r for r in requests_seen if r.method == 'PATCH')
+        for body in (json.loads(create_request.content), json.loads(update_request.content)):
+            assert body['input_schema'] == {'type': 'array', 'items': {'type': 'integer'}}
+            assert 'output_schema' not in body
+            assert 'metadata_schema' not in body
+
     def test_get_dataset_typed_without_pydantic_evals(self, monkeypatch: pytest.MonkeyPatch):
         client = make_client()
         monkeypatch.setitem(sys.modules, 'pydantic_evals', None)
@@ -1484,6 +1513,36 @@ class TestAsyncLogfireAPIClient:
 
         assert _get_dataset_type_args(result) == (list[int], Any, Any)
         assert result.cases[0].inputs == [1, 2]
+
+    @pytest.mark.anyio
+    async def test_push_dataset_fetched_with_only_input_type_sends_no_other_schemas(self):
+        requests_seen: list[httpx.Request] = []
+        export = {'name': 'test-dataset', 'cases': [{'name': 'test-case', 'inputs': [1, 2]}]}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            if request.method == 'GET' and request.url.path == '/v1/datasets/test-dataset/export/':
+                return httpx.Response(200, json=export)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/':
+                return httpx.Response(409, json={'detail': 'Dataset already exists'})
+            if request.method == 'POST' and request.url.path == '/v1/datasets/test-dataset/import/':
+                return httpx.Response(200, json=[FAKE_CASE])
+            if request.url.path == '/v1/datasets/test-dataset/':
+                return httpx.Response(200, json=FAKE_DATASET)
+            return httpx.Response(404, json={'detail': 'Not found'})
+
+        client = AsyncLogfireAPIClient(
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url='https://test.logfire.dev')
+        )
+
+        await client.push_dataset(await client.get_dataset('test-dataset', input_type=list[int]))
+
+        create_request = next(r for r in requests_seen if r.method == 'POST' and r.url.path == '/v1/datasets/')
+        update_request = next(r for r in requests_seen if r.method == 'PATCH')
+        for body in (json.loads(create_request.content), json.loads(update_request.content)):
+            assert body['input_schema'] == {'type': 'array', 'items': {'type': 'integer'}}
+            assert 'output_schema' not in body
+            assert 'metadata_schema' not in body
 
     @pytest.mark.anyio
     async def test_add_cases_with_dicts(self):

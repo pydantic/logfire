@@ -35,7 +35,7 @@ def celery_app() -> Iterator[Celery]:
         app = Celery('tasks', broker=redis_uri, backend=redis_uri)
 
         @app.task(name='tasks.say_hello')  # type: ignore
-        def say_hello():  # type: ignore
+        def say_hello():
             return 'hello'
 
         logfire.instrument_celery()

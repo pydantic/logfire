@@ -6,11 +6,13 @@ import pytest
 from dirty_equals import IsFloat, IsInt
 from flask import Flask
 from inline_snapshot import snapshot
+from opentelemetry.context import get_value
 from opentelemetry.propagate import inject
 from werkzeug.test import Client
 
 import logfire
 import logfire._internal.integrations.flask
+from logfire.integrations.flask import CommenterOptions
 from logfire.testing import TestExporter, TimeGenerator
 
 
@@ -19,7 +21,7 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
     logfire.instrument_flask(app)
 
     @app.route('/')
-    def homepage():  # type: ignore
+    def homepage():
         logfire.info('inside request handler')
         return 'middleware test'
 
@@ -209,3 +211,48 @@ def test_missing_opentelemetry_dependency() -> None:
 You can install this with:
     pip install 'logfire[flask]'\
 """)
+
+
+@pytest.mark.parametrize('commenter_options', [None, {'framework': False}])
+@pytest.mark.parametrize('manually_instrument', [False, True])
+def test_global_flask_instrumentation(
+    exporter: TestExporter, commenter_options: CommenterOptions | None, manually_instrument: bool
+) -> None:
+    logfire._internal.integrations.flask.instrument_flask(
+        logfire.DEFAULT_LOGFIRE_INSTANCE, commenter_options=commenter_options, excluded_urls='/health'
+    )
+    try:
+        # Obtain the patched class after global instrumentation, just as application code does.
+        from flask import Flask
+
+        app = Flask(__name__)
+        if manually_instrument:
+            logfire.instrument_flask(app)
+
+        @app.get('/')
+        def homepage() -> str:
+            tags = get_value('SQLCOMMENTER_ORM_TAGS_AND_VALUES')
+            assert isinstance(tags, dict)
+            assert tags['route'] == '/'
+            assert tags['controller'] == 'homepage'
+            assert ('framework' in tags) == (commenter_options is None)
+            logfire.info('inside request handler')
+            return 'hello'
+
+        @app.get('/health')
+        def health() -> str:
+            return 'ok'
+
+        client = Client(app)
+        response = client.get('/')
+        assert response.status_code == 200
+        assert response.text == 'hello'
+        assert client.get('/health').status_code == 200
+
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert [span['name'] for span in spans] == ['inside request handler', 'GET /']
+        assert spans[0]['parent'] == spans[1]['context']
+        assert spans[1]['attributes']['http.route'] == '/'
+        assert spans[1]['attributes']['http.status_code'] == 200
+    finally:
+        opentelemetry.instrumentation.flask.FlaskInstrumentor().uninstrument()

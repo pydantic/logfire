@@ -32,6 +32,10 @@ typecheck:
 test:
 	uv run --no-sync pytest -n logical --dist=loadgroup
 
+.PHONY: test-otel-collector
+test-otel-collector:
+	LOGFIRE_OTEL_COLLECTOR_TESTS=1 uv run --no-sync pytest -n 0 tests/otel_collector
+
 .PHONY: test-update-examples  # Update the examples in the documentation
 test-update-examples:
 	uv run pytest --update-examples -k test_docs
@@ -54,7 +58,7 @@ testcov:
 
 .PHONY: test-pyodide  # Check logfire runs with pyodide
 test-pyodide:
-	uv build
+	uv build --package logfire-sdk
 	cd pyodide_test && npm install && npm test
 
 .PHONY: docs  # Documentation is built by pydantic/unified-docs

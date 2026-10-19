@@ -28,12 +28,12 @@ Install `logfire`:
 The example below also needs the MCP SDK and a client. Install them with:
 
 ```bash
-pip install mcp 'pydantic-ai-slim[mcp,openai]'
+pip install 'mcp<2' 'pydantic-ai-slim[mcp,openai]'
 ```
 
 ## Usage
 
-Call `logfire.configure()`, then [`logfire.instrument_mcp()`][logfire.Logfire.instrument_mcp]. This works on both the client and server side. Calling it in both processes is recommended, so the spans join into one distributed trace.
+With version 1 of the MCP SDK, call `logfire.configure()`, then [`logfire.instrument_mcp()`][logfire.Logfire.instrument_mcp]. This works on both the client and server side. Calling it in both processes is recommended, so the spans join into one distributed trace. With version 2 of the SDK, or fastmcp 4, `logfire.configure()` alone is enough: see [MCP SDK version 2 and fastmcp 4](#mcp-sdk-version-2-and-fastmcp-4) below.
 
 The example below uses [Pydantic AI](https://pydantic.dev/docs/ai/mcp/client/) as the client (any MCP client works) and OpenAI as the model. To use a different provider, replace `openai:gpt-4o` in the client script with another model name Pydantic AI supports.
 
@@ -85,9 +85,15 @@ With both scripts running, open the [Live view](../../guides/web-ui/live.md). Wi
 
 ![Logfire MCP Trace](../../images/logfire-screenshot-mcp.png)
 
+## MCP SDK version 2 and fastmcp 4
+
+Version 2 of the MCP Python SDK (`mcp>=2`, which fastmcp 4 depends on) emits OpenTelemetry spans and passes the trace context between client and server on its own. With it, `logfire.configure()` is all you need on each side, and you get the same joined trace without calling `logfire.instrument_mcp()`. Calling it anyway does nothing except emit a warning saying it's unnecessary.
+
+The examples on this page target version 1 of the SDK, which is why the install command above pins `mcp<2`: `mcp.server.fastmcp` no longer exists in version 2, where the same server class is `mcp.server.mcpserver.MCPServer`.
+
 ## Troubleshooting
 
-Not seeing data? Check that `logfire.configure()` ran before `instrument_mcp()` in each process, that your write token is set, and that you called the instrument function exactly once per process. Only seeing one side of the trace? Make sure you instrumented both the client and the server.
+Not seeing data? Check that `logfire.configure()` ran in each process and that your write token is set. With version 1 of the SDK, also check that `instrument_mcp()` ran after `logfire.configure()`, exactly once per process. Only seeing one side of the trace? Make sure both the client and the server are set up as above.
 
 ## Reference
 

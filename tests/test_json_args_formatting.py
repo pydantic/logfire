@@ -128,6 +128,18 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
             id='bytes_with_title',
         ),
         pytest.param(
+            'test bytes',
+            {'type': 'string', 'x-python-datatype': 'bytearray'},
+            'bytearray(test bytes)',
+            id='bytearray',
+        ),
+        pytest.param(
+            '\\x81',
+            {'type': 'string', 'x-python-datatype': 'bytearray', 'title': 'MyBytearray'},
+            'MyBytearray(\\x81)',
+            id='bytearray_with_title',
+        ),
+        pytest.param(
             ['a', 1, True],
             {'type': 'array', 'x-python-datatype': 'tuple'},
             """(
@@ -710,6 +722,29 @@ def test_nested_json_args_value_formatting():
 )
 def test_json_args_value_formatting_compact(value: Any, schema: JSONSchema, formatted_value: str):
     assert json_args_value_formatter_compact(value, schema=schema) == formatted_value
+
+
+@pytest.mark.parametrize('formatter', [json_args_value_formatter, json_args_value_formatter_compact])
+@pytest.mark.parametrize(
+    'schema',
+    [
+        {'type': 'array', 'x-python-datatype': 'range'},
+        {'type': 'array', 'x-python-datatype': 'Sequence', 'title': 'range'},
+    ],
+)
+@pytest.mark.parametrize(
+    'value,formatted',
+    [
+        ([], 'range(0, 0)'),
+        ([3], 'range(3, 4)'),
+        ([0, 1, 2, 3], 'range(0, 4)'),
+        ([1, 4, 7], 'range(1, 10, 3)'),
+        ([5, 3, 1], 'range(5, -1, -2)'),
+    ],
+)
+def test_range_formatting(formatter: Any, schema: JSONSchema, value: list[int], formatted: str) -> None:
+    # Both range schemas must preserve the encoded sequence, including empty and stepped ranges.
+    assert formatter(value, schema=schema) == formatted
 
 
 def test_all_types_covered():
