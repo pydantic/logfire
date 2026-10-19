@@ -40,11 +40,11 @@ Avoid collecting the same metrics through both Firehose and an OpenTelemetry Col
 1. In Logfire, open **Infrastructure → Cloud → AWS** when the experimental guide is available.
    If data is already arriving, click **Set up cloud provider** at the top right, then select **AWS**.
    **Firehose** is selected by default. The other tile shows the OpenTelemetry Collector instructions.
-2. Click **Launch in AWS**. Logfire creates a dedicated key that can only send data to this project.
-   It copies the token and opens CloudFormation with the endpoint, setup ID, and logs-and-metrics default filled in.
-   If copying fails, copy the visible token and use the launch link. If your browser blocks the new tab, use that link again.
-3. To use an existing token instead, clear **Create a dedicated write token for Firehose** before launching.
-4. In AWS, choose the source account and region. Review these parameters:
+   To use an existing token, clear **Create a dedicated write token for Firehose** before creating a key.
+2. Click **Create write token**. Logfire creates a dedicated key that can only send data to this project and copies it.
+   If copying fails, copy the visible token. Click **Launch in AWS** to open CloudFormation.
+   The endpoint, setup ID, and logs-and-metrics default are filled in.
+3. In AWS, choose the source account and region. Review these parameters:
 
    | Parameter | Value |
    | --- | --- |
@@ -55,7 +55,7 @@ Avoid collecting the same metrics through both Firehose and an OpenTelemetry Col
    | `MetricNamespace` | One namespace to collect, required when you select metrics. |
    | `SetupId` | Keep the ID supplied by the guide. Use a distinct ID for a manual setup. |
 
-5. Acknowledge the IAM resources and create the stack. Wait for `CREATE_COMPLETE`.
+4. Acknowledge the IAM resources and create the stack. Wait for `CREATE_COMPLETE`.
 
 The token is shown once in Logfire. Keep it until you create the stack.
 CloudFormation does not prefill secret parameters from a quick-create link.
