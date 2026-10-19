@@ -467,7 +467,6 @@ def record_exception(
     # This means we know that the exception hasn't been handled,
     # so we can set the OTEL status and the log level to error.
     if escaped:
-        set_exception_status(span, exception)
         span.set_attributes(log_level_attributes('error'))
 
     helper = ExceptionCallbackHelper(
@@ -479,6 +478,9 @@ def record_exception(
     if callback is not None:
         with handle_internal_errors:
             callback(helper)
+
+    if helper.level >= 'error':
+        set_exception_status(span, exception)
 
     if not helper._record_exception:  # pyright: ignore[reportPrivateUsage]
         return
