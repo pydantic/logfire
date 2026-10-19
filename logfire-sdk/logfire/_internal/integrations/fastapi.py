@@ -106,10 +106,6 @@ def instrument_fastapi(
                 registry.global_instrumentation = None
                 registry.global_opentelemetry_kwargs = None
                 FastAPIInstrumentor().uninstrument()
-                # Contrib also removed middleware owned by per-app contexts that are still active.
-                for _app, kwargs in list(registry.per_app_opentelemetry_kwargs.items()):
-                    FastAPIInstrumentor.instrument_app(_app, **kwargs)
-                    _app.middleware_stack = None
 
         return uninstrument_global()
 
@@ -128,7 +124,6 @@ def instrument_fastapi(
                 # uninstrument_app rebuilds the old stack; clear it so the new settings take effect.
                 _app.middleware_stack = None
             FastAPIInstrumentor.instrument_app(_app, **opentelemetry_kwargs)
-            registry.per_app_opentelemetry_kwargs[_app] = opentelemetry_kwargs
 
     for _app in mounted_apps:
         registry.per_app[_app] = FastAPIInstrumentation(
@@ -147,7 +142,6 @@ def instrument_fastapi(
         finally:
             for _app in mounted_apps:
                 del registry.per_app[_app]
-                registry.per_app_opentelemetry_kwargs.pop(_app, None)
                 FastAPIInstrumentor.uninstrument_app(_app)
                 if _app in globally_instrumented_apps and registry.global_opentelemetry_kwargs is not None:
                     FastAPIInstrumentor.instrument_app(_app, **registry.global_opentelemetry_kwargs)
@@ -160,10 +154,6 @@ def instrument_fastapi(
 class _FastAPIRegistry:
     """Track Logfire instrumentation settings for FastAPI apps."""
 
-    # Only apps whose middleware is owned by an active per-app context appear here.
-    per_app_opentelemetry_kwargs: WeakKeyDictionary[FastAPI, dict[str, Any]] = dataclasses.field(
-        default_factory=lambda: WeakKeyDictionary[FastAPI, dict[str, Any]]()
-    )
     global_instrumentation: FastAPIInstrumentation | None = None
     global_opentelemetry_kwargs: dict[str, Any] | None = None
     per_app: WeakKeyDictionary[FastAPI, FastAPIInstrumentation] = dataclasses.field(
