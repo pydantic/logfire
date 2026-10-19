@@ -585,7 +585,9 @@ def test_record_send_receive_enabled(exporter: TestExporter) -> None:
     )
 
 
-def test_capture_headers(exporter: TestExporter) -> None:
+def test_capture_headers(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST', '')
+    monkeypatch.setenv('OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE', '')
     with TestClient(make_app(capture_headers=True)) as client:
         assert (
             client.get('/health', headers={'x-test-header': 'value', 'accept-encoding': 'gzip, deflate'}).status_code
