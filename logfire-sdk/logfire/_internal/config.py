@@ -33,6 +33,7 @@ from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExp
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
+from opentelemetry.sdk import resources as otel_resources
 from opentelemetry.sdk._logs import Logger as SDKLogger, LoggerProvider as SDKLoggerProvider, LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
@@ -79,7 +80,7 @@ from logfire.version import VERSION
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
-from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
+from .config_params import CompressionValues, ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
     ATTRIBUTES_CONFIG,
     ATTRIBUTES_PACKAGE_VERSIONS,
@@ -108,6 +109,7 @@ from .exporters.otlp import (
     QuietSpanExporter,
     RetryFewerSpansSpanExporter,
     cleanup_disk_retryers,
+    zstd_compress,
 )
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
@@ -283,6 +285,18 @@ class AdvancedOptions:
     precedence list and how to query the resulting attributes.
 
     Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
+    """
+
+    compression: CompressionValues | None = None
+    """Compression used for data sent to Logfire.
+
+    * `'gzip'`: Use gzip for compression (the default).
+    * `'zstd'`: Use Zstandard for compression. This compression is experimental, and can only be used under Python 3.14 or greater,
+      or if the [`backports.zstd`](https://pypi.org/project/backports.zstd/) backport is available.
+
+    This only affects data sent to Logfire, not to other OpenTelemetry endpoints.
+
+    Defaults to the `LOGFIRE_COMPRESSION` environment variable, or `'gzip'`.
     """
 
     def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
@@ -854,6 +868,7 @@ class _LogfireConfigData:
         advanced.emit_configuration_span = param_manager.load_param(
             'emit_configuration_span', advanced.emit_configuration_span
         )
+        advanced.compression = param_manager.load_param('compression', advanced.compression)
         resource_detectors = param_manager.load_param('resource_detectors', advanced.resource_detectors)
         if isinstance(resource_detectors, str):
             # A bare string satisfies `Sequence[str]` statically but would be iterated character by
@@ -1284,17 +1299,29 @@ class LogfireConfig(_LogfireConfigData):
                         thread = Thread(target=check_tokens, name='check_logfire_token')
                         thread.start()
 
+                    use_zstd = self.advanced.compression == 'zstd'
+                    if use_zstd and zstd_compress is None:
+                        warn_at_user_stacklevel(
+                            "`compression='zstd'` requires Python 3.14+ or the `backports.zstd` package, using gzip instead.",
+                            category=LogfireConfigWarning,
+                        )
+                        use_zstd = False
+                    # The OpenTelemetry exporters don't support zstd yet, so the session compresses the data itself
+                    # (see https://github.com/open-telemetry/opentelemetry-specification/pull/5321).
+                    # TODO: pass the OTel SDK's zstd `Compression` value instead once it exists.
+                    compression = Compression.NoCompression if use_zstd else Compression.Gzip
+
                     # Create exporters for each token
                     for token in token_list:
                         base_url = self.advanced.generate_base_url(token)
                         otlp_forwarding_destinations.append((base_url, token))
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
-                        session = OTLPExporterHttpSession()
+                        session = OTLPExporterHttpSession(_use_zstd=use_zstd)
                         install_logfire_response_hook(session, self.advanced.server_response_hook)
                         span_exporter = BodySizeCheckingOTLPSpanExporter(
                             endpoint=urljoin(base_url, '/v1/traces'),
                             session=session,
-                            compression=Compression.Gzip,
+                            compression=compression,
                             headers=headers,
                         )
                         span_exporter = QuietSpanExporter(span_exporter)
@@ -1317,7 +1344,7 @@ class LogfireConfig(_LogfireConfigData):
                                             endpoint=urljoin(base_url, '/v1/metrics'),
                                             headers=headers,
                                             session=session,
-                                            compression=Compression.Gzip,
+                                            compression=compression,
                                             # I'm pretty sure that this line here is redundant,
                                             # and that passing it to the QuietMetricExporter is what matters
                                             # because the PeriodicExportingMetricReader will read it from there.
@@ -1332,7 +1359,7 @@ class LogfireConfig(_LogfireConfigData):
                             endpoint=urljoin(base_url, '/v1/logs'),
                             session=session,
                             headers=headers,
-                            compression=Compression.Gzip,
+                            compression=compression,
                         )
                         log_exporter = QuietLogExporter(log_exporter)
 
@@ -2051,23 +2078,30 @@ class LogfireCredentials:
             LogfireConfigError: If there was an error creating projects.
         """
         organizations: list[str] = [item['organization_name'] for item in client.get_user_organizations()]
+        if not organizations:
+            raise LogfireConfigError(
+                'No organizations are available for project creation. '
+                'Create or join an organization in Logfire, then try again.'
+            )
 
         if organization not in organizations:
             if len(organizations) > 1:
                 # Get user default organization
                 user_details = client.get_user_information()
-                user_default_organization_name: str | None = user_details.get('default_organization', {}).get(
-                    'organization_name'
+                user_default_organization: dict[str, str] | None = user_details.get('default_organization')
+                user_default_organization_name = (
+                    user_default_organization.get('organization_name') if user_default_organization else None
                 )
 
                 if default_organization and user_default_organization_name:
                     organization = user_default_organization_name
                 else:
-                    require_answer(
-                        'Several organizations are available and none was selected: ' + ', '.join(organizations),
-                        'logfire projects new PROJECT_NAME --org ORGANIZATION',
-                        'logfire projects new PROJECT_NAME --default-org',
-                    )
+                    question = 'Several organizations are available and none was selected: ' + ', '.join(organizations)
+                    org_remedy = 'logfire projects new PROJECT_NAME --org ORGANIZATION'
+                    if user_default_organization_name:
+                        require_answer(question, org_remedy, 'logfire projects new PROJECT_NAME --default-org')
+                    else:
+                        require_answer(question, org_remedy)
                     org_default = user_default_organization_name or organizations[0]
                     organization = ask_or_default(
                         lambda: Prompt.ask(
@@ -2399,10 +2433,19 @@ def common_resource_attributes() -> dict[str, Any]:
 
 def host_resource_attributes() -> dict[str, Any]:
     # See test_host_resource_attributes
-    return {
+    attributes = {
         'host.name': socket.gethostname(),
         'host.arch': platform.machine(),
     }
+    # OpenTelemetry 1.45 added host.id. Reuse its platform-specific lookup when available.
+    get_host_id = getattr(otel_resources, '_get_host_id', None)
+    if get_host_id is not None:
+        try:
+            if host_id := get_host_id():
+                attributes['host.id'] = host_id
+        except Exception:
+            pass
+    return attributes
 
 
 class LogfireNotConfiguredWarning(UserWarning):

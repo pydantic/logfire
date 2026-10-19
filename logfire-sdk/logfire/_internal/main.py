@@ -21,6 +21,7 @@ from typing import (  # NOQA UP035
     cast,
     overload,
 )
+from urllib.parse import quote
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
@@ -936,7 +937,10 @@ class Logfire:
         span_id = report.span_id
         if not project_url or not trace_id or not span_id:
             return None
-        return f'{project_url.rstrip("/")}/evals/compare?experiment={trace_id}-{span_id}'
+        evals_url = f'{project_url.rstrip("/")}/evals'
+        if dataset_name := getattr(report, 'dataset_name', None):
+            evals_url = f'{evals_url}/{quote(dataset_name, safe="")}'
+        return f'{evals_url}/compare?experiment={trace_id}-{span_id}'
 
     def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
@@ -1881,6 +1885,7 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_flask(
+            self,
             app,
             capture_headers=capture_headers,
             enable_commenter=enable_commenter,
@@ -1888,11 +1893,7 @@ class Logfire:
             excluded_urls=excluded_urls,
             request_hook=request_hook,
             response_hook=response_hook,
-            **{
-                'tracer_provider': self._config.get_tracer_provider(),
-                'meter_provider': self._config.get_meter_provider(),
-                **kwargs,
-            },
+            **kwargs,
         )
 
     def instrument_litestar(

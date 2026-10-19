@@ -1,7 +1,7 @@
 import opentelemetry.trace as trace_api
 from ..types import ExceptionCallback as ExceptionCallback
 from .config import LogfireConfig as LogfireConfig
-from .constants import ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY as ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, log_level_attributes as log_level_attributes
+from .constants import ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY as ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, log_level_attributes as log_level_attributes
 from .utils import handle_internal_errors as handle_internal_errors, sha256_string as sha256_string
 from _typeshed import Incomplete
 from collections.abc import Callable, Mapping, Sequence
@@ -70,7 +70,6 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     def record_exception(self, exception: BaseException, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False) -> None: ...
     def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None: ...
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
-    def __getattr__(self, name: str) -> Any: ...
 
 def get_parent_span(span: ReadableSpan) -> _LogfireWrappedSpan | None: ...
 

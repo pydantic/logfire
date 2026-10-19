@@ -222,13 +222,16 @@ jobs:
           -W 'ignore:Unclosed <MemoryObject:ResourceWarning'
         env:
           COVERAGE_FILE: coverage/.coverage.litestar-2.11
-      - name: Test mcp 2 / fastmcp 4 compatibility
+      - name: Test MCP 1 compatibility
         if: matrix.python-version == '3.12' && matrix.pydantic-version == '2'
         run: >-
-          uv run --no-sync --with 'fastmcp>=4' coverage run -m pytest
-          tests/otel_integrations/test_mcp_v2.py --record-mode=none
+          uv run --no-sync --with 'mcp<2' --with 'fastmcp-slim<4'
+          --with 'pydantic-ai-slim==2.39.0' coverage run -m pytest
+          tests/otel_integrations/test_openai_agents_mcp.py
+          tests/otel_integrations/test_pydantic_ai_mcp.py
+          tests/otel_integrations/test_mcp_version_detection.py --record-mode=none
         env:
-          COVERAGE_FILE: coverage/.coverage.mcp-2
+          COVERAGE_FILE: coverage/.coverage.mcp-1
       - name: Test legacy Anthropic streaming
         if: matrix.python-version == '3.12' && matrix.pydantic-version == '2'
         run: >-
@@ -346,10 +349,37 @@ jobs:
         env:
           UV_PYTHON: ${{ matrix.python-version }}
 
+  test-otel-collector:
+    name: test against OpenTelemetry Collector
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57  # v8.0.0
+        with:
+          version: "0.11.1"
+          enable-cache: true  # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
+
+      - run: uv sync --python 3.12 --frozen
+      - run: mkdir collector-test-artifacts
+      - run: make test-otel-collector
+        env:
+          LOGFIRE_OTEL_COLLECTOR_ARTIFACTS: collector-test-artifacts
+
+      - name: Upload Collector test artifacts
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
+        with:
+          name: otel-collector-test-artifacts
+          path: collector-test-artifacts
+
   # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
   check:
     if: always()
-    needs: [ lint, minimal-install, editor-tooling-install, upgrade-install, test, coverage, test-pyodide ]
+    needs: [ lint, minimal-install, editor-tooling-install, upgrade-install, test, coverage, test-pyodide, test-otel-collector ]
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether the needed jobs succeeded or failed
@@ -404,17 +434,17 @@ jobs:
         run: uv python install 3.12
 
       - name: Check tag matches logfire-sdk version
-        uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00  # v5
+        uses: samuelcolvin/check-python-version@17d859ba0a6af9ffcaac5c70608fed36ed33e32a  # v5.1
         with:
           version_file_path: logfire-sdk/pyproject.toml
 
       - name: Check tag matches logfire version
-        uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00  # v5
+        uses: samuelcolvin/check-python-version@17d859ba0a6af9ffcaac5c70608fed36ed33e32a  # v5.1
         with:
           version_file_path: logfire/pyproject.toml
 
       - name: Check tag matches logfire-api version
-        uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00  # v5
+        uses: samuelcolvin/check-python-version@17d859ba0a6af9ffcaac5c70608fed36ed33e32a  # v5.1
         with:
           version_file_path: logfire-api/pyproject.toml
 

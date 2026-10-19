@@ -58,7 +58,6 @@ from .usage import get_usage_attributes
 
 if TYPE_CHECKING:
     from openai._models import FinalRequestOptions
-    from openai._types import ResponseT
 
     from ...main import LogfireSpan
 
@@ -395,6 +394,10 @@ def convert_openai_response_to_semconv(
     """Convert an OpenAI ChatCompletionMessage to OTel Gen AI Semantic Convention format."""
     parts: list[MessagePart] = _convert_content_part_or_parts(message.content)
 
+    # A refused request carries its text in `refusal` and leaves `content` empty.
+    if refusal := getattr(message, 'refusal', None):
+        parts.append(TextPart(type='text', content=refusal))
+
     if message.tool_calls:  # pragma: no cover
         for tc in message.tool_calls:
             # Only handle function tool calls (not custom tool calls)
@@ -507,14 +510,23 @@ class OpenaiResponsesStreamState(StreamState):
 
     def __init__(self):
         self._state = ResponseStreamState(input_tools=openai.omit, text_format=openai.omit)
+        self._incomplete_or_failed_response: Response | None = None
 
     def record_chunk(self, chunk: Any) -> None:
-        self._state.handle_event(chunk)
+        # ResponseStreamState only keeps the final response from `response.completed`, but a stream
+        # can also end with `response.incomplete` (e.g. when `max_output_tokens` is reached) or `response.failed`.
+        # Take that response from the events returned here, where newer SDKs fill in a missing `output`,
+        # and skip it if `output` is still missing.
+        for event in self._state.handle_event(chunk):
+            if (event.type == 'response.incomplete' or event.type == 'response.failed') and (
+                getattr(event.response, 'output', None) is not None
+            ):
+                self._incomplete_or_failed_response = event.response
 
     def get_response_data(self) -> Any:
         response = self._state._completed_response  # pyright: ignore[reportPrivateUsage]
 
-        return response
+        return response or self._incomplete_or_failed_response
 
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         versions = self._versions
@@ -525,6 +537,12 @@ class OpenaiResponsesStreamState(StreamState):
                 span_data[OUTPUT_MESSAGES] = output_messages
             if 1 in versions:
                 span_data['events'] = (span_data.get('events') or []) + responses_output_events(response)
+            response_id = getattr(response, 'id', None)
+            if isinstance(response_id, str):
+                span_data[RESPONSE_ID] = response_id
+            response_model = getattr(response, 'model', None)
+            if isinstance(response_model, str):
+                span_data[RESPONSE_MODEL] = response_model
             span_data.update(get_openai_usage_attributes(response, self.base_url))
         return span_data
 
@@ -580,6 +598,12 @@ try:
             except AssertionError:
                 pass
             else:
+                result[RESPONSE_ID] = final_completion.id
+                if final_completion.model:  # pragma: no branch
+                    result[RESPONSE_MODEL] = final_completion.model
+                finish_reasons = [choice.finish_reason for choice in final_completion.choices if choice.finish_reason]
+                if finish_reasons:
+                    result[RESPONSE_FINISH_REASONS] = finish_reasons
                 result.update(get_openai_usage_attributes(final_completion, self.base_url))
             return result
 
@@ -612,18 +636,18 @@ def get_openai_usage_attributes(response: Any, base_url: str | None = None) -> d
 
 @handle_internal_errors
 def on_response(
-    response: ResponseT,
+    response: Any,
     span: LogfireSpan,
     *,
     version: NormalizedSemconvVersion | frozenset[NormalizedSemconvVersion] = 2,
     base_url: str | None = None,
-) -> ResponseT:
+) -> None:
     """Updates the span based on the type of response."""
     versions: frozenset[NormalizedSemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
     if isinstance(response, LegacyAPIResponse):  # pragma: no cover
-        on_response(response.parse(), span, version=versions, base_url=base_url)  # pyright: ignore[reportUnknownArgumentType]
-        return cast('ResponseT', response)
+        on_response(response.parse(), span, version=versions, base_url=base_url)
+        return
 
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute(RESPONSE_MODEL, response_model)
@@ -694,7 +718,6 @@ def on_response(
             else:
                 events += responses_output_events(response)
                 span.set_attribute('events', events)
-    return response
 
 
 def is_async_client(client: type[openai.OpenAI] | type[openai.AsyncOpenAI]):

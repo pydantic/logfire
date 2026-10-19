@@ -1093,6 +1093,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     ],
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
+                    'gen_ai.response.id': '1',
                     'response_data': {'message': None, 'usage': None},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -1106,6 +1107,8 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                             'gen_ai.input.messages': {'type': 'array'},
                             'duration': {},
                             'response_data': {'type': 'object'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                         },
                     },
                     'gen_ai.response.model': 'gpt-4',
@@ -1353,6 +1356,8 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.response.id': '1',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
                     'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
@@ -1402,6 +1407,9 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -1658,6 +1666,8 @@ async def test_async_chat_tool_call_stream(
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.response.id': '1',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
                     'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
@@ -1707,6 +1717,9 @@ async def test_async_chat_tool_call_stream(
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -1719,6 +1732,26 @@ async def test_async_chat_tool_call_stream(
             },
         ]
     )
+
+
+def test_chat_completions_stream_records_served_model(
+    instrumented_client: openai.Client, exporter: TestExporter
+) -> None:
+    # The request names an alias, and the chunks report the model that actually served it.
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4-latest',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        stream=True,
+    )
+    with response as stream:
+        for _ in stream:
+            pass
+
+    [streaming_span] = [
+        span for span in exporter.exported_spans_as_dict() if span['name'].startswith('streaming response from')
+    ]
+    assert streaming_span['attributes']['gen_ai.request.model'] == 'gpt-4-latest'
+    assert streaming_span['attributes']['gen_ai.response.model'] == 'gpt-4'
 
 
 def test_sync_chat_completions_stream(instrumented_client: openai.Client, exporter: TestExporter) -> None:
@@ -1816,6 +1849,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'The answer is secret'}]}
                     ],
+                    'gen_ai.response.id': '1',
                     'response_data': {
                         'message': {
                             'content': 'The answer is secret',
@@ -1851,6 +1885,8 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                         },
                     },
                     'gen_ai.response.model': 'gpt-4',
@@ -1958,6 +1994,7 @@ async def test_async_chat_completions_stream(
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'The answer is secret'}]}
                     ],
+                    'gen_ai.response.id': '1',
                     'response_data': {
                         'message': {
                             'content': 'The answer is secret',
@@ -1993,6 +2030,8 @@ async def test_async_chat_completions_stream(
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                         },
                     },
                     'gen_ai.response.model': 'gpt-4',
@@ -2401,6 +2440,8 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.response.id': 'chatcmpl-D8EA5nZ0hOZP7LH1T8J9NNIiYa8n1',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2413,6 +2454,9 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                             'gen_ai.input.messages': {'type': 'array'},
                             'async': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -2522,6 +2566,8 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                         },
                         'usage': None,
                     },
+                    'gen_ai.response.id': 'chatcmpl-D8EA5fF3qB9JXQ0fMSoKp3Li7ab0g',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2542,6 +2588,9 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                                     }
                                 },
                             },
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -2764,6 +2813,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus five equals **nine**.'}]}
                     ],
+                    'gen_ai.response.id': 'resp_079fceed100a827c0068e011e9cefc81969ea6a843546705e6',
                     'gen_ai.usage.input_tokens': 13,
                     'gen_ai.usage.output_tokens': 9,
                     'gen_ai.usage.raw': {
@@ -2787,6 +2837,8 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'gen_ai.input.messages': {'type': 'array'},
                             'duration': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -2794,7 +2846,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         },
                     },
                     'logfire.tags': ('LLM',),
-                    'gen_ai.response.model': 'gpt-4.1',
+                    'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                 },
             },
         ]
@@ -2829,6 +2881,70 @@ def test_responses_stream_error_propagates() -> None:
             get_current(),
         ):
             raise StreamingError('API connection lost')
+
+
+@pytest.mark.parametrize(
+    'final_fields',
+    [
+        {'status': 'incomplete', 'incomplete_details': {'reason': 'max_output_tokens'}},
+        {'status': 'failed', 'error': {'code': 'server_error', 'message': 'The model failed to generate a response.'}},
+    ],
+)
+def test_responses_stream_incomplete_or_failed(final_fields: dict[str, Any], exporter: TestExporter) -> None:
+    """A stream can end with `response.incomplete` or `response.failed` instead of `response.completed`."""
+    response: dict[str, Any] = {
+        'id': 'resp_1',
+        'object': 'response',
+        'created_at': 1,
+        'model': 'gpt-4.1',
+        'output': [],
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+    }
+    final_response: dict[str, Any] = {
+        **response,
+        **final_fields,
+        'output': [
+            {
+                'id': 'msg_1',
+                'type': 'message',
+                'status': 'incomplete',
+                'role': 'assistant',
+                'content': [{'type': 'output_text', 'text': 'Four plus', 'annotations': []}],
+            }
+        ],
+        'usage': {
+            'input_tokens': 13,
+            'input_tokens_details': {'cached_tokens': 0},
+            'output_tokens': 16,
+            'output_tokens_details': {'reasoning_tokens': 0},
+            'total_tokens': 29,
+        },
+    }
+    events: list[dict[str, Any]] = [
+        {'type': 'response.created', 'sequence_number': 0, 'response': {**response, 'status': 'in_progress'}},
+        {'type': f'response.{final_fields["status"]}', 'sequence_number': 1, 'response': final_response},
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in events)
+        return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream'})
+
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    with logfire.instrument_openai(client):
+        list(
+            client.responses.create(model='gpt-4.1', input='What is four plus five?', max_output_tokens=16, stream=True)
+        )
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
+    assert attributes['gen_ai.response.id'] == 'resp_1'
+    assert attributes['gen_ai.usage.input_tokens'] == 13
+    assert attributes['gen_ai.usage.output_tokens'] == 16
+    assert attributes['operation.cost'] == snapshot(0.000154)
+    assert attributes['gen_ai.output.messages'] == snapshot(
+        [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus'}]}]
+    )
+    client.close()
 
 
 def test_completions_stream(instrumented_client: openai.Client, exporter: TestExporter) -> None:
@@ -3984,6 +4100,8 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.response.id': 'gen-1751918758-SZqPQwzFgmd8JdDUxRuL',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.usage.input_tokens': 13,
                     'gen_ai.usage.output_tokens': 1003,
                     'gen_ai.usage.raw': {'completion_tokens': 1003, 'prompt_tokens': 13, 'total_tokens': 1016},
@@ -4015,6 +4133,9 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -4385,6 +4506,55 @@ def test_convert_responses_inputs_no_instructions() -> None:
     )
     assert (input_messages, system_instructions) == snapshot(
         ([{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}], [])
+    )
+
+
+def test_convert_openai_response_refusal() -> None:
+    """A refusal is recorded as a text part, since the message has no content."""
+    from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
+
+    message = chat_completion_message.ChatCompletionMessage(
+        role='assistant', content=None, refusal="I can't help with that."
+    )
+    assert convert_openai_response_to_semconv(message, 'stop') == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [{'type': 'text', 'content': "I can't help with that."}],
+            'finish_reason': 'stop',
+        }
+    )
+
+
+def test_chat_completion_stream_state_refusal() -> None:
+    """A streamed refusal ends up in the output messages."""
+    from logfire._internal.integrations.llm_providers.openai import OpenaiChatCompletionStreamState
+
+    state = OpenaiChatCompletionStreamState()
+    for delta, finish_reason in [
+        ({'role': 'assistant', 'refusal': "I'm sorry, "}, None),
+        ({'refusal': "I can't help with that."}, None),
+        ({}, 'stop'),
+    ]:
+        state.record_chunk(
+            cc_chunk.ChatCompletionChunk.model_validate(
+                {
+                    'id': 'chatcmpl-1',
+                    'object': 'chat.completion.chunk',
+                    'created': 0,
+                    'model': 'gpt-4o-mini',
+                    'choices': [{'index': 0, 'delta': delta, 'finish_reason': finish_reason}],
+                }
+            )
+        )
+
+    assert state.get_attributes({})['gen_ai.output.messages'] == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [{'type': 'text', 'content': "I'm sorry, I can't help with that."}],
+                'finish_reason': 'stop',
+            }
+        ]
     )
 
 
@@ -5028,3 +5198,49 @@ def test_get_endpoint_config_responses_agent_span() -> None:
 
     assert config.message_template == ''
     assert config.span_data == {}
+
+
+@pytest.mark.parametrize('version', [1, 2, [1, 2]])
+@pytest.mark.parametrize('complete', [False, True])
+def test_stream_response_metadata(version: Any, complete: bool, exporter: TestExporter) -> None:
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(request_handler)))
+    with logfire.instrument_openai(client, version=version):
+        list(
+            client.chat.completions.create(
+                model='gpt-4',
+                messages=[{'role': 'user', 'content': 'streamed tool call' if complete else 'hello'}],
+                stream=True,
+            )
+        )
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
+    assert attributes['gen_ai.response.id'] == '1'
+    if complete:
+        assert attributes['gen_ai.response.finish_reasons'] == ['stop']
+    else:
+        assert 'gen_ai.response.finish_reasons' not in attributes
+    client.close()
+
+
+async def test_internal_exception_in_on_response_keeps_the_response(
+    exporter: TestExporter, caplog: pytest.LogCaptureFixture
+) -> None:
+    """If recording a response fails inside Logfire, the caller still gets the response."""
+    # A choice without a message makes converting the output raise inside the instrumentation.
+    body = {
+        'id': 'chatcmpl-1',
+        'object': 'chat.completion',
+        'created': 0,
+        'model': 'gpt-4o',
+        'choices': [{'index': 0, 'message': None, 'finish_reason': 'content_filter'}],
+    }
+    async with httpx.AsyncClient(transport=MockTransport(lambda _: httpx.Response(200, json=body))) as http_client:
+        client = openai.AsyncClient(api_key='foobar', http_client=http_client)
+        with logfire.instrument_openai(client):
+            response = await client.chat.completions.create(
+                model='gpt-4o', messages=[{'role': 'user', 'content': 'hi'}]
+            )
+
+    assert isinstance(response, chat_completion.ChatCompletion)
+    assert response.id == 'chatcmpl-1'
+    assert 'Caught an internal error in Logfire' in caplog.text
+    assert len(exporter.exported_spans_as_dict()) == 1

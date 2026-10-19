@@ -43,12 +43,16 @@ DEFAULT_PATTERNS = [
     r'auth(?!ors?\b)',
     'credential',
     'private[._ -]?key',
+    'passphrase',
+    '(?:signing|hmac)[._ -]?key',
     'api[._ -]?key',
     'session',
     'cookie',
     'social[._ -]?security',
     'credit[._ -]?card',
     'logfire[._ -]?token',
+    # OAuth-style token names. A bare 'token' is left out because it would also match LLM usage fields like input_tokens.
+    r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token',
     r'pylf_v\d+_',
     *[
         # Require these to be surrounded by word boundaries or underscores,
@@ -66,7 +70,7 @@ DEFAULT_PATTERNS = [
 # Every default pattern starts matching at one of these characters. Checking this
 # inexpensive character class first avoids trying every alternative at every
 # position in large strings. Custom patterns are not constrained by this prefix.
-_DEFAULT_PATTERN_START_CHARS = 'pmsacljx_'
+_DEFAULT_PATTERN_START_CHARS = 'pmsacljx_rbih'
 _DEFAULT_PATTERN = rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(DEFAULT_PATTERNS)})'
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
@@ -260,8 +264,8 @@ class SpanScrubber:
         # We need to use BoundedAttributes because:
         # 1. For events and links, we get an error otherwise:
         #      https://github.com/open-telemetry/opentelemetry-python/issues/3761
-        # 2. The callback might return a value that isn't of the type required by OTEL,
-        #      in which case BoundAttributes will discard it to prevent an error.
+        # 2. The callback might return a value that isn't of the type required by OTEL;
+        #      BoundedAttributes handles it according to the installed OTEL version.
         # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
         new_attributes = self.scrub(('attributes',), span['attributes'])
         if self.did_scrub:

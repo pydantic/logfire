@@ -18,6 +18,7 @@ DataType = Literal[
     'float',
     # bytes
     'bytes',
+    'bytearray',
     # temporal types
     'date',
     'datetime',
@@ -40,6 +41,7 @@ DataType = Literal[
     'generator',
     'Mapping',
     'Sequence',
+    'range',
     'dataclass',
     # exceptions
     'Exception',

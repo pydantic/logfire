@@ -88,6 +88,9 @@ Custom metric aggregation and collection settings in [`MetricsOptions`][logfire.
   Pydantic AI Harness `CodeMode` implementation, also needs explicit context propagation to nest
   host-function spans. Calling `logfire.instrument_monty()` alone does not provide it.
 - **No session spans appear:** call `logfire.instrument_monty()` before the first checkout.
+  On macOS arm64, Monty 0.0.23 and 1.0.0 accept instrumentation but emit no session or run spans.
+  This is [reported upstream](https://github.com/pydantic/monty/issues/1011). Use Linux if you need
+  these spans with those releases.
 - **Spans appear but pool metrics do not:** create the Monty pool after calling
   `logfire.instrument_monty()`. Pool-wide metrics are connected when the pool is created.
 - **No data appears in Logfire:** check that your write token is set. Run

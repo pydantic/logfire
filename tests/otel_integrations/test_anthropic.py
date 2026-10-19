@@ -36,7 +36,7 @@ pytestmark = [
 ]
 
 
-ANY_ADAPTER = pydantic.TypeAdapter(Any)  # type: ignore
+ANY_ADAPTER = pydantic.TypeAdapter(Any)
 
 
 def test_semconv_version_defaults() -> None:
@@ -92,13 +92,15 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 dict(delta=TextDelta(text=' is secret', type='text_delta'), index=0, type='content_block_delta'),
                 dict(index=0, type='content_block_stop'),
                 dict(
-                    delta=dict(stop_reason='end_turn', stop_sequence=None),
+                    delta=dict(
+                        stop_reason=None if json_body['system'] == 'no stop reason' else 'end_turn', stop_sequence=None
+                    ),
                     type='message_delta',
                     usage=MessageDeltaUsage(output_tokens=55),
                 ),
                 MessageStopEvent(type='message_stop'),
             ]
-            chunks_dicts = ANY_ADAPTER.dump_python(chunks)  # type: ignore
+            chunks_dicts = ANY_ADAPTER.dump_python(chunks)
             return httpx.Response(
                 200, text=''.join(f'event: {chunk["type"]}\ndata: {json.dumps(chunk)}\n\n' for chunk in chunks_dicts)
             )
@@ -496,6 +498,26 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
     )
 
 
+def test_messages_stream_records_served_model(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    # The request names an alias, and `message_start` reports the model that actually served it.
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-latest',
+        system='You are a helpful assistant.',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        stream=True,
+    )
+    with response as stream:
+        for _ in stream:
+            pass
+
+    [streaming_span] = [
+        span for span in exporter.exported_spans_as_dict() if span['name'].startswith('streaming response from')
+    ]
+    assert streaming_span['attributes']['gen_ai.request.model'] == 'claude-3-haiku-latest'
+    assert streaming_span['attributes']['gen_ai.response.model'] == 'claude-3-haiku-20240307'
+
+
 def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
     response = instrumented_client.messages.create(
         max_tokens=1000,
@@ -601,6 +623,8 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                             'finish_reason': 'end_turn',
                         }
                     ],
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 25,
                     'gen_ai.usage.output_tokens': 55,
                     'gen_ai.usage.raw': {'input_tokens': 25, 'output_tokens': 55},
@@ -621,6 +645,9 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                             'async': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -868,6 +895,8 @@ async def test_async_messages_stream(
                             'finish_reason': 'end_turn',
                         }
                     ],
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 25,
                     'gen_ai.usage.output_tokens': 55,
                     'gen_ai.usage.raw': {'input_tokens': 25, 'output_tokens': 55},
@@ -888,6 +917,9 @@ async def test_async_messages_stream(
                             'async': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -1731,6 +1763,8 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
                             'finish_reason': 'end_turn',
                         }
                     ],
+                    'gen_ai.response.id': 'msg_01CpLvutrn5ZEYqp6J9PqxDN',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 19,
                     'gen_ai.usage.output_tokens': 9,
                     'gen_ai.usage.raw': {
@@ -1757,6 +1791,9 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
                             'gen_ai.system_instructions': {'type': 'array'},
                             'async': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -1863,6 +1900,8 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.request.max_tokens': 1000,
                     'async': False,
                     'response_data': {'combined_chunk_content': 'Four plus five equals nine.', 'chunk_count': IsInt()},
+                    'gen_ai.response.id': 'msg_01Pp3btiCYxbWhMJWewiYg5s',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 19,
                     'gen_ai.usage.output_tokens': 9,
                     'gen_ai.usage.raw': {
@@ -1887,6 +1926,9 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.request.max_tokens': {},
                             'async': {},
                             'response_data': {'type': 'object'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -2013,6 +2055,8 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
                             'finish_reason': 'end_turn',
                         }
                     ],
+                    'gen_ai.response.id': 'msg_015ZdAGWSyZwVr5WxHaN3vaf',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 19,
                     'gen_ai.usage.output_tokens': 9,
                     'gen_ai.usage.raw': {
@@ -2040,6 +2084,9 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
                             'async': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -2179,3 +2226,61 @@ async def test_async_beta_messages(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+@pytest.mark.parametrize('version', [1, 2, [1, 2]])
+@pytest.mark.parametrize('complete', [False, True])
+def test_stream_response_metadata(version: Any, complete: bool, exporter: TestExporter) -> None:
+    client = anthropic.Anthropic(
+        api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(request_handler))
+    )
+    with logfire.instrument_anthropic(client, version=version):
+        list(
+            client.messages.create(
+                model='claude-3-haiku-20240307',
+                system='system message' if complete else 'no stop reason',
+                max_tokens=10,
+                messages=[{'role': 'user', 'content': 'hello'}],
+                stream=True,
+            )
+        )
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
+    assert attributes['gen_ai.response.id'] == 'test_id'
+    if complete:
+        assert attributes['gen_ai.response.finish_reasons'] == ['end_turn']
+    else:
+        assert 'gen_ai.response.finish_reasons' not in attributes
+    client.close()
+
+
+def test_internal_exception_in_on_response_keeps_the_response(
+    exporter: TestExporter, caplog: pytest.LogCaptureFixture
+) -> None:
+    """If recording a response fails inside Logfire, the caller still gets the response."""
+    # `usage.input_tokens` is missing. The SDK accepts that without validation,
+    # and recording the usage then raises inside the instrumentation.
+    body = {
+        'id': 'msg_1',
+        'type': 'message',
+        'role': 'assistant',
+        'model': 'claude-haiku-4-5',
+        'content': [{'type': 'text', 'text': 'Nine'}],
+        'stop_reason': 'end_turn',
+        'stop_sequence': None,
+        'usage': {'output_tokens': 3},
+    }
+    client = anthropic.Anthropic(
+        api_key='test',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_anthropic(client):
+        response = client.messages.create(
+            max_tokens=1000,
+            model='claude-haiku-4-5',
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        )
+
+    assert isinstance(response, anthropic.types.Message)
+    assert response.id == 'msg_1'
+    assert 'Caught an internal error in Logfire' in caplog.text
+    assert len(exporter.exported_spans_as_dict()) == 1

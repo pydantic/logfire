@@ -5,6 +5,12 @@ description: Add Pydantic Logfire observability to application code — traces, 
 
 # Instrument with Logfire
 
+For browser observability, including tracing, errors, RUM, Web Vitals, route grouping, or session replays, use the
+[frontend specialist](https://pydantic.dev/.well-known/agent-skills/logfire-frontend/SKILL.md)
+before the SDK authentication steps below. For recording Claude Code or Codex
+itself, use [coding-agent setup](https://pydantic.dev/.well-known/agent-skills/logfire-coding-agents/SKILL.md).
+This skill owns application/server instrumentation, not those workflows.
+
 ## How Logfire Works
 
 Claude tends to get a few things subtly wrong with Logfire — the ordering of `configure()` vs `instrument_*()` calls, the structured logging syntax, and which extras to install — and a misconfigured setup silently drops traces rather than erroring. That's what this skill exists to prevent.

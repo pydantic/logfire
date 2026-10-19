@@ -2,7 +2,7 @@
 
 mcp 2 removed `mcp.shared.session`. A `ModuleNotFoundError` for exactly that module means mcp 2 and
 turns the call into a warning; any other import failure propagates. Both cases are simulated here
-via `sys.modules` so they run against the locked mcp 1.
+via `sys.modules` in the MCP 1 compatibility job.
 """
 
 import sys
