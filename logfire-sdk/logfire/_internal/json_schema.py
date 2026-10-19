@@ -289,10 +289,14 @@ def _array_schema(
     found_non_empty_schema = False
     for item in obj:
         item_schema = create_json_schema(item, seen)
+        if previous_schema is not None:
+            if item_schema == previous_schema:
+                # Share consecutive equal schemas instead of retaining duplicate dictionaries.
+                item_schema = previous_schema
+            else:
+                use_items_key = False
         prefix_items.append(item_schema)
 
-        if previous_schema is not None and item_schema != previous_schema:
-            use_items_key = False
         if item_schema not in PLAIN_SCHEMAS:
             found_non_empty_schema = True
 
