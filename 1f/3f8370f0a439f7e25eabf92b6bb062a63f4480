@@ -1,0 +1,29 @@
+tests/otel_integrations/test_fastapi_global.py
+  s_5e7e89187fff9e::t_4b1c919c9bf192 1-71
+logfire-sdk/logfire/_internal/integrations/fastapi.py
+  s_30ca6041e94a4e::t_2b0f0f871c4027 5,53-54,74,78-83,86-87,92-98,100-108,112-119,138-139,148,164,181-183
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1f3f8370f0a439f7e25eabf92b6bb062a63f4480",
+  "prompts": {},
+  "sessions": {
+    "s_30ca6041e94a4e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1540a-9b9a-7f92-80eb-1325db218932",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_5e7e89187fff9e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15404-1e87-7213-901f-70d1ea07c9d0",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
