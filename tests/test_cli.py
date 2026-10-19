@@ -6518,6 +6518,83 @@ print(json.dumps(exporter.exported_spans_as_dict()))
         assert 'starlette (installed and instrumented)' in result.stderr
 
 
+@pytest.mark.parametrize('module', [False, True])
+@pytest.mark.parametrize('instrumentation', ['fastapi', 'both', 'excluded'])
+def test_parse_run_fastapi_in_fresh_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: bool, instrumentation: str
+) -> None:
+    pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7', exc_type=ImportError)
+    script = tmp_path / 'fastapi_app.py'
+    script.write_text(
+        """
+import json
+
+from fastapi import FastAPI
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
+from starlette.routing import Route
+from starlette.testclient import TestClient
+
+import logfire
+from logfire.testing import TestExporter
+
+exporter = TestExporter()
+logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[SimpleSpanProcessor(exporter)])
+app = FastAPI()
+
+@app.get('/items/{item_id}')
+async def homepage(item_id: int) -> dict[str, int]:
+    return {'item_id': item_id}
+
+async def standalone(request: Request) -> PlainTextResponse:
+    return PlainTextResponse('hello')
+
+starlette_app = Starlette(routes=[Route('/standalone', standalone)])
+with TestClient(app) as client:
+    assert client.get('/items/123').json() == {'item_id': 123}
+with TestClient(starlette_app) as client:
+    assert client.get('/standalone').text == 'hello'
+print(json.dumps(exporter.exported_spans_as_dict(parse_json_attributes=True)))
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    enabled: set[str] = {'fastapi', 'starlette'} if instrumentation == 'both' else {'fastapi'}
+    if instrumentation == 'excluded':
+        enabled = set()
+    excluded = set(OTEL_INSTRUMENTATION_MAP.values()) - enabled
+    target = ['-m', 'fastapi_app'] if module else [str(script)]
+    result = subprocess.run(
+        [sys.executable, '-m', 'logfire', 'run', '--summary', '--exclude', ','.join(sorted(excluded)), *target],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    spans = json.loads(result.stdout)
+    if instrumentation == 'excluded':
+        # FastAPI's own native telemetry may remain active, without Logfire's enrichment.
+        assert not any('fastapi.arguments.start_timestamp' in span['attributes'] for span in spans)
+        assert 'fastapi (installed and instrumented)' not in result.stderr
+    else:
+        expected = ['GET /items/{item_id}']
+        if instrumentation == 'both':
+            expected.append('GET /standalone')
+        assert [span['name'] for span in spans] == expected
+        attributes = spans[0]['attributes']
+        assert attributes['fastapi.route.name'] == 'homepage'
+        assert attributes['fastapi.arguments.values'] == {'item_id': 123}
+        assert attributes['fastapi.arguments.errors'] == []
+        for phase in ('arguments', 'endpoint_function'):
+            for boundary in ('start_timestamp', 'end_timestamp'):
+                assert f'fastapi.{phase}.{boundary}' in attributes
+        assert attributes['http.status_code'] == 200
+        assert 'fastapi (installed and instrumented)' in result.stderr
+
+
 def test_parse_run_script(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setattr('logfire.configure', configure_mock := Mock())
     monkeypatch.setattr('logfire._internal.cli.run.instrument_package', instrument_package_mock := Mock())
