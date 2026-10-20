@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.trace import Span
+from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.testclient import TestClient
 from starlette.types import Scope
 from starlette.websockets import WebSocket
@@ -11,7 +15,7 @@ pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7', exc_type
 import fastapi
 
 import logfire
-from logfire._internal.integrations.fastapi import instrument_fastapi
+from logfire._internal.integrations.fastapi import OncePerRequest, instrument_fastapi
 from logfire.testing import TestExporter
 
 
@@ -194,3 +198,17 @@ def test_global_fastapi_mounted_app_exclusion(exporter: TestExporter, nested: bo
         assert len(spans) == 1
         assert spans[0]['name'] == 'POST /public'
         assert spans[0]['attributes']['fastapi.arguments.values'] == {'payload': payload}
+
+
+def test_global_fastapi_unexpected_middleware_stack(monkeypatch: pytest.MonkeyPatch) -> None:
+    def skip_instrumentation(_app: fastapi.FastAPI, **_kwargs: Any) -> None:
+        pass
+
+    with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE):
+        with monkeypatch.context() as patch:
+            patch.setattr(FastAPIInstrumentor, 'instrument_app', skip_instrumentation)
+            app = fastapi.FastAPI()
+
+        stack = app.build_middleware_stack()
+        assert isinstance(stack, ServerErrorMiddleware)
+        assert not isinstance(stack.app, OncePerRequest)
