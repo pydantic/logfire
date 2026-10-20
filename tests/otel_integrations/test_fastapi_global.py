@@ -106,11 +106,22 @@ def test_global_fastapi_rejects_per_app_instrumentation(exporter: TestExporter, 
     with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE):
         if app is None:
             app = fastapi.FastAPI()
+
+        @app.get('/items/{item_id}')
+        async def homepage(item_id: int) -> int:
+            return item_id
+
         with pytest.raises(ValueError) as exc:
             logfire.instrument_fastapi(app)
         assert str(exc.value) == 'this is not supported, use --exclude fastapi and open an issue if you need both'
         with pytest.raises(ValueError, match='this is not supported'):
             instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE)
+        if not preexisting_app:
+            with TestClient(app) as client:
+                assert client.get('/items/123').json() == 123
+            spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+            assert [span['attributes']['fastapi.arguments.values'] for span in spans] == [{'item_id': 123}]
+            exporter.clear()
 
     # A rejected call must not register the app or prevent app-specific setup later.
     with logfire.instrument_fastapi(app):
@@ -118,6 +129,22 @@ def test_global_fastapi_rejects_per_app_instrumentation(exporter: TestExporter, 
             logfire.instrument_fastapi(app)
         with pytest.raises(ValueError, match='this is not supported'):
             instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE)
+
+
+def test_per_app_fastapi_rejects_global_instrumentation(exporter: TestExporter) -> None:
+    app = fastapi.FastAPI()
+
+    @app.get('/items/{item_id}')
+    async def homepage(item_id: int) -> int:
+        return item_id
+
+    with logfire.instrument_fastapi(app):
+        with pytest.raises(ValueError, match='this is not supported'):
+            instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE)
+        with TestClient(app) as client:
+            assert client.get('/items/456').json() == 456
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert [span['attributes']['fastapi.arguments.values'] for span in spans] == [{'item_id': 456}]
 
 
 @pytest.mark.parametrize('nested', [False, True])
