@@ -8,6 +8,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
+import sqlalchemy
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation._semconv import _OpenTelemetrySemanticConventionStability  # type: ignore
@@ -642,6 +643,63 @@ def test_sqlalchemy_instrumentation_stable_semconv(exporter: TestExporter):
             },
         ]
     )
+
+
+def _sqlalchemy_range_excluding_installed(self: object) -> tuple[str, ...]:
+    return ('sqlalchemy < 1.0',)
+
+
+@contextmanager
+def memory_sqlite_engine() -> Generator[Engine]:
+    """In-memory engine that closes pooled sqlite connections and drops instrumentation."""
+    engine = create_engine('sqlite:///:memory:')
+    try:
+        yield engine
+    finally:
+        engine.dispose()
+        if SQLAlchemyInstrumentor().is_instrumented_by_opentelemetry:
+            SQLAlchemyInstrumentor().uninstrument()
+
+
+def test_unsupported_sqlalchemy_version_is_not_silent(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A SQLAlchemy version outside the instrumentor's range must not look instrumented.
+
+    opentelemetry-instrumentation-sqlalchemy (for example 0.66b1) declares
+    `sqlalchemy >= 1.0.0, < 2.1.0`. On SQLAlchemy 2.1 it logs that conflict and
+    returns before attaching listeners, so `instrument_sqlalchemy()` used to
+    return while queries produced no spans.
+    """
+    monkeypatch.setattr(SQLAlchemyInstrumentor, 'instrumentation_dependencies', _sqlalchemy_range_excluding_installed)
+    with memory_sqlite_engine() as engine:
+        with pytest.raises(RuntimeError) as exc_info:
+            logfire.instrument_sqlalchemy(engine=engine)
+
+        message = str(exc_info.value)
+        assert message == (
+            '`logfire.instrument_sqlalchemy()` could not instrument SQLAlchemy.\n'
+            'This instrumentation only instruments "sqlalchemy < 1.0", '
+            f'but currently installed version ("sqlalchemy {sqlalchemy.__version__}") falls outside of that range, '
+            'so nothing can be instrumented.\n'
+            'Install a SQLAlchemy version in that range, or upgrade '
+            '`opentelemetry-instrumentation-sqlalchemy` if a newer release supports this version.\n'
+            'You can upgrade the instrumentation with:\n'
+            "    pip install -U 'logfire[sqlalchemy]'\n"
+            'Pass `skip_dep_check=True` to bypass this check. '
+            'That may produce no spans or errors if the version really is incompatible.'
+        )
+        with engine.connect() as conn:
+            conn.execute(text('select 1'))
+        assert exporter.exported_spans == []
+
+
+def test_skip_dep_check_still_instruments_sqlalchemy(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`skip_dep_check` is forwarded, so callers can instrument outside the declared range."""
+    monkeypatch.setattr(SQLAlchemyInstrumentor, 'instrumentation_dependencies', _sqlalchemy_range_excluding_installed)
+    with memory_sqlite_engine() as engine:
+        logfire.instrument_sqlalchemy(engine=engine, skip_dep_check=True)
+        with engine.connect() as conn:
+            conn.execute(text('select 1'))
+        assert exporter.exported_spans
 
 
 def test_missing_opentelemetry_dependency() -> None:
