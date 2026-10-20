@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from opentelemetry.trace import Span
+from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.testclient import TestClient
 from starlette.types import Scope
 from starlette.websockets import WebSocket
@@ -9,9 +12,10 @@ from starlette.websockets import WebSocket
 pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7', exc_type=ImportError)
 
 import fastapi
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 import logfire
-from logfire._internal.integrations.fastapi import instrument_fastapi
+from logfire._internal.integrations.fastapi import OncePerRequest, instrument_fastapi
 from logfire.testing import TestExporter
 
 
@@ -73,23 +77,30 @@ def test_global_fastapi_enrichment(exporter: TestExporter, extra_spans: bool, ex
 
 
 @pytest.mark.parametrize('record_send_receive', [False, True])
-def test_global_fastapi_websocket(exporter: TestExporter, record_send_receive: bool) -> None:
+@pytest.mark.parametrize('mounted', [False, True])
+def test_global_fastapi_websocket(exporter: TestExporter, record_send_receive: bool, mounted: bool) -> None:
     with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE, record_send_receive=record_send_receive):
         app = fastapi.FastAPI()
+        child = fastapi.FastAPI() if mounted else app
+        if mounted:
+            app.mount('/child', child)
 
-        @app.websocket('/ws/{name}')
+        @child.websocket('/ws/{name}')
         async def echo(websocket: WebSocket, name: str) -> None:
             await websocket.accept()
             assert await websocket.receive_text() == 'ping'
             await websocket.send_text(name)
             await websocket.close()
 
-        with TestClient(app) as client, client.websocket_connect('/ws/foo') as websocket:
+        with (
+            TestClient(app) as client,
+            client.websocket_connect('/child/ws/foo' if mounted else '/ws/foo') as websocket,
+        ):
             websocket.send_text('ping')
             assert websocket.receive_text() == 'foo'
 
         spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-        roots = [span for span in spans if span['name'] == 'HTTP /ws/{name}']
+        roots = [span for span in spans if span['name'] == ('HTTP /child' if mounted else 'HTTP /ws/{name}')]
         assert len(roots) == 1
         assert roots[0]['attributes']['fastapi.route.name'] == 'echo'
         assert roots[0]['attributes']['fastapi.arguments.values'] == {'name': 'foo'}
@@ -152,29 +163,47 @@ def test_per_app_fastapi_rejects_global_instrumentation(exporter: TestExporter) 
         assert [span['attributes']['fastapi.arguments.values'] for span in spans] == [{'item_id': 456}]
 
 
-@pytest.mark.parametrize('nested', [False, True])
-def test_global_fastapi_mounted_app_exclusion(exporter: TestExporter, nested: bool) -> None:
+def test_global_fastapi_mounted_app_exclusion(exporter: TestExporter) -> None:
     with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE, excluded_urls='/private'):
         app = fastapi.FastAPI()
         child = fastapi.FastAPI()
+        grandchild = fastapi.FastAPI()
         app.mount('/child', child)
-        prefix = '/child'
-        if nested:
-            grandchild = fastapi.FastAPI()
-            child.mount('/nested', grandchild)
-            child = grandchild
-            prefix += '/nested'
+        child.mount('/nested', grandchild)
 
-        @child.post('/private')
-        @child.post('/public')
+        @grandchild.post('/private')
+        @grandchild.post('/public')
         async def endpoint(payload: dict[str, str]) -> dict[str, str]:
             return payload
 
         payload = {'message': 'private-value'}
         with TestClient(app) as client:
-            assert client.post(prefix + '/private', json=payload).json() == payload
+            assert client.post('/child/nested/private', json=payload).json() == payload
             assert exporter.exported_spans_as_dict() == []
-            assert client.post(prefix + '/public', json=payload).json() == payload
+            assert client.post('/child/nested/public', json=payload).json() == payload
         spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-        assert len(spans) == (3 if nested else 2)
-        assert any(span['attributes'].get('fastapi.arguments.values') == {'payload': payload} for span in spans)
+        assert len(spans) == 1
+        assert spans[0]['name'] == 'POST /child'
+        assert spans[0]['attributes']['fastapi.arguments.values'] == {'payload': payload}
+
+        exporter.clear()
+        with TestClient(grandchild) as client:
+            assert client.post('/public', json=payload).json() == payload
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert len(spans) == 1
+        assert spans[0]['name'] == 'POST /public'
+        assert spans[0]['attributes']['fastapi.arguments.values'] == {'payload': payload}
+
+
+def test_global_fastapi_unexpected_middleware_stack(monkeypatch: pytest.MonkeyPatch) -> None:
+    def skip_instrumentation(_app: fastapi.FastAPI, **_kwargs: Any) -> None:
+        pass
+
+    with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE):
+        with monkeypatch.context() as patch:
+            patch.setattr(FastAPIInstrumentor, 'instrument_app', skip_instrumentation)
+            app = fastapi.FastAPI()
+
+        stack = app.build_middleware_stack()
+        assert isinstance(stack, ServerErrorMiddleware)
+        assert not isinstance(stack.app, OncePerRequest)

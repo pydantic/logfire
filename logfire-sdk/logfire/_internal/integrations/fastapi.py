@@ -9,13 +9,16 @@ from functools import lru_cache, wraps
 from typing import Any
 from weakref import WeakKeyDictionary
 
+import fastapi
 import fastapi.routing
 from fastapi import BackgroundTasks, FastAPI
 from fastapi.routing import APIRoute, APIWebSocketRoute, Mount
 from fastapi.security import SecurityScopes
 from opentelemetry.trace import Span
+from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 from starlette.websockets import WebSocket
 
 from ..constants import ONE_SECOND_IN_NANOSECONDS
@@ -24,7 +27,7 @@ from ..stack_info import StackInfo, get_code_object_info
 from ..utils import handle_internal_errors, maybe_capture_server_headers
 
 try:
-    from opentelemetry.instrumentation.asgi import ServerRequestHook
+    from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware, ServerRequestHook
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
     from .asgi import tweak_asgi_spans_tracer_provider
@@ -96,6 +99,25 @@ def instrument_fastapi(
     }
     if app is None:
         FastAPIInstrumentor().instrument(**opentelemetry_kwargs)
+
+        class OncePerRequestFastAPI(fastapi.FastAPI):
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                super().__init__(*args, **kwargs)
+                instrumented_build_middleware_stack = self.build_middleware_stack
+
+                def build_middleware_stack() -> ASGIApp:
+                    stack = instrumented_build_middleware_stack()
+                    if (
+                        isinstance(stack, ServerErrorMiddleware)
+                        and isinstance(stack.app, OpenTelemetryMiddleware)
+                        and callable(getattr(stack.app, 'app', None))
+                    ):
+                        stack.app = OncePerRequest(stack.app)
+                    return stack
+
+                self.build_middleware_stack = build_middleware_stack
+
+        fastapi.FastAPI = OncePerRequestFastAPI
         registry.global_instrumentation = FastAPIInstrumentation(
             logfire_instance,
             request_attributes_mapper or _default_request_attributes_mapper,
@@ -137,6 +159,28 @@ def instrument_fastapi(
                 FastAPIInstrumentor.uninstrument_app(_app)
 
     return uninstrument_context()
+
+
+class OncePerRequest:
+    """Run only the outermost FastAPI OpenTelemetry middleware for each ASGI request.
+
+    This way mounted apps don't start duplicate spans for the same request,
+    and they don't trace requests that were excluded by their outer app.
+    """
+
+    def __init__(self, app: OpenTelemetryMiddleware) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope.get('logfire.fastapi.once_per_request'):
+            # The outer app already started the request span. Skip this app's OTel
+            # middleware, but still run its error handling, routing, and endpoint.
+            await self.app.app(scope, receive, send)  # pyright: ignore[reportUnknownMemberType]
+        else:
+            # Claim the request before OpenTelemetry checks excluded URLs. A nested
+            # app must not trace a request excluded by its outer app.
+            scope['logfire.fastapi.once_per_request'] = True
+            await self.app(scope, receive, send)
 
 
 @dataclasses.dataclass
