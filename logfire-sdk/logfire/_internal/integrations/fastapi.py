@@ -162,7 +162,11 @@ def instrument_fastapi(
 
 
 class OncePerRequest:
-    """Run only the outermost FastAPI OpenTelemetry middleware for each ASGI request."""
+    """Run only the outermost FastAPI OpenTelemetry middleware for each ASGI request.
+
+    This way mounted apps don't start duplicate spans for the same request,
+    and they don't trace requests that were excluded by their outer app.
+    """
 
     def __init__(self, app: OpenTelemetryMiddleware) -> None:
         self.app = app
