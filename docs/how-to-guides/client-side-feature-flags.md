@@ -194,6 +194,24 @@ function getFeatureFlags() {
 }
 ```
 
+## Allow your app's origin on self-hosted Logfire
+
+If you self-host Logfire and your web app runs on a different origin than your Logfire host, the browser blocks the OFREP requests with a cross-origin resource sharing (CORS) error. CORS is the browser check that only lets a page call an API on another origin when the API allows that origin. By default, the self-hosted backend only allows its own frontend host.
+
+Set `CORS_ALLOWED_ORIGIN_RE` on the backend in your Helm values to allow your app's origins:
+
+```yaml
+logfire-backend:
+  env:
+    - name: CORS_ALLOWED_ORIGIN_RE
+      value: 'https://(app1|app2)\.example\.com'
+```
+
+The value is a Python regular expression. The backend matches it against the full `Origin` header, including the scheme and any port. Apply the change with `helm upgrade`.
+
+!!! warning "Matched origins get credentialed access to the whole API"
+    `CORS_ALLOWED_ORIGIN_RE` applies to every backend API route, not only OFREP, and it allows credentialed requests. Keep the regular expression as narrow as possible: list exact hostnames, escape every `.`, and do not use wildcards such as `.*` or `https://.*\.example\.com`. In your app, use an API key with only the `project:read_external_variables` scope.
+
 ## Python
 
 !!! note "Most Python services should use the Logfire SDK instead"

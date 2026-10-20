@@ -135,4 +135,4 @@ const client = OpenFeature.getClient();
 const theme = await client.getStringValue('ui_theme', 'light');
 ```
 
-For a step-by-step guide on using OFREP to evaluate feature flags in a web frontend or other client application, see [Client-Side Feature Flags with OFREP](../../../how-to-guides/client-side-feature-flags.md).
+For a step-by-step guide on using OFREP to evaluate feature flags in a web frontend or other client application, see [Client-Side Feature Flags with OFREP](../../../how-to-guides/client-side-feature-flags.md). If you self-host Logfire and call OFREP from a browser app on another origin, see [Allow your app's origin on self-hosted Logfire](../../../how-to-guides/client-side-feature-flags.md#allow-your-apps-origin-on-self-hosted-logfire).
