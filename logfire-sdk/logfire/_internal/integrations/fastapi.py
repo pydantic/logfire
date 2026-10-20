@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable, Generator, Iterable
 from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime, timezone
 from functools import lru_cache, wraps
-from typing import Any, cast
+from typing import Any
 from weakref import WeakKeyDictionary
 
 import fastapi
@@ -165,7 +165,9 @@ class OncePerRequest:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope.get('logfire.fastapi.once_per_request'):
-            await cast(ASGIApp, getattr(self.app, 'app'))(scope, receive, send)
+            # The outer app already started the request span. Skip this app's OTel
+            # middleware, but still run its error handling, routing, and endpoint.
+            await self.app.app(scope, receive, send)  # pyright: ignore[reportUnknownMemberType]
         else:
             # Claim the request before OpenTelemetry checks excluded URLs. A nested
             # app must not trace a request excluded by its outer app.
