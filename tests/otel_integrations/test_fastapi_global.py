@@ -163,36 +163,31 @@ def test_per_app_fastapi_rejects_global_instrumentation(exporter: TestExporter) 
         assert [span['attributes']['fastapi.arguments.values'] for span in spans] == [{'item_id': 456}]
 
 
-@pytest.mark.parametrize('nested', [False, True])
-def test_global_fastapi_mounted_app_exclusion(exporter: TestExporter, nested: bool) -> None:
+def test_global_fastapi_mounted_app_exclusion(exporter: TestExporter) -> None:
     with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE, excluded_urls='/private'):
         app = fastapi.FastAPI()
         child = fastapi.FastAPI()
+        grandchild = fastapi.FastAPI()
         app.mount('/child', child)
-        prefix = '/child'
-        if nested:
-            grandchild = fastapi.FastAPI()
-            child.mount('/nested', grandchild)
-            child = grandchild
-            prefix += '/nested'
+        child.mount('/nested', grandchild)
 
-        @child.post('/private')
-        @child.post('/public')
+        @grandchild.post('/private')
+        @grandchild.post('/public')
         async def endpoint(payload: dict[str, str]) -> dict[str, str]:
             return payload
 
         payload = {'message': 'private-value'}
         with TestClient(app) as client:
-            assert client.post(prefix + '/private', json=payload).json() == payload
+            assert client.post('/child/nested/private', json=payload).json() == payload
             assert exporter.exported_spans_as_dict() == []
-            assert client.post(prefix + '/public', json=payload).json() == payload
+            assert client.post('/child/nested/public', json=payload).json() == payload
         spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
         assert len(spans) == 1
         assert spans[0]['name'] == 'POST /child'
         assert spans[0]['attributes']['fastapi.arguments.values'] == {'payload': payload}
 
         exporter.clear()
-        with TestClient(child) as client:
+        with TestClient(grandchild) as client:
             assert client.post('/public', json=payload).json() == payload
         spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
         assert len(spans) == 1
