@@ -45,6 +45,24 @@ def instrument_sqlalchemy(
         if engines is not None:
             engines = [_convert_to_sync_engine(engine_entry) for engine_entry in engines]  # pyright: ignore[reportAssignmentType]
 
-    return SQLAlchemyInstrumentor().instrument(
+    instrumentor = SQLAlchemyInstrumentor()
+    # The OpenTelemetry instrumentor logs a dependency conflict and returns without
+    # attaching listeners. Read its own declared range (rather than pinning SQLAlchemy
+    # in the extra) so a newer instrumentor that widens the range keeps working.
+    if not kwargs.get('skip_dep_check'):
+        from opentelemetry.instrumentation.dependencies import get_dependency_conflicts
+
+        conflict = get_dependency_conflicts(instrumentor.instrumentation_dependencies())
+        if conflict is not None:
+            raise RuntimeError(
+                '`logfire.instrument_sqlalchemy()` could not instrument SQLAlchemy.\n'
+                f'{conflict}\n'
+                'Install a SQLAlchemy version in that range, or upgrade '
+                '`opentelemetry-instrumentation-sqlalchemy` if a newer release supports this version.\n'
+                'You can upgrade the instrumentation with:\n'
+                "    pip install -U 'logfire[sqlalchemy]'"
+            )
+
+    return instrumentor.instrument(
         engine=engine, engines=engines, enable_commenter=enable_commenter, commenter_options=commenter_options, **kwargs
     )
