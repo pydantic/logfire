@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.trace import Span
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.testclient import TestClient
@@ -13,6 +12,7 @@ from starlette.websockets import WebSocket
 pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7', exc_type=ImportError)
 
 import fastapi
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 import logfire
 from logfire._internal.integrations.fastapi import OncePerRequest, instrument_fastapi
