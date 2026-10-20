@@ -73,23 +73,30 @@ def test_global_fastapi_enrichment(exporter: TestExporter, extra_spans: bool, ex
 
 
 @pytest.mark.parametrize('record_send_receive', [False, True])
-def test_global_fastapi_websocket(exporter: TestExporter, record_send_receive: bool) -> None:
+@pytest.mark.parametrize('mounted', [False, True])
+def test_global_fastapi_websocket(exporter: TestExporter, record_send_receive: bool, mounted: bool) -> None:
     with instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE, record_send_receive=record_send_receive):
         app = fastapi.FastAPI()
+        child = fastapi.FastAPI() if mounted else app
+        if mounted:
+            app.mount('/child', child)
 
-        @app.websocket('/ws/{name}')
+        @child.websocket('/ws/{name}')
         async def echo(websocket: WebSocket, name: str) -> None:
             await websocket.accept()
             assert await websocket.receive_text() == 'ping'
             await websocket.send_text(name)
             await websocket.close()
 
-        with TestClient(app) as client, client.websocket_connect('/ws/foo') as websocket:
+        with (
+            TestClient(app) as client,
+            client.websocket_connect('/child/ws/foo' if mounted else '/ws/foo') as websocket,
+        ):
             websocket.send_text('ping')
             assert websocket.receive_text() == 'foo'
 
         spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-        roots = [span for span in spans if span['name'] == 'HTTP /ws/{name}']
+        roots = [span for span in spans if span['name'] == ('HTTP /child' if mounted else 'HTTP /ws/{name}')]
         assert len(roots) == 1
         assert roots[0]['attributes']['fastapi.route.name'] == 'echo'
         assert roots[0]['attributes']['fastapi.arguments.values'] == {'name': 'foo'}
@@ -176,5 +183,14 @@ def test_global_fastapi_mounted_app_exclusion(exporter: TestExporter, nested: bo
             assert exporter.exported_spans_as_dict() == []
             assert client.post(prefix + '/public', json=payload).json() == payload
         spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-        assert len(spans) == (3 if nested else 2)
-        assert any(span['attributes'].get('fastapi.arguments.values') == {'payload': payload} for span in spans)
+        assert len(spans) == 1
+        assert spans[0]['name'] == 'POST /child'
+        assert spans[0]['attributes']['fastapi.arguments.values'] == {'payload': payload}
+
+        exporter.clear()
+        with TestClient(child) as client:
+            assert client.post('/public', json=payload).json() == payload
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert len(spans) == 1
+        assert spans[0]['name'] == 'POST /public'
+        assert spans[0]['attributes']['fastapi.arguments.values'] == {'payload': payload}
