@@ -19,7 +19,6 @@ from typing import Any, NamedTuple, cast
 from urllib.parse import urlparse
 
 import requests
-from opentelemetry import trace
 from rich.console import Console
 
 from logfire.exceptions import LogfireConfigError
@@ -1021,8 +1020,7 @@ def _main(args: list[str] | None = None) -> None:
 
     namespace.logfire_url = _get_logfire_url(namespace.base_url, namespace.region)
 
-    trace.set_tracer_provider(tracer_provider=SDKTracerProvider())
-    tracer = trace.get_tracer(__name__)
+    tracer = SDKTracerProvider().get_tracer(__name__)
 
     def log_trace_id(response: requests.Response, context: ContextCarrier, *args: Any, **kwargs: Any) -> None:
         logger.debug('context=%s url=%s', context, response.url)

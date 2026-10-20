@@ -31,6 +31,8 @@ import requests
 import requests_mock
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
+from opentelemetry import trace
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 import logfire._internal.cli
 import logfire._internal.cli.ai_tools as ai_tools
@@ -62,6 +64,7 @@ from logfire._internal.config import LogfireConfigWarning, LogfireCredentials, s
 from logfire._internal.http_transport import LogfireHTTPAdapter
 from logfire._internal.utils import READ_TOKEN_FILENAME
 from logfire.exceptions import LogfireConfigError
+from logfire.testing import TestExporter
 from tests.import_used_for_tests import run_script_test
 
 
@@ -109,6 +112,31 @@ def test_whoami_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
 
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+
+
+def test_cli_api_tracing_preserves_global_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    exporter = TestExporter()
+    provider = logfire._internal.cli.SDKTracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    monkeypatch.setattr(logfire._internal.cli, 'SDKTracerProvider', lambda: provider)
+    global_provider = trace.get_tracer_provider()
+    with patch.dict(os.environ, {'LOGFIRE_TOKEN': 'foobar'}), requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        main(['whoami'])
+        main(['whoami'])
+
+    spans = exporter.exported_spans
+    assert [span.name for span in spans] == ['logfire._internal.cli', 'logfire._internal.cli']
+    assert len(request_mocker.request_history) == 2
+    for request, span in zip(request_mocker.request_history, spans):
+        assert span.context is not None
+        assert request.headers['traceparent'] == (
+            f'00-{span.context.trace_id:032x}-{span.context.span_id:016x}-{span.context.trace_flags:02x}'
+        )
+    assert trace.get_tracer_provider() is global_provider
 
 
 def test_cli_owned_session_gets_connection_policy(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -6397,6 +6425,56 @@ def test_parse_run_no_script(monkeypatch: pytest.MonkeyPatch) -> None:
         main(['run', '--no-summary'])
 
     assert configure_mock.call_count == 1
+
+
+@pytest.mark.parametrize('module', [False, True])
+def test_parse_run_global_tracer_in_fresh_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: bool
+) -> None:
+    script = tmp_path / 'traced_app.py'
+    script.write_text(
+        """
+import json
+
+from opentelemetry import trace
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+import logfire
+from logfire.testing import TestExporter
+
+exporter = TestExporter()
+logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[SimpleSpanProcessor(exporter)])
+with trace.get_tracer('demo').start_as_current_span('otel parent'):
+    with logfire.span('native child'):
+        pass
+print(json.dumps(exporter.exported_spans_as_dict()))
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    target = ['-m', 'traced_app'] if module else [str(script)]
+    result = subprocess.run(
+        [
+            sys.executable,
+            '-m',
+            'logfire',
+            'run',
+            '--exclude',
+            ','.join(sorted(set(OTEL_INSTRUMENTATION_MAP.values()))),
+            *target,
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    spans = json.loads(result.stdout)
+    assert [span['name'] for span in spans] == ['native child', 'otel parent']
+    child, parent = spans
+    assert child['parent'] == parent['context']
+    assert child['context']['trace_id'] == parent['context']['trace_id']
+    assert 'Overriding of current TracerProvider is not allowed' not in result.stderr
 
 
 @pytest.mark.parametrize('module', [False, True])
