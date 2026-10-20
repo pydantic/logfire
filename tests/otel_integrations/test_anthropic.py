@@ -1425,9 +1425,12 @@ def test_on_response_unwraps_raw_response() -> None:
         usage=Usage(input_tokens=2, output_tokens=3),
     ).model_dump(mode='json')
 
-    class FakeRawResponse:
+    class FakeHttpResponse:
         def json(self) -> dict[str, Any]:
             return payload
+
+    class FakeRawResponse:
+        http_response = FakeHttpResponse()
 
         def parse(self) -> None:
             return None
