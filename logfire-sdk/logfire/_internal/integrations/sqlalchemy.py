@@ -60,7 +60,9 @@ def instrument_sqlalchemy(
                 'Install a SQLAlchemy version in that range, or upgrade '
                 '`opentelemetry-instrumentation-sqlalchemy` if a newer release supports this version.\n'
                 'You can upgrade the instrumentation with:\n'
-                "    pip install -U 'logfire[sqlalchemy]'"
+                "    pip install -U 'logfire[sqlalchemy]'\n"
+                'Pass `skip_dep_check=True` to bypass this check. '
+                'That may produce no spans or errors if the version really is incompatible.'
             )
 
     return instrumentor.instrument(

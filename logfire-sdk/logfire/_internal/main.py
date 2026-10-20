@@ -2126,6 +2126,7 @@ class Logfire:
 
         If the installed SQLAlchemy version is outside the range that instrumentation supports, this raises
         `RuntimeError` instead of returning without recording queries.
+        Pass `skip_dep_check=True` to bypass this check. That may produce no spans or errors if the version really is incompatible.
 
         Args:
             engine: The `sqlalchemy` engine to instrument.
