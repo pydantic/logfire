@@ -45,6 +45,10 @@ DEFAULT_PATTERNS = [
     'private[._ -]?key',
     'passphrase',
     '(?:signing|hmac)[._ -]?key',
+    # Credentials in database/broker connection strings, e.g. postgresql://user:password@host/db.
+    # Only the scheme is matched (the lookahead checks for user:password@), so the password
+    # never appears in the redaction message.
+    r'(?:postgres(?:ql)?|mysql|mariadb|mssql|rediss?|amqps?|mongodb(?:\+srv)?)(?:\+[\w-]+)?://(?=[^\s/:@]*:[^\s/@]+@)',
     'api[._ -]?key',
     'session',
     'cookie',
