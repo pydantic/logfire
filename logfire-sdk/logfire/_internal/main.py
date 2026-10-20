@@ -2182,6 +2182,7 @@ class Logfire:
             **{
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
+                'logger_provider': self._config.get_logger_provider(),
                 **kwargs,
             },
         )

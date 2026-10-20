@@ -78,6 +78,11 @@ For supported Bedrock models, the upstream instrumentor adds `gen_ai.*` attribut
 `InvokeModel` spans, including the model and input/output token counts. Enable the same
 `instrument_botocore()` integration before using your `bedrock-runtime` client.
 
+If you enable message-content capture with
+`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`, prompts and responses are recorded as log
+events through this Logfire instance. They can contain sensitive data; review your scrubbing policy
+before sending them to a Logfire project.
+
 ## Troubleshooting
 
 - **No AWS spans:** check that the `botocore` extra is installed in the environment running your app,
@@ -86,10 +91,25 @@ For supported Bedrock models, the upstream instrumentor adds `gen_ai.*` attribut
 - **Credentials or permissions errors:** follow Boto3's [credentials guide][credentials] and check the
   AWS principal's permissions. Instrumentation doesn't grant access to AWS resources.
 - **Upload or download spans lose their parent:** Boto3's `upload_file()` and `download_file()` use
-  background threads. The upstream [threading instrumentor][threading] is needed to propagate the
-  parent context to those threads.
+  background threads. Install `opentelemetry-instrumentation-threading` with
+  `uv add opentelemetry-instrumentation-threading`, then enable the [threading instrumentor][threading]
+  before Botocore instrumentation:
+
+  ```py
+  from opentelemetry.instrumentation.threading import ThreadingInstrumentor
+
+  import logfire
+
+  logfire.configure()
+  ThreadingInstrumentor().instrument()
+  logfire.instrument_botocore()
+  ```
 - **Async clients aren't traced:** this integration covers synchronous Botocore clients. Aiobotocore
   has a [separate OpenTelemetry instrumentor][aiobotocore].
+
+## Next steps
+
+[Browse other integrations](index.md) to trace the rest of your application.
 
 ## Reference
 

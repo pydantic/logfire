@@ -105,6 +105,7 @@ dev = [
     "boto3 >= 1.28.57",
     "botocore-stubs",
     "mypy-boto3-s3",
+    "mypy-boto3-bedrock-runtime",
     "botocore >= 1.31.57",
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
