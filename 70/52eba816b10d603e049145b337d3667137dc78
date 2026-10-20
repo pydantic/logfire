@@ -1,0 +1,27 @@
+logfire-sdk/logfire/_internal/integrations/fastapi.py
+  s_48cb8fadd1d36d::t_d168cad2f2bd29 166
+  s_48cb8fadd1d36d::t_8e73d37fda3fce 136
+  s_48cb8fadd1d36d::t_c59e36bd3404ba 183
+  h_d9dd17644dded9 151-154
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7052eba816b10d603e049145b337d3667137dc78",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_48cb8fadd1d36d": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1792406251228",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
