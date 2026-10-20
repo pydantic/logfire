@@ -392,19 +392,20 @@ def _record_message(
 
 
 def _unwrap_raw_message(response: Any) -> Message | None:
-    """Recover the Message from a raw SDK response without awaiting a coroutine.
+    """Recover the Message from a raw SDK response from the buffered body.
 
-    ``with_raw_response`` returns ``APIResponse``/``AsyncAPIResponse`` rather than a
-    ``Message``; both expose the received body synchronously through ``.json()``. Read it
-    directly instead of calling ``.parse()`` because the async variant's ``parse()`` is
-    a coroutine this sync callback cannot await.
+    ``with_raw_response`` returns ``APIResponse``/``AsyncAPIResponse`` (and
+    ``LegacyAPIResponse`` on anthropic 0.x) rather than a ``Message``. All three
+    carry ``http_response`` with the already-read raw body; read its buffered
+    JSON directly. Calling ``.json()`` on the async variant returns a coroutine
+    this synchronous callback cannot await, and ``LegacyAPIResponse`` has no
+    ``.json()`` at all, so neither path works here.
     """
-    raw_json = getattr(response, 'json', None)
-    parse = getattr(response, 'parse', None)
-    if not callable(raw_json) or not callable(parse):
+    http_response = getattr(response, 'http_response', None)
+    if http_response is None or not callable(getattr(response, 'parse', None)):
         return None
     try:
-        payload = raw_json()
+        payload = http_response.json()
     except Exception:
         return None
     if not isinstance(payload, dict):
