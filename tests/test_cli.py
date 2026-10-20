@@ -6580,7 +6580,12 @@ print(json.dumps(exporter.exported_spans_as_dict(parse_json_attributes=True)))
     )
     if instrumentation == 'explicit':
         assert result.returncode != 0
-        assert 'this is not supported, use --exclude fastapi and open an issue if you need both' in result.stderr
+        assert (
+            'Global FastAPI instrumentation cannot be combined with logfire.instrument_fastapi(app). '
+            'Run your application with `logfire run --exclude fastapi ...` to use app-specific instrumentation instead. '
+            'If you need both global and app-specific instrumentation, please open an issue at '
+            'https://github.com/pydantic/logfire/issues.'
+        ) in result.stderr
         return
     assert result.returncode == 0, result.stderr
     spans = json.loads(result.stdout)

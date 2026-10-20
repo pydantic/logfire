@@ -73,7 +73,12 @@ def instrument_fastapi(
     """
     registry = patch_fastapi()
     if registry.global_instrumentation is not None or (app is None and registry.per_app):
-        raise ValueError('this is not supported, use --exclude fastapi and open an issue if you need both')
+        raise ValueError(
+            'Global FastAPI instrumentation cannot be combined with logfire.instrument_fastapi(app). '
+            'Run your application with `logfire run --exclude fastapi ...` to use app-specific instrumentation instead. '
+            'If you need both global and app-specific instrumentation, please open an issue at '
+            'https://github.com/pydantic/logfire/issues.'
+        )
     if app is not None and app in registry.per_app:
         raise ValueError('This app has already been instrumented.')
 

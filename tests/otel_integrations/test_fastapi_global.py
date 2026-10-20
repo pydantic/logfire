@@ -113,8 +113,13 @@ def test_global_fastapi_rejects_per_app_instrumentation(exporter: TestExporter, 
 
         with pytest.raises(ValueError) as exc:
             logfire.instrument_fastapi(app)
-        assert str(exc.value) == 'this is not supported, use --exclude fastapi and open an issue if you need both'
-        with pytest.raises(ValueError, match='this is not supported'):
+        assert str(exc.value) == (
+            'Global FastAPI instrumentation cannot be combined with logfire.instrument_fastapi(app). '
+            'Run your application with `logfire run --exclude fastapi ...` to use app-specific instrumentation instead. '
+            'If you need both global and app-specific instrumentation, please open an issue at '
+            'https://github.com/pydantic/logfire/issues.'
+        )
+        with pytest.raises(ValueError, match='Global FastAPI instrumentation cannot be combined'):
             instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE)
         if not preexisting_app:
             with TestClient(app) as client:
@@ -127,7 +132,7 @@ def test_global_fastapi_rejects_per_app_instrumentation(exporter: TestExporter, 
     with logfire.instrument_fastapi(app):
         with pytest.raises(ValueError, match='This app has already been instrumented'):
             logfire.instrument_fastapi(app)
-        with pytest.raises(ValueError, match='this is not supported'):
+        with pytest.raises(ValueError, match='Global FastAPI instrumentation cannot be combined'):
             instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE)
 
 
@@ -139,7 +144,7 @@ def test_per_app_fastapi_rejects_global_instrumentation(exporter: TestExporter) 
         return item_id
 
     with logfire.instrument_fastapi(app):
-        with pytest.raises(ValueError, match='this is not supported'):
+        with pytest.raises(ValueError, match='Global FastAPI instrumentation cannot be combined'):
             instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE)
         with TestClient(app) as client:
             assert client.get('/items/456').json() == 456
