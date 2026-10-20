@@ -176,52 +176,53 @@ def get_open_span(
             return NoopSpan()
         return get_logfire()._fast_span(final_span_name, attributes, **extra_span_kwargs())  # pyright: ignore[reportPrivateUsage]
 
-    if extract_args is True:
-        sig = inspect.signature(func)
-        if sig.parameters:  # only extract args if there are any
-
-            def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
-                if level_num is not None and level_num < get_logfire().config.min_level:
-                    return NoopSpan()
-                bound = sig.bind(*func_args, **func_kwargs)
-                bound.apply_defaults()
-                args_dict = bound.arguments
-                return get_logfire()._instrument_span_with_args(  # pyright: ignore[reportPrivateUsage]
-                    final_span_name, attributes, args_dict, **extra_span_kwargs()
-                )
-
+    if not extract_args:
         return open_span
 
-    if extract_args:  # i.e. extract_args should be an iterable of argument names
-        sig = inspect.signature(func)
-
+    sig = inspect.signature(func)
+    extract_args_final: list[str] | None = None
+    excluded: set[str] | None = None
+    if extract_args is True:
+        if not sig.parameters:
+            return open_span
+    else:
         if isinstance(extract_args, str):
             extract_args = [extract_args]
 
-        extract_args_final = uniquify_sequence(list(extract_args))
-        missing = set(extract_args_final) - set(sig.parameters)
+        selectors = uniquify_sequence(list(extract_args))
+        included = [arg for arg in selectors if not arg.startswith('-')]
+        excluded = {arg[1:] for arg in selectors if arg.startswith('-')}
+        missing = {arg for arg in selectors if arg.removeprefix('-') not in sig.parameters}
         if missing:
-            extract_args_final = [arg for arg in extract_args_final if arg not in missing]
             warnings.warn(
                 f'Ignoring missing arguments to extract: {", ".join(sorted(missing))}',
                 stacklevel=3,
             )
 
-        if extract_args_final:  # check that there are still arguments to extract
+        if included:
+            extract_args_final = [arg for arg in included if arg not in missing and arg not in excluded]
+            if not extract_args_final:
+                return open_span
+        elif not excluded or not sig.parameters:
+            return open_span
 
-            def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
-                if level_num is not None and level_num < get_logfire().config.min_level:
-                    return NoopSpan()
-                bound = sig.bind(*func_args, **func_kwargs)
-                bound.apply_defaults()
-                args_dict = bound.arguments
-
-                # This line is the only difference from the extract_args=True case
-                args_dict = {k: args_dict[k] for k in extract_args_final}
-
-                return get_logfire()._instrument_span_with_args(  # pyright: ignore[reportPrivateUsage]
-                    final_span_name, attributes, args_dict, **extra_span_kwargs()
-                )
+    def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
+        instance = get_logfire()
+        if level_num is not None and level_num < instance.config.min_level:
+            return NoopSpan()
+        bound = sig.bind(*func_args, **func_kwargs)
+        bound.apply_defaults()
+        args_dict = bound.arguments
+        if extract_args_final is not None:
+            args_dict = {k: args_dict[k] for k in extract_args_final}
+        elif excluded:
+            for arg in excluded:
+                args_dict.pop(arg, None)
+        for arg in instance.config.instrument_exclude_args:
+            args_dict.pop(arg, None)
+        return instance._instrument_span_with_args(  # pyright: ignore[reportPrivateUsage]
+            final_span_name, attributes, args_dict, **extra_span_kwargs()
+        )
 
     return open_span
 
