@@ -1,0 +1,14 @@
+logfire-sdk/logfire/_internal/integrations/fastapi.py
+  h_d9dd17644dded9 165-169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c32fa71aec994e02defe9871eb6eef655cf0e89f",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
