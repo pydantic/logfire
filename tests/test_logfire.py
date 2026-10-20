@@ -354,6 +354,16 @@ def test_instrument_mixed_argument_selection(exporter: TestExporter) -> None:
     assert 'c' not in attributes
 
 
+def test_instrument_empty_iterator_extracts_no_arguments(exporter: TestExporter) -> None:
+    @logfire.instrument(extract_args=iter(()))
+    def calculate(value: int) -> int:
+        return value * 7
+
+    assert calculate(6) == 42
+    attributes = exporter.exported_spans[-1].attributes or {}
+    assert 'value' not in attributes
+
+
 def test_instrument_global_exclusions_apply_after_decoration(
     exporter: TestExporter, config_kwargs: dict[str, Any]
 ) -> None:
