@@ -107,7 +107,11 @@ def instrument_fastapi(
 
                 def build_middleware_stack() -> ASGIApp:
                     stack = instrumented_build_middleware_stack()
-                    if isinstance(stack, ServerErrorMiddleware) and isinstance(stack.app, OpenTelemetryMiddleware):
+                    if (
+                        isinstance(stack, ServerErrorMiddleware)
+                        and isinstance(stack.app, OpenTelemetryMiddleware)
+                        and callable(getattr(stack.app, 'app', None))
+                    ):
                         stack.app = OncePerRequest(stack.app)
                     return stack
 
