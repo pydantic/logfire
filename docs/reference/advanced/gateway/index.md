@@ -175,9 +175,9 @@ A gateway endpoint routes requests across one or more providers under a single s
 The **Spending** tab shows usage analytics for the organization, broken down by project, member, and API key. Every Gateway plan includes these limits:
 
 - **Per-key limits**: daily, weekly, monthly, and total caps set on each API key.
-- **Organization-wide limits**: a shared daily, weekly, or monthly budget across the organization, set in **Gateway → Settings**.
-- **Per-project limits**: daily, weekly, and monthly caps for a selected project, also in **Gateway → Settings**.
-- **Per-member limits**: daily, weekly, and monthly caps that admins can set for individual organization members.
+- **Organization-wide limits**: a shared daily, weekly, or monthly budget across the organization, set in **Gateway → Spending → Overview**.
+- **Per-project limits**: daily, weekly, and monthly caps for each project, set in **Gateway → Spending → Projects**.
+- **Per-member limits**: daily, weekly, and monthly caps for individual organization members, set in **Gateway → Spending → Members**.
 
 **Spending policies** add reusable provider- and model-scoped budgets attached to an organization, project, member, or API key. They are experimental, enabled through Early Access, and creating or changing a policy requires Enterprise or self-hosted Logfire. They are not required to limit spending. See [Control Gateway spending](spending-policies.md) for both included limits and advanced policy setup.
 
