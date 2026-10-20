@@ -133,7 +133,7 @@ def instrument_fastapi(
             yield
         finally:
             for _app in mounted_apps:
-                del registry.per_app[_app]
+                registry.per_app.pop(_app, None)
                 FastAPIInstrumentor.uninstrument_app(_app)
 
     return uninstrument_context()
@@ -148,6 +148,10 @@ class _FastAPIRegistry:
         default_factory=lambda: WeakKeyDictionary[FastAPI, FastAPIInstrumentation]()
     )
 
+    def get_instrumentation(self, app: FastAPI) -> FastAPIInstrumentation | None:
+        """Get the instrumentation for a specific app, or the global instrumentation if none is set."""
+        return self.per_app.get(app) or self.global_instrumentation
+
 
 @lru_cache  # only patch once
 def patch_fastapi() -> _FastAPIRegistry:
@@ -159,7 +163,7 @@ def patch_fastapi() -> _FastAPIRegistry:
     @wraps(original_solve_dependencies)
     async def patched_solve_dependencies(*, request: Request | WebSocket, **kwargs: Any) -> Any:
         original = original_solve_dependencies(request=request, **kwargs)
-        if instrumentation := (registry.per_app.get(request.app) or registry.global_instrumentation):
+        if instrumentation := registry.get_instrumentation(request.app):
             return await instrumentation.solve_dependencies(request, original)
         else:
             return await original  # pragma: no cover
@@ -176,9 +180,7 @@ def patch_fastapi() -> _FastAPIRegistry:
     async def patched_run_endpoint_function(*, dependant: Any, values: dict[str, Any], **kwargs: Any) -> Any:
         if isinstance(values, _InstrumentedValues):
             request = values.request
-            if instrumentation := (
-                registry.per_app.get(request.app) or registry.global_instrumentation
-            ):  # pragma: no branch
+            if instrumentation := registry.get_instrumentation(request.app):  # pragma: no branch
                 return await instrumentation.run_endpoint_function(
                     original_run_endpoint_function, request, dependant, values, **kwargs
                 )
