@@ -2,6 +2,7 @@ import pytest
 import structlog
 from inline_snapshot import snapshot
 
+import logfire
 from logfire.integrations.structlog import LogfireProcessor
 from logfire.testing import TestExporter
 
@@ -50,7 +51,7 @@ def test_structlog(exporter: TestExporter, logger: structlog.BoundLogger) -> Non
                     'logfire.msg': 'This is now being logged: 123',
                     'code.filepath': 'test_structlog.py',
                     'code.function': 'test_structlog',
-                    'code.lineno': 30,
+                    'code.lineno': 31,
                     'logfire.disable_console_log': True,
                 },
             },
@@ -67,7 +68,7 @@ def test_structlog(exporter: TestExporter, logger: structlog.BoundLogger) -> Non
                     'logfire.msg': '456',
                     'code.filepath': 'test_structlog.py',
                     'code.function': 'test_structlog',
-                    'code.lineno': 31,
+                    'code.lineno': 32,
                     'logfire.disable_console_log': True,
                 },
             },
@@ -84,7 +85,7 @@ def test_structlog(exporter: TestExporter, logger: structlog.BoundLogger) -> Non
                     'logfire.msg': 'bad',
                     'code.filepath': 'test_structlog.py',
                     'code.function': 'test_structlog',
-                    'code.lineno': 36,
+                    'code.lineno': 37,
                     'logfire.disable_console_log': True,
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
@@ -106,3 +107,67 @@ def test_structlog(exporter: TestExporter, logger: structlog.BoundLogger) -> Non
 
     for span in exporter.exported_spans:
         assert span.instrumentation_scope.name == 'logfire.structlog'  # type: ignore
+
+
+def test_structlog_tags(exporter: TestExporter, logger: structlog.BoundLogger) -> None:
+    logger.info('tagged', **{'logfire.tags': ['foo', 'bar']})
+    logger.bind(**{'logfire.tags': ['bound']}).info('bound')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'tagged',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'tagged',
+                    'logfire.msg': 'tagged',
+                    'code.filepath': 'test_structlog.py',
+                    'code.function': 'test_structlog_tags',
+                    'code.lineno': 123,
+                    'logfire.tags': ('foo', 'bar'),
+                    'logfire.disable_console_log': True,
+                },
+            },
+            {
+                'name': 'bound',
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'parent': None,
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'bound',
+                    'logfire.msg': 'bound',
+                    'code.filepath': 'test_structlog.py',
+                    'code.function': 'test_structlog_tags',
+                    'code.lineno': 123,
+                    'logfire.tags': ('bound',),
+                    'logfire.disable_console_log': True,
+                },
+            },
+        ]
+    )
+
+
+def test_structlog_single_string_tag(exporter: TestExporter, logger: structlog.BoundLogger) -> None:
+    logger.bind(**{'logfire.tags': 'production'}).info('single tag')
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.tags'] == ('production',)
+
+
+def test_structlog_tags_merged_with_instance_tags(exporter: TestExporter) -> None:
+    tagged_logger = structlog.wrap_logger(
+        structlog.ReturnLogger(),
+        processors=[LogfireProcessor(logfire_instance=logfire.with_tags('instance'))],
+    )
+    tagged_logger.info('tagged', **{'logfire.tags': ['foo']})
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.tags'] == ('instance', 'foo')
