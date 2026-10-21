@@ -727,6 +727,120 @@ def test_messages_stream_text_block_none() -> None:
     )
 
 
+def test_server_tool_blocks_in_response() -> None:
+    """Server-side tools (web search) become tool call parts instead of raw dumped blocks."""
+    from anthropic.types import ServerToolUseBlock, WebSearchResultBlock, WebSearchToolResultBlock
+
+    from logfire._internal.integrations.llm_providers.anthropic import convert_response_to_semconv
+
+    message = Message(
+        id='msg_1',
+        content=[
+            ServerToolUseBlock(id='srvtoolu_1', name='web_search', input={'query': 'logfire'}, type='server_tool_use'),
+            WebSearchToolResultBlock(
+                tool_use_id='srvtoolu_1',
+                type='web_search_tool_result',
+                content=[
+                    WebSearchResultBlock(
+                        encrypted_content='enc',
+                        page_age=None,
+                        title='Logfire',
+                        type='web_search_result',
+                        url='https://pydantic.dev/logfire',
+                    )
+                ],
+            ),
+            TextBlock(text='Found it.', type='text'),
+        ],
+        model='claude-sonnet-4-5',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=25, output_tokens=55),
+    )
+    assert convert_response_to_semconv(message) == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'tool_call', 'id': 'srvtoolu_1', 'name': 'web_search', 'arguments': {'query': 'logfire'}},
+                {
+                    'type': 'tool_call_response',
+                    'id': 'srvtoolu_1',
+                    'response': [
+                        {
+                            'encrypted_content': 'enc',
+                            'page_age': None,
+                            'title': 'Logfire',
+                            'type': 'web_search_result',
+                            'url': 'https://pydantic.dev/logfire',
+                        }
+                    ],
+                },
+                {'type': 'text', 'content': 'Found it.'},
+            ],
+            'finish_reason': 'end_turn',
+        }
+    )
+
+
+def test_server_tool_result_content_that_is_not_a_model() -> None:
+    """A server tool result whose content is already plain data is recorded as it is."""
+    from types import SimpleNamespace
+
+    from logfire._internal.integrations.llm_providers.anthropic import convert_response_to_semconv
+
+    message = SimpleNamespace(
+        role='assistant',
+        stop_reason=None,
+        content=[SimpleNamespace(type='code_execution_tool_result', tool_use_id='srvtoolu_2', content='done')],
+    )
+    assert convert_response_to_semconv(message) == snapshot(  # type: ignore[arg-type]
+        {'role': 'assistant', 'parts': [{'type': 'tool_call_response', 'id': 'srvtoolu_2', 'response': 'done'}]}
+    )
+
+
+def test_server_tool_blocks_in_input_messages() -> None:
+    """Server tool blocks sent back in an assistant turn are converted the same way."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    input_messages, _ = convert_messages_to_semconv(
+        [
+            {
+                'role': 'assistant',
+                'content': [
+                    {
+                        'type': 'server_tool_use',
+                        'id': 'srvtoolu_1',
+                        'name': 'web_fetch',
+                        'input': {'url': 'https://x.dev'},
+                    },
+                    {
+                        'type': 'web_fetch_tool_result',
+                        'tool_use_id': 'srvtoolu_1',
+                        'content': {'type': 'web_fetch_result'},
+                    },
+                ],
+            }
+        ]
+    )
+    assert input_messages == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [
+                    {
+                        'type': 'tool_call',
+                        'id': 'srvtoolu_1',
+                        'name': 'web_fetch',
+                        'arguments': {'url': 'https://x.dev'},
+                    },
+                    {'type': 'tool_call_response', 'id': 'srvtoolu_1', 'response': {'type': 'web_fetch_result'}},
+                ],
+            }
+        ]
+    )
+
+
 @pytest.mark.parametrize('beta', [False, True])
 def test_streamed_tool_arguments(beta: bool, exporter: TestExporter) -> None:
     events: list[dict[str, Any]] = [
