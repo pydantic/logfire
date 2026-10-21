@@ -54,7 +54,7 @@ For a key created in this Connect session, the page shows **Waiting for your fir
 - **No providers available:** ask an organization admin to activate a built-in provider or [add your own](byok-providers.md). A provider assigned to an endpoint must also be active.
 - **401 or 403:** check that you used a Gateway API key for the intended project, not your upstream provider key, and that the key has not expired.
 - **Model not listed:** choose a model the selected provider serves, or enter its model identifier where the UI allows it. Model availability and pricing can differ by provider.
-- **No pricing data:** a BYOK provider with **Require pricing data** enabled rejects unpriced requests. Add a price in provider settings, choose a priced model, or change that setting if you accept requests without a known price. This setting is separate from whether the upstream provider charges you.
+- **No pricing data:** a BYOK provider with **Require pricing data** enabled rejects unpriced requests. [Set a custom price](model-access.md#set-custom-prices-on-a-byok-provider) for the model, choose a priced model, or change that setting if you accept requests without a known price. This setting is separate from whether the upstream provider charges you.
 - **No trace:** check that Gateway telemetry is enabled for the project in **Gateway → Settings**. A successful request does not imply telemetry was configured.
 
 Next, [set included spending limits](spending-policies.md), [add an endpoint](endpoints.md) for failover, or [protect request data](protect-data.md).
