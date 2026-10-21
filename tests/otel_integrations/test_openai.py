@@ -4604,6 +4604,55 @@ def test_chat_completion_stream_state_refusal() -> None:
     )
 
 
+def _stream_output_messages(deltas: list[tuple[dict[str, Any], str | None]]) -> Any:
+    from logfire._internal.integrations.llm_providers.openai import OpenaiChatCompletionStreamState
+
+    state = OpenaiChatCompletionStreamState()
+    for delta, finish_reason in deltas:
+        state.record_chunk(
+            cc_chunk.ChatCompletionChunk.model_validate(
+                {
+                    'id': 'chatcmpl-1',
+                    'object': 'chat.completion.chunk',
+                    'created': 0,
+                    'model': 'gpt-4o-mini',
+                    'choices': [{'index': 0, 'delta': delta, 'finish_reason': finish_reason}],
+                }
+            )
+        )
+    return state.get_attributes({})['gen_ai.output.messages']
+
+
+def test_chat_completion_stream_state_audio_transcript() -> None:
+    """A streamed audio response ends up in the output messages as its transcript."""
+    assert _stream_output_messages(
+        [
+            ({'role': 'assistant', 'audio': {'id': 'audio_1', 'transcript': 'Hel'}}, None),
+            ({'audio': {'transcript': 'lo.', 'data': 'UklGRg==', 'expires_at': 1}}, None),
+            ({}, 'stop'),
+        ]
+    ) == snapshot([{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello.'}], 'finish_reason': 'stop'}])
+
+
+def test_chat_completion_stream_state_legacy_function_call() -> None:
+    """A streamed legacy `function_call` ends up in the output messages as a tool call."""
+    assert _stream_output_messages(
+        [
+            ({'role': 'assistant', 'function_call': {'name': 'get_weather', 'arguments': '{"ci'}}, None),
+            ({'function_call': {'arguments': 'ty": "Lima"}'}}, None),
+            ({}, 'function_call'),
+        ]
+    ) == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [{'type': 'tool_call', 'id': '', 'name': 'get_weather', 'arguments': {'city': 'Lima'}}],
+                'finish_reason': 'function_call',
+            }
+        ]
+    )
+
+
 def test_convert_responses_inputs_no_inputs() -> None:
     """Test convert_responses_inputs_to_semconv with no inputs."""
     from logfire._internal.integrations.llm_providers.openai import convert_responses_inputs_to_semconv
