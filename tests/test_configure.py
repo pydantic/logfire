@@ -2554,6 +2554,54 @@ def test_project_url_ignores_superseded_token_check() -> None:
     assert logfire.project_url == 'https://second.example.com'
 
 
+def test_project_url_bound_to_configuration_of_token_check(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A check scheduled by `configure()` may start after a second `configure()` has replaced the
+    # configuration. It must then still use the options it was scheduled with, in particular the
+    # base URL, rather than sending its token to the newly configured server.
+    check_started = threading.Event()
+    release_check = threading.Event()
+    original = LogfireConfig._initialize_credentials_from_token  # pyright: ignore[reportPrivateUsage]
+
+    def held_back(self: LogfireConfig, token: str, *args: Any, **kwargs: Any) -> Any:
+        check_started.set()
+        release_check.wait(timeout=5)
+        return original(self, token, *args, **kwargs)
+
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', held_back)
+
+    def info(request: Any, _context: Any) -> dict[str, str]:
+        return {'project_name': 'first', 'project_url': request.url.replace('/v1/info', '')}
+
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get('https://first.example.com/v1/info', json=info)
+        request_mocker.get('https://second.example.com/v1/info', json=info)
+        try:
+            configure(
+                token='first_token',
+                send_to_logfire='if-token-present',
+                console=False,
+                advanced=logfire.AdvancedOptions(base_url='https://first.example.com'),
+            )
+            assert check_started.wait(timeout=5)
+
+            # Reconfigure while the first check hasn't reached the network yet.
+            configure(
+                token='second_token',
+                send_to_logfire='if-token-present',
+                console=False,
+                advanced=logfire.AdvancedOptions(base_url='https://second.example.com'),
+            )
+        finally:
+            release_check.set()
+        wait_for_check_token_thread()
+
+    assert logfire.project_url == 'https://second.example.com'
+    assert sorted((request.url, request.headers['Authorization']) for request in request_mocker.request_history) == [
+        ('https://first.example.com/v1/info', 'first_token'),
+        ('https://second.example.com/v1/info', 'second_token'),
+    ]
+
+
 def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixture[str]) -> None:
     os.environ['LOGFIRE_TOKEN'] = 'foobar'
     try:

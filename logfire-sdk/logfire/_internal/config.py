@@ -1318,11 +1318,18 @@ class LogfireConfig(_LogfireConfigData):
                     # hence we try to print it eagerly above.
                     # But we only have the link if we have a creds file, otherwise we only know the token at this point.
                     token_check_generation = self._token_check_generation
+                    # Bind the check to the options it was scheduled with. A later `configure()`
+                    # replaces `self.advanced`, and this thread may not start until after that
+                    # happens; without a snapshot it would send its token to the new `base_url`
+                    # and use the new response hook.
+                    token_check_advanced = dataclasses.replace(self.advanced)
 
                     def check_tokens():
                         with suppress_instrumentation():
                             for token in token_list:
-                                validated_credentials = self._initialize_credentials_from_token(token)
+                                validated_credentials = self._initialize_credentials_from_token(
+                                    token, token_check_advanced
+                                )
                                 if validated_credentials is None:
                                     continue
                                 if token_check_generation != self._token_check_generation:
@@ -1734,16 +1741,21 @@ class LogfireConfig(_LogfireConfigData):
                 category=LogfireNotConfiguredWarning,
             )
 
-    def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
+    def _initialize_credentials_from_token(
+        self, token: str, advanced: AdvancedOptions | None = None
+    ) -> LogfireCredentials | None:
+        # `advanced` is the snapshot captured when a background check was scheduled; direct
+        # callers can omit it and use the current configuration.
+        advanced = advanced or self.advanced
         session = requests.Session()
         install_connection_policy(session)
-        install_logfire_response_hook(session, self.advanced.server_response_hook)
+        install_logfire_response_hook(session, advanced.server_response_hook)
         # This runs in the background `check_logfire_token` thread, where a warning would be
         # attributed to the thread rather than to the user's `configure()` call and so wouldn't
         # be deduplicated against it. The synchronous exporter setup already warns for every
         # token in the same list, so stay silent here.
         return LogfireCredentials.from_token(
-            token, session, self.advanced.generate_base_url(token, warn_unknown_region=False)
+            token, session, advanced.generate_base_url(token, warn_unknown_region=False)
         )
 
     def _ensure_flush_after_aws_lambda(self):
