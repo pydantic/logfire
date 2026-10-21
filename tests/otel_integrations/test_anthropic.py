@@ -2421,6 +2421,31 @@ def test_convert_messages_document_and_file_image_parts() -> None:
     ]
 
 
+def test_convert_messages_unknown_document_and_image_sources_stay_unchanged() -> None:
+    """A source type that has no semconv part is recorded as the original block, without changes."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    blocks: list[dict[str, Any]] = [
+        {
+            'type': 'document',
+            'source': {'type': 'text', 'media_type': 'text/plain', 'data': 'Plain text document.'},
+            'title': 'Notes',
+            'cache_control': {'type': 'ephemeral'},
+        },
+        {'type': 'document', 'source': {'type': 'content', 'content': [{'type': 'text', 'text': 'Inline.'}]}},
+        {'type': 'document', 'source': {'type': 'something-new', 'value': 'x'}},
+        {'type': 'document'},
+        {'type': 'image', 'source': {'type': 'something-new', 'value': 'y'}},
+    ]
+    expected = [dict(block) for block in blocks]
+
+    input_messages, _ = convert_messages_to_semconv([{'role': 'user', 'content': blocks}])
+
+    # `{'type': part_type, **part}` sets `type` to the value the block already has.
+    assert input_messages == [{'role': 'user', 'parts': expected}]
+    assert blocks == expected
+
+
 @pytest.mark.parametrize(
     'content, expected_response',
     [
