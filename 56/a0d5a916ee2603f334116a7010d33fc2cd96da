@@ -1,0 +1,19 @@
+.github/workflows/scripts/upgrade_install_e2e.py
+  s_4a503ca9a590ac::t_95b958b2dd007d 143-148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "56a0d5a916ee2603f334116a7010d33fc2cd96da",
+  "prompts": {},
+  "sessions": {
+    "s_4a503ca9a590ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15ed6-98c3-76d1-ad13-de591eabe5d1",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
