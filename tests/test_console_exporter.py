@@ -1330,4 +1330,4 @@ def test_console_zero_dimensional_numpy_array(config_kwargs: dict[str, Any], val
     )
     logfire.configure(**config_kwargs)
     logfire.info('scalar array', value=numpy.array(value))
-    assert f'value={formatted}' in output.getvalue()
+    assert output.getvalue() == f'scalar array\n│ value={formatted}\n'
