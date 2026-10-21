@@ -4689,6 +4689,67 @@ def test_convert_responses_outputs_no_content() -> None:
     )
 
 
+def test_convert_responses_outputs_reasoning_summary() -> None:
+    """Reasoning summaries are kept, attached to the message or tool call that follows them."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_outputs_to_semconv
+
+    def item(**fields: Any) -> MagicMock:
+        out = MagicMock()
+        out.model_dump.return_value = fields
+        return out
+
+    response = MagicMock()
+    response.output = [
+        item(type='reasoning', summary=[{'type': 'summary_text', 'text': 'Check the weather first.'}]),
+        item(type='function_call', call_id='call_1', name='weather', arguments='{"city": "Paris"}'),
+        item(type='reasoning', summary=[]),
+        item(type='reasoning', summary=[{'type': 'summary_text', 'text': 'Now answer.'}]),
+        item(type='message', content=[{'type': 'output_text', 'text': 'Sunny.'}]),
+        item(type='reasoning', summary=[{'type': 'summary_text', 'text': 'Done.'}]),
+    ]
+
+    assert convert_responses_outputs_to_semconv(response) == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [
+                    {'type': 'reasoning', 'content': 'Check the weather first.'},
+                    {'type': 'tool_call', 'id': 'call_1', 'name': 'weather', 'arguments': {'city': 'Paris'}},
+                ],
+            },
+            {
+                'role': 'assistant',
+                'parts': [
+                    {'type': 'reasoning', 'content': 'Now answer.'},
+                    {'type': 'text', 'content': 'Sunny.'},
+                ],
+            },
+            {'role': 'assistant', 'parts': [{'type': 'reasoning', 'content': 'Done.'}]},
+        ]
+    )
+
+
+def test_convert_responses_inputs_reasoning_summary() -> None:
+    """Reasoning items replayed in the input keep their summary text."""
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_inputs_to_semconv
+
+    inputs: list[dict[str, Any]] = [
+        {'role': 'user', 'content': 'Weather?'},
+        {'type': 'reasoning', 'id': 'rs_1', 'summary': [{'type': 'summary_text', 'text': 'Look it up.'}]},
+        {'type': 'reasoning', 'id': 'rs_2', 'summary': []},
+    ]
+    input_messages, _ = convert_responses_inputs_to_semconv(inputs, None)
+
+    assert input_messages == snapshot(
+        [
+            {'role': 'user', 'parts': [{'type': 'text', 'content': 'Weather?'}]},
+            {'role': 'assistant', 'parts': [{'type': 'reasoning', 'content': 'Look it up.'}]},
+        ]
+    )
+
+
 def test_convert_responses_outputs_non_text_content() -> None:
     """Test convert_responses_outputs_to_semconv with content items that aren't output_text."""
     from unittest.mock import MagicMock
