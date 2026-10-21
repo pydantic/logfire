@@ -364,32 +364,12 @@ def test_instrument_empty_iterator_extracts_no_arguments(exporter: TestExporter)
     assert 'value' not in attributes
 
 
-def test_instrument_global_exclusions_apply_after_decoration(
-    exporter: TestExporter, config_kwargs: dict[str, Any]
-) -> None:
-    @logfire.instrument(extract_args=['value', 'payload'])
-    def calculate(value: int, payload: str) -> int:
-        return value * 7
-
-    logfire.configure(**config_kwargs, instrument_exclude_args='payload')
-    assert calculate(6, 'context') == 42
-    attributes = exporter.exported_spans[-1].attributes or {}
-    assert attributes['value'] == 6
-    assert 'payload' not in attributes
-
-    logfire.configure(**config_kwargs, instrument_exclude_args=())
-    assert calculate(7, 'context') == 49
-    attributes = exporter.exported_spans[-1].attributes or {}
-    assert attributes['value'] == 7
-    assert attributes['payload'] == 'context'
-
-
 def test_instrument_local_exclusions_do_not_change_global_instance(
     exporter: TestExporter, config_kwargs: dict[str, Any]
 ) -> None:
-    local = logfire.configure(local=True, **config_kwargs, instrument_exclude_args=['value'])
+    local = logfire.configure(local=True, **config_kwargs)
 
-    @local.instrument()
+    @local.instrument(extract_args=['-value'])
     def local_calculate(value: int, factor: int) -> int:
         return value * factor
 

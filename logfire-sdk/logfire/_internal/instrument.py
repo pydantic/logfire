@@ -218,8 +218,6 @@ def get_open_span(
         elif excluded:
             for arg in excluded:
                 args_dict.pop(arg, None)
-        for arg in instance.config.instrument_exclude_args:
-            args_dict.pop(arg, None)
         return instance._instrument_span_with_args(  # pyright: ignore[reportPrivateUsage]
             final_span_name, attributes, args_dict, **extra_span_kwargs()
         )

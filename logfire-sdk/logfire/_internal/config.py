@@ -541,7 +541,6 @@ def configure(
     variables: VariablesOptions | LocalVariablesOptions | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
-    instrument_exclude_args: Sequence[str] | None = None,
 ) -> Logfire:
     """Configure the logfire SDK.
 
@@ -605,11 +604,6 @@ def configure(
 
             Also enables magic argument inspection in [`logfire.instrument_print()`][logfire.Logfire.instrument_print].
 
-        instrument_exclude_args: Argument names to omit from automatic extraction by `logfire.instrument`.
-            These exclusions apply at call time, including to functions decorated before configuration,
-            and take precedence over the decorator's `extract_args` selection.
-            This does not filter explicitly logged attributes or recorded return values.
-
         min_level:
             Minimum log level for logs and spans to be created. By default, all logs and spans are created.
             For example, set to 'info' to only create logs with level 'info' or higher, thus filtering out debug logs.
@@ -660,7 +654,6 @@ def configure(
             variables=variables,
             distributed_tracing=distributed_tracing,
             advanced=advanced,
-            instrument_exclude_args=instrument_exclude_args,
         )
     except LogfireConfigError as e:
         raise e.with_traceback(None)
@@ -730,9 +723,6 @@ class _LogfireConfigData:
     inspect_arguments: bool
     """Whether to enable f-string magic."""
 
-    instrument_exclude_args: tuple[str, ...]
-    """Argument names omitted from automatic extraction by instrumented functions."""
-
     sampling: SamplingOptions
     """Sampling options."""
 
@@ -780,7 +770,6 @@ class _LogfireConfigData:
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
-        instrument_exclude_args: Sequence[str] | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         self.param_manager = param_manager = ParamManager.create(config_dir)
@@ -795,11 +784,6 @@ class _LogfireConfigData:
         self.resource_attributes = dict(param_manager.load_param('resource_attributes', resource_attributes) or {})
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
-        self.instrument_exclude_args = (
-            (instrument_exclude_args,)
-            if isinstance(instrument_exclude_args, str)
-            else tuple(instrument_exclude_args or ())
-        )
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
         min_level = param_manager.load_param('min_level', min_level)
@@ -977,7 +961,6 @@ class LogfireConfig(_LogfireConfigData):
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
-        instrument_exclude_args: Sequence[str] | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -1009,7 +992,6 @@ class LogfireConfig(_LogfireConfigData):
             variables=variables,
             distributed_tracing=distributed_tracing,
             advanced=advanced,
-            instrument_exclude_args=instrument_exclude_args,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -1050,7 +1032,6 @@ class LogfireConfig(_LogfireConfigData):
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
-        instrument_exclude_args: Sequence[str] | None = None,
     ) -> None:
         with self._lock:
             self._initialized = False
@@ -1076,7 +1057,6 @@ class LogfireConfig(_LogfireConfigData):
                 variables,
                 distributed_tracing,
                 advanced,
-                instrument_exclude_args,
             )
             self.initialize()
 

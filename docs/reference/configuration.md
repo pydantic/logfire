@@ -14,38 +14,6 @@ The order of precedence is as above.
 
 For more details, please refer to our [API documentation][logfire.configure].
 
-### Selecting instrumented function arguments
-
-Use negative names in `extract_args` to omit individual parameters. For example,
-`extract_args=['-self']` records the other arguments. When positive and negative
-names are mixed, the positive names are selected first, then exclusions are applied.
-
-To omit names across instrumented functions, use `instrument_exclude_args`:
-
-```python
-import logfire
-
-logfire.configure(send_to_logfire=False, instrument_exclude_args=['self'])
-
-
-class Worker:
-    @logfire.instrument(extract_args=['-debug_payload'])
-    def multiply(self, value: int, debug_payload: dict[str, str]) -> int:
-        return value * 7
-
-
-assert Worker().multiply(6, {'debug': 'caller context'}) == 42
-```
-
-This captures `value`, but not `self` or `debug_payload`. Global exclusions take
-precedence over positive decorator selections and apply at call time, so functions
-decorated before `configure()` also use them. Passing an empty sequence clears the
-configuration. `configure(local=True, ...)` keeps the exclusions local to that instance.
-
-These settings only control automatic argument extraction. They do not filter
-explicitly logged attributes or recorded return values.
-
-
 ## Using environment variables
 
 You can use the following environment variables to configure **Logfire**:
