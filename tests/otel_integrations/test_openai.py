@@ -765,6 +765,25 @@ def test_extract_request_parameters_max_output_tokens() -> None:
     assert span_data['gen_ai.request.max_tokens'] == 200
 
 
+def test_extract_request_parameters_max_completion_tokens() -> None:
+    """Test that max_completion_tokens is extracted when max_tokens is absent.
+
+    Chat completions use max_completion_tokens for reasoning models, which reject max_tokens.
+    """
+    from logfire._internal.integrations.llm_providers.openai import (
+        _extract_request_parameters,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    span_data: dict[str, Any] = {}
+    _extract_request_parameters({'max_completion_tokens': 300}, span_data)
+    assert span_data['gen_ai.request.max_tokens'] == 300
+
+    # max_tokens still wins when both are given.
+    span_data = {}
+    _extract_request_parameters({'max_tokens': 100, 'max_completion_tokens': 300}, span_data)
+    assert span_data['gen_ai.request.max_tokens'] == 100
+
+
 def test_normalize_versions_validation() -> None:
     from logfire._internal.integrations.llm_providers.semconv import normalize_versions
 
