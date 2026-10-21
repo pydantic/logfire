@@ -5,7 +5,7 @@ description: "Choose which models each Gateway provider serves, and set custom p
 
 # Control Gateway model access and pricing
 
-Choose which models your applications can call through each Gateway provider, and track costs at your own rates. Each provider has a **Models** tab where you allow or block models, add fine-tuned or unlisted models, and, on a [bring-your-own-key (BYOK) provider](byok-providers.md) (one that uses your own upstream account and credentials), override the price Gateway uses to calculate cost. Built-in providers support access settings only.
+Choose which models your applications can call through each Gateway provider, and track costs at your own rates. Each provider has a **Models** tab where you allow or block models, add fine-tuned or unlisted models, and, on a [bring-your-own-key (BYOK) provider](byok-providers.md), override the price Gateway uses to calculate cost. Built-in providers support access settings only.
 
 You do not need the **Models** tab to send requests: every model a provider serves is allowed until you change it. Access settings apply to every request routed through that provider, whichever API key or [gateway endpoint](endpoints.md) the request uses. You need organization-admin access to change them.
 
@@ -55,7 +55,7 @@ If the provider doesn't list a model, such as your own fine-tuned model, add it 
 
 ## Set custom prices on a BYOK provider
 
-Gateway calculates each request's cost from its token counts (a token is the unit models read and bill by; a few characters of text) and a price in USD per million tokens. By default it uses the **catalog price** from Gateway's model catalog. That cost counts toward [spending limits and policies](spending-policies.md). A custom price replaces the catalog price for one model on one provider. Use it when you pay a negotiated rate or when the catalog has no price for the model. It changes only the cost Gateway records; your provider still bills you directly.
+Gateway calculates each request's cost from its token counts and a price in USD per million tokens. By default it uses the **catalog price** from Gateway's model catalog. That cost counts toward [spending limits and policies](spending-policies.md). A custom price replaces the catalog price for one model on one provider. Use it when you pay a negotiated rate or when the catalog has no price for the model. It changes only the cost Gateway records; your provider still bills you directly.
 
 1. Select a model. **Default pricing** shows its catalog price, if any.
 2. Turn on **Override default pricing**, or **Set pricing** when there is no catalog price.
@@ -70,7 +70,7 @@ Gateway calculates each request's cost from its token counts (a token is the uni
 
    </div>
 
-OpenAI and Anthropic answer a request for a model name with a dated version of that name. For example, OpenAI answers `gpt-5.4-mini` as `gpt-5.4-mini-2026-03-17`. A custom price on `gpt-5.4-mini` also applies to those responses. If both names have a custom price, the dated name's price applies. If the provider answers with a name that is not a dated version, such as `claude-3-7-sonnet-latest` answered as `claude-3-7-sonnet-20250219`, Gateway uses the custom price of the model in the response, or its catalog price if it has none.
+If the provider answers with a dated version of the model you requested, such as `gpt-5.4-mini` answered as `gpt-5.4-mini-2026-03-17`, a custom price on `gpt-5.4-mini` also applies. If both names have a custom price, the dated name's price applies. If the provider answers with a name that is not a dated version, such as `claude-3-7-sonnet-latest` answered as `claude-3-7-sonnet-20250219`, Gateway uses the custom price of the model in the response, or its catalog price if it has none.
 
 To return to the catalog price, turn the override off and click **Save model**. Built-in providers always use the catalog price.
 
