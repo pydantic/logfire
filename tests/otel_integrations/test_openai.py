@@ -2815,6 +2815,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     ],
                     'gen_ai.response.id': 'resp_079fceed100a827c0068e011e9cefc81969ea6a843546705e6',
                     'gen_ai.usage.input_tokens': 13,
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.usage.output_tokens': 9,
                     'gen_ai.usage.raw': {
                         'input_tokens': 13,
@@ -2839,6 +2840,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
                             'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -3764,6 +3766,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                         'output_tokens_details': {'reasoning_tokens': 0},
                         'total_tokens': 82,
                     },
+                    'gen_ai.response.finish_reasons': ['tool_calls'],
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
@@ -3797,6 +3800,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
                             'gen_ai.usage.raw': {'type': 'object'},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
@@ -3890,6 +3894,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                         'output_tokens_details': {'reasoning_tokens': 0},
                         'total_tokens': 64,
                     },
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
@@ -3919,6 +3924,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
                             'gen_ai.usage.raw': {'type': 'object'},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
@@ -4996,6 +5002,7 @@ def test_responses_api_version_v1_only(exporter: TestExporter) -> None:
                         'output_tokens_details': {'reasoning_tokens': 0},
                         'total_tokens': 20,
                     },
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'},
                         {
@@ -5020,6 +5027,7 @@ def test_responses_api_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                 },
@@ -5075,6 +5083,7 @@ def test_responses_api_version_latest_only(exporter: TestExporter) -> None:
                         'output_tokens_details': {'reasoning_tokens': 0},
                         'total_tokens': 20,
                     },
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus five is nine.'}]}
                     ],
@@ -5094,6 +5103,7 @@ def test_responses_api_version_latest_only(exporter: TestExporter) -> None:
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
@@ -5326,3 +5336,52 @@ def test_uncached_prompt_tokens_omit_cache_attribute(exporter: TestExporter) -> 
 
     attributes = exporter.exported_spans_as_dict()[0]['attributes']
     assert 'gen_ai.usage.cache_read.input_tokens' not in attributes
+
+
+@pytest.mark.parametrize(
+    ('fields', 'expected'),
+    [
+        ({'status': 'completed'}, ['stop']),
+        ({'status': 'incomplete', 'incomplete_details': {'reason': 'content_filter'}}, ['content_filter']),
+        ({'status': 'incomplete'}, None),
+        ({'status': 'failed'}, None),
+        ({}, None),
+        (
+            {
+                'status': 'completed',
+                'output': [
+                    {
+                        'id': 'fc_1',
+                        'type': 'function_call',
+                        'call_id': 'call_1',
+                        'name': 'f',
+                        'arguments': '{}',
+                        'status': 'completed',
+                    }
+                ],
+            },
+            ['tool_calls'],
+        ),
+    ],
+)
+def test_responses_finish_reasons(fields: dict[str, Any], expected: list[str] | None, exporter: TestExporter) -> None:
+    body: dict[str, Any] = {
+        'id': 'resp_1',
+        'object': 'response',
+        'created_at': 0,
+        'model': 'gpt-4o-mini',
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+        'output': [],
+        **fields,
+    }
+    client = openai.Client(
+        api_key='fake_api_key',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_openai(client):
+        client.responses.create(model='gpt-4o-mini', input='hi')
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes.get('gen_ai.response.finish_reasons') == expected
