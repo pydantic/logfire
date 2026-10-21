@@ -4539,6 +4539,9 @@ def test_convert_openai_response_custom_tool_call() -> None:
             ChatCompletionMessageCustomToolCall(
                 id='call_2', type='custom', custom=Custom(name='apply_patch', input='*** Begin Patch')
             ),
+            ChatCompletionMessageCustomToolCall(
+                id='call_3', type='custom', custom=Custom(name='run_query', input='{"a": 1}')
+            ),
         ],
     )
 
@@ -4548,6 +4551,8 @@ def test_convert_openai_response_custom_tool_call() -> None:
             'parts': [
                 {'type': 'tool_call', 'id': 'call_1', 'name': 'weather', 'arguments': {'city': 'Paris'}},
                 {'type': 'tool_call', 'id': 'call_2', 'name': 'apply_patch', 'arguments': '*** Begin Patch'},
+                # The input of a custom tool is free text, so JSON-looking input stays a string.
+                {'type': 'tool_call', 'id': 'call_3', 'name': 'run_query', 'arguments': '{"a": 1}'},
             ],
             'finish_reason': 'tool_calls',
         }
@@ -4562,7 +4567,8 @@ def test_convert_chat_completions_custom_tool_call_input() -> None:
         {
             'role': 'assistant',
             'tool_calls': [
-                {'id': 'call_2', 'type': 'custom', 'custom': {'name': 'apply_patch', 'input': '*** Begin Patch'}}
+                {'id': 'call_2', 'type': 'custom', 'custom': {'name': 'apply_patch', 'input': '*** Begin Patch'}},
+                {'id': 'call_3', 'type': 'custom', 'custom': {'name': 'run_query', 'input': '{"a": 1}'}},
             ],
         },
         {'role': 'tool', 'tool_call_id': 'call_2', 'content': 'Applied'},
@@ -4572,7 +4578,10 @@ def test_convert_chat_completions_custom_tool_call_input() -> None:
         [
             {
                 'role': 'assistant',
-                'parts': [{'type': 'tool_call', 'id': 'call_2', 'name': 'apply_patch', 'arguments': '*** Begin Patch'}],
+                'parts': [
+                    {'type': 'tool_call', 'id': 'call_2', 'name': 'apply_patch', 'arguments': '*** Begin Patch'},
+                    {'type': 'tool_call', 'id': 'call_3', 'name': 'run_query', 'arguments': '{"a": 1}'},
+                ],
             },
             {'role': 'tool', 'parts': [{'type': 'tool_call_response', 'id': 'call_2', 'response': 'Applied'}]},
         ]

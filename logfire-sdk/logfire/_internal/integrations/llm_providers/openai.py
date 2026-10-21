@@ -251,8 +251,9 @@ def convert_chat_completions_to_semconv(
                         # Custom tools take a free-form `input` string instead of JSON `arguments`.
                         custom = tc.get('custom', {})
                         parts.append(
-                            make_tool_call_part(
-                                tool_call_id=tc.get('id', ''),
+                            ToolCallPart(
+                                type='tool_call',
+                                id=tc.get('id', ''),
                                 name=custom.get('name', ''),
                                 arguments=custom.get('input'),
                             )
@@ -423,10 +424,11 @@ def convert_openai_response_to_semconv(
                     )
                 )
             elif tc.type == 'custom':
-                # A custom tool takes a free-form `input` string instead of JSON `arguments`.
+                # A custom tool takes a free-form `input` string instead of JSON `arguments`, so it is not parsed.
                 parts.append(
-                    make_tool_call_part(
-                        tool_call_id=tc.id,
+                    ToolCallPart(
+                        type='tool_call',
+                        id=tc.id,
                         name=tc.custom.name,
                         arguments=tc.custom.input,
                     )
