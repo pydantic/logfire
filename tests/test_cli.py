@@ -4335,7 +4335,7 @@ def test_instrument_packages_fallback_skips_conflicting_and_broken_entry_points(
 
 
 def test_instrument_packages_no_fallback_when_logfire_method_fails(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_logfire = types.SimpleNamespace(instrument_foo=Mock(side_effect=RuntimeError('needs an app')))
+    fake_logfire = types.SimpleNamespace(instrument_foo=Mock(side_effect=RuntimeError('instrumentation failed')))
     monkeypatch.setattr(logfire._internal.cli.run, 'logfire', fake_logfire)
     monkeypatch.setattr(logfire._internal.cli.run, 'instrument_with_entry_points', fallback := Mock())
 
