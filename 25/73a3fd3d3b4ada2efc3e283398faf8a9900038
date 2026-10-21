@@ -1,0 +1,19 @@
+tests/exporters/test_otlp_session.py
+  s_a1d6cf423a1fef::t_042d9a7e933c0e 476-477
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2573a3fd3d3b4ada2efc3e283398faf8a9900038",
+  "prompts": {},
+  "sessions": {
+    "s_a1d6cf423a1fef": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15e49-d19d-7af1-b903-49ac4ccc0fa3",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
