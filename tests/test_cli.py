@@ -7,6 +7,7 @@ import importlib
 import importlib.metadata
 import io
 import json
+import logging
 import os
 import re
 import shlex
@@ -158,6 +159,104 @@ def test_cli_owned_session_gets_connection_policy(monkeypatch: pytest.MonkeyPatc
 
     [session] = sessions
     assert isinstance(session.get_adapter('https://example.com'), LogfireHTTPAdapter)
+
+
+@pytest.mark.parametrize('fail', [False, True])
+def test_cli_logging_is_scoped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, fail: bool
+) -> None:
+    log_file = tmp_path / 'cli.log'
+    monkeypatch.setattr(logfire._internal.cli, 'LOGFIRE_LOG_FILE', log_file)
+    monkeypatch.setenv('LOGFIRE_TOKEN', 'foobar')
+    cli_logger = logging.getLogger('logfire._internal.cli')
+    urllib3_logger = logging.getLogger('urllib3')
+    caplog.set_level(logging.ERROR, logger=cli_logger.name)
+    caplog.set_level(logging.WARNING, logger=urllib3_logger.name)
+    loggers = (logging.getLogger(), cli_logger, urllib3_logger)
+    original_settings = [(logger.level, logger.handlers.copy()) for logger in loggers]
+
+    def respond(_request: object, _context: object) -> dict[str, str]:
+        logging.getLogger('urllib3.connectionpool').debug('HTTP client diagnostic')
+        logging.getLogger('application').warning('unrelated application log')
+        if fail:
+            raise RuntimeError('request failed')
+        return {'project_name': 'myproject', 'project_url': 'fake_project_url'}
+
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get('https://logfire-us.pydantic.dev/v1/info', json=respond)
+        if fail:
+            with pytest.raises(RuntimeError, match='request failed'):
+                main(['whoami'])
+        else:
+            main(['whoami'])
+
+    assert [(logger.level, logger.handlers) for logger in loggers] == original_settings
+    logs = log_file.read_text()
+    assert 'DEBUG:urllib3.connectionpool:HTTP client diagnostic' in logs
+    assert 'unrelated application log' not in logs
+    if not fail:
+        assert 'DEBUG:logfire._internal.cli:context=' in logs
+        assert 'url=https://logfire-us.pydantic.dev/v1/info' in logs
+
+
+@pytest.mark.parametrize('configured', [False, True])
+@pytest.mark.parametrize('module', [False, True])
+def test_run_preserves_application_logging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, configured: bool, module: bool
+) -> None:
+    script = tmp_path / 'logging_app.py'
+    script.write_text(
+        """
+import json
+import logging
+import sys
+
+import logfire._internal.cli
+import urllib3
+
+if sys.argv[-1] == 'configured':
+    logging.basicConfig(level=logging.ERROR, format='APP:%(levelname)s:%(message)s')
+
+print(json.dumps({
+    'root_level': logging.getLogger().level,
+    'root_handlers': len(logging.getLogger().handlers),
+    'cli_level': logging.getLogger('logfire._internal.cli').level,
+    'cli_handlers': len(logging.getLogger('logfire._internal.cli').handlers),
+    'urllib3_level': logging.getLogger('urllib3').level,
+    'urllib3_handlers': len(logging.getLogger('urllib3').handlers),
+}))
+logging.basicConfig(level=logging.INFO, format='APP:%(levelname)s:%(message)s')
+logging.getLogger('application').info('application message')
+logging.getLogger('urllib3.connectionpool').info('HTTP client message')
+logging.error('application error')
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    target = ['-m', 'logging_app'] if module else [str(script)]
+    target.append('configured' if configured else 'unconfigured')
+    direct = subprocess.run([sys.executable, *target], cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    wrapped = subprocess.run(
+        [
+            sys.executable,
+            '-m',
+            'logfire',
+            'run',
+            '--no-summary',
+            '--exclude',
+            ','.join(sorted(set(OTEL_INSTRUMENTATION_MAP.values()))),
+            *target,
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert direct.returncode == 0, direct.stderr
+    assert wrapped.returncode == 0, wrapped.stderr
+    assert wrapped.stdout == direct.stdout
+    # The unrelated global-tracer-provider warning can precede application output.
+    assert [line for line in wrapped.stderr.splitlines() if line.startswith('APP:')] == direct.stderr.splitlines()
 
 
 def test_whoami_eu_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
