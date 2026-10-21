@@ -2344,3 +2344,45 @@ def test_messages_without_cache_tokens_omits_cache_attributes(exporter: TestExpo
     attributes = exporter.exported_spans_as_dict()[0]['attributes']
     assert 'gen_ai.usage.cache_read.input_tokens' not in attributes
     assert 'gen_ai.usage.cache_creation.input_tokens' not in attributes
+
+
+def test_messages_stream_records_cache_token_attributes() -> None:
+    from anthropic.types import RawMessageStreamEvent
+
+    from logfire._internal.integrations.llm_providers.anthropic import AnthropicMessageStreamState
+
+    adapter = pydantic.TypeAdapter(RawMessageStreamEvent)
+    events: list[dict[str, Any]] = [
+        {
+            'type': 'message_start',
+            'message': {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'model': 'claude-haiku-4-5',
+                'content': [],
+                'stop_reason': None,
+                'stop_sequence': None,
+                'usage': {
+                    'input_tokens': 10,
+                    'output_tokens': 1,
+                    'cache_read_input_tokens': 90,
+                    'cache_creation_input_tokens': 5,
+                },
+            },
+        },
+        {
+            'type': 'message_delta',
+            'delta': {'stop_reason': 'end_turn', 'stop_sequence': None},
+            'usage': {'output_tokens': 3},
+        },
+        {'type': 'message_stop'},
+    ]
+    state = AnthropicMessageStreamState()
+    for event in events:
+        state.record_chunk(adapter.validate_python(event))
+
+    attributes = state.get_attributes({})
+    assert attributes['gen_ai.usage.input_tokens'] == 105
+    assert attributes['gen_ai.usage.cache_read.input_tokens'] == 90
+    assert attributes['gen_ai.usage.cache_creation.input_tokens'] == 5
