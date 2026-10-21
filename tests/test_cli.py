@@ -6695,6 +6695,31 @@ def test_parse_run_console_entry_point_is_loaded_before_working_directory(
     assert marker.exists()
 
 
+def test_parse_run_instruments_packages_before_working_directory(
+    tmp_dir_cwd: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    installed_dir = tmp_path / 'installed'
+    installed_dir.mkdir()
+    marker = tmp_path / 'imported-installed-package'
+    module_name = 'shadowed_instrumentation_target'
+    (installed_dir / f'{module_name}.py').write_text(f'from pathlib import Path\nPath({str(marker)!r}).touch()\n')
+    (tmp_dir_cwd / f'{module_name}.py').write_text("raise AssertionError('imported local module')\n")
+    # `python -m logfire` puts the working directory first on `sys.path`.
+    monkeypatch.setattr(sys, 'path', [str(tmp_dir_cwd), str(installed_dir), *sys.path])
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+    context = Mock(installed_otel_pkgs={'opentelemetry-instrumentation-demo'})
+    context.instrument_pkg_map = {'opentelemetry-instrumentation-demo': module_name}
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.instrument_package', importlib.import_module)
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[]))
+
+    with pytest.raises(FileNotFoundError):
+        main(['run', '--no-summary', 'missing-cli'])
+
+    assert marker.exists()
+
+
 def test_parse_run_console_entry_point_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
     entry_point = Mock()
     entry_point.load.return_value = lambda: 17
