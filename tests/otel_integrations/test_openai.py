@@ -2962,7 +2962,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
         prompt='What is four plus five?',
         stream=True,
     )
-    combined = ''.join(chunk.choices[0].text for chunk in response if chunk.choices[0].text)
+    combined = ''.join(chunk.choices[0].text for chunk in response if chunk.choices and chunk.choices[0].text)
     assert combined == 'The answer is Nine'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
