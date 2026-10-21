@@ -4515,6 +4515,70 @@ def test_convert_responses_inputs_no_instructions() -> None:
     )
 
 
+def test_convert_openai_response_custom_tool_call() -> None:
+    """A custom tool call carries a free-form `input` string, which is kept as the arguments."""
+    from openai.types.chat import ChatCompletionMessage
+    from openai.types.chat.chat_completion_message_custom_tool_call import (
+        ChatCompletionMessageCustomToolCall,
+        Custom,
+    )
+    from openai.types.chat.chat_completion_message_function_tool_call import (
+        ChatCompletionMessageFunctionToolCall,
+        Function,
+    )
+
+    from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
+
+    message = ChatCompletionMessage(
+        role='assistant',
+        content=None,
+        tool_calls=[
+            ChatCompletionMessageFunctionToolCall(
+                id='call_1', type='function', function=Function(name='weather', arguments='{"city": "Paris"}')
+            ),
+            ChatCompletionMessageCustomToolCall(
+                id='call_2', type='custom', custom=Custom(name='apply_patch', input='*** Begin Patch')
+            ),
+        ],
+    )
+
+    assert convert_openai_response_to_semconv(message, 'tool_calls') == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'tool_call', 'id': 'call_1', 'name': 'weather', 'arguments': {'city': 'Paris'}},
+                {'type': 'tool_call', 'id': 'call_2', 'name': 'apply_patch', 'arguments': '*** Begin Patch'},
+            ],
+            'finish_reason': 'tool_calls',
+        }
+    )
+
+
+def test_convert_chat_completions_custom_tool_call_input() -> None:
+    """A custom tool call replayed in the history keeps its name and input."""
+    from logfire._internal.integrations.llm_providers.openai import convert_chat_completions_to_semconv
+
+    messages: list[dict[str, Any]] = [
+        {
+            'role': 'assistant',
+            'tool_calls': [
+                {'id': 'call_2', 'type': 'custom', 'custom': {'name': 'apply_patch', 'input': '*** Begin Patch'}}
+            ],
+        },
+        {'role': 'tool', 'tool_call_id': 'call_2', 'content': 'Applied'},
+    ]
+
+    assert convert_chat_completions_to_semconv(messages) == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [{'type': 'tool_call', 'id': 'call_2', 'name': 'apply_patch', 'arguments': '*** Begin Patch'}],
+            },
+            {'role': 'tool', 'parts': [{'type': 'tool_call_response', 'id': 'call_2', 'response': 'Applied'}]},
+        ]
+    )
+
+
 def test_convert_openai_response_refusal() -> None:
     """A refusal is recorded as a text part, since the message has no content."""
     from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
