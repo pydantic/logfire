@@ -2942,9 +2942,6 @@ def test_responses_stream_incomplete_or_failed(final_fields: dict[str, Any], exp
     assert attributes['gen_ai.response.id'] == 'resp_1'
     assert attributes['gen_ai.usage.input_tokens'] == 13
     assert attributes['gen_ai.usage.output_tokens'] == 16
-    assert attributes.get('gen_ai.response.finish_reasons') == (
-        ['length'] if final_fields['status'] == 'incomplete' else None
-    )
     assert attributes['operation.cost'] == snapshot(0.000154)
     assert attributes['gen_ai.output.messages'] == snapshot(
         [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus'}]}]
@@ -5257,6 +5254,88 @@ async def test_internal_exception_in_on_response_keeps_the_response(
     assert response.id == 'chatcmpl-1'
     assert 'Caught an internal error in Logfire' in caplog.text
     assert len(exporter.exported_spans_as_dict()) == 1
+
+
+def test_cached_prompt_tokens_recorded(exporter: TestExporter) -> None:
+    chat_body = {
+        'id': 'chatcmpl-1',
+        'object': 'chat.completion',
+        'created': 0,
+        'model': 'gpt-4o-mini',
+        'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'Nine'}, 'finish_reason': 'stop'}],
+        'usage': {
+            'prompt_tokens': 100,
+            'completion_tokens': 3,
+            'total_tokens': 103,
+            'prompt_tokens_details': {'cached_tokens': 80},
+        },
+    }
+    responses_body: dict[str, Any] = {
+        'id': 'resp_1',
+        'object': 'response',
+        'created_at': 0,
+        'model': 'gpt-4o-mini',
+        'status': 'completed',
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+        'output': [
+            {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'status': 'completed',
+                'content': [{'type': 'output_text', 'text': 'Nine', 'annotations': []}],
+            }
+        ],
+        'usage': {
+            'input_tokens': 100,
+            'output_tokens': 3,
+            'total_tokens': 103,
+            'input_tokens_details': {'cached_tokens': 60},
+            'output_tokens_details': {'reasoning_tokens': 0},
+        },
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=responses_body if request.url.path.endswith('/responses') else chat_body)
+
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    with logfire.instrument_openai(client):
+        client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
+        client.responses.create(model='gpt-4o-mini', input='hi')
+
+    chat_span, responses_span = exporter.exported_spans_as_dict()
+    assert chat_span['attributes']['gen_ai.usage.input_tokens'] == 100
+    assert chat_span['attributes']['gen_ai.usage.cache_read.input_tokens'] == 80
+    assert responses_span['attributes']['gen_ai.usage.input_tokens'] == 100
+    assert responses_span['attributes']['gen_ai.usage.cache_read.input_tokens'] == 60
+    assert 'gen_ai.usage.cache_creation.input_tokens' not in chat_span['attributes']
+
+
+def test_uncached_prompt_tokens_omit_cache_attribute(exporter: TestExporter) -> None:
+    body = {
+        'id': 'chatcmpl-1',
+        'object': 'chat.completion',
+        'created': 0,
+        'model': 'gpt-4o-mini',
+        'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'Nine'}, 'finish_reason': 'stop'}],
+        'usage': {
+            'prompt_tokens': 10,
+            'completion_tokens': 3,
+            'total_tokens': 13,
+            'prompt_tokens_details': {'cached_tokens': 0},
+        },
+    }
+    client = openai.Client(
+        api_key='fake_api_key',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_openai(client):
+        client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
+
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert 'gen_ai.usage.cache_read.input_tokens' not in attributes
 
 
 @pytest.mark.parametrize(

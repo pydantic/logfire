@@ -21,6 +21,7 @@ from logfire import LogfireSpan
 
 from ...utils import handle_internal_errors, log_internal_error
 from .semconv import (
+    CACHE_READ_INPUT_TOKENS,
     INPUT_MESSAGES,
     OPERATION_NAME,
     OUTPUT_MESSAGES,
@@ -646,9 +647,16 @@ def get_openai_usage_attributes(response: Any, base_url: str | None = None) -> d
         api_flavor = 'embeddings'
     else:
         api_flavor = 'chat'
-    return get_usage_attributes(
+    # Chat completions report cached prompt tokens under `prompt_tokens_details`, the Responses API
+    # under `input_tokens_details`.
+    details = getattr(usage, 'prompt_tokens_details', None) or getattr(usage, 'input_tokens_details', None)
+    result = get_usage_attributes(
         response, usage, input_tokens, output_tokens, provider_id='openai', api_flavor=api_flavor, provider_url=base_url
     )
+    cached = getattr(details, 'cached_tokens', None)
+    if isinstance(cached, int) and cached:
+        result[CACHE_READ_INPUT_TOKENS] = cached
+    return result
 
 
 @handle_internal_errors
