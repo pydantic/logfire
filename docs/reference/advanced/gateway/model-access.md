@@ -18,7 +18,7 @@ You do not need the **Models** tab to send requests: every model a provider serv
 
    <div align="center">
 
-   [![The Models tab for an OpenAI BYOK provider, with Default model access set to Allow and babbage-002 selected](../../../images/guide/ai-gateway/model-access-models-tab.png)](../../../images/guide/ai-gateway/model-access-models-tab.png)
+   [![The Models tab for an OpenAI BYOK provider, searched for gpt-5.4, with Default model access set to Allow and gpt-5.4-mini selected](../../../images/guide/ai-gateway/model-access-models-tab.png)](../../../images/guide/ai-gateway/model-access-models-tab.png)
 
    *Every model follows **Default model access** until you give it its own setting.*
 
@@ -34,14 +34,14 @@ You do not need the **Models** tab to send requests: every model a provider serv
 A request for a blocked model fails with `403`:
 
 ```
-Access to model `gpt-4o-mini` is disabled for this provider. An organization admin can change this under Gateway → Providers → Models.
+Access to model `gpt-5.4-mini` is disabled for this provider. An organization admin can change this under Gateway → Providers → Models.
 ```
 
 ## Add a fine-tuned or unlisted model
 
 If the provider doesn't list a model, such as your own fine-tuned model, add it by ID.
 
-1. On the **Models** tab, click **Add model**. Enter the **Model ID** exactly as your application sends it, for example `ft:gpt-4o-mini-2024-07-18:acme::support-v2`.
+1. On the **Models** tab, click **Add model**. Enter the **Model ID** exactly as your application sends it, for example `ft:gpt-4.1-mini-2025-04-14:acme::support-v2`.
 2. Choose **Model access**. On a BYOK provider, turn on **Set pricing** to enter prices, as described in the next section.
 3. Click **Add model**. The model appears in the list with a **Custom model** label.
 
@@ -64,13 +64,13 @@ Gateway calculates each request's cost from its token counts (a token is the uni
 
    <div align="center">
 
-   [![Overriding the catalog price of gpt-4o-mini-2024-07-18 with custom input, output, and cache read prices](../../../images/guide/ai-gateway/model-access-price-override.png)](../../../images/guide/ai-gateway/model-access-price-override.png)
+   [![Overriding the catalog price of gpt-5.4-mini with custom input, output, and cache read prices](../../../images/guide/ai-gateway/model-access-price-override.png)](../../../images/guide/ai-gateway/model-access-price-override.png)
 
-   *A custom price on `gpt-4o-mini-2024-07-18`, replacing the catalog price shown under **Default pricing**.*
+   *A custom price on `gpt-5.4-mini`, replacing the catalog price shown under **Default pricing**.*
 
    </div>
 
-OpenAI and Anthropic answer a request for a model name with a dated version of that name. For example, OpenAI answers `gpt-4o-mini` as `gpt-4o-mini-2024-07-18`. A custom price on `gpt-4o-mini` also applies to those responses. If both names have a custom price, the dated name's price applies. If the provider answers with a name that is not a dated version, such as `claude-3-7-sonnet-latest` answered as `claude-3-7-sonnet-20250219`, Gateway uses the custom price of the model in the response, or its catalog price if it has none.
+OpenAI and Anthropic answer a request for a model name with a dated version of that name. For example, OpenAI answers `gpt-5.4-mini` as `gpt-5.4-mini-2026-03-17`. A custom price on `gpt-5.4-mini` also applies to those responses. If both names have a custom price, the dated name's price applies. If the provider answers with a name that is not a dated version, such as `claude-3-7-sonnet-latest` answered as `claude-3-7-sonnet-20250219`, Gateway uses the custom price of the model in the response, or its catalog price if it has none.
 
 To return to the catalog price, turn the override off and click **Save model**. Built-in providers always use the catalog price.
 
@@ -87,7 +87,7 @@ Open **Playground** from the sidebar, choose the provider and model, and send a 
 - **A blocked model still works:** check which provider handled the request. Settings are per provider, so an endpoint can still reach the model through another provider.
 - **No pricing data error:** the provider has **Require pricing data** turned on in its **Settings** tab and the model has no price. Set a custom price, or turn that setting off.
 - **Batch or file requests fail with `403`:** on a BYOK provider that blocks any model, Gateway rejects requests whose model it can't read, such as requests it passes through without parsing.
-- **A custom price is ignored:** check which model the response reports. The Playground shows it under each reply, and the request's trace records it. If it is not the model you requested or a dated version of it, set the price on the reported model ID.
+- **A custom price is ignored:** check which model the response reports. The Playground shows it under each reply. If it is not the model you requested or a dated version of it, set the price on the reported model ID.
 - **Costs look wrong:** prices are per **million** tokens. Check whether cache prices are set; empty ones use the input price.
 
 To cap what the allowed models can spend, [set spending limits](spending-policies.md).
