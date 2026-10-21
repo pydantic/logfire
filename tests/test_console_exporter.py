@@ -1318,3 +1318,16 @@ def test_console_exporter_log_pydantic_root_model(capsys: pytest.CaptureFixture[
             '│ with_order_inner=Order(1)',
         ]
     )
+
+
+@pytest.mark.parametrize('value,formatted', [(42, 'array(42)'), ('hello', "array('hello')")])
+def test_console_zero_dimensional_numpy_array(config_kwargs: dict[str, Any], value: Any, formatted: str) -> None:
+    import numpy
+
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('scalar array', value=numpy.array(value))
+    assert output.getvalue() == f'scalar array\n│ value={formatted}\n'
