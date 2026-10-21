@@ -2286,7 +2286,6 @@ def test_internal_exception_in_on_response_keeps_the_response(
     assert len(exporter.exported_spans_as_dict()) == 1
 
 
-
 def test_on_response_unwraps_raw_response() -> None:
     """``with_raw_response`` returns a raw response; response attributes must still be recorded."""
     from logfire._internal.integrations.llm_providers.anthropic import on_response
@@ -2336,11 +2335,11 @@ def test_on_response_unwraps_raw_response() -> None:
     assert span.attributes['gen_ai.output.messages']
 
 
-def test_unwrap_async_raw_response_reads_buffered_http_body() -> None:
+def test_on_response_reads_async_raw_buffered_body_without_awaiting_json() -> None:
     """Async ``with_raw_response`` returns an ``AsyncAPIResponse`` whose ``.json()``
     is a coroutine; the synchronous callback must read the already-buffered body
     from ``http_response.json()`` instead of awaiting it."""
-    from logfire._internal.integrations.llm_providers.anthropic import _unwrap_raw_message
+    from logfire._internal.integrations.llm_providers.anthropic import on_response
 
     payload = Message.model_construct(
         id='async_id',
@@ -2365,15 +2364,28 @@ def test_unwrap_async_raw_response_reads_buffered_http_body() -> None:
         def parse(self) -> None:
             return None
 
-    message = _unwrap_raw_message(FakeAsyncRawResponse())
-    assert message is not None
-    assert message.id == 'async_id'
+    class MockSpan:
+        def __init__(self) -> None:
+            self.attributes: dict[str, Any] = {}
+
+        def set_attribute(self, key: str, value: Any) -> None:
+            self.attributes[key] = value
+
+        def set_attributes(self, attributes: dict[str, Any]) -> None:
+            for key, value in attributes.items():
+                self.set_attribute(key, value)
+
+    span = MockSpan()
+    raw = FakeAsyncRawResponse()
+    returned = on_response(raw, span, version=2)  # type: ignore[arg-type]
+    assert returned is raw
+    assert span.attributes['gen_ai.response.id'] == 'async_id'
 
 
-def test_unwrap_legacy_raw_response_without_json_method() -> None:
+def test_on_response_reads_legacy_raw_body_without_json_method() -> None:
     """anthropic 0.x ``LegacyAPIResponse`` has no ``.json()``; the buffered body must
     come from ``http_response.json()`` rather than a missing ``.json()`` method."""
-    from logfire._internal.integrations.llm_providers.anthropic import _unwrap_raw_message
+    from logfire._internal.integrations.llm_providers.anthropic import on_response
 
     payload = Message.model_construct(
         id='legacy_id',
@@ -2395,6 +2407,19 @@ def test_unwrap_legacy_raw_response_without_json_method() -> None:
         def parse(self) -> None:
             return None
 
-    message = _unwrap_raw_message(FakeLegacyRawResponse())
-    assert message is not None
-    assert message.id == 'legacy_id'
+    class MockSpan:
+        def __init__(self) -> None:
+            self.attributes: dict[str, Any] = {}
+
+        def set_attribute(self, key: str, value: Any) -> None:
+            self.attributes[key] = value
+
+        def set_attributes(self, attributes: dict[str, Any]) -> None:
+            for key, value in attributes.items():
+                self.set_attribute(key, value)
+
+    span = MockSpan()
+    raw = FakeLegacyRawResponse()
+    returned = on_response(raw, span, version=2)  # type: ignore[arg-type]
+    assert returned is raw
+    assert span.attributes['gen_ai.response.id'] == 'legacy_id'
