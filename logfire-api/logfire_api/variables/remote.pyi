@@ -2,7 +2,7 @@ import logfire
 from collections.abc import Mapping
 from logfire._internal.config import VariablesOptions
 from logfire._internal.server_response import ServerResponseCallback
-from logfire.variables.abstract import ResolvedVariable, VariableProvider
+from logfire.variables.abstract import ResolvedVariable, VariableProvider, VariableProviderEvaluationState
 from logfire.variables.config import VariableConfig, VariableTypeConfig, VariablesConfig
 from typing import Any
 
@@ -63,6 +63,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
         Args:
             timeout_millis: The timeout budget in milliseconds for shutdown operations.
         """
+    def get_evaluation_state(self) -> VariableProviderEvaluationState:
+        """Return a non-blocking snapshot of remote configuration health."""
     def get_variable_config(self, name: str) -> VariableConfig | None:
         """Retrieve the full configuration for a variable from the cached config.
 

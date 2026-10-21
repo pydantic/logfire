@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import subprocess
 import sys
 import warnings
 from collections.abc import Callable
@@ -17,10 +18,12 @@ from pydantic import __version__ as pydantic_version
 
 from logfire._internal.auto_trace.import_hook import LogfireFinder
 from logfire._internal.utils import get_version
+from logfire.experimental.feature_flags import FlagErrorCode, FlagEvaluationReason
 from logfire.variables.abstract import VariableProviderEvaluationState
 from scripts.postprocess_generated_stubs import (
     postprocess_feature_flags_pyi,
     postprocess_init_pyi,
+    postprocess_main_pyi,
     postprocess_variables_abstract_pyi,
 )
 
@@ -121,6 +124,43 @@ def test_postprocess_feature_flags_pyi_preserves_direct_constructor_inference() 
 
     assert processed == checked_in
     assert postprocess_feature_flags_pyi(processed) == processed
+
+
+def test_postprocess_real_generated_stubs(tmp_path: Path) -> None:
+    subprocess.run(
+        [
+            sys.executable,
+            '-c',
+            'from mypy.stubgen import main; main()',
+            '-m',
+            'logfire',
+            '-m',
+            'logfire.experimental.feature_flags',
+            '--include-docstrings',
+            '--no-analysis',
+            '-o',
+            str(tmp_path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    generated = postprocess_init_pyi((tmp_path / 'logfire' / '__init__.pyi').read_text())
+    assert 'Incomplete' not in generated
+    assert generated.count('DEFAULT_LOGFIRE_INSTANCE = Logfire()') == 1
+    assert 'span = DEFAULT_LOGFIRE_INSTANCE.span' in generated
+    flags = postprocess_feature_flags_pyi((tmp_path / 'logfire' / 'experimental' / 'feature_flags.pyi').read_text())
+    assert 'def __init__(self: Flag[InferableFlagT],' in flags
+    for name, alias in [('FlagEvaluationReason', FlagEvaluationReason), ('FlagErrorCode', FlagErrorCode)]:
+        values = ', '.join(map(repr, get_args(alias)))
+        assert f'{name} = Literal[{values}]' in flags
+
+
+def test_postprocess_main_pyi_removes_only_an_unused_private_type_variable() -> None:
+    declaration = "VariableT = TypeVar('VariableT', bound='_FlagEvaluationCore[Any]')\n"
+    assert postprocess_main_pyi(declaration) == '\n'
+    used = declaration + 'def register(value: VariableT) -> VariableT: ...\n'
+    assert postprocess_main_pyi(used) == used
 
 
 def test_postprocess_feature_flags_pyi_rejects_an_unknown_constructor() -> None:

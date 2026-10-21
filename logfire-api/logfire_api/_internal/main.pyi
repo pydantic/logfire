@@ -67,7 +67,6 @@ from wsgiref.types import WSGIApplication
 ExcInfo = SysExcInfo | BaseException | bool | None
 T = TypeVar('T')
 InputsT = TypeVar('InputsT')
-VariableT = TypeVar('VariableT', bound='Variable[Any]')
 
 class Logfire:
     """The main logfire class."""

@@ -1359,7 +1359,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
             targeting_key = context_targeting_key
 
         result = super().get(targeting_key, attributes, label=label)
-        if not has_stable_targeting_key:
+        if not has_stable_targeting_key and result.reason != 'context_override':
             try:
                 variable_config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
                 requires_targeting_key = variable_config is not None and variable_config.requires_targeting_key(

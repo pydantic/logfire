@@ -4,10 +4,10 @@ from collections.abc import Generator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
 from logfire._internal.config import TemplateMismatchPolicy
-from logfire.variables.abstract import ResolvedVariable
+from logfire.variables.abstract import ResolvedVariable, VariableProviderEvaluationState
 from logfire.variables.composition import ComposedReference
 from logfire.variables.config import VariableConfig
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Any, Generic, Literal, Protocol, TypeVar
 from typing_extensions import TypeIs
 
 __all__ = ['ResolveFunction', 'is_resolve_function', 'Variable', 'TemplateVariable', 'TemplateInputsMismatchError', 'feature_context', 'targeting_context']
@@ -79,9 +79,14 @@ class _ResolveAttempt:
     stage: _FailureStage = ...
     composed: list[ComposedReference] = field(default_factory=list['ComposedReference'])
 
-class Variable(Generic[T_co]):
-    """A managed variable that can be resolved dynamically based on configuration."""
-    kind: str
+@dataclass(kw_only=True)
+class _ResolvedFeatureFlag(ResolvedVariable[T_co]):
+    """A resolution paired with the provider-health snapshot used for its telemetry and return value."""
+    provider_state: VariableProviderEvaluationState
+
+class _FlagEvaluationCore(Generic[T_co]):
+    """Shared typed evaluation engine for feature flags and the legacy variables API."""
+    kind: Literal['feature_flag', 'variable']
     name: str
     value_type: type[T_co]
     default: T_co | ResolveFunction[T_co]
@@ -167,8 +172,12 @@ class Variable(Generic[T_co]):
             version, and any errors that occurred.
         """
 
-class _ManagedVariableFlagAdapter(Variable[FlagT]):
-    """Compatibility adapter that evaluates feature flags through managed variables."""
+class Variable(_FlagEvaluationCore[T_co]):
+    """Backward-compatible managed-variable API implemented on the feature-flag evaluation core."""
+    kind: str
+
+class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):
+    """Native feature-flag adapter backed by the shared typed evaluation core."""
     kind: str
     def __init__(self, name: str, *, type: type[FlagT], default: FlagT, description: str | None = None, logfire_instance: logfire.Logfire) -> None: ...
     def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None, *, label: str | None = None) -> ResolvedVariable[FlagT]:

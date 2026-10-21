@@ -1219,13 +1219,14 @@ class TestLogfireRemoteVariableProvider:
             ),
         )
         sessions = [cast(Session, unittest.mock.MagicMock()), cast(Session, unittest.mock.MagicMock())]
-        pids = iter([2, 2, 3, 3])
         provider._pid = 1
-        monkeypatch.setattr(os, 'getpid', lambda: next(pids))
+        monkeypatch.setattr(os, 'getpid', lambda: 2)
         monkeypatch.setattr(provider, '_new_session', lambda: sessions.pop(0))
 
         provider.get_serialized_value('flag')
         child_session = provider._session
+        assert provider._pid == 2
+        monkeypatch.setattr(os, 'getpid', lambda: 3)
         provider.get_serialized_value('flag')
 
         assert provider._session is not child_session
@@ -1338,6 +1339,125 @@ class TestLogfireRemoteVariableProvider:
         provider.shutdown(timeout_millis=float('inf'))
 
         assert provider._shutdown_complete.is_set()
+
+    def test_sse_response_arriving_after_shutdown_closes_outside_the_lock(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(block_before_first_resolve=False),
+        )
+        response = unittest.mock.MagicMock(status_code=200)
+        close_started = threading.Event()
+        release_close = threading.Event()
+
+        def close() -> None:
+            close_started.set()
+            assert release_close.wait(timeout=2)
+
+        response.close.side_effect = close
+        session = unittest.mock.MagicMock()
+        session.__enter__.return_value = session
+
+        def get(*args: Any, **kwargs: Any) -> Any:
+            assert kwargs['timeout'] == (10, 60)
+            provider.shutdown(timeout_millis=0)
+            return response
+
+        session.get.side_effect = get
+        monkeypatch.setattr('logfire.variables.remote.Session', lambda: session)
+        listener = threading.Thread(target=provider._sse_listener_loop, daemon=True)
+        try:
+            listener.start()
+            assert close_started.wait(timeout=1)
+            assert provider._sse_response_lock.acquire(timeout=0.1)
+            provider._sse_response_lock.release()
+            listener.join(timeout=0.1)
+            assert not listener.is_alive()
+            provider.shutdown(timeout_millis=0)
+        finally:
+            release_close.set()
+
+    def test_sse_connection_waits_only_a_bounded_time_for_headers(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        request_started = threading.Event()
+        release_request = threading.Event()
+
+        class DelayedHeaders(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                request_started.set()
+                release_request.wait(timeout=2)
+
+            def log_message(self, format: str, *args: Any) -> None:
+                pass
+
+        server = ThreadingHTTPServer(('127.0.0.1', 0), DelayedHeaders)
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        provider = LogfireRemoteVariableProvider(
+            base_url=f'http://127.0.0.1:{server.server_port}',
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(block_before_first_resolve=False),
+        )
+        session = Session()
+        original_get = session.get
+
+        def get(*args: Any, **kwargs: Any) -> Any:
+            assert kwargs['timeout'] == (10, 60)
+            kwargs['timeout'] = (0.1, 0.1)
+            return original_get(*args, **kwargs)
+
+        monkeypatch.setattr(session, 'get', get)
+        monkeypatch.setattr('logfire.variables.remote.Session', lambda: session)
+        listener = threading.Thread(target=provider._sse_listener_loop, daemon=True)
+        try:
+            listener.start()
+            assert request_started.wait(timeout=1)
+            provider.shutdown(timeout_millis=0)
+            listener.join(timeout=1)
+            assert not listener.is_alive()
+        finally:
+            release_request.set()
+            server.shutdown()
+            server.server_close()
+            session.close()
+
+    def test_shutdown_timeout_accepts_nan(self) -> None:
+        assert LogfireRemoteVariableProvider._normalize_timeout_seconds(float('nan')) == 0
+
+    def test_deferred_cleanup_thread_failure_preserves_shutdown_deadline(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(block_before_first_resolve=False),
+        )
+        provider._session_lock.acquire()
+        monkeypatch.setattr(threading, 'Thread', unittest.mock.MagicMock(side_effect=RuntimeError('no threads')))
+        try:
+            provider.shutdown(timeout_millis=0)
+            assert provider._shutdown_timeout_exceeded
+        finally:
+            provider._session_lock.release()
+            provider._session.close()
+
+    def test_sse_close_failure_keeps_a_newer_response(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(block_before_first_resolve=False),
+        )
+        old_response = unittest.mock.MagicMock()
+        new_response = unittest.mock.MagicMock()
+        provider._sse_response = old_response
+
+        def fail_start(**kwargs: Any) -> Any:
+            provider._sse_response = new_response
+            raise RuntimeError('no threads')
+
+        monkeypatch.setattr(threading, 'Thread', fail_start)
+        provider._request_sse_close()
+        assert provider._sse_response is new_response
+        provider._session.close()
 
     def test_shutdown_timeout_clamps_an_oversized_integer(self) -> None:
         assert LogfireRemoteVariableProvider._normalize_timeout_seconds(10**1000) == threading.TIMEOUT_MAX
@@ -2113,6 +2233,31 @@ class TestLogfireRemoteVariableProviderStart:
         provider._session_lock.release()
         assert provider._shutdown_complete.wait(timeout=1)
         close_session.assert_called_once_with()
+
+    def test_partial_start_failure_still_cleans_up_when_threads_cannot_join(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(block_before_first_resolve=False),
+        )
+        worker = unittest.mock.MagicMock()
+        worker.start.side_effect = RuntimeError('cannot start')
+        worker.join.side_effect = RuntimeError('not started')
+        sse = unittest.mock.MagicMock()
+        sse.join.side_effect = RuntimeError('cannot join')
+        provider._sse_thread = sse
+        monkeypatch.setattr(provider, '_start_sse_listener', lambda: None)
+
+        def new_thread(**kwargs: Any) -> Any:
+            return worker
+
+        monkeypatch.setattr(threading, 'Thread', new_thread)
+        with pytest.raises(RuntimeError, match='cannot start'):
+            provider.start(None)
+        assert provider._shutdown_complete.is_set()
+        assert provider.get_evaluation_state() == 'fatal'
 
     def test_start_with_logfire_instance(self, config_kwargs: dict[str, Any]) -> None:
         """start() with a logfire instance should set up error logging via logfire."""

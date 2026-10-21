@@ -1532,6 +1532,43 @@ def test_feature_flag_telemetry_does_not_treat_unchanged_nan_as_scrubbed():
     assert 'logfire.feature_flag.result.value_status' not in telemetry
 
 
+def test_feature_flag_telemetry_handles_json_serialization_failure():
+    adapter = cast(Any, flag('region', default='us')._adapter)
+    with patch.object(adapter.type_adapter, 'dump_json', side_effect=RuntimeError('broken serializer')):
+        telemetry = adapter._resolution_telemetry_attributes(
+            ResolvedVariable(name='region', value='us', reason='code_default'),
+            serialized_value='us',
+            targeting_key=None,
+            attributes={},
+            requested_label=None,
+        )
+    assert telemetry['feature_flag.result.value'] == 'us'
+    assert telemetry['feature_flag.result.reason'] == 'default'
+
+
+def test_failed_registration_does_not_leave_a_phantom_flag():
+    class Inputs(BaseModel):
+        name: str
+
+    logfire.template_var('greeting', inputs_type=Inputs, default='Hello {{name}}')
+    with pytest.raises(RuntimeWarning, match='has no inputs_type'):
+        flag('message', default='@{greeting}@')
+    assert 'message' not in logfire.variables_get()
+
+
+def test_split_flag_testing_override_does_not_warn_about_targeting():
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(
+            config=_boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5})), instrument=False
+        ),
+    )
+    checkout = feature_flag('test_flag', default=False)
+    with checkout.override_for_testing(True):
+        assert checkout.is_enabled() is True
+
+
 def test_feature_flag_telemetry_does_not_treat_nested_unchanged_nan_as_scrubbed():
     payload = flag('payload', type=dict[str, list[float]], default={'values': [float('nan')]})
     adapter = cast(Any, payload._adapter)

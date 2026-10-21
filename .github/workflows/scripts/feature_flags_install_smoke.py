@@ -11,8 +11,8 @@ def main() -> None:
 
     logfire.configure(send_to_logfire=False, console=False)
     details = flag('deployment_region', default='us').details()
-    assert details.value == 'us'
-    assert details.reason == 'default'
+    assert details.value == 'us', 'A native flag must return its code default without a provider'
+    assert details.reason == 'default', 'Evaluation must identify the code-default fallback'
 
 
 if __name__ == '__main__':

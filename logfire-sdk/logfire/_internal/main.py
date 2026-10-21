@@ -2594,11 +2594,10 @@ class Logfire:
         # Variables are expected to be defined once at import time (single-threaded), so this
         # validation-then-insert is not locked. If you register variables concurrently from multiple
         # threads, guard your own registration to preserve the uniqueness guarantee.
-        self._variables[variable.name] = variable
-
         from logfire.variables.variable import warn_on_template_inputs_composition_mismatch
 
         warn_on_template_inputs_composition_mismatch(self._variables, variable)
+        self._variables[variable.name] = variable
         return variable
 
     def _flag(

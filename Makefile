@@ -39,9 +39,8 @@ test-feature-flags:
 .PHONY: test-feature-flags-mutation  # Mutate the feature-flag decision and context boundaries
 test-feature-flags-mutation:
 	@test ! -e src
-	@mkdir src
-	@ln -s ../logfire-sdk/logfire src/logfire
-	@set -e; trap 'test ! -L src/logfire || unlink src/logfire; rmdir src' EXIT; \
+	@set -e; mkdir src; trap 'test ! -L src/logfire || unlink src/logfire; rmdir src' EXIT; \
+	ln -s ../logfire-sdk/logfire src/logfire; \
 	NO_PROXY='*' no_proxy='*' COVERAGE_RCFILE=/dev/null PYDANTIC_DISABLE_PLUGINS=__all__ uv run --no-sync mutmut run \
 		'*VariableConfig*_select_rollout*' \
 		'*VariableConfig*requires_targeting_key*' \

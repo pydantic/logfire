@@ -8,7 +8,7 @@ from pathlib import Path
 def postprocess_init_pyi(content: str) -> str:
     """Resolve module-level ``Incomplete`` declarations through the default instance."""
     incomplete = ': Incomplete'
-    lines = content.splitlines()
+    lines = [line for line in content.splitlines() if line != 'from _typeshed import Incomplete']
     try:
         span_index = lines.index('span: Incomplete')
     except ValueError:
@@ -21,8 +21,10 @@ def postprocess_init_pyi(content: str) -> str:
             new_end_lines.append(f'{prefix} = DEFAULT_LOGFIRE_INSTANCE.{prefix}')
         else:
             new_end_lines.append(line)
-    lines.remove('from _typeshed import Incomplete')
-    lines[span_index - 1 :] = new_end_lines
+    start_index = span_index
+    if span_index > 0 and lines[span_index - 1] == 'DEFAULT_LOGFIRE_INSTANCE: Incomplete':
+        start_index -= 1
+    lines[start_index:] = new_end_lines
     return '\n'.join(lines) + '\n'
 
 
@@ -78,12 +80,21 @@ def postprocess_variables_abstract_pyi(content: str) -> str:
     return content
 
 
+def postprocess_main_pyi(content: str) -> str:
+    """Remove the type variable used only by the private registration method."""
+    remaining = '\n'.join(line for line in content.splitlines() if not line.startswith('VariableT = ')) + '\n'
+    if 'VariableT' not in remaining:
+        return remaining
+    return content
+
+
 def postprocess_generated_stubs(api_dir: Path) -> list[Path]:
     """Rewrite generated stub files and return the paths that changed."""
     processors = {
         api_dir / '__init__.pyi': postprocess_init_pyi,
         api_dir / 'experimental' / 'feature_flags.pyi': postprocess_feature_flags_pyi,
         api_dir / 'variables' / 'abstract.pyi': postprocess_variables_abstract_pyi,
+        api_dir / '_internal' / 'main.pyi': postprocess_main_pyi,
     }
     changed: list[Path] = []
     for path, processor in processors.items():

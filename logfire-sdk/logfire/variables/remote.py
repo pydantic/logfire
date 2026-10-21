@@ -332,8 +332,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
                     )
                     install_logfire_response_hook(sse_session, self._server_response_hook)
 
-                    # Open streaming connection
-                    response = sse_session.get(sse_url, stream=True, timeout=(10, None))
+                    # Bound both delayed headers and stalled streams. Heartbeats keep healthy
+                    # streams open without imposing a maximum connection lifetime.
+                    response = sse_session.get(sse_url, stream=True, timeout=(10, 60))
                     if response.status_code != 200:
                         # Server doesn't support SSE or auth failed, back off
                         self._sse_connected = False
@@ -341,11 +342,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
                         reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
                         continue
                     with self._sse_response_lock:
-                        if self._shutdown:
-                            with suppress(Exception):
-                                response.close()
-                            break
                         self._sse_response = response
+                        shutdown = self._shutdown
+                    if shutdown:
+                        self._request_sse_close()
+                        break
 
                     # Connection opened. Do NOT reset the backoff here: a connection that returns
                     # 200 but then immediately closes would otherwise reset the delay every loop and
@@ -660,7 +661,6 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         cleanup_deferred = False
         try:
-            # The SSE read timeout is intentionally unbounded so a healthy stream can stay open.
             # Response.close() can itself block behind an active read, so request cancellation on
             # a daemon thread and keep the caller's shutdown budget bounded.
             # Join the threads so that resources get cleaned up in tests
