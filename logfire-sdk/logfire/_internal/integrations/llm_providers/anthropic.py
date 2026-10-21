@@ -179,20 +179,13 @@ def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
     elif part_type == 'tool_result':  # pragma: no cover
         result_content = part.get('content')
         if isinstance(result_content, list):
-            # Extract text from tool result content
-            text_parts: list[str] = []
-            for p in cast('list[dict[str, Any] | str]', result_content):
-                if isinstance(p, dict) and p.get('type') == 'text':
-                    text_parts.append(str(p.get('text', '')))
-                elif isinstance(p, str):
-                    text_parts.append(p)
-            result_text = ' '.join(text_parts)
+            response: str | list[MessagePart] = _convert_content_part_or_parts(cast(list[Any], result_content))
         else:
-            result_text = str(result_content) if result_content else ''
+            response = str(result_content) if result_content else ''
         return ToolCallResponsePart(
             type='tool_call_response',
             id=part.get('tool_use_id', ''),
-            response=result_text,
+            response=response,
         )
     else:  # pragma: no cover
         # Return as generic dict for unknown types
