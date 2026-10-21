@@ -15,6 +15,7 @@ def main() -> None:
         entry_point.name: entry_point.value for entry_point in metadata.entry_points(group='console_scripts')
     }
     assert console_scripts['logfire'] == 'logfire_cli:main'
+    assert console_scripts['logfire-cli'] == 'logfire_cli:main'
 
     meta_files = metadata.files('logfire')
     assert meta_files is not None
