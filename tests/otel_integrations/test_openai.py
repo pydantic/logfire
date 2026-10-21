@@ -392,6 +392,24 @@ async def instrumented_async_client() -> AsyncIterator[openai.AsyncClient]:
             yield openai_client
 
 
+def test_sync_chat_completions_max_completion_tokens(
+    instrumented_client: openai.Client, exporter: TestExporter
+) -> None:
+    """Reasoning models take `max_completion_tokens`, which is recorded as the requested max tokens."""
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[
+            {'role': 'system', 'content': 'You are a helpful assistant.'},
+            {'role': 'user', 'content': 'What is four plus five?'},
+        ],
+        max_completion_tokens=300,
+    )
+    assert response.choices[0].message.content == 'Nine'
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['gen_ai.request.max_tokens'] == 300
+
+
 def test_sync_chat_completions(instrumented_client: openai.Client, exporter: TestExporter) -> None:
     response = instrumented_client.chat.completions.create(
         model='gpt-4',
