@@ -1460,6 +1460,70 @@ def test_on_response_unwraps_raw_response() -> None:
     assert span.attributes['gen_ai.output.messages']
 
 
+def test_unwrap_async_raw_response_reads_buffered_http_body() -> None:
+    """Async ``with_raw_response`` returns an ``AsyncAPIResponse`` whose ``.json()``
+    is a coroutine; the synchronous callback must read the already-buffered body
+    from ``http_response.json()`` instead of awaiting it."""
+    from logfire._internal.integrations.llm_providers.anthropic import _unwrap_raw_message
+
+    payload = Message.model_construct(
+        id='async_id',
+        content=[TextBlock(text='Nine', type='text')],
+        model='claude-3-haiku-20240307',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=2, output_tokens=3),
+    ).model_dump(mode='json')
+
+    class FakeAsyncHttpResponse:
+        def json(self) -> dict[str, Any]:
+            return payload
+
+    class FakeAsyncRawResponse:
+        http_response = FakeAsyncHttpResponse()
+
+        async def json(self) -> dict[str, Any]:  # pragma: no cover - must never be awaited here
+            raise RuntimeError('AsyncAPIResponse.json() coroutine must not be awaited in on_response')
+
+        def parse(self) -> None:
+            return None
+
+    message = _unwrap_raw_message(FakeAsyncRawResponse())
+    assert message is not None
+    assert message.id == 'async_id'
+
+
+def test_unwrap_legacy_raw_response_without_json_method() -> None:
+    """anthropic 0.x ``LegacyAPIResponse`` has no ``.json()``; the buffered body must
+    come from ``http_response.json()`` rather than a missing ``.json()`` method."""
+    from logfire._internal.integrations.llm_providers.anthropic import _unwrap_raw_message
+
+    payload = Message.model_construct(
+        id='legacy_id',
+        content=[TextBlock(text='Nine', type='text')],
+        model='claude-3-haiku-20240307',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=2, output_tokens=3),
+    ).model_dump(mode='json')
+
+    class FakeLegacyHttpResponse:
+        def json(self) -> dict[str, Any]:
+            return payload
+
+    class FakeLegacyRawResponse:  # mirrors anthropic 0.x LegacyAPIResponse: no .json() method
+        http_response = FakeLegacyHttpResponse()
+
+        def parse(self) -> None:
+            return None
+
+    message = _unwrap_raw_message(FakeLegacyRawResponse())
+    assert message is not None
+    assert message.id == 'legacy_id'
+
+
 def test_on_response_passes_through_unknown_response() -> None:
     """A response that is neither a Message nor a raw SDK response is returned unchanged."""
     from logfire._internal.integrations.llm_providers.anthropic import on_response
