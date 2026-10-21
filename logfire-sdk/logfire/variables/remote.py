@@ -588,13 +588,14 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 # permanently locking the provider into an outdated config.
                 # Always overwrite (including clearing to None) so a server that stops
                 # sending ETags doesn't leave a stale validator that causes spurious 304s.
-                self._etag = variables_response.headers.get('ETag')
-                # Preserve snapshot identity for identical 200 responses as well as 304s. Event
-                # consumers should not treat a routine unchanged poll as a configuration change.
-                if new_config != self._config:
-                    self._config = new_config
-                self._last_fetched_at = datetime.now(tz=timezone.utc)
-                self._set_evaluation_state_unless_shutdown('ready')
+                with self._lifecycle_lock:
+                    if not self._shutdown:
+                        self._etag = variables_response.headers.get('ETag')
+                        # Equal responses retain identity, so unchanged polls do not emit changes.
+                        if new_config != self._config:
+                            self._config = new_config
+                        self._last_fetched_at = datetime.now(tz=timezone.utc)
+                        self._evaluation_state = 'ready'
             except ValidationError as e:
                 self._set_evaluation_state_unless_shutdown('stale' if self._config is not None else 'error')
                 self._log_error('Failed to parse variables configuration from Logfire API', e)

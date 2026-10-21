@@ -4,6 +4,7 @@ import random
 import re
 from collections.abc import Mapping, Sequence
 from functools import cached_property
+from math import isfinite
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError, WithJsonSchema, field_validator, model_validator
@@ -257,6 +258,8 @@ class Rollout(BaseModel):
     def _validate_label_proportions(cls, v: dict[str, float]):
         # Note: if the values sum to _less_ than 1, the remaining proportion corresponds to the probability of using
         # the code default.
+        if any(not isfinite(weight) for weight in v.values()):
+            raise ValueError('Label proportions must be finite.')
         if any(weight < 0 for weight in v.values()):
             raise ValueError('Label proportions must not be negative.')
         if sum(v.values()) > 1.0 + 1e-9:
@@ -467,7 +470,7 @@ class VariableConfig(BaseModel):
         Returns:
             A tuple of (serialized_value, version).
         """
-        if isinstance(labeled_value, LabelRef):
+        while isinstance(labeled_value, LabelRef):
             if labeled_value.ref == 'code_default':
                 return None, None
 
@@ -488,7 +491,7 @@ class VariableConfig(BaseModel):
             target = self.labels.get(labeled_value.ref)
             if target is None:
                 return None, labeled_value.version
-            return self.follow_ref(target, _visited)
+            labeled_value = target
 
         return labeled_value.serialized_value, labeled_value.version
 

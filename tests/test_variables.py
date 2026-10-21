@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import os
+import subprocess
+import sys
 import threading
 import time
 import unittest.mock
@@ -13,6 +16,7 @@ import warnings
 from collections.abc import Callable, Mapping
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -24,7 +28,7 @@ from requests import Session
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions, LogfireConfig, VariablesOptions
-from logfire.experimental.feature_flags import feature_context, feature_flag
+from logfire.experimental.feature_flags import feature_context, flag as create_flag
 from logfire.testing import TestExporter
 from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
 from logfire.variables.config import (
@@ -50,6 +54,231 @@ from logfire.variables.variable import Variable, is_resolve_function
 # =============================================================================
 # Test Condition Classes
 # =============================================================================
+
+
+@pytest.mark.skipif(not hasattr(os, 'fork'), reason='requires POSIX fork')
+@pytest.mark.parametrize('stopped', [False, True])
+def test_real_fork_resets_provider_locks_without_resurrecting_shutdown(stopped: bool) -> None:
+    """An isolated child must survive locks held by threads that vanished at fork."""
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(Path(__file__).with_name('feature_flags_fork_probe.py')),
+            *(['--stopped'] if stopped else []),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    'name,key,weights,expected',
+    [
+        ('checkout', '', {'a': 0.5, 'b': 0.5}, 'b'),
+        ('checkout', 'user-123', {'zero': 0.0, 'a': 0.1, 'b': 0.2}, None),
+        ('other_checkout', 'user-123', {'a': 0.1, 'b': 0.2, 'c': 0.3}, 'b'),
+        ('checkout', '用户', {'a': 0.5, 'b': 0.5000000005}, 'a'),
+        ('checkout', "quote'key", {'a': 0.5, 'b': 0.5}, 'a'),
+        ('checkout', 'back\\\\slash', {'zero': 0.0, 'a': 0.1, 'b': 0.2}, None),
+        ('_checkout1', 'a:b', {'a': 0.1, 'b': 0.2, 'c': 0.3}, None),
+        ('checkout', '🙂', {'a': 0.5, 'b': 0.5000000005}, 'b'),
+        ('checkout', '0', {'a': 0.5, 'b': 0.5}, 'a'),
+        ('checkout', 'team', {'zero': 0.0, 'a': 0.1, 'b': 0.2}, None),
+        ('checkout', 'default', {'a': 0.1, 'b': 0.2, 'c': 0.3}, None),
+        ('checkout', 'last', {'a': 0.5, 'b': 0.5000000005}, 'a'),
+    ],
+)
+def test_assignment_compatibility_vectors(name: str, key: str, weights: dict[str, float], expected: str | None) -> None:
+    """Pin existing assignments across Python versions, not an idealized rational selector.
+
+    Expected values were independently calculated from Random(repr(name)+':'+repr(key))
+    and cumulative binary-float intervals, without calling SDK assignment methods.
+    Treat changes as assignment migrations, not snapshots to automatically regenerate.
+    """
+    config = VariableConfig(
+        name=name,
+        labels={label: LabeledValue(version=1, serialized_value='true') for label in weights},
+        rollout=Rollout(labels=weights),
+        overrides=[],
+    )
+    assert config.resolve_label(key) == expected
+
+
+@pytest.mark.parametrize('force_second', [False, True])
+def test_concurrent_refresh_preserves_forced_read_after_write(
+    force_second: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A forced refresh waits then fetches again; an ordinary recent poll may coalesce."""
+    first_started, release_first, second_contended = threading.Event(), threading.Event(), threading.Event()
+    validators: list[str | None] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            validators.append(self.headers.get('If-None-Match'))
+            number = len(validators)
+            if number == 1:
+                first_started.set()
+                assert release_first.wait(5)
+            payload = json.dumps(
+                {
+                    'variables': {
+                        'flag': {
+                            'name': 'flag',
+                            'labels': {'live': {'version': number, 'serialized_value': str(number)}},
+                            'rollout': {'labels': {'live': 1}},
+                            'overrides': [],
+                        }
+                    }
+                }
+            ).encode()
+            self.send_response(200)
+            self.send_header('Content-Length', str(len(payload)))
+            self.send_header('ETag', str(number))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    provider = LogfireRemoteVariableProvider(
+        base_url=f'http://127.0.0.1:{server.server_port}',
+        token='test',
+        options=VariablesOptions(block_before_first_resolve=False, polling_interval=60),
+    )
+
+    refresh_lock = provider._refresh_lock
+
+    class ContentionProbe:
+        def __enter__(self) -> None:
+            if not refresh_lock.acquire(blocking=False):
+                second_contended.set()
+                refresh_lock.acquire()
+
+        def __exit__(self, *exc: Any) -> None:
+            refresh_lock.release()
+
+    first = threading.Thread(target=provider.refresh, kwargs={'force': True})
+    second = threading.Thread(target=provider.refresh, kwargs={'force': force_second})
+    try:
+        first.start()
+        assert first_started.wait(3)
+        # The first request already holds the real mutex. Observe actual contention,
+        # rather than merely observing that the second thread was scheduled.
+        monkeypatch.setattr(provider, '_refresh_lock', ContentionProbe())
+        second.start()
+        assert second_contended.wait(3)
+        release_first.set()
+        first.join(5)
+        second.join(5)
+        assert not first.is_alive() and not second.is_alive()
+        assert validators == ([None, '1'] if force_second else [None])
+        result = provider.get_serialized_value('flag')
+        assert (result.value, result.version) == (('2', 2) if force_second else ('1', 1))
+    finally:
+        release_first.set()
+        first.join(5)
+        if second.ident is not None:
+            second.join(5)
+        provider.shutdown()
+        server.shutdown()
+        server.server_close()
+        server_thread.join(3)
+
+
+def test_refresh_cannot_publish_snapshot_after_shutdown(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stop during validation: neither config nor ETag may be published afterward."""
+    validated, release = threading.Event(), threading.Event()
+    provider = LogfireRemoteVariableProvider(
+        base_url='http://localhost:8000', token='test', options=VariablesOptions(block_before_first_resolve=False)
+    )
+    with requests_mock_module.Mocker() as mocker:
+        mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}}, headers={'ETag': 'old'})
+        provider.refresh(force=True)
+        original = provider.get_all_variables_config()
+        validate = VariablesConfig.model_validate
+
+        def blocked_validate(value: Any) -> VariablesConfig:
+            config = validate(value)
+            validated.set()
+            assert release.wait(5)
+            return config
+
+        monkeypatch.setattr(VariablesConfig, 'model_validate', blocked_validate)
+        mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {'new_flag': {'name': 'new_flag', 'rollout': {}, 'overrides': []}}},
+            headers={'ETag': 'new'},
+        )
+        thread = threading.Thread(target=provider.refresh, kwargs={'force': True})
+        thread.start()
+        try:
+            assert validated.wait(5)
+            provider.shutdown()
+        finally:
+            release.set()
+            thread.join(5)
+        assert not thread.is_alive()
+        assert provider.get_evaluation_state() == 'not_ready'
+        assert provider.get_all_variables_config() is original
+        assert provider._etag == 'old'
+
+
+@pytest.mark.parametrize('invalid_response', [False, True])
+def test_cached_resolution_during_blocked_refresh(invalid_response: bool) -> None:
+    """Callers keep the old snapshot while HTTP is blocked; invalid bodies never replace it."""
+    entered, release = threading.Event(), threading.Event()
+    provider = LogfireRemoteVariableProvider(
+        base_url='http://localhost:8000', token='test', options=VariablesOptions(block_before_first_resolve=False)
+    )
+
+    def body(value: bool) -> dict[str, Any]:
+        return {
+            'variables': {
+                'flag': {
+                    'name': 'flag',
+                    'labels': {
+                        'live': {'version': 1 if value else 2, 'serialized_value': 'true' if value else 'false'}
+                    },
+                    'rollout': {'labels': {'live': 1}},
+                    'overrides': [],
+                }
+            }
+        }
+
+    def response(request: Any, context: Any) -> dict[str, Any]:
+        entered.set()
+        assert release.wait(5)
+        return {'variables': []} if invalid_response else body(False)
+
+    with requests_mock_module.Mocker() as mocker:
+        mocker.get('http://localhost:8000/v1/variables/', json=body(True), headers={'ETag': 'old'})
+        provider.refresh(force=True)
+        mocker.get('http://localhost:8000/v1/variables/', json=response, headers={'ETag': 'new'})
+        with unittest.mock.patch.object(provider, '_log_error'):
+            worker = threading.Thread(target=provider.refresh, kwargs={'force': True})
+            worker.start()
+            try:
+                assert entered.wait(5)
+                for _ in range(20):
+                    result = provider.get_serialized_value('flag')
+                    assert (result.value, result.version) == ('true', 1)
+                    assert provider.get_evaluation_state() == 'ready'
+                assert provider._etag == 'old'
+            finally:
+                release.set()
+                worker.join(5)
+        assert not worker.is_alive()
+        result = provider.get_serialized_value('flag')
+        assert (result.value, result.version) == (('true', 1) if invalid_response else ('false', 2))
+        assert provider.get_evaluation_state() == ('stale' if invalid_response else 'ready')
+        assert provider._etag == ('old' if invalid_response else 'new')
+        provider.shutdown()
 
 
 class TestValueEquals:
@@ -2474,12 +2703,12 @@ class TestFeatureFlag:
     def test_code_default_and_override(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
         logfire.configure(**config_kwargs)
-        flag = feature_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
+        flag = create_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
 
-        assert flag.is_enabled() is False
-        assert flag.evaluate().reason == 'default'
+        assert flag.value() is False
+        assert flag.details().reason == 'default'
         with flag.override_for_testing(True):
-            assert flag.is_enabled() is True
+            assert flag.value() is True
 
     def test_invalid_managed_value_keeps_boolean_contract(self, config_kwargs: dict[str, Any]):
         config = VariablesConfig(
@@ -2494,10 +2723,10 @@ class TestFeatureFlag:
         )
         config_kwargs['variables'] = LocalVariablesOptions(config=config)
         logfire.configure(**config_kwargs)
-        flag = feature_flag('new_checkout', default=False)
+        flag = create_flag('new_checkout', default=False)
 
         with pytest.warns(RuntimeWarning, match='value failed validation'):
-            details = flag.evaluate(targeting_key='user-123')
+            details = flag.details(targeting_key='user-123')
 
         assert details.value is False
         assert details.reason == 'error'
@@ -2507,24 +2736,24 @@ class TestFeatureFlag:
     def test_evaluate_with_feature_context(self, config_kwargs: dict[str, Any], feature_flags_config: VariablesConfig):
         config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
         logfire.configure(**config_kwargs)
-        flag = feature_flag('new_checkout', default=False)
+        flag = create_flag('new_checkout', default=False)
 
         with feature_context('user-123', attributes={'plan': 'free', 'region': 'us'}):
-            details = flag.evaluate()
+            details = flag.details()
             assert details.value is False
             assert details.variant == 'disabled'
 
             # Invocation attributes take precedence over request-local attributes.
-            assert flag.is_enabled(attributes={'plan': 'team'}) is True
+            assert flag.value(attributes={'plan': 'team'}) is True
 
             with feature_context('user-456', attributes={'region': 'eu'}):
-                assert flag.is_enabled() is True
+                assert flag.value() is True
 
             # Leaving the nested context restores the outer key and attributes.
-            assert flag.is_enabled() is False
+            assert flag.value() is False
 
         # Leaving the outer context restores the base rollout and does not retain plan='free'.
-        assert flag.evaluate(targeting_key='user-123').variant == 'enabled'
+        assert flag.details(targeting_key='user-123').variant == 'enabled'
 
     @pytest.mark.anyio
     async def test_feature_context_is_isolated_between_tasks(self, config_kwargs: dict[str, Any]):
@@ -2548,12 +2777,12 @@ class TestFeatureFlag:
         )
         config_kwargs['variables'] = LocalVariablesOptions(config=config)
         logfire.configure(**config_kwargs)
-        flag = feature_flag('new_checkout', default=False)
+        flag = create_flag('new_checkout', default=False)
 
         async def evaluate(targeting_key: str, plan: str) -> tuple[bool, str | None]:
             with feature_context(targeting_key, attributes={'plan': plan}):
                 await asyncio.sleep(0)
-                details = flag.evaluate()
+                details = flag.details()
                 return details.value, details.variant
 
         team, free = await asyncio.gather(evaluate('team-user', 'team'), evaluate('free-user', 'free'))
@@ -2570,11 +2799,11 @@ class TestFeatureFlag:
         feature_flags_config.variables['new_checkout'].overrides[0].rollout = Rollout(labels={'disabled': 1.0})
         config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config, instrument=True)
         logfire.configure(**config_kwargs)
-        flag = feature_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
+        flag = create_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
         exporter.clear()
 
         with feature_context('user-123', attributes={'plan': 'free'}):
-            details = flag.evaluate()
+            details = flag.details()
 
         evaluation_span = next(
             span
@@ -2614,10 +2843,10 @@ class TestFeatureFlag:
     ):
         config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
         logfire.configure(**config_kwargs)
-        flag = feature_flag('new_checkout', default=False)
+        flag = create_flag('new_checkout', default=False)
 
         with feature_context('user-12'):
-            details = flag.evaluate(targeting_key='user-123')
+            details = flag.details(targeting_key='user-123')
 
         config = feature_flags_config.variables['new_checkout']
         assert config.resolve_label('user-12') == 'disabled'
@@ -2625,21 +2854,21 @@ class TestFeatureFlag:
         assert expected_label == 'enabled'
         assert details.variant == expected_label
 
-    def test_rejects_non_boolean_default(self, config_kwargs: dict[str, Any]):
+    def test_validates_default_name_and_duplicate(self, config_kwargs: dict[str, Any]):
         logfire.configure(**config_kwargs)
 
-        with pytest.raises(TypeError, match=r'^Feature flag defaults must be boolean\.$'):
-            feature_flag('new_checkout', default=cast(Any, 'false'))
+        with pytest.raises(ValidationError):
+            create_flag('new_checkout', type=bool, default=cast(Any, 'false'))
         with pytest.raises(ValueError, match='Invalid variable name'):
-            feature_flag('new_checkout\n', default=False)
+            create_flag('new_checkout\n', default=False)
 
-        feature_flag('duplicate', default=False)
+        create_flag('duplicate', default=False)
         with pytest.raises(ValueError, match='already been registered'):
-            feature_flag('duplicate', default=cast(Any, 'false'))
+            create_flag('duplicate', default=cast(Any, 'false'))
 
     def test_shares_the_variable_registry(self, config_kwargs: dict[str, Any]):
         logfire.configure(**config_kwargs)
-        flag = feature_flag('new_checkout', default=False)
+        flag = create_flag('new_checkout', default=False)
 
         registered = logfire.variables_get()
         assert len(registered) == 1
@@ -2655,7 +2884,7 @@ class TestFeatureFlag:
     ):
         config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
         logfire.configure(**config_kwargs)
-        feature_flag('new_checkout', default=False)
+        create_flag('new_checkout', default=False)
 
         registered = logfire.variables_get()
         assert len(registered) == 1
@@ -2691,30 +2920,30 @@ class TestFeatureFlag:
         )
         config_kwargs['variables'] = LocalVariablesOptions(config=config)
         logfire.configure(**config_kwargs)
-        flag = feature_flag('new_checkout', default=False)
+        flag = create_flag('new_checkout', default=False)
 
         with pytest.warns(RuntimeWarning, match='no stable targeting key'):
-            flag.is_enabled()
+            flag.value()
         with logfire.span('request'), pytest.warns(RuntimeWarning, match='no stable targeting key'):
-            flag.is_enabled()
+            flag.value()
         with warnings.catch_warnings():
             warnings.simplefilter('error')
-            assert isinstance(flag.is_enabled(), bool)
-            flag.is_enabled(targeting_key='user-123')
+            assert isinstance(flag.value(), bool)
+            flag.value(targeting_key='user-123')
             with feature_context('user-456'):
-                flag.is_enabled()
+                flag.value()
 
     def test_propagated_baggage_does_not_target_feature_flags(
         self, config_kwargs: dict[str, Any], feature_flags_config: VariablesConfig
     ):
         config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
         logfire.configure(**config_kwargs)
-        flag = feature_flag('new_checkout', default=False)
+        flag = create_flag('new_checkout', default=False)
 
         with logfire.set_baggage(plan='free'):
             # user-123 resolves differently for the base rollout and the free-plan override.
-            assert flag.evaluate(targeting_key='user-123').variant == 'enabled'
-            assert flag.evaluate(targeting_key='user-123', attributes={'plan': 'free'}).variant == 'disabled'
+            assert flag.details(targeting_key='user-123').variant == 'enabled'
+            assert flag.details(targeting_key='user-123', attributes={'plan': 'free'}).variant == 'disabled'
 
     def test_resource_attributes_can_be_excluded_from_feature_flag_targeting(
         self,
@@ -2728,11 +2957,11 @@ class TestFeatureFlag:
             include_resource_attributes_in_context=False,
         )
         logfire.configure(**config_kwargs)
-        flag = feature_flag('new_checkout', default=False)
+        flag = create_flag('new_checkout', default=False)
 
         # The resource attribute would select the free-plan override if the opt-out were ignored.
-        assert flag.evaluate(targeting_key='user-123').variant == 'enabled'
-        assert flag.evaluate(targeting_key='user-123', attributes={'plan': 'free'}).variant == 'disabled'
+        assert flag.details(targeting_key='user-123').variant == 'enabled'
+        assert flag.details(targeting_key='user-123', attributes={'plan': 'free'}).variant == 'disabled'
 
 
 class TestVariable:
@@ -5920,6 +6149,49 @@ class TestNegativeRolloutWeights:
                     'overrides': [],
                 }
             )
+
+    @pytest.mark.parametrize('weight', [float('nan'), float('inf'), -float('inf')])
+    def test_flag_nonfinite_weight_raises_validation_error(self, weight: float):
+        """Reject weights that the random selector cannot evaluate safely."""
+        with pytest.raises(ValidationError, match='Label proportions must be finite'):
+            Rollout(labels={'enabled': weight})
+
+
+def test_flag_long_label_reference_chain() -> None:
+    """Valid label chains must not be limited by the Python call stack."""
+    config = VariableConfig(
+        name='long_chain',
+        labels={
+            **{f'label_{i}': LabelRef(ref=f'label_{i + 1}') for i in range(1200)},
+            'label_1200': LabeledValue(version=2, serialized_value='true'),
+        },
+        rollout=Rollout(labels={'label_0': 1}),
+        overrides=[],
+    )
+    assert config.resolve_value('subject') == ('true', 'label_0', 2)
+
+
+def test_flag_selector_keeps_rule_evaluation_lazy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Do not inspect conditions after the first matching rule."""
+    evaluated: list[str] = []
+
+    def matches(condition: ValueEquals, attributes: Any) -> bool:
+        evaluated.append(condition.attribute)
+        return True
+
+    monkeypatch.setattr(ValueEquals, 'matches', matches)
+    config = VariableConfig(
+        name='lazy_rules',
+        rollout=Rollout(),
+        overrides=[
+            RolloutOverride(conditions=[ValueEquals(attribute=attribute, value=True)], rollout=Rollout())
+            for attribute in ('first', 'later')
+        ],
+    )
+    selected, matched = config._select_rollout_with_match({})
+    assert matched is True
+    assert selected is config.overrides[0].rollout
+    assert evaluated == ['first']
 
 
 class TestGetDefaultTypeName:
