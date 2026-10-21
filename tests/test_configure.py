@@ -2526,6 +2526,34 @@ def test_project_url_read_from_token_check_thread() -> None:
     assert logfire.project_url == 'fake_project_url'
 
 
+def test_project_url_ignores_superseded_token_check() -> None:
+    first_request_started = threading.Event()
+    release_first_request = threading.Event()
+
+    def info(request: Any, _context: Any) -> dict[str, str]:
+        if request.headers['Authorization'] == 'first_token':
+            first_request_started.set()
+            release_first_request.wait(timeout=5)
+            return {'project_name': 'first', 'project_url': 'https://first.example.com'}
+        return {'project_name': 'second', 'project_url': 'https://second.example.com'}
+
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get('https://logfire-us.pydantic.dev/v1/info', json=info)
+        try:
+            configure(token='first_token', send_to_logfire='if-token-present', console=False)
+            assert first_request_started.wait(timeout=5)
+
+            # Reconfigure while the first token check is still running.
+            configure(token='second_token', send_to_logfire='if-token-present', console=False)
+            assert logfire.project_url == 'https://second.example.com'
+        finally:
+            release_first_request.set()
+        wait_for_check_token_thread()
+
+    # The superseded check must not overwrite the URL of the new configuration.
+    assert logfire.project_url == 'https://second.example.com'
+
+
 def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixture[str]) -> None:
     os.environ['LOGFIRE_TOKEN'] = 'foobar'
     try:
@@ -2651,6 +2679,8 @@ def test_load_creds_file_with_token_different_from_env(tmp_path: Path, capsys: p
         wait_for_check_token_thread()
         assert len(request_mocker.request_history) == 1
         assert request_mocker.request_history[0].headers['Authorization'] == 'fake_token'
+        # The creds file's token belongs to another project, so its URL must not be used.
+        assert logfire.project_url == 'fake_project_url'
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
 

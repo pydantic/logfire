@@ -26,7 +26,7 @@ logfire.configure(token='...')
 project_url = logfire.project_url
 ```
 
-`project_url` is a string such as `https://logfire-us.pydantic.dev/my-organization/my-project`, or `None` when the URL isn't known, for example when `send_to_logfire=False` or on AWS Lambda, where Logfire skips the background token check. The value comes from the credentials file, or from validating the configured token. Reading `logfire.project_url` waits for any background token validation to finish, so the value is stable.
+`project_url` is a string such as `https://logfire-us.pydantic.dev/my-organization/my-project`, or `None` when the URL isn't known, for example when `send_to_logfire=False`, or on AWS Lambda with a token but no credentials file, where Logfire skips the background token check. The value comes from the credentials file, or from validating the configured token. Reading `logfire.project_url` waits for any background token validation to finish, so the value is stable.
 
 ## Using environment variables
 

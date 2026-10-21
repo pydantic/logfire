@@ -3,6 +3,7 @@ from __future__ import annotations as _annotations
 import atexit
 import dataclasses
 import functools
+import itertools
 import json
 import os
 import platform
@@ -688,6 +689,10 @@ def configure(
     return logfire_instance
 
 
+_token_check_generation_counter = itertools.count()
+"""Distinguishes token checks started by different `configure()` calls, including across config objects."""
+
+
 @dataclasses.dataclass
 class _LogfireConfigData:
     """Data-only parent class for LogfireConfig.
@@ -896,6 +901,9 @@ class _LogfireConfigData:
         self.additional_span_processors = additional_span_processors
         self._project_url: str | None = None
         self._token_check_thread: Thread | None = None
+        # A token check started by an earlier `configure()` call must not publish its result,
+        # which may describe a different project, after this configuration has replaced it.
+        self._token_check_generation = next(_token_check_generation_counter)
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -1282,11 +1290,16 @@ class LogfireConfig(_LogfireConfigData):
                     # This means that e.g. a token in an env var takes priority over a token in a creds file.
                     self.token = self.token or credentials.token
                     self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
-                    self._project_url = self._project_url or credentials.project_url
 
                 if self.token:
                     # Convert to list for iteration (handles both str and list[str])
                     token_list = [self.token] if isinstance(self.token, str) else self.token
+
+                    # The creds file's project URL belongs to its own token, which may not be the
+                    # token in use: an explicitly configured token can belong to another project.
+                    # In that case the check below validates the token and provides the URL.
+                    if credentials is not None and credentials.token in token_list:
+                        self._project_url = self._project_url or credentials.project_url
 
                     # Track tokens we've already printed info for (to avoid duplicates)
                     printed_tokens: set[str] = set()
@@ -1304,14 +1317,21 @@ class LogfireConfig(_LogfireConfigData):
                     # This may happen some time later in a background thread which can be annoying,
                     # hence we try to print it eagerly above.
                     # But we only have the link if we have a creds file, otherwise we only know the token at this point.
+                    token_check_generation = self._token_check_generation
+
                     def check_tokens():
                         with suppress_instrumentation():
                             for token in token_list:
                                 validated_credentials = self._initialize_credentials_from_token(token)
-                                if validated_credentials is not None:
-                                    self._project_url = self._project_url or validated_credentials.project_url
-                                    if show_project_link and token not in printed_tokens:
-                                        validated_credentials.print_token_summary()
+                                if validated_credentials is None:
+                                    continue
+                                if token_check_generation != self._token_check_generation:
+                                    # `configure()` has run again with a different project
+                                    # while this check was in flight, so the result is outdated.
+                                    return
+                                self._project_url = self._project_url or validated_credentials.project_url
+                                if show_project_link and token not in printed_tokens:
+                                    validated_credentials.print_token_summary()
 
                     if emscripten:  # pragma: no cover
                         check_tokens()
