@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from importlib.metadata import entry_points
 from pathlib import Path
-from threading import RLock, Thread
+from threading import RLock, Thread, current_thread
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 from urllib.parse import urljoin
 from uuid import uuid4
@@ -895,6 +895,7 @@ class _LogfireConfigData:
 
         self.additional_span_processors = additional_span_processors
         self._project_url: str | None = None
+        self._token_check_thread: Thread | None = None
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -1022,6 +1023,19 @@ class LogfireConfig(_LogfireConfigData):
         self._has_set_providers = False
         self._initialized = False
         self._lock = RLock()
+
+    @property
+    def project_url(self) -> str | None:
+        """The URL of the Logfire project, or `None` if it isn't known.
+
+        `logfire.configure()` may validate the token in a background thread, which is what
+        discovers the project URL when it isn't already available from a credentials file.
+        Reading this property waits for that thread to finish so the value is deterministic.
+        """
+        token_check_thread = self._token_check_thread
+        if token_check_thread is not None and token_check_thread is not current_thread():
+            token_check_thread.join()
+        return self._project_url
 
     def configure(
         self,
@@ -1312,6 +1326,9 @@ class LogfireConfig(_LogfireConfigData):
                         pass
                     else:
                         thread = Thread(target=check_tokens, name='check_logfire_token')
+                        # Store the thread before starting it so that `project_url` can wait for it
+                        # even if the property is read immediately after `configure()` returns.
+                        self._token_check_thread = thread
                         thread.start()
 
                     use_zstd = self.advanced.compression == 'zstd'

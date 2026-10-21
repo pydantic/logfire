@@ -175,6 +175,16 @@ class Logfire:
         return self._config
 
     @property
+    def project_url(self) -> str | None:
+        """The URL of the Logfire project, or `None` if it isn't known.
+
+        This is set by `logfire.configure()` from the credentials file or by validating the
+        configured token. If that validation is still running in a background thread, reading
+        this property waits for it to finish.
+        """
+        return self._config.project_url
+
+    @property
     def _variables(self) -> dict[str, Variable[Any] | TemplateVariable[Any, Any]]:
         return self._config._variables  # pyright: ignore[reportPrivateUsage]
 

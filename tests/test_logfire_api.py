@@ -100,6 +100,13 @@ def import_logfire_api_with_logfire() -> ModuleType:
     return importlib.reload(logfire_api)
 
 
+def test_module_getattr_raises_for_unknown_attribute() -> None:
+    logfire = importlib.import_module('logfire')
+
+    with pytest.raises(AttributeError, match="module 'logfire' has no attribute 'not_a_real_attribute'"):
+        getattr(logfire, 'not_a_real_attribute')
+
+
 @pytest.mark.parametrize(
     ['logfire_api_factory', 'module_name'],
     [
@@ -126,6 +133,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     # and `executing` can sporadically fail to match a node under a heavily loaded machine.
     logfire_api.configure(send_to_logfire=False, console=False, inspect_arguments=False)
     logfire__all__.remove('configure')
+
+    assert hasattr(logfire_api, 'project_url')
+    assert logfire_api.project_url is None
+    logfire__all__.remove('project_url')
 
     assert hasattr(logfire_api, 'VERSION')
     logfire__all__.remove('VERSION')
