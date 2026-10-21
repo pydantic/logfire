@@ -1420,7 +1420,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         self,
         result: ResolvedVariable[FlagT],
         *,
-        serialized_value: str,
+        serialized_value: str | None,
         targeting_key: str | None,
         attributes: Mapping[str, Any],
         requested_label: str | None,
@@ -1431,7 +1431,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
             try:
                 serialized_value = self.type_adapter.dump_json(result.value).decode()
             except (ValueError, TypeError, RuntimeError):
-                serialized_value = '<unavailable>'
+                serialized_value = None
         provider_state = result.provider_state
         telemetry = _feature_flag_telemetry_attributes(
             result,

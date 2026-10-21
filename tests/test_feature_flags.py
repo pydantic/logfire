@@ -1532,17 +1532,20 @@ def test_feature_flag_telemetry_does_not_treat_unchanged_nan_as_scrubbed():
     assert 'logfire.feature_flag.result.value_status' not in telemetry
 
 
-def test_feature_flag_telemetry_handles_json_serialization_failure():
-    adapter = cast(Any, flag('region', default='us')._adapter)
-    with patch.object(adapter.type_adapter, 'dump_json', side_effect=RuntimeError('broken serializer')):
+@pytest.mark.parametrize('error', [ValueError, TypeError, RuntimeError])
+@pytest.mark.parametrize('structured', [False, True])
+def test_feature_flag_telemetry_handles_json_serialization_failure(error: type[Exception], structured: bool):
+    value = {'region': 'us'} if structured else 'us'
+    adapter = cast(Any, flag('region', type=dict[str, str] if structured else str, default=value)._adapter)
+    with patch.object(adapter.type_adapter, 'dump_json', side_effect=error('broken serializer')):
         telemetry = adapter._resolution_telemetry_attributes(
-            ResolvedVariable(name='region', value='us', reason='code_default'),
+            ResolvedVariable(name='region', value=value, reason='code_default'),
             serialized_value='us',
             targeting_key=None,
             attributes={},
             requested_label=None,
         )
-    assert telemetry['feature_flag.result.value'] == 'us'
+    assert telemetry['feature_flag.result.value'] == ('<unavailable>' if structured else 'us')
     assert telemetry['feature_flag.result.reason'] == 'default'
 
 
