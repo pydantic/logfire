@@ -130,14 +130,15 @@ class InstrumentationContext:
 
 
 def parse_run(args: argparse.Namespace) -> None:
-    logfire.configure()
-
     summary = cast(bool, args.summary)
     exclude = cast(Collection[str], args.exclude)
 
-    ctx = collect_instrumentation_context(exclude)
-
-    instrumented_packages = instrument_packages(ctx.installed_otel_pkgs, ctx.instrument_pkg_map)
+    # `python -m logfire` puts the working directory on `sys.path`, so local files could shadow the installed
+    # packages that configuration and instrumentation import.
+    with without_working_directory_on_sys_path():
+        logfire.configure()
+        ctx = collect_instrumentation_context(exclude)
+        instrumented_packages = instrument_packages(ctx.installed_otel_pkgs, ctx.instrument_pkg_map)
 
     if summary:
         console = Console(file=sys.stderr)
