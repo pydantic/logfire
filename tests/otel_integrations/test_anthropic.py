@@ -2388,6 +2388,39 @@ def test_messages_stream_records_cache_token_attributes() -> None:
     assert attributes['gen_ai.usage.cache_creation.input_tokens'] == 5
 
 
+def test_convert_messages_document_and_file_image_parts() -> None:
+    """Documents and file-backed images sent as input are converted, not recorded as raw blocks."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    messages: list[dict[str, Any]] = [
+        {
+            'role': 'user',
+            'content': [
+                {'type': 'document', 'source': {'type': 'base64', 'media_type': 'application/pdf', 'data': 'JVBER'}},
+                {'type': 'document', 'source': {'type': 'url', 'url': 'https://example.com/report.pdf'}},
+                {'type': 'document', 'source': {'type': 'file', 'file_id': 'file_doc_1'}},
+                {'type': 'image', 'source': {'type': 'file', 'file_id': 'file_img_1'}},
+                {'type': 'text', 'text': 'Summarize these.'},
+            ],
+        }
+    ]
+
+    input_messages, _ = convert_messages_to_semconv(messages)
+
+    assert input_messages == [
+        {
+            'role': 'user',
+            'parts': [
+                {'type': 'blob', 'modality': 'document', 'content': 'JVBER', 'media_type': 'application/pdf'},
+                {'type': 'uri', 'uri': 'https://example.com/report.pdf', 'modality': 'document'},
+                {'type': 'file', 'file_id': 'file_doc_1', 'modality': 'document'},
+                {'type': 'file', 'file_id': 'file_img_1', 'modality': 'image'},
+                {'type': 'text', 'content': 'Summarize these.'},
+            ],
+        }
+    ]
+
+
 @pytest.mark.parametrize(
     'content, expected_response',
     [
@@ -2423,7 +2456,7 @@ def test_messages_stream_records_cache_token_attributes() -> None:
                 {'type': 'blob', 'modality': 'image', 'content': 'iVBOR', 'media_type': 'image/png'},
                 {'type': 'text', 'content': 'See attachment'},
                 {'type': 'uri', 'uri': 'https://example.com/image.png', 'modality': 'image'},
-                {'type': 'document', 'source': {'type': 'base64', 'media_type': 'application/pdf', 'data': 'JVBER'}},
+                {'type': 'blob', 'modality': 'document', 'content': 'JVBER', 'media_type': 'application/pdf'},
             ],
             id='mixed-content',
         ),
