@@ -135,9 +135,9 @@ async def main():
 
     response = await client.images.generate(
         prompt='A watercolor painting of a friendly robot reading a book in a sunlit library.',
-        model='gpt-image-1',
+        model='gpt-image-2.5-sunburst',
     )
-    # gpt-image-1 returns the image as base64-encoded data
+    # gpt-image-2.5-sunburst returns the image as base64-encoded data
     image_bytes = base64.b64decode(response.data[0].b64_json)
     Path('robot.png').write_bytes(image_bytes)
 
