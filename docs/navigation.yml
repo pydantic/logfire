@@ -826,7 +826,7 @@ navigation:
         aliases:
           - "how-to-guides/setup-slack-alerts"
           - "guides/setup-slack-alerts"
-      - page: "Issues"
+      - page: "Error Tracking"
         path: "guides/web-ui/issues.md"
         slug: "observe/issues"
       - page: "SQL Workbench"
