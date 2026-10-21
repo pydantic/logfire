@@ -2429,7 +2429,7 @@ def test_refusal_without_explanation_keeps_empty_parts() -> None:
 
 @pytest.mark.parametrize('beta', [False, True])
 def test_streamed_refusal_explanation_is_recorded_as_output_text(beta: bool) -> None:
-    from anthropic.types import RawMessageStreamEvent
+    from anthropic.types import MessageStreamEvent, RawMessageStreamEvent
     from anthropic.types.beta import BetaRawMessageStreamEvent
 
     from logfire._internal.integrations.llm_providers.anthropic import AnthropicMessageStreamState
@@ -2450,7 +2450,7 @@ def test_streamed_refusal_explanation_is_recorded_as_output_text(beta: bool) -> 
     ]
     state = AnthropicMessageStreamState()
     for event in events:
-        state.record_chunk(adapter.validate_python(event))
+        state.record_chunk(cast('MessageStreamEvent', adapter.validate_python(event)))
 
     attributes = state.get_attributes({})
     assert attributes['gen_ai.output.messages'] == [
