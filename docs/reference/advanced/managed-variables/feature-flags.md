@@ -94,9 +94,9 @@ pip install 'logfire[openfeature]'
 `LogfireProvider` implements the OpenFeature Python provider interface. Define each flag in Logfire first so its type and safe code default remain visible in your code, then register the provider explicitly:
 
 ```python
-import logfire
 from openfeature import api
 
+import logfire
 from logfire.experimental.feature_flags import feature_flag
 from logfire.experimental.openfeature import LogfireProvider
 
