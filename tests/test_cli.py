@@ -6967,6 +6967,8 @@ def test_parse_run_instruments_packages_before_working_directory(
     monkeypatch.delitem(sys.modules, module_name, raising=False)
     context = Mock(installed_otel_pkgs={'opentelemetry-instrumentation-demo'})
     context.instrument_pkg_map = {'opentelemetry-instrumentation-demo': module_name}
+    # Give the fake package a Logfire method, so `logfire run` imports it through `instrument_package`.
+    monkeypatch.setattr(logfire, f'instrument_{module_name}', Mock(), raising=False)
     monkeypatch.setattr('logfire.configure', Mock())
     monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
     monkeypatch.setattr('logfire._internal.cli.run.instrument_package', importlib.import_module)

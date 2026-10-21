@@ -304,7 +304,7 @@ def instrument_with_entry_points(otel_pkg_name: str) -> bool:
             if get_dist_dependency_conflicts(entry_point.dist):
                 continue
             instrumentor = cast(type[BaseInstrumentor], entry_point.load())()
-            # The CLI sets its own global tracer provider before Logfire is configured, so pass Logfire's explicitly.
+            # Pass Logfire's providers explicitly, like the `logfire.instrument_*()` methods, not the global ones.
             instrumentor.instrument(
                 skip_dep_check=True,
                 tracer_provider=config.get_tracer_provider(),
