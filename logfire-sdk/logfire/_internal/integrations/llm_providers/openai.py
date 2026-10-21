@@ -471,7 +471,7 @@ def make_tool_call_part(
 def content_from_completions(chunk: Completion | None) -> str | None:
     if chunk and chunk.choices:
         return chunk.choices[0].text
-    return None  # pragma: no cover
+    return None
 
 
 class OpenaiCompletionStreamState(StreamState):
@@ -479,11 +479,24 @@ class OpenaiCompletionStreamState(StreamState):
 
     def __init__(self):
         self._content: list[str] = []
+        self._response_id: str | None = None
+        self._response_model: str | None = None
+        self._finish_reasons: dict[int, str] = {}
+        self._usage_chunk: Completion | None = None
 
     def record_chunk(self, chunk: Completion) -> None:
         content = content_from_completions(chunk)
         if content:
             self._content.append(content)
+        if chunk.id:
+            self._response_id = chunk.id
+        if chunk.model:
+            self._response_model = chunk.model
+        for choice in chunk.choices:
+            if choice.finish_reason:
+                self._finish_reasons[choice.index] = choice.finish_reason
+        if chunk.usage is not None:
+            self._usage_chunk = chunk
 
     def get_response_data(self) -> Any:
         return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
@@ -502,6 +515,14 @@ class OpenaiCompletionStreamState(StreamState):
                         'parts': [{'type': 'text', 'content': combined_content}],
                     }
                 ]
+        if self._response_id:
+            result[RESPONSE_ID] = self._response_id
+        if self._response_model:
+            result[RESPONSE_MODEL] = self._response_model
+        if self._finish_reasons:
+            result[RESPONSE_FINISH_REASONS] = [self._finish_reasons[index] for index in sorted(self._finish_reasons)]
+        if self._usage_chunk is not None:
+            result.update(get_openai_usage_attributes(self._usage_chunk, self.base_url))
         return result
 
 
