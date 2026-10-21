@@ -62,22 +62,47 @@ async def handle_request(user_id: str, org_id: str) -> None:
 
 You can set a default targeting key for all variables while overriding it for specific ones. Variable-specific targeting always takes precedence over the default, regardless of nesting order:
 
-```python skip="true"
+Install `logfire[variables]` and run this example as a standalone script. It uses an empty local configuration and sends no data to Logfire. The callable default returns the selected targeting key so you can see which setting takes precedence.
+
+```python
+import logfire
 from logfire.variables import targeting_context
+from logfire.variables.config import VariablesConfig
 
-# Set default targeting for all variables, but use org_id for billing
-with targeting_context(user_id):  # default for all variables
-    with targeting_context(org_id, variables=[billing_config]):  # specific override
-        # billing_config uses org_id
-        # all other variables use user_id
-        ...
+logfire.configure(
+    send_to_logfire=False,
+    console=False,
+    variables=logfire.LocalVariablesOptions(config=VariablesConfig(variables={})),
+)
 
-# Order doesn't matter - specific always wins
-with targeting_context(org_id, variables=[billing_config]):
-    with targeting_context(user_id):
-        # Same result: billing_config uses org_id, others use user_id
-        ...
+selected_key = logfire.var(
+    'targeting_example',
+    type=str,
+    default=lambda targeting_key, attributes: targeting_key or 'no targeting key',
+)
+
+with targeting_context('user-123'):
+    print(selected_key.get().value)
+    #> user-123
+    with targeting_context('org-456', variables=[selected_key]):
+        print(selected_key.get().value)
+        #> org-456
+        print(selected_key.get(targeting_key='explicit').value)
+        #> explicit
+    print(selected_key.get().value)
+    #> user-123
+
+# The variable-specific key also wins when the contexts are nested in reverse.
+with targeting_context('org-456', variables=[selected_key]):
+    with targeting_context('user-123'):
+        print(selected_key.get().value)
+        #> org-456
+
+print(selected_key.get().value)
+#> no targeting key
 ```
+
+Leaving a context restores the previous targeting settings. After both contexts end, this script has no targeting key or active trace, so the callable default returns `no targeting key`.
 
 **Priority order:**
 
