@@ -56,7 +56,7 @@ class JsonArgsValueFormatter:
             'NameEmail': partial(self._write, '', '', False),
             'UUID': partial(self._write, "UUID('", "')", False),
             'Exception': partial(self._write, '(', ')', True),
-            'ndarray': partial(self._format_list_like, 'array([', '])'),
+            'ndarray': self._format_ndarray,
             'DataFrame': self._format_data_frame,
             'attrs': partial(self._format_items, '(', '=', ')', False),
             'sqlalchemy': partial(self._format_items, '(', '=', ')', False),
@@ -132,6 +132,13 @@ class JsonArgsValueFormatter:
         else:
             args = '0, 0'
         self._write('range(', ')', False, 0, args, None)
+
+    def _format_ndarray(self, indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        if schema is not None and schema.get('x-shape') == []:
+            # A zero-dimensional ndarray is encoded by tolist() as its scalar value.
+            self._write('array(', ')', True, indent_current, value, None)
+        else:
+            self._format_list_like('array([', '])', indent_current, value, schema)
 
     def _format_list_like(
         self, open_: str, close_: str, indent_current: int, value: Any, schema: JSONSchema | None

@@ -607,8 +607,22 @@ def _record_result(span: LogfireSpan, msg: ResultMessage) -> None:
         if (value := getattr(msg, attr, None)) is not None:  # pragma: no branch
             attrs[attr] = value
 
+    is_error = getattr(msg, 'is_error', None)
+    if is_error:
+        attrs[ERROR_TYPE] = _result_error_type(msg)
+
     span.set_attributes(attrs)
 
-    is_error = getattr(msg, 'is_error', None)
-    if is_error:  # pragma: no cover
+    if is_error:
         span.set_level('error')
+
+
+def _result_error_type(msg: ResultMessage) -> str:
+    """Describe why a ResultMessage is an error: its subtype, else the HTTP status of the failed API call."""
+    subtype = getattr(msg, 'subtype', None)
+    if subtype and subtype != 'success':
+        return str(subtype)
+    api_error_status = getattr(msg, 'api_error_status', None)
+    if api_error_status is not None:
+        return str(api_error_status)
+    return 'error'
