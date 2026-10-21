@@ -2284,3 +2284,170 @@ def test_internal_exception_in_on_response_keeps_the_response(
     assert response.id == 'msg_1'
     assert 'Caught an internal error in Logfire' in caplog.text
     assert len(exporter.exported_spans_as_dict()) == 1
+
+
+def test_messages_records_cache_token_attributes(exporter: TestExporter) -> None:
+    body = {
+        'id': 'msg_1',
+        'type': 'message',
+        'role': 'assistant',
+        'model': 'claude-haiku-4-5',
+        'content': [{'type': 'text', 'text': 'Nine'}],
+        'stop_reason': 'end_turn',
+        'stop_sequence': None,
+        'usage': {
+            'input_tokens': 10,
+            'output_tokens': 3,
+            'cache_read_input_tokens': 90,
+            'cache_creation_input_tokens': 5,
+        },
+    }
+    client = anthropic.Anthropic(
+        api_key='test',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_anthropic(client):
+        client.messages.create(
+            max_tokens=1000,
+            model='claude-haiku-4-5',
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        )
+
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert attributes['gen_ai.usage.input_tokens'] == 105
+    assert attributes['gen_ai.usage.cache_read.input_tokens'] == 90
+    assert attributes['gen_ai.usage.cache_creation.input_tokens'] == 5
+
+
+def test_messages_without_cache_tokens_omits_cache_attributes(exporter: TestExporter) -> None:
+    body = {
+        'id': 'msg_1',
+        'type': 'message',
+        'role': 'assistant',
+        'model': 'claude-haiku-4-5',
+        'content': [{'type': 'text', 'text': 'Nine'}],
+        'stop_reason': 'end_turn',
+        'stop_sequence': None,
+        'usage': {'input_tokens': 10, 'output_tokens': 3, 'cache_read_input_tokens': 0},
+    }
+    client = anthropic.Anthropic(
+        api_key='test',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_anthropic(client):
+        client.messages.create(
+            max_tokens=1000,
+            model='claude-haiku-4-5',
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        )
+
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert 'gen_ai.usage.cache_read.input_tokens' not in attributes
+    assert 'gen_ai.usage.cache_creation.input_tokens' not in attributes
+
+
+def test_messages_stream_records_cache_token_attributes() -> None:
+    from anthropic.types import RawMessageStreamEvent
+
+    from logfire._internal.integrations.llm_providers.anthropic import AnthropicMessageStreamState
+
+    adapter = pydantic.TypeAdapter(RawMessageStreamEvent)
+    events: list[dict[str, Any]] = [
+        {
+            'type': 'message_start',
+            'message': {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'model': 'claude-haiku-4-5',
+                'content': [],
+                'stop_reason': None,
+                'stop_sequence': None,
+                'usage': {
+                    'input_tokens': 10,
+                    'output_tokens': 1,
+                    'cache_read_input_tokens': 90,
+                    'cache_creation_input_tokens': 5,
+                },
+            },
+        },
+        {
+            'type': 'message_delta',
+            'delta': {'stop_reason': 'end_turn', 'stop_sequence': None},
+            'usage': {'output_tokens': 3},
+        },
+        {'type': 'message_stop'},
+    ]
+    state = AnthropicMessageStreamState()
+    for event in events:
+        state.record_chunk(adapter.validate_python(event))
+
+    attributes = state.get_attributes({})
+    assert attributes['gen_ai.usage.input_tokens'] == 105
+    assert attributes['gen_ai.usage.cache_read.input_tokens'] == 90
+    assert attributes['gen_ai.usage.cache_creation.input_tokens'] == 5
+
+
+@pytest.mark.parametrize(
+    'content, expected_response',
+    [
+        pytest.param('plain text', 'plain text', id='string'),
+        pytest.param('', '', id='empty-string'),
+        pytest.param(None, '', id='missing-content'),
+        pytest.param([], [], id='empty-list'),
+        pytest.param(
+            [{'type': 'text', 'text': 'one block'}],
+            [{'type': 'text', 'content': 'one block'}],
+            id='single-text-block',
+        ),
+        pytest.param(
+            [{'type': 'text', 'text': 'a'}, {'type': 'text', 'text': 'b'}],
+            [{'type': 'text', 'content': 'a'}, {'type': 'text', 'content': 'b'}],
+            id='multiple-text-blocks',
+        ),
+        pytest.param(
+            [{'type': 'text', 'text': 'a '}, {'type': 'text', 'text': '\nb'}, {'type': 'text', 'text': ''}],
+            [{'type': 'text', 'content': 'a '}, {'type': 'text', 'content': '\nb'}, {'type': 'text', 'content': ''}],
+            id='text-whitespace',
+        ),
+        pytest.param(
+            [
+                {'type': 'text', 'text': 'Screenshot taken'},
+                {'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/png', 'data': 'iVBOR'}},
+                {'type': 'text', 'text': 'See attachment'},
+                {'type': 'image', 'source': {'type': 'url', 'url': 'https://example.com/image.png'}},
+                {'type': 'document', 'source': {'type': 'base64', 'media_type': 'application/pdf', 'data': 'JVBER'}},
+            ],
+            [
+                {'type': 'text', 'content': 'Screenshot taken'},
+                {'type': 'blob', 'modality': 'image', 'content': 'iVBOR', 'media_type': 'image/png'},
+                {'type': 'text', 'content': 'See attachment'},
+                {'type': 'uri', 'uri': 'https://example.com/image.png', 'modality': 'image'},
+                {'type': 'document', 'source': {'type': 'base64', 'media_type': 'application/pdf', 'data': 'JVBER'}},
+            ],
+            id='mixed-content',
+        ),
+    ],
+)
+def test_tool_result_content_parts(
+    instrumented_client: anthropic.Anthropic,
+    exporter: TestExporter,
+    content: str
+    | list[anthropic.types.TextBlockParam | anthropic.types.ImageBlockParam | anthropic.types.DocumentBlockParam]
+    | None,
+    expected_response: str | list[dict[str, Any]],
+) -> None:
+    tool_result: anthropic.types.ToolResultBlockParam = {'type': 'tool_result', 'tool_use_id': 'toolu_1'}
+    if content is not None:
+        tool_result['content'] = content
+    instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-haiku-4-5',
+        messages=[{'role': 'user', 'content': [tool_result]}],
+        system='You are a helpful assistant.',
+    )
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['gen_ai.input.messages'] == [
+        {'role': 'user', 'parts': [{'type': 'tool_call_response', 'id': 'toolu_1', 'response': expected_response}]}
+    ]

@@ -119,7 +119,7 @@ class ToolCallResponsePart(TypedDict):
     type: Literal['tool_call_response']
     id: str
     name: NotRequired[str]
-    response: NotRequired[str | dict[str, Any] | None]
+    response: NotRequired[str | dict[str, Any] | list[Any] | None]
 
 
 class UriPart(TypedDict):

@@ -21,6 +21,7 @@ from logfire import LogfireSpan
 
 from ...utils import handle_internal_errors, log_internal_error
 from .semconv import (
+    CACHE_READ_INPUT_TOKENS,
     INPUT_MESSAGES,
     OPERATION_NAME,
     OUTPUT_MESSAGES,
@@ -288,6 +289,8 @@ def _convert_content_part(part: object) -> MessagePart:
     part_type = part.get('type', 'unknown')
     if part_type in ('text', 'output_text', 'input_text'):
         return TextPart(type='text', content=part.get('text', ''))
+    elif part_type == 'refusal':
+        return TextPart(type='text', content=part.get('refusal', ''))
     elif part_type in ('image_url', 'input_image'):
         if uri := _media_part_uri(part, 'image_url'):
             return UriPart(type='uri', uri=uri, modality='image')
@@ -420,6 +423,21 @@ def convert_openai_response_to_semconv(
     return result
 
 
+def responses_finish_reasons(response: Any) -> list[str]:
+    """Derive `gen_ai.response.finish_reasons` from a Responses API response, which has no `finish_reason` field.
+
+    The values match the chat completions ones: `stop`, `tool_calls`, `length` and `content_filter`.
+    """
+    status = getattr(response, 'status', None)
+    if status == 'completed':
+        has_tool_call = any(getattr(out, 'type', None) == 'function_call' for out in response.output)
+        return ['tool_calls' if has_tool_call else 'stop']
+    if status == 'incomplete':
+        reason = getattr(getattr(response, 'incomplete_details', None), 'reason', None)
+        return ['length' if reason == 'max_output_tokens' else reason] if reason else []
+    return []
+
+
 def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
     """Convert Responses API outputs to OTel Gen AI Semantic Convention format."""
     output_messages: OutputMessages = []
@@ -543,6 +561,8 @@ class OpenaiResponsesStreamState(StreamState):
             response_model = getattr(response, 'model', None)
             if isinstance(response_model, str):
                 span_data[RESPONSE_MODEL] = response_model
+            if finish_reasons := responses_finish_reasons(response):
+                span_data[RESPONSE_FINISH_REASONS] = finish_reasons
             span_data.update(get_openai_usage_attributes(response, self.base_url))
         return span_data
 
@@ -629,9 +649,16 @@ def get_openai_usage_attributes(response: Any, base_url: str | None = None) -> d
         api_flavor = 'embeddings'
     else:
         api_flavor = 'chat'
-    return get_usage_attributes(
+    # Chat completions report cached prompt tokens under `prompt_tokens_details`, the Responses API
+    # under `input_tokens_details`.
+    details = getattr(usage, 'prompt_tokens_details', None) or getattr(usage, 'input_tokens_details', None)
+    result = get_usage_attributes(
         response, usage, input_tokens, output_tokens, provider_id='openai', api_flavor=api_flavor, provider_url=base_url
     )
+    cached = getattr(details, 'cached_tokens', None)
+    if isinstance(cached, int) and cached:
+        result[CACHE_READ_INPUT_TOKENS] = cached
+    return result
 
 
 @handle_internal_errors
@@ -707,6 +734,8 @@ def on_response(
         if 1 in versions:
             span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
+        if finish_reasons := responses_finish_reasons(response):
+            span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons)
         if 2 in versions:
             response_output_messages: OutputMessages = convert_responses_outputs_to_semconv(response)
             span.set_attribute(OUTPUT_MESSAGES, response_output_messages)

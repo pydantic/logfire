@@ -750,3 +750,20 @@ def test_range_formatting(formatter: Any, schema: JSONSchema, value: list[int], 
 def test_all_types_covered():
     types = set(DataType.__args__)
     assert types == set(json_args_value_formatter_compact._data_type_map.keys())  # type: ignore
+
+
+@pytest.mark.parametrize('formatter', [json_args_value_formatter, json_args_value_formatter_compact])
+@pytest.mark.parametrize(
+    'value,formatted',
+    [
+        (42, 'array(42)'),
+        (1.5, 'array(1.5)'),
+        (True, 'array(True)'),
+        (None, 'array(None)'),
+        ('hello', "array('hello')"),
+        ([1, 2], 'array([1, 2])'),
+    ],
+)
+def test_zero_dimensional_ndarray_formatting(formatter: Any, value: Any, formatted: str) -> None:
+    schema: JSONSchema = {'type': 'array', 'x-python-datatype': 'ndarray', 'x-shape': [], 'x-dtype': 'object'}
+    assert formatter(value, schema=schema) == formatted

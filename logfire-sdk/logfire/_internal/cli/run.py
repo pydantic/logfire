@@ -130,14 +130,15 @@ class InstrumentationContext:
 
 
 def parse_run(args: argparse.Namespace) -> None:
-    logfire.configure()
-
     summary = cast(bool, args.summary)
     exclude = cast(Collection[str], args.exclude)
 
-    ctx = collect_instrumentation_context(exclude)
-
-    instrumented_packages = instrument_packages(ctx.installed_otel_pkgs, ctx.instrument_pkg_map)
+    # `python -m logfire` puts the working directory on `sys.path`, so local files could shadow the installed
+    # packages that configuration and instrumentation import.
+    with without_working_directory_on_sys_path():
+        logfire.configure()
+        ctx = collect_instrumentation_context(exclude)
+        instrumented_packages = instrument_packages(ctx.installed_otel_pkgs, ctx.instrument_pkg_map)
 
     if summary:
         console = Console(file=sys.stderr)
@@ -268,7 +269,7 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
 
 def instrument_package(import_name: str, *args: str) -> None:
     instrument_attr = f'instrument_{import_name}'
-    if import_name in ('flask', 'starlette'):
+    if import_name in ('fastapi', 'flask', 'starlette'):
         # The public APIs require an app; the CLI must instrument apps created later.
         module = importlib.import_module(f'logfire._internal.integrations.{import_name}')
         getattr(module, instrument_attr)(logfire.DEFAULT_LOGFIRE_INSTANCE)
@@ -369,8 +370,8 @@ def instrumented_packages_text(
             if is_instrumented:
                 text.append(f'✓ {target_package} (installed and instrumented)\n', style='green')
             else:
-                # This is the case on OTel packages that don't have a Logfire method, methods that need the app
-                # like FastAPI, and client families unsupported by an older OTel package.
+                # This covers packages without a Logfire method and client families
+                # unsupported by an older OTel package.
                 text.append(f'⚠️ {target_package} (installed but not automatically instrumented)\n', style='yellow')
     return text
 

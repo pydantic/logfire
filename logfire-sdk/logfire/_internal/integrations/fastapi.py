@@ -2,20 +2,23 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Awaitable, Callable, Generator, Iterable
 from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime, timezone
 from functools import lru_cache, wraps
 from typing import Any
 from weakref import WeakKeyDictionary
 
+import fastapi
 import fastapi.routing
 from fastapi import BackgroundTasks, FastAPI
 from fastapi.routing import APIRoute, APIWebSocketRoute, Mount
 from fastapi.security import SecurityScopes
 from opentelemetry.trace import Span
+from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 from starlette.websockets import WebSocket
 
 from ..constants import ONE_SECOND_IN_NANOSECONDS
@@ -24,7 +27,7 @@ from ..stack_info import StackInfo, get_code_object_info
 from ..utils import handle_internal_errors, maybe_capture_server_headers
 
 try:
-    from opentelemetry.instrumentation.asgi import ServerRequestHook
+    from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware, ServerRequestHook
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
     from .asgi import tweak_asgi_spans_tracer_provider
@@ -50,7 +53,8 @@ def find_mounted_apps(app: FastAPI) -> list[FastAPI]:
 
 def instrument_fastapi(
     logfire_instance: Logfire,
-    app: FastAPI,
+    # Only the CLI omits app, before application code imports FastAPI.
+    app: FastAPI | None = None,
     *,
     capture_headers: bool = False,
     request_attributes_mapper: Callable[
@@ -70,33 +74,78 @@ def instrument_fastapi(
 
     See `Logfire.instrument_fastapi` for more details.
     """
-    # TODO(Marcelo): This needs to be tested.
-    if not isinstance(excluded_urls, (str, type(None))):  # pragma: no cover
+    # Prevent FastAPI from creating its own OTel spans for the same request, which would be confusing and redundant.
+    # We also set fastapi.telemetry in the request scope which mostly works and is more efficient than this,
+    # but it doesn't cover all cases.
+    logfire_instance.suppress_scopes('fastapi')
+
+    registry = patch_fastapi()
+    if registry.global_instrumentation is not None or (app is None and registry.per_app):
+        raise ValueError(
+            'Global FastAPI instrumentation cannot be combined with logfire.instrument_fastapi(app). '
+            'Run your application with `logfire run --exclude fastapi ...` to use app-specific instrumentation instead. '
+            'If you need both global and app-specific instrumentation, please open an issue at '
+            'https://github.com/pydantic/logfire/issues.'
+        )
+    if app is not None and app in registry.per_app:
+        raise ValueError('This app has already been instrumented.')
+
+    if not isinstance(excluded_urls, (str, type(None))):
         # FastAPIInstrumentor expects a comma-separated string, not a list.
         excluded_urls = ','.join(excluded_urls)
 
     maybe_capture_server_headers(capture_headers)
     opentelemetry_kwargs = {
+        'excluded_urls': excluded_urls,
+        'server_request_hook': _server_request_hook(opentelemetry_kwargs.pop('server_request_hook', None)),
         'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
         'meter_provider': logfire_instance.config.get_meter_provider(),
         **opentelemetry_kwargs,
     }
-    FastAPIInstrumentor.instrument_app(
-        app,
-        excluded_urls=excluded_urls,
-        server_request_hook=_server_request_hook(opentelemetry_kwargs.pop('server_request_hook', None)),
-        **opentelemetry_kwargs,
-    )
+    if app is None:
+        FastAPIInstrumentor().instrument(**opentelemetry_kwargs)
 
-    registry = patch_fastapi()
-    if app in registry:  # pragma: no cover
-        raise ValueError('This app has already been instrumented.')
+        class OncePerRequestFastAPI(fastapi.FastAPI):
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                super().__init__(*args, **kwargs)
+                instrumented_build_middleware_stack = self.build_middleware_stack
+
+                def build_middleware_stack() -> ASGIApp:
+                    stack = instrumented_build_middleware_stack()
+                    if (
+                        isinstance(stack, ServerErrorMiddleware)
+                        and isinstance(stack.app, OpenTelemetryMiddleware)
+                        and callable(getattr(stack.app, 'app', None))
+                    ):
+                        stack.app = OncePerRequest(stack.app)
+                    return stack
+
+                self.build_middleware_stack = build_middleware_stack
+
+        fastapi.FastAPI = OncePerRequestFastAPI
+        registry.global_instrumentation = FastAPIInstrumentation(
+            logfire_instance,
+            request_attributes_mapper or _default_request_attributes_mapper,
+            extra_spans=extra_spans,
+        )
+
+        @contextmanager
+        def uninstrument_global() -> Generator[None, None, None]:
+            try:
+                yield
+            finally:
+                registry.global_instrumentation = None
+                FastAPIInstrumentor().uninstrument()
+
+        return uninstrument_global()
+
+    FastAPIInstrumentor.instrument_app(app, **opentelemetry_kwargs)
 
     mounted_apps = find_mounted_apps(app)
     mounted_apps.append(app)
 
     for _app in mounted_apps:
-        registry[_app] = FastAPIInstrumentation(
+        registry.per_app[_app] = FastAPIInstrumentation(
             logfire_instance,
             request_attributes_mapper or _default_request_attributes_mapper,
             extra_spans=extra_spans,
@@ -111,23 +160,59 @@ def instrument_fastapi(
             yield
         finally:
             for _app in mounted_apps:
-                del registry[_app]
+                registry.per_app.pop(_app, None)
                 FastAPIInstrumentor.uninstrument_app(_app)
 
     return uninstrument_context()
 
 
+class OncePerRequest:
+    """Run only the outermost FastAPI OpenTelemetry middleware for each ASGI request.
+
+    This way mounted apps don't start duplicate spans for the same request,
+    and they don't trace requests that were excluded by their outer app.
+    """
+
+    def __init__(self, app: OpenTelemetryMiddleware) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope.get('logfire.fastapi.once_per_request'):
+            # The outer app already started the request span. Skip this app's OTel
+            # middleware, but still run its error handling, routing, and endpoint.
+            await self.app.app(scope, receive, send)  # pyright: ignore[reportUnknownMemberType]
+        else:
+            # Claim the request before OpenTelemetry checks excluded URLs. A nested
+            # app must not trace a request excluded by its outer app.
+            scope['logfire.fastapi.once_per_request'] = True
+            await self.app(scope, receive, send)
+
+
+@dataclasses.dataclass
+class _FastAPIRegistry:
+    """Track Logfire instrumentation settings for FastAPI apps."""
+
+    global_instrumentation: FastAPIInstrumentation | None = None
+    per_app: WeakKeyDictionary[FastAPI, FastAPIInstrumentation] = dataclasses.field(
+        default_factory=lambda: WeakKeyDictionary[FastAPI, FastAPIInstrumentation]()
+    )
+
+    def get_instrumentation(self, app: FastAPI) -> FastAPIInstrumentation | None:
+        """Get the instrumentation for a specific app, or the global instrumentation if none is set."""
+        return self.per_app.get(app) or self.global_instrumentation
+
+
 @lru_cache  # only patch once
-def patch_fastapi():
-    """Globally monkeypatch fastapi functions and return a dictionary for recording instrumentation config per app."""
-    registry: WeakKeyDictionary[FastAPI, FastAPIInstrumentation] = WeakKeyDictionary()
+def patch_fastapi() -> _FastAPIRegistry:
+    """Globally monkeypatch fastapi functions and return their instrumentation registry."""
+    registry = _FastAPIRegistry()
 
     original_solve_dependencies = fastapi.routing.solve_dependencies  # pyright: ignore[reportPrivateImportUsage]
 
     @wraps(original_solve_dependencies)
     async def patched_solve_dependencies(*, request: Request | WebSocket, **kwargs: Any) -> Any:
         original = original_solve_dependencies(request=request, **kwargs)
-        if instrumentation := registry.get(request.app):
+        if instrumentation := registry.get_instrumentation(request.app):
             return await instrumentation.solve_dependencies(request, original)
         else:
             return await original  # pragma: no cover
@@ -144,7 +229,7 @@ def patch_fastapi():
     async def patched_run_endpoint_function(*, dependant: Any, values: dict[str, Any], **kwargs: Any) -> Any:
         if isinstance(values, _InstrumentedValues):
             request = values.request
-            if instrumentation := registry.get(request.app):  # pragma: no branch
+            if instrumentation := registry.get_instrumentation(request.app):  # pragma: no branch
                 return await instrumentation.run_endpoint_function(
                     original_run_endpoint_function, request, dependant, values, **kwargs
                 )
