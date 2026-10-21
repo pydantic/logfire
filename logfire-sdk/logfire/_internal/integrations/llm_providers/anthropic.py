@@ -350,6 +350,8 @@ def get_anthropic_usage_attributes(response: Any, base_url: str | None = None) -
         output_tokens,
         provider_id='anthropic',
         provider_url=base_url,
+        cache_read_tokens=cache_read_tokens,
+        cache_write_tokens=cache_write_tokens,
     )
 
 
