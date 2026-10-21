@@ -5260,7 +5260,7 @@ def test_cached_prompt_tokens_recorded(exporter: TestExporter) -> None:
             'prompt_tokens_details': {'cached_tokens': 80},
         },
     }
-    responses_body = {
+    responses_body: dict[str, Any] = {
         'id': 'resp_1',
         'object': 'response',
         'created_at': 0,
