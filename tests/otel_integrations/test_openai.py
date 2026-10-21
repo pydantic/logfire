@@ -4531,6 +4531,46 @@ def test_convert_openai_response_refusal() -> None:
     )
 
 
+def test_convert_openai_response_audio_transcript() -> None:
+    """An audio response has no content, so its transcript is recorded as a text part."""
+    from openai.types.chat.chat_completion_audio import ChatCompletionAudio
+
+    from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
+
+    message = chat_completion_message.ChatCompletionMessage(
+        role='assistant',
+        content=None,
+        audio=ChatCompletionAudio(id='audio_1', data='UklGRg==', expires_at=1, transcript='Hello there.'),
+    )
+    assert convert_openai_response_to_semconv(message, 'stop') == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [{'type': 'text', 'content': 'Hello there.'}],
+            'finish_reason': 'stop',
+        }
+    )
+
+
+def test_convert_openai_response_legacy_function_call() -> None:
+    """The legacy `function_call` field is recorded as a tool call."""
+    from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
+
+    message = chat_completion_message.ChatCompletionMessage(
+        role='assistant',
+        content=None,
+        function_call=chat_completion_message.FunctionCall(name='get_weather', arguments='{"city": "Lima"}'),
+    )
+    assert convert_openai_response_to_semconv(message, 'function_call') == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'tool_call', 'id': '', 'name': 'get_weather', 'arguments': {'city': 'Lima'}},
+            ],
+            'finish_reason': 'function_call',
+        }
+    )
+
+
 def test_chat_completion_stream_state_refusal() -> None:
     """A streamed refusal ends up in the output messages."""
     from logfire._internal.integrations.llm_providers.openai import OpenaiChatCompletionStreamState
