@@ -103,6 +103,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument('--installer', choices=('pip', 'uv'), required=True)
     parser.add_argument('--from-version', required=True)
+    parser.add_argument('--from-state', choices=('legacy', 'beta'), default='legacy')
     parser.add_argument('--dist', type=Path, required=True)
     return parser.parse_args()
 
@@ -139,20 +140,22 @@ def main() -> None:
             run([str(python), str(smoke_test), state, version], cwd=work_dir, env=env)
             installer.check()
 
-        installer.install(f'logfire=={args.from_version}')
-        assert_state('legacy', args.from_version)
+        source_package = 'logfire[sqlite3]' if args.from_state == 'beta' else 'logfire'
+        installer.install(f'{source_package}=={args.from_version}')
+        assert_state(args.from_state, args.from_version)
         run([str(cli), '--version'], cwd=work_dir, env=env)
 
         # Installing through an extra-bearing direct URL exercises both local
         # wheel resolution and the meta-package's forwarding of SDK extras.
         installer.install(f'logfire[sqlite3] @ {meta_wheel.as_uri()}', upgrade=True)
-        assert_state('split', target_version)
+        upgraded_state = 'split-with-cli' if args.from_state == 'beta' else 'split'
+        assert_state(upgraded_state, target_version)
         run([str(cli), '--version'], cwd=work_dir, env=env)
 
         # Reinstalling both wheels catches RECORD/file-ownership regressions that
         # are hidden by a one-way upgrade test.
         installer.install(str(sdk_wheel), str(meta_wheel), force=True, no_deps=True)
-        assert_state('split', target_version)
+        assert_state(upgraded_state, target_version)
         run([str(cli), '--version'], cwd=work_dir, env=env)
 
         # The standalone CLI remains available when explicitly installed, without

@@ -33,7 +33,7 @@ def assert_legacy(expected_version: str) -> None:
     assert console_scripts('logfire-cli') == set()
 
 
-def assert_sdk(expected_version: str, *, meta: bool, cli: bool) -> None:
+def assert_sdk(expected_version: str, *, meta: bool, cli: bool, native_cli: bool = False) -> None:
     """Check the split SDK's behavior and ownership in the requested state."""
     import logfire
 
@@ -43,7 +43,8 @@ def assert_sdk(expected_version: str, *, meta: bool, cli: bool) -> None:
     assert (distribution_version('logfire-cli') is not None) is cli
     assert distribution_version('opentelemetry-instrumentation-sqlite3') is not None
     # The `logfire` meta-package owns the `logfire` command and logfire-cli owns only `logfire-cli`.
-    assert console_scripts('logfire') == ({'logfire.cli:main'} if meta else set())
+    logfire_target = 'logfire_cli:main' if native_cli else 'logfire.cli:main'
+    assert console_scripts('logfire') == ({logfire_target} if meta else set())
     assert console_scripts('logfire-cli') == ({'logfire_cli:main'} if cli else set())
 
     if meta:
@@ -77,6 +78,8 @@ def main() -> None:
     state, expected_version = sys.argv[1:]
     if state == 'legacy':
         assert_legacy(expected_version)
+    elif state == 'beta':
+        assert_sdk(expected_version, meta=True, cli=True, native_cli=True)
     elif state == 'split':
         assert_sdk(expected_version, meta=True, cli=False)
     elif state == 'split-with-cli':
