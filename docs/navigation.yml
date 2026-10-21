@@ -423,6 +423,9 @@ navigation:
           - page: "Instructor"
             path: "integrations/llms/instructor.md"
             slug: "integrations/llms/instructor"
+          - page: "Pixeltable"
+            path: "integrations/llms/pixeltable.md"
+            slug: "integrations/llms/pixeltable"
       - section: "Agent frameworks"
         contents:
           - page: "Overview"
