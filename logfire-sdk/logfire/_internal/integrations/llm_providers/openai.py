@@ -423,6 +423,21 @@ def convert_openai_response_to_semconv(
     return result
 
 
+def responses_finish_reasons(response: Any) -> list[str]:
+    """Derive `gen_ai.response.finish_reasons` from a Responses API response, which has no `finish_reason` field.
+
+    The values match the chat completions ones: `stop`, `tool_calls`, `length` and `content_filter`.
+    """
+    status = getattr(response, 'status', None)
+    if status == 'completed':
+        has_tool_call = any(getattr(out, 'type', None) == 'function_call' for out in response.output)
+        return ['tool_calls' if has_tool_call else 'stop']
+    if status == 'incomplete':
+        reason = getattr(getattr(response, 'incomplete_details', None), 'reason', None)
+        return ['length' if reason == 'max_output_tokens' else reason] if reason else []
+    return []
+
+
 def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
     """Convert Responses API outputs to OTel Gen AI Semantic Convention format."""
     output_messages: OutputMessages = []
@@ -546,6 +561,8 @@ class OpenaiResponsesStreamState(StreamState):
             response_model = getattr(response, 'model', None)
             if isinstance(response_model, str):
                 span_data[RESPONSE_MODEL] = response_model
+            if finish_reasons := responses_finish_reasons(response):
+                span_data[RESPONSE_FINISH_REASONS] = finish_reasons
             span_data.update(get_openai_usage_attributes(response, self.base_url))
         return span_data
 
@@ -717,6 +734,8 @@ def on_response(
         if 1 in versions:
             span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
+        if finish_reasons := responses_finish_reasons(response):
+            span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons)
         if 2 in versions:
             response_output_messages: OutputMessages = convert_responses_outputs_to_semconv(response)
             span.set_attribute(OUTPUT_MESSAGES, response_output_messages)
