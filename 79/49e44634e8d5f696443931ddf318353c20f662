@@ -1,0 +1,21 @@
+.github/workflows/check_changelog.yml
+  s_4a503ca9a590ac::t_666a8c9a70189c 52-53,56-57
+tests/test_check_changelog_workflow.py
+  s_4a503ca9a590ac::t_53cd206665c431 1-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7949e44634e8d5f696443931ddf318353c20f662",
+  "prompts": {},
+  "sessions": {
+    "s_4a503ca9a590ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15ed6-98c3-76d1-ad13-de591eabe5d1",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
