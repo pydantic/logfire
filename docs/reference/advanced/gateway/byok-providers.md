@@ -43,6 +43,7 @@ On **Providers**, confirm the new provider is active. On **Endpoints → your en
 - If the connection test fails, recheck the provider type, base URL, credential permissions, and the provider's own model-listing API. A credential can be valid but lack permission to list models. If you changed the base URL in **Advanced options**, run the check again.
 - If the test passes but inference fails, check the model identifier, upstream account quota, and the provider's error. **Test & continue** is not an inference test.
 - If **Connect** says the endpoint has no active providers, confirm that the provider is active on **Providers** and **Available for routing** on the endpoint's **Routing** tab.
-- If a model is unavailable because pricing is required, see [first-request troubleshooting](first-request.md#troubleshooting).
+- If a model is unavailable because pricing is required, [set a custom price](model-access.md#set-custom-prices-on-a-byok-provider) for it, or see [first-request troubleshooting](first-request.md#troubleshooting).
+- If a model is rejected with `403`, check its access setting on the provider's [**Models** tab](model-access.md).
 
 For one stable URL across multiple providers, [configure an endpoint](endpoints.md).
