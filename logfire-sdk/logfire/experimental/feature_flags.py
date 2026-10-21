@@ -18,7 +18,7 @@ from logfire.variables import ensure_variables_dependencies
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
-    from logfire import Logfire
+    from logfire import Logfire, LogfireSpan
 
     InferableFlagValue = bool | str | int | float | Enum | BaseModel
 else:
@@ -93,6 +93,8 @@ class _FlagAdapter(Protocol[T]):
     ) -> FlagEvaluationDetails[T]: ...  # pragma: no cover
 
     def override_for_testing(self, value: T) -> AbstractContextManager[None]: ...  # pragma: no cover
+
+    def _emit_declaration_once(self, resolution_span: LogfireSpan) -> None: ...  # pragma: no cover
 
 
 class Flag(Generic[T]):

@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+import json
+import os
+import threading
+from collections.abc import Callable, Mapping, Sequence
+from contextlib import ExitStack
 from enum import Enum
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
@@ -18,7 +22,8 @@ from logfire.variables import ensure_variables_dependencies
 
 try:
     from openfeature.evaluation_context import EvaluationContext
-    from openfeature.exception import ErrorCode
+    from openfeature.event import ProviderEventDetails
+    from openfeature.exception import ErrorCode, GeneralError, ProviderFatalError, ProviderNotReadyError
     from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
     from openfeature.provider import AbstractProvider, Metadata
 except ModuleNotFoundError as e:  # pragma: no cover
@@ -32,6 +37,7 @@ except ModuleNotFoundError as e:  # pragma: no cover
 
 if TYPE_CHECKING:
     from logfire import Logfire
+    from logfire.variables.abstract import VariableProvider, VariableProviderEvaluationState
 
 __all__ = ('LogfireProvider',)
 
@@ -74,6 +80,77 @@ class LogfireProvider(AbstractProvider):
 
             logfire_instance = DEFAULT_LOGFIRE_INSTANCE
         self._logfire = logfire_instance
+        self._state_lock = threading.RLock()
+        self._pid = os.getpid()
+        self._unsubscribe: Callable[[], None] | None = None
+        self._provider: VariableProvider | None = None
+        self._last_state: VariableProviderEvaluationState | None = None
+        self._last_configuration: object | None = None
+
+    def initialize(self, evaluation_context: EvaluationContext) -> None:
+        """Load initial configuration and observe the shared provider without owning it."""
+        self.shutdown()
+        provider = self._logfire.config.get_variable_provider()
+        self._provider = provider
+        self._unsubscribe = provider._subscribe_evaluation_state(self._state_changed)  # pyright: ignore[reportPrivateUsage]
+        self._last_state = provider.get_evaluation_state()
+        self._last_configuration = provider.get_all_variables_config()
+        if self._last_state != 'ready':
+            provider.refresh(force=True)
+        state = provider.get_evaluation_state()
+        if state == 'not_ready':
+            raise ProviderNotReadyError('Logfire has not loaded feature flag configuration.')
+        if state in ('error', 'stale'):
+            raise GeneralError('Logfire could not load fresh feature flag configuration.')
+        if state == 'fatal':
+            raise ProviderFatalError('The Logfire feature flag provider is unavailable.')
+
+    def shutdown(self) -> None:
+        """Unsubscribe without stopping resources also used by native Logfire flags."""
+        # OpenFeature may replace or re-register this adapter. Only Logfire owns the underlying
+        # provider, its polling thread, and its streaming connection.
+        self._reset_state_lock_after_fork()
+        with self._state_lock:
+            unsubscribe, self._unsubscribe = self._unsubscribe, None
+            self._provider = None
+            self._last_state = None
+            self._last_configuration = None
+        if unsubscribe is not None:
+            unsubscribe()
+
+    def _reset_state_lock_after_fork(self) -> None:
+        pid = os.getpid()
+        if self._pid != pid:
+            self._state_lock = threading.RLock()
+            self._pid = pid
+
+    def _state_changed(self, state: VariableProviderEvaluationState) -> None:
+        self._reset_state_lock_after_fork()
+        with self._state_lock:
+            if self._provider is None:
+                return
+            # Notifications can race or be re-entrant. Read current health rather than publishing
+            # an older notification over a newer refresh or shutdown result.
+            state = self._provider.get_evaluation_state()
+            configuration = self._provider.get_all_variables_config()
+            if state == self._last_state:
+                if state == 'ready' and configuration is not self._last_configuration:
+                    self._last_configuration = configuration
+                    self.emit_provider_configuration_changed(ProviderEventDetails())
+                return
+            self._last_state = state
+            self._last_configuration = configuration
+            if state == 'ready':
+                self.emit_provider_ready(ProviderEventDetails())
+            elif state == 'stale':
+                self.emit_provider_stale(ProviderEventDetails())
+            else:
+                error = {'not_ready': ErrorCode.PROVIDER_NOT_READY, 'fatal': ErrorCode.PROVIDER_FATAL}.get(
+                    state, ErrorCode.GENERAL
+                )
+                self.emit_provider_error(
+                    ProviderEventDetails(error_code=error, message='Logfire configuration is unavailable.')
+                )
 
     def get_metadata(self) -> Metadata:
         """Return the provider metadata exposed through OpenFeature."""
@@ -83,25 +160,25 @@ class LogfireProvider(AbstractProvider):
         self, flag_key: str, default_value: bool, evaluation_context: EvaluationContext | None = None
     ) -> FlagResolutionDetails[bool]:
         """Resolve a boolean flag."""
-        return self._resolve(flag_key, default_value, bool, evaluation_context)
+        return self._evaluate(flag_key, default_value, bool, evaluation_context)
 
     def resolve_string_details(
         self, flag_key: str, default_value: str, evaluation_context: EvaluationContext | None = None
     ) -> FlagResolutionDetails[str]:
         """Resolve a string flag."""
-        return self._resolve(flag_key, default_value, str, evaluation_context)
+        return self._evaluate(flag_key, default_value, str, evaluation_context)
 
     def resolve_integer_details(
         self, flag_key: str, default_value: int, evaluation_context: EvaluationContext | None = None
     ) -> FlagResolutionDetails[int]:
         """Resolve an integer flag."""
-        return self._resolve(flag_key, default_value, int, evaluation_context)
+        return self._evaluate(flag_key, default_value, int, evaluation_context)
 
     def resolve_float_details(
         self, flag_key: str, default_value: float, evaluation_context: EvaluationContext | None = None
     ) -> FlagResolutionDetails[float]:
         """Resolve a floating-point flag."""
-        return self._resolve(flag_key, default_value, float, evaluation_context)
+        return self._evaluate(flag_key, default_value, float, evaluation_context)
 
     def resolve_object_details(
         self,
@@ -110,6 +187,49 @@ class LogfireProvider(AbstractProvider):
         evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[Sequence[FlagValueType] | Mapping[str, FlagValueType]]:
         """Resolve an object flag as JSON-compatible data."""
+        return self._evaluate(flag_key, default_value, None, evaluation_context)
+
+    def _evaluate(
+        self, flag_key: str, default_value: T, expected_type: type[Any] | None, context: EvaluationContext | None
+    ) -> FlagResolutionDetails[T]:
+        # The bridge owns this span: native resolution happens before OpenFeature applies its
+        # caller default and serializes the result. Recording there would report the wrong value.
+        from logfire.variables.variable import (
+            _SUPPRESS_FEATURE_FLAG_TELEMETRY,  # pyright: ignore[reportPrivateUsage]
+            _get_variables_instrument,  # pyright: ignore[reportPrivateUsage]
+            _scrub_feature_flag_result,  # pyright: ignore[reportPrivateUsage]
+        )
+
+        with ExitStack() as stack:
+            span = None
+            adapter = self._get_adapter(flag_key)
+            if _get_variables_instrument(self._logfire.config.variables):
+                span = stack.enter_context(self._logfire.span('feature_flag.evaluation', name=flag_key))
+                if adapter is not None:
+                    adapter._emit_declaration_once(span)  # pyright: ignore[reportPrivateUsage]
+            token = _SUPPRESS_FEATURE_FLAG_TELEMETRY.set(_SUPPRESS_FEATURE_FLAG_TELEMETRY.get() | {adapter})
+            try:
+                if expected_type is None:
+                    result = cast(FlagResolutionDetails[T], self._resolve_object(flag_key, default_value, context))
+                else:
+                    result = self._resolve(flag_key, default_value, expected_type, context)
+            except Exception:
+                result = FlagResolutionDetails(
+                    value=default_value,
+                    reason=Reason.ERROR,
+                    error_code=ErrorCode.GENERAL,
+                    error_message='Feature flag evaluation failed.',
+                )
+            finally:
+                _SUPPRESS_FEATURE_FLAG_TELEMETRY.reset(token)
+            if span is not None:
+                telemetry = _evaluation_telemetry(flag_key, result)
+                span.set_attributes(_scrub_feature_flag_result(telemetry, flag_key, result.value, self._logfire))
+            return result
+
+    def _resolve_object(
+        self, flag_key: str, default_value: Any, evaluation_context: EvaluationContext | None
+    ) -> FlagResolutionDetails[Any]:
         adapter = self._get_adapter(flag_key)
         if adapter is None:
             return _flag_not_found(flag_key, default_value)
@@ -193,6 +313,31 @@ class LogfireProvider(AbstractProvider):
                 error_message='Feature flag evaluation failed.',
             )
         return _to_openfeature_details(details, default_value)
+
+
+def _evaluation_telemetry(flag_key: str, result: FlagResolutionDetails[Any]) -> dict[str, Any]:
+    """Describe the final, JSON-compatible outcome seen by an OpenFeature caller."""
+    telemetry: dict[str, Any] = {
+        'feature_flag.key': flag_key,
+        'feature_flag.provider.name': 'logfire',
+        'feature_flag.result.reason': (result.reason or Reason.UNKNOWN).lower(),
+    }
+    try:
+        value = result.value
+        telemetry['feature_flag.result.value'] = (
+            value if isinstance(value, (bool, str, int, float)) else json.dumps(value, separators=(',', ':'))
+        )
+    except (ValueError, TypeError, RuntimeError):
+        telemetry['logfire.feature_flag.result.value_status'] = 'serialization_error'
+    if result.error_code is not None:
+        telemetry['error.type'] = result.error_code.value.lower()
+        telemetry['feature_flag.error.message'] = result.error_message
+    else:
+        if result.variant is not None:
+            telemetry['feature_flag.result.variant'] = result.variant
+        if result.flag_metadata and (version := result.flag_metadata.get('logfire.value_version')) is not None:
+            telemetry['logfire.feature_flag.value_version'] = version
+    return telemetry
 
 
 def _to_openfeature_details(details: FlagEvaluationDetails[Any], default_value: T) -> FlagResolutionDetails[T]:

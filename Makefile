@@ -34,7 +34,7 @@ test:
 
 .PHONY: test-feature-flags  # Run the deterministic feature-flag reliability suite
 test-feature-flags:
-	uv run --no-sync pytest tests/test_feature_flags.py tests/test_variables.py -k 'flag or requires_targeting_key or VarDuplicateName or VarInvalidName'
+	uv run --no-sync pytest tests/test_feature_flags.py tests/test_variables.py -k 'flag or openfeature or remote_health or requires_targeting_key or VarDuplicateName or VarInvalidName'
 
 .PHONY: test-feature-flags-mutation  # Mutate the feature-flag decision and context boundaries
 test-feature-flags-mutation:
@@ -50,6 +50,8 @@ test-feature-flags-mutation:
 		'*_is_exclusively_openfeature_scalar_schema*' \
 		'*_unwrap_transparent_schema*' \
 		'*_to_openfeature_details*' \
+		'*_evaluation_telemetry*' \
+		'*_scrub_feature_flag_result*' \
 		'*_feature_flag_evaluation_details*' \
 		'*_feature_flag_telemetry_attributes*' \
 		'*_ManagedVariableFlagAdapter*resolution_telemetry_attributes*' \
@@ -58,7 +60,7 @@ test-feature-flags-mutation:
 		'*_ManagedVariableFlagAdapter*_result_for_provider_state*' \
 		'*feature_context*'; \
 	results="$$(uv run --no-sync mutmut results)"; \
-	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|VariablesConfig.*resolve_serialized_value|FeatureFlag|_matches_openfeature_scalar_type|_is_exclusively_openfeature_scalar_schema|_unwrap_transparent_schema|_to_openfeature_details|_feature_flag_(evaluation_details|telemetry_attributes)|_ManagedVariableFlagAdapter.*(resolution_telemetry_attributes|_get_provider_evaluation_state|_finalize_resolution_result|_result_for_provider_state)|feature_context' || true)"; \
+	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|VariablesConfig.*resolve_serialized_value|FeatureFlag|_matches_openfeature_scalar_type|_is_exclusively_openfeature_scalar_schema|_unwrap_transparent_schema|_to_openfeature_details|_evaluation_telemetry|_scrub_feature_flag_result|_feature_flag_(evaluation_details|telemetry_attributes)|_ManagedVariableFlagAdapter.*(resolution_telemetry_attributes|_get_provider_evaluation_state|_finalize_resolution_result|_result_for_provider_state)|feature_context' || true)"; \
 	if [ -n "$$target_results" ]; then \
 		printf '%s\n' "$$target_results"; \
 		echo 'Feature-flag mutation testing left non-killed mutants'; \

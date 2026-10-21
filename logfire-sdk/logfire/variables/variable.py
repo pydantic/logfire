@@ -99,6 +99,9 @@ class _TargetingContextData:
 
 _TARGETING_CONTEXT: ContextVar[_TargetingContextData | None] = ContextVar('_TARGETING_CONTEXT', default=None)
 _FEATURE_TARGETING_KEY: ContextVar[str | None] = ContextVar('_FEATURE_TARGETING_KEY', default=None)
+_SUPPRESS_FEATURE_FLAG_TELEMETRY: ContextVar[frozenset[object]] = ContextVar(
+    '_SUPPRESS_FEATURE_FLAG_TELEMETRY', default=frozenset()
+)
 
 
 class ResolveFunction(Protocol[T_co]):
@@ -322,6 +325,22 @@ def _scrubbed_value_changed(before: Any, after: Any) -> bool:
             for before_item, after_item in zip(before_sequence, after_sequence)
         )
     return before != after
+
+
+def _scrub_feature_flag_result(
+    telemetry: dict[str, Any], name: str, value: Any, logfire_instance: logfire.Logfire
+) -> dict[str, Any]:
+    """Apply the same fail-closed value policy to native and OpenFeature outcomes."""
+    scrub_key = f'logfire.feature_flag.result.{name}'
+    try:
+        scrubbed, notes = logfire_instance.config.scrubber.scrub_value(('attributes',), {scrub_key: value})
+        changed = bool(notes) or _scrubbed_value_changed(value, scrubbed[scrub_key])
+    except Exception:
+        changed = True
+    if changed:
+        telemetry.pop('feature_flag.result.value', None)
+        telemetry['logfire.feature_flag.result.value_status'] = 'scrubbed'
+    return telemetry
 
 
 # Stage of the resolution pipeline that a `_ResolveAttempt` failed at. Drives both
@@ -576,8 +595,7 @@ class _FlagEvaluationCore(Generic[T_co]):
             raise
         except Exception as e:
             if span and serialized_result is not None:  # pragma: no cover
-                span.set_attribute('invalid_serialized_label', serialized_result.label)
-                span.set_attribute('invalid_serialized_value', serialized_result.value)
+                self._record_invalid_value(span, serialized_result.label, serialized_result.value)
             try:
                 default = self._get_default_cached(targeting_key, attributes)
             except Exception as default_exc:
@@ -794,8 +812,7 @@ class _FlagEvaluationCore(Generic[T_co]):
         value_or_exc = self._deserialize(serialized_value)
         if isinstance(value_or_exc, Exception):
             if span:  # pragma: no branch
-                span.set_attribute('invalid_serialized_label', serialized_result.label)
-                span.set_attribute('invalid_serialized_value', serialized_value)
+                self._record_invalid_value(span, serialized_result.label, serialized_value)
             return _ResolveAttempt(ok=False, exception=value_or_exc, stage='validation')
 
         return _ResolveAttempt(
@@ -916,6 +933,11 @@ class _FlagEvaluationCore(Generic[T_co]):
     def _fallback_reason(stage: _FailureStage) -> ResolutionReason:
         """Map a failing pipeline stage to the resolution reason for the fallback."""
         return 'validation_error' if stage == 'validation' else 'other_error'
+
+    def _record_invalid_value(self, span: logfire.LogfireSpan, label: str | None, value: str | None) -> None:
+        """Preserve the legacy managed-variable diagnostics."""
+        span.set_attribute('invalid_serialized_label', label)
+        span.set_attribute('invalid_serialized_value', value)
 
     def _warn_fallback(self, stage: _FailureStage, exception: Exception, *, code_default: bool = False) -> None:
         """Warn that resolution fell back after a failure at *stage*.
@@ -1201,7 +1223,9 @@ class _FlagEvaluationCore(Generic[T_co]):
         span_name = 'feature_flag.evaluation' if self.kind == 'feature_flag' else f'Resolve variable {self.name}'
         with ExitStack() as stack:
             span: logfire.LogfireSpan | None = None
-            if _get_variables_instrument(self.logfire_instance.config.variables):
+            if _get_variables_instrument(self.logfire_instance.config.variables) and not (
+                self.kind == 'feature_flag' and self in _SUPPRESS_FEATURE_FLAG_TELEMETRY.get()
+            ):
                 span_context = self._telemetry_context(targeting_key, merged_attributes)
                 span = stack.enter_context(
                     self.logfire_instance.span(
@@ -1310,6 +1334,17 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
     """Native feature-flag adapter backed by the shared typed evaluation core."""
 
     kind = 'feature_flag'
+
+    def _record_invalid_value(self, span: logfire.LogfireSpan, label: str | None, value: str | None) -> None:
+        # Rejected configuration can contain secrets too. Only record the safe error classification,
+        # never the raw input or its label through the legacy diagnostic path.
+        pass
+
+    def _warn_fallback(self, stage: _FailureStage, exception: Exception, *, code_default: bool = False) -> None:
+        # Validators and serializers are user code; even exception text can contain rejected
+        # credentials. Keep actionable classification without including inputs or exceptions.
+        stage_description = 'value failed validation' if stage == 'validation' else f'{stage} failed'
+        _emit_resolution_warning(f"Feature flag '{self.name}' {stage_description}; falling back to code default.")
 
     def _uses_trace_id_as_targeting_key(self) -> bool:
         # Inbound trace IDs can be controlled by callers and must not influence feature assignment.
@@ -1448,20 +1483,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
             telemetry.pop('feature_flag.result.value')
             telemetry['logfire.feature_flag.result.value_status'] = 'serialization_error'
             return telemetry
-        scrub_key = f'logfire.feature_flag.result.{self.name}'
-        try:
-            scrubbed, scrubbed_notes = self.logfire_instance.config.scrubber.scrub_value(
-                ('attributes',), {scrub_key: value}
-            )
-            was_scrubbed = bool(scrubbed_notes) or _scrubbed_value_changed(value, scrubbed[scrub_key])
-        except Exception:
-            # Scrubbing is best-effort telemetry processing and must not break a successful
-            # evaluation. Fail closed so an unreliable callback cannot leak the unchecked value.
-            was_scrubbed = True
-        if was_scrubbed:
-            telemetry.pop('feature_flag.result.value')
-            telemetry['logfire.feature_flag.result.value_status'] = 'scrubbed'
-        return telemetry
+        return _scrub_feature_flag_result(telemetry, self.name, value, self.logfire_instance)
 
     def evaluate_flag(
         self,

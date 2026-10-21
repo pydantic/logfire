@@ -9,7 +9,7 @@ import threading
 import time
 import warnings
 import weakref
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
@@ -114,6 +114,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._evaluation_state: VariableProviderEvaluationState = 'not_ready'
         self._shutdown_timeout_exceeded = False
         self._lifecycle_lock = threading.Lock()
+        self._evaluation_state_listeners: set[Callable[[VariableProviderEvaluationState], None]] = set()
+        self._notified_evaluation_state: tuple[VariableProviderEvaluationState, VariablesConfig | None] | None = None
         self._shutdown_complete = threading.Event()
         self._refresh_lock = threading.Lock()
         self._worker_awaken = threading.Event()
@@ -199,6 +201,13 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._pid = os.getpid()
 
     def start(self, logfire_instance: logfire.Logfire | None) -> None:
+        """Start background polling, using the given Logfire instance to report errors."""
+        try:
+            self._start(logfire_instance)
+        finally:
+            self._notify_evaluation_state()
+
+    def _start(self, logfire_instance: logfire.Logfire | None) -> None:
         """Start background polling with the given logfire instance for error logging.
 
         Args:
@@ -488,6 +497,15 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 self._followup_refresh_at = None
 
     def refresh(self, force: bool = False):
+        """Fetch configuration if needed; force bypasses the polling interval."""
+        try:
+            self._refresh(force)
+        finally:
+            # User/OpenFeature callbacks may evaluate a flag or refresh again. Never invoke
+            # them while holding the refresh, HTTP session, or lifecycle locks.
+            self._notify_evaluation_state()
+
+    def _refresh(self, force: bool = False):
         """Fetch the latest variable configuration from the remote API.
 
         Args:
@@ -502,6 +520,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
         #  to reduce the amount of overhead from polling. We could also use a websocket/SSE to get real time updates
         #  when the user makes changes.
         with self._refresh_lock:  # Make at most one request at a time
+            if self._shutdown:
+                return
             if (
                 not force
                 and self._last_fetched_at is not None
@@ -569,7 +589,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 # Always overwrite (including clearing to None) so a server that stops
                 # sending ETags doesn't leave a stale validator that causes spurious 304s.
                 self._etag = variables_response.headers.get('ETag')
-                self._config = new_config
+                # Preserve snapshot identity for identical 200 responses as well as 304s. Event
+                # consumers should not treat a routine unchanged poll as a configuration change.
+                if new_config != self._config:
+                    self._config = new_config
                 self._last_fetched_at = datetime.now(tz=timezone.utc)
                 self._set_evaluation_state_unless_shutdown('ready')
             except ValidationError as e:
@@ -629,6 +652,13 @@ class LogfireRemoteVariableProvider(VariableProvider):
         return super().get_serialized_value_for_label(variable_name, label)
 
     def shutdown(self, timeout_millis: float = 5000):
+        """Stop background work and clean up within the timeout budget in milliseconds."""
+        try:
+            self._shutdown_provider(timeout_millis)
+        finally:
+            self._notify_evaluation_state()
+
+    def _shutdown_provider(self, timeout_millis: float = 5000):
         """Stop the background polling thread and clean up resources.
 
         Args:
@@ -754,6 +784,32 @@ class LogfireRemoteVariableProvider(VariableProvider):
     def get_evaluation_state(self) -> VariableProviderEvaluationState:
         """Return a non-blocking snapshot of remote configuration health."""
         return self._evaluation_state
+
+    def _subscribe_evaluation_state(
+        self, callback: Callable[[VariableProviderEvaluationState], None]
+    ) -> Callable[[], None]:
+        with self._lifecycle_lock:
+            self._evaluation_state_listeners.add(callback)
+
+        def unsubscribe() -> None:
+            with self._lifecycle_lock:
+                self._evaluation_state_listeners.discard(callback)
+
+        return unsubscribe
+
+    def _notify_evaluation_state(self) -> None:
+        with self._lifecycle_lock:
+            state = self._evaluation_state
+            previous = self._notified_evaluation_state
+            if previous is not None and previous[0] == state and previous[1] is self._config:
+                return
+            # Commit before callbacks: a subscriber can refresh again without recursively
+            # publishing the same snapshot until the interpreter's recursion limit is reached.
+            self._notified_evaluation_state = state, self._config
+            listeners = tuple(self._evaluation_state_listeners)
+        for callback in listeners:
+            with suppress(Exception):
+                callback(state)
 
     def get_variable_config(self, name: str) -> VariableConfig | None:
         """Retrieve the full configuration for a variable from the cached config.

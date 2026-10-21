@@ -16,6 +16,10 @@ class LogfireProvider(AbstractProvider):
     OpenFeature's process-global provider registry.
     """
     def __init__(self, logfire_instance: Logfire | None = None) -> None: ...
+    def initialize(self, evaluation_context: EvaluationContext) -> None:
+        """Load initial configuration and observe the shared provider without owning it."""
+    def shutdown(self) -> None:
+        """Unsubscribe without stopping resources also used by native Logfire flags."""
     def get_metadata(self) -> Metadata:
         """Return the provider metadata exposed through OpenFeature."""
     def resolve_boolean_details(self, flag_key: str, default_value: bool, evaluation_context: EvaluationContext | None = None) -> FlagResolutionDetails[bool]:

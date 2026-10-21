@@ -11,6 +11,8 @@ Install the feature-flag dependencies:
 pip install 'logfire[feature-flags]'
 ```
 
+To load values managed in Logfire, [create an API key](../use-api-keys.md#creating-api-keys) with the `project:read_variables` scope and set `LOGFIRE_API_KEY` before calling `logfire.configure()`. This is separate from `LOGFIRE_TOKEN`, which authorizes sending telemetry. Without a read-capable API key, flags use their code defaults. See [Remote variables](remote.md) for connection options.
+
 Define the flag once, near the code it controls. The required default keeps your application working before Logfire receives configuration or whenever configuration is unavailable.
 
 Flag names currently share the managed-variable naming contract: use ASCII letters, digits, and underscores, without starting with a digit. For example, use `new_checkout` rather than `new-checkout`.
@@ -92,19 +94,25 @@ pip install 'logfire[openfeature]'
 `LogfireProvider` implements the OpenFeature Python provider interface. Define each flag in Logfire first so its type and safe code default remain visible in your code, then register the provider explicitly:
 
 ```python
+import logfire
 from openfeature import api
 
 from logfire.experimental.feature_flags import feature_flag
 from logfire.experimental.openfeature import LogfireProvider
 
+logfire.configure()
 feature_flag('new_checkout', default=False)
-api.set_provider(LogfireProvider())
+api.set_provider_and_wait(LogfireProvider())
 
 client = api.get_client()
 enabled = client.get_boolean_value('new_checkout', False)
 ```
 
 Creating a Logfire `Flag` does not change OpenFeature's global provider. This avoids surprising applications that already configure another provider or use separate provider domains.
+
+`set_provider_and_wait()` waits for initial configuration and raises if it cannot load fresh values. Use `set_provider()` instead to initialize in the background; evaluations return the caller's default until initialization completes. The adapter reports later connection failures and recovery through OpenFeature provider events, using Logfire's existing refresh loop. Removing the adapter does not stop native Logfire flags or their connection.
+
+On an evaluation error, OpenFeature returns the default supplied to the client call, which can differ from the flag's declared default. Evaluation telemetry records the value returned to the caller.
 
 When evaluating through an OpenFeature client, use OpenFeature's own evaluation context. If both context APIs are active, OpenFeature's merged context is passed to Logfire as explicit evaluation input and takes precedence over `feature_context()`.
 
