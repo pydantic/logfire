@@ -30,6 +30,7 @@ pydantic-ai-slim = false
 pydantic-evals = false
 pydantic-handlebars = false
 genai-prices = false
+logfire-cli = false
 pydantic = false
 pydantic-core = false
 
