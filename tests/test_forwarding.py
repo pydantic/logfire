@@ -322,7 +322,7 @@ def test_forward_export_request_configured_token_fanout(monkeypatch: pytest.Monk
         sessions.append(session)
         return session
 
-    def initialize_credentials_from_token(self: LogfireConfig, token: str) -> None:
+    def initialize_credentials_from_token(self: LogfireConfig, token: str, advanced: Any = None) -> None:
         return None
 
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', initialize_credentials_from_token)
@@ -376,7 +376,7 @@ def test_forward_export_request_backend_isolation(monkeypatch: pytest.MonkeyPatc
         sessions.append(session)
         return session
 
-    def initialize_credentials_from_token(self: LogfireConfig, token: str) -> None:
+    def initialize_credentials_from_token(self: LogfireConfig, token: str, advanced: Any = None) -> None:
         return None
 
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', initialize_credentials_from_token)
@@ -434,7 +434,7 @@ def test_forward_export_request_header_sanitization(monkeypatch: pytest.MonkeyPa
         sessions.append(session)
         return session
 
-    def initialize_credentials_from_token(self: LogfireConfig, token: str) -> None:
+    def initialize_credentials_from_token(self: LogfireConfig, token: str, advanced: Any = None) -> None:
         return None
 
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', initialize_credentials_from_token)
@@ -482,7 +482,7 @@ def test_forward_export_request_partial_success_when_backend_queue_full(
         sessions.append(session)
         return session
 
-    def initialize_credentials_from_token(self: LogfireConfig, token: str) -> None:
+    def initialize_credentials_from_token(self: LogfireConfig, token: str, advanced: Any = None) -> None:
         return None
 
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', initialize_credentials_from_token)
