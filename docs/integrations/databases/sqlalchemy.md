@@ -64,7 +64,7 @@ Run a query through your engine, then open the [Live view](../../guides/web-ui/l
 
 ## Troubleshooting
 
-Not seeing queries? Check that `logfire.configure()` ran before `instrument_sqlalchemy()`, that your write token is set, that you passed your `engine` (or `engines`), and that you called the instrument function exactly once.
+Not seeing queries? Check that `logfire.configure()` ran before `instrument_sqlalchemy()`, that your write token is set, that you passed your `engine` (or `engines`), and that you called the instrument function exactly once. If your SQLAlchemy version is outside the range the installed instrumentation supports, `instrument_sqlalchemy()` raises an error that names that range, instead of returning while recording no queries. Pass `skip_dep_check=True` to bypass this check. That may produce no spans or errors if the version really is incompatible.
 
 ## Advanced
 

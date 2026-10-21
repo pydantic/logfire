@@ -47,7 +47,6 @@ from .usage import get_usage_attributes
 
 if TYPE_CHECKING:
     from anthropic._models import FinalRequestOptions
-    from anthropic._types import ResponseT
 
     from ...main import LogfireSpan
 
@@ -314,6 +313,7 @@ class AnthropicMessageStreamState(StreamState):
             result[OUTPUT_MESSAGES] = [convert_response_to_semconv(self._message)]
         if self._message is not None:
             result[RESPONSE_ID] = self._message.id
+            result[RESPONSE_MODEL] = self._message.model
             if self._message.stop_reason:
                 result[RESPONSE_FINISH_REASONS] = [self._message.stop_reason]
             result.update(get_anthropic_usage_attributes(self._message, self.base_url))
@@ -421,13 +421,13 @@ def _unwrap_raw_message(response: Any) -> Message | None:
 
 @handle_internal_errors
 def on_response(
-    response: ResponseT,
+    response: Any,
     span: LogfireSpan,
     *,
     version: NormalizedSemconvVersion | frozenset[NormalizedSemconvVersion] = 2,
     base_url: str | None = None,
-) -> ResponseT:
-    """Updates the span based on the type of response."""
+) -> Any:
+    """Updates the span based on the type of response, returning the response untouched."""
     versions: frozenset[NormalizedSemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
     if isinstance(response, (Message, BetaMessage)):

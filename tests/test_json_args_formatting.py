@@ -128,6 +128,18 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
             id='bytes_with_title',
         ),
         pytest.param(
+            'test bytes',
+            {'type': 'string', 'x-python-datatype': 'bytearray'},
+            'bytearray(test bytes)',
+            id='bytearray',
+        ),
+        pytest.param(
+            '\\x81',
+            {'type': 'string', 'x-python-datatype': 'bytearray', 'title': 'MyBytearray'},
+            'MyBytearray(\\x81)',
+            id='bytearray_with_title',
+        ),
+        pytest.param(
             ['a', 1, True],
             {'type': 'array', 'x-python-datatype': 'tuple'},
             """(

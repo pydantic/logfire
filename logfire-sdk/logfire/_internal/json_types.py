@@ -18,6 +18,7 @@ DataType = Literal[
     'float',
     # bytes
     'bytes',
+    'bytearray',
     # temporal types
     'date',
     'datetime',

@@ -43,6 +43,8 @@ DEFAULT_PATTERNS = [
     r'auth(?!ors?\b)',
     'credential',
     'private[._ -]?key',
+    'passphrase',
+    '(?:signing|hmac)[._ -]?key',
     'api[._ -]?key',
     'session',
     'cookie',
@@ -68,7 +70,7 @@ DEFAULT_PATTERNS = [
 # Every default pattern starts matching at one of these characters. Checking this
 # inexpensive character class first avoids trying every alternative at every
 # position in large strings. Custom patterns are not constrained by this prefix.
-_DEFAULT_PATTERN_START_CHARS = 'pmsacljx_rbi'
+_DEFAULT_PATTERN_START_CHARS = 'pmsacljx_rbih'
 _DEFAULT_PATTERN = rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(DEFAULT_PATTERNS)})'
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'

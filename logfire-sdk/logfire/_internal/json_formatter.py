@@ -34,6 +34,7 @@ class JsonArgsValueFormatter:
             'deque': partial(self._format_list_like, 'deque([', '])'),
             'generator': partial(self._format_list_like, 'generator((', '))'),
             'bytes': self._format_bytes,
+            'bytearray': self._format_bytearray,
             'Decimal': partial(self._write, 'Decimal(', ')', True),
             'date': self._format_date,
             'datetime': self._format_datetime,
@@ -221,6 +222,10 @@ class JsonArgsValueFormatter:
         output = f'{cls}({value})' if cls else value
         self._stream.write(output)
 
+    def _format_bytearray(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        cls = (schema and schema.get('title')) or 'bytearray'
+        self._stream.write(f'{cls}({value})')
+
     def _format_string(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
         """Format string value.
 
@@ -277,7 +282,8 @@ class JsonArgsValueFormatter:
         """
 
         def insert_into_list_middle(items: list[Any], item: str | list[str]) -> list[Any]:
-            midpoint = len(items) // 2
+            # Odd display limits retain one more leading item than trailing items.
+            midpoint = (len(items) + 1) // 2
             return items[0:midpoint] + [item] + items[midpoint:]
 
         # add a column at the begging for index

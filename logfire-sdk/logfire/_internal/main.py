@@ -1885,6 +1885,7 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_flask(
+            self,
             app,
             capture_headers=capture_headers,
             enable_commenter=enable_commenter,
@@ -1892,11 +1893,7 @@ class Logfire:
             excluded_urls=excluded_urls,
             request_hook=request_hook,
             response_hook=response_hook,
-            **{
-                'tracer_provider': self._config.get_tracer_provider(),
-                'meter_provider': self._config.get_meter_provider(),
-                **kwargs,
-            },
+            **kwargs,
         )
 
     def instrument_litestar(
@@ -2126,6 +2123,10 @@ class Logfire:
         Uses the
         [OpenTelemetry SQLAlchemy Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html)
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        If the installed SQLAlchemy version is outside the range that instrumentation supports, this raises
+        `RuntimeError` instead of returning without recording queries.
+        Pass `skip_dep_check=True` to bypass this check. That may produce no spans or errors if the version really is incompatible.
 
         Args:
             engine: The `sqlalchemy` engine to instrument.

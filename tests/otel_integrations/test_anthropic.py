@@ -498,6 +498,26 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
     )
 
 
+def test_messages_stream_records_served_model(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    # The request names an alias, and `message_start` reports the model that actually served it.
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-latest',
+        system='You are a helpful assistant.',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        stream=True,
+    )
+    with response as stream:
+        for _ in stream:
+            pass
+
+    [streaming_span] = [
+        span for span in exporter.exported_spans_as_dict() if span['name'].startswith('streaming response from')
+    ]
+    assert streaming_span['attributes']['gen_ai.request.model'] == 'claude-3-haiku-latest'
+    assert streaming_span['attributes']['gen_ai.response.model'] == 'claude-3-haiku-20240307'
+
+
 def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
     response = instrumented_client.messages.create(
         max_tokens=1000,
@@ -626,6 +646,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -897,6 +918,7 @@ async def test_async_messages_stream(
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -1411,197 +1433,6 @@ def test_on_response_unknown_block_type() -> None:
     )
 
 
-def test_on_response_unwraps_raw_response() -> None:
-    """``with_raw_response`` returns a raw response; response attributes must still be recorded."""
-    from logfire._internal.integrations.llm_providers.anthropic import on_response
-
-    payload = Message.model_construct(
-        id='test_id',
-        content=[TextBlock(text='Nine', type='text')],
-        model='claude-3-haiku-20240307',
-        role='assistant',
-        type='message',
-        stop_reason='end_turn',
-        usage=Usage(input_tokens=2, output_tokens=3),
-    ).model_dump(mode='json')
-
-    class FakeHttpResponse:
-        def json(self) -> dict[str, Any]:
-            return payload
-
-    class FakeRawResponse:
-        http_response = FakeHttpResponse()
-
-        def parse(self) -> None:
-            return None
-
-    class MockSpan:
-        def __init__(self) -> None:
-            self.attributes: dict[str, Any] = {}
-
-        def set_attribute(self, key: str, value: Any) -> None:
-            self.attributes[key] = value
-
-        def set_attributes(self, attributes: dict[str, Any]) -> None:
-            for key, value in attributes.items():
-                self.set_attribute(key, value)
-
-    span = MockSpan()
-    raw = FakeRawResponse()
-    returned = on_response(raw, span, version=2)  # type: ignore[arg-type]
-
-    # The caller's raw response is returned untouched.
-    assert returned is raw
-    assert span.attributes['gen_ai.response.id'] == 'test_id'
-    assert span.attributes['gen_ai.response.model'] == 'claude-3-haiku-20240307'
-    assert span.attributes['gen_ai.response.finish_reasons'] == ['end_turn']
-    assert span.attributes['gen_ai.usage.input_tokens'] == 2
-    assert span.attributes['gen_ai.usage.output_tokens'] == 3
-    assert span.attributes['gen_ai.output.messages']
-
-
-def test_unwrap_async_raw_response_reads_buffered_http_body() -> None:
-    """Async ``with_raw_response`` returns an ``AsyncAPIResponse`` whose ``.json()``
-    is a coroutine; the synchronous callback must read the already-buffered body
-    from ``http_response.json()`` instead of awaiting it."""
-    from logfire._internal.integrations.llm_providers.anthropic import _unwrap_raw_message
-
-    payload = Message.model_construct(
-        id='async_id',
-        content=[TextBlock(text='Nine', type='text')],
-        model='claude-3-haiku-20240307',
-        role='assistant',
-        type='message',
-        stop_reason='end_turn',
-        usage=Usage(input_tokens=2, output_tokens=3),
-    ).model_dump(mode='json')
-
-    class FakeAsyncHttpResponse:
-        def json(self) -> dict[str, Any]:
-            return payload
-
-    class FakeAsyncRawResponse:
-        http_response = FakeAsyncHttpResponse()
-
-        async def json(self) -> dict[str, Any]:  # pragma: no cover - must never be awaited here
-            raise RuntimeError('AsyncAPIResponse.json() coroutine must not be awaited in on_response')
-
-        def parse(self) -> None:
-            return None
-
-    message = _unwrap_raw_message(FakeAsyncRawResponse())
-    assert message is not None
-    assert message.id == 'async_id'
-
-
-def test_unwrap_legacy_raw_response_without_json_method() -> None:
-    """anthropic 0.x ``LegacyAPIResponse`` has no ``.json()``; the buffered body must
-    come from ``http_response.json()`` rather than a missing ``.json()`` method."""
-    from logfire._internal.integrations.llm_providers.anthropic import _unwrap_raw_message
-
-    payload = Message.model_construct(
-        id='legacy_id',
-        content=[TextBlock(text='Nine', type='text')],
-        model='claude-3-haiku-20240307',
-        role='assistant',
-        type='message',
-        stop_reason='end_turn',
-        usage=Usage(input_tokens=2, output_tokens=3),
-    ).model_dump(mode='json')
-
-    class FakeLegacyHttpResponse:
-        def json(self) -> dict[str, Any]:
-            return payload
-
-    class FakeLegacyRawResponse:  # mirrors anthropic 0.x LegacyAPIResponse: no .json() method
-        http_response = FakeLegacyHttpResponse()
-
-        def parse(self) -> None:
-            return None
-
-    message = _unwrap_raw_message(FakeLegacyRawResponse())
-    assert message is not None
-    assert message.id == 'legacy_id'
-
-
-def test_on_response_passes_through_unknown_response() -> None:
-    """A response that is neither a Message nor a raw SDK response is returned unchanged."""
-    from logfire._internal.integrations.llm_providers.anthropic import on_response
-
-    class UnknownResponse:
-        pass
-
-    class MockSpan:
-        def __init__(self) -> None:
-            self.attributes: dict[str, Any] = {}
-
-        def set_attribute(self, key: str, value: Any) -> None:
-            self.attributes[key] = value
-
-        def set_attributes(self, attributes: dict[str, Any]) -> None:
-            for key, value in attributes.items():
-                self.set_attribute(key, value)
-
-    unknown = UnknownResponse()
-    returned = on_response(unknown, MockSpan(), version=2)  # type: ignore[arg-type]
-    assert returned is unknown
-
-
-def test_on_response_unwrap_fallbacks() -> None:
-    """Raw-response unwrap fails soft on bad payloads; the original response passes through."""
-    from logfire._internal.integrations.llm_providers.anthropic import on_response
-
-    class MockSpan:
-        def __init__(self) -> None:
-            self.attributes: dict[str, Any] = {}
-
-        def set_attribute(self, key: str, value: Any) -> None:
-            self.attributes[key] = value
-
-        def set_attributes(self, attributes: dict[str, Any]) -> None:
-            for key, value in attributes.items():
-                self.set_attribute(key, value)
-
-    class NoRaw:
-        pass
-
-    class RaisingRaw:
-        def json(self) -> None:
-            raise ValueError('boom')
-
-        def parse(self) -> None:
-            return None
-
-    class NonDictRaw:
-        def json(self) -> list[int]:
-            return [1, 2]
-
-        def parse(self) -> None:
-            return None
-
-    class WrongTypeRaw:
-        def json(self) -> dict[str, Any]:
-            return {'type': 'error', 'error': 'nope'}
-
-        def parse(self) -> None:
-            return None
-
-    class InvalidModelRaw:
-        def json(self) -> dict[str, Any]:
-            # Valid message envelope but missing required fields, so model_validate fails.
-            return {'type': 'message'}
-
-        def parse(self) -> None:
-            return None
-
-    for raw in (NoRaw(), RaisingRaw(), NonDictRaw(), WrongTypeRaw(), InvalidModelRaw()):
-        span = MockSpan()
-        returned = on_response(raw, span, version=2)  # type: ignore[arg-type]
-        # Unwrap failed: the input object is returned unchanged and nothing is recorded.
-        assert returned is raw
-        assert span.attributes == {}
-
-
 def test_get_endpoint_config_v2_no_messages_no_system() -> None:
     """Test get_endpoint_config with version 2 and empty messages plus no system."""
     from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
@@ -1961,6 +1792,7 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
                             'async': {},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -2095,6 +1927,7 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
                             'async': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -2252,6 +2085,7 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -2417,3 +2251,150 @@ def test_stream_response_metadata(version: Any, complete: bool, exporter: TestEx
     else:
         assert 'gen_ai.response.finish_reasons' not in attributes
     client.close()
+
+
+def test_internal_exception_in_on_response_keeps_the_response(
+    exporter: TestExporter, caplog: pytest.LogCaptureFixture
+) -> None:
+    """If recording a response fails inside Logfire, the caller still gets the response."""
+    # `usage.input_tokens` is missing. The SDK accepts that without validation,
+    # and recording the usage then raises inside the instrumentation.
+    body = {
+        'id': 'msg_1',
+        'type': 'message',
+        'role': 'assistant',
+        'model': 'claude-haiku-4-5',
+        'content': [{'type': 'text', 'text': 'Nine'}],
+        'stop_reason': 'end_turn',
+        'stop_sequence': None,
+        'usage': {'output_tokens': 3},
+    }
+    client = anthropic.Anthropic(
+        api_key='test',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_anthropic(client):
+        response = client.messages.create(
+            max_tokens=1000,
+            model='claude-haiku-4-5',
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        )
+
+    assert isinstance(response, anthropic.types.Message)
+    assert response.id == 'msg_1'
+    assert 'Caught an internal error in Logfire' in caplog.text
+    assert len(exporter.exported_spans_as_dict()) == 1
+
+
+
+def test_on_response_unwraps_raw_response() -> None:
+    """``with_raw_response`` returns a raw response; response attributes must still be recorded."""
+    from logfire._internal.integrations.llm_providers.anthropic import on_response
+
+    payload = Message.model_construct(
+        id='test_id',
+        content=[TextBlock(text='Nine', type='text')],
+        model='claude-3-haiku-20240307',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=2, output_tokens=3),
+    ).model_dump(mode='json')
+
+    class FakeHttpResponse:
+        def json(self) -> dict[str, Any]:
+            return payload
+
+    class FakeRawResponse:
+        http_response = FakeHttpResponse()
+
+        def parse(self) -> None:
+            return None
+
+    class MockSpan:
+        def __init__(self) -> None:
+            self.attributes: dict[str, Any] = {}
+
+        def set_attribute(self, key: str, value: Any) -> None:
+            self.attributes[key] = value
+
+        def set_attributes(self, attributes: dict[str, Any]) -> None:
+            for key, value in attributes.items():
+                self.set_attribute(key, value)
+
+    span = MockSpan()
+    raw = FakeRawResponse()
+    returned = on_response(raw, span, version=2)  # type: ignore[arg-type]
+
+    # The caller's raw response is returned untouched.
+    assert returned is raw
+    assert span.attributes['gen_ai.response.id'] == 'test_id'
+    assert span.attributes['gen_ai.response.model'] == 'claude-3-haiku-20240307'
+    assert span.attributes['gen_ai.response.finish_reasons'] == ['end_turn']
+    assert span.attributes['gen_ai.usage.input_tokens'] == 2
+    assert span.attributes['gen_ai.usage.output_tokens'] == 3
+    assert span.attributes['gen_ai.output.messages']
+
+
+def test_unwrap_async_raw_response_reads_buffered_http_body() -> None:
+    """Async ``with_raw_response`` returns an ``AsyncAPIResponse`` whose ``.json()``
+    is a coroutine; the synchronous callback must read the already-buffered body
+    from ``http_response.json()`` instead of awaiting it."""
+    from logfire._internal.integrations.llm_providers.anthropic import _unwrap_raw_message
+
+    payload = Message.model_construct(
+        id='async_id',
+        content=[TextBlock(text='Nine', type='text')],
+        model='claude-3-haiku-20240307',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=2, output_tokens=3),
+    ).model_dump(mode='json')
+
+    class FakeAsyncHttpResponse:
+        def json(self) -> dict[str, Any]:
+            return payload
+
+    class FakeAsyncRawResponse:
+        http_response = FakeAsyncHttpResponse()
+
+        async def json(self) -> dict[str, Any]:  # pragma: no cover - must never be awaited here
+            raise RuntimeError('AsyncAPIResponse.json() coroutine must not be awaited in on_response')
+
+        def parse(self) -> None:
+            return None
+
+    message = _unwrap_raw_message(FakeAsyncRawResponse())
+    assert message is not None
+    assert message.id == 'async_id'
+
+
+def test_unwrap_legacy_raw_response_without_json_method() -> None:
+    """anthropic 0.x ``LegacyAPIResponse`` has no ``.json()``; the buffered body must
+    come from ``http_response.json()`` rather than a missing ``.json()`` method."""
+    from logfire._internal.integrations.llm_providers.anthropic import _unwrap_raw_message
+
+    payload = Message.model_construct(
+        id='legacy_id',
+        content=[TextBlock(text='Nine', type='text')],
+        model='claude-3-haiku-20240307',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=2, output_tokens=3),
+    ).model_dump(mode='json')
+
+    class FakeLegacyHttpResponse:
+        def json(self) -> dict[str, Any]:
+            return payload
+
+    class FakeLegacyRawResponse:  # mirrors anthropic 0.x LegacyAPIResponse: no .json() method
+        http_response = FakeLegacyHttpResponse()
+
+        def parse(self) -> None:
+            return None
+
+    message = _unwrap_raw_message(FakeLegacyRawResponse())
+    assert message is not None
+    assert message.id == 'legacy_id'

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import logfire
 
-from .._internal.constants import ATTRIBUTES_MESSAGE_KEY
+from .._internal.constants import ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_TAGS_KEY
 from .logging import RESERVED_ATTRS as LOGGING_RESERVED_ATTRS
 
 # This file is currently imported eagerly from __init__.py, so it shouldn't import structlog directly
@@ -41,10 +41,14 @@ class LogfireProcessor:
         # NOTE: An event can be `None` in structlog. We may want to create a default msg in those cases.
         msg_template = event_dict.get('event') or 'structlog event'
         attributes.setdefault(ATTRIBUTES_MESSAGE_KEY, msg_template)
+        tags = attributes.pop(ATTRIBUTES_TAGS_KEY, None)
+        if isinstance(tags, str):
+            tags = (tags,)
         self.logfire_instance.log(
             level=level,
             msg_template=msg_template,
             attributes=attributes,
+            tags=tags,
             console_log=self.console_log,
             exc_info=event_dict.get('exc_info', False),
         )

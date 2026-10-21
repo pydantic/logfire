@@ -84,12 +84,16 @@ Available scopes depend on whether you're creating an organization or project AP
 | Billing usage                        | ✓                    | -               |
 | Send telemetry (`project:write_otlp`) | Specific project only | ✓              |
 | Query telemetry (`project:read_otlp`) | Specific project only | ✓              |
+| Read datasets (`project:read_datasets`) | ✓                  | ✓               |
+| Write datasets (`project:write_datasets`) | ✓                 | ✓               |
 | Project settings                     | ✓                    | ✓               |
 | Write tokens management              | ✓                    | ✓               |
 | Read tokens management               | ✓                    | ✓               |
 | Alerts management                    | ✓                    | ✓               |
 | Dashboards management                | ✓                    | ✓               |
 | Variables management                 | ✓                    | ✓               |
+
+Dataset permissions can be assigned to organization-wide keys, but the [datasets SDK](../../evaluate/datasets-sdk.md#creating-a-client) requires a key scoped to a specific project.
 
 !!! info
     Select only the scopes your application needs to follow the principle of least privilege.

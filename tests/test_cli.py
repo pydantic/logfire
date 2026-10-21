@@ -50,6 +50,7 @@ from logfire._internal.cli import (
     main,
 )
 from logfire._internal.cli.run import (
+    OTEL_INSTRUMENTATION_MAP,
     InstrumentationRecommendation,
     collect_instrumentation_context,
     find_recommended_instrumentations_to_install,
@@ -58,6 +59,7 @@ from logfire._internal.cli.run import (
     instrumented_packages_text,
 )
 from logfire._internal.config import LogfireConfigWarning, LogfireCredentials, sanitize_project_name
+from logfire._internal.http_transport import LogfireHTTPAdapter
 from logfire._internal.utils import READ_TOKEN_FILENAME
 from logfire.exceptions import LogfireConfigError
 from tests.import_used_for_tests import run_script_test
@@ -107,6 +109,27 @@ def test_whoami_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
 
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+
+
+def test_cli_owned_session_gets_connection_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+    sessions: list[requests.Session] = []
+    install_connection_policy = logfire._internal.cli.install_connection_policy
+
+    def capture_session(session: requests.Session) -> None:
+        install_connection_policy(session)
+        sessions.append(session)
+
+    monkeypatch.setattr(logfire._internal.cli, 'install_connection_policy', capture_session)
+    with patch.dict(os.environ, {'LOGFIRE_TOKEN': 'foobar'}), requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+
+        main(['whoami'])
+
+    [session] = sessions
+    assert isinstance(session.get_adapter('https://example.com'), LogfireHTTPAdapter)
 
 
 def test_whoami_eu_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
@@ -6355,6 +6378,17 @@ Your instrumentation checklist:
     )
 
 
+@pytest.mark.parametrize('fastapi_instrumentor_installed', [False, True])
+def test_instrumented_packages_text_shows_starlette_without_fastapi_instrumentation(
+    fastapi_instrumentor_installed: bool,
+) -> None:
+    installed_otel_pkgs = {'opentelemetry-instrumentation-starlette'}
+    if fastapi_instrumentor_installed:
+        installed_otel_pkgs.add('opentelemetry-instrumentation-fastapi')
+    text = instrumented_packages_text(installed_otel_pkgs, ['starlette'], {'fastapi', 'starlette'})
+    assert '✓ starlette (installed and instrumented)' in str(text)
+
+
 def test_parse_run_no_script(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr('logfire.configure', configure_mock := Mock())
     monkeypatch.setattr('logfire._internal.cli.run.instrument_package', Mock())
@@ -6363,6 +6397,216 @@ def test_parse_run_no_script(monkeypatch: pytest.MonkeyPatch) -> None:
         main(['run', '--no-summary'])
 
     assert configure_mock.call_count == 1
+
+
+@pytest.mark.parametrize('module', [False, True])
+@pytest.mark.parametrize('exclude_flask', [False, True])
+def test_parse_run_flask_in_fresh_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: bool, exclude_flask: bool
+) -> None:
+    script = tmp_path / 'flask_app.py'
+    script.write_text(
+        """
+import json
+
+from flask import Flask
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+import logfire
+from logfire.testing import TestExporter
+
+exporter = TestExporter()
+logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[SimpleSpanProcessor(exporter)])
+app = Flask(__name__)
+
+@app.get('/')
+def homepage():
+    return 'hello'
+
+response = app.test_client().get('/')
+assert response.status_code == 200
+assert response.text == 'hello'
+print(json.dumps(exporter.exported_spans_as_dict()))
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    # Exercise discovery and dispatch with only Flask enabled, regardless of other installed integrations.
+    excluded = set(OTEL_INSTRUMENTATION_MAP.values()) - {'flask'}
+    if exclude_flask:
+        excluded.add('flask')
+    target = ['-m', 'flask_app'] if module else [str(script)]
+    result = subprocess.run(
+        [sys.executable, '-m', 'logfire', 'run', '--summary', '--exclude', ','.join(sorted(excluded)), *target],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    spans = json.loads(result.stdout)
+    if exclude_flask:
+        assert spans == []
+        assert 'flask (installed and instrumented)' not in result.stderr
+    else:
+        assert [span['name'] for span in spans] == ['GET /']
+        assert spans[0]['attributes']['http.route'] == '/'
+        assert spans[0]['attributes']['http.status_code'] == 200
+        assert spans[0]['attributes']['logfire.msg'] == 'GET /'
+        assert 'flask (installed and instrumented)' in result.stderr
+
+
+@pytest.mark.parametrize('module', [False, True])
+@pytest.mark.parametrize('exclude_starlette', [False, True])
+def test_parse_run_starlette_in_fresh_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: bool, exclude_starlette: bool
+) -> None:
+    script = tmp_path / 'starlette_app.py'
+    script.write_text(
+        """
+import json
+
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
+from starlette.routing import Route
+from starlette.testclient import TestClient
+
+import logfire
+from logfire.testing import TestExporter
+
+exporter = TestExporter()
+logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[SimpleSpanProcessor(exporter)])
+
+async def homepage(request: Request) -> PlainTextResponse:
+    return PlainTextResponse('hello')
+
+app = Starlette(routes=[Route('/hello/{name}', homepage)])
+with TestClient(app) as client:
+    response = client.get('/hello/world')
+assert response.status_code == 200
+assert response.text == 'hello'
+print(json.dumps(exporter.exported_spans_as_dict()))
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    # Exercise discovery and dispatch with only Starlette enabled, regardless of other installed integrations.
+    excluded = set(OTEL_INSTRUMENTATION_MAP.values()) - {'starlette'}
+    if exclude_starlette:
+        excluded.add('starlette')
+    target = ['-m', 'starlette_app'] if module else [str(script)]
+    result = subprocess.run(
+        [sys.executable, '-m', 'logfire', 'run', '--summary', '--exclude', ','.join(sorted(excluded)), *target],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    spans = json.loads(result.stdout)
+    if exclude_starlette:
+        assert spans == []
+        assert 'starlette (installed and instrumented)' not in result.stderr
+    else:
+        # The default CLI configuration keeps the server span and filters send/receive spans.
+        assert [span['name'] for span in spans] == ['GET /hello/{name}']
+        assert spans[0]['attributes']['http.route'] == '/hello/{name}'
+        assert spans[0]['attributes']['http.status_code'] == 200
+        assert spans[0]['attributes']['logfire.msg'] == 'GET /hello/world'
+        assert 'starlette (installed and instrumented)' in result.stderr
+
+
+@pytest.mark.parametrize('module', [False, True])
+@pytest.mark.parametrize('instrumentation', ['fastapi', 'both', 'excluded', 'explicit', 'excluded-explicit'])
+def test_parse_run_fastapi_in_fresh_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: bool, instrumentation: str
+) -> None:
+    pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7', exc_type=ImportError)
+    script = tmp_path / 'fastapi_app.py'
+    script.write_text(
+        """
+import json
+import sys
+
+from fastapi import FastAPI
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
+from starlette.routing import Route
+from starlette.testclient import TestClient
+
+import logfire
+from logfire.testing import TestExporter
+
+exporter = TestExporter()
+logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[SimpleSpanProcessor(exporter)])
+app = FastAPI()
+if 'explicit' in sys.argv:
+    logfire.instrument_fastapi(app)
+
+@app.get('/items/{item_id}')
+async def homepage(item_id: int) -> dict[str, int]:
+    return {'item_id': item_id}
+
+async def standalone(request: Request) -> PlainTextResponse:
+    return PlainTextResponse('hello')
+
+starlette_app = Starlette(routes=[Route('/standalone', standalone)])
+with TestClient(app) as client:
+    assert client.get('/items/123').json() == {'item_id': 123}
+with TestClient(starlette_app) as client:
+    assert client.get('/standalone').text == 'hello'
+print(json.dumps(exporter.exported_spans_as_dict(parse_json_attributes=True)))
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    enabled: set[str] = {'fastapi', 'starlette'} if instrumentation == 'both' else {'fastapi'}
+    if instrumentation.startswith('excluded'):
+        enabled = set()
+    excluded = set(OTEL_INSTRUMENTATION_MAP.values()) - enabled
+    target = ['-m', 'fastapi_app'] if module else [str(script)]
+    if 'explicit' in instrumentation:
+        target.append('explicit')
+    result = subprocess.run(
+        [sys.executable, '-m', 'logfire', 'run', '--summary', '--exclude', ','.join(sorted(excluded)), *target],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if instrumentation == 'explicit':
+        assert result.returncode != 0
+        assert (
+            'Global FastAPI instrumentation cannot be combined with logfire.instrument_fastapi(app). '
+            'Run your application with `logfire run --exclude fastapi ...` to use app-specific instrumentation instead. '
+            'If you need both global and app-specific instrumentation, please open an issue at '
+            'https://github.com/pydantic/logfire/issues.'
+        ) in result.stderr
+        return
+    assert result.returncode == 0, result.stderr
+    spans = json.loads(result.stdout)
+    if instrumentation == 'excluded':
+        # FastAPI's own native telemetry may remain active, without Logfire's enrichment.
+        assert not any('fastapi.arguments.start_timestamp' in span['attributes'] for span in spans)
+        assert 'fastapi (installed and instrumented)' not in result.stderr
+    else:
+        expected = ['GET /items/{item_id}']
+        if instrumentation == 'both':
+            expected.append('GET /standalone')
+        assert [span['name'] for span in spans] == expected
+        attributes = spans[0]['attributes']
+        assert attributes['fastapi.route.name'] == 'homepage'
+        assert attributes['fastapi.arguments.values'] == {'item_id': 123}
+        assert attributes['fastapi.arguments.errors'] == []
+        for phase in ('arguments', 'endpoint_function'):
+            for boundary in ('start_timestamp', 'end_timestamp'):
+                assert f'fastapi.{phase}.{boundary}' in attributes
+        assert attributes['http.status_code'] == 200
+        assert ('fastapi (installed and instrumented)' in result.stderr) == (instrumentation != 'excluded-explicit')
 
 
 def test_parse_run_script(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

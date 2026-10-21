@@ -21,13 +21,13 @@ Leave a field empty for no limit at that level. A limit of `0` blocks requests; 
 
 You need organization-admin access to change organization-wide limits.
 
-1. Open [**AI Engineering → Gateway → Settings**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/settings) and check the selected organization.
-2. Under **Organization Spending Limits**, enter a **Daily**, **Weekly**, or **Monthly** limit in whole US dollars and click **Save**.
-3. Reopen **Settings** to confirm the saved limits. Use [**Spending**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/spending) to review the organization's usage.
+1. Open [**AI Engineering → Gateway → Spending**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/spending), check the selected organization, and stay on **Overview**.
+2. Under **Usage and limits**, click **Edit limits**. Enter a **Daily**, **Weekly**, or **Monthly** limit in whole US dollars and click **Save limits**.
+3. Check **Usage and limits** to confirm the saved limits alongside the organization's current spending.
 
 This budget is shared across the organization, not granted separately to each key. For example, a $100 monthly organization limit and a $20 monthly key limit restrict that key to $20 while it also contributes to the shared $100 budget. Reaching either applicable limit blocks further requests until that window resets or an admin changes the limit.
 
-For finer control without spending policies, use **Project Spending Limits** on the same Settings page for a selected project. Admins can also set per-member limits in **Spending → Organization**, under **Spending by Member**. Both offer daily, weekly, and monthly limits.
+For finer control without spending policies, set per-project and per-member limits on the same **Spending** page. Open **Projects** or **Members**, then click **Edit limits** on a row. You can also select a project and use **Edit limits** under **Usage and limits**. Both offer daily, weekly, and monthly limits.
 
 ## Create and attach an advanced spending policy
 

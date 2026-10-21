@@ -24,6 +24,8 @@ DEFAULT_PATTERN_EXAMPLES = {
     r'auth(?!ors?\b)': 'has_authorization_value',
     'credential': 'has_credential_value',
     'private[._ -]?key': 'has_private-key_value',
+    'passphrase': 'has_passphrase_value',
+    '(?:signing|hmac)[._ -]?key': 'has_signing_key_value',
     'api[._ -]?key': 'has_api.key_value',
     'session': 'has_session_value',
     'cookie': 'has_cookie_value',
@@ -104,6 +106,7 @@ def test_default_pattern_start_chars_cover_each_pattern():
         (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has_id_token_value'),
         (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has idtoken value'),
         (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has access.token value'),
+        ('(?:signing|hmac)[._ -]?key', 'has hmac-key value'),
         ('secret', 'has \u017fecret value'),
         ('credential', 'has credent\u0131al value'),
     ]
@@ -769,5 +772,28 @@ def test_oauth_token_names_scrubbed(exporter: TestExporter):
             'max_tokens': 100,
             'token': 'kept',
             'error': 'invalid token',
+        }
+    )
+
+
+def test_passphrase_and_signing_keys_scrubbed(exporter: TestExporter):
+    logfire.info(
+        'hi',
+        passphrase='correct horse',
+        signing_key='k1',
+        hmac_key='k2',
+        webhook_hmac_key='k3',
+        keyboard_layout='uk',
+    )
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert {
+        k: attributes[k] for k in ['passphrase', 'signing_key', 'hmac_key', 'webhook_hmac_key', 'keyboard_layout']
+    } == snapshot(
+        {
+            'passphrase': "[Scrubbed due to 'passphrase']",
+            'signing_key': "[Scrubbed due to 'signing_key']",
+            'hmac_key': "[Scrubbed due to 'hmac_key']",
+            'webhook_hmac_key': "[Scrubbed due to 'hmac_key']",
+            'keyboard_layout': 'uk',
         }
     )
