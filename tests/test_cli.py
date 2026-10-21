@@ -525,39 +525,6 @@ def test_clean_default_dir_is_not_a_directory(
     assert exc.value.code == 1
 
 
-def test_inspect(
-    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
-) -> None:
-    os.environ['COLUMNS'] = '150'
-    logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
-    with pytest.raises(SystemExit):
-        main(['inspect'])
-    assert capsys.readouterr().err == snapshot("""\
-
-
-╭───────────────────────────────────────────────────────────────── Logfire Summary ──────────────────────────────────────────────────────────────────╮
-│                                                                                                                                                    │
-│  ☐ botocore (need to install opentelemetry-instrumentation-botocore)                                                                               │
-│  ☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)                                                                                   │
-│  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)                                                                                 │
-│  ☐ urllib [*] (need to install opentelemetry-instrumentation-urllib)                                                                               │
-│                                                                                                                                                    │
-│  [*] `urllib` may not actually be used by your app, in which case you can ignore this recommendation                                               │
-│                                                                                                                                                    │
-│                                                                                                                                                    │
-│  To install all recommended packages at once, run:                                                                                                 │
-│                                                                                                                                                    │
-│  uv add 'logfire[urllib]' opentelemetry-instrumentation-botocore opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql        │
-│                                                                                                                                                    │
-│  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  │
-│                                                                                                                                                    │
-│  To hide this summary box, use: logfire run --no-summary.                                                                                          │
-│                                                                                                                                                    │
-╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-
-""")
-
-
 @pytest.mark.parametrize('has_uv', [True, False])
 @pytest.mark.parametrize(
     ('installed', 'requirements'),

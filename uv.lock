@@ -714,6 +714,15 @@ wheels = [
 ]
 
 [[package]]
+name = "botocore-stubs"
+version = "1.43.114"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f3/4d/9b1e37258b9f13996d2db34d88a812e1f5d423526808589d1bc1b55d2128/botocore_stubs-1.43.114.tar.gz", hash = "sha256:e88e9d06178017fa7642e46ecc59a978386ef41e5b4ca363d988d72f9251d773", size = 42889, upload-time = "2026-10-14T22:10:47.914Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3c/ef/e8dd0e7bd3c85203ef2fee0dcd6295540fcce86a00a9299fabd973e2f5ab/botocore_stubs-1.43.114-py3-none-any.whl", hash = "sha256:05eece3dfd3f13d1c3fe95d5f3599c319b8e59bfd2faa4f30c33d52034d8eede", size = 67249, upload-time = "2026-10-14T22:10:46.277Z" },
+]
+
+[[package]]
 name = "cachetools"
 version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3127,6 +3136,9 @@ asyncpg = [
 aws-lambda = [
     { name = "logfire-sdk", extra = ["aws-lambda"] },
 ]
+botocore = [
+    { name = "logfire-sdk", extra = ["botocore"] },
+]
 celery = [
     { name = "logfire-sdk", extra = ["celery"] },
 ]
@@ -3210,6 +3222,7 @@ requires-dist = [
     { name = "logfire-sdk", extras = ["asgi"], marker = "extra == 'asgi'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["asyncpg"], marker = "extra == 'asyncpg'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["aws-lambda"], marker = "extra == 'aws-lambda'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["botocore"], marker = "extra == 'botocore'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["celery"], marker = "extra == 'celery'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["datasets"], marker = "extra == 'datasets'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["django"], marker = "extra == 'django'", editable = "logfire-sdk" },
@@ -3235,7 +3248,7 @@ requires-dist = [
     { name = "logfire-sdk", extras = ["variables"], marker = "extra == 'variables'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["wsgi"], marker = "extra == 'wsgi'", editable = "logfire-sdk" },
 ]
-provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "botocore", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
 
 [[package]]
 name = "logfire-api"
@@ -3289,6 +3302,7 @@ dev = [
     { name = "backports-zstd", marker = "python_full_version < '3.14'" },
     { name = "boto3" },
     { name = "botocore" },
+    { name = "botocore-stubs" },
     { name = "celery" },
     { name = "claude-agent-sdk" },
     { name = "cloudpickle" },
@@ -3318,6 +3332,8 @@ dev = [
     { name = "logfire-api" },
     { name = "loguru" },
     { name = "mypy" },
+    { name = "mypy-boto3-bedrock-runtime" },
+    { name = "mypy-boto3-s3" },
     { name = "mysql-connector-python" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
@@ -3330,6 +3346,7 @@ dev = [
     { name = "opentelemetry-instrumentation-asgi" },
     { name = "opentelemetry-instrumentation-asyncpg" },
     { name = "opentelemetry-instrumentation-aws-lambda" },
+    { name = "opentelemetry-instrumentation-botocore" },
     { name = "opentelemetry-instrumentation-celery" },
     { name = "opentelemetry-instrumentation-django" },
     { name = "opentelemetry-instrumentation-fastapi" },
@@ -3406,6 +3423,7 @@ dev = [
     { name = "backports-zstd", marker = "python_full_version < '3.14'", specifier = ">=1.7.0" },
     { name = "boto3", specifier = ">=1.28.57" },
     { name = "botocore", specifier = ">=1.31.57" },
+    { name = "botocore-stubs" },
     { name = "celery", specifier = ">=5.4.0" },
     { name = "claude-agent-sdk", specifier = ">=0" },
     { name = "cloudpickle", specifier = ">=3.0.0" },
@@ -3435,6 +3453,8 @@ dev = [
     { name = "logfire-api", editable = "logfire-api" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "mypy", specifier = ">=1.10.0" },
+    { name = "mypy-boto3-bedrock-runtime" },
+    { name = "mypy-boto3-s3" },
     { name = "mysql-connector-python", specifier = ">=8.0" },
     { name = "numpy", marker = "python_full_version < '3.12'", specifier = ">=2.0" },
     { name = "openai", specifier = ">=1.108.1" },
@@ -3446,6 +3466,7 @@ dev = [
     { name = "opentelemetry-instrumentation-asgi", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-aws-lambda", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-botocore", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-celery", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-django", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.42b0" },
@@ -3545,6 +3566,9 @@ asyncpg = [
 ]
 aws-lambda = [
     { name = "opentelemetry-instrumentation-aws-lambda" },
+]
+botocore = [
+    { name = "opentelemetry-instrumentation-botocore" },
 ]
 celery = [
     { name = "opentelemetry-instrumentation-celery" },
@@ -3648,6 +3672,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-asgi", marker = "extra == 'litestar'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", marker = "extra == 'asyncpg'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-aws-lambda", marker = "extra == 'aws-lambda'", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-botocore", marker = "extra == 'botocore'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-celery", marker = "extra == 'celery'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-django", marker = "extra == 'django'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-fastapi", marker = "extra == 'fastapi'", specifier = ">=0.42b0" },
@@ -3683,7 +3708,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.13.0" },
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "botocore", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
 
 [[package]]
 name = "loguru"
@@ -4256,6 +4281,30 @@ wheels = [
 ]
 
 [[package]]
+name = "mypy-boto3-bedrock-runtime"
+version = "1.43.62"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/26/78/542f5804cf0f9e3c1ccbf30917eaa3b4b6002b91965de02d065d7441fc93/mypy_boto3_bedrock_runtime-1.43.62.tar.gz", hash = "sha256:beb70b08ef72cdfd5036bcd3270f2fbac0a2ce5e40f70dfc1d87c4f139d4d7ff", size = 31492, upload-time = "2026-07-31T19:54:15.291Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d9/b2/e3bff20acd290b909f1c28856d6d8d7984f7f7d5bda299d5957f64e97bb3/mypy_boto3_bedrock_runtime-1.43.62-py3-none-any.whl", hash = "sha256:603d9df54da5029fc0d0e3c09b6db33733af53182bee030c0c7af99e88ed3b39", size = 37865, upload-time = "2026-07-31T19:54:13.959Z" },
+]
+
+[[package]]
+name = "mypy-boto3-s3"
+version = "1.43.106"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/46/db/e3922d6c62365c1098da97d9a775e78c66827df5cba11619a7d2a11cdae4/mypy_boto3_s3-1.43.106.tar.gz", hash = "sha256:731195f15830699a36e29d3c8abb2918bccd3587eb2edcb233f8046967893279", size = 79447, upload-time = "2026-09-30T22:44:48.472Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b8/4a/52419b5496215ab52c6c257134c1ac0da25c1ca5d802f133424d02a43686/mypy_boto3_s3-1.43.106-py3-none-any.whl", hash = "sha256:e233d04dbcf3925522dff4346e75c37344ec3d1cbb82337e5eed2af263847668", size = 86791, upload-time = "2026-09-30T22:44:46.139Z" },
+]
+
+[[package]]
 name = "mypy-extensions"
 version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4820,6 +4869,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/98/07/b23843a3a70dd7733fb05ccf62a2e0e7eeb914f3e76366144bc98e721010/opentelemetry_instrumentation_aws_lambda-0.66b0.tar.gz", hash = "sha256:5f3207b8d741d31e7a02f9687e9d5de95b4429f688d76d577cc72211a466ae35", size = 22730, upload-time = "2026-09-25T12:35:52.983Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/65/2b/ff9eab91d64118e9fe83e844b94ad00c91cb17ea153655870323132cc67a/opentelemetry_instrumentation_aws_lambda-0.66b0-py3-none-any.whl", hash = "sha256:bbe7cec7fd15fe96dae4eb9c8f3c0f225342b766dbce727e85a91cf5ed2fd8d3", size = 13924, upload-time = "2026-09-25T12:34:59.631Z" },
+]
+
+[[package]]
+name = "opentelemetry-instrumentation-botocore"
+version = "0.66b0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-propagator-aws-xray" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/de/7e/8aeb4b9d59c71bca78d06de5888a94e05975f51a18c7b56b8e3bc809af74/opentelemetry_instrumentation_botocore-0.66b0.tar.gz", hash = "sha256:b15932b2fc8662661ee79c3bbd9b583aceb64d47acaebf417d28d7da69b04312", size = 129126, upload-time = "2026-09-25T12:35:54.181Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/74/63/8f1d4a8a608f9fae473af53957577cf9a0ef6b0cc2faa7fda2eb316b1469/opentelemetry_instrumentation_botocore-0.66b0-py3-none-any.whl", hash = "sha256:dbe36964861c58cc345dc3d518cd0b312e2f41ad38b05a2a3a60c6f4a5c89e2b", size = 36198, upload-time = "2026-09-25T12:35:02.227Z" },
 ]
 
 [[package]]

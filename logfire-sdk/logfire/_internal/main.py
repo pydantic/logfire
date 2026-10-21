@@ -2169,6 +2169,28 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_sqlite3(conn=conn, **{'tracer_provider': self._config.get_tracer_provider(), **kwargs})
 
+    def instrument_botocore(self, **kwargs: Any) -> None:
+        """Instrument boto3 and botocore so that spans are created for AWS API calls.
+
+        Uses the
+        [OpenTelemetry Botocore Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/botocore/botocore.html)
+        library. Call this before making requests through boto3 clients or resources.
+
+        Args:
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, including request and response hooks.
+        """
+        from .integrations.botocore import instrument_botocore
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_botocore(
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                'logger_provider': self._config.get_logger_provider(),
+                **kwargs,
+            },
+        )
+
     def instrument_aws_lambda(
         self,
         lambda_handler: LambdaHandler,

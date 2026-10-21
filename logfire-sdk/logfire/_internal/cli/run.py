@@ -88,6 +88,7 @@ OTEL_INSTRUMENTATION_MAP = {
 INSTRUMENTATION_TO_EXTRA: dict[str, str] = {
     'opentelemetry-instrumentation-aiohttp-client': 'aiohttp',
     'opentelemetry-instrumentation-aiohttp-server': 'aiohttp-server',
+    'opentelemetry-instrumentation-botocore': 'botocore',
     'opentelemetry-instrumentation-celery': 'celery',
     'opentelemetry-instrumentation-django': 'django',
     'opentelemetry-instrumentation-fastapi': 'fastapi',
