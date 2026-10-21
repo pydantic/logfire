@@ -140,8 +140,12 @@ def main() -> None:
             run([str(python), str(smoke_test), state, version], cwd=work_dir, env=env)
             installer.check()
 
-        source_package = 'logfire[sqlite3]' if args.from_state == 'beta' else 'logfire'
-        installer.install(f'{source_package}=={args.from_version}')
+        source_packages = [f'logfire=={args.from_version}']
+        if args.from_state == 'beta':
+            # Older uv versions need an explicit prerelease request for the SDK,
+            # even when the meta-package already pins that exact beta.
+            source_packages = [f'logfire[sqlite3]=={args.from_version}', f'logfire-sdk=={args.from_version}']
+        installer.install(*source_packages)
         assert_state(args.from_state, args.from_version)
         run([str(cli), '--version'], cwd=work_dir, env=env)
 
