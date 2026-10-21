@@ -3515,6 +3515,7 @@ name = "logfire-sdk"
 version = "6.0.0b8"
 source = { editable = "logfire-sdk" }
 dependencies = [
+    { name = "certifi" },
     { name = "executing" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
@@ -3632,6 +3633,7 @@ wsgi = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi", specifier = ">=2026.10.19" },
     { name = "executing", specifier = ">=2.0.1" },
     { name = "httpx", marker = "extra == 'datasets'", specifier = ">=0.27.2" },
     { name = "httpx", marker = "extra == 'gateway'", specifier = ">=0.27.0" },
