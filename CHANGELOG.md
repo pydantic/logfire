@@ -1,5 +1,41 @@
 # Release Notes
 
+## [v5.3.0] (2026-10-21)
+
+### Packaging and CLI
+
+* Resume stable 5.x releases with the split package layout: `logfire` installs the matching `logfire-sdk`, which provides the existing `import logfire` API and optional extras.
+* Restore the Python CLI included in the SDK as the `logfire` command. Installing `logfire` no longer installs the standalone `logfire-cli` package.
+* Preserve upgrades from monolithic Logfire installations and allow the standalone `logfire-cli` command to be installed separately.
+* Support console scripts in `logfire run` ([#2427](https://github.com/pydantic/logfire/pull/2427)), previously available in the 6.0 betas.
+* Automatically instrument FastAPI, Starlette, and Flask applications with `logfire run` ([#2606](https://github.com/pydantic/logfire/pull/2606), [#2596](https://github.com/pydantic/logfire/pull/2596), [#2594](https://github.com/pydantic/logfire/pull/2594)).
+* Exclude the working directory from `sys.path` while `logfire run` instruments packages ([#2623](https://github.com/pydantic/logfire/pull/2623)).
+* Keep CLI tracing and diagnostic logging isolated from the application's global providers and logging configuration ([#2611](https://github.com/pydantic/logfire/pull/2611), [#2625](https://github.com/pydantic/logfire/pull/2625)).
+
+If you installed a 6.0 beta, explicitly select `logfire==5.3.0` (or `logfire-sdk==5.3.0` for SDK-only installations) to return to stable releases. Version 5.3.0 sorts below the 6.0 betas, so a normal upgrade will not switch an existing beta installation back to 5.x. An already installed `logfire-cli` package can remain installed and provides its separate `logfire-cli` command.
+
+### SDK and integrations
+
+* Add the `pending_spans` option ([#2580](https://github.com/pydantic/logfire/pull/2580)).
+* Suppress duplicate native FastAPI telemetry ([#2629](https://github.com/pydantic/logfire/pull/2629)) and keep Litestar routing errors from escaping span naming ([#2560](https://github.com/pydantic/logfire/pull/2560)).
+* Raise an error when SQLAlchemy instrumentation is skipped because its version is unsupported ([#2602](https://github.com/pydantic/logfire/pull/2602)).
+* Preserve parent context for spans started while instrumentation is suppressed ([#2570](https://github.com/pydantic/logfire/pull/2570)).
+* Honor exception callback levels when setting span status ([#2592](https://github.com/pydantic/logfire/pull/2592)).
+* Treat `logfire.tags` passed through standard logging, Loguru, and structlog as log tags ([#2550](https://github.com/pydantic/logfire/pull/2550), [#2598](https://github.com/pydantic/logfire/pull/2598)).
+* Scrub OAuth-style token names, `passphrase`, `signing_key`, and `hmac_key` by default ([#2551](https://github.com/pydantic/logfire/pull/2551), [#2593](https://github.com/pydantic/logfire/pull/2593)).
+* Improve console formatting for ranges, bytearrays, zero-dimensional NumPy arrays, and DataFrame labels ([#2534](https://github.com/pydantic/logfire/pull/2534), [#2591](https://github.com/pydantic/logfire/pull/2591), [#2621](https://github.com/pydantic/logfire/pull/2621), [#2509](https://github.com/pydantic/logfire/pull/2509)).
+* Reuse consecutive equal array schemas ([#2595](https://github.com/pydantic/logfire/pull/2595)).
+* Read stable OpenTelemetry database attributes when building database span messages ([#2561](https://github.com/pydantic/logfire/pull/2561)).
+* Include the dataset in `url_from_eval` links when the report has one ([#2566](https://github.com/pydantic/logfire/pull/2566)) and avoid sending empty schemas when pushing a dataset typed with `Any` ([#2578](https://github.com/pydantic/logfire/pull/2578)).
+* Add `instrument_monty()` and support MCP 2 / FastMCP 4 ([#2371](https://github.com/pydantic/logfire/pull/2371), [#2439](https://github.com/pydantic/logfire/pull/2439)), previously available in the 6.0 betas.
+
+### AI instrumentation
+
+* Record response models, response IDs, finish reasons, and cache token usage for OpenAI and Anthropic calls ([#2558](https://github.com/pydantic/logfire/pull/2558), [#2545](https://github.com/pydantic/logfire/pull/2545), [#2616](https://github.com/pydantic/logfire/pull/2616), [#2617](https://github.com/pydantic/logfire/pull/2617), [#2619](https://github.com/pydantic/logfire/pull/2619)).
+* Record OpenAI refusals and streamed Responses that end as incomplete or failed ([#2582](https://github.com/pydantic/logfire/pull/2582), [#2618](https://github.com/pydantic/logfire/pull/2618), [#2565](https://github.com/pydantic/logfire/pull/2565)).
+* Preserve the provider response when recording it fails ([#2559](https://github.com/pydantic/logfire/pull/2559)).
+* Record response IDs, finish reasons, and run errors for Claude Agent SDK calls ([#2620](https://github.com/pydantic/logfire/pull/2620), [#2622](https://github.com/pydantic/logfire/pull/2622)).
+
 ## [v6.0.0b8] (2026-10-09)
 
 * Support OpenTelemetry 1.45 by @alexmojaki in [#2536](https://github.com/pydantic/logfire/pull/2536)
@@ -1391,3 +1427,4 @@ First release from new repo!
 [v6.0.0b6]: https://github.com/pydantic/logfire/compare/v6.0.0b5...v6.0.0b6
 [v6.0.0b7]: https://github.com/pydantic/logfire/compare/v6.0.0b6...v6.0.0b7
 [v6.0.0b8]: https://github.com/pydantic/logfire/compare/v6.0.0b7...v6.0.0b8
+[v5.3.0]: https://github.com/pydantic/logfire/compare/v5.2.0...v5.3.0
