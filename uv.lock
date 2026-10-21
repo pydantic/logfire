@@ -3101,7 +3101,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "5.3.0"
+version = "5.2.0"
 source = { editable = "logfire" }
 dependencies = [
     { name = "logfire-sdk" },
@@ -3237,7 +3237,7 @@ provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aioh
 
 [[package]]
 name = "logfire-api"
-version = "5.3.0"
+version = "5.2.0"
 source = { editable = "logfire-api" }
 
 [package.metadata]
@@ -3485,7 +3485,7 @@ editor-tests = [
 
 [[package]]
 name = "logfire-sdk"
-version = "5.3.0"
+version = "5.2.0"
 source = { editable = "logfire-sdk" }
 dependencies = [
     { name = "executing" },
