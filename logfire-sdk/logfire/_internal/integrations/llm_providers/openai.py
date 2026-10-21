@@ -445,7 +445,8 @@ def responses_finish_reasons(response: Any) -> list[str]:
 def _reasoning_parts(item: dict[str, Any]) -> list[MessagePart]:
     """Reasoning summary (or raw reasoning text) of a Responses `reasoning` item, one part per entry."""
     parts: list[MessagePart] = []
-    for entry in (item.get('summary') or []) + (item.get('content') or []):
+    entries = cast('list[Any]', item.get('summary') or []) + cast('list[Any]', item.get('content') or [])
+    for entry in entries:
         if isinstance(entry, dict) and (text := cast('dict[str, Any]', entry).get('text')):
             parts.append(ReasoningPart(type='reasoning', content=text))
     return parts
