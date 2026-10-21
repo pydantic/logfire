@@ -74,6 +74,11 @@ def instrument_fastapi(
 
     See `Logfire.instrument_fastapi` for more details.
     """
+    # Prevent FastAPI from creating its own OTel spans for the same request, which would be confusing and redundant.
+    # We also set fastapi.telemetry in the request scope which mostly works and is more efficient than this,
+    # but it doesn't cover all cases.
+    logfire_instance.suppress_scopes('fastapi')
+
     registry = patch_fastapi()
     if registry.global_instrumentation is not None or (app is None and registry.per_app):
         raise ValueError(
