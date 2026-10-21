@@ -178,6 +178,15 @@ def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
         )
     elif part_type == 'tool_result':  # pragma: no cover
         result_content = part.get('content')
+        if isinstance(result_content, list) and any(
+            isinstance(p, dict) and p.get('type') != 'text' for p in cast('list[Any]', result_content)
+        ):
+            # Keep images and documents instead of reducing the result to its text blocks.
+            return ToolCallResponsePart(
+                type='tool_call_response',
+                id=part.get('tool_use_id', ''),
+                response=[_convert_content_part(p) for p in cast('list[Any]', result_content)],
+            )
         if isinstance(result_content, list):
             # Extract text from tool result content
             text_parts: list[str] = []

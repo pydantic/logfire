@@ -2386,3 +2386,51 @@ def test_messages_stream_records_cache_token_attributes() -> None:
     assert attributes['gen_ai.usage.input_tokens'] == 105
     assert attributes['gen_ai.usage.cache_read.input_tokens'] == 90
     assert attributes['gen_ai.usage.cache_creation.input_tokens'] == 5
+
+
+def test_convert_messages_tool_result_keeps_non_text_blocks() -> None:
+    """A tool result holding an image keeps it; a text-only result is still joined into one string."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    input_messages, _ = convert_messages_to_semconv(
+        [
+            {
+                'role': 'user',
+                'content': [
+                    {
+                        'type': 'tool_result',
+                        'tool_use_id': 'toolu_1',
+                        'content': [
+                            {'type': 'text', 'text': 'Screenshot taken'},
+                            {'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/png', 'data': 'iVBOR'}},
+                        ],
+                    },
+                    {
+                        'type': 'tool_result',
+                        'tool_use_id': 'toolu_2',
+                        'content': [{'type': 'text', 'text': 'a'}, {'type': 'text', 'text': 'b'}],
+                    },
+                ],
+            }
+        ],
+        None,
+    )
+
+    assert input_messages == snapshot(
+        [
+            {
+                'role': 'user',
+                'parts': [
+                    {
+                        'type': 'tool_call_response',
+                        'id': 'toolu_1',
+                        'response': [
+                            {'type': 'text', 'content': 'Screenshot taken'},
+                            {'type': 'blob', 'modality': 'image', 'content': 'iVBOR', 'media_type': 'image/png'},
+                        ],
+                    },
+                    {'type': 'tool_call_response', 'id': 'toolu_2', 'response': 'a b'},
+                ],
+            }
+        ]
+    )
