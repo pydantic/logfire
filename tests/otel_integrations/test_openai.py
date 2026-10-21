@@ -4704,7 +4704,7 @@ def test_convert_responses_outputs_non_text_content() -> None:
     response.output = [out]
 
     assert convert_responses_outputs_to_semconv(response) == snapshot(
-        [{'role': 'assistant', 'parts': [{'type': 'refusal', 'refusal': 'I cannot help with that'}]}]
+        [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'I cannot help with that'}]}]
     )
 
 
@@ -5385,3 +5385,37 @@ def test_responses_finish_reasons(fields: dict[str, Any], expected: list[str] | 
 
     attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
     assert attributes.get('gen_ai.response.finish_reasons') == expected
+
+
+def test_responses_refusal_recorded_as_text(exporter: TestExporter) -> None:
+    """A Responses API refusal is recorded as text, like a chat completions refusal."""
+    body = {
+        'id': 'resp_1',
+        'object': 'response',
+        'created_at': 0,
+        'model': 'gpt-4o-mini',
+        'status': 'completed',
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+        'output': [
+            {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'status': 'completed',
+                'content': [{'type': 'refusal', 'refusal': "I can't help with that."}],
+            }
+        ],
+    }
+    client = openai.Client(
+        api_key='fake_api_key',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_openai(client):
+        client.responses.create(model='gpt-4o-mini', input='hi')
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['gen_ai.output.messages'] == snapshot(
+        [{'role': 'assistant', 'parts': [{'type': 'text', 'content': "I can't help with that."}]}]
+    )
