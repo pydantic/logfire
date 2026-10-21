@@ -4313,6 +4313,19 @@ def test_instrument_packages_falls_back_to_botocore_instrumentor(exporter: TestE
 def test_instrument_packages_fallback_skips_conflicting_and_broken_entry_points(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+
+    class IncompatibleInstrumentor(BaseInstrumentor):
+        # Its package's requirements are met, but its own library isn't, like the aiobotocore one in botocore's package.
+        def instrumentation_dependencies(self) -> tuple[str, ...]:
+            return ('logfire-test-missing-library',)
+
+        def _instrument(self, **kwargs: Any) -> None:
+            pass
+
+        def _uninstrument(self, **kwargs: Any) -> None:
+            pass
+
     conflicting = types.SimpleNamespace(
         dist=types.SimpleNamespace(
             name='opentelemetry-instrumentation-foo',
@@ -4320,17 +4333,25 @@ def test_instrument_packages_fallback_skips_conflicting_and_broken_entry_points(
         ),
         load=Mock(),
     )
+    incompatible = types.SimpleNamespace(
+        dist=types.SimpleNamespace(name='opentelemetry-instrumentation-foo', requires=None),
+        load=Mock(return_value=IncompatibleInstrumentor),
+    )
     broken = types.SimpleNamespace(
         dist=types.SimpleNamespace(name='opentelemetry-instrumentation-foo', requires=None),
         load=Mock(side_effect=ImportError('broken instrumentor')),
     )
-    monkeypatch.setattr(importlib.metadata, 'entry_points', entry_points := Mock(return_value=[conflicting, broken]))
+    monkeypatch.setattr(
+        importlib.metadata, 'entry_points', entry_points := Mock(return_value=[conflicting, incompatible, broken])
+    )
 
     result = instrument_packages({'opentelemetry-instrumentation-foo'}, {'opentelemetry-instrumentation-foo': 'foo'})
 
     assert result == []
     entry_points.assert_called_once_with(group='opentelemetry_instrumentor')
     conflicting.load.assert_not_called()
+    # Instrumentors are singletons, so this is the instance the fallback tried to activate.
+    assert not IncompatibleInstrumentor().is_instrumented_by_opentelemetry
     broken.load.assert_called_once_with()
 
 

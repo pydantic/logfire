@@ -274,7 +274,7 @@ that runs it. This keeps automatic instrumentation in the same
 Python process on macOS, Linux, and Windows, including platforms where package
 installers generate native launcher executables.
 
-Most packages are instrumented through Logfire's own integrations. If an installed OpenTelemetry instrumentation package has no Logfire integration, `logfire run` turns on that package's own instrumentation instead. For example, installing `opentelemetry-instrumentation-botocore` lets `logfire run` trace AWS calls made with `boto3`.
+Most packages are instrumented through Logfire's own integrations. Some packages have no Logfire integration, but have an OpenTelemetry instrumentation package: a separate package that adds tracing to one library. If one of these is installed, `logfire run` turns it on instead. For example, installing `opentelemetry-instrumentation-botocore` lets `logfire run` trace AWS calls made with `boto3`. `logfire run` doesn't support every OpenTelemetry instrumentation package.
 
 By default a summary box is printed to stderr showing which packages were instrumented; disable it with `--no-summary`. Use `--exclude` to skip instrumenting specific packages:
 

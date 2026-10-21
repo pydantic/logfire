@@ -306,14 +306,16 @@ def instrument_with_entry_points(otel_pkg_name: str) -> bool:
             instrumentor = cast(type[BaseInstrumentor], entry_point.load())()
             # Pass Logfire's providers explicitly, like the `logfire.instrument_*()` methods, not the global ones.
             instrumentor.instrument(
-                skip_dep_check=True,
                 tracer_provider=config.get_tracer_provider(),
                 meter_provider=config.get_meter_provider(),
+                # The check above passes if any library of the package is usable, e.g. botocore without aiobotocore,
+                # so each instrumentor also checks its own library, raising on a conflict instead of logging an error.
+                raise_exception_on_conflict=True,
             )
         except Exception:
-            # e.g. botocore's package also registers an aiobotocore instrumentor, which fails without aiobotocore.
             continue
-        instrumented = True
+        # `instrument()` doesn't raise on a conflict before 0.53b0, so ask whether it actually instrumented.
+        instrumented = instrumented or instrumentor.is_instrumented_by_opentelemetry
     return instrumented
 
 
