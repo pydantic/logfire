@@ -19,24 +19,24 @@ Flag names currently share the managed-variable naming contract: use ASCII lette
 
 ```python
 import logfire
-from logfire.experimental.feature_flags import feature_context, feature_flag
+from logfire.experimental.feature_flags import feature_context, flag
 
 logfire.configure()
 
-new_checkout = feature_flag(
+new_checkout = flag(
     'new_checkout',
     default=False,
     description='Enable the redesigned checkout.',
 )
 
 with feature_context('account-123', attributes={'plan': 'team'}):
-    print(new_checkout.is_enabled())
+    print(new_checkout.value())
     #> False
 ```
 
 The targeting key identifies the subject receiving the flag. Use a stable user or organization identifier so percentage rollouts consistently select the same outcome. Attributes let targeting rules select groups such as plans or regions. Context set by `feature_context()` also applies to other managed variables evaluated inside the block; pass `targeting_key` or `attributes` directly to an evaluation when it needs different values.
 
-To inspect the selected variant, fallback reason, or error, call `details()` (or the initial boolean API's `evaluate()` alias):
+To inspect the selected variant, fallback reason, or error, call `details()`:
 
 ```python skip="true"
 details = new_checkout.details(targeting_key='account-123')
@@ -97,11 +97,11 @@ pip install 'logfire[openfeature]'
 from openfeature import api
 
 import logfire
-from logfire.experimental.feature_flags import feature_flag
+from logfire.experimental.feature_flags import flag
 from logfire.experimental.openfeature import LogfireProvider
 
 logfire.configure()
-feature_flag('new_checkout', default=False)
+flag('new_checkout', default=False)
 api.set_provider_and_wait(LogfireProvider())
 
 client = api.get_client()

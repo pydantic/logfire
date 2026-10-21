@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Literal, Any, Generic, Protocol, TypeVar, overload
 from typing_extensions import TypeForm
 
-__all__ = ['FeatureFlag', 'Flag', 'FlagErrorCode', 'FlagEvaluationDetails', 'FlagEvaluationReason', 'feature_context', 'feature_flag', 'flag']
+__all__ = ['Flag', 'FlagErrorCode', 'FlagEvaluationDetails', 'FlagEvaluationReason', 'feature_context', 'flag']
 
 InferableFlagValue = bool | str | int | float | Enum | BaseModel
 T = TypeVar('T')
@@ -59,20 +59,9 @@ class Flag(Generic[T]):
     def override_for_testing(self, value: T) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""
 
-class FeatureFlag(Flag[bool]):
-    """A boolean feature flag with a safe code default."""
-    def __init__(self, name: str, *, default: bool, description: str | None = None, logfire_instance: Logfire | None = None) -> None:
-        """Define a boolean feature flag backed by the configured Logfire provider."""
-    def is_enabled(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> bool:
-        """Return whether the feature is enabled for the evaluation context."""
-    def evaluate(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> FlagEvaluationDetails[bool]:
-        """Alias for :meth:`details`, retained for the initial boolean API."""
-
 @overload
 def flag(name: str, *, default: InferableFlagT, description: str | None = None, logfire_instance: Logfire | None = None) -> Flag[InferableFlagT]: ...
 @overload
 def flag(name: str, *, type: TypeForm[T], default: T, description: str | None = None, logfire_instance: Logfire | None = None) -> Flag[T]: ...
-def feature_flag(name: str, *, default: bool, description: str | None = None, logfire_instance: Logfire | None = None) -> FeatureFlag:
-    """Define a boolean feature flag with a safe code default."""
 def feature_context(targeting_key: str, *, attributes: Mapping[str, Any] | None = None) -> AbstractContextManager[None]:
     """Set request-local identity and attributes for feature-flag evaluations."""

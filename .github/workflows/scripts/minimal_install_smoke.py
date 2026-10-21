@@ -96,7 +96,7 @@ def main() -> None:
     assert_not_available('openfeature', 'openfeature-sdk')
     assert_import_error(
         'feature flag usage',
-        lambda: feature_flags.feature_flag('minimal_install_feature_flag', default=False),
+        lambda: feature_flags.flag('minimal_install_feature_flag', default=False),
         'Using managed variables requires the `pydantic_handlebars` and `pydantic` packages',
     )
     assert_import_error(

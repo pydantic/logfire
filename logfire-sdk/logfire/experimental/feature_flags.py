@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, overload
 
 from typing_extensions import TypeForm
 
@@ -25,13 +25,11 @@ else:
     InferableFlagValue = Any
 
 __all__ = (
-    'FeatureFlag',
     'Flag',
     'FlagErrorCode',
     'FlagEvaluationDetails',
     'FlagEvaluationReason',
     'feature_context',
-    'feature_flag',
     'flag',
 )
 
@@ -182,51 +180,12 @@ class Flag(Generic[T]):
         return self._adapter.override_for_testing(validated_value)
 
 
-class FeatureFlag(Flag[bool]):
-    """A boolean feature flag with a safe code default."""
-
-    def __init__(
-        self,
-        name: str,
-        *,
-        default: bool,
-        description: str | None = None,
-        logfire_instance: Logfire | None = None,
-    ):
-        """Define a boolean feature flag backed by the configured Logfire provider."""
-        ensure_variables_dependencies()
-        if logfire_instance is None:
-            from logfire import DEFAULT_LOGFIRE_INSTANCE
-
-            logfire_instance = DEFAULT_LOGFIRE_INSTANCE
-        logfire_instance._validate_variable_registration(name)  # pyright: ignore[reportPrivateUsage]
-        if not isinstance(cast(Any, default), bool):
-            raise TypeError('Feature flag defaults must be boolean.')
-        super().__init__(name, default=default, description=description, logfire_instance=logfire_instance)
-
-    def is_enabled(
-        self,
-        targeting_key: str | None = None,
-        attributes: Mapping[str, Any] | None = None,
-    ) -> bool:
-        """Return whether the feature is enabled for the evaluation context."""
-        return self.value(targeting_key, attributes)
-
-    def evaluate(
-        self,
-        targeting_key: str | None = None,
-        attributes: Mapping[str, Any] | None = None,
-    ) -> FlagEvaluationDetails[bool]:
-        """Alias for :meth:`details`, retained for the initial boolean API."""
-        return self.details(targeting_key, attributes)
-
-
-def _infer_flag_type(default: Any) -> type[Any]:
+def _infer_flag_type(default: object) -> type[Any]:
     if default is None or isinstance(default, (list, dict, set, tuple)):
         raise TypeError(
-            'Pass type=... for nullable or parameterized feature flags; their type cannot be inferred safely.'
+            'Pass type=... for nullable or parameterized feature flags; their type cannot be inferred safely.'  # pragma: no mutate
         )
-    return cast(type[Any], type(default))
+    return type(default)
 
 
 @overload
@@ -254,33 +213,12 @@ def flag(
     name: str,
     *,
     default: T,
-    type: Any | None = None,
+    type: Any = None,
     description: str | None = None,
     logfire_instance: Logfire | None = None,
 ) -> Flag[T]:
     """Define a Pydantic-validated feature flag with a safe code default."""
-    if type is None:
-        return cast(
-            Flag[T],
-            Flag(
-                name,
-                default=cast(InferableFlagValue, default),
-                description=description,
-                logfire_instance=logfire_instance,
-            ),
-        )
     return Flag(name, type=type, default=default, description=description, logfire_instance=logfire_instance)
-
-
-def feature_flag(
-    name: str,
-    *,
-    default: bool,
-    description: str | None = None,
-    logfire_instance: Logfire | None = None,
-) -> FeatureFlag:
-    """Define a boolean feature flag with a safe code default."""
-    return FeatureFlag(name, default=default, description=description, logfire_instance=logfire_instance)
 
 
 def feature_context(

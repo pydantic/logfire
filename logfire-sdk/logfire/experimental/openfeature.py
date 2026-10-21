@@ -343,7 +343,7 @@ def _evaluation_telemetry(flag_key: str, result: FlagResolutionDetails[Any]) -> 
 def _to_openfeature_details(details: FlagEvaluationDetails[Any], default_value: T) -> FlagResolutionDetails[T]:
     error_code = _ERROR_CODES.get(details.error_code, ErrorCode.GENERAL) if details.error_code is not None else None
     return FlagResolutionDetails(
-        value=default_value if error_code is not None else cast(T, details.value),
+        value=default_value if error_code is not None else details.value,
         variant=details.variant,
         reason=_REASONS.get(details.reason, Reason.UNKNOWN),
         error_code=error_code,
@@ -469,13 +469,6 @@ def _schema_is_exclusively_openfeature_scalar(
             for choice in choices
         )
     return False
-
-
-def _unwrap_transparent_schema(  # pyright: ignore[reportUnusedFunction]
-    schema: Mapping[Any, Any],
-) -> Mapping[Any, Any]:
-    """Unwrap Pydantic schemas that retain the declared value's underlying shape."""
-    return _unwrap_schema_context(schema, None, frozenset())[0]
 
 
 def _unwrap_schema_context(

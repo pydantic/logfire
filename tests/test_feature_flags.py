@@ -30,30 +30,28 @@ from openfeature import api as openfeature_api
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEvent
 from openfeature.exception import ErrorCode, GeneralError, ProviderFatalError, ProviderNotReadyError
-from openfeature.flag_evaluation import Reason
+from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 from openfeature.provider import ProviderStatus
 from pydantic import AfterValidator, BaseModel, Field, PlainSerializer, RootModel, ValidationError
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions, VariablesOptions
 from logfire.experimental.feature_flags import (
-    FeatureFlag,
     Flag,
     FlagErrorCode,
     FlagEvaluationDetails,
     FlagEvaluationReason,
     feature_context,
-    feature_flag,
-    flag,
+    flag as create_flag,
 )
 from logfire.experimental.openfeature import (
     _ERROR_CODES,
     _REASONS,
     LogfireProvider,
+    _evaluation_telemetry,
     _is_exclusively_openfeature_scalar_schema,
     _matches_openfeature_scalar_type,
     _to_openfeature_details,
-    _unwrap_transparent_schema,
 )
 from logfire.testing import TestExporter
 from logfire.variables import (
@@ -72,6 +70,7 @@ from logfire.variables.variable import (
     _feature_flag_telemetry_attributes,
     _feature_flag_telemetry_value,
     _FlagEvaluationCore,
+    _scrub_feature_flag_result,
 )
 
 MUTATION_TESTING = 'MUTANT_UNDER_TEST' in os.environ
@@ -83,6 +82,77 @@ def _finished_flag_spans(exporter: TestExporter) -> list[Any]:
         for span in exporter.exported_spans
         if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
     ]
+
+
+@pytest.mark.parametrize(
+    ('value', 'expected'),
+    [
+        ({'plan': 'team'}, '{"plan":"team"}'),
+        ([1, 'two'], '[1,"two"]'),
+        (None, 'null'),
+        (False, False),
+        (0, 0),
+        ('', ''),
+    ],
+)
+def test_openfeature_telemetry_serializes_objects_before_export(value: Any, expected: Any):
+    telemetry = _evaluation_telemetry('flag', FlagResolutionDetails(value=value, reason=Reason.STATIC))
+    assert telemetry == {
+        'feature_flag.key': 'flag',
+        'feature_flag.provider.name': 'logfire',
+        'feature_flag.result.reason': 'static',
+        'feature_flag.result.value': expected,
+    }
+    assert type(telemetry['feature_flag.result.value']) is type(expected)
+
+
+@pytest.mark.parametrize('version', [None, 0, 7])
+def test_openfeature_telemetry_preserves_variant_and_version(version: int | None):
+    result = FlagResolutionDetails(
+        value=True,
+        reason=Reason.TARGETING_MATCH,
+        variant='enabled',
+        flag_metadata={} if version is None else {'logfire.value_version': version},
+    )
+    expected: dict[str, Any] = {
+        'feature_flag.key': 'flag',
+        'feature_flag.provider.name': 'logfire',
+        'feature_flag.result.reason': 'targeting_match',
+        'feature_flag.result.value': True,
+        'feature_flag.result.variant': 'enabled',
+    }
+    if version is not None:
+        expected['logfire.feature_flag.value_version'] = version
+    assert _evaluation_telemetry('flag', result) == expected
+
+
+def test_openfeature_error_telemetry_excludes_variant_and_version():
+    result = FlagResolutionDetails(
+        value=False,
+        reason=Reason.ERROR,
+        error_code=ErrorCode.TYPE_MISMATCH,
+        error_message='Configured value did not match the declared flag type.',
+        variant='invalid',
+        flag_metadata={'logfire.value_version': 7},
+    )
+    assert _evaluation_telemetry('flag', result) == {
+        'feature_flag.key': 'flag',
+        'feature_flag.provider.name': 'logfire',
+        'feature_flag.result.reason': 'error',
+        'feature_flag.result.value': False,
+        'error.type': 'type_mismatch',
+        'feature_flag.error.message': 'Configured value did not match the declared flag type.',
+    }
+
+
+def test_openfeature_telemetry_without_a_reason_is_unknown():
+    assert _evaluation_telemetry('flag', FlagResolutionDetails(value=False))['feature_flag.result.reason'] == 'unknown'
+
+
+def test_flag_scrubbing_tolerates_an_already_omitted_value():
+    assert _scrub_feature_flag_result({}, 'api_key', 'secret', logfire.DEFAULT_LOGFIRE_INSTANCE) == {
+        'logfire.feature_flag.result.value_status': 'scrubbed'
+    }
 
 
 def test_rejected_flag_values_do_not_bypass_name_aware_scrubbing(config_kwargs: dict[str, Any], exporter: TestExporter):
@@ -97,7 +167,7 @@ def test_rejected_flag_values_do_not_bypass_name_aware_scrubbing(config_kwargs: 
         }
     )
     logfire.configure(variables=LocalVariablesOptions(config=config), **config_kwargs)
-    secret = flag('api_key', default='')
+    secret = create_flag('api_key', default='')
     with pytest.warns(RuntimeWarning, match='value failed validation'):
         details = secret.details()
     assert details.value == ''
@@ -115,7 +185,7 @@ def test_openfeature_telemetry_matches_the_caller_fallback(
     config = _boolean_config(rollout=Rollout(labels={'enabled': 1.0}))
     config.variables['test_flag'].labels['enabled'] = LabeledValue(version=1, serialized_value='"not-a-boolean"')
     logfire.configure(variables=LocalVariablesOptions(config=config), **config_kwargs)
-    feature_flag('test_flag', default=declared_default)
+    create_flag('test_flag', default=declared_default)
     openfeature_api.set_provider_and_wait(LogfireProvider())
     try:
         with pytest.warns(RuntimeWarning, match='value failed validation'):
@@ -137,7 +207,7 @@ def test_openfeature_lifecycle_tracks_remote_health_and_does_not_own_the_transpo
     )
     lf = logfire.configure(local=True, send_to_logfire=False, console=False)
     lf.config._variable_provider = remote
-    native = feature_flag('test_flag', default=False, logfire_instance=lf)
+    native = create_flag('test_flag', default=False, logfire_instance=lf)
     adapter = LogfireProvider(lf)
     client = openfeature_api.get_client(domain='health-test')
     with requests_mock_module.Mocker() as mocker:
@@ -162,7 +232,7 @@ def test_openfeature_lifecycle_tracks_remote_health_and_does_not_own_the_transpo
             adapter.shutdown()
             adapter.shutdown()
             assert remote.get_evaluation_state() == 'ready'
-            assert native.is_enabled() is True
+            assert native.value() is True
             assert not remote._evaluation_state_listeners
         finally:
             openfeature_api.clear_providers()
@@ -176,7 +246,7 @@ def test_openfeature_failed_initialization_recovers_on_the_existing_refresh_loop
     )
     lf = logfire.configure(local=True, send_to_logfire=False, console=False)
     lf.config._variable_provider = remote
-    feature_flag('test_flag', default=False, logfire_instance=lf)
+    create_flag('test_flag', default=False, logfire_instance=lf)
     client = openfeature_api.get_client(domain='recovery-test')
     config = _boolean_config(rollout=Rollout(labels={'enabled': 1.0}))
     with requests_mock_module.Mocker() as mocker:
@@ -211,7 +281,7 @@ def test_openfeature_async_initialization_is_not_ready_until_the_fetch_finishes(
     )
     lf = logfire.configure(local=True, send_to_logfire=False, console=False)
     lf.config._variable_provider = remote
-    feature_flag('test_flag', default=False, logfire_instance=lf)
+    create_flag('test_flag', default=False, logfire_instance=lf)
     client = openfeature_api.get_client(domain='async-test')
 
     def on_ready(details: Any) -> None:
@@ -248,7 +318,7 @@ def test_openfeature_configuration_events_follow_snapshot_changes_not_unchanged_
     )
     lf = logfire.configure(local=True, send_to_logfire=False, console=False)
     lf.config._variable_provider = remote
-    feature_flag('test_flag', default=False, logfire_instance=lf)
+    create_flag('test_flag', default=False, logfire_instance=lf)
     adapter = LogfireProvider(lf)
     config = _boolean_config(rollout=Rollout(labels={'enabled': 1.0}))
     with requests_mock_module.Mocker() as mocker:
@@ -337,7 +407,7 @@ def test_openfeature_records_the_final_serialization_error_fallback(
 
     annotated = Annotated[str, PlainSerializer(broken_serializer, when_used='json')]
     logfire.configure(**config_kwargs)
-    flag('region', type=cast(Any, annotated), default='us')
+    create_flag('region', type=cast(Any, annotated), default='us')
     openfeature_api.set_provider_and_wait(LogfireProvider())
     try:
         details = openfeature_api.get_client().get_string_details('region', 'fallback')
@@ -356,7 +426,7 @@ def test_openfeature_catches_invalid_custom_schema_without_losing_telemetry(
     config_kwargs: dict[str, Any], exporter: TestExporter
 ):
     logfire.configure(**config_kwargs)
-    declared = flag('region', default='us')
+    declared = create_flag('region', default='us')
     with patch.object(declared._adapter.type_adapter, 'core_schema', {'type': 'definitions', 'definitions': [1]}):
         # Schema inspection is normally guarded, so force an unexpected failure at that boundary.
         with patch(
@@ -383,14 +453,14 @@ def test_openfeature_does_not_suppress_same_named_flags_on_another_logfire_insta
 ):
     a = logfire.configure(local=True, **config_kwargs)
     b = logfire.configure(local=True, **config_kwargs)
-    inner = feature_flag('shared', default=True, logfire_instance=b)
+    inner = create_flag('shared', default=True, logfire_instance=b)
 
     def validate(value: bool) -> bool:
-        assert inner.is_enabled() is True
+        assert inner.value() is True
         return value
 
     annotated = Annotated[bool, AfterValidator(validate)]
-    flag('shared', type=cast(Any, annotated), default=False, logfire_instance=a)
+    create_flag('shared', type=cast(Any, annotated), default=False, logfire_instance=a)
     exporter.clear()
     openfeature_api.set_provider_and_wait(LogfireProvider(a))
     try:
@@ -442,16 +512,27 @@ def _rollout_from_parts(parts: tuple[int, int, int]) -> Rollout:
 
 
 def test_feature_flag_api_is_experimental():
+    from logfire.experimental import feature_flags
+
+    assert set(feature_flags.__all__) == {
+        'Flag',
+        'FlagErrorCode',
+        'FlagEvaluationDetails',
+        'FlagEvaluationReason',
+        'feature_context',
+        'flag',
+    }
+    assert not hasattr(feature_flags, 'feature_flag')
+    assert not hasattr(feature_flags, 'FeatureFlag')
+    assert not hasattr(logfire, 'flag')
     assert not hasattr(logfire, 'feature_flag')
     assert not hasattr(logfire, 'feature_context')
 
 
-def test_boolean_feature_flag_rejects_non_boolean_defaults():
-    with pytest.raises(TypeError, match='Feature flag defaults must be boolean'):
-        feature_flag('not_really_boolean', default=cast(Any, 1))
-
-    with pytest.raises(TypeError, match='Feature flag defaults must be boolean'):
-        FeatureFlag('still_not_boolean', default=cast(Any, 1))
+@pytest.mark.parametrize('constructor', [create_flag, Flag])
+def test_boolean_flag_rejects_non_boolean_defaults(constructor: Any):
+    with pytest.raises(ValidationError):
+        constructor('not_really_boolean', type=bool, default=1)
 
 
 @pytest.mark.parametrize(
@@ -644,6 +725,15 @@ def test_feature_flag_provider_state_translation_rejects_unknown_state():
         )
 
 
+@pytest.mark.parametrize('reason', ['validation_error', 'context_override', 'other_error'])
+def test_feature_flag_existing_outcome_does_not_consult_unknown_provider_state(reason: Any):
+    details = _feature_flag_evaluation_details(
+        ResolvedVariable(name='test_flag', value=False, reason=reason),
+        cast(Any, 'not-a-provider-state'),
+    )
+    assert details.reason == ('static' if reason == 'context_override' else 'error')
+
+
 def test_rollout_warning_inspection_cannot_break_a_resolved_value():
     config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
     logfire.configure(
@@ -651,7 +741,7 @@ def test_rollout_warning_inspection_cannot_break_a_resolved_value():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    test_flag = feature_flag('test_flag', default=False)
+    test_flag = create_flag('test_flag', default=False)
 
     with patch.object(VariableConfig, 'requires_targeting_key', side_effect=ValueError('malformed targeting metadata')):
         assert isinstance(test_flag.value(), bool)
@@ -709,7 +799,7 @@ def test_falsey_attribute_mapping_is_not_discarded():
         console=False,
         variables=LocalVariablesOptions(config=variables_config, instrument=False),
     )
-    test_flag = feature_flag('test_flag', default=False)
+    test_flag = create_flag('test_flag', default=False)
     assert test_flag.details(targeting_key='account-a', attributes=attributes).variant == 'disabled'
     with feature_context('account-a', attributes=attributes):
         assert test_flag.details().variant == 'disabled'
@@ -738,12 +828,12 @@ def test_feature_flag_preserves_description():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag = FeatureFlag('test_flag', default=False, description='Enable the new checkout.')
+    flag = create_flag('test_flag', default=False, description='Enable the new checkout.')
 
-    assert isinstance(flag, FeatureFlag)
+    assert isinstance(flag, Flag)
     assert flag.description == 'Enable the new checkout.'
     assert not hasattr(flag, 'get')
-    details = flag.evaluate(targeting_key='account-a')
+    details = flag.details(targeting_key='account-a')
     assert details.flag_key == 'test_flag'
     assert details.value is False
     assert details.variant == 'disabled'
@@ -751,15 +841,17 @@ def test_feature_flag_preserves_description():
     assert details.flag_metadata == {'logfire.value_version': 1}
 
 
-def test_typed_flags_expose_value_and_details_without_boolean_evaluate_alias():
-    checkout = flag('checkout', default=CheckoutConfig(provider='stripe', retries=2))
+@pytest.mark.parametrize('default', [False, 'eu', 3])
+def test_flags_expose_only_value_and_details(default: Any):
+    checkout = create_flag('checkout', default=default)
 
-    assert checkout.value() == CheckoutConfig(provider='stripe', retries=2)
-    assert checkout.details().value == CheckoutConfig(provider='stripe', retries=2)
+    assert checkout.value() == default
+    assert checkout.details().value == default
     assert not hasattr(checkout, 'evaluate')
+    assert not hasattr(checkout, 'is_enabled')
 
 
-def test_is_enabled_forwards_an_explicit_targeting_key():
+def test_value_forwards_an_explicit_targeting_key():
     config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
     logfire.configure(
         send_to_logfire=False,
@@ -771,19 +863,9 @@ def test_is_enabled_forwards_an_explicit_targeting_key():
         for index in range(100)
         if config.variables['test_flag'].resolve_label(f'account-{index}') == 'enabled'
     )
-    test_flag = feature_flag('test_flag', default=False)
+    test_flag = create_flag('test_flag', default=False)
 
-    assert test_flag.is_enabled(targeting_key=enabled_key) is True
-
-
-def test_is_enabled_forwards_the_complete_evaluation_context():
-    test_flag = feature_flag('test_flag', default=False)
-    attributes = {'plan': 'team'}
-
-    with patch.object(FeatureFlag, 'value', return_value=True) as value:
-        assert test_flag.is_enabled(targeting_key='account-a', attributes=attributes) is True
-
-    value.assert_called_once_with('account-a', attributes)
+    assert test_flag.value(targeting_key=enabled_key) is True
 
 
 def test_value_forwards_the_complete_evaluation_context():
@@ -815,7 +897,7 @@ def test_feature_context_wins_over_generic_context_but_not_variable_specific_con
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    test_flag = feature_flag('test_flag', default=False)
+    test_flag = create_flag('test_flag', default=False)
 
     with feature_context(keys['enabled']):
         with targeting_context(keys['disabled']):
@@ -825,7 +907,7 @@ def test_feature_context_wins_over_generic_context_but_not_variable_specific_con
 
 
 def test_feature_flag_falls_back_to_generic_targeting_context():
-    test_flag = feature_flag('test_flag', default=False)
+    test_flag = create_flag('test_flag', default=False)
     adapter = cast(Any, test_flag._adapter)
 
     with targeting_context('generic-account'):
@@ -839,7 +921,7 @@ def test_feature_flag_uses_the_explicit_logfire_instance():
     custom_logfire = Mock()
     custom_logfire._flag.return_value = adapter
 
-    FeatureFlag('test_flag', default=False, logfire_instance=custom_logfire)
+    create_flag('test_flag', default=False, logfire_instance=custom_logfire)
 
     custom_logfire._flag.assert_called_once_with('test_flag', type=bool, default=False, description=None)
 
@@ -908,7 +990,7 @@ def test_typed_flag_validates_pydantic_models_and_overrides():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    checkout = flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
+    checkout = create_flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
 
     assert checkout.value() == CheckoutConfig(provider='stripe', retries=3)
     assert checkout.details().variant == 'fast'
@@ -951,8 +1033,8 @@ def test_typed_flag_supports_versioned_discriminated_models():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    agent_config = flag('agent_config', default=fallback)
-    unsupported = flag('unsupported_agent_config', default=fallback)
+    agent_config = create_flag('agent_config', default=fallback)
+    unsupported = create_flag('unsupported_agent_config', default=fallback)
 
     schema = agent_config._adapter.type_adapter.json_schema()
     assert schema['discriminator'] == {
@@ -980,14 +1062,14 @@ def test_typed_flag_supports_versioned_discriminated_models():
 
 
 def test_feature_flag_validates_test_overrides_before_installing_them():
-    enabled = feature_flag('enabled', default=False)
+    enabled = create_flag('enabled', default=False)
 
     with pytest.raises(ValidationError, match='bool_type'):
         enabled.override_for_testing(cast(Any, object()))
     with pytest.raises(ValidationError, match='bool_type'):
         enabled._adapter.override_for_testing(cast(Any, object()))
 
-    assert enabled.is_enabled() is False
+    assert enabled.value() is False
 
 
 @pytest.mark.parametrize(
@@ -1014,7 +1096,7 @@ def test_typed_flags_do_not_coerce_remote_json_scalar_types(value_type: type[Any
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    typed_flag = flag('typed_flag', type=value_type, default=default)
+    typed_flag = create_flag('typed_flag', type=value_type, default=default)
 
     with pytest.warns(RuntimeWarning, match='value failed validation'):
         details = typed_flag.details()
@@ -1028,9 +1110,9 @@ def test_typed_flags_do_not_coerce_remote_json_scalar_types(value_type: type[Any
 @pytest.mark.parametrize(('value_type', 'invalid_value'), [(bool, 1), (int, True), (float, True)])
 def test_typed_flags_do_not_coerce_defaults_or_test_overrides(value_type: type[Any], invalid_value: Any):
     with pytest.raises(ValidationError):
-        flag('invalid_default', type=value_type, default=invalid_value)
+        create_flag('invalid_default', type=value_type, default=invalid_value)
 
-    typed_flag = flag('typed_flag', type=value_type, default=value_type())
+    typed_flag = create_flag('typed_flag', type=value_type, default=value_type())
     with pytest.raises(ValidationError):
         typed_flag.override_for_testing(invalid_value)
 
@@ -1053,7 +1135,7 @@ def test_float_flags_follow_pydantic_strict_numeric_widening():
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
 
-    sample_rate = flag('sample_rate', type=float, default=cast(Any, 0))
+    sample_rate = create_flag('sample_rate', type=float, default=cast(Any, 0))
 
     assert sample_rate.value() == 1.0
     assert type(sample_rate.value()) is float
@@ -1061,22 +1143,22 @@ def test_float_flags_follow_pydantic_strict_numeric_widening():
 
 def test_parameterized_flag_requires_an_explicit_type():
     with pytest.raises(TypeError, match=r'Pass type=\.\.\.'):
-        flag('ambiguous', default=[])  # pyright: ignore[reportArgumentType]
+        create_flag('ambiguous', default=[])  # pyright: ignore[reportArgumentType]
 
-    values = flag('values', type=list[str], default=[])
+    values = create_flag('values', type=list[str], default=[])
     assert values.value() == []
 
 
 def test_duplicate_flag_name_is_validated_before_type_inference():
-    feature_flag('duplicate', default=False)
+    create_flag('duplicate', default=False)
 
     with pytest.raises(ValueError, match="variable with name 'duplicate' has already been registered"):
-        flag('duplicate', default=[])  # pyright: ignore[reportArgumentType]
+        create_flag('duplicate', default=[])  # pyright: ignore[reportArgumentType]
 
 
 def test_typed_flag_validates_its_code_default_during_construction():
     with pytest.raises(ValidationError, match='valid integer'):
-        flag('invalid_default', type=int, default=cast(Any, 'not-an-int'))
+        create_flag('invalid_default', type=int, default=cast(Any, 'not-an-int'))
 
     assert logfire.variables_get() == []
 
@@ -1086,14 +1168,14 @@ def test_typed_flag_rejects_callable_defaults():
         return bool(targeting_key or attributes)
 
     with pytest.raises(TypeError, match='static values'):
-        flag('dynamic', type=bool, default=cast(Any, dynamic_default))
+        create_flag('dynamic', type=bool, default=cast(Any, dynamic_default))
 
     assert logfire.variables_get() == []
 
 
 def test_typed_flag_rejects_zero_argument_callable_defaults():
     with pytest.raises(TypeError, match='static values'):
-        flag('dynamic', type=object, default=cast(Any, lambda: True))
+        create_flag('dynamic', type=object, default=cast(Any, lambda: True))
 
     assert logfire.variables_get() == []
 
@@ -1113,7 +1195,7 @@ def test_openfeature_provider_uses_declared_flags_and_evaluation_context():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    feature_flag('test_flag', default=False)
+    create_flag('test_flag', default=False)
     openfeature_api.set_provider_and_wait(LogfireProvider(), domain='logfire-test')
     try:
         client = openfeature_api.get_client(domain='logfire-test')
@@ -1264,7 +1346,7 @@ def test_openfeature_client_resolves_remote_logfire_configuration():
     with request_mocker:
         custom_logfire = logfire.configure(local=True, send_to_logfire=False, console=False)
         custom_logfire.config._variable_provider = remote_provider
-        feature_flag('remote_checkout', default=False, logfire_instance=custom_logfire)
+        create_flag('remote_checkout', default=False, logfire_instance=custom_logfire)
         openfeature_api.set_provider_and_wait(LogfireProvider(custom_logfire), domain='remote-logfire-test')
         try:
             details = openfeature_api.get_client(domain='remote-logfire-test').get_boolean_details(
@@ -1317,7 +1399,7 @@ def test_remote_provider_health_is_reflected_in_native_and_openfeature_details()
     )
     custom_logfire = logfire.configure(local=True, send_to_logfire=False, console=False)
     custom_logfire.config._variable_provider = remote_provider
-    checkout = feature_flag('remote_checkout', default=False, logfire_instance=custom_logfire)
+    checkout = create_flag('remote_checkout', default=False, logfire_instance=custom_logfire)
     provider = LogfireProvider(custom_logfire)
 
     not_ready = checkout.details()
@@ -1390,7 +1472,7 @@ def test_openfeature_provider_uses_the_caller_default_on_resolution_error():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    test_flag = feature_flag('test_flag', default=True)
+    test_flag = create_flag('test_flag', default=True)
 
     with pytest.warns(RuntimeWarning, match='value failed validation'):
         direct_details = test_flag.details()
@@ -1425,7 +1507,7 @@ def test_openfeature_context_takes_precedence_over_logfire_feature_context():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    test_flag = feature_flag('test_flag', default=False)
+    test_flag = create_flag('test_flag', default=False)
     openfeature_api.set_provider_and_wait(LogfireProvider(), domain='logfire-context-test')
     previous_global_context = openfeature_api.get_evaluation_context()
     openfeature_api.set_evaluation_context(
@@ -1452,9 +1534,9 @@ def test_openfeature_context_takes_precedence_over_logfire_feature_context():
 
 
 def test_openfeature_provider_accepts_pydantic_constrained_scalar_flags():
-    flag('positive_retries', type=cast(Any, Annotated[int, Field(gt=0)]), default=3)
-    flag('positive_ratio', type=cast(Any, Annotated[float, Field(gt=0)]), default=0.5)
-    flag('nonempty_region', type=cast(Any, Annotated[str, Field(min_length=1)]), default='us')
+    create_flag('positive_retries', type=cast(Any, Annotated[int, Field(gt=0)]), default=3)
+    create_flag('positive_ratio', type=cast(Any, Annotated[float, Field(gt=0)]), default=0.5)
+    create_flag('nonempty_region', type=cast(Any, Annotated[str, Field(min_length=1)]), default='us')
     provider = LogfireProvider()
 
     assert provider.resolve_integer_details('positive_retries', 1).value == 3
@@ -1463,8 +1545,8 @@ def test_openfeature_provider_accepts_pydantic_constrained_scalar_flags():
 
 
 def test_openfeature_provider_accepts_pydantic_root_model_scalars():
-    flag('root_region', default=RootModel[str]('us'))
-    flag('root_retries', default=RootModel[int](3))
+    create_flag('root_region', default=RootModel[str]('us'))
+    create_flag('root_retries', default=RootModel[int](3))
     provider = LogfireProvider()
 
     assert provider.resolve_string_details('root_region', 'fallback').value == 'us'
@@ -1475,7 +1557,7 @@ def test_openfeature_provider_accepts_pydantic_root_model_scalars():
 
 
 def test_openfeature_provider_accepts_validator_wrapped_scalar_flags():
-    flag('validated_retries', type=cast(Any, Annotated[int, AfterValidator(abs)]), default=3)
+    create_flag('validated_retries', type=cast(Any, Annotated[int, AfterValidator(abs)]), default=3)
     provider = LogfireProvider()
 
     assert provider.resolve_integer_details('validated_retries', 1).value == 3
@@ -1490,7 +1572,6 @@ def test_openfeature_scalar_classification_unwraps_transparent_schemas(wrapper: 
     adapter = Mock()
     adapter.type_adapter.core_schema = schema
 
-    assert _unwrap_transparent_schema(schema) == {'type': 'int'}
     assert _matches_openfeature_scalar_type(adapter, int) is True
     assert _is_exclusively_openfeature_scalar_schema(schema) is True
 
@@ -1498,7 +1579,6 @@ def test_openfeature_scalar_classification_unwraps_transparent_schemas(wrapper: 
 def test_openfeature_scalar_classification_stops_at_malformed_wrapper():
     schema = {'type': 'function-after', 'schema': None}
 
-    assert _unwrap_transparent_schema(schema) is schema
     assert _is_exclusively_openfeature_scalar_schema(schema) is False
 
 
@@ -1511,9 +1591,26 @@ def test_openfeature_scalar_classification_resolves_definition_refs():
     adapter = Mock()
     adapter.type_adapter.core_schema = schema
 
-    assert _unwrap_transparent_schema(schema) == {'type': 'int', 'ref': 'PositiveRetries'}
     assert _matches_openfeature_scalar_type(adapter, int) is True
     assert _matches_openfeature_scalar_type(adapter, str) is False
+
+
+def test_openfeature_scalar_classification_unwraps_a_referenced_validator():
+    adapter = Mock()
+    adapter.type_adapter.core_schema = {
+        'type': 'definitions',
+        'schema': {'type': 'definition-ref', 'schema_ref': 'ValidatedRetries'},
+        'definitions': [{'type': 'function-after', 'schema': {'type': 'int'}, 'ref': 'ValidatedRetries'}],
+    }
+    assert _matches_openfeature_scalar_type(adapter, int) is True
+    assert _is_exclusively_openfeature_scalar_schema(adapter.type_adapter.core_schema) is True
+
+
+def test_openfeature_scalar_classification_does_not_unwrap_a_non_root_model():
+    adapter = Mock()
+    adapter.type_adapter.core_schema = {'type': 'model', 'root_model': False, 'schema': {'type': 'int'}}
+    assert _matches_openfeature_scalar_type(adapter, int) is False
+    assert _is_exclusively_openfeature_scalar_schema(adapter.type_adapter.core_schema) is False
 
 
 def test_openfeature_scalar_classification_propagates_definitions_through_nested_schemas():
@@ -1543,6 +1640,7 @@ def test_openfeature_scalar_classification_propagates_definitions_through_nested
     assert _is_exclusively_openfeature_scalar_schema(schema) is True
 
 
+@pytest.mark.timeout(1)
 def test_openfeature_scalar_classification_rejects_recursive_or_malformed_definition_refs():
     recursive_schema: dict[str, Any] = {
         'type': 'definitions',
@@ -1561,12 +1659,6 @@ def test_openfeature_scalar_classification_rejects_recursive_or_malformed_defini
         'type': 'definitions',
         'schema': {'type': 'definition-ref', 'schema_ref': 'Missing'},
         'definitions': [],
-    }
-
-    assert _unwrap_transparent_schema(recursive_schema) == {
-        'type': 'definition-ref',
-        'schema_ref': 'A',
-        'ref': 'B',
     }
 
     for schema in (recursive_schema, malformed_schema, missing_schema):
@@ -1600,9 +1692,9 @@ def test_openfeature_scalar_classification_handles_unions_and_nullable_schemas(
 
 
 def test_openfeature_provider_accepts_literal_scalar_flags():
-    flag('literal_region', type=cast(Any, Literal['us', 'eu']), default='us')
-    flag('literal_retries', type=cast(Any, Literal[1, 3]), default=1)
-    flag('mixed_literal', type=cast(Any, Literal['us', 1]), default='us')
+    create_flag('literal_region', type=cast(Any, Literal['us', 'eu']), default='us')
+    create_flag('literal_retries', type=cast(Any, Literal[1, 3]), default=1)
+    create_flag('mixed_literal', type=cast(Any, Literal['us', 1]), default='us')
     provider = LogfireProvider()
 
     assert provider.resolve_string_details('literal_region', 'fallback').value == 'us'
@@ -1616,8 +1708,8 @@ def test_openfeature_provider_accepts_literal_scalar_flags():
     MUTATION_TESTING, reason='mutmut loads transformed flag and test modules under different identities'
 )
 def test_openfeature_provider_accepts_enum_scalar_flags():
-    flag('enum_region', default=RegionFlag.US)
-    flag('enum_retries', default=RetriesFlag.THREE)
+    create_flag('enum_region', default=RegionFlag.US)
+    create_flag('enum_retries', default=RetriesFlag.THREE)
     provider = LogfireProvider()
 
     assert provider.resolve_string_details('enum_region', 'fallback').value == 'us'
@@ -1678,7 +1770,7 @@ def test_openfeature_object_schema_classification_handles_direct_enums(schema: d
     'flag_type, default', [(bool, False), (float, 1.5), (Literal['a'], 'a'), (RegionFlag, RegionFlag.US)]
 )
 def test_openfeature_object_schema_classification_recognizes_scalar_schemas(flag_type: Any, default: Any):
-    adapter = flag('scalar_schema', type=flag_type, default=default)._adapter
+    adapter = create_flag('scalar_schema', type=flag_type, default=default)._adapter
 
     assert _is_exclusively_openfeature_scalar_schema(adapter.type_adapter.core_schema) is True
 
@@ -1716,7 +1808,7 @@ def test_openfeature_provider_reports_object_serialization_errors():
         console=False,
         variables=LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False),
     )
-    checkout = flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
+    checkout = create_flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
 
     with patch.object(checkout._adapter.type_adapter, 'dump_python', side_effect=RuntimeError('broken serializer')):
         details = LogfireProvider().resolve_object_details('checkout', {})
@@ -1733,7 +1825,7 @@ def test_openfeature_provider_reports_object_serialization_errors():
 
 
 def test_openfeature_provider_reports_scalar_serialization_errors():
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
     provider = LogfireProvider()
 
     with patch.object(region._adapter.type_adapter, 'dump_python', side_effect=RuntimeError('broken serializer')):
@@ -1751,7 +1843,7 @@ def test_openfeature_provider_reports_scalar_serialization_errors():
 
 
 def test_openfeature_provider_rejects_scalar_flags_as_objects():
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
 
     with patch.object(region._adapter, 'evaluate_flag') as evaluate_flag:
         details = LogfireProvider().resolve_object_details('region', {})
@@ -1763,7 +1855,7 @@ def test_openfeature_provider_rejects_scalar_flags_as_objects():
 
 @pytest.mark.parametrize('flag_type, default', [(str | None, None), (int | str, 1)])
 def test_openfeature_provider_rejects_wrapped_scalar_flags_as_objects_without_evaluating(flag_type: Any, default: Any):
-    wrapped_scalar = flag('wrapped_scalar', type=flag_type, default=default)
+    wrapped_scalar = create_flag('wrapped_scalar', type=flag_type, default=default)
 
     with patch.object(wrapped_scalar._adapter, 'evaluate_flag') as evaluate_flag:
         details = LogfireProvider().resolve_object_details('wrapped_scalar', {})
@@ -1774,13 +1866,15 @@ def test_openfeature_provider_rejects_wrapped_scalar_flags_as_objects_without_ev
 
 
 def test_openfeature_object_schema_classification_allows_nullable_objects():
-    adapter = flag('nullable_object', type=cast(Any, list[str] | None), default=cast(list[str] | None, None))._adapter
+    adapter = create_flag(
+        'nullable_object', type=cast(Any, list[str] | None), default=cast(list[str] | None, None)
+    )._adapter
 
     assert _is_exclusively_openfeature_scalar_schema(adapter.type_adapter.core_schema) is False
 
 
 def test_openfeature_provider_rejects_object_flags_as_scalars_without_evaluating():
-    checkout = flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
+    checkout = create_flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
 
     with patch.object(checkout._adapter, 'evaluate_flag') as evaluate_flag:
         details = LogfireProvider().resolve_string_details('checkout', 'fallback')
@@ -1796,7 +1890,7 @@ def test_openfeature_provider_serializes_typed_objects():
         console=False,
         variables=LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False),
     )
-    flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
+    create_flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
     provider = LogfireProvider()
 
     details = provider.resolve_object_details('checkout', {})
@@ -1821,7 +1915,7 @@ def test_openfeature_provider_serializes_caller_default_after_validation_error()
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
+    create_flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
 
     with pytest.warns(RuntimeWarning, match='value failed validation'):
         details = LogfireProvider().resolve_object_details('checkout', {})
@@ -1834,7 +1928,7 @@ def test_openfeature_provider_serializes_caller_default_after_validation_error()
 def test_typed_flag_telemetry_serializes_structured_values(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
-    checkout = flag('checkout', default=CheckoutConfig(provider='stripe', retries=2))
+    checkout = create_flag('checkout', default=CheckoutConfig(provider='stripe', retries=2))
     exporter.clear()
 
     checkout.value()
@@ -1848,7 +1942,7 @@ def test_typed_flag_telemetry_serializes_structured_values(config_kwargs: dict[s
 
 
 def test_feature_flag_telemetry_does_not_treat_unchanged_nan_as_scrubbed():
-    threshold = flag('threshold', default=float('nan'))
+    threshold = create_flag('threshold', default=float('nan'))
     adapter = cast(Any, threshold._adapter)
 
     telemetry = adapter._resolution_telemetry_attributes(
@@ -1867,7 +1961,7 @@ def test_feature_flag_telemetry_does_not_treat_unchanged_nan_as_scrubbed():
 @pytest.mark.parametrize('structured', [False, True])
 def test_feature_flag_telemetry_handles_json_serialization_failure(error: type[Exception], structured: bool):
     value = {'region': 'us'} if structured else 'us'
-    adapter = cast(Any, flag('region', type=dict[str, str] if structured else str, default=value)._adapter)
+    adapter = cast(Any, create_flag('region', type=dict[str, str] if structured else str, default=value)._adapter)
     with patch.object(adapter.type_adapter, 'dump_json', side_effect=error('broken serializer')):
         telemetry = adapter._resolution_telemetry_attributes(
             ResolvedVariable(name='region', value=value, reason='code_default'),
@@ -1886,7 +1980,7 @@ def test_failed_registration_does_not_leave_a_phantom_flag():
 
     logfire.template_var('greeting', inputs_type=Inputs, default='Hello {{name}}')
     with pytest.raises(RuntimeWarning, match='has no inputs_type'):
-        flag('message', default='@{greeting}@')
+        create_flag('message', default='@{greeting}@')
     assert 'message' not in logfire.variables_get()
 
 
@@ -1898,13 +1992,13 @@ def test_split_flag_testing_override_does_not_warn_about_targeting():
             config=_boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5})), instrument=False
         ),
     )
-    checkout = feature_flag('test_flag', default=False)
+    checkout = create_flag('test_flag', default=False)
     with checkout.override_for_testing(True):
-        assert checkout.is_enabled() is True
+        assert checkout.value() is True
 
 
 def test_feature_flag_telemetry_does_not_treat_nested_unchanged_nan_as_scrubbed():
-    payload = flag('payload', type=dict[str, list[float]], default={'values': [float('nan')]})
+    payload = create_flag('payload', type=dict[str, list[float]], default={'values': [float('nan')]})
     adapter = cast(Any, payload._adapter)
 
     telemetry = adapter._resolution_telemetry_attributes(
@@ -1934,7 +2028,7 @@ def test_returned_value_and_telemetry_share_one_provider_state_snapshot(
     )
     config_kwargs['variables'] = LocalVariablesOptions(config=config, instrument=True)
     logfire.configure(**config_kwargs)
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
     adapter = cast(Any, region._adapter)
     exporter.clear()
 
@@ -1952,7 +2046,7 @@ def test_returned_value_and_telemetry_share_one_provider_state_snapshot(
 
 
 def test_feature_flag_finalization_preserves_resolution_details():
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
     adapter = cast(Any, region._adapter)
     exception = RuntimeError('provider warning')
     composed_from = [cast(Any, object())]
@@ -1983,7 +2077,7 @@ def test_feature_flag_finalization_preserves_resolution_details():
 
 @pytest.mark.parametrize('provider_state', ['not_ready', 'ready', 'stale', 'error', 'fatal'])
 def test_feature_flag_reads_each_provider_state(provider_state: Any):
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
     adapter = cast(Any, region._adapter)
     provider = adapter.logfire_instance.config.get_variable_provider()
 
@@ -1993,7 +2087,7 @@ def test_feature_flag_reads_each_provider_state(provider_state: Any):
 
 @pytest.mark.parametrize('provider_state', ['not_ready', 'error', 'fatal'])
 def test_unavailable_provider_result_uses_named_code_default(provider_state: Any):
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
     adapter = cast(Any, region._adapter)
 
     result = adapter._result_for_provider_state(
@@ -2007,7 +2101,7 @@ def test_unavailable_provider_result_uses_named_code_default(provider_state: Any
 
 
 def test_unavailable_provider_telemetry_records_the_structured_code_default():
-    checkout = flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
+    checkout = create_flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
     adapter = cast(Any, checkout._adapter)
 
     with patch.object(adapter, '_get_provider_evaluation_state', return_value='fatal'):
@@ -2034,7 +2128,7 @@ def test_testing_override_does_not_depend_on_provider_availability(
 ):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
-    checkout = feature_flag('checkout', default=False)
+    checkout = create_flag('checkout', default=False)
     adapter = cast(Any, checkout._adapter)
     exporter.clear()
 
@@ -2058,7 +2152,7 @@ def test_testing_override_does_not_depend_on_provider_availability(
 def test_feature_flag_telemetry_omits_targeting_context(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
     exporter.clear()
 
     region.value(targeting_key='customer@example.com', attributes={'account_plan': 'confidential-plan'})
@@ -2078,7 +2172,7 @@ def test_feature_flag_telemetry_omits_targeting_context(config_kwargs: dict[str,
 def test_typed_flag_telemetry_omits_scrubbed_structured_values(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
-    secret = flag('checkout_settings', default=SecretConfig(api_key='super-secret'))
+    secret = create_flag('checkout_settings', default=SecretConfig(api_key='super-secret'))
     exporter.clear()
     scrubber = logfire.DEFAULT_LOGFIRE_INSTANCE.config.scrubber
 
@@ -2104,7 +2198,7 @@ def test_typed_flag_telemetry_omits_scrubbed_structured_values(config_kwargs: di
 def test_typed_flag_telemetry_scrubs_json_only_serializers(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
-    secret = flag('json_settings', default=JsonOnlySecretConfig(payload='opaque-value'))
+    secret = create_flag('json_settings', default=JsonOnlySecretConfig(payload='opaque-value'))
     exporter.clear()
     scrubber = logfire.DEFAULT_LOGFIRE_INSTANCE.config.scrubber
 
@@ -2131,7 +2225,7 @@ def test_typed_flag_telemetry_omits_serialized_value_when_dumping_fails(
 ):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
-    checkout = flag('checkout', default=SecretConfig(api_key='nested-secret'))
+    checkout = create_flag('checkout', default=SecretConfig(api_key='nested-secret'))
     exporter.clear()
     scrubber = logfire.DEFAULT_LOGFIRE_INSTANCE.config.scrubber
 
@@ -2163,7 +2257,7 @@ def test_typed_flag_telemetry_honors_callback_replacements_without_notes(
 
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=replace_secret), **config_kwargs)
-    secret = flag('checkout_settings', default=SecretConfig(api_key='super-secret'))
+    secret = create_flag('checkout_settings', default=SecretConfig(api_key='super-secret'))
     exporter.clear()
 
     secret.value()
@@ -2180,7 +2274,7 @@ def test_typed_flag_telemetry_honors_callback_replacements_without_notes(
 
 
 def test_typed_flag_telemetry_honors_scrub_notes_without_replacements():
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
     adapter = cast(Any, region._adapter)
     scrub_key = 'logfire.feature_flag.result.region'
 
@@ -2202,7 +2296,7 @@ def test_typed_flag_telemetry_honors_scrub_notes_without_replacements():
 
 
 def test_provider_metadata_failure_cannot_break_feature_flag_telemetry():
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
     adapter = cast(Any, region._adapter)
     provider = adapter.logfire_instance.config.get_variable_provider()
 
@@ -2220,7 +2314,7 @@ def test_provider_metadata_failure_cannot_break_feature_flag_telemetry():
 
 
 def test_provider_metadata_failure_cannot_break_flag_evaluation():
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
     adapter = cast(Any, region._adapter)
     provider = adapter.logfire_instance.config.get_variable_provider()
 
@@ -2235,7 +2329,7 @@ def test_provider_metadata_failure_cannot_break_flag_evaluation():
 
 
 def test_provider_health_failure_falls_back_without_breaking_flag_evaluation():
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
     adapter = cast(Any, region._adapter)
     provider = adapter.logfire_instance.config.get_variable_provider()
 
@@ -2251,7 +2345,7 @@ def test_provider_health_failure_falls_back_without_breaking_flag_evaluation():
 
 
 def test_invalid_provider_health_falls_back_without_breaking_flag_evaluation():
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
     adapter = cast(Any, region._adapter)
     provider = adapter.logfire_instance.config.get_variable_provider()
 
@@ -2273,7 +2367,7 @@ def test_flag_evaluation_details_use_the_resolved_config_snapshot():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    test_flag = feature_flag('test_flag', default=False)
+    test_flag = create_flag('test_flag', default=False)
     adapter = cast(Any, test_flag._adapter)
     provider = adapter.logfire_instance.config.get_variable_provider()
     original_get = provider.get_serialized_value
@@ -2307,14 +2401,14 @@ def test_split_reason_is_preserved_when_rollout_selects_the_code_default():
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
 
-    details = feature_flag('test_flag', default=False).details(targeting_key=targeting_key)
+    details = create_flag('test_flag', default=False).details(targeting_key=targeting_key)
 
     assert details.value is False
     assert details.reason == 'split'
 
 
 def test_provider_metadata_failure_cannot_break_rollout_warning():
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
     adapter = cast(Any, region._adapter)
     provider = adapter.logfire_instance.config.get_variable_provider()
 
@@ -2330,7 +2424,7 @@ def test_provider_metadata_failure_cannot_break_rollout_warning():
 
 
 def test_openfeature_provider_returns_default_when_evaluation_raises():
-    enabled = feature_flag('enabled', default=False)
+    enabled = create_flag('enabled', default=False)
 
     with patch.object(enabled._adapter, 'evaluate_flag', side_effect=RuntimeError('sensitive provider failure')):
         details = LogfireProvider().resolve_boolean_details('enabled', True)
@@ -2346,7 +2440,7 @@ def test_provider_exception_text_is_not_recorded_for_feature_flags(
 ):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
-    region = flag('region', default='us')
+    region = create_flag('region', default='us')
     provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
     exporter.clear()
 
@@ -2372,7 +2466,7 @@ def test_provider_exception_text_is_not_recorded_for_feature_flags(
 def test_scrubbing_callback_failure_cannot_break_flag_evaluation(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
-    secret = flag('checkout_settings', default=SecretConfig(api_key='super-secret'))
+    secret = create_flag('checkout_settings', default=SecretConfig(api_key='super-secret'))
     exporter.clear()
 
     with patch.object(
@@ -2426,20 +2520,20 @@ def test_rollout_warning_truth_table():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag = feature_flag('test_flag', default=False)
+    flag = create_flag('test_flag', default=False)
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter('always')
-        flag.evaluate(attributes={'plan': 'team'})
-        flag.evaluate(targeting_key='account-a', attributes={'plan': 'free'})
+        flag.details(attributes={'plan': 'team'})
+        flag.details(targeting_key='account-a', attributes={'plan': 'free'})
         with feature_context('account-a', attributes={'plan': 'free'}):
-            flag.evaluate()
+            flag.details()
         with targeting_context('account-a', variables=[flag]):
-            flag.evaluate(attributes={'plan': 'free'})
+            flag.details(attributes={'plan': 'free'})
     assert caught == []
 
     with pytest.warns(RuntimeWarning, match='no stable targeting key') as caught:
-        flag.evaluate(attributes={'plan': 'free'})
+        flag.details(attributes={'plan': 'free'})
     assert len(caught) == 1
 
 
@@ -2450,7 +2544,7 @@ def test_feature_flags_do_not_use_inbound_trace_ids_for_targeting():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag = feature_flag('test_flag', default=False)
+    flag = create_flag('test_flag', default=False)
     provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
 
     with (
@@ -2458,7 +2552,7 @@ def test_feature_flags_do_not_use_inbound_trace_ids_for_targeting():
         logfire.span('request'),
         pytest.warns(RuntimeWarning, match='no stable targeting key'),
     ):
-        flag.evaluate()
+        flag.details()
 
     assert get_serialized_value.call_args.args[1] is None
 
@@ -2485,9 +2579,9 @@ def test_resource_attributes_target_feature_flags_when_enabled(
             include_resource_attributes_in_context=True,
         ),
     )
-    flag = feature_flag('test_flag', default=False)
+    flag = create_flag('test_flag', default=False)
 
-    assert flag.evaluate(targeting_key='account-a').variant == 'disabled'
+    assert flag.details(targeting_key='account-a').variant == 'disabled'
 
 
 class FeatureFlagStateMachine(RuleBasedStateMachine):
@@ -2518,10 +2612,10 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
             ),
         )
         self.logfire.variables_clear()
-        self.flag = feature_flag('test_flag', default=False, logfire_instance=self.logfire)
+        self.flag = create_flag('test_flag', default=False, logfire_instance=self.logfire)
         self.contexts: list[tuple[AbstractContextManager[None], str, dict[str, str]]] = []
         self.overrides: list[tuple[AbstractContextManager[None], bool]] = []
-        self.base_results = {key: self.flag.evaluate(targeting_key=key) for key in self.KEYS}
+        self.base_results = {key: self.flag.details(targeting_key=key) for key in self.KEYS}
 
     @rule(
         targeting_key=st.sampled_from(KEYS),
@@ -2564,7 +2658,7 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
             targeting_key = 'account-a'
         attributes = None if explicit_plan == 'none' else {'plan': explicit_plan}
 
-        details = self.flag.evaluate(targeting_key=targeting_key, attributes=attributes)
+        details = self.flag.details(targeting_key=targeting_key, attributes=attributes)
 
         expected_attributes: dict[str, str] = {}
         for _, _, context_attributes in self.contexts:
@@ -2594,11 +2688,11 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
         assert details.value is expected_value
         assert details.variant == expected_variant
         assert details.reason == expected_reason
-        assert self.flag.is_enabled(targeting_key=targeting_key, attributes=attributes) is expected_value
+        assert self.flag.value(targeting_key=targeting_key, attributes=attributes) is expected_value
 
     @invariant()
     def evaluations_always_return_booleans(self):
-        assert isinstance(self.flag.is_enabled(targeting_key='account-a'), bool)
+        assert isinstance(self.flag.value(targeting_key='account-a'), bool)
 
     def teardown(self):
         while self.overrides:
@@ -2635,13 +2729,13 @@ def test_feature_context_isolated_across_threads():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag = feature_flag('test_flag', default=False)
+    flag = create_flag('test_flag', default=False)
     barrier = threading.Barrier(4, timeout=2)
 
     def evaluate(name: str, plan: str) -> tuple[str, bool]:
         with feature_context(name, attributes={'plan': plan}):
             barrier.wait()
-            return name, flag.is_enabled()
+            return name, flag.value()
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = [executor.submit(evaluate, f'user-{index}', 'team' if index % 2 else 'guest') for index in range(4)]
@@ -2665,16 +2759,16 @@ def test_feature_context_copies_attributes_and_restores_after_an_exception():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag = feature_flag('test_flag', default=False)
+    flag = create_flag('test_flag', default=False)
     attributes = {'plan': 'team'}
 
     with pytest.raises(RuntimeError, match='stop setup'):
         with feature_context('account-a', attributes=attributes):
             attributes['plan'] = 'guest'
-            assert flag.is_enabled() is True
+            assert flag.value() is True
             raise RuntimeError('stop setup')
 
-    assert flag.is_enabled(targeting_key='account-a') is False
+    assert flag.value(targeting_key='account-a') is False
 
 
 def test_feature_context_reuses_managed_variable_targeting_context():
@@ -2684,7 +2778,7 @@ def test_feature_context_reuses_managed_variable_targeting_context():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag = feature_flag('test_flag', default=False)
+    flag = create_flag('test_flag', default=False)
 
     def regular_default(targeting_key: str | None, _attributes: Mapping[str, object] | None) -> str:
         return targeting_key or 'no-targeting-key'
@@ -2694,7 +2788,7 @@ def test_feature_context_reuses_managed_variable_targeting_context():
     with targeting_context('regular-variable-key'):
         with feature_context('feature-flag-key', attributes={'plan': 'team'}):
             assert regular_variable.get().value == 'feature-flag-key'
-            assert flag.evaluate().variant == config.variables['test_flag'].resolve_label('feature-flag-key')
+            assert flag.details().variant == config.variables['test_flag'].resolve_label('feature-flag-key')
 
     for feature_context_is_outer in (False, True):
         with ExitStack() as stack:
@@ -2707,4 +2801,103 @@ def test_feature_context_reuses_managed_variable_targeting_context():
                 stack.enter_context(feature_context('feature-flag-key'))
 
             assert regular_variable.get().value == 'feature-flag-key'
-            assert flag.evaluate().variant == config.variables['test_flag'].resolve_label('specific-feature-flag-key')
+            assert flag.details().variant == config.variables['test_flag'].resolve_label('specific-feature-flag-key')
+
+
+def test_openfeature_replaces_its_inherited_lock_after_fork(monkeypatch: pytest.MonkeyPatch) -> None:
+    adapter = LogfireProvider()
+    inherited_lock = adapter._state_lock
+    child_pid = adapter._pid + 1
+    with monkeypatch.context() as child:
+        child.setattr('logfire.experimental.openfeature.os.getpid', lambda: child_pid)
+        adapter.shutdown()
+        assert adapter._pid == child_pid
+        assert adapter._state_lock is not inherited_lock
+        child_lock = adapter._state_lock
+        adapter.shutdown()
+        assert adapter._state_lock is child_lock
+
+
+def test_detached_openfeature_adapter_ignores_late_notifications() -> None:
+    adapter = LogfireProvider()
+    adapter.shutdown()
+    with ExitStack() as stack:
+        emitters = [
+            stack.enter_context(patch.object(adapter, name))
+            for name in (
+                'emit_provider_ready',
+                'emit_provider_stale',
+                'emit_provider_error',
+                'emit_provider_configuration_changed',
+            )
+        ]
+        for state in ('ready', 'stale', 'not_ready', 'error', 'fatal'):
+            adapter._state_changed(cast(Any, state))
+        for emitter in emitters:
+            emitter.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_cancelled_feature_scope_restores_parent_without_leaking_to_sibling(config_kwargs: dict[str, Any]):
+    """Child task cancellation unwinds keys, attributes, and overrides without changing siblings."""
+    import anyio
+
+    from logfire.variables.variable import _ManagedVariableFlagAdapter
+
+    config_kwargs['variables'] = LocalVariablesOptions(
+        config=VariablesConfig(variables={}), instrument=False, include_resource_attributes_in_context=False
+    )
+    logfire.configure(**config_kwargs)
+    gate = create_flag('cancelled_scope', default=False)
+    adapter = cast(_ManagedVariableFlagAdapter[bool], gate._adapter)
+    entered, sibling_checked, cleaned = anyio.Event(), anyio.Event(), anyio.Event()
+
+    def check_parent() -> None:
+        assert gate.value() is False
+        assert adapter._get_context_targeting_key() == 'parent'
+        assert adapter._get_merged_attributes() == {'scope': 'parent'}
+
+    async def cancelled_child() -> None:
+        try:
+            with feature_context('child', attributes={'scope': 'child'}), gate.override_for_testing(True):
+                assert gate.value() is True
+                entered.set()
+                await anyio.sleep_forever()
+        finally:
+            check_parent()
+            cleaned.set()
+
+    async def sibling() -> None:
+        await entered.wait()
+        check_parent()
+        sibling_checked.set()
+
+    with feature_context('parent', attributes={'scope': 'parent'}), gate.override_for_testing(False):
+        with anyio.fail_after(5):
+            async with anyio.create_task_group() as group:
+                group.start_soon(cancelled_child)
+                group.start_soon(sibling)
+                await sibling_checked.wait()
+                check_parent()
+                group.cancel_scope.cancel()
+        assert cleaned.is_set()
+        check_parent()
+    assert adapter._get_context_targeting_key() is None
+    assert adapter._get_merged_attributes() == {}
+    assert gate.value() is False
+
+
+def test_openfeature_rejects_validator_output_that_changes_scalar_shape(config_kwargs: dict[str, Any]):
+    """Classification uses declared shape, but the returned scalar is checked after serialization."""
+    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False)
+    logfire.configure(**config_kwargs)
+    changed_shape = Annotated[
+        int,
+        AfterValidator(lambda value: {'value': value}),
+        PlainSerializer(lambda value: value, return_type=dict[str, int]),
+    ]
+    create_flag('changed_shape', type=cast(Any, changed_shape), default=1)
+    details = LogfireProvider().resolve_integer_details('changed_shape', 42)
+    assert details.value == 42
+    assert details.error_code == ErrorCode.TYPE_MISMATCH
+    assert details.variant is None
