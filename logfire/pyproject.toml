@@ -45,13 +45,13 @@ classifiers = [
     "Framework :: OpenTelemetry :: Exporters",
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
-dependencies = ["logfire-sdk==6.0.0b8", "logfire-cli>=0.1.8"]
+dependencies = ["logfire-sdk==6.0.0b8"]
 
-# This package owns the `logfire` command; logfire-cli 0.1.8+ installs only `logfire-cli`.
+# This package owns the `logfire` command and runs the Python CLI shipped in the SDK.
 # Pip uninstalls monolithic logfire v5, which also owned `logfire`, immediately before
 # installing this package, so the launcher is restored during the upgrade.
 [project.scripts]
-logfire = "logfire_cli:main"
+logfire = "logfire.cli:main"
 
 [project.optional-dependencies]
 gateway = ["logfire-sdk[gateway]==6.0.0b8"]

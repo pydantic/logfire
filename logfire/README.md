@@ -3,7 +3,8 @@
 This distribution installs the [Pydantic Logfire](https://pydantic.dev/logfire)
 Python SDK and command-line interface. The Python API is provided by
 `logfire-sdk`. This package installs the `logfire` command, which runs the
-native CLI from `logfire-cli`.
+Python CLI included in the SDK. The standalone `logfire-cli` package is not
+installed as a dependency.
 
 ```bash
 pip install logfire
