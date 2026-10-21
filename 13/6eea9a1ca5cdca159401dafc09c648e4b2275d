@@ -1,0 +1,19 @@
+logfire/README.md
+  s_524a2f4323a868::t_df103b5de2b2f3 3-4,10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "136eea9a1ca5cdca159401dafc09c648e4b2275d",
+  "prompts": {},
+  "sessions": {
+    "s_524a2f4323a868": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15ede-5363-7ea1-ae3a-7f309a1ea4ea",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
