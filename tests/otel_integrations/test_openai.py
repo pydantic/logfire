@@ -5266,6 +5266,7 @@ async def test_internal_exception_in_on_response_keeps_the_response(
         ({'status': 'incomplete', 'incomplete_details': {'reason': 'content_filter'}}, ['content_filter']),
         ({'status': 'incomplete'}, None),
         ({'status': 'failed'}, None),
+        ({}, None),
         (
             {
                 'status': 'completed',
