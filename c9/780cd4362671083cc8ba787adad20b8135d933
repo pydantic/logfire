@@ -1,0 +1,21 @@
+logfire-sdk/logfire/_internal/integrations/llm_providers/anthropic.py
+  s_55a6e8662a3045::t_f3664a527ad168 182,184,188
+tests/otel_integrations/test_anthropic.py
+  s_55a6e8662a3045::t_c56f5877e65375 2389-2453
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c9780cd4362671083cc8ba787adad20b8135d933",
+  "prompts": {},
+  "sessions": {
+    "s_55a6e8662a3045": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15eda-f31a-7151-a852-840a572c0439",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
