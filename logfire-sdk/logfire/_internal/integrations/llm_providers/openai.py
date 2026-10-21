@@ -288,6 +288,8 @@ def _convert_content_part(part: object) -> MessagePart:
     part_type = part.get('type', 'unknown')
     if part_type in ('text', 'output_text', 'input_text'):
         return TextPart(type='text', content=part.get('text', ''))
+    elif part_type == 'refusal':
+        return TextPart(type='text', content=part.get('refusal', ''))
     elif part_type in ('image_url', 'input_image'):
         if uri := _media_part_uri(part, 'image_url'):
             return UriPart(type='uri', uri=uri, modality='image')

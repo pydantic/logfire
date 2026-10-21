@@ -4693,12 +4693,12 @@ def test_convert_responses_outputs_non_text_content() -> None:
     out = MagicMock()
     out.model_dump.return_value = {
         'type': 'message',
-        'content': [{'type': 'refusal', 'refusal': 'I cannot help with that'}],
+        'content': [{'type': 'unknown_content', 'value': 'something else'}],
     }
     response.output = [out]
 
     assert convert_responses_outputs_to_semconv(response) == snapshot(
-        [{'role': 'assistant', 'parts': [{'type': 'refusal', 'refusal': 'I cannot help with that'}]}]
+        [{'role': 'assistant', 'parts': [{'type': 'unknown_content', 'value': 'something else'}]}]
     )
 
 
@@ -5244,3 +5244,37 @@ async def test_internal_exception_in_on_response_keeps_the_response(
     assert response.id == 'chatcmpl-1'
     assert 'Caught an internal error in Logfire' in caplog.text
     assert len(exporter.exported_spans_as_dict()) == 1
+
+
+def test_responses_refusal_recorded_as_text(exporter: TestExporter) -> None:
+    """A Responses API refusal is recorded as text, like a chat completions refusal."""
+    body = {
+        'id': 'resp_1',
+        'object': 'response',
+        'created_at': 0,
+        'model': 'gpt-4o-mini',
+        'status': 'completed',
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+        'output': [
+            {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'status': 'completed',
+                'content': [{'type': 'refusal', 'refusal': "I can't help with that."}],
+            }
+        ],
+    }
+    client = openai.Client(
+        api_key='fake_api_key',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_openai(client):
+        client.responses.create(model='gpt-4o-mini', input='hi')
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['gen_ai.output.messages'] == snapshot(
+        [{'role': 'assistant', 'parts': [{'type': 'text', 'content': "I can't help with that."}]}]
+    )
