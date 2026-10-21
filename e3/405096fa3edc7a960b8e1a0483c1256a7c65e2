@@ -1,0 +1,29 @@
+.github/workflows/scripts/meta_package_smoke.py
+  s_4a503ca9a590ac::t_de17a423c1d704 8,12-17,22-23
+.github/workflows/scripts/upgrade_install_e2e.py
+  s_4a503ca9a590ac::t_23ddfbf28210f8 157-162
+.github/workflows/scripts/upgrade_install_smoke.py
+  s_4a503ca9a590ac::t_cc29e876373b7c 1,46,76,81-82
+logfire/README.md
+  s_4a503ca9a590ac::t_ce83ba6c73320e 6-7
+logfire/pyproject.toml
+  s_4a503ca9a590ac::t_8188471c095a73 48,50,54
+tests/test_distribution_metadata.py
+  s_4a503ca9a590ac::t_9209aced78697e 47,64,69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e3405096fa3edc7a960b8e1a0483c1256a7c65e2",
+  "prompts": {},
+  "sessions": {
+    "s_4a503ca9a590ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15ed6-98c3-76d1-ad13-de591eabe5d1",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
