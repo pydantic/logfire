@@ -1,0 +1,26 @@
+logfire-sdk/pyproject.toml
+  s_1370de71b48051::t_6f9d33bf642c8e 56
+uv.lock
+  s_1370de71b48051::t_20478d6753d0f0 3518,3636
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "04d91e63605ac5d968cf90a6d0b5e4dfb6c6ceb5",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_1370de71b48051": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15f51-ee84-77d0-8a02-0392cb9e6a8f",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
