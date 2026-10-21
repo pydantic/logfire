@@ -34,6 +34,7 @@ from logfire.testing import TestExporter
 if get_version(pydantic.__version__) < get_version('2.11'):
     pytest.skip('Claude Agent SDK requires Pydantic 2.11 or higher', allow_module_level=True)
 
+import claude_agent_sdk
 from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
@@ -196,6 +197,32 @@ def test_content_blocks_to_output_messages() -> None:
     result = _content_blocks_to_output_messages([block])
     assert len(result) == 1
     assert result[0]['parts'][0] is block
+
+
+@pytest.mark.skipif(
+    not hasattr(claude_agent_sdk, 'ServerToolUseBlock'), reason='this claude-agent-sdk has no server tool blocks'
+)
+def test_content_blocks_to_output_messages_server_tools() -> None:
+    """Server-side tools (web search, web fetch, advisor) become tool call parts, not raw dataclasses."""
+    server_tool_use = claude_agent_sdk.ServerToolUseBlock(
+        id='srvtoolu_1', name='web_search', input={'query': 'logfire'}
+    )
+    server_tool_result = claude_agent_sdk.ServerToolResultBlock(
+        tool_use_id='srvtoolu_1', content={'type': 'web_search_tool_result', 'content': []}
+    )
+    assert _content_blocks_to_output_messages([server_tool_use, server_tool_result]) == [
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'tool_call', 'id': 'srvtoolu_1', 'name': 'web_search', 'arguments': {'query': 'logfire'}},
+                {
+                    'type': 'tool_call_response',
+                    'id': 'srvtoolu_1',
+                    'response': {'type': 'web_search_tool_result', 'content': []},
+                },
+            ],
+        }
+    ]
 
 
 class TestExtractUsage:
