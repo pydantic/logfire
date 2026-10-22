@@ -730,7 +730,7 @@ class _FlagEvaluationCore(Generic[T_co]):
         Used by both `_resolve` (for `self.name`) and the composition expander
         (for child `@{ref}@` lookups) so the two paths can't drift.
         """
-        variable = self._variable_registry.get(name)
+        variable = self if name == self.name else self._variable_registry.get(name)
         context_overrides = _VARIABLE_OVERRIDES.get()
 
         # 1. Context override (only for variables whose type we know)

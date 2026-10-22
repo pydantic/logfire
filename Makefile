@@ -56,6 +56,7 @@ test-feature-flags-mutation:
 		'*_is_exclusively_openfeature_scalar_schema*' \
 		'*_unwrap_schema_context*' \
 		'*_to_openfeature_details*' \
+		'*LogfireProvider*_resolve_remote*' \
 		'*_evaluation_telemetry*' \
 		'*_declaration_schema_without_defaults*' \
 		'*_scrub_feature_flag_result*' \
@@ -70,7 +71,7 @@ test-feature-flags-mutation:
 		'*_ManagedVariableFlagAdapter*_result_for_provider_state*' \
 		'*feature_context*'; \
 	results="$$(uv run --no-sync mutmut results)"; \
-	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|VariablesConfig.*resolve_serialized_value|experimental.feature_flags|_matches_openfeature_scalar_type|_is_exclusively_openfeature_scalar_schema|_unwrap_schema_context|_to_openfeature_details|_evaluation_telemetry|_declaration_schema_without_defaults|_scrub_feature_flag_result|_override_key|_deserialize_resolved_value|_feature_flag_(evaluation_details|telemetry_attributes)|_ManagedVariableFlagAdapter.*(override|resolution_telemetry_attributes|_get_provider_evaluation_state|_finalize_resolution_result|_result_for_provider_state)|feature_context' || true)"; \
+	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|VariablesConfig.*resolve_serialized_value|experimental.feature_flags|LogfireProvider.*_resolve_remote|_matches_openfeature_scalar_type|_is_exclusively_openfeature_scalar_schema|_unwrap_schema_context|_to_openfeature_details|_evaluation_telemetry|_declaration_schema_without_defaults|_scrub_feature_flag_result|_override_key|_deserialize_resolved_value|_feature_flag_(evaluation_details|telemetry_attributes)|_ManagedVariableFlagAdapter.*(override|resolution_telemetry_attributes|_get_provider_evaluation_state|_finalize_resolution_result|_result_for_provider_state)|feature_context' || true)"; \
 	if [ -n "$$target_results" ]; then \
 		printf '%s\n' "$$target_results"; \
 		echo 'Feature-flag mutation testing left non-killed mutants'; \

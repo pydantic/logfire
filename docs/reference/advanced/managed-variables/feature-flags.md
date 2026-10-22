@@ -109,22 +109,22 @@ Install the optional adapter when you want to evaluate Logfire flags through Ope
 pip install 'logfire[openfeature]'
 ```
 
-`LogfireProvider` implements the OpenFeature Python provider interface. Define each flag in Logfire first so its type and safe code default remain visible in your code, then register the provider explicitly:
+`LogfireProvider` implements the OpenFeature Python provider interface. Register it to evaluate flags configured in Logfire; you don't need to declare them with Python's `flag()` function first:
 
 ```python
 from openfeature import api
 
 import logfire
-from logfire.experimental.feature_flags import flag
 from logfire.experimental.openfeature import LogfireProvider
 
 logfire.configure()
-flag('new_checkout', default=False)
 api.set_provider_and_wait(LogfireProvider())
 
 client = api.get_client()
 enabled = client.get_boolean_value('new_checkout', False)
 ```
+
+Native `flag()` declarations remain optional. If you declare a flag, the adapter also applies its Pydantic validation and serializers. Without a declaration, the OpenFeature method determines the expected value type. A missing flag returns `FLAG_NOT_FOUND` with the caller's default; a configured rollout that selects the default returns it without an error. Neither case exports the caller's default in telemetry. These reads don't register native flags or emit code-first declaration events.
 
 Creating a Logfire `Flag` does not change OpenFeature's global provider. This avoids surprising applications that already configure another provider or use separate provider domains.
 

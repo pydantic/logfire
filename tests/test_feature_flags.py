@@ -56,6 +56,7 @@ from logfire.experimental.openfeature import (
 from logfire.testing import TestExporter
 from logfire.variables import (
     LabeledValue,
+    LabelRef,
     Rollout,
     RolloutOverride,
     ValueEquals,
@@ -1404,7 +1405,51 @@ def test_typed_flag_rejects_zero_argument_callable_defaults():
     assert logfire.variables_get() == []
 
 
-def test_openfeature_provider_uses_declared_flags_and_evaluation_context():
+@pytest.mark.parametrize(
+    ('method', 'serialized', 'fallback', 'expected'),
+    [
+        ('boolean', 'true', False, True),
+        ('boolean', 'false', False, False),
+        ('string', '"remote"', 'fallback', 'remote'),
+        ('integer', '42', 0, 42),
+        ('float', '1.5', 0.0, 1.5),
+        ('float', '1', 0.0, 1.0),
+        ('object', '{"plan":"team"}', {}, {'plan': 'team'}),
+        ('object', '[1,"two",null]', [], [1, 'two', None]),
+    ],
+)
+def test_openfeature_resolves_without_native_declarations(
+    method: str,
+    serialized: str,
+    fallback: Any,
+    expected: Any,
+    config_kwargs: dict[str, Any],
+    exporter: TestExporter,
+):
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 1.0}))
+    config.variables['test_flag'].labels['enabled'] = LabeledValue(version=7, serialized_value=serialized)
+    logfire.configure(variables=LocalVariablesOptions(config=config), **config_kwargs)
+    openfeature_api.set_provider_and_wait(LogfireProvider())
+    try:
+        client = openfeature_api.get_client()
+        details = getattr(client, f'get_{method}_details')('test_flag', fallback)
+        assert details.value == expected
+        assert type(details.value) is type(expected)
+        assert details.reason == Reason.STATIC
+        assert details.variant == 'enabled'
+        assert details.flag_metadata == {'logfire.value_version': 7}
+        assert details.error_code is None
+        assert logfire.variables_get() == []
+        spans = _finished_flag_spans(exporter)
+        assert len(spans) == 1
+        assert spans[0].attributes['feature_flag.result.variant'] == 'enabled'
+        assert not any(span.name == 'Declare variable test_flag' for span in exporter.exported_spans)
+    finally:
+        openfeature_api.clear_providers()
+
+
+@pytest.mark.parametrize('declared', [False, True])
+def test_openfeature_provider_uses_declared_flags_and_evaluation_context(declared: bool):
     config = _boolean_config(
         rollout=Rollout(labels={'disabled': 1.0}),
         overrides=[
@@ -1419,7 +1464,8 @@ def test_openfeature_provider_uses_declared_flags_and_evaluation_context():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    create_flag('test_flag', default=False)
+    if declared:
+        create_flag('test_flag', default=False)
     openfeature_api.set_provider_and_wait(LogfireProvider(), domain='logfire-test')
     try:
         client = openfeature_api.get_client(domain='logfire-test')
@@ -1432,7 +1478,9 @@ def test_openfeature_provider_uses_declared_flags_and_evaluation_context():
         assert details.variant == 'enabled'
         assert details.reason == Reason.TARGETING_MATCH
 
-        mismatch = client.get_string_details('test_flag', 'fallback')
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            mismatch = client.get_string_details('test_flag', 'fallback')
         assert mismatch.value == 'fallback'
         assert mismatch.reason == Reason.ERROR
         assert mismatch.error_code == ErrorCode.TYPE_MISMATCH
@@ -1442,6 +1490,247 @@ def test_openfeature_provider_uses_declared_flags_and_evaluation_context():
         assert missing.error_code == ErrorCode.FLAG_NOT_FOUND
     finally:
         openfeature_api.clear_providers()
+
+
+@pytest.mark.parametrize(
+    ('method', 'serialized', 'fallback'),
+    [
+        ('boolean', '1', False),
+        ('integer', 'true', 0),
+        ('integer', '1.5', 0),
+        ('float', 'true', 0.0),
+        ('string', 'true', 'opaque-928413'),
+        ('object', 'null', {'api_key': 'opaque-928413'}),
+        ('object', 'true', {'api_key': 'opaque-928413'}),
+        ('object', '"not-an-object"', {'api_key': 'opaque-928413'}),
+        ('object', 'not-json', {'api_key': 'opaque-928413'}),
+    ],
+)
+@pytest.mark.parametrize('via_client', [False, True])
+def test_openfeature_remote_type_errors_preserve_and_hide_caller_defaults(
+    method: str,
+    serialized: str,
+    fallback: Any,
+    via_client: bool,
+    config_kwargs: dict[str, Any],
+    exporter: TestExporter,
+):
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 1.0}))
+    config.variables['test_flag'].labels['enabled'] = LabeledValue(version=7, serialized_value=serialized)
+    logfire.configure(variables=LocalVariablesOptions(config=config), **config_kwargs)
+    provider = LogfireProvider()
+    openfeature_api.set_provider_and_wait(provider)
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            resolve = (
+                getattr(openfeature_api.get_client(), f'get_{method}_details')
+                if via_client
+                else getattr(provider, f'resolve_{method}_details')
+            )
+            details = resolve('test_flag', fallback)
+        assert details.value is fallback
+        assert details.error_code == ErrorCode.TYPE_MISMATCH
+        assert details.error_message == (
+            'The configured flag does not resolve to an object value.'
+            if method == 'object' and serialized != 'not-json'
+            else 'Configured value did not match the declared flag type.'
+        )
+        spans = _finished_flag_spans(exporter)
+        assert len(spans) == 1
+        assert spans[0].attributes['error.type'] == 'type_mismatch'
+        assert 'feature_flag.result.value' not in spans[0].attributes
+        assert 'opaque-928413' not in repr([dict(span.attributes or {}) for span in exporter.exported_spans])
+        assert logfire.variables_get() == []
+    finally:
+        openfeature_api.clear_providers()
+
+
+@pytest.mark.parametrize('stale', [False, True])
+def test_openfeature_remote_reads_do_not_capture_defaults_or_register_flags(
+    config_kwargs: dict[str, Any],
+    exporter: TestExporter,
+    stale: bool,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    logfire.configure(variables=LocalVariablesOptions(config=VariablesConfig(variables={})), **config_kwargs)
+    provider = LogfireProvider()
+    variable_provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+    monkeypatch.setattr(variable_provider, 'get_evaluation_state', lambda: 'stale' if stale else 'ready')
+    fallback = {'api_key': 'opaque-928413'}
+    for key in ('first', 'second', 'first'):
+        details = provider.resolve_object_details(key, fallback)
+        assert details.value is fallback
+        assert details.error_code == ErrorCode.FLAG_NOT_FOUND
+        assert details.error_message == f"Flag '{key}' has no configured value."
+    assert logfire.variables_get() == []
+    assert len(_finished_flag_spans(exporter)) == 3
+    assert 'opaque-928413' not in repr([dict(span.attributes or {}) for span in exporter.exported_spans])
+
+
+@pytest.mark.parametrize(
+    'key, expected_variant, expected_value', [('1', 'on', True), ('2', 'off', False), ('', 'off', False)]
+)
+def test_openfeature_remote_rollout_uses_the_targeting_key(
+    key: str,
+    expected_variant: str,
+    expected_value: bool,
+    config_kwargs: dict[str, Any],
+):
+    # Independent assignment vectors: checkout/1 = 0.367..., checkout/2 = 0.792... .
+    config = VariablesConfig(
+        variables={
+            'checkout': VariableConfig(
+                name='checkout',
+                labels={
+                    'on': LabeledValue(version=1, serialized_value='true'),
+                    'off': LabeledValue(version=2, serialized_value='false'),
+                },
+                rollout=Rollout(labels={'on': 0.5, 'off': 0.5}),
+                overrides=[],
+            )
+        }
+    )
+    logfire.configure(variables=LocalVariablesOptions(config=config), **config_kwargs)
+    details = LogfireProvider().resolve_boolean_details('checkout', False, EvaluationContext(targeting_key=key))
+    assert details.value is expected_value
+    assert details.variant == expected_variant
+    assert details.reason == Reason.SPLIT
+    assert details.error_code is None
+    assert logfire.variables_get() == []
+
+
+def test_openfeature_remote_lookup_does_not_invoke_a_legacy_default(config_kwargs: dict[str, Any]):
+    logfire.configure(variables=LocalVariablesOptions(config=VariablesConfig(variables={})), **config_kwargs)
+    legacy_default = Mock(return_value=True)
+    logfire.var('shared', type=bool, default=legacy_default)
+    details = LogfireProvider().resolve_boolean_details('shared', False)
+    assert details.value is False
+    assert details.error_code == ErrorCode.FLAG_NOT_FOUND
+    legacy_default.assert_not_called()
+    assert len(logfire.variables_get()) == 1
+
+
+@pytest.mark.parametrize('routing', ['empty', 'remainder', 'default_ref'])
+@pytest.mark.parametrize('stale', [False, True])
+@pytest.mark.parametrize('structured', [False, True])
+def test_openfeature_configured_default_preserves_reason_and_hides_caller_value(
+    routing: str,
+    stale: bool,
+    structured: bool,
+    config_kwargs: dict[str, Any],
+    exporter: TestExporter,
+):
+    labels: dict[str, LabeledValue | LabelRef] = {'on': LabeledValue(version=1, serialized_value='true')}
+    rollout = Rollout(labels={})
+    if routing == 'remainder':
+        # Existing assignment vector: checkout/key '2' is in the unallocated half.
+        rollout = Rollout(labels={'on': 0.5})
+    elif routing == 'default_ref':
+        labels['on'] = LabelRef(ref='code_default')
+        rollout = Rollout(labels={'on': 1.0})
+    config = VariablesConfig(
+        variables={
+            'checkout': VariableConfig(name='checkout', labels=labels, rollout=rollout, overrides=[]),
+        }
+    )
+    logfire.configure(variables=LocalVariablesOptions(config=config), **config_kwargs)
+    variable_provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+    provider = LogfireProvider()
+    fallback = {'api_key': 'opaque-928413'} if structured else True
+    method = provider.resolve_object_details if structured else provider.resolve_boolean_details
+    with patch.object(variable_provider, 'get_evaluation_state', return_value='stale' if stale else 'ready'):
+        details = method('checkout', cast(Any, fallback), EvaluationContext(targeting_key='2'))
+    assert details.value is fallback
+    assert details.error_code is None
+    assert details.reason == (Reason.STALE if stale else Reason.SPLIT if routing == 'remainder' else Reason.DEFAULT)
+    assert details.variant is None
+    assert details.flag_metadata == ({'logfire.provider_state': 'stale'} if stale else {})
+    spans = _finished_flag_spans(exporter)
+    assert len(spans) == 1
+    assert spans[0].attributes['logfire.feature_flag.result.value_status'] == 'caller_default'
+    assert 'feature_flag.result.value' not in spans[0].attributes
+    assert 'opaque-928413' not in repr([dict(span.attributes or {}) for span in exporter.exported_spans])
+    assert logfire.variables_get() == []
+
+
+def test_openfeature_remote_values_reuse_composition_and_scrubbing(
+    config_kwargs: dict[str, Any],
+    exporter: TestExporter,
+):
+    config = VariablesConfig(
+        variables={
+            'message': VariableConfig(
+                name='message',
+                labels={'active': LabeledValue(version=2, serialized_value='"Hello @{customer}@"')},
+                rollout=Rollout(labels={'active': 1.0}),
+                overrides=[],
+            ),
+            'private_config': VariableConfig(
+                name='private_config',
+                labels={'active': LabeledValue(version=3, serialized_value='{"api_key":"opaque-928413"}')},
+                rollout=Rollout(labels={'active': 1.0}),
+                overrides=[],
+            ),
+        }
+    )
+    logfire.configure(variables=LocalVariablesOptions(config=config), **config_kwargs)
+    customer = create_flag('customer', default='world')
+    provider = LogfireProvider()
+    with customer.override_for_testing('team'):
+        details = provider.resolve_string_details('message', 'fallback')
+    assert details.value == 'Hello team'
+    assert details.variant == 'active'
+    private = provider.resolve_object_details('private_config', {})
+    assert private.value == {'api_key': 'opaque-928413'}
+    spans = _finished_flag_spans(exporter)
+    assert len(spans) == 2
+    assert spans[1].attributes['logfire.feature_flag.result.value_status'] == 'scrubbed'
+    assert 'opaque-928413' not in repr([dict(span.attributes or {}) for span in exporter.exported_spans])
+    assert len(logfire.variables_get()) == 1
+
+
+def test_openfeature_remote_lookup_tracks_provider_health_without_a_declaration(config_kwargs: dict[str, Any]):
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 1.0}))
+    remote = LogfireRemoteVariableProvider(
+        base_url='http://localhost:8000/',
+        token='pylf_v1_us_test_token',
+        options=VariablesOptions(block_before_first_resolve=False, instrument=False),
+    )
+    logfire.configure(**config_kwargs)
+    logfire.DEFAULT_LOGFIRE_INSTANCE.config._variable_provider = remote
+    provider = LogfireProvider()
+    try:
+        not_ready = provider.resolve_boolean_details('test_flag', False)
+        assert not_ready.error_code == ErrorCode.PROVIDER_NOT_READY
+        assert not_ready.value is False
+        with requests_mock_module.Mocker() as mocker:
+            mocker.get(
+                'http://localhost:8000/v1/variables/',
+                [
+                    {'json': config.model_dump(mode='json')},
+                    {'status_code': 503},
+                    {'status_code': 304},
+                ],
+            )
+            remote.refresh(force=True)
+            assert provider.resolve_boolean_details('test_flag', False).value is True
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', RuntimeWarning)
+                remote.refresh(force=True)
+            stale = provider.resolve_boolean_details('test_flag', False)
+            assert stale.value is True
+            assert stale.reason == Reason.STALE
+            assert stale.flag_metadata == {'logfire.value_version': 2, 'logfire.provider_state': 'stale'}
+            remote.refresh(force=True)
+            assert provider.resolve_boolean_details('test_flag', False).reason == Reason.STATIC
+            assert mocker.call_count == 3
+        assert logfire.variables_get() == []
+    finally:
+        remote.shutdown()
+    stopped = provider.resolve_boolean_details('test_flag', True)
+    assert stopped.value is True
+    assert stopped.error_code == ErrorCode.PROVIDER_NOT_READY
 
 
 @pytest.mark.parametrize(
@@ -1533,7 +1822,8 @@ def test_openfeature_adapter_maps_future_native_errors_to_general():
     assert details.error_code == ErrorCode.GENERAL
 
 
-def test_openfeature_client_resolves_remote_logfire_configuration():
+@pytest.mark.parametrize('declared', [False, True])
+def test_openfeature_client_resolves_remote_logfire_configuration(declared: bool):
     request_mocker = requests_mock_module.Mocker()
     request_mocker.get(
         'http://localhost:8000/v1/variables/',
@@ -1570,7 +1860,8 @@ def test_openfeature_client_resolves_remote_logfire_configuration():
     with request_mocker:
         custom_logfire = logfire.configure(local=True, send_to_logfire=False, console=False)
         custom_logfire.config._variable_provider = remote_provider
-        create_flag('remote_checkout', default=False, logfire_instance=custom_logfire)
+        if declared:
+            create_flag('remote_checkout', default=False, logfire_instance=custom_logfire)
         openfeature_api.set_provider_and_wait(LogfireProvider(custom_logfire), domain='remote-logfire-test')
         try:
             details = openfeature_api.get_client(domain='remote-logfire-test').get_boolean_details(
@@ -1716,7 +2007,8 @@ def test_openfeature_provider_uses_the_caller_default_on_resolution_error():
     assert details.error_code == ErrorCode.TYPE_MISMATCH
 
 
-def test_openfeature_context_takes_precedence_over_logfire_feature_context():
+@pytest.mark.parametrize('declared', [False, True])
+def test_openfeature_context_takes_precedence_over_logfire_feature_context(declared: bool):
     config = _boolean_config(
         rollout=Rollout(labels={'disabled': 1.0}),
         overrides=[
@@ -1731,7 +2023,7 @@ def test_openfeature_context_takes_precedence_over_logfire_feature_context():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    test_flag = create_flag('test_flag', default=False)
+    test_flag = create_flag('test_flag', default=False) if declared else None
     openfeature_api.set_provider_and_wait(LogfireProvider(), domain='logfire-context-test')
     previous_global_context = openfeature_api.get_evaluation_context()
     openfeature_api.set_evaluation_context(
@@ -1740,7 +2032,8 @@ def test_openfeature_context_takes_precedence_over_logfire_feature_context():
     client = openfeature_api.get_client(domain='logfire-context-test')
     try:
         with feature_context('request-account', attributes={'plan': 'team'}):
-            assert test_flag.details().variant == 'enabled'
+            if test_flag is not None:
+                assert test_flag.details().variant == 'enabled'
             assert client.get_boolean_details('test_flag', False).variant == 'disabled'
             assert (
                 client.get_boolean_details(

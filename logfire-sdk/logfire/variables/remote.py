@@ -532,11 +532,18 @@ class LogfireRemoteVariableProvider(VariableProvider):
             # them while holding the refresh, HTTP session, or lifecycle locks.
             self._notify_evaluation_state()
 
-    def _refresh(self, force: bool = False):
+    def _refresh_before_first_resolve(self) -> None:
+        try:
+            self._refresh(initial_only=True)
+        finally:
+            self._notify_evaluation_state()
+
+    def _refresh(self, force: bool = False, *, initial_only: bool = False):
         """Fetch the latest variable configuration from the remote API.
 
         Args:
             force: If True, fetch configuration even if the polling interval hasn't elapsed.
+            initial_only: Share the first attempt, even if it failed, with waiting readers.
         """
         # Note: we intentionally do NOT downgrade `force` to False when a refresh is already in
         # flight. An in-flight fetch may have *started before* a just-committed write (create/update/
@@ -546,8 +553,13 @@ class LogfireRemoteVariableProvider(VariableProvider):
         # Note: Eventually we may want to rework the client and server implementations to use a NotModifiedResponse
         #  to reduce the amount of overhead from polling. We could also use a websocket/SSE to get real time updates
         #  when the user makes changes.
+        initial_only = initial_only or (not force and not self._has_attempted_fetch)
         with self._refresh_lock:  # Make at most one request at a time
             if self._shutdown:
+                return
+            # Every waiter shares the initial attempt, including a failed one. This must be
+            # checked under the lock: another reader or the poller may have finished meanwhile.
+            if initial_only and self._has_attempted_fetch:
                 return
             if (
                 not force
@@ -650,7 +662,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         if not self._has_attempted_fetch and self._block_before_first_fetch:
             # Block while waiting for the request to be sent
-            self.refresh()
+            self._refresh_before_first_resolve()
 
         if self._config is None:
             return ResolvedVariable(name=variable_name, value=None, reason='missing_config')
@@ -675,7 +687,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             self._reset_once.do_once(self._at_fork_reinit)
 
         if not self._has_attempted_fetch and self._block_before_first_fetch:
-            self.refresh()
+            self._refresh_before_first_resolve()
 
         return super().get_serialized_value_for_label(variable_name, label)
 

@@ -10,7 +10,7 @@ __all__ = ['LogfireProvider']
 T = TypeVar('T')
 
 class LogfireProvider(AbstractProvider):
-    """OpenFeature provider backed by flags declared through Logfire.
+    """OpenFeature provider backed by Logfire's shared flag configuration.
 
     Register this provider explicitly with OpenFeature. Constructing a Logfire flag never changes
     OpenFeature's process-global provider registry.

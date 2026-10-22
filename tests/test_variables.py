@@ -14,6 +14,7 @@ import time
 import unittest.mock
 import warnings
 from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -237,6 +238,76 @@ def test_concurrent_refresh_preserves_forced_read_after_write(
         server.shutdown()
         server.server_close()
         server_thread.join(3)
+
+
+@pytest.mark.parametrize('response_kind', ['success', 'http_error', 'invalid_config'])
+@pytest.mark.parametrize('by_label', [False, True])
+@pytest.mark.parametrize('background_fetch', [False, True])
+def test_concurrent_initial_reads_share_failed_and_successful_attempts(
+    response_kind: str, by_label: bool, background_fetch: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    readers = 4
+    barrier = threading.Barrier(readers + background_fetch)
+    mutex = threading.Lock()
+
+    class ConcurrentLock:
+        def __enter__(self) -> None:
+            barrier.wait(timeout=5)
+            mutex.acquire()
+
+        def __exit__(self, *_args: object) -> None:
+            mutex.release()
+
+    config: dict[str, Any] = {
+        'variables': {
+            'test_var': {
+                'name': 'test_var',
+                'labels': {'enabled': {'version': 1, 'serialized_value': 'true'}},
+                'rollout': {'labels': {'enabled': 1.0}},
+                'overrides': [],
+            }
+        }
+    }
+    with requests_mock_module.Mocker() as request_mocker:
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={} if response_kind == 'invalid_config' else config,
+            status_code=503 if response_kind == 'http_error' else 200,
+        )
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(block_before_first_resolve=True),
+        )
+        monkeypatch.setattr(provider, '_refresh_lock', ConcurrentLock())
+
+        def resolve() -> str | None:
+            if by_label:
+                return provider.get_serialized_value_for_label('test_var', 'enabled').value
+            return provider.get_serialized_value('test_var').value
+
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', RuntimeWarning)
+                with ThreadPoolExecutor(max_workers=readers + background_fetch) as pool:
+                    pending = [pool.submit(resolve) for _ in range(readers)]
+                    if background_fetch:
+                        pending.append(pool.submit(provider.refresh))
+                    values = [future.result(timeout=10) for future in pending[:readers]]
+                    for future in pending[readers:]:
+                        future.result(timeout=10)
+            assert request_mocker.call_count == 1
+            assert values == ['true' if response_kind == 'success' else None] * readers
+            assert provider._has_attempted_fetch
+
+            # Initial failures do not turn into a freshness timestamp or prevent recovery.
+            monkeypatch.setattr(provider, '_refresh_lock', mutex)
+            request_mocker.get('http://localhost:8000/v1/variables/', json=config)
+            provider.refresh(force=True)
+            assert request_mocker.call_count == 2
+            assert resolve() == 'true'
+        finally:
+            provider.shutdown()
 
 
 def test_refresh_cannot_publish_snapshot_after_shutdown(monkeypatch: pytest.MonkeyPatch) -> None:

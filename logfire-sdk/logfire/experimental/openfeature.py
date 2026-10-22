@@ -7,6 +7,7 @@ import os
 import threading
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
+from dataclasses import replace
 from enum import Enum
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
@@ -67,7 +68,7 @@ _ERROR_CODES: dict[FlagErrorCode, ErrorCode] = {
 
 
 class LogfireProvider(AbstractProvider):
-    """OpenFeature provider backed by flags declared through Logfire.
+    """OpenFeature provider backed by Logfire's shared flag configuration.
 
     Register this provider explicitly with OpenFeature. Constructing a Logfire flag never changes
     OpenFeature's process-global provider registry.
@@ -208,11 +209,14 @@ class LogfireProvider(AbstractProvider):
                 if adapter is not None:
                     adapter._emit_declaration_once(span)  # pyright: ignore[reportPrivateUsage]
             token = _SUPPRESS_FEATURE_FLAG_TELEMETRY.set(_SUPPRESS_FEATURE_FLAG_TELEMETRY.get() | {adapter})
+            used_caller_default = False
             try:
-                if expected_type is None:
-                    result = cast(FlagResolutionDetails[T], self._resolve_object(flag_key, default_value, context))
+                if adapter is None:
+                    result, used_caller_default = self._resolve_remote(flag_key, default_value, expected_type, context)
+                elif expected_type is None:
+                    result = cast(FlagResolutionDetails[T], self._resolve_object(adapter, default_value, context))
                 else:
-                    result = self._resolve(flag_key, default_value, expected_type, context)
+                    result = self._resolve(adapter, default_value, expected_type, context)
             except Exception:
                 result = FlagResolutionDetails(
                     value=default_value,
@@ -223,18 +227,18 @@ class LogfireProvider(AbstractProvider):
             finally:
                 _SUPPRESS_FEATURE_FLAG_TELEMETRY.reset(token)
             if span is not None:
-                telemetry = _evaluation_telemetry(flag_key, result)
+                telemetry = _evaluation_telemetry(flag_key, result, record_value=not used_caller_default)
                 if 'feature_flag.result.value' in telemetry:
                     telemetry = _scrub_feature_flag_result(telemetry, flag_key, result.value, self._logfire)
                 span.set_attributes(telemetry)
             return result
 
     def _resolve_object(
-        self, flag_key: str, default_value: Any, evaluation_context: EvaluationContext | None
+        self,
+        adapter: _ManagedVariableFlagAdapter[Any],
+        default_value: Any,
+        evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[Any]:
-        adapter = self._get_adapter(flag_key)
-        if adapter is None:
-            return _flag_not_found(flag_key, default_value)
         if _is_exclusively_openfeature_scalar_schema(adapter.type_adapter.core_schema):
             return _type_mismatch(default_value, 'The registered flag does not resolve to an object value.')
         resolution = self._resolve_native(adapter, default_value, evaluation_context)
@@ -266,16 +270,15 @@ class LogfireProvider(AbstractProvider):
 
     def _resolve(
         self,
-        flag_key: str,
+        adapter: _ManagedVariableFlagAdapter[Any],
         default_value: T,
         expected_type: type[Any],
         evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[T]:
-        adapter = self._get_adapter(flag_key)
-        if adapter is None:
-            return _flag_not_found(flag_key, default_value)
         if not _matches_openfeature_scalar_type(adapter, expected_type):
-            return _type_mismatch(default_value, f"Flag '{flag_key}' is not registered as {expected_type.__name__}.")
+            return _type_mismatch(
+                default_value, f"Flag '{adapter.name}' is not registered as {expected_type.__name__}."
+            )
 
         resolution = self._resolve_native(adapter, default_value, evaluation_context)
         if resolution.error_code is not None:
@@ -298,6 +301,61 @@ class LogfireProvider(AbstractProvider):
             flag_metadata=resolution.flag_metadata,
         )
 
+    def _resolve_remote(
+        self,
+        flag_key: str,
+        default_value: T,
+        expected_type: type[Any] | None,
+        evaluation_context: EvaluationContext | None,
+    ) -> tuple[FlagResolutionDetails[T], bool]:
+        from logfire.variables.variable import (
+            _SUPPRESS_FEATURE_FLAG_TELEMETRY,  # pyright: ignore[reportPrivateUsage]
+            _feature_flag_evaluation_details,  # pyright: ignore[reportPrivateUsage]
+            _ManagedVariableFlagAdapter,  # pyright: ignore[reportPrivateUsage]
+            _ResolvedFeatureFlag,  # pyright: ignore[reportPrivateUsage]
+        )
+
+        # Reuse composition, targeting and health handling without registering a declaration.
+        # The placeholder default never leaves this method; the caller's fallback is untouched.
+        adapter = _ManagedVariableFlagAdapter(
+            flag_key,
+            type=expected_type or object,
+            default=expected_type() if expected_type is not None else None,
+            logfire_instance=self._logfire,
+        )
+        context = evaluation_context or EvaluationContext()
+        token = _SUPPRESS_FEATURE_FLAG_TELEMETRY.set(_SUPPRESS_FEATURE_FLAG_TELEMETRY.get() | {adapter})
+        try:
+            # The adapter finalizes both its return value and telemetry into this result type.
+            resolved = adapter.get(targeting_key=context.targeting_key, attributes=context.attributes)
+            # A type-only assertion; changing cast's type argument cannot affect behavior.
+            result = cast(_ResolvedFeatureFlag[object], resolved)  # pragma: no mutate
+        finally:
+            _SUPPRESS_FEATURE_FLAG_TELEMETRY.reset(token)
+        used_caller_default = result.reason == 'code_default'
+        if (
+            used_caller_default
+            and result.rule_evaluation_reason is None
+            and result.exception is None
+            and result.provider_state in ('ready', 'stale')
+        ):
+            return _flag_not_found(flag_key, default_value), used_caller_default
+        resolution = _to_openfeature_details(
+            _feature_flag_evaluation_details(result, result.provider_state), default_value
+        )
+        if resolution.error_code is not None:
+            return resolution, used_caller_default
+        if used_caller_default:
+            return replace(resolution, value=default_value), used_caller_default
+        value = resolution.value
+        if expected_type is None:
+            if not isinstance(value, (Mapping, Sequence)) or isinstance(value, (str, bytes, bytearray)):
+                return (
+                    _type_mismatch(default_value, 'The configured flag does not resolve to an object value.'),
+                    used_caller_default,
+                )
+        return resolution, used_caller_default
+
     @staticmethod
     def _resolve_native(
         adapter: _ManagedVariableFlagAdapter[Any],
@@ -317,7 +375,12 @@ class LogfireProvider(AbstractProvider):
         return _to_openfeature_details(details, default_value)
 
 
-def _evaluation_telemetry(flag_key: str, result: FlagResolutionDetails[Any]) -> dict[str, Any]:
+def _evaluation_telemetry(
+    flag_key: str,
+    result: FlagResolutionDetails[Any],
+    *,
+    record_value: bool = True,
+) -> dict[str, Any]:
     """Describe the final, JSON-compatible outcome seen by an OpenFeature caller."""
     telemetry: dict[str, Any] = {
         'feature_flag.key': flag_key,
@@ -330,6 +393,9 @@ def _evaluation_telemetry(flag_key: str, result: FlagResolutionDetails[Any]) -> 
         telemetry['error.type'] = result.error_code.value.lower()
         telemetry['feature_flag.error.message'] = result.error_message
         telemetry['logfire.feature_flag.result.value_status'] = 'error_fallback'
+        return telemetry
+    if not record_value:
+        telemetry['logfire.feature_flag.result.value_status'] = 'caller_default'
         return telemetry
     try:
         value = result.value
@@ -371,7 +437,7 @@ def _flag_not_found(flag_key: str, default_value: T) -> FlagResolutionDetails[T]
         value=default_value,
         reason=Reason.ERROR,
         error_code=ErrorCode.FLAG_NOT_FOUND,
-        error_message=f"Flag '{flag_key}' has not been declared with logfire.experimental.feature_flags.flag().",
+        error_message=f"Flag '{flag_key}' has no configured value.",
     )
 
 
