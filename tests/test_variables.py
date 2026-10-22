@@ -243,8 +243,13 @@ def test_concurrent_refresh_preserves_forced_read_after_write(
 @pytest.mark.parametrize('response_kind', ['success', 'http_error', 'invalid_config'])
 @pytest.mark.parametrize('by_label', [False, True])
 @pytest.mark.parametrize('background_fetch', [False, True])
+@pytest.mark.parametrize('force_recovery', [False, True])
 def test_concurrent_initial_reads_share_failed_and_successful_attempts(
-    response_kind: str, by_label: bool, background_fetch: bool, monkeypatch: pytest.MonkeyPatch
+    response_kind: str,
+    by_label: bool,
+    background_fetch: bool,
+    force_recovery: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     readers = 4
     barrier = threading.Barrier(readers + background_fetch)
@@ -303,8 +308,9 @@ def test_concurrent_initial_reads_share_failed_and_successful_attempts(
             # Initial failures do not turn into a freshness timestamp or prevent recovery.
             monkeypatch.setattr(provider, '_refresh_lock', mutex)
             request_mocker.get('http://localhost:8000/v1/variables/', json=config)
-            provider.refresh(force=True)
-            assert request_mocker.call_count == 2
+            provider.refresh(force=force_recovery)
+            # An ordinary poll retries failures immediately, but respects a successful fetch's TTL.
+            assert request_mocker.call_count == (1 if response_kind == 'success' and not force_recovery else 2)
             assert resolve() == 'true'
         finally:
             provider.shutdown()
