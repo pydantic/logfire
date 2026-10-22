@@ -12,6 +12,8 @@ def postprocess_init_pyi(content: str) -> str:
     try:
         span_index = lines.index('span: Incomplete')
     except ValueError:
+        if any(': Incomplete' in line for line in lines):
+            raise ValueError('The generated span alias changed; update the stub post-processing contract.')
         return content
 
     new_end_lines = ['DEFAULT_LOGFIRE_INSTANCE = Logfire()']
@@ -67,11 +69,17 @@ def postprocess_feature_flags_pyi(content: str) -> str:
 
 
 def postprocess_variables_abstract_pyi(content: str) -> str:
-    """Preserve the provider lifecycle state alias that stubgen cannot infer from Literal."""
-    content = content.replace(
-        'VariableProviderEvaluationState: Incomplete',
-        "VariableProviderEvaluationState = Literal['not_ready', 'ready', 'stale', 'error', 'fatal']",
-    )
+    """Preserve the new Literal aliases that stubgen cannot infer."""
+    aliases = {
+        'VariableProviderEvaluationState': "Literal['not_ready', 'ready', 'stale', 'error', 'fatal']",
+        'RuleEvaluationReason': "Literal['static', 'split', 'targeting_match']",
+    }
+    for name, value in aliases.items():
+        typed_alias = f'{name} = {value}'
+        generated_alias = f'{name}: Incomplete'
+        if content.count(generated_alias) + content.count(typed_alias) != 1:
+            raise ValueError(f'The generated {name} alias changed; update the stub post-processing contract.')
+        content = content.replace(generated_alias, typed_alias)
     if (
         'from typing import ' in content
         and 'Literal' not in content.split('from typing import ', 1)[1].split('\n', 1)[0]

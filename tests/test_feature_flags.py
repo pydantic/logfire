@@ -451,7 +451,17 @@ def test_openfeature_telemetry_omits_non_json_fallbacks(config_kwargs: dict[str,
 def test_openfeature_does_not_suppress_same_named_flags_on_another_logfire_instance(
     config_kwargs: dict[str, Any], exporter: TestExporter
 ):
-    a = logfire.configure(local=True, **config_kwargs)
+    config = VariablesConfig(
+        variables={
+            'shared': VariableConfig(
+                name='shared',
+                labels={'live': LabeledValue(version=1, serialized_value='false')},
+                rollout=Rollout(labels={'live': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+    a = logfire.configure(local=True, variables=LocalVariablesOptions(config=config), **config_kwargs)
     b = logfire.configure(local=True, **config_kwargs)
     inner = create_flag('shared', default=True, logfire_instance=b)
 
@@ -996,6 +1006,169 @@ def test_typed_flag_validates_pydantic_models_and_overrides():
     assert checkout.details().variant == 'fast'
     with checkout.override_for_testing(CheckoutConfig(provider='test', retries=0)):
         assert checkout.value() == CheckoutConfig(provider='test', retries=0)
+
+
+@pytest.mark.parametrize('state', ['ready', 'not_ready', 'stale', 'error', 'fatal'])
+def test_feature_flag_default_is_normalized_once(state: str):
+    calls: list[int] = []
+
+    def normalize(value: int) -> int:
+        calls.append(value)
+        return value + 1
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False),
+    )
+    setting = create_flag('normalized', type=cast(Any, Annotated[int, AfterValidator(normalize)]), default=1)
+    provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+
+    with patch.object(provider, 'get_evaluation_state', return_value=state):
+        assert setting.value() == 2
+        assert setting.details().value == 2
+    assert calls == [1]
+
+
+@pytest.mark.parametrize('invalid', [False, True])
+def test_feature_flag_remote_value_is_normalized_once(invalid: bool):
+    calls: list[int] = []
+
+    def normalize(value: int) -> int:
+        calls.append(value)
+        return value + 1
+
+    config = VariablesConfig(
+        variables={
+            'normalized': VariableConfig(
+                name='normalized',
+                labels={'live': LabeledValue(version=1, serialized_value='"invalid"' if invalid else '5')},
+                rollout=Rollout(labels={'live': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+    setting = create_flag('normalized', type=cast(Any, Annotated[int, AfterValidator(normalize)]), default=1)
+    if invalid:
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            details = setting.details()
+        assert details.value == 2
+        assert details.error_code == 'type_mismatch'
+        assert calls == [1]
+    else:
+        details = setting.details()
+        assert details.value == 6
+        assert details.error_code is None
+        assert calls == [1, 5]
+
+
+@pytest.mark.parametrize('compatibility_api', [False, True])
+def test_feature_flag_override_is_normalized_once_and_restored(compatibility_api: bool):
+    calls: list[int] = []
+
+    def normalize(value: int) -> int:
+        calls.append(value)
+        return value + 1
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False),
+    )
+    setting = create_flag('normalized', type=cast(Any, Annotated[int, AfterValidator(normalize)]), default=0)
+    manager = logfire.variables_get()[0].override(1) if compatibility_api else setting.override_for_testing(1)
+    assert calls == ([0] if compatibility_api else [0, 1])
+    assert setting.value() == 1
+    with manager:
+        assert setting.value() == 2
+        assert setting.details().value == 2
+        assert LogfireProvider().resolve_integer_details('normalized', -1).value == 2
+        with setting.override_for_testing(10):
+            assert setting.value() == 11
+        assert setting.value() == 2
+        with pytest.raises(RuntimeError, match='cancelled'):
+            with setting.override_for_testing(20):
+                assert setting.value() == 21
+                raise RuntimeError('cancelled')
+        assert setting.value() == 2
+    assert setting.value() == 1
+    assert calls == [0, 1, 10, 20]
+
+
+@pytest.mark.parametrize('other_override', [False, True])
+def test_feature_flag_provider_override_is_validated_without_a_local_override(other_override: bool):
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False),
+    )
+    setting = create_flag(
+        'normalized', type=cast(Any, Annotated[int, AfterValidator(lambda value: value + 1)]), default=0
+    )
+    other = create_flag('other', default=False)
+    provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+    with (
+        ExitStack() as stack,
+        patch.object(
+            provider,
+            'get_serialized_value',
+            return_value=ResolvedVariable(name='normalized', value='5', reason='context_override'),
+        ),
+    ):
+        if other_override:
+            stack.enter_context(other.override_for_testing(True))
+        assert setting.value() == 6
+
+
+def test_feature_flag_overrides_are_isolated_from_other_instances_and_legacy_variables():
+    options = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False)
+    left = logfire.configure(local=True, send_to_logfire=False, console=False, variables=options)
+    right = logfire.configure(local=True, send_to_logfire=False, console=False, variables=options)
+    legacy = logfire.configure(local=True, send_to_logfire=False, console=False, variables=options)
+    try:
+        left_flag = create_flag('shared_key', default=False, logfire_instance=left)
+        right_flag = create_flag('shared_key', default=False, logfire_instance=right)
+        legacy_variable = legacy.var('shared_key', default=False)
+        composed = left.var('message', default='flag=@{shared_key}@')
+
+        with left_flag.override_for_testing(True):
+            assert left_flag.value() is True
+            assert right_flag.value() is False
+            assert legacy_variable.get().value is False
+            assert composed.get().value == 'flag=true'
+            with right_flag.override_for_testing(False):
+                assert left_flag.value() is True
+                assert right_flag.value() is False
+        with legacy_variable.override(True):
+            assert legacy_variable.get().value is True
+            assert left_flag.value() is False
+            assert right_flag.value() is False
+        assert left_flag.value() is False
+        assert right_flag.value() is False
+        assert legacy_variable.get().value is False
+    finally:
+        left.shutdown()
+        right.shutdown()
+        legacy.shutdown()
+
+
+def test_feature_flag_defaults_and_overrides_still_compose():
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False),
+    )
+    logfire.var('region', default='eu')
+    setting = create_flag('message', default='Hello @{region}@')
+    assert setting.value() == 'Hello eu'
+    with setting.override_for_testing('Goodbye @{region}@'):
+        assert setting.value() == 'Goodbye eu'
+    assert setting.value() == 'Hello eu'
 
 
 def test_typed_flag_supports_versioned_discriminated_models():
@@ -2247,6 +2420,24 @@ def test_typed_flag_telemetry_omits_serialized_value_when_dumping_fails(
     assert 'nested-secret' not in repr(evaluation_span)
 
 
+def test_typed_flag_telemetry_never_falls_back_to_repr(config_kwargs: dict[str, Any], exporter: TestExporter):
+    class PrivateReprConfig(BaseModel):
+        region: str
+
+        def __repr__(self) -> str:
+            return 'opaque-928413'
+
+    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+    logfire.configure(**config_kwargs)
+    settings = create_flag('settings', default=PrivateReprConfig(region='us'))
+    exporter.clear()
+    with patch.object(settings._adapter.type_adapter, 'dump_json', side_effect=ValueError('unavailable')):
+        assert settings.value().region == 'us'
+    attributes = dict(_finished_flag_spans(exporter)[0].attributes or {})
+    assert attributes['feature_flag.result.value'] == '<unavailable>'
+    assert 'opaque-928413' not in repr(attributes)
+
+
 def test_typed_flag_telemetry_honors_callback_replacements_without_notes(
     config_kwargs: dict[str, Any], exporter: TestExporter
 ):
@@ -2842,14 +3033,12 @@ async def test_cancelled_feature_scope_restores_parent_without_leaking_to_siblin
     """Child task cancellation unwinds keys, attributes, and overrides without changing siblings."""
     import anyio
 
-    from logfire.variables.variable import _ManagedVariableFlagAdapter
-
     config_kwargs['variables'] = LocalVariablesOptions(
         config=VariablesConfig(variables={}), instrument=False, include_resource_attributes_in_context=False
     )
     logfire.configure(**config_kwargs)
     gate = create_flag('cancelled_scope', default=False)
-    adapter = cast(_ManagedVariableFlagAdapter[bool], gate._adapter)
+    adapter = gate._adapter
     entered, sibling_checked, cleaned = anyio.Event(), anyio.Event(), anyio.Event()
 
     def check_parent() -> None:

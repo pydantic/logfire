@@ -19,7 +19,7 @@ from pydantic import __version__ as pydantic_version
 from logfire._internal.auto_trace.import_hook import LogfireFinder
 from logfire._internal.utils import get_version
 from logfire.experimental.feature_flags import FlagErrorCode, FlagEvaluationReason
-from logfire.variables.abstract import VariableProviderEvaluationState
+from logfire.variables.abstract import RuleEvaluationReason, VariableProviderEvaluationState
 from scripts.postprocess_generated_stubs import (
     postprocess_feature_flags_pyi,
     postprocess_init_pyi,
@@ -184,22 +184,40 @@ def test_postprocess_feature_flags_pyi_rejects_missing_or_duplicate_aliases() ->
         postprocess_feature_flags_pyi(checked_in + 'InferableFlagValue = Any\n' * 2)
 
 
-def test_postprocess_variables_abstract_pyi_preserves_provider_state_alias() -> None:
+def test_postprocess_variables_abstract_pyi_preserves_literal_aliases() -> None:
     checked_in = (
         Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / 'variables' / 'abstract.pyi'
     ).read_text()
-    provider_states = get_args(VariableProviderEvaluationState)
-    runtime_alias = f'VariableProviderEvaluationState = Literal[{", ".join(map(repr, provider_states))}]'
-    assert runtime_alias in checked_in
-    generated = checked_in.replace(
-        runtime_alias,
-        'VariableProviderEvaluationState: Incomplete',
-    ).replace('from typing import Literal, ', 'from typing import ', 1)
+    generated = checked_in.replace('from typing import Literal, ', 'from typing import ', 1)
+    for name, values in (
+        ('VariableProviderEvaluationState', get_args(VariableProviderEvaluationState)),
+        ('RuleEvaluationReason', get_args(RuleEvaluationReason)),
+    ):
+        runtime_alias = f'{name} = Literal[{", ".join(map(repr, values))}]'
+        assert runtime_alias in checked_in
+        generated = generated.replace(runtime_alias, f'{name}: Incomplete')
 
     processed = postprocess_variables_abstract_pyi(generated)
 
     assert processed == checked_in
     assert postprocess_variables_abstract_pyi(processed) == processed
+
+
+@pytest.mark.parametrize('alias', ['VariableProviderEvaluationState', 'RuleEvaluationReason'])
+@pytest.mark.parametrize('duplicate', [False, True])
+def test_postprocess_variables_abstract_pyi_rejects_changed_aliases(alias: str, duplicate: bool) -> None:
+    content = (Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / 'variables' / 'abstract.pyi').read_text()
+    if duplicate:
+        content += f'\n{alias}: Incomplete\n'
+    else:
+        content = content.replace(f'{alias} = Literal[', f'{alias} = tuple[')
+    with pytest.raises(ValueError, match=f'The generated {alias} alias changed'):
+        postprocess_variables_abstract_pyi(content)
+
+
+def test_postprocess_init_pyi_rejects_incomplete_aliases_without_span() -> None:
+    with pytest.raises(ValueError, match='The generated span alias changed'):
+        postprocess_init_pyi('from _typeshed import Incomplete\nnew_alias: Incomplete\n')
 
 
 @pytest.mark.parametrize(

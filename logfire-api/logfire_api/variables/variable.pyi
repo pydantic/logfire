@@ -4,6 +4,7 @@ from collections.abc import Generator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
 from logfire._internal.config import TemplateMismatchPolicy
+from logfire.experimental.feature_flags import FlagEvaluationDetails
 from logfire.variables.abstract import ResolvedVariable, VariableProviderEvaluationState
 from logfire.variables.composition import ComposedReference
 from logfire.variables.config import VariableConfig
@@ -180,9 +181,12 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):
     """Native feature-flag adapter backed by the shared typed evaluation core."""
     kind: str
     def __init__(self, name: str, *, type: type[FlagT], default: FlagT, description: str | None = None, logfire_instance: logfire.Logfire) -> None: ...
+    @contextmanager
+    def override(self, value: FlagT | ResolveFunction[FlagT]) -> Generator[None]:
+        """Validate a compatibility override once before it enters the flag's context."""
     def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None, *, label: str | None = None) -> ResolvedVariable[FlagT]:
         """Evaluate the flag and return its value and resolution details."""
-    def evaluate_flag(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> Any:
+    def evaluate_flag(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> FlagEvaluationDetails[FlagT]:
         """Evaluate through managed variables and translate to the feature-flag contract."""
     def override_for_testing(self, value: FlagT) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""

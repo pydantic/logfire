@@ -26,6 +26,7 @@ from logfire.variables.composition import (
 
 if TYPE_CHECKING:
     from logfire._internal.config import TemplateMismatchPolicy
+    from logfire.experimental.feature_flags import FlagEvaluationDetails
     from logfire.variables.abstract import RuleEvaluationReason, VariableProvider
     from logfire.variables.config import VariableConfig
 
@@ -67,7 +68,7 @@ InputsT = TypeVar('InputsT')
 FlagT = TypeVar('FlagT')
 
 
-_VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
+_VARIABLE_OVERRIDES: ContextVar[dict[object, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
 
 # Per-`get()`-call cache for the code-default value. Keyed by `id(variable)`.
 # Lets `_get_default_cached` short-circuit when the same callable default
@@ -202,7 +203,7 @@ def _emit_resolution_warning(message: str, *, stacklevel: int = 3) -> None:
 def _feature_flag_evaluation_details(
     result: ResolvedVariable[T_co],
     provider_state: VariableProviderEvaluationState = 'ready',
-) -> Any:
+) -> FlagEvaluationDetails[T_co]:
     """Translate a managed-variable result into the feature-flag domain model."""
     from logfire.experimental.feature_flags import FlagErrorCode, FlagEvaluationDetails, FlagEvaluationReason
 
@@ -274,8 +275,6 @@ def _feature_flag_telemetry_attributes(
         'feature_flag.key': result.name,
         'feature_flag.provider.name': 'logfire',
         'feature_flag.result.value': _feature_flag_telemetry_value(result.value, serialized_value),
-        # Keep the existing lower-case telemetry contract while the Python API exposes the
-        # standardized OpenFeature reason values.
         'feature_flag.result.reason': details.reason,
         'logfire.feature_flag.resolution_reason': result.reason,
     }
@@ -428,6 +427,17 @@ class _FlagEvaluationCore(Generic[T_co]):
         except (ValidationError, ValueError, TypeError) as e:
             return e
 
+    def _deserialize_resolved_value(
+        self, serialized_result: ResolvedVariable[str | None], serialized_value: str
+    ) -> T_co | ValidationError | ValueError | TypeError:
+        """Validate a value after composition and rendering."""
+        return self._deserialize(serialized_value)
+
+    @property
+    def _override_key(self) -> object:
+        """Preserve the legacy name-based override scope for managed variables."""
+        return self.name
+
     @contextmanager
     def override(self, value: T_co | ResolveFunction[T_co]) -> Generator[None]:
         """Context manager to temporarily override this variable's value.
@@ -467,7 +477,7 @@ class _FlagEvaluationCore(Generic[T_co]):
                 the value based on targeting_key and attributes.
         """
         current = _VARIABLE_OVERRIDES.get() or {}
-        token = _VARIABLE_OVERRIDES.set({**current, self.name: value})
+        token = _VARIABLE_OVERRIDES.set({**current, self._override_key: value})
         try:
             yield
         finally:
@@ -520,9 +530,9 @@ class _FlagEvaluationCore(Generic[T_co]):
             # override serializes, take the compose/render path; if it
             # doesn't, return the typed Python value verbatim.
             context_overrides = _VARIABLE_OVERRIDES.get()
-            if context_overrides is not None and self.name in context_overrides:
+            if context_overrides is not None and self._override_key in context_overrides:
                 return self._resolve_context_override(
-                    context_overrides[self.name], targeting_key, attributes, span, render_fn
+                    context_overrides[self._override_key], targeting_key, attributes, span, render_fn
                 )
 
             provider = self.logfire_instance.config.get_variable_provider()
@@ -686,8 +696,8 @@ class _FlagEvaluationCore(Generic[T_co]):
         context_overrides = _VARIABLE_OVERRIDES.get()
 
         # 1. Context override (only for variables whose type we know)
-        if context_overrides is not None and name in context_overrides and variable is not None:
-            override_value = context_overrides[name]
+        if variable is not None and context_overrides is not None and variable._override_key in context_overrides:
+            override_value = context_overrides[variable._override_key]
             if is_resolve_function(override_value):
                 override_value = override_value(targeting_key, attributes)
             try:
@@ -809,7 +819,7 @@ class _FlagEvaluationCore(Generic[T_co]):
                 return _ResolveAttempt(ok=False, exception=e, stage='template rendering')
 
         # Deserialize the (possibly expanded/rendered) value.
-        value_or_exc = self._deserialize(serialized_value)
+        value_or_exc = self._deserialize_resolved_value(serialized_result, serialized_value)
         if isinstance(value_or_exc, Exception):
             if span:  # pragma: no branch
                 self._record_invalid_value(span, serialized_result.label, serialized_value)
@@ -1242,11 +1252,12 @@ class _FlagEvaluationCore(Generic[T_co]):
             )
             if span is not None:
                 # Serialize value safely for OTel span attributes, which only support primitives.
-                # Try to JSON serialize the value; if that fails, fall back to string representation.
+                # Keep the legacy repr fallback for variables, never for feature flags: repr
+                # can include fields absent from the JSON shape inspected by the scrubber.
                 try:
                     serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')
                 except (ValueError, TypeError, RuntimeError):
-                    serialized_value = repr(result.value)
+                    serialized_value = None if self.kind == 'feature_flag' else repr(result.value)
                 attrs = self._resolution_telemetry_attributes(
                     result,
                     serialized_value=serialized_value,
@@ -1273,7 +1284,7 @@ class _FlagEvaluationCore(Generic[T_co]):
         self,
         result: ResolvedVariable[T_co],
         *,
-        serialized_value: str,
+        serialized_value: str | None,
         targeting_key: str | None,
         attributes: Mapping[str, Any],
         requested_label: str | None,
@@ -1335,6 +1346,11 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
 
     kind = 'feature_flag'
 
+    @property
+    def _override_key(self) -> object:
+        """Keep test overrides local to the declared flag, not every instance sharing its name."""
+        return self
+
     def _record_invalid_value(self, span: logfire.LogfireSpan, label: str | None, value: str | None) -> None:
         # Rejected configuration can contain secrets too. Only record the safe error classification,
         # never the raw input or its label through the legacy diagnostic path.
@@ -1379,6 +1395,29 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
             return self.type_adapter.validate_json(serialized_value, strict=True)
         except (ValidationError, ValueError, TypeError) as e:
             return e
+
+    def _deserialize_resolved_value(
+        self, serialized_result: ResolvedVariable[str | None], serialized_value: str
+    ) -> FlagT | ValidationError | ValueError | TypeError:
+        # Defaults and test overrides are already validated Python values. Only validate again
+        # when composition changed their serialized value; validators need not be idempotent.
+        if serialized_value == serialized_result.value:
+            if serialized_result.reason == 'code_default':
+                # Native flags reject callable defaults at construction; the shared core also
+                # supports legacy callable defaults, so its attribute type is wider.
+                return self.default  # pyright: ignore[reportReturnType]
+            if serialized_result.reason == 'context_override':
+                overrides = _VARIABLE_OVERRIDES.get()
+                if overrides is not None and self._override_key in overrides:
+                    return overrides[self._override_key]
+        return self._deserialize(serialized_value)
+
+    @contextmanager
+    def override(self, value: FlagT | ResolveFunction[FlagT]) -> Generator[None]:
+        """Validate a compatibility override once before it enters the flag's context."""
+        validated_value: FlagT = self.type_adapter.validate_python(value, strict=True)
+        with super().override(validated_value):
+            yield
 
     def get(
         self,
@@ -1489,7 +1528,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         self,
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
-    ) -> Any:
+    ) -> FlagEvaluationDetails[FlagT]:
         """Evaluate through managed variables and translate to the feature-flag contract."""
         result = self.get(targeting_key, attributes)
         if not isinstance(result, _ResolvedFeatureFlag):  # pragma: no cover - base-class contract guard
@@ -1539,7 +1578,8 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
 
     def override_for_testing(self, value: FlagT) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""
-        return self.override(self.type_adapter.validate_python(value, strict=True))
+        validated_value: FlagT = self.type_adapter.validate_python(value, strict=True)
+        return super().override(validated_value)
 
 
 class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):

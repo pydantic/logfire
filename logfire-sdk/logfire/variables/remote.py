@@ -114,7 +114,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._shutdown = False
         self._evaluation_state: VariableProviderEvaluationState = 'not_ready'
         self._shutdown_timeout_exceeded = False
-        self._lifecycle_lock = threading.Lock()
+        self._shutdown_cleanup_retry = False
+        # Startup cleanup can update retry state within the same lifecycle transition.
+        self._lifecycle_lock = threading.RLock()
         self._evaluation_state_listeners: set[Callable[[VariableProviderEvaluationState], None]] = set()
         self._notified_evaluation_state: tuple[VariableProviderEvaluationState, VariablesConfig | None] | None = None
         self._shutdown_complete = threading.Event()
@@ -176,8 +178,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._refresh_lock = threading.Lock()
         self._session_lock = threading.Lock()
         self._sse_response_lock = threading.Lock()
-        self._lifecycle_lock = threading.Lock()
+        self._lifecycle_lock = threading.RLock()
         self._shutdown_complete = threading.Event()
+        self._shutdown_cleanup_retry = False
         if was_shutdown:
             self._shutdown_complete.set()
         self._worker_awaken = threading.Event()
@@ -216,39 +219,50 @@ class LogfireRemoteVariableProvider(VariableProvider):
             logfire_instance: The Logfire instance to use for error logging, or None if
                 variable instrumentation is disabled (errors will be reported via warnings).
         """
-        with self._lifecycle_lock:
-            if self._started or self._shutdown:
-                return
-            if logfire_instance is not None:
-                self._logfire = logfire_instance.with_settings(custom_scope_suffix='variables.provider')
-            self._started = True
+        rollback_claimed = False
+        try:
+            with self._lifecycle_lock:
+                if self._started or self._shutdown:
+                    return
+                if logfire_instance is not None:
+                    self._logfire = logfire_instance.with_settings(custom_scope_suffix='variables.provider')
+                self._started = True
 
-            # Start SSE before polling so a failed SSE startup cannot leave a polling request
-            # running after start() reports failure. If polling startup then fails, the cleanup
-            # path below cancels the already-started SSE listener.
-            try:
-                self._start_sse_listener()
-                self._worker_thread = threading.Thread(
-                    name='LogfireRemoteProvider',
-                    target=self._worker,
-                    daemon=True,
-                )
-                self._worker_thread.start()
-            except BaseException:
-                deadline = time.monotonic() + sum(self._timeout)
-                self._shutdown = True
-                self._evaluation_state = 'fatal'
-                self._worker_awaken.set()
-                self._request_sse_close()
-                if self._worker_thread is not None:
-                    with suppress(Exception):
-                        self._worker_thread.join(timeout=sum(self._timeout) / 2)
-                if self._sse_thread is not None:
-                    with suppress(Exception):
-                        self._sse_thread.join(timeout=sum(self._timeout) / 2)
-                if self._close_polling_session_before(deadline):
-                    self._shutdown_complete.set()
+                # Start SSE before polling so a failed SSE startup cannot leave a polling request
+                # running after start() reports failure. If polling startup then fails, the cleanup
+                # path below cancels the already-started SSE listener.
+                try:
+                    self._start_sse_listener()
+                    self._worker_thread = threading.Thread(
+                        name='LogfireRemoteProvider',
+                        target=self._worker,
+                        daemon=True,
+                    )
+                    self._worker_thread.start()
+                except BaseException:
+                    # Claim rollback before releasing the lock so concurrent shutdown callers
+                    # wait for its completion rather than closing the same resources twice.
+                    self._shutdown = True
+                    self._evaluation_state = 'fatal'
+                    self._worker_awaken.set()
+                    rollback_claimed = True
+                    raise
+        except BaseException:
+            if not rollback_claimed:
                 raise
+            # Never hold the lifecycle lock while waiting for threads or HTTP cleanup: another
+            # caller's shutdown must still be able to return within its own timeout budget.
+            deadline = time.monotonic() + sum(self._timeout)
+            self._request_sse_close()
+            if self._worker_thread is not None:
+                with suppress(Exception):
+                    self._worker_thread.join(timeout=sum(self._timeout) / 2)
+            if self._sse_thread is not None:
+                with suppress(Exception):
+                    self._sse_thread.join(timeout=sum(self._timeout) / 2)
+            if self._close_polling_session_before(deadline):
+                self._shutdown_complete.set()
+            raise
 
     def _log_error(self, message: str, exc: Exception) -> None:
         """Log an error using logfire if available, otherwise warnings.
@@ -354,8 +368,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
         while not self._shutdown:
             try:
                 with self._new_sse_session() as sse_session:
-                    # Bound both delayed headers and stalled streams. Heartbeats keep healthy
-                    # streams open without imposing a maximum connection lifetime.
+                    # The API sends keepalives after 15 seconds without updates. A 60-second
+                    # read timeout bounds stalled headers/streams, not healthy connection lifetime.
                     response = sse_session.get(sse_url, stream=True, timeout=(10, 60))
                     if response.status_code != 200:
                         # Server doesn't support SSE or auth failed, back off
@@ -683,7 +697,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
         with self._lifecycle_lock:
             if self._shutdown:
                 shutdown_complete = self._shutdown_complete
-                owns_shutdown = False
+                owns_shutdown = self._shutdown_cleanup_retry
+                self._shutdown_cleanup_retry = False
             else:
                 self._shutdown = True
                 # An intentional shutdown makes the provider unavailable, but it is not an
@@ -745,9 +760,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 daemon=True,
             ).start()
         except Exception:
-            # Thread creation failure is already terminal. Preserve the deadline rather than
-            # racing the in-flight request with an unsafe synchronous close.
-            return True
+            # Keep cleanup incomplete so a later shutdown caller can retry after the in-flight
+            # request releases its session. Never race that request with a synchronous close.
+            with self._lifecycle_lock:
+                self._shutdown_cleanup_retry = True
+            return False
         return False
 
     def _finish_deferred_shutdown(self) -> None:

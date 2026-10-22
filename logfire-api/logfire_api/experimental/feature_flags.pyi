@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from logfire import Logfire
 from pydantic import BaseModel
-from typing import Literal, Any, Generic, Protocol, TypeVar, overload
+from typing import Literal, Any, Generic, TypeVar, overload
 from typing_extensions import TypeForm
 
 __all__ = ['Flag', 'FlagErrorCode', 'FlagEvaluationDetails', 'FlagEvaluationReason', 'feature_context', 'flag']
@@ -25,15 +25,6 @@ class FlagEvaluationDetails(Generic[T]):
     error_code: FlagErrorCode | None = ...
     error_message: str | None = ...
     flag_metadata: Mapping[str, Any] = field(default_factory=dict[str, Any])
-
-class _FlagAdapter(Protocol[T]):
-    """Private compatibility boundary implemented by the current variables engine."""
-    name: str
-    value_type: Any
-    description: str | None
-    type_adapter: Any
-    def evaluate_flag(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> FlagEvaluationDetails[T]: ...
-    def override_for_testing(self, value: T) -> AbstractContextManager[None]: ...
 
 class Flag(Generic[T]):
     """A typed feature flag with a safe code default.

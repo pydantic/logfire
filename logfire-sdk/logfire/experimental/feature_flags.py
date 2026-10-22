@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
 
 from typing_extensions import TypeForm
 
@@ -18,7 +18,8 @@ from logfire.variables import ensure_variables_dependencies
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
-    from logfire import Logfire, LogfireSpan
+    from logfire import Logfire
+    from logfire.variables.variable import _ManagedVariableFlagAdapter  # pyright: ignore[reportPrivateUsage]
 
     InferableFlagValue = bool | str | int | float | Enum | BaseModel
 else:
@@ -76,25 +77,6 @@ class FlagEvaluationDetails(Generic[T]):
     flag_metadata: Mapping[str, Any] = field(default_factory=dict[str, Any])
 
 
-class _FlagAdapter(Protocol[T]):
-    """Private compatibility boundary implemented by the current variables engine."""
-
-    name: str
-    value_type: Any
-    description: str | None
-    type_adapter: Any
-
-    def evaluate_flag(
-        self,
-        targeting_key: str | None = None,
-        attributes: Mapping[str, Any] | None = None,
-    ) -> FlagEvaluationDetails[T]: ...  # pragma: no cover
-
-    def override_for_testing(self, value: T) -> AbstractContextManager[None]: ...  # pragma: no cover
-
-    def _emit_declaration_once(self, resolution_span: LogfireSpan) -> None: ...  # pragma: no cover
-
-
 class Flag(Generic[T]):
     """A typed feature flag with a safe code default.
 
@@ -144,7 +126,7 @@ class Flag(Generic[T]):
         logfire_instance._validate_variable_registration(name)  # pyright: ignore[reportPrivateUsage]
         if type is None:
             type = _infer_flag_type(default)
-        self._adapter: _FlagAdapter[T] = logfire_instance._flag(  # pyright: ignore[reportPrivateUsage]
+        self._adapter: _ManagedVariableFlagAdapter[T] = logfire_instance._flag(  # pyright: ignore[reportPrivateUsage]
             name, type=type, default=default, description=description
         )
 
@@ -176,15 +158,13 @@ class Flag(Generic[T]):
 
     def override_for_testing(self, value: T) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""
-        validated_value: T = self._adapter.type_adapter.validate_python(value, strict=True)
-        return self._adapter.override_for_testing(validated_value)
+        return self._adapter.override_for_testing(value)
 
 
 def _infer_flag_type(default: object) -> type[Any]:
     if default is None or isinstance(default, (list, dict, set, tuple)):
-        raise TypeError(
-            'Pass type=... for nullable or parameterized feature flags; their type cannot be inferred safely.'  # pragma: no mutate
-        )
+        message = 'Pass type=... for nullable or parameterized feature flags; their type cannot be inferred safely.'  # pragma: no mutate
+        raise TypeError(message)
     return type(default)
 
 

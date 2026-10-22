@@ -2634,7 +2634,7 @@ class Logfire:
         default: T,
         description: str | None = None,
     ) -> _ManagedVariableFlagAdapter[T]:
-        """Define the managed-variable compatibility adapter for a typed feature flag."""
+        """Register a typed feature flag on this Logfire instance."""
         from logfire.variables import ensure_variables_dependencies
 
         ensure_variables_dependencies()

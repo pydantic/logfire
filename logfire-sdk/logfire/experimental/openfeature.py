@@ -16,7 +16,6 @@ from logfire.experimental.feature_flags import (
     FlagErrorCode,
     FlagEvaluationDetails,
     FlagEvaluationReason,
-    _FlagAdapter,  # pyright: ignore[reportPrivateUsage]
 )
 from logfire.variables import ensure_variables_dependencies
 
@@ -38,6 +37,7 @@ except ModuleNotFoundError as e:  # pragma: no cover
 if TYPE_CHECKING:
     from logfire import Logfire
     from logfire.variables.abstract import VariableProvider, VariableProviderEvaluationState
+    from logfire.variables.variable import _ManagedVariableFlagAdapter  # pyright: ignore[reportPrivateUsage]
 
 __all__ = ('LogfireProvider',)
 
@@ -256,11 +256,11 @@ class LogfireProvider(AbstractProvider):
             flag_metadata=resolution.flag_metadata,
         )
 
-    def _get_adapter(self, flag_key: str) -> _FlagAdapter[Any] | None:
+    def _get_adapter(self, flag_key: str) -> _ManagedVariableFlagAdapter[Any] | None:
+        from logfire.variables.variable import _ManagedVariableFlagAdapter  # pyright: ignore[reportPrivateUsage]
+
         candidate = self._logfire._variables.get(flag_key)  # pyright: ignore[reportPrivateUsage]
-        if getattr(candidate, 'kind', None) != 'feature_flag':
-            return None
-        return cast(_FlagAdapter[Any], candidate)
+        return candidate if isinstance(candidate, _ManagedVariableFlagAdapter) else None
 
     def _resolve(
         self,
@@ -298,7 +298,7 @@ class LogfireProvider(AbstractProvider):
 
     @staticmethod
     def _resolve_native(
-        adapter: _FlagAdapter[Any],
+        adapter: _ManagedVariableFlagAdapter[Any],
         default_value: T,
         evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[T]:
@@ -370,7 +370,7 @@ def _flag_not_found(flag_key: str, default_value: T) -> FlagResolutionDetails[T]
     )
 
 
-def _matches_openfeature_scalar_type(adapter: _FlagAdapter[Any], expected_type: type[Any]) -> bool:
+def _matches_openfeature_scalar_type(adapter: _ManagedVariableFlagAdapter[Any], expected_type: type[Any]) -> bool:
     """Match Pydantic constrained scalar types to their OpenFeature primitive type."""
     expected_schema_type = {bool: 'bool', str: 'str', int: 'int', float: 'float'}[expected_type]
     return _matches_openfeature_scalar_schema(adapter.type_adapter.core_schema, expected_type, expected_schema_type)

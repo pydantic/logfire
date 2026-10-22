@@ -13,7 +13,7 @@ pip install 'logfire[feature-flags]'
 
 To load values managed in Logfire, [create an API key](../use-api-keys.md#creating-api-keys) with the `project:read_variables` scope and set `LOGFIRE_API_KEY` before calling `logfire.configure()`. This is separate from `LOGFIRE_TOKEN`, which authorizes sending telemetry. Without a read-capable API key, flags use their code defaults. See [Remote variables](remote.md) for connection options.
 
-Define the flag once, near the code it controls. The required default keeps your application working before Logfire receives configuration or whenever configuration is unavailable.
+Define the flag once, near the code it controls. The required default keeps your application working before Logfire receives configuration. If a later refresh fails, flags keep using the last loaded configuration and report a `stale` reason. Invalid configured values fall back to the code default.
 
 Flag names currently share the managed-variable naming contract: use ASCII letters, digits, and underscores, without starting with a digit. For example, use `new_checkout` rather than `new-checkout`.
 
@@ -81,6 +81,22 @@ Pass `type=...` for any list, dict, set, tuple, or nullable default because Pyth
 from logfire.experimental.feature_flags import flag
 
 allowed_regions = flag('allowed_regions', type=list[str], default=[])
+```
+
+## Test both outcomes
+
+Override a flag in a test without changing remote configuration. Overrides apply in the current context to this flag's Logfire instance. Nest them to check both outcomes without relying on the remote value:
+
+```python
+from logfire.experimental.feature_flags import flag
+
+new_checkout = flag('checkout_test', default=False)
+
+with new_checkout.override_for_testing(False):
+    with new_checkout.override_for_testing(True):
+        assert new_checkout.value() is True
+
+    assert new_checkout.value() is False
 ```
 
 ## Use the OpenFeature API

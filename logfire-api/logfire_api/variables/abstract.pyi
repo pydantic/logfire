@@ -16,7 +16,7 @@ VariableProviderEvaluationState = Literal['not_ready', 'ready', 'stale', 'error'
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
 ResolutionReason: Incomplete
-RuleEvaluationReason: Incomplete
+RuleEvaluationReason = Literal['static', 'split', 'targeting_match']
 
 class VariableWriteError(Exception):
     """Base exception for variable write operation failures."""

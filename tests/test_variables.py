@@ -1661,13 +1661,20 @@ class TestLogfireRemoteVariableProvider:
             options=VariablesOptions(block_before_first_resolve=False),
         )
         provider._session_lock.acquire()
-        monkeypatch.setattr(threading, 'Thread', unittest.mock.MagicMock(side_effect=RuntimeError('no threads')))
         try:
-            provider.shutdown(timeout_millis=0)
-            assert provider._shutdown_timeout_exceeded
+            with monkeypatch.context() as failed_start:
+                failed_start.setattr(
+                    threading, 'Thread', unittest.mock.MagicMock(side_effect=RuntimeError('no threads'))
+                )
+                provider.shutdown(timeout_millis=0)
+                assert provider._shutdown_timeout_exceeded
+                assert not provider._shutdown_complete.is_set()
         finally:
             provider._session_lock.release()
-            provider._session.close()
+        with unittest.mock.patch.object(provider._session, 'close', wraps=provider._session.close) as close:
+            provider.shutdown(timeout_millis=0)
+            close.assert_called_once_with()
+        assert provider._shutdown_complete.is_set()
 
     def test_sse_close_failure_keeps_a_newer_response(self, monkeypatch: pytest.MonkeyPatch) -> None:
         provider = LogfireRemoteVariableProvider(
@@ -2437,8 +2444,100 @@ class TestLogfireRemoteVariableProviderStart:
         assert provider._shutdown_complete.is_set()
         close_session.assert_called_once_with()
 
-    def test_partial_start_failure_defers_session_close_while_request_owns_lock(
+    @pytest.mark.parametrize('interrupted_at', ['lifecycle_lock', 'logfire_settings'])
+    def test_interrupted_start_does_not_clean_up_before_claiming_startup(
+        self, monkeypatch: pytest.MonkeyPatch, interrupted_at: str
+    ) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(block_before_first_resolve=False),
+        )
+        close_session = unittest.mock.MagicMock(wraps=provider._session.close)
+        monkeypatch.setattr(provider._session, 'close', close_session)
+        interrupt = KeyboardInterrupt('interrupted before startup')
+        with monkeypatch.context() as interruption:
+            if interrupted_at == 'lifecycle_lock':
+                lock = unittest.mock.MagicMock()
+                lock.__enter__.side_effect = [interrupt, None]
+                interruption.setattr(provider, '_lifecycle_lock', lock)
+            else:
+                interruption.setattr(
+                    logfire.DEFAULT_LOGFIRE_INSTANCE, 'with_settings', unittest.mock.Mock(side_effect=interrupt)
+                )
+
+            with pytest.raises(KeyboardInterrupt, match='interrupted before startup'):
+                provider.start(logfire.DEFAULT_LOGFIRE_INSTANCE)
+
+        assert not provider._started
+        assert not provider._shutdown
+        assert provider.get_evaluation_state() == 'not_ready'
+        assert not provider._shutdown_complete.is_set()
+        close_session.assert_not_called()
+        provider.shutdown(timeout_millis=0)
+        close_session.assert_called_once_with()
+
+    @pytest.mark.timeout(3)
+    def test_concurrent_shutdown_does_not_wait_for_failed_startup_cleanup(
         self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(block_before_first_resolve=False),
+        )
+        cleanup_started = threading.Event()
+        allow_cleanup = threading.Event()
+        startup_errors: list[BaseException] = []
+
+        def blocking_join(timeout: float) -> None:
+            cleanup_started.set()
+            assert allow_cleanup.wait(timeout=1)
+
+        def start() -> None:
+            try:
+                provider.start(None)
+            except BaseException as exc:
+                startup_errors.append(exc)
+
+        sse = unittest.mock.MagicMock()
+        sse.join.side_effect = blocking_join
+        provider._sse_thread = sse
+        close_session = unittest.mock.MagicMock(wraps=provider._session.close)
+        starter = threading.Thread(target=start)
+        shutdown = threading.Thread(target=provider.shutdown, kwargs={'timeout_millis': 0})
+        monkeypatch.setattr(provider, '_start_sse_listener', lambda: None)
+        monkeypatch.setattr(provider._session, 'close', close_session)
+        monkeypatch.setattr(threading, 'Thread', unittest.mock.MagicMock(side_effect=RuntimeError('cannot start')))
+
+        try:
+            starter.start()
+            assert cleanup_started.wait(timeout=1)
+            shutdown.start()
+            shutdown.join(timeout=0.5)
+            assert not shutdown.is_alive(), 'A zero-budget shutdown must not wait for startup rollback'
+            assert starter.is_alive()
+            assert provider.get_evaluation_state() == 'fatal'
+            assert not provider._shutdown_complete.is_set()
+            close_session.assert_not_called()
+        finally:
+            allow_cleanup.set()
+            starter.join(timeout=1)
+            if shutdown.ident is not None:
+                shutdown.join(timeout=1)
+
+        assert not starter.is_alive()
+        assert not shutdown.is_alive()
+        assert len(startup_errors) == 1
+        assert str(startup_errors[0]) == 'cannot start'
+        assert provider.get_evaluation_state() == 'fatal'
+        assert provider._shutdown_complete.is_set()
+        close_session.assert_called_once_with()
+
+    @pytest.mark.timeout(3)
+    @pytest.mark.parametrize('cleanup_thread_fails', [False, True])
+    def test_partial_start_failure_defers_session_close_while_request_owns_lock(
+        self, monkeypatch: pytest.MonkeyPatch, cleanup_thread_fails: bool
     ) -> None:
         provider = LogfireRemoteVariableProvider(
             base_url=REMOTE_BASE_URL,
@@ -2452,14 +2551,21 @@ class TestLogfireRemoteVariableProviderStart:
         close_session = unittest.mock.MagicMock(wraps=provider._session.close)
         monkeypatch.setattr(provider, '_start_sse_listener', unittest.mock.MagicMock(side_effect=RuntimeError('boom')))
         monkeypatch.setattr(provider._session, 'close', close_session)
+        if cleanup_thread_fails:
+            monkeypatch.setattr(
+                threading, 'Thread', unittest.mock.MagicMock(side_effect=RuntimeError('no cleanup threads'))
+            )
         provider._session_lock.acquire()
 
-        with pytest.raises(RuntimeError, match='boom'):
-            provider.start(None)
-
-        assert not provider._shutdown_complete.is_set()
-        close_session.assert_not_called()
-        provider._session_lock.release()
+        try:
+            with pytest.raises(RuntimeError, match='boom'):
+                provider.start(None)
+            assert not provider._shutdown_complete.is_set()
+            close_session.assert_not_called()
+        finally:
+            provider._session_lock.release()
+        if cleanup_thread_fails:
+            provider.shutdown(timeout_millis=0)
         assert provider._shutdown_complete.wait(timeout=1)
         close_session.assert_called_once_with()
 
