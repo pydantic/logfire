@@ -38,8 +38,10 @@ from logfire._internal.formatter import logfire_format
 from logfire._internal.integrations.llm_providers.openai import (
     get_openai_usage_attributes,
     inputs_to_events,
+    responses_finish_reasons,
     responses_output_events,
 )
+from logfire._internal.integrations.llm_providers.semconv import RESPONSE_FINISH_REASONS, RESPONSE_ID
 from logfire._internal.scrubbing import NOOP_SCRUBBER
 from logfire._internal.utils import handle_internal_errors, log_internal_error, truncate_string
 
@@ -406,12 +408,16 @@ def attributes_from_span_data(
 
 
 def get_basic_response_attributes(response: Response):
-    return {
+    attributes: dict[str, Any] = {
+        RESPONSE_ID: response.id,
         'gen_ai.response.model': getattr(response, 'model', None),
         'response': response,
         'gen_ai.system': 'openai',
         'gen_ai.operation.name': 'chat',
     }
+    if finish_reasons := responses_finish_reasons(response):
+        attributes[RESPONSE_FINISH_REASONS] = finish_reasons
+    return attributes
 
 
 def get_magic_response_attributes() -> tuple[dict[str, Any], str | None]:

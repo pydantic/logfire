@@ -214,6 +214,8 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'response_id': 'resp_67e6908455c48191a9de5131e91abcb805b6a918ffc4827a',
+                    'gen_ai.response.id': 'resp_67e6908455c48191a9de5131e91abcb805b6a918ffc4827a',
+                    'gen_ai.response.finish_reasons': ['tool_calls'],
                     'usage': {
                         'requests': 1,
                         'input_tokens': 51,
@@ -503,6 +505,8 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'response_id': 'resp_67e6908542b08191a02609780bb4c28205b6a918ffc4827a',
+                    'gen_ai.response.id': 'resp_67e6908542b08191a02609780bb4c28205b6a918ffc4827a',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'usage': {
                         'requests': 1,
                         'input_tokens': 83,

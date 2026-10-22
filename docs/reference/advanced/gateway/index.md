@@ -29,6 +29,7 @@ For the shortest path to a working call, follow [Send your first Gateway request
 - [Protect request data](protect-data.md) with prebuilt or custom Guardrails.
 - [Optimize requests](optimizations.md) with endpoint-scoped instructions.
 - [Control spending](spending-policies.md) with included key and organization limits, or advanced spending policies.
+- [Control model access and pricing](model-access.md) to choose which models each provider serves and set custom prices for BYOK providers.
 
 ### Plan availability
 

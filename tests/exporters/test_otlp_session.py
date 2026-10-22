@@ -473,8 +473,8 @@ def configure_and_export_span(monkeypatch: pytest.MonkeyPatch, **kwargs: Any) ->
     adapter = SinkHTTPAdapter()
     get_logfire_session().mount('https://', adapter)
 
-    with logfire.span('compressed span'):
-        pass
+    # A log emits a single span, so a background flush cannot export a pending span separately.
+    logfire.info('compressed span')
     logfire.force_flush()
 
     [content_encoding] = adapter.content_encodings

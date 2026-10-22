@@ -7,6 +7,7 @@ import importlib
 import importlib.metadata
 import io
 import json
+import logging
 import os
 import re
 import shlex
@@ -31,6 +32,8 @@ import requests
 import requests_mock
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
+from opentelemetry import trace
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 import logfire._internal.cli
 import logfire._internal.cli.ai_tools as ai_tools
@@ -62,6 +65,7 @@ from logfire._internal.config import LogfireConfigWarning, LogfireCredentials, s
 from logfire._internal.http_transport import LogfireHTTPAdapter
 from logfire._internal.utils import READ_TOKEN_FILENAME
 from logfire.exceptions import LogfireConfigError
+from logfire.testing import TestExporter
 from tests.import_used_for_tests import run_script_test
 
 
@@ -111,6 +115,31 @@ def test_whoami_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
 
+def test_cli_api_tracing_preserves_global_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    exporter = TestExporter()
+    provider = logfire._internal.cli.SDKTracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    monkeypatch.setattr(logfire._internal.cli, 'SDKTracerProvider', lambda: provider)
+    global_provider = trace.get_tracer_provider()
+    with patch.dict(os.environ, {'LOGFIRE_TOKEN': 'foobar'}), requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        main(['whoami'])
+        main(['whoami'])
+
+    spans = exporter.exported_spans
+    assert [span.name for span in spans] == ['logfire._internal.cli', 'logfire._internal.cli']
+    assert len(request_mocker.request_history) == 2
+    for request, span in zip(request_mocker.request_history, spans):
+        assert span.context is not None
+        assert request.headers['traceparent'] == (
+            f'00-{span.context.trace_id:032x}-{span.context.span_id:016x}-{span.context.trace_flags:02x}'
+        )
+    assert trace.get_tracer_provider() is global_provider
+
+
 def test_cli_owned_session_gets_connection_policy(monkeypatch: pytest.MonkeyPatch) -> None:
     sessions: list[requests.Session] = []
     install_connection_policy = logfire._internal.cli.install_connection_policy
@@ -130,6 +159,104 @@ def test_cli_owned_session_gets_connection_policy(monkeypatch: pytest.MonkeyPatc
 
     [session] = sessions
     assert isinstance(session.get_adapter('https://example.com'), LogfireHTTPAdapter)
+
+
+@pytest.mark.parametrize('fail', [False, True])
+def test_cli_logging_is_scoped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, fail: bool
+) -> None:
+    log_file = tmp_path / 'cli.log'
+    monkeypatch.setattr(logfire._internal.cli, 'LOGFIRE_LOG_FILE', log_file)
+    monkeypatch.setenv('LOGFIRE_TOKEN', 'foobar')
+    cli_logger = logging.getLogger('logfire._internal.cli')
+    urllib3_logger = logging.getLogger('urllib3')
+    caplog.set_level(logging.ERROR, logger=cli_logger.name)
+    caplog.set_level(logging.WARNING, logger=urllib3_logger.name)
+    loggers = (logging.getLogger(), cli_logger, urllib3_logger)
+    original_settings = [(logger.level, logger.handlers.copy()) for logger in loggers]
+
+    def respond(_request: object, _context: object) -> dict[str, str]:
+        logging.getLogger('urllib3.connectionpool').debug('HTTP client diagnostic')
+        logging.getLogger('application').warning('unrelated application log')
+        if fail:
+            raise RuntimeError('request failed')
+        return {'project_name': 'myproject', 'project_url': 'fake_project_url'}
+
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get('https://logfire-us.pydantic.dev/v1/info', json=respond)
+        if fail:
+            with pytest.raises(RuntimeError, match='request failed'):
+                main(['whoami'])
+        else:
+            main(['whoami'])
+
+    assert [(logger.level, logger.handlers) for logger in loggers] == original_settings
+    logs = log_file.read_text()
+    assert 'DEBUG:urllib3.connectionpool:HTTP client diagnostic' in logs
+    assert 'unrelated application log' not in logs
+    if not fail:
+        assert 'DEBUG:logfire._internal.cli:context=' in logs
+        assert 'url=https://logfire-us.pydantic.dev/v1/info' in logs
+
+
+@pytest.mark.parametrize('configured', [False, True])
+@pytest.mark.parametrize('module', [False, True])
+def test_run_preserves_application_logging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, configured: bool, module: bool
+) -> None:
+    script = tmp_path / 'logging_app.py'
+    script.write_text(
+        """
+import json
+import logging
+import sys
+
+import logfire._internal.cli
+import urllib3
+
+if sys.argv[-1] == 'configured':
+    logging.basicConfig(level=logging.ERROR, format='APP:%(levelname)s:%(message)s')
+
+print(json.dumps({
+    'root_level': logging.getLogger().level,
+    'root_handlers': len(logging.getLogger().handlers),
+    'cli_level': logging.getLogger('logfire._internal.cli').level,
+    'cli_handlers': len(logging.getLogger('logfire._internal.cli').handlers),
+    'urllib3_level': logging.getLogger('urllib3').level,
+    'urllib3_handlers': len(logging.getLogger('urllib3').handlers),
+}))
+logging.basicConfig(level=logging.INFO, format='APP:%(levelname)s:%(message)s')
+logging.getLogger('application').info('application message')
+logging.getLogger('urllib3.connectionpool').info('HTTP client message')
+logging.error('application error')
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    target = ['-m', 'logging_app'] if module else [str(script)]
+    target.append('configured' if configured else 'unconfigured')
+    direct = subprocess.run([sys.executable, *target], cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    wrapped = subprocess.run(
+        [
+            sys.executable,
+            '-m',
+            'logfire',
+            'run',
+            '--no-summary',
+            '--exclude',
+            ','.join(sorted(set(OTEL_INSTRUMENTATION_MAP.values()))),
+            *target,
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert direct.returncode == 0, direct.stderr
+    assert wrapped.returncode == 0, wrapped.stderr
+    assert wrapped.stdout == direct.stdout
+    # The unrelated global-tracer-provider warning can precede application output.
+    assert [line for line in wrapped.stderr.splitlines() if line.startswith('APP:')] == direct.stderr.splitlines()
 
 
 def test_whoami_eu_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
@@ -6400,6 +6527,56 @@ def test_parse_run_no_script(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.parametrize('module', [False, True])
+def test_parse_run_global_tracer_in_fresh_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: bool
+) -> None:
+    script = tmp_path / 'traced_app.py'
+    script.write_text(
+        """
+import json
+
+from opentelemetry import trace
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+import logfire
+from logfire.testing import TestExporter
+
+exporter = TestExporter()
+logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[SimpleSpanProcessor(exporter)])
+with trace.get_tracer('demo').start_as_current_span('otel parent'):
+    with logfire.span('native child'):
+        pass
+print(json.dumps(exporter.exported_spans_as_dict()))
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    target = ['-m', 'traced_app'] if module else [str(script)]
+    result = subprocess.run(
+        [
+            sys.executable,
+            '-m',
+            'logfire',
+            'run',
+            '--exclude',
+            ','.join(sorted(set(OTEL_INSTRUMENTATION_MAP.values()))),
+            *target,
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    spans = json.loads(result.stdout)
+    assert [span['name'] for span in spans] == ['native child', 'otel parent']
+    child, parent = spans
+    assert child['parent'] == parent['context']
+    assert child['context']['trace_id'] == parent['context']['trace_id']
+    assert 'Overriding of current TracerProvider is not allowed' not in result.stderr
+
+
+@pytest.mark.parametrize('module', [False, True])
 @pytest.mark.parametrize('exclude_flask', [False, True])
 def test_parse_run_flask_in_fresh_process(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: bool, exclude_flask: bool
@@ -6691,6 +6868,31 @@ def test_parse_run_console_entry_point_is_loaded_before_working_directory(
     monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[entry_point]))
 
     main(['run', '--no-summary', 'demo-cli'])
+
+    assert marker.exists()
+
+
+def test_parse_run_instruments_packages_before_working_directory(
+    tmp_dir_cwd: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    installed_dir = tmp_path / 'installed'
+    installed_dir.mkdir()
+    marker = tmp_path / 'imported-installed-package'
+    module_name = 'shadowed_instrumentation_target'
+    (installed_dir / f'{module_name}.py').write_text(f'from pathlib import Path\nPath({str(marker)!r}).touch()\n')
+    (tmp_dir_cwd / f'{module_name}.py').write_text("raise AssertionError('imported local module')\n")
+    # `python -m logfire` puts the working directory first on `sys.path`.
+    monkeypatch.setattr(sys, 'path', [str(tmp_dir_cwd), str(installed_dir), *sys.path])
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+    context = Mock(installed_otel_pkgs={'opentelemetry-instrumentation-demo'})
+    context.instrument_pkg_map = {'opentelemetry-instrumentation-demo': module_name}
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.instrument_package', importlib.import_module)
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[]))
+
+    with pytest.raises(FileNotFoundError):
+        main(['run', '--no-summary', 'missing-cli'])
 
     assert marker.exists()
 

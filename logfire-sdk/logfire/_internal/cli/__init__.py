@@ -11,7 +11,8 @@ import platform
 import shutil
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Generator, Sequence
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from operator import itemgetter
 from pathlib import Path
@@ -19,7 +20,6 @@ from typing import Any, NamedTuple, cast
 from urllib.parse import urlparse
 
 import requests
-from opentelemetry import trace
 from rich.console import Console
 
 from logfire.exceptions import LogfireConfigError
@@ -1021,8 +1021,7 @@ def _main(args: list[str] | None = None) -> None:
 
     namespace.logfire_url = _get_logfire_url(namespace.base_url, namespace.region)
 
-    trace.set_tracer_provider(tracer_provider=SDKTracerProvider())
-    tracer = trace.get_tracer(__name__)
+    tracer = SDKTracerProvider().get_tracer(__name__)
 
     def log_trace_id(response: requests.Response, context: ContextCarrier, *args: Any, **kwargs: Any) -> None:
         logger.debug('context=%s url=%s', context, response.url)
@@ -1032,7 +1031,7 @@ def _main(args: list[str] | None = None) -> None:
     elif namespace.func in (parse_info, parse_run):
         namespace.func(namespace)
     else:
-        with tracer.start_as_current_span('logfire._internal.cli'), requests.Session() as session:
+        with _cli_logging(), tracer.start_as_current_span('logfire._internal.cli'), requests.Session() as session:
             install_connection_policy(session)
             context = get_context()
             session.hooks = {'response': [functools.partial(log_trace_id, context=context)]}
@@ -1042,14 +1041,29 @@ def _main(args: list[str] | None = None) -> None:
             namespace.func(namespace)
 
 
-def main(args: list[str] | None = None) -> None:
-    """Run the CLI."""
+@contextmanager
+def _cli_logging() -> Generator[None]:
+    """Keep CLI HTTP diagnostics without configuring application logging."""
     HOME_LOGFIRE.mkdir(exist_ok=True)
-
     file_handler = logging.FileHandler(LOGFIRE_LOG_FILE)
     file_handler.setLevel(logging.DEBUG)
-    logging.basicConfig(handlers=[file_handler], level=logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
+    cli_loggers = (logger, logging.getLogger('urllib3'))
+    previous_levels = [cli_logger.level for cli_logger in cli_loggers]
+    try:
+        for cli_logger in cli_loggers:
+            cli_logger.addHandler(file_handler)
+            cli_logger.setLevel(logging.DEBUG)
+        yield
+    finally:
+        for cli_logger, previous_level in zip(cli_loggers, previous_levels):
+            cli_logger.removeHandler(file_handler)
+            cli_logger.setLevel(previous_level)
+        file_handler.close()
 
+
+def main(args: list[str] | None = None) -> None:
+    """Run the CLI."""
     previous_non_interactive = is_non_interactive()
     try:
         _main(args)
@@ -1065,4 +1079,3 @@ def main(args: list[str] | None = None) -> None:
         # in-process, where leaving the switch set would silently stop every later prompt
         # -- including ones in `logfire.configure()`, which this flag does not govern.
         set_non_interactive(previous_non_interactive)
-        file_handler.close()
