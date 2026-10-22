@@ -36,6 +36,42 @@ test:
 test-otel-collector:
 	LOGFIRE_OTEL_COLLECTOR_TESTS=1 uv run --no-sync pytest -n 0 tests/otel_collector
 
+.PHONY: test-feature-flags  # Run the deterministic feature-flag reliability suite
+test-feature-flags:
+	uv run --no-sync pytest tests/test_feature_flags.py tests/test_feature_flag_properties.py tests/test_variables.py
+
+.PHONY: test-feature-flags-mutation  # Mutate the feature-flag decision and context boundaries
+test-feature-flags-mutation:
+	@test ! -e src
+	@set -e; mkdir src; trap 'test ! -L src/logfire || unlink src/logfire; rmdir src' EXIT; \
+	ln -s ../logfire-sdk/logfire src/logfire; \
+	NO_PROXY='*' no_proxy='*' COVERAGE_RCFILE=/dev/null PYDANTIC_DISABLE_PLUGINS=__all__ uv run --no-sync mutmut run \
+		'*VariableConfig*_select_rollout*' \
+		'*VariableConfig*requires_targeting_key*' \
+		'*VariablesConfig*resolve_serialized_value*' \
+		'*experimental.feature_flags*' \
+		'*_matches_openfeature_scalar_type*' \
+		'*_is_exclusively_openfeature_scalar_schema*' \
+		'*_unwrap_schema_context*' \
+		'*_to_openfeature_details*' \
+		'*_evaluation_telemetry*' \
+		'*_scrub_feature_flag_result*' \
+		'*_feature_flag_evaluation_details*' \
+		'*_feature_flag_telemetry_attributes*' \
+		'*_ManagedVariableFlagAdapter*resolution_telemetry_attributes*' \
+		'*_ManagedVariableFlagAdapter*_get_provider_evaluation_state*' \
+		'*_ManagedVariableFlagAdapter*_finalize_resolution_result*' \
+		'*_ManagedVariableFlagAdapter*_result_for_provider_state*' \
+		'*feature_context*'; \
+	results="$$(uv run --no-sync mutmut results)"; \
+	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|VariablesConfig.*resolve_serialized_value|experimental.feature_flags|_matches_openfeature_scalar_type|_is_exclusively_openfeature_scalar_schema|_unwrap_schema_context|_to_openfeature_details|_evaluation_telemetry|_scrub_feature_flag_result|_feature_flag_(evaluation_details|telemetry_attributes)|_ManagedVariableFlagAdapter.*(resolution_telemetry_attributes|_get_provider_evaluation_state|_finalize_resolution_result|_result_for_provider_state)|feature_context' || true)"; \
+	if [ -n "$$target_results" ]; then \
+		printf '%s\n' "$$target_results"; \
+		echo 'Feature-flag mutation testing left non-killed mutants'; \
+		exit 1; \
+	fi; \
+	echo 'All targeted feature-flag mutants were killed.'
+
 .PHONY: test-update-examples  # Update the examples in the documentation
 test-update-examples:
 	uv run pytest --update-examples -k test_docs
@@ -45,9 +81,8 @@ generate-stubs:
 	uv run stubgen -p logfire --include-docstrings --no-analysis
 	rsync -a out/logfire/ logfire-api/logfire_api/
 	rm -rf out
-	# || true so that we ignore the test failure on the first pass, it should report as skipped on the second
-	uv run pytest ./tests/test_logfire_api.py::test_override_init_pyi || true
-	uv run pytest ./tests/test_logfire_api.py::test_override_init_pyi
+	uv run python scripts/postprocess_generated_stubs.py
+	uv run pytest ./tests/test_logfire_api.py::test_postprocess_generated_stubs
 
 .PHONY: testcov  # Run tests and generate a coverage report
 testcov:
