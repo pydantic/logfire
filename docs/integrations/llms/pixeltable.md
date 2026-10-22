@@ -45,6 +45,9 @@ pip install pixeltable opentelemetry-instrumentation-pixeltable openai
     `logfire.instrument_openai()` records message content. Use [scrubbing](../../how-to-guides/scrubbing.md) to
     redact sensitive values before they leave your machine.
 
+Set your **OpenAI API key** in the `OPENAI_API_KEY` environment variable before running the example (get one from
+your OpenAI dashboard at [platform.openai.com/api-keys](https://platform.openai.com/api-keys)).
+
 Call `logfire.configure()`, `logfire.instrument_openai()`, and `PixeltableInstrumentor().instrument()` before the first
 Pixeltable operation:
 
