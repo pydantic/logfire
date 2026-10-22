@@ -176,7 +176,7 @@ def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
             name=part.get('name', ''),
             arguments=part.get('input'),
         )
-    elif part_type == 'server_tool_use':
+    elif part_type in ('server_tool_use', 'mcp_tool_use'):
         return make_tool_call_part(
             tool_call_id=part.get('id', ''),
             name=part.get('name', ''),
@@ -265,7 +265,7 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
                     arguments=block.input,
                 )
             )
-        elif block_type == 'server_tool_use':
+        elif block_type in ('server_tool_use', 'mcp_tool_use'):
             parts.append(
                 make_tool_call_part(
                     tool_call_id=getattr(block, 'id', ''),
