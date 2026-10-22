@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import subprocess
 import sys
 import warnings
 from collections.abc import Callable
 from importlib.metadata import version as package_version
 from pathlib import Path
 from types import ModuleType
+from typing import get_args
 from unittest.mock import MagicMock
 
 import pytest
@@ -16,6 +18,14 @@ from pydantic import __version__ as pydantic_version
 
 from logfire._internal.auto_trace.import_hook import LogfireFinder
 from logfire._internal.utils import get_version
+from logfire.experimental.feature_flags import FlagErrorCode, FlagEvaluationReason
+from logfire.variables.abstract import RuleEvaluationReason, VariableProviderEvaluationState
+from scripts.postprocess_generated_stubs import (
+    postprocess_feature_flags_pyi,
+    postprocess_init_pyi,
+    postprocess_main_pyi,
+    postprocess_variables_abstract_pyi,
+)
 
 pydantic_pre_2_5 = get_version(pydantic_version) < get_version('2.5.0')
 pydantic_pre_2_11 = get_version(pydantic_version) < get_version('2.11.0')
@@ -98,6 +108,116 @@ def import_logfire_api_without_logfire() -> ModuleType:
 def import_logfire_api_with_logfire() -> ModuleType:
     logfire_api = importlib.import_module('logfire_api')
     return importlib.reload(logfire_api)
+
+
+def test_postprocess_feature_flags_pyi_preserves_direct_constructor_inference() -> None:
+    checked_in = (
+        Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / 'experimental' / 'feature_flags.pyi'
+    ).read_text()
+    precise_alias = 'InferableFlagValue = bool | str | int | float | Enum | BaseModel\n'
+    typed_constructor = 'def __init__(self: Flag[InferableFlagT], name: str, *, default: InferableFlagT,'
+    generated_constructor = 'def __init__(self, name: str, *, default: InferableFlagT,'
+    assert precise_alias in checked_in
+    assert typed_constructor in checked_in
+    generated = checked_in.replace(precise_alias, f'{precise_alias}InferableFlagValue = Any\n', 1).replace(
+        typed_constructor, generated_constructor, 1
+    )
+
+    processed = postprocess_feature_flags_pyi(generated)
+
+    assert processed == checked_in
+    assert postprocess_feature_flags_pyi(processed) == processed
+
+
+def test_postprocess_real_generated_stubs(tmp_path: Path) -> None:
+    subprocess.run(
+        [
+            sys.executable,
+            '-c',
+            'from mypy.stubgen import main; main()',
+            '-m',
+            'logfire',
+            '-m',
+            'logfire.experimental.feature_flags',
+            '--include-docstrings',
+            '--no-analysis',
+            '-o',
+            str(tmp_path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    generated = postprocess_init_pyi((tmp_path / 'logfire' / '__init__.pyi').read_text())
+    assert 'Incomplete' not in generated
+    assert generated.count('DEFAULT_LOGFIRE_INSTANCE = Logfire()') == 1
+    assert 'span = DEFAULT_LOGFIRE_INSTANCE.span' in generated
+    flags = postprocess_feature_flags_pyi((tmp_path / 'logfire' / 'experimental' / 'feature_flags.pyi').read_text())
+    assert 'def __init__(self: Flag[InferableFlagT],' in flags
+    for name, alias in [('FlagEvaluationReason', FlagEvaluationReason), ('FlagErrorCode', FlagErrorCode)]:
+        values = ', '.join(map(repr, get_args(alias)))
+        assert f'{name} = Literal[{values}]' in flags
+
+
+def test_postprocess_main_pyi_removes_only_an_unused_private_type_variable() -> None:
+    declaration = "VariableT = TypeVar('VariableT', bound='_FlagEvaluationCore[Any]')\n"
+    assert postprocess_main_pyi(declaration) == '\n'
+    used = declaration + 'def register(value: VariableT) -> VariableT: ...\n'
+    assert postprocess_main_pyi(used) == used
+
+
+def test_postprocess_feature_flags_pyi_rejects_an_unknown_constructor() -> None:
+    with pytest.raises(ValueError, match='generated Flag constructor signature changed'):
+        postprocess_feature_flags_pyi(
+            'InferableFlagValue = bool | str | int | float | Enum | BaseModel\nclass Flag: ...\n'
+        )
+
+
+def test_postprocess_feature_flags_pyi_rejects_missing_or_duplicate_aliases() -> None:
+    with pytest.raises(ValueError, match='generated InferableFlagValue alias changed'):
+        postprocess_feature_flags_pyi('class Flag: ...\n')
+
+    checked_in = (
+        Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / 'experimental' / 'feature_flags.pyi'
+    ).read_text()
+    with pytest.raises(ValueError, match='alias was emitted more than once'):
+        postprocess_feature_flags_pyi(checked_in + 'InferableFlagValue = Any\n' * 2)
+
+
+def test_postprocess_variables_abstract_pyi_preserves_literal_aliases() -> None:
+    checked_in = (
+        Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / 'variables' / 'abstract.pyi'
+    ).read_text()
+    generated = checked_in.replace('from typing import Literal, ', 'from typing import ', 1)
+    for name, values in (
+        ('VariableProviderEvaluationState', get_args(VariableProviderEvaluationState)),
+        ('RuleEvaluationReason', get_args(RuleEvaluationReason)),
+    ):
+        runtime_alias = f'{name} = Literal[{", ".join(map(repr, values))}]'
+        assert runtime_alias in checked_in
+        generated = generated.replace(runtime_alias, f'{name}: Incomplete')
+
+    processed = postprocess_variables_abstract_pyi(generated)
+
+    assert processed == checked_in
+    assert postprocess_variables_abstract_pyi(processed) == processed
+
+
+@pytest.mark.parametrize('alias', ['VariableProviderEvaluationState', 'RuleEvaluationReason'])
+@pytest.mark.parametrize('duplicate', [False, True])
+def test_postprocess_variables_abstract_pyi_rejects_changed_aliases(alias: str, duplicate: bool) -> None:
+    content = (Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / 'variables' / 'abstract.pyi').read_text()
+    if duplicate:
+        content += f'\n{alias}: Incomplete\n'
+    else:
+        content = content.replace(f'{alias} = Literal[', f'{alias} = tuple[')
+    with pytest.raises(ValueError, match=f'The generated {alias} alias changed'):
+        postprocess_variables_abstract_pyi(content)
+
+
+def test_postprocess_init_pyi_rejects_incomplete_aliases_without_span() -> None:
+    with pytest.raises(ValueError, match='The generated span alias changed'):
+        postprocess_init_pyi('from _typeshed import Incomplete\nnew_alias: Incomplete\n')
 
 
 @pytest.mark.parametrize(
@@ -442,43 +562,16 @@ def test_match_version_on_pyproject() -> None:
     assert logfire_pyproject_content['project']['version'] == logfire_api_pyproject_content['project']['version']
 
 
-def test_override_init_pyi() -> None:  # pragma: no cover
-    """The logic here is:
+def test_postprocess_generated_stubs() -> None:  # pragma: no cover
+    """Prove the checked-in generated stubs have already been post-processed."""
+    api_dir = Path(__file__).parent.parent / 'logfire-api' / 'logfire_api'
+    init_pyi_path = api_dir / '__init__.pyi'
+    init_pyi = init_pyi_path.read_text()
+    feature_flags_pyi_path = api_dir / 'experimental' / 'feature_flags.pyi'
+    feature_flags_pyi = feature_flags_pyi_path.read_text()
+    variables_abstract_pyi_path = api_dir / 'variables' / 'abstract.pyi'
+    variables_abstract_pyi = variables_abstract_pyi_path.read_text()
 
-    1. If `span: Incomplete` is present, it means we need to regenerate the `DEFAULT_LOGFIRE_INSTANCE` logic.
-    2. If the `span: Incomplete` is present, but we have `Incomplete` in the file, it means we need to update to a
-        `DEFAULT_LOGFIRE_INSTANCE` logic.
-    3. If none of the above is present, we skip the test.
-    """
-    incomplete = ': Incomplete'
-    len_incomplete = len(incomplete)
-
-    init_pyi = (Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / '__init__.pyi').read_text()
-    lines = init_pyi.splitlines()
-
-    try:
-        span_index = lines.index('span: Incomplete')
-    except ValueError:
-        for i, line in enumerate(lines.copy()):
-            if line.endswith(incomplete):
-                prefix = line[: len(line) - len_incomplete]
-                lines[i] = f'{prefix} = DEFAULT_LOGFIRE_INSTANCE.{prefix}'
-    else:
-        default_logfire_instance = 'DEFAULT_LOGFIRE_INSTANCE'
-
-        new_end_lines: list[str] = [f'{default_logfire_instance} = Logfire()']
-
-        for line in lines[span_index:]:
-            if line.endswith(incomplete):
-                prefix = line[: len(line) - len_incomplete]
-                new_end_lines.append(f'{prefix} = {default_logfire_instance}.{prefix}')
-            else:
-                new_end_lines.append(line)
-        lines.remove('from _typeshed import Incomplete')
-        lines[span_index - 1 :] = new_end_lines
-
-    new_init_pyi = '\n'.join(lines) + '\n'
-    if new_init_pyi == init_pyi:
-        pytest.skip('No changes were made to the __init__.pyi file.')
-    (Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / '__init__.pyi').write_text(new_init_pyi)
-    pytest.fail('The __init__.pyi file was updated.')
+    assert postprocess_init_pyi(init_pyi) == init_pyi
+    assert postprocess_feature_flags_pyi(feature_flags_pyi) == feature_flags_pyi
+    assert postprocess_variables_abstract_pyi(variables_abstract_pyi) == variables_abstract_pyi
