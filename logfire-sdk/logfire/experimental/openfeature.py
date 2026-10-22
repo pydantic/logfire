@@ -224,7 +224,9 @@ class LogfireProvider(AbstractProvider):
                 _SUPPRESS_FEATURE_FLAG_TELEMETRY.reset(token)
             if span is not None:
                 telemetry = _evaluation_telemetry(flag_key, result)
-                span.set_attributes(_scrub_feature_flag_result(telemetry, flag_key, result.value, self._logfire))
+                if 'feature_flag.result.value' in telemetry:
+                    telemetry = _scrub_feature_flag_result(telemetry, flag_key, result.value, self._logfire)
+                span.set_attributes(telemetry)
             return result
 
     def _resolve_object(
@@ -322,6 +324,13 @@ def _evaluation_telemetry(flag_key: str, result: FlagResolutionDetails[Any]) -> 
         'feature_flag.provider.name': 'logfire',
         'feature_flag.result.reason': (result.reason or Reason.UNKNOWN).lower(),
     }
+    if result.error_code is not None:
+        # Caller defaults may not match the registered type or pass through its serializers.
+        # Return them unchanged to OpenFeature, but never export them as flag values.
+        telemetry['error.type'] = result.error_code.value.lower()
+        telemetry['feature_flag.error.message'] = result.error_message
+        telemetry['logfire.feature_flag.result.value_status'] = 'error_fallback'
+        return telemetry
     try:
         value = result.value
         telemetry['feature_flag.result.value'] = (
@@ -329,14 +338,10 @@ def _evaluation_telemetry(flag_key: str, result: FlagResolutionDetails[Any]) -> 
         )
     except (ValueError, TypeError, RuntimeError):
         telemetry['logfire.feature_flag.result.value_status'] = 'serialization_error'
-    if result.error_code is not None:
-        telemetry['error.type'] = result.error_code.value.lower()
-        telemetry['feature_flag.error.message'] = result.error_message
-    else:
-        if result.variant is not None:
-            telemetry['feature_flag.result.variant'] = result.variant
-        if result.flag_metadata and (version := result.flag_metadata.get('logfire.value_version')) is not None:
-            telemetry['logfire.feature_flag.value_version'] = version
+    if result.variant is not None:
+        telemetry['feature_flag.result.variant'] = result.variant
+    if result.flag_metadata and (version := result.flag_metadata.get('logfire.value_version')) is not None:
+        telemetry['logfire.feature_flag.value_version'] = version
     return telemetry
 
 

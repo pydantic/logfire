@@ -139,7 +139,7 @@ def test_openfeature_error_telemetry_excludes_variant_and_version():
         'feature_flag.key': 'flag',
         'feature_flag.provider.name': 'logfire',
         'feature_flag.result.reason': 'error',
-        'feature_flag.result.value': False,
+        'logfire.feature_flag.result.value_status': 'error_fallback',
         'error.type': 'type_mismatch',
         'feature_flag.error.message': 'Configured value did not match the declared flag type.',
     }
@@ -147,6 +147,18 @@ def test_openfeature_error_telemetry_excludes_variant_and_version():
 
 def test_openfeature_telemetry_without_a_reason_is_unknown():
     assert _evaluation_telemetry('flag', FlagResolutionDetails(value=False))['feature_flag.result.reason'] == 'unknown'
+
+
+@pytest.mark.parametrize('error', [ValueError, TypeError, RuntimeError])
+def test_openfeature_telemetry_omits_unserializable_success_values(error: type[Exception]):
+    with patch('logfire.experimental.openfeature.json.dumps', side_effect=error('opaque-928413')):
+        telemetry = _evaluation_telemetry('flag', FlagResolutionDetails(value={'plan': 'team'}, reason=Reason.STATIC))
+    assert telemetry == {
+        'feature_flag.key': 'flag',
+        'feature_flag.provider.name': 'logfire',
+        'feature_flag.result.reason': 'static',
+        'logfire.feature_flag.result.value_status': 'serialization_error',
+    }
 
 
 def test_flag_scrubbing_tolerates_an_already_omitted_value():
@@ -179,7 +191,7 @@ def test_rejected_flag_values_do_not_bypass_name_aware_scrubbing(config_kwargs: 
 
 
 @pytest.mark.parametrize('declared_default, caller_default', [(True, False), (False, True)])
-def test_openfeature_telemetry_matches_the_caller_fallback(
+def test_openfeature_errors_return_caller_defaults_without_exporting_them(
     declared_default: bool, caller_default: bool, config_kwargs: dict[str, Any], exporter: TestExporter
 ):
     config = _boolean_config(rollout=Rollout(labels={'enabled': 1.0}))
@@ -194,7 +206,8 @@ def test_openfeature_telemetry_matches_the_caller_fallback(
         assert details.error_code == ErrorCode.TYPE_MISMATCH
         spans = _finished_flag_spans(exporter)
         assert len(spans) == 1
-        assert spans[0].attributes['feature_flag.result.value'] is caller_default
+        assert 'feature_flag.result.value' not in spans[0].attributes
+        assert spans[0].attributes['logfire.feature_flag.result.value_status'] == 'error_fallback'
         assert spans[0].attributes['error.type'] == 'type_mismatch'
     finally:
         openfeature_api.shutdown()
@@ -399,7 +412,44 @@ def test_openfeature_does_not_revive_a_stopped_provider(fatal: bool):
             lf.shutdown()
 
 
-def test_openfeature_records_the_final_serialization_error_fallback(
+@pytest.mark.parametrize('structured', [False, True])
+def test_openfeature_error_telemetry_omits_unserialized_caller_defaults(
+    config_kwargs: dict[str, Any], exporter: TestExporter, structured: bool
+):
+    config = VariablesConfig(
+        variables={
+            'routing_hint': VariableConfig(
+                name='routing_hint',
+                labels={'invalid': LabeledValue(version=1, serialized_value='42')},
+                rollout=Rollout(labels={'invalid': 1.0}),
+                overrides=[],
+            ),
+        }
+    )
+    config_kwargs['variables'] = LocalVariablesOptions(config=config, instrument=True)
+    logfire.configure(**config_kwargs)
+    fallback: str | dict[str, str]
+    if structured:
+        create_flag('routing_hint', default=JsonOnlySecretConfig(payload='base'))
+        fallback = {'payload': 'opaque-928413'}
+    else:
+        annotated = Annotated[str, PlainSerializer(lambda _: '[redacted]', return_type=str, when_used='json')]
+        create_flag('routing_hint', type=cast(Any, annotated), default='base')
+        fallback = 'opaque-928413'
+    provider = LogfireProvider()
+    resolve = provider.resolve_object_details if structured else provider.resolve_string_details
+    exporter.clear()
+    with pytest.warns(RuntimeWarning, match='value failed validation'):
+        details = resolve('routing_hint', cast(Any, fallback))
+    assert details.value is fallback
+    assert details.error_code == ErrorCode.TYPE_MISMATCH
+    attributes = dict(_finished_flag_spans(exporter)[0].attributes or {})
+    assert 'feature_flag.result.value' not in attributes
+    assert attributes['logfire.feature_flag.result.value_status'] == 'error_fallback'
+    assert 'opaque-928413' not in repr(exporter.exported_spans)
+
+
+def test_openfeature_returns_serialization_error_fallback_without_exporting_it(
     config_kwargs: dict[str, Any], exporter: TestExporter
 ):
     def broken_serializer(value: str) -> str:
@@ -415,7 +465,8 @@ def test_openfeature_records_the_final_serialization_error_fallback(
         assert details.error_code == ErrorCode.GENERAL
         spans = _finished_flag_spans(exporter)
         assert len(spans) == 1
-        assert spans[0].attributes['feature_flag.result.value'] == 'fallback'
+        assert 'feature_flag.result.value' not in spans[0].attributes
+        assert spans[0].attributes['logfire.feature_flag.result.value_status'] == 'error_fallback'
         assert spans[0].attributes['error.type'] == 'general'
         assert 'opaque-928413' not in repr(dict(spans[0].attributes or {}))
     finally:
@@ -435,7 +486,7 @@ def test_openfeature_catches_invalid_custom_schema_without_losing_telemetry(
             details = LogfireProvider().resolve_string_details('region', 'fallback')
     assert details.value == 'fallback'
     assert details.error_code == ErrorCode.GENERAL
-    assert _finished_flag_spans(exporter)[0].attributes['feature_flag.result.value'] == 'fallback'
+    assert 'feature_flag.result.value' not in _finished_flag_spans(exporter)[0].attributes
 
 
 def test_openfeature_telemetry_omits_non_json_fallbacks(config_kwargs: dict[str, Any], exporter: TestExporter):
@@ -445,7 +496,7 @@ def test_openfeature_telemetry_omits_non_json_fallbacks(config_kwargs: dict[str,
     assert details.value is value
     attributes = _finished_flag_spans(exporter)[0].attributes
     assert 'feature_flag.result.value' not in attributes
-    assert attributes['logfire.feature_flag.result.value_status'] == 'serialization_error'
+    assert attributes['logfire.feature_flag.result.value_status'] == 'error_fallback'
 
 
 def test_openfeature_does_not_suppress_same_named_flags_on_another_logfire_instance(
@@ -675,7 +726,7 @@ def test_feature_flag_telemetry_translation(
     assert details.error_code == expected_error
     assert telemetry['feature_flag.key'] == result.name
     assert telemetry['feature_flag.provider.name'] == 'logfire'
-    assert telemetry['feature_flag.result.value'] is result.value
+    assert 'feature_flag.result.value' not in telemetry
     assert telemetry['feature_flag.result.reason'] == expected_reason
     assert telemetry['logfire.feature_flag.resolution_reason'] == result.reason
     assert telemetry.get('error.type') == expected_error
@@ -2391,6 +2442,51 @@ def test_typed_flag_telemetry_scrubs_json_only_serializers(config_kwargs: dict[s
     assert 'feature_flag.result.value' not in attributes
     assert attributes['logfire.feature_flag.result.value_status'] == 'scrubbed'
     assert 'opaque-value' not in repr(attributes)
+
+
+@pytest.mark.parametrize('openfeature', [False, True])
+@pytest.mark.parametrize(
+    ('value_type', 'original', 'serialized'),
+    [(str, 'opaque-928413', '[redacted]'), (bool, True, False), (int, 42, 0), (float, 4.2, 0.0)],
+)
+def test_flag_telemetry_honors_scalar_json_serializers(
+    config_kwargs: dict[str, Any],
+    exporter: TestExporter,
+    openfeature: bool,
+    value_type: type[Any],
+    original: Any,
+    serialized: Any,
+):
+    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+    logfire.configure(**config_kwargs)
+    annotated = Annotated[value_type, PlainSerializer(lambda _: serialized, return_type=value_type, when_used='json')]
+    setting = create_flag('routing_hint', type=cast(Any, annotated), default=original)
+    exporter.clear()
+    scrubber = logfire.DEFAULT_LOGFIRE_INSTANCE.config.scrubber
+
+    with patch.object(scrubber, 'scrub_value', wraps=scrubber.scrub_value) as scrub_value:
+        if openfeature:
+            provider = LogfireProvider()
+            resolve = {
+                str: provider.resolve_string_details,
+                bool: provider.resolve_boolean_details,
+                int: provider.resolve_integer_details,
+                float: provider.resolve_float_details,
+            }[value_type]
+            assert resolve('routing_hint', original).value == serialized
+        else:
+            assert setting.value() == original
+
+    assert (
+        ('attributes',),
+        {'logfire.feature_flag.result.routing_hint': serialized},
+    ) in [call.args for call in scrub_value.call_args_list]
+    attributes = dict(_finished_flag_spans(exporter)[0].attributes or {})
+    assert attributes['feature_flag.result.value'] == serialized
+    assert type(attributes['feature_flag.result.value']) is value_type
+    assert 'logfire.feature_flag.result.value_status' not in attributes
+    if value_type is str:
+        assert original not in repr(exporter.exported_spans)
 
 
 def test_typed_flag_telemetry_omits_serialized_value_when_dumping_fails(

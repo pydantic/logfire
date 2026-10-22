@@ -46,7 +46,9 @@ print(details.variant)
 print(details.reason)
 ```
 
-Feature-flag evaluation telemetry does not include the targeting key or targeting attributes. It records the flag, selected value and variant, selected value version, and the resolution reason. Native evaluation details use lowercase reasons such as `split`, `targeting_match`, `static`, `default`, or `error`.
+Feature-flag evaluation telemetry does not include the targeting key or targeting attributes. It records the flag, serialized value and variant, selected value version, and the resolution reason. Values honor Pydantic serializers and Logfire scrubbing. Native evaluation details use lowercase reasons such as `split`, `targeting_match`, `static`, `default`, or `error`.
+
+Declaration schemas omit default annotations. Code defaults are recorded separately with Logfire scrubbing applied.
 
 ## Validate structured flag values with Pydantic
 
@@ -128,7 +130,7 @@ Creating a Logfire `Flag` does not change OpenFeature's global provider. This av
 
 `set_provider_and_wait()` waits for initial configuration and raises if it cannot load fresh values. Use `set_provider()` instead to initialize in the background; evaluations return the caller's default until initialization completes. The adapter reports later connection failures and recovery through OpenFeature provider events, using Logfire's existing refresh loop. Removing the adapter does not stop native Logfire flags or their connection.
 
-On an evaluation error, OpenFeature returns the default supplied to the client call, which can differ from the flag's declared default. Evaluation telemetry records the value returned to the caller.
+On an evaluation error, OpenFeature returns the default supplied to the client call, which can differ from the flag's declared default. Error telemetry records the code and reason but omits the caller's default, which may not be protected by the flag's serializers.
 
 When evaluating through an OpenFeature client, use OpenFeature's own evaluation context. If both context APIs are active, OpenFeature's merged context is passed to Logfire as explicit evaluation input and takes precedence over `feature_context()`.
 

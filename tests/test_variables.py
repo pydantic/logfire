@@ -23,7 +23,7 @@ import pytest
 import requests_mock as requests_mock_module
 from inline_snapshot import snapshot
 from opentelemetry.sdk.trace.sampling import Decision, Sampler, SamplingResult
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, Field, RootModel, ValidationError, field_validator
 from requests import Session
 
 import logfire
@@ -49,11 +49,59 @@ from logfire.variables.config import (
 )
 from logfire.variables.local import LocalVariableProvider
 from logfire.variables.remote import _CONSECUTIVE_FAILURES_BEFORE_ERROR, LogfireRemoteVariableProvider
-from logfire.variables.variable import Variable, is_resolve_function
+from logfire.variables.variable import Variable, _declaration_schema_without_defaults, is_resolve_function
 
 # =============================================================================
 # Test Condition Classes
 # =============================================================================
+
+
+@pytest.mark.parametrize(
+    'keyword', ['$defs', 'definitions', 'properties', 'patternProperties', 'dependentSchemas', 'dependencies']
+)
+def test_declaration_schema_preserves_named_defaults(keyword: str):
+    schema = {keyword: {'default': {'default': 'opaque-928413', 'type': 'string'}}}
+    assert _declaration_schema_without_defaults(schema) == {keyword: {'default': {'type': 'string'}}}
+    assert schema[keyword]['default']['default'] == 'opaque-928413'
+
+
+@pytest.mark.parametrize(
+    'keyword',
+    [
+        'allOf',
+        'anyOf',
+        'oneOf',
+        'prefixItems',
+        'items',
+        'additionalItems',
+        'contains',
+        'additionalProperties',
+        'unevaluatedProperties',
+        'unevaluatedItems',
+        'propertyNames',
+        'not',
+        'if',
+        'then',
+        'else',
+        'contentSchema',
+    ],
+)
+def test_declaration_schema_removes_nested_defaults(keyword: str):
+    child = {'default': 'opaque-928413', 'type': 'string'}
+    if keyword in ('allOf', 'anyOf', 'oneOf', 'prefixItems', 'items'):
+        schema = {keyword: [True, child]}
+        expected = {keyword: [True, {'type': 'string'}]}
+    else:
+        schema = {keyword: child}
+        expected = {keyword: {'type': 'string'}}
+    assert _declaration_schema_without_defaults(schema) == expected
+    assert child['default'] == 'opaque-928413'
+
+
+@pytest.mark.parametrize('keyword', ['const', 'enum', 'examples', 'discriminator', 'dependentRequired'])
+def test_declaration_schema_preserves_non_schema_metadata(keyword: str):
+    schema = {keyword: {'default': 'literal-value'}}
+    assert _declaration_schema_without_defaults(schema) == schema
 
 
 @pytest.mark.skipif(not hasattr(os, 'fork'), reason='requires POSIX fork')
@@ -3799,6 +3847,70 @@ class TestVariable:
         assert 'logfire.variable.code_default' not in nested_attrs
         assert 'logfire.variable.code_default' not in opaque_attrs
         assert 'logfire.variable.code_default' not in safe_key_attrs
+
+    @pytest.mark.parametrize('native_flag', [False, True])
+    @pytest.mark.parametrize('nested', [False, True])
+    def test_declaration_schemas_omit_defaults(
+        self, config_kwargs: dict[str, Any], exporter: TestExporter, native_flag: bool, nested: bool
+    ):
+        class Token(RootModel[str]):
+            root: str = 'opaque-928413'
+
+        class Credentials(BaseModel):
+            token: Token = Field(default_factory=Token)
+
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+        logfire.configure(**config_kwargs)
+        default = Credentials() if nested else Token()
+        if native_flag:
+            assert create_flag('api_key', default=default).value() == default
+        else:
+            assert logfire.var(name='api_key', type=type(default), default=default).get().value == default
+
+        declarations = [
+            span for span in exporter.exported_spans if (span.attributes or {}).get('logfire.variable.declaration')
+        ]
+        assert declarations
+        assert 'opaque-928413' not in str(declarations)
+        serialized_schema = (declarations[-1].attributes or {})['logfire.variable.schema']
+        assert isinstance(serialized_schema, str)
+        schema = json.loads(serialized_schema)
+        if nested:
+            assert schema['$defs']['Token'] == {'title': 'Token', 'type': 'string'}
+        else:
+            assert schema == {'title': 'Token', 'type': 'string'}
+
+    def test_template_declaration_schema_omits_input_defaults(
+        self, config_kwargs: dict[str, Any], exporter: TestExporter
+    ):
+        class Token(RootModel[str]):
+            root: str = 'opaque-928413'
+
+        class GreetingInputs(BaseModel):
+            user_name: str = 'Alice'
+            token: Token = Field(default_factory=Token)
+
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+        logfire.configure(**config_kwargs)
+        greeting = logfire.template_var(
+            name='greeting', type=str, default='Hello {{user_name}}', inputs_type=GreetingInputs
+        )
+        assert greeting.get(GreetingInputs()).value == 'Hello Alice'
+
+        declarations = [
+            span for span in exporter.exported_spans if (span.attributes or {}).get('logfire.variable.declaration')
+        ]
+        assert declarations
+        assert 'opaque-928413' not in str(declarations)
+        serialized_schema = (declarations[-1].attributes or {})['logfire.variable.template_inputs_schema']
+        assert isinstance(serialized_schema, str)
+        schema = json.loads(serialized_schema)
+        assert schema['$defs']['Token'] == {'title': 'Token', 'type': 'string'}
+        assert schema['properties']['user_name'] == {'title': 'User Name', 'type': 'string'}
+        # Configuration generation is not telemetry and keeps its original defaults.
+        config_schema = greeting.to_config().template_inputs_schema
+        assert config_schema is not None
+        assert config_schema['properties']['user_name']['default'] == 'Alice'
 
     def test_declaration_handles_unexpected_scrubber_output(
         self, config_kwargs: dict[str, Any], exporter: TestExporter, monkeypatch: pytest.MonkeyPatch

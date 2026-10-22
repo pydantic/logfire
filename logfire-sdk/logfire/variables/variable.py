@@ -86,6 +86,46 @@ _MAX_DECLARATION_PREVIEW_BYTES = 1024
 """Maximum serialized preview size when a declaration attribute is too large to attach in full."""
 
 
+def _declaration_schema_without_defaults(schema: dict[str, Any] | list[Any] | str | int | float | bool | None) -> Any:
+    """Copy schema nodes without default annotations, which can contain unredacted values.
+
+    Visit schema keywords only: property/definition names and literal values such as
+    ``const={"default": "value"}`` are not schema annotations and must remain intact.
+    """
+    if isinstance(schema, list):
+        return [_declaration_schema_without_defaults(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    result: dict[str, Any] = {}
+    for key, value in schema.items():
+        if key == 'default':
+            continue
+        if key in ('$defs', 'definitions', 'properties', 'patternProperties', 'dependentSchemas', 'dependencies'):
+            result[key] = {name: _declaration_schema_without_defaults(child) for name, child in value.items()}
+        elif key in (
+            'allOf',
+            'anyOf',
+            'oneOf',
+            'prefixItems',
+            'items',
+            'additionalItems',
+            'contains',
+            'additionalProperties',
+            'unevaluatedProperties',
+            'unevaluatedItems',
+            'propertyNames',
+            'not',
+            'if',
+            'then',
+            'else',
+            'contentSchema',
+        ):
+            result[key] = _declaration_schema_without_defaults(value)
+        else:
+            result[key] = value
+    return result
+
+
 @dataclass
 class _TargetingContextData:
     """Internal data structure for targeting context."""
@@ -266,15 +306,13 @@ def _feature_flag_evaluation_details(
 
 def _feature_flag_telemetry_attributes(
     result: ResolvedVariable[T_co],
-    serialized_value: str | None = None,
     provider_state: VariableProviderEvaluationState = 'ready',
 ) -> dict[str, Any]:
-    """Translate a managed-variable result to feature-flag semantic attributes."""
+    """Describe the decision; add its value only after JSON-mode serialization."""
     details = _feature_flag_evaluation_details(result, provider_state)
     result_attributes: dict[str, Any] = {
         'feature_flag.key': result.name,
         'feature_flag.provider.name': 'logfire',
-        'feature_flag.result.value': _feature_flag_telemetry_value(result.value, serialized_value),
         'feature_flag.result.reason': details.reason,
         'logfire.feature_flag.resolution_reason': result.reason,
     }
@@ -1147,7 +1185,10 @@ class _FlagEvaluationCore(Generic[T_co]):
 
         try:
             schema = json.dumps(
-                self.type_adapter.json_schema(), ensure_ascii=False, separators=(',', ':'), sort_keys=True
+                _declaration_schema_without_defaults(self.type_adapter.json_schema()),
+                ensure_ascii=False,
+                separators=(',', ':'),
+                sort_keys=True,
             )
         except Exception:  # Some arbitrary user-defined types cannot produce JSON Schema.
             attributes['logfire.variable.schema_status'] = 'unavailable'
@@ -1186,7 +1227,10 @@ class _FlagEvaluationCore(Generic[T_co]):
             inputs_schema = get_template_inputs_schema(self)
             if inputs_schema is not None:
                 serialized_inputs_schema = json.dumps(
-                    inputs_schema, ensure_ascii=False, separators=(',', ':'), sort_keys=True
+                    _declaration_schema_without_defaults(inputs_schema),
+                    ensure_ascii=False,
+                    separators=(',', ':'),
+                    sort_keys=True,
                 )
                 self._attach_bounded_attribute(
                     attributes, 'logfire.variable.template_inputs_schema', serialized_inputs_schema
@@ -1507,11 +1551,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
             except (ValueError, TypeError, RuntimeError):
                 serialized_value = None
         provider_state = result.provider_state
-        telemetry = _feature_flag_telemetry_attributes(
-            result,
-            serialized_value,
-            provider_state,
-        )
+        telemetry = _feature_flag_telemetry_attributes(result, provider_state)
         try:
             # Scrub the same JSON-compatible shape used for structured evaluation telemetry.
             # Python-mode serializers may leave nested credentials inside opaque objects.
@@ -1519,9 +1559,11 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         except (ValueError, TypeError, RuntimeError):
             # The serialized fallback is one opaque string, so path-based scrubbing cannot inspect
             # nested fields. Omit it instead of weakening the scrubber's fail-closed guarantee.
-            telemetry.pop('feature_flag.result.value')
             telemetry['logfire.feature_flag.result.value_status'] = 'serialization_error'
             return telemetry
+        # Honor serializer redaction for scalars as well as structured values. The exported
+        # scalar must come from the same JSON-mode value inspected by the scrubber below.
+        telemetry['feature_flag.result.value'] = _feature_flag_telemetry_value(value, serialized_value)
         return _scrub_feature_flag_result(telemetry, self.name, value, self.logfire_instance)
 
     def evaluate_flag(

@@ -237,7 +237,7 @@ pytest_add_cli_args_test_selection = [
     "tests/test_feature_flag_properties.py",
     "tests/test_variables.py",
     "-k",
-    "flag or openfeature or remote_health or requires_targeting_key or VarDuplicateName or VarInvalidName",
+    "flag or openfeature or declaration_schema or remote_health or requires_targeting_key or VarDuplicateName or VarInvalidName",
     "-p",
     "no:logfire",
     "-p",
