@@ -3,34 +3,44 @@ title: Send Logfire alerts to PagerDuty
 description: "Connect PagerDuty services to Logfire, route alerts to the right on-call team, and resolve incidents when an alert clears."
 ---
 
-# Send Logfire alerts to PagerDuty
+# PagerDuty + Logfire Integration Guide
 
 Page the right on-call team when a [Logfire alert](../guides/web-ui/alerts.md) fires, then resolve the PagerDuty incident automatically when the alert clears.
 
 !!! info "Experimental"
     The PagerDuty integration is experimental and available to selected Logfire organizations. Email [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
-You connect a PagerDuty account once at the organization level. Notification channels also belong to the organization. Every project in that organization can reuse them to route alerts to the approved PagerDuty services.
+## PagerDuty + Logfire Integration Benefits
 
-## What the integration does
+- Notify on-call responders when a Logfire alert fires.
+- Route each Logfire notification channel to one PagerDuty service.
+- Send the alert name, severity, timestamp, Logfire organization and project, and a link back to Logfire with every incident. Notifications can also include the alert description, query results, or delivery errors.
+- Resolve the PagerDuty incident automatically when the Logfire alert stops matching.
+- Use PagerDuty accounts hosted in the United States or Europe.
 
-- Opens a PagerDuty incident when a Logfire alert fires.
-- Resolves the same incident when the alert stops matching.
-- Routes each notification channel to one PagerDuty service.
-- Includes the alert name, severity, timestamp, Logfire organization and project, and a link back to Logfire. Notifications can also include the alert description, query results, or delivery errors.
-- Supports PagerDuty accounts hosted in the United States and Europe.
+## How it Works
 
-## Before you start
+- You connect a PagerDuty account once, at the Logfire organization level. During the connection, you choose the PagerDuty services that Logfire may notify.
+- A Logfire notification channel points to one approved PagerDuty service. Every project in the organization can attach the channel to its alerts.
+- When an alert fires, Logfire sends a trigger event to the service through PagerDuty Events API v2. PagerDuty opens a new incident, or groups the event into the open incident for the same alert.
+- When a later alert run finds no matches, Logfire sends a resolve event. PagerDuty resolves the same incident.
+- Logfire uses a stable deduplication key for each alert. So a firing notification and its recovery always update the same incident.
 
-You need:
+## Requirements
 
 - **In Logfire:** permission to change organization settings, usually as an organization owner or admin.
 - **In PagerDuty:** permission to add integrations to each service you want Logfire to use.
 - **A PagerDuty service:** use a test service with a quiet escalation policy while you verify the connection.
 
-The connection belongs to the Logfire organization. You can reuse it across every project in that organization.
+## Support
 
-## Connect PagerDuty
+If you need help with this integration, email [engineering@pydantic.dev](mailto:engineering@pydantic.dev) or ask in the [Pydantic Logfire Slack](https://pydantic.dev/docs/logfire/join-slack/). See [Getting help with Pydantic Logfire](../help.md) for more options.
+
+## Integration Walkthrough
+
+The connection starts in Logfire. PagerDuty asks you to approve the services during the connection, so you do not copy an integration key by hand.
+
+### In Logfire: connect PagerDuty
 
 1. Open your organization's **Settings**, then **Connections**.
 2. Find **PagerDuty** and click **Connect**.
@@ -38,14 +48,17 @@ The connection belongs to the Logfire organization. You can reuse it across ever
 
     ![The Connect PagerDuty dialog with the United States account region selected](../images/guide/pagerduty-connect.png)
 
-4. PagerDuty opens the Logfire app installation page. Select the services that Logfire may notify, then approve the installation.
-5. PagerDuty returns you to the **Connections** page. Expand **PagerDuty** and confirm that the account shows **Connected** and the expected number of approved services.
+### In PagerDuty: approve the services
+
+1. PagerDuty opens the Logfire app installation page. Select the services that Logfire may notify.
+2. Approve the installation. PagerDuty returns you to the Logfire **Connections** page.
+3. Expand **PagerDuty** and confirm that the account shows **Connected** and the expected number of approved services.
 
     ![The Logfire Connections page showing a connected PagerDuty account with one approved service](../images/guide/pagerduty-connected.png)
 
 For each service you approve, Logfire receives a key that lets it send alerts and resolve incidents for that service. Logfire encrypts these keys at rest. It does not request access to read or manage other PagerDuty data.
 
-## Create a PagerDuty notification channel
+### In Logfire: create a PagerDuty notification channel
 
 A notification channel is an organization-level destination that you attach to one or more alerts.
 
@@ -66,7 +79,7 @@ A notification channel is an organization-level destination that you attach to o
 
 Logfire requires a successful test before it creates the channel. This catches removed service integrations and invalid credentials before a production alert needs them.
 
-## Send an alert to PagerDuty
+### In Logfire: send an alert to PagerDuty
 
 1. Open **Alerts** from your project's sidebar.
 2. Create a new alert or edit an existing alert.
@@ -75,7 +88,7 @@ Logfire requires a successful test before it creates the channel. This catches r
 
 One notification channel can serve alerts across projects in the same organization. One alert can also notify several channels.
 
-## Verify the incident lifecycle
+### Verify the incident lifecycle
 
 Trigger the alert with test data and check both systems:
 
@@ -84,15 +97,13 @@ Trigger the alert with test data and check both systems:
 3. The Logfire alert run history records a successful delivery.
 4. When the alert stops matching, a later clean run resolves the same PagerDuty incident.
 
-Logfire uses PagerDuty Events API v2 with a stable deduplication key. This lets a firing notification and its recovery update the same incident instead of creating unrelated incidents.
-
-## Add or replace approved services
+### Add or replace approved services
 
 Return to **Settings** > **Connections**, expand **PagerDuty**, and click **Reconnect**. Select the complete set of services that Logfire should use.
 
 Existing channels keep their current service reference. If you remove a service from the PagerDuty app installation, update or delete every Logfire channel that uses it.
 
-## Remove the integration
+## How to Uninstall
 
 1. Resolve any open PagerDuty incidents created by Logfire.
 2. Delete the Logfire notification channels that use the connection.
@@ -112,4 +123,4 @@ Disconnecting removes the encrypted service keys and approved service references
 
 **Disconnect is blocked.** Resolve open incidents and delete every Logfire notification channel that uses the connection, then disconnect again.
 
-For more help, see [Getting help with Pydantic Logfire](../help.md) or email [engineering@pydantic.dev](mailto:engineering@pydantic.dev).
+If none of these steps help, see [Support](#support).
