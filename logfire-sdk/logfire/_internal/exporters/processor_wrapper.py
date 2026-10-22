@@ -296,7 +296,11 @@ def _tweak_http_spans(span: ReadableSpanDict):
             #   /path ? foo='1' & bar='2 3'
             # to make things nice and readable.
             # Note that we show decoded values, e.g. %20 -> ' '.
-            message += ' ? ' + ' & '.join(f'{k}={v!r}' for k, v in truncated_pairs)
+            rendered_pairs: list[str] = []
+            for key, value in truncated_pairs:
+                key = ''.join(character if character.isprintable() else repr(character)[1:-1] for character in key)
+                rendered_pairs.append(f'{key}={value!r}')
+            message += ' ? ' + ' & '.join(rendered_pairs)
 
     if message != name:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: message}
