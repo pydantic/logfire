@@ -421,8 +421,8 @@ def on_response(
     *,
     version: NormalizedSemconvVersion | frozenset[NormalizedSemconvVersion] = 2,
     base_url: str | None = None,
-) -> Any:
-    """Updates the span based on the type of response, returning the response untouched."""
+) -> None:
+    """Updates the span based on the type of response."""
     versions: frozenset[NormalizedSemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
     if isinstance(response, (Message, BetaMessage)):
@@ -431,8 +431,6 @@ def on_response(
         message = _unwrap_raw_message(response)
         if message is not None:
             _record_message(message, span, versions, base_url)
-
-    return response
 
 
 def is_async_client(

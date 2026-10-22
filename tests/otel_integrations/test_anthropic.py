@@ -2323,10 +2323,7 @@ def test_on_response_unwraps_raw_response() -> None:
 
     span = MockSpan()
     raw = FakeRawResponse()
-    returned = on_response(raw, span, version=2)  # type: ignore[arg-type]
-
-    # The caller's raw response is returned untouched.
-    assert returned is raw
+    on_response(raw, span, version=2)  # type: ignore[arg-type]
     assert span.attributes['gen_ai.response.id'] == 'test_id'
     assert span.attributes['gen_ai.response.model'] == 'claude-3-haiku-20240307'
     assert span.attributes['gen_ai.response.finish_reasons'] == ['end_turn']
@@ -2377,8 +2374,7 @@ def test_on_response_reads_async_raw_buffered_body_without_awaiting_json() -> No
 
     span = MockSpan()
     raw = FakeAsyncRawResponse()
-    returned = on_response(raw, span, version=2)  # type: ignore[arg-type]
-    assert returned is raw
+    on_response(raw, span, version=2)  # type: ignore[arg-type]
     assert span.attributes['gen_ai.response.id'] == 'async_id'
 
 
@@ -2420,8 +2416,7 @@ def test_on_response_reads_legacy_raw_body_without_json_method() -> None:
 
     span = MockSpan()
     raw = FakeLegacyRawResponse()
-    returned = on_response(raw, span, version=2)  # type: ignore[arg-type]
-    assert returned is raw
+    on_response(raw, span, version=2)  # type: ignore[arg-type]
     assert span.attributes['gen_ai.response.id'] == 'legacy_id'
 
 def test_messages_records_cache_token_attributes(exporter: TestExporter) -> None:
