@@ -38,7 +38,15 @@ test-otel-collector:
 
 .PHONY: test-feature-flags  # Run the deterministic feature-flag reliability suite
 test-feature-flags:
-	uv run --no-sync pytest tests/test_feature_flags.py tests/test_feature_flag_properties.py tests/test_variables.py
+	uv run --no-sync pytest tests/test_feature_flags.py tests/test_feature_flag_properties.py tests/test_variables.py tests/test_feature_flags_demo.py
+
+.PHONY: demo-feature-flags  # Run the local-only support service with typed feature flags
+demo-feature-flags:
+	uv run --no-sync python -m examples.python.feature_flags_demo
+
+.PHONY: test-feature-flags-demo  # Exercise the demo against real HTTP and SSE delivery
+test-feature-flags-demo:
+	uv run --no-sync pytest tests/test_feature_flags_demo.py
 
 .PHONY: test-feature-flags-mutation  # Mutate the feature-flag decision and context boundaries
 test-feature-flags-mutation:
