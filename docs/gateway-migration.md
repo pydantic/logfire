@@ -19,7 +19,7 @@ We consolidated the AI Gateway into Logfire. The legacy standalone gateway at [g
 | **13 April 2026 at 3pm UTC** | Legacy gateway fully shut down (end of life) |
 | **End of April 2026** | Automatic refunds processed for any remaining balances |
 
-The legacy gateway service has been shut down; [gateway.pydantic.dev](https://gateway.pydantic.dev/) now shows a migration notice. If you have an outstanding question about a refund or your old account, email us at [engineering@pydantic.dev](mailto:engineering@pydantic.dev).
+The legacy gateway service has been shut down; [gateway.pydantic.dev](https://gateway.pydantic.dev/) now shows a migration notice. If you have an outstanding question about a refund or your old account, email us at [billing@pydantic.dev](mailto:billing@pydantic.dev).
 
 ## Why We Made This Change
 

@@ -129,7 +129,7 @@ Team and Growth organizations can use a monthly spending cap to limit what usage
 an invoice. Open **Org settings → Billing & usage → Spending controls** to see the cap, what this billing cycle has
 spent against it, and how much is left.
 
-Your first cap is set up by us: email `accounts@pydantic.dev` to ask for one. Once your organization has a cap, the
+Your first cap is set up by us: email `billing@pydantic.dev` to ask for one. Once your organization has a cap, the
 amount is yours to change whenever you need to, without contacting us again.
 
 When the cap is reached, Logfire keeps accepting your data, but new data stays hidden in the app until the cap is
@@ -155,5 +155,5 @@ can enter right now, and that floor rises as the cycle spends.
 
 ### Set up your first cap, or remove one
 
-Turning a cap on for the first time, and taking one away, are both done by us: email `accounts@pydantic.dev`.
+Turning a cap on for the first time, and taking one away, are both done by us: email `billing@pydantic.dev`.
 Removing a cap means usage is billed with no ceiling again, which is why it is not self-serve.
