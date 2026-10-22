@@ -216,8 +216,8 @@ spans have ended, the new span will be included even if the trace was discarded,
 sampler no longer tracks that trace. This is similar to the distributed tracing case above.
 
 Logfire avoids this for FastAPI's `BackgroundTasks` when you use `logfire.instrument_fastapi(app)`. It starts one new trace
-for the batch after the response is sent and links that trace to the request span. The request and background traces are
-sampled independently. The link can point to a request span that tail sampling discarded.
+for each non-empty batch after the response is sent and links that trace to the request span. The request and background
+traces are sampled independently. The link can point to a request span that tail sampling discarded.
 
 For example:
 
