@@ -49,6 +49,7 @@ the SDK's configuration and server-sent event endpoints. They cover:
 - A disconnected event stream reconciling a missed update on reconnect.
 - Deleted flags and aliases returning defaults, accurate request metrics, and clean shutdown.
 - One-time declarations and telemetry that omits customer identifiers and credential values.
+- Repeated app lifecycles that restore their provider registration without clearing unrelated domains.
 
 Only the delivery boundary is fake; flag evaluation, HTTP clients, event streaming, request
 handling, tracing, and metrics use their real implementations. These checks do not prove

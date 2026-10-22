@@ -17,6 +17,8 @@ from typing import Any
 
 import requests
 import uvicorn
+from openfeature import api
+from openfeature.provider.no_op_provider import NoOpProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, Sum
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
@@ -151,6 +153,34 @@ def serving(app: Any):
 
 
 def main(scenario: str, *, wait_for_recovery_poll: bool = False) -> None:
+    if scenario == 'lifecycle':
+        client = api.get_client(domain='support-demo')
+        previous = client.provider
+        default = api.get_client().provider
+        unrelated = NoOpProvider()
+        api.set_provider_and_wait(unrelated, domain='unrelated-demo')
+        for _ in range(2):
+            with serving(create_app()) as url:
+                response = requests.post(
+                    url + '/support', json={'customer_id': 'example-account', 'plan': 'team'}, timeout=5
+                )
+                assert response.status_code == 200, response.text
+                assert response.json()['assisted'] is True
+                assert client.provider is not previous
+            assert client.provider is previous, 'app left its stopped provider registered'
+            assert client.get_boolean_value('citations', False) is False
+            assert api.get_client().provider is default
+            assert api.get_client(domain='unrelated-demo').provider is unrelated
+
+        replacement = NoOpProvider()
+        with serving(create_app()):
+            api.set_provider_and_wait(replacement, domain='support-demo')
+        assert client.provider is replacement, 'teardown overwrote a newer provider'
+        assert api.get_client().provider is default
+        assert api.get_client(domain='unrelated-demo').provider is unrelated
+        print(json.dumps({'scenario': scenario, 'requests': 2, 'domains_preserved': True}))
+        return
+
     if scenario == 'local':
         with serving(create_app()) as url:
             for plan, enabled in (('team', True), ('free', False)):

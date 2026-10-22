@@ -48,3 +48,15 @@ def test_feature_flags_demo_local_defaults():
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert json.loads(result.stdout) == {'scenario': 'local', 'requests': 2, 'clean_shutdown': True}
+
+
+def test_feature_flags_demo_provider_lifecycle():
+    result = subprocess.run(
+        [sys.executable, str(Path(__file__).with_name('feature_flags_demo_probe.py')), 'lifecycle'],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout) == {'scenario': 'lifecycle', 'requests': 2, 'domains_preserved': True}

@@ -116,10 +116,15 @@ def create_app(sdk: logfire.Logfire | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         # Background initialization lets the app start safely during a configuration outage.
+        previous_provider = client.provider
         api.set_provider(provider, domain='support-demo')
         try:
             yield
         finally:
+            # Replace only our own registration; never clear other apps' domains or overwrite
+            # a provider that took over this domain while the demo was running.
+            if client.provider is provider:
+                api.set_provider(previous_provider, domain='support-demo')
             provider.shutdown()
             if owns_sdk:
                 await asyncio.to_thread(sdk.shutdown)
