@@ -150,7 +150,7 @@ def serving(app: Any):
             assert not thread.is_alive(), 'demo did not shut down'
 
 
-def main(scenario: str) -> None:
+def main(scenario: str, *, wait_for_recovery_poll: bool = False) -> None:
     if scenario == 'local':
         with serving(create_app()) as url:
             for plan, enabled in (('team', True), ('free', False)):
@@ -250,6 +250,17 @@ def main(scenario: str) -> None:
 
             initial_evaluations = evaluation_count()
 
+            if wait_for_recovery_poll:
+                # Let the real, scheduled SSE follow-up land inside the measured cache window.
+                # This reproduces slow CI without an arbitrary sleep or changing SDK internals.
+                assert scenario == 'cold-start'
+
+                def recovery_poll_arrived() -> bool:
+                    with delivery.condition:
+                        return len(delivery.polls) > initial_polls
+
+                eventually(recovery_poll_arrived, 'scheduled recovery revalidation did not arrive')
+
             # Repeated customer identities must keep their assignment across interleaved requests.
             def request(index: int) -> tuple[int, dict[str, Any]]:
                 return index, support(index % 16, 'free' if index % 2 else 'team')
@@ -265,10 +276,19 @@ def main(scenario: str) -> None:
                 assignment = result['layout'], result['variant']
                 assert assignments.setdefault(index % 16, assignment) == assignment
             with delivery.condition:
-                assert len(delivery.polls) == initial_polls, 'flag reads caused configuration requests'
+                cache_phase_polls = delivery.polls[initial_polls:]
+                recovery_revalidation = (304, f'"{delivery.revision}"')
+            # The unchanged live scenario must make no requests. Recovery deliberately schedules
+            # one conditional revalidation after 2s, which may overlap a slow request batch.
+            # Permit only that one 304 with the current validator, never arbitrary extra fetches.
+            assert not cache_phase_polls or (
+                scenario == 'cold-start' and cache_phase_polls == [recovery_revalidation]
+            ), cache_phase_polls
+            if wait_for_recovery_poll:
+                assert cache_phase_polls == [recovery_revalidation]
             # Each read emits exactly once; the emergency flag is short-circuited for free users.
             assert evaluation_count() - initial_evaluations == 80 * 14 + 80 * 13
-            phases.append('160 concurrent requests: stable assignments, isolated contexts, no extra fetches')
+            phases.append('160 concurrent requests: stable assignments, isolated contexts, no per-request fetches')
 
             # Explicit revalidation should transfer no body when the cached version is current.
             sdk.variables_pull_config()
@@ -414,6 +434,7 @@ def main(scenario: str) -> None:
                     'requests': completed,
                     'flag_evaluations': len(evaluations),
                     'configuration_requests': len(delivery.polls),
+                    'cache_phase_revalidations': len(cache_phase_polls),
                     'sse_connections': delivery.connections,
                     'declarations': len(declarations),
                     'telemetry_private': True,
@@ -429,4 +450,4 @@ def main(scenario: str) -> None:
 
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    main(sys.argv[1], wait_for_recovery_poll='--wait-for-recovery-poll' in sys.argv[2:])

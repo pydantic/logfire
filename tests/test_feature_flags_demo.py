@@ -10,10 +10,17 @@ import pytest
 pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7', exc_type=ImportError)
 
 
-@pytest.mark.parametrize('scenario', ['live', 'cold-start'])
-def test_feature_flags_demo_over_real_http(scenario: str):
+@pytest.mark.parametrize(
+    ('scenario', 'wait_for_recovery_poll'), [('live', False), ('cold-start', False), ('cold-start', True)]
+)
+def test_feature_flags_demo_over_real_http(scenario: str, wait_for_recovery_poll: bool):
     result = subprocess.run(
-        [sys.executable, str(Path(__file__).with_name('feature_flags_demo_probe.py')), scenario],
+        [
+            sys.executable,
+            str(Path(__file__).with_name('feature_flags_demo_probe.py')),
+            scenario,
+            *(['--wait-for-recovery-poll'] if wait_for_recovery_poll else []),
+        ],
         capture_output=True,
         text=True,
         timeout=60,
@@ -24,6 +31,9 @@ def test_feature_flags_demo_over_real_http(scenario: str):
     assert report['scenario'] == scenario
     assert report['requests'] >= 100
     assert report['flag_evaluations'] >= 1_500
+    assert report['cache_phase_revalidations'] <= (1 if scenario == 'cold-start' else 0)
+    if wait_for_recovery_poll:
+        assert report['cache_phase_revalidations'] == 1
     assert report['telemetry_private'] is True
     assert report['clean_shutdown'] is True
 
