@@ -104,7 +104,9 @@ def select(
         summary = f'SELECT {expr} FROM {truncate(table, 25)}'
 
     if ctes:
-        cte_as = re.findall(rf'({TABLE_RE}) AS', ctes, flags=re.I)
+        # Only search outside parentheses so that aliases in CTE bodies aren't counted as CTEs,
+        # and long literals in the bodies don't make the regex slow.
+        cte_as = re.findall(rf'({TABLE_RE}) AS', outside_parentheses(ctes), flags=re.I)
         if len(cte_as) == 1:
             summary = f'WITH {truncate(cte_as[0], 10)} AS (…) {summary}'
         else:
@@ -123,6 +125,20 @@ def select(
         summary = f'{summary} LIMIT {limit.group(1)}'
 
     return truncate(summary, MAX_QUERY_MESSAGE_LENGTH)
+
+
+def outside_parentheses(s: str) -> str:
+    """Remove everything inside parentheses, including the parentheses themselves."""
+    result: list[str] = []
+    depth = 0
+    for char in s:
+        if char == '(':
+            depth += 1
+        elif char == ')':
+            depth = max(depth - 1, 0)
+        elif depth == 0:
+            result.append(char)
+    return ''.join(result)
 
 
 def truncate(s: str, length: int) -> str:
