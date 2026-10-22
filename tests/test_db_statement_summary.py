@@ -187,10 +187,16 @@ def test_ctes_with_column_lists_and_nested_aliases():
 
 
 def test_cte_with_long_literal():
-    literal = '0' * 20_000
+    literal = 'x AS y ' * 3_000
     q = f"WITH geometry AS (SELECT ST_GeomFromWKB(decode('{literal}', 'hex')) AS geom) SELECT ST_AsText(geom) FROM geometry"
     # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
     assert (
         message_from_db_statement(attrs(q), None, 'SELECT')
         == 'WITH geometry AS (…) SELECT ST_AsText(geom) FROM geometry'
     )
+
+
+def test_ctes_with_parentheses_in_literals():
+    q = "WITH foo AS (SELECT * FROM t WHERE name LIKE '%(%'), bar AS (SELECT ')' AS paren FROM foo) SELECT * FROM bar"
+    # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
+    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'WITH …[2 CTEs] SELECT * FROM bar'

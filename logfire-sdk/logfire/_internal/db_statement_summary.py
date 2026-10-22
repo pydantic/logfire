@@ -128,15 +128,26 @@ def select(
 
 
 def outside_parentheses(s: str) -> str:
-    """Remove everything inside parentheses, including the parentheses themselves."""
+    """Remove everything inside parentheses, including the parentheses themselves.
+
+    Parentheses inside quoted strings or identifiers don't change the nesting depth.
+    """
     result: list[str] = []
     depth = 0
+    quote: str | None = None
     for char in s:
-        if char == '(':
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in '\'"`':
+            quote = char
+        elif char == '(':
             depth += 1
+            continue
         elif char == ')':
             depth = max(depth - 1, 0)
-        elif depth == 0:
+            continue
+        if depth == 0:
             result.append(char)
     return ''.join(result)
 
