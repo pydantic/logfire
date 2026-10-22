@@ -41,7 +41,7 @@ The checks run the same app over real HTTP, backed by a disposable delivery serv
 the SDK's configuration and server-sent event endpoints. They cover:
 
 - Concurrent requests with stable assignments and no per-evaluation configuration fetches.
-- Cold-start recovery's scheduled revalidation overlapping a slow request batch.
+- Scheduled revalidation alongside concurrent requests after cold-start recovery.
 - Changed policies and composed prompts arriving without an explicit refresh.
 - Conditional HTTP requests returning `304 Not Modified` for unchanged configuration.
 - Invalid values falling back to code defaults, and malformed configuration retaining the last loaded snapshot.
