@@ -42,7 +42,8 @@ Avoid collecting the same metrics through both Firehose and an OpenTelemetry Col
 
 1. In Logfire, open **Infrastructure → Cloud → AWS** when the experimental guide is available.
    If data is already arriving, click **Set up cloud provider** at the top right, then select **AWS**.
-   **Firehose** is selected by default. The other tile shows the OpenTelemetry Collector instructions.
+   Select **Direct Firehose** to send logs and metrics without a Collector.
+   **CloudWatch API** and **Firehose via Collector** use your own OpenTelemetry Collector.
    To use an existing token, clear **Create a dedicated write token for Firehose** before creating a key.
 2. Click **Create write token**. Logfire creates a dedicated key that can only send data to this project and copies it.
    If copying fails, copy the visible token. Click **Launch in AWS** to open CloudFormation.
