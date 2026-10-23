@@ -223,7 +223,7 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
         variables: Options related to managed variables.
         distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
             Set to `True` to disable the warning.
-            Set to `False` to suppress extraction of incoming trace context.
+            Set to `False` to suppress extraction of incoming trace context and baggage.
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.
