@@ -158,6 +158,9 @@ pydantic-core = false
 pydantic-handlebars = false
 genai-prices = false
 logfire-cli = false
+pydantic-monty = false
+pydantic-monty-client = false
+pydantic-monty-runtime = false
 
 [tool.uv.workspace]
 members = ["logfire", "logfire-api", "logfire-sdk"]

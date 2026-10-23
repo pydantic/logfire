@@ -5,19 +5,30 @@ description: "Install the Logfire SDK, create an API key, and run code in Logfir
 
 # Run code from Python
 
+!!! info "Experimental"
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+
 Run Python in a remote [Agent Sandbox](index.md) from your application, with one call to
 [`logfire.agent_sandboxes()`][logfire.Logfire.agent_sandboxes].
 You check out a session, send it code, and get the result back.
 
 ## Before you start
 
-You need a Logfire API key with the **Execute agent sandboxes** permission (`project:execute_agent_sandboxes`):
+You need a Logfire API key with permission to run code in your project's agent sandboxes
+(`project:execute_agent_sandboxes`):
 
 1. Open your project in Logfire.
-2. Go to **Settings → API Keys → New API Key**.
-3. Select **Execute agent sandboxes**, then create the key.
-4. Copy the key.
+2. Go to **AI Optimization → Agent Sandboxes → Setup**, and select **Create execution key**.
+3. Copy the key.
    It won't be shown again.
+
+<img src="/logfire/images/guide/agent-sandboxes/connect-key.webp" alt="Connect to Monty setup with Create execution key, Use existing key, and View API keys" width="720" height="184" loading="lazy" />
+
+*The setup page offers key creation or use of an existing key.*
+
+You can also create the key in **Project settings → Security & access → API keys → New API key**. Open **Advanced** and
+select **Run code in this project's agent sandboxes**.
 
 Set it as the `LOGFIRE_API_KEY` environment variable where your application runs:
 
@@ -63,8 +74,8 @@ It prints:
 ```
 
 `logfire.agent_sandboxes()` returns a pool of sandboxes.
-No connection is made until you call `pool.checkout()`, which gives you a session with its own sandbox.
-Code runs only inside `session.feed_run()`.
+The pool opens a connection when you call `pool.checkout()`, which gives you a session with its own sandbox.
+`session.feed_run()` executes the submitted snippet. The pool also supports step-by-step execution with `feed_start()`.
 
 ## Keep state across runs
 
@@ -101,8 +112,9 @@ This is the only way sandbox code can reach anything outside the sandbox, so exp
 ```python skip-run="true" skip-reason="external-connection" hl_lines="19"
 import asyncio
 
-import logfire
 from pydantic_monty import CollectString
+
+import logfire
 
 logfire.configure()
 
@@ -139,11 +151,13 @@ and a duration).
 If your application already has a current span, the sandbox spans join its **trace** (the full journey of one request,
 made of nested spans).
 
-!!! warning "Sandbox content is recorded in your project" With tracing on, Logfire records the code, its inputs and
-result, host function arguments and results, and printed output in your Logfire project.
-Logfire applies its standard [scrubbing](../how-to-guides/scrubbing.md) before sending data.
+!!! warning "Sandbox content is recorded in your project"
+    With tracing on, Logfire records the code, its inputs and
+    result, host function arguments and results, and printed output in your Logfire project.
+    The client applies its standard [scrubbing](../how-to-guides/scrubbing.md) before it sends telemetry.
+    Scrubbing does not redact the code or values sent for execution or session storage.
 
-To turn tracing off, pass `instrument=False`:
+To skip enabling client instrumentation, pass `instrument=False`:
 
 ```python skip-run="true" skip-reason="external-connection"
 import logfire
@@ -153,6 +167,7 @@ pool = logfire.agent_sandboxes(instrument=False)
 
 `instrument_monty()` applies to the whole process, and its first call wins.
 If anything in your process has already called it, sandbox sessions are still traced.
+This option does not disable server-side telemetry or session storage. See [tracing controls](limits.md#control-client-tracing).
 
 ## Configure the pool
 
@@ -184,7 +199,7 @@ took.
   Set `LOGFIRE_API_KEY`, pass `api_key` to `logfire.configure()`, or pass `api_key` to `logfire.agent_sandboxes()`.
 - **`RuntimeError: failed to spawn monty worker: ...
   HTTP error: 401 Unauthorized`**: the server rejected the API key.
-  Check that the key is correct, hasn't been deleted, and has the **Execute agent sandboxes** permission.
+  Check that the key is correct, hasn't been deleted, and has permission to run code in this project's agent sandboxes.
 - **`RuntimeError: logfire.agent_sandboxes() requires the pydantic-monty-client package`**: install Logfire with the
   extra: `pip install 'logfire[agent-sandboxes]'`.
 - **`MontyCrashedError` with `timed_out=True`**: the call took longer than `request_timeout`.

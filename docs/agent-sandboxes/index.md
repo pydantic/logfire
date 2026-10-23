@@ -5,6 +5,10 @@ description: "What Logfire Agent Sandboxes are, when to use them, and how they f
 
 # Agent Sandboxes
 
+!!! info "Experimental"
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+
 Let your AI agents write and run Python without running that code on your own servers.
 Logfire Agent Sandboxes run each piece of code in an isolated, remote Python environment hosted by Logfire, and send the
 result back to your application.
@@ -13,7 +17,7 @@ result back to your application.
 
 Many agents work better when they can write code instead of calling tools one at a time.
 For example, an agent can write a short loop that calls a search tool ten times and combines the results.
-But the code comes from a model, so you can't trust it.
+But model-generated code can contain mistakes or unsafe operations.
 Running it in your application process would give it access to your files, network, and secrets.
 
 A **sandbox** is an isolated environment that runs code with no access to the machine around it.
@@ -23,11 +27,11 @@ Code in a sandbox can only reach the outside world through functions you choose 
 
 With Agent Sandboxes, Logfire runs the sandboxes for you:
 
-- **No sandbox infrastructure to run**: you don't deploy, scale, or patch anything.
+- **Managed sandboxes**: Logfire deploys, scales, and patches the sandbox service.
 - **Isolation from your application**: agent code runs on Logfire's servers, not in your process.
 - **Sessions that keep state**: variables and functions defined in one run are available in the next run of the same
   session, so an agent can build up work step by step.
-- **Persistent sessions, snapshots, and forks**: each session's state is saved under a session ID, so you can resume it
+- **Persistent sessions, snapshots, and forks**: unless you choose an ephemeral session, Logfire saves its state under a session ID. You can resume it
   from a new connection, take a snapshot as a checkpoint, or fork it into independent branches.
 - **Host functions**: you pass your own Python functions to a run, and the sandbox calls back to your application to run
   them.
@@ -55,25 +59,53 @@ host function   ◀──── function call ─────    calls get_weath
 result          ◀──────── result ────────    returns the final value
 ```
 
-You authenticate with a Logfire API key that has the **Execute agent sandboxes** permission
+You authenticate with a Logfire API key that has permission to run code in your project's agent sandboxes
 (`project:execute_agent_sandboxes`).
 
-!!! warning "Code and data are sent to Logfire" The code you run, its inputs, host function arguments and results, and
-printed output are sent to Logfire's servers to be executed.
-With tracing on (the default), they are also recorded in your Logfire project, after Logfire's standard
-[scrubbing](../how-to-guides/scrubbing.md) hides sensitive values such as passwords and tokens.
+!!! warning "Code and data are sent to Logfire"
+    The code you run, its inputs, host function arguments and results, and
+    printed output are sent to Logfire's servers to be executed.
+    The default client instrumentation also records this content in your project. It applies Logfire's standard
+    [scrubbing](../how-to-guides/scrubbing.md) before it sends telemetry. Scrubbing does not remove values from the
+    execution request or saved session state. See [tracing and storage controls](limits.md#control-client-tracing).
+
+## Choose a workflow
+
+| Your task | Start here |
+| --- | --- |
+| Fetch many tool results and calculate an answer | [Call tools from Python](many-tool-calls.md) |
+| Compare large results from several sources | [Reduce results before the model reads them](large-results.md) |
+| Check calls against an API's types | [Expose a typed module](typed-api.md) |
+| Wait for a person before an action | [Pause for approval](approval.md) |
+| Reuse data in a later conversation turn | [Keep a session across turns](conversations.md) |
 
 ## When not to use Agent Sandboxes
 
-- **The code is your own.** Code you wrote and reviewed doesn't need a sandbox.
+- **You only need to run trusted application code.** Run it directly when it does not need the sandbox's isolation or session features.
 - **The code needs Python features that Monty doesn't support.** Monty runs a subset of Python.
-  Check [what Monty supports](https://github.com/pydantic/monty) before you rely on a feature.
+  Check [what Monty supports](https://pydantic.dev/docs/monty/limitations/) before you rely on a feature.
 - **You need to run code offline or entirely on your own machines.** Run Monty locally with the `pydantic-monty` package
   instead, and [trace it with Logfire](../integrations/monty.md).
 
 ## Next steps
 
-- [Run code from Python](python.md): install the SDK, create an API key, and run your first snippet.
-- [Persist, resume, and fork sessions](sessions.md): keep state between connections, checkpoint it, and branch it.
-- [Trace local Monty sandboxes](../integrations/monty.md): see what local sandboxes do in Logfire.
-- [Use API keys](../reference/advanced/use-api-keys.md): create and scope the key Agent Sandboxes need.
+Start with [Run code from Python](python.md) to run your first script. Then pick the guide for what you want your agent
+to do:
+
+- [Answer questions that need dozens of tool calls](many-tool-calls.md): one script instead of a tool call per item.
+- [Work with large tool results](large-results.md): reduce thousands of rows to the answer before the model reads them.
+- [Give an agent a whole API](typed-api.md): one typed module instead of a tool per operation, checked before it runs.
+- [Pause agent code for human approval](approval.md): stop at a sensitive call and continue hours later.
+- [Keep an agent's work across conversation turns](conversations.md): keep loaded data for follow-up questions.
+
+To connect your agent, see [Use Agent Sandboxes with Pydantic AI](pydantic-ai.md) or [Add a code tool to any
+agent](any-framework.md). For what scripts can run, see [What sandbox code can do](limits.md).
+
+### Use the web UI
+
+Open **AI Optimization** > **Agent Sandboxes** in your project.
+The available tabs depend on the features enabled for your organization.
+
+- [Run code in the Workbench](workbench.md): try Python without installing a local client.
+- [Manage profiles](profiles.md): create and select a named profile for a session.
+- [Inspect sandbox runs](inspect.md): read recorded source and follow related calls in Live view.

@@ -5,13 +5,17 @@ description: "Pause and resume sandbox sessions, take snapshots as checkpoints, 
 
 # Persist, resume, and fork sessions
 
+!!! info "Experimental"
+    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+
 Pick up an agent's sandbox where it left off, from a new connection or a different process.
-Agent Sandbox sessions are **persistent** by default: Logfire saves each session's state under a session ID, and you can
+Python client sessions are **persistent** by default: Logfire saves each session's state under a session ID, and you can
 start a new session from that state later.
 You can also take a **snapshot** (a saved copy of a session's state at one moment) and start several sessions from it,
 which forks the session into independent branches.
 
 This page assumes you have [run code from Python](python.md) already.
+[Workbench sessions](workbench.md#start-a-fresh-session) are ephemeral and do not use this persistence workflow.
 
 ## What is saved
 
@@ -52,14 +56,15 @@ The server saves a session's state, which Monty calls **parking** the session, i
 Saved sessions and snapshots are kept for 7 days after they're saved, then deleted.
 They count toward your organization's snapshot storage quota.
 
-!!! warning "Session state is stored by Logfire" The values your sandbox code creates, including anything computed from
-inputs or host function results, are stored on Logfire's servers for up to 7 days.
-Use an [ephemeral session](#opt-out-of-storage-with-ephemeral-sessions) if state must not be stored.
+!!! warning "Session state is stored by Logfire"
+    The values your sandbox code creates, including anything computed from
+    inputs or host function results, are stored on Logfire's servers for up to 7 days.
+    Use an [ephemeral session](#opt-out-of-storage-with-ephemeral-sessions) if state must not be stored.
 
 ## Resume a session from a new connection
 
 Read `session.session_id` while the session is open.
-It's 16 bytes, the bytes of a UUID.
+It is a 16-byte universally unique identifier (UUID).
 Store it wherever your application keeps the agent's conversation state, such as a database row.
 
 To resume, check out a new session and pass the ID to `load_session()`:
@@ -118,14 +123,26 @@ before each step of a multi-step task.
 To roll back, load the snapshot in a new session:
 
 ```python skip-run="true" skip-reason="external-connection"
-async with pool.checkout() as session:
-    await session.feed_run('items = [1, 2, 3]')
-    checkpoint = await session.dump()
-    await session.feed_run('items.clear()')
+import asyncio
 
-async with pool.checkout() as session:
-    await session.load_session(checkpoint)
-    print(await session.feed_run('items'))  # [1, 2, 3]
+import logfire
+
+logfire.configure()
+
+
+async def main():
+    async with logfire.agent_sandboxes() as pool:
+        async with pool.checkout() as session:
+            await session.feed_run('items = [1, 2, 3]')
+            checkpoint = await session.dump()
+            await session.feed_run('items.clear()')
+
+        async with pool.checkout() as restored:
+            await restored.load_session(checkpoint)
+            print(await restored.feed_run('items'))  # [1, 2, 3]
+
+
+asyncio.run(main())
 ```
 
 `dump()` also works while code is paused waiting on a host function, if you drive execution with `feed_start()`.
@@ -169,16 +186,30 @@ A branch can be snapshotted and forked again.
 
 ## Opt out of storage with ephemeral sessions
 
-Pass `ephemeral=True` to `checkout()` for a session that is never stored:
+Pass `ephemeral=True` to `checkout()` to prevent saved interpreter state:
 
 ```python skip-run="true" skip-reason="external-connection"
-async with pool.checkout(ephemeral=True) as session:
-    await session.feed_run('secret = 42')
+import asyncio
+
+import logfire
+
+logfire.configure()
+
+
+async def main():
+    async with logfire.agent_sandboxes() as pool:
+        async with pool.checkout(ephemeral=True) as session:
+            await session.feed_run('secret = 42')
+
+
+asyncio.run(main())
 ```
 
 An ephemeral session has no session ID (`session.session_id` is `None`).
 `dump()` raises `MontyRuntimeError: this session is ephemeral, so it cannot be dumped`.
-The state is discarded when the connection closes, and also if the server is redeployed while the session is open.
+The server discards the interpreter state when the connection closes or the server is redeployed.
+Ephemeral sessions still send code and data to Logfire for execution. They can also produce recorded telemetry.
+See [tracing controls](limits.md#control-client-tracing).
 
 ## Saved state is not durable execution
 
