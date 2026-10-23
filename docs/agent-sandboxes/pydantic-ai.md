@@ -56,7 +56,7 @@ logfire.configure()
 logfire.instrument_pydantic_ai()
 
 agent = Agent(
-    'anthropic:claude-sonnet-4-5',
+    'openai:gpt-6.1-sol',
     tools=[list_customers, get_request_stats, list_open_tickets],
     capabilities=[
         CodeMode(

@@ -26,10 +26,10 @@ approach on this page.
 |                                     | Approval for each tool call       | Agent Sandboxes           |
 | ----------------------------------- | --------------------------------- | ------------------------- |
 | Approval requests for the person    | 37, one for each refund           | 1, with the complete plan |
-| Model requests after the approval   | 2, with about 25,700 input tokens | None                      |
+| Model requests after the approval   | 2, with about 26,400 input tokens | None                      |
 | Refunds correct                     | 3 of 3                            | 3 of 3                    |
 
-The model was `gpt-5.5`. With approval for each tool call, the person approves 37 separate refunds, and the model must
+The model was `gpt-6.1-sol`. With approval for each tool call, the person approves 37 separate refunds, and the model must
 run again afterwards to send the emails. With a sandbox, the steps after the approval are already written. The host functions must check that each action matches the approved plan. A model instruction alone cannot enforce approval.
 
 These are three-run results on a fixed scenario, not a prediction of production accuracy or token use.
@@ -127,7 +127,7 @@ import inspect
 import json
 from pathlib import Path
 
-from pydantic_monty import AsyncFunctionSnapshot, MontyComplete, MontyError
+from pydantic_monty import AsyncFunctionSnapshot, MontyComplete, MontyError, MontyTypingError
 from tools import NEEDS_APPROVAL, STUBS, TOOLS
 
 import logfire
@@ -158,9 +158,11 @@ async def run_code(code: str) -> str:
     async with RUN_LOCK:
         if PENDING.exists() or IN_PROGRESS.exists():
             return 'An approval is already pending. Wait for the person to decide.'
-        async with pool.checkout() as session:
+        async with pool.checkout(type_check=True, type_check_stubs=STUBS) as session:
             try:
                 snapshot = await run_until_approval(await session.feed_start(code, external_lookup=TOOLS))
+            except MontyTypingError as e:
+                return f'The script did not run, because it has type errors:\n{e.display()}'
             except MontyError as e:
                 return f'The script failed: {e}'
             if isinstance(snapshot, MontyComplete):
@@ -180,11 +182,21 @@ async def answer(snapshot, outcome: dict):
 
 RUN_CODE_DESCRIPTION = f"""Run a Python script and return the value of its last expression.
 The script can `await` these functions, and run several at once with `asyncio.gather`:
-{STUBS}"""
+{STUBS}
+`asyncio.gather` takes no keyword arguments, so do not pass `return_exceptions`.
+If the task needs approval, write the whole task as one script. After `request_approval` returns True, the same
+script must continue and do the rest of the task. You will not be called again after the approval."""
 ```
 
 `snapshot.dump()` returns a short ID. Logfire stores the paused script under it. Store the ID with the approval
 request, for example in the row your approval UI reads.
+
+Two details matter:
+
+- **The last sentence of `RUN_CODE_DESCRIPTION`.** Without it, models often stop the script at the approval and plan
+  to do the rest in a later turn. Nothing calls the model after the approval, so the rest never runs.
+- **`type_check=True`.** The sandbox checks the whole script before any of it runs. A mistake after the approval, such
+  as a missing `import asyncio`, fails now, while the model can still fix it, and not after a person has approved.
 
 ## Run the agent
 
@@ -194,7 +206,7 @@ import asyncio
 from code_tool import RUN_CODE_DESCRIPTION, pool, run_code
 from pydantic_ai import Agent, Tool
 
-agent = Agent('openai:gpt-5.5', tools=[Tool(run_code, description=RUN_CODE_DESCRIPTION)])
+agent = Agent('openai:gpt-6.1-sol', tools=[Tool(run_code, description=RUN_CODE_DESCRIPTION)])
 
 
 async def main():
@@ -297,6 +309,12 @@ call, and one that starts there and contains the `issue_refund` and `send_email`
   the same call again. Make functions that change things safe to repeat. Here, `issue_refund` takes an idempotency key.
 - **`TypeError: 'bool' object can't be awaited`** after a resume: the script awaited an async function, and you
   answered with `snapshot.resume({'return_value': ...})` directly. Use `answer()`, which settles the awaited call.
+- **The script stops after the approval and does nothing more**: the model planned to finish in a later turn. Keep
+  the last sentence of `RUN_CODE_DESCRIPTION`, which tells the model that it is not called again.
+- **The script fails after the approval, and `approve.py` then refuses to run**: some approved actions may already have
+  run. `in-progress-approval.json` holds the plan. Check which refunds and emails happened before you retry. One cause
+  is `NotImplementedError: gather() does not yet support keyword arguments`, which the type check does not catch.
+  `RUN_CODE_DESCRIPTION` tells the model to avoid it.
 - **A refund or email fails with `PermissionError`**: it does not exactly match the approved plan. The host rejects
   it before the action. Review a new plan instead of bypassing the check.
 - **`load_snapshot()` raises `MontyRuntimeError`**: the paused script has expired. Logfire keeps it for 7 days.

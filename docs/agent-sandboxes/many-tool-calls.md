@@ -27,20 +27,23 @@ endpoints, which is the shape a real metrics API returns.
 
 |                             | Plain tool calls          | Agent Sandboxes            |
 | --------------------------- | ------------------------- | -------------------------- |
-| Correct answers             | 0 of 3                    | 3 of 3                     |
-| Input tokens (median)       | 140,522                   | 7,333                      |
-| Time (median)               | 34 seconds                | 12 seconds                 |
+| Correct answers             | 1 of 3                    | 3 of 3                     |
+| Input tokens (median)       | 111,162                   | 4,680                      |
 
 These are three-run results on fixed sample data, not a prediction of production accuracy, latency, or cost.
 Measure your own tools and questions before choosing an approach.
 
-The model was `gpt-5.5`. A smaller model, `gpt-5.4-mini`, gave the same picture: 0 of 3 correct with 141,262 input
-tokens, and 3 of 3 correct with 5,886 tokens. With plain tool calls, both models named the wrong customers. They were
-not adding up 1,680 rows reliably by reading them. In the sandbox, Python did the adding.
+The model was `gpt-6.1-sol`. With plain tool calls, it named the wrong customers in two of three runs. It was not
+adding up 1,680 rows reliably by reading them. In the sandbox, Python did the adding.
+
+A smaller model, `gpt-6-luna`, was correct in 0 of 3 runs with plain tool calls and in 3 of 3 runs with Agent
+Sandboxes. But its scripts often returned every row to the model instead of a summary, so it did not save tokens. The
+savings depend on the model writing a script that reduces the data. Say so in your agent's instructions if your model
+does not do it unprompted.
 
 The gain is largest when tools return more data than the model needs to read. But even with a tool that returns one
-availability number for each customer, `gpt-5.4-mini` matched numbers to the wrong customers in 3 of 3 runs with plain
-tool calls, and was right in 3 of 3 runs with Agent Sandboxes. `gpt-5.5` was right every time with both.
+availability number for each customer, `gpt-6-luna` matched numbers to the wrong customers in 3 of 3 runs with plain
+tool calls, and was correct in 3 of 3 runs with Agent Sandboxes. `gpt-6.1-sol` was correct every time with both.
 
 ## Before you start
 

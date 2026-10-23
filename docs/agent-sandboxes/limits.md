@@ -26,6 +26,7 @@ Not supported, among others:
 - Classes that inherit from other classes, `@property`, `@classmethod`, and `@staticmethod`
 - Generators (`yield`) and user-defined exception classes
 - `async with`, `async for`, and `del`
+- Keyword arguments to `asyncio.gather`, such as `return_exceptions=True`. The type check does not catch this.
 
 See [Monty's limitations](https://pydantic.dev/docs/monty/limitations/) for the full list. A model usually rewrites a script that
 uses an unsupported feature after it sees the error.

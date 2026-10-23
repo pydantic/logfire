@@ -83,7 +83,7 @@ AGENT_CODE = '''
 from datetime import datetime, timedelta
 
 rows = await query_logfire("""
-    SELECT service_name, time_bucket('5 minutes', start_timestamp) AS bucket,
+    SELECT service_name, time_bucket('1 minute', start_timestamp) AS bucket,
            count(*) FILTER (WHERE is_exception) AS errors, count(*) AS spans
     FROM records
     WHERE start_timestamp > now() - interval '6 hours'
@@ -123,42 +123,47 @@ async def main():
 asyncio.run(main())
 ```
 
-Set `LOGFIRE_READ_TOKEN` and run `python main.py`. The output depends on your data. In a project with four services
-and a bad `auth` deploy, the query returns 288 rows, and the script prints one deploy:
+Set `LOGFIRE_READ_TOKEN` and run `python main.py`. The output depends on your data. In a project with six services
+and a bad `auth` deploy, the query returns 2,160 rows, and the script prints one deploy:
 
 ```
-[{'service': 'auth', 'version': 'v88', 'deployed_at': '2026-10-23T09:00:00+00:00', 'error_rate_before': 0.0015, 'error_rate_after': 0.0297}]
+[{'service': 'auth', 'version': 'v88', 'deployed_at': '2026-10-23T09:00:00+00:00', 'error_rate_before': 0.0057, 'error_rate_after': 0.0397}]
 ```
 
-The model reads the summary instead of all 288 rows. This ratio counts exception-bearing spans, not failed requests.
+The model reads the summary instead of all 2,160 rows. This ratio counts exception-bearing spans, not failed requests.
 A change after a deploy is a lead to investigate. It does not prove that the deploy caused the exceptions.
 
 This example closes its session after the first answer. For a follow-up, keep the session open or save its ID and
 restore it. See [Keep an agent's work across conversation turns](conversations.md).
 
-We asked this question of a Pydantic AI agent with `gpt-5.4-mini`, three times with plain tool calls and three times
+We asked this question of a Pydantic AI agent with `gpt-6.1-sol`, three times with plain tool calls and three times
 with [Agent Sandboxes through Code Mode](pydantic-ai.md). Both found the `auth` deploy every time. With plain tool
-calls, the model read all 288 rows, and each run used about 34,600 input tokens. With Agent Sandboxes, each run used
-about 7,400. These three-run results use fixed sample data. They do not predict production cost or accuracy.
+calls, the model read all 2,160 rows, and each run used about 70,500 input tokens. With Agent Sandboxes, each run used
+about 4,000. These three-run results use fixed sample data. They do not predict production cost or accuracy.
+
+The difference grows with the number of rows. With 288 rows (five-minute buckets), plain tool calls used about 10,000
+input tokens and were also correct every time. Agent Sandboxes used about 22,600, so a sandbox did not help. A smaller
+model, `gpt-6-luna`, often returned every row from its scripts instead of a summary, and used more tokens with Agent
+Sandboxes than without. Tell your agent to return a summary from its scripts if your model does not do it unprompted.
 
 In your application, the agent writes the script and your code runs it. See [Use Agent Sandboxes with Pydantic
 AI](pydantic-ai.md) or [Add a code tool to any agent](any-framework.md).
 
 ## Why a script beats SQL alone here
 
-The query does the part that SQL is good at: counting errors per service in five-minute buckets. The comparison needs
+The query does the part that SQL is good at: counting errors per service in one-minute buckets. The comparison needs
 data that this query does not contain (the external deploy list). A script can join any number of sources,
 and the model can change the comparison for each question without you adding a new tool.
 
 When one query can answer the whole question, let the agent run that query as a plain tool call. A separate sandbox step may be unnecessary.
 
 A sandbox session has a 20 MiB memory limit, including interpreter state and retained variables, so a script can work with a few thousand rows at a time, not millions. Let the
-query aggregate first, as the five-minute buckets do here, and let the script compare and join.
+query aggregate first, as the one-minute buckets do here, and let the script compare and join.
 
 ## Verify it worked
 
 Open the [Live view](../guides/web-ui/live.md). You should see a `run code` span with a child span for each of the two
-tool calls. Open the `query_logfire` span to see the SQL the model wrote and the 288 rows it returned. You can see every
+tool calls. Open the `query_logfire` span to see the SQL the model wrote and the 2,160 rows it returned. You can see every
 row the script used, even though the model never read them.
 
 ## Troubleshooting
