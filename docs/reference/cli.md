@@ -10,13 +10,17 @@ description: "Use the Logfire CLI to simplify project management. Use commands t
 {{ logfire_help }}
 ```
 
-## Update notices
+## Check for Logfire updates
 
-Interactive `auth` and `info` commands show a notice when a newer Logfire release is available on
-PyPI. Successful checks are cached in `~/.logfire/version_check.json` for one week.
+Interactive `auth` and `info` commands show a notice when a newer Logfire release is available.
 
-Checks are skipped with `--non-interactive` or when standard error is not a terminal. Network
-and cache errors do not interrupt the command.
+If no fresh check is cached, the CLI contacts the Python Package Index (PyPI) to look up the latest
+version. This request does not send Logfire telemetry or project data. Results are cached in
+`~/.logfire/version_check.json`: one week for successful checks and one day after a failure to avoid
+repeated delays while offline.
+
+Use `--non-interactive` to disable the check. Checks are also skipped when standard error is not a
+terminal. Network and cache errors do not interrupt the command.
 
 ## Authentication (`auth`)
 

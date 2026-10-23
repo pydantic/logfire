@@ -7520,3 +7520,104 @@ def test_cli_update_check_reuses_success_until_weekly_expiry(
         cli_version_check.check_for_updates()
     message = capsys.readouterr().err
     assert '5.5.0' in message and '5.4.0' not in message
+
+
+def test_cli_update_check_cools_down_failed_requests(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    clock = [1_000_000.0]
+    monkeypatch.setattr(cli_version_check, 'HOME_LOGFIRE', tmp_path)
+    monkeypatch.setattr(cli_version_check, 'VERSION', '5.3.0')
+    monkeypatch.setattr(cli_version_check, 'time', lambda: clock[0])
+    monkeypatch.setattr(cli_version_check, 'is_non_interactive', lambda: False)
+    monkeypatch.setattr(sys.stderr, 'isatty', lambda: True)
+    cache_path = tmp_path / 'version_check.json'
+
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get('https://pypi.org/pypi/logfire/json', exc=requests.ConnectionError('offline'))
+        cli_version_check.check_for_updates()
+        assert capsys.readouterr().err == ''
+        assert 'latest_version' not in json.loads(cache_path.read_text())
+
+        clock[0] += 24 * 60 * 60 - 1
+        cli_version_check.check_for_updates()
+        assert capsys.readouterr().err == ''
+        assert request_mocker.call_count == 1
+
+        clock[0] += 1
+        request_mocker.get('https://pypi.org/pypi/logfire/json', json={'info': {'version': '5.4.0'}})
+        cli_version_check.check_for_updates()
+        assert '5.4.0' in capsys.readouterr().err
+        assert request_mocker.call_count == 2
+
+    assert json.loads(cache_path.read_text())['latest_version'] == '5.4.0'
+
+
+@pytest.mark.parametrize(
+    'cached_text',
+    [None, 'not-json', '[]', '[' * 10_000 + '0' + ']' * 10_000],
+    ids=['missing', 'invalid-json', 'wrong-shape', 'too-deep'],
+)
+def test_cli_update_check_refreshes_missing_or_corrupt_cache(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str], cached_text: str | None
+) -> None:
+    monkeypatch.setattr(cli_version_check, 'HOME_LOGFIRE', tmp_path)
+    monkeypatch.setattr(cli_version_check, 'VERSION', '5.3.0')
+    monkeypatch.setattr(cli_version_check, 'time', lambda: 1_000_000.0)
+    monkeypatch.setattr(cli_version_check, 'is_non_interactive', lambda: False)
+    monkeypatch.setattr(sys.stderr, 'isatty', lambda: True)
+    cache_path = tmp_path / 'version_check.json'
+    if cached_text is not None:
+        cache_path.write_text(cached_text, encoding='utf-8')
+
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get('https://pypi.org/pypi/logfire/json', json={'info': {'version': '5.4.0'}})
+        cli_version_check.check_for_updates()
+        assert '5.4.0' in capsys.readouterr().err
+        cli_version_check.check_for_updates()
+        assert request_mocker.call_count == 1
+
+    assert json.loads(cache_path.read_text())['latest_version'] == '5.4.0'
+
+
+@pytest.mark.parametrize(
+    'response_text',
+    ['{"info":{"version":"not-a-version"}}', '{}', '{"info":null}', '[' * 10_000 + '0' + ']' * 10_000],
+    ids=['invalid-version', 'missing-info', 'wrong-info-type', 'too-deep'],
+)
+def test_cli_update_check_ignores_malformed_pypi_data(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str], response_text: str
+) -> None:
+    monkeypatch.setattr(cli_version_check, 'HOME_LOGFIRE', tmp_path)
+    monkeypatch.setattr(cli_version_check, 'time', lambda: 1_000_000.0)
+    monkeypatch.setattr(cli_version_check, 'is_non_interactive', lambda: False)
+    monkeypatch.setattr(sys.stderr, 'isatty', lambda: True)
+
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get('https://pypi.org/pypi/logfire/json', text=response_text)
+        cli_version_check.check_for_updates()
+        assert capsys.readouterr().err == ''
+        assert 'latest_version' not in json.loads((tmp_path / 'version_check.json').read_text())
+        cli_version_check.check_for_updates()
+        assert capsys.readouterr().err == ''
+        assert request_mocker.call_count == 1
+
+
+def test_cli_update_notice_survives_cache_write_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(cli_version_check, 'HOME_LOGFIRE', tmp_path)
+    monkeypatch.setattr(cli_version_check, 'VERSION', '5.3.0')
+    monkeypatch.setattr(cli_version_check, 'is_non_interactive', lambda: False)
+    monkeypatch.setattr(sys.stderr, 'isatty', lambda: True)
+
+    def deny_write(self: Path, *args: Any, **kwargs: Any) -> int:
+        raise OSError('cache is read-only')
+
+    monkeypatch.setattr(Path, 'write_text', deny_write)
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get('https://pypi.org/pypi/logfire/json', json={'info': {'version': '5.4.0'}})
+        cli_version_check.check_for_updates()
+
+    assert '5.4.0' in capsys.readouterr().err
+    assert not (tmp_path / 'version_check.json').exists()
