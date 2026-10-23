@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
@@ -25,16 +25,16 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P4D"
 
 [options.exclude-newer-package]
-certifi = false
-genai-prices = false
-logfire-cli = false
 pip = false
-pydantic = false
 pydantic-ai-slim = false
-pydantic-core = false
-pydantic-evals = false
 pydantic-graph = false
+pydantic-evals = false
 pydantic-handlebars = false
+genai-prices = false
+certifi = false
+logfire-cli = false
+pydantic = false
+pydantic-core = false
 
 [manifest]
 members = [
@@ -3497,6 +3497,7 @@ dependencies = [
     { name = "opentelemetry-instrumentation" },
     { name = "opentelemetry-sdk" },
     { name = "opentelemetry-semantic-conventions" },
+    { name = "packaging" },
     { name = "protobuf" },
     { name = "requests" },
     { name = "rich" },
@@ -3568,11 +3569,9 @@ mysql = [
 ]
 psycopg = [
     { name = "opentelemetry-instrumentation-psycopg" },
-    { name = "packaging" },
 ]
 psycopg2 = [
     { name = "opentelemetry-instrumentation-psycopg2" },
-    { name = "packaging" },
 ]
 pymongo = [
     { name = "opentelemetry-instrumentation-pymongo" },
@@ -3646,8 +3645,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-wsgi", marker = "extra == 'wsgi'", specifier = ">=0.42b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.39.0,<1.46.0" },
     { name = "opentelemetry-semantic-conventions", specifier = ">=0.60b0,<0.67b0" },
-    { name = "packaging", marker = "extra == 'psycopg'" },
-    { name = "packaging", marker = "extra == 'psycopg2'" },
+    { name = "packaging" },
     { name = "protobuf", specifier = ">=4.23.4" },
     { name = "pydantic", marker = "extra == 'datasets'", specifier = ">=2" },
     { name = "pydantic", marker = "extra == 'litestar'", specifier = ">=2.5" },
