@@ -18,6 +18,7 @@ Logfire instruments HTTPX and warns that it skipped HTTPX2.
 ## What you'll capture
 
 - Each request as a span, with its URL, method, response status, and duration
+- Non-default ports in client span messages, so services on different ports remain distinguishable
 - Any errors that occurred during the request
 - Optionally, request and response headers and bodies (off by default: see below)
 

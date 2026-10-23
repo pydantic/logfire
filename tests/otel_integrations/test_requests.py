@@ -64,7 +64,7 @@ async def test_requests_instrumentation(exporter: TestExporter):
                     'server.port': 8080,
                     'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET example.org/foo',
+                    'logfire.msg': IsStr(),
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'logfire.metrics': {

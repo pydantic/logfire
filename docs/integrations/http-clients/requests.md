@@ -13,6 +13,7 @@ outgoing call shows up right next to the code that triggered it.
 ## What you'll capture
 
 - Each request as a span, with its URL, method, response status, and duration
+- Non-default ports in client span messages, so services on different ports remain distinguishable
 - Any errors that occurred during the request
 
 {{ before_you_start() }}
