@@ -91,6 +91,7 @@ if TYPE_CHECKING:
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
     from pydantic_evals.reporting import EvaluationReport
+    from pydantic_monty import AsyncMontyWebsocket
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
     from snowflake.connector.connection import SnowflakeConnection
     from sqlalchemy import Engine
@@ -1226,6 +1227,80 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         instrument_monty(self)
+
+    def agent_sandboxes(
+        self,
+        *,
+        api_key: str | None = None,
+        url: str | None = None,
+        instrument: bool = True,
+        max_processes: int | None = None,
+        checkout_timeout: float | None = None,
+        request_timeout: float | None = 10.0,
+        connect_headers: Callable[[], Mapping[str, str]] | None = None,
+        feed_duration_limit_grace: float | None = 1.0,
+        turn_duration_limit_grace: float | None = 1.0,
+        auto_resume: bool = True,
+    ) -> AsyncMontyWebsocket:
+        """Connect to Logfire Agent Sandboxes, remote Pydantic Monty workers hosted by Logfire.
+
+        Requires the `agent-sandboxes` extra, e.g. `pip install 'logfire[agent-sandboxes]'`.
+
+        Returns a [`pydantic_monty.AsyncMontyWebsocket`](https://github.com/pydantic/monty) pool;
+        use it as an async context manager and check out sessions from it:
+
+        ```py
+        import logfire
+
+        logfire.configure()
+
+
+        async def main():
+            async with logfire.agent_sandboxes() as pool:
+                async with pool.checkout() as session:
+                    result = await session.feed_run('1 + 1')
+        ```
+
+        No connection is made until a session is checked out.
+
+        Args:
+            api_key: A Logfire API key with the `project:execute_agent_sandboxes` scope.
+                Defaults to the `api_key` passed to [`configure()`][logfire.configure],
+                then the `LOGFIRE_API_KEY` environment variable.
+            url: The WebSocket URL of the sandboxes server.
+                Defaults to the Logfire region the API key belongs to.
+            instrument: Whether to call [`instrument_monty()`][logfire.Logfire.instrument_monty]
+                so that sandbox sessions and code runs are recorded as spans in the current trace.
+            max_processes: Cap on concurrent sandbox connections (defaults to the CPU count);
+                checkouts beyond it wait.
+            checkout_timeout: Seconds `checkout()` waits for capacity before raising `TimeoutError`.
+                `None` waits forever.
+            request_timeout: Hard per-turn deadline in seconds. A sandbox that exceeds it has its
+                connection closed and the call raises `MontyCrashedError`. `None` waits indefinitely.
+                Raise this when installing dependencies in a sandbox.
+            connect_headers: Called once per session to produce extra headers for the WebSocket
+                connection. These are merged with the `Authorization` header and win on conflicts.
+            feed_duration_limit_grace: Seconds to wait past a feed's `max_feed_duration_secs`
+                before closing the sandbox. `None` disables this backstop.
+            turn_duration_limit_grace: The same, for `max_turn_duration_secs`.
+            auto_resume: When the server drains a stored session, transparently resume it on
+                another server instead of raising `MontyShutdown`.
+        """
+        from .agent_sandboxes import create_agent_sandboxes
+
+        return create_agent_sandboxes(
+            self,
+            api_key=api_key,
+            url=url,
+            instrument=instrument,
+            max_processes=max_processes,
+            checkout_timeout=checkout_timeout,
+            request_timeout=request_timeout,
+            connect_headers=connect_headers,
+            feed_duration_limit_grace=feed_duration_limit_grace,
+            turn_duration_limit_grace=turn_duration_limit_grace,
+            auto_resume=auto_resume,
+        )
 
     def instrument_fastapi(
         self,

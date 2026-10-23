@@ -55,6 +55,7 @@ logfire = "logfire.cli:main"
 
 [project.optional-dependencies]
 gateway = ["logfire-sdk[gateway]==5.3.0"]
+agent-sandboxes = ["logfire-sdk[agent-sandboxes]==5.3.0"]
 system-metrics = ["logfire-sdk[system-metrics]==5.3.0"]
 asgi = ["logfire-sdk[asgi]==5.3.0"]
 wsgi = ["logfire-sdk[wsgi]==5.3.0"]

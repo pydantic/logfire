@@ -716,6 +716,15 @@ navigation:
                 slug: "manage/ai-gateway/integrations/voltagent"
                 aliases:
                   - "manage/voltagent"
+  - section: "Agent Sandboxes"
+    slug: ""
+    contents:
+      - page: "Overview"
+        path: "agent-sandboxes/index.md"
+        slug: "agent-sandboxes"
+      - page: "Run Code from Python"
+        path: "agent-sandboxes/python.md"
+        slug: "agent-sandboxes/python"
   - section: "Observability"
     slug: ""
     contents:
