@@ -13,6 +13,7 @@ from functools import partial
 from logging import getLogger
 from typing import Any
 from unittest.mock import patch
+from urllib.parse import urlsplit
 
 import cloudpickle
 import pytest
@@ -4234,6 +4235,97 @@ def test_http_spans_stable_semconv(exporter: TestExporter):
             ('GET', "GET /old ? b='2'", True),
         ]
     )
+
+
+@pytest.mark.parametrize(
+    'attributes, expected_host, expected_port',
+    [
+        ({'http.method': 'GET', 'http.url': 'http://example.com:8000/items'}, 'example.com', 8000),
+        (
+            {
+                'http.request.method': 'GET',
+                'url.path': '/items',
+                'url.query': 'page=1',
+                'url.full': 'http://example.com:8000/ignored?other=2',
+            },
+            'example.com',
+            8000,
+        ),
+        ({'http.method': 'GET', 'http.target': '/items'}, None, None),
+        (
+            {
+                'http.request.method': 'GET',
+                'url.full': 'http://example.com:8000/items',
+                'server.address': 'override.example.com',
+            },
+            'override.example.com',
+            8000,
+        ),
+        (
+            {
+                'http.request.method': 'GET',
+                'url.path': '/items',
+                'url.scheme': 'http',
+                'server.address': '::1',
+                'server.port': 8000,
+            },
+            '::1',
+            8000,
+        ),
+        (
+            {
+                'http.method': 'GET',
+                'http.target': '/items',
+                'http.scheme': 'http',
+                'http.host': 'example.com:8000',
+                'net.peer.port': 8000,
+            },
+            'example.com',
+            8000,
+        ),
+        ({'http.method': 'GET', 'http.url': 'http://example.com:80/items'}, 'example.com', None),
+        ({'http.method': 'GET', 'http.url': 'https://example.com:443/items'}, 'example.com', None),
+        ({'http.method': 'GET', 'http.url': 'https://example.com:80/items'}, 'example.com', 80),
+        ({'http.method': 'GET', 'http.url': 'http://example.com:0/items'}, 'example.com', 0),
+        (
+            {'http.method': 'GET', 'http.url': 'http://alice:fake-credential@example.com:8000/items'},
+            'example.com',
+            8000,
+        ),
+        ({'http.method': 'GET', 'http.url': 'http://example.com:invalid/items'}, 'example.com', None),
+        (
+            {'http.method': 'GET', 'http.url': 'http://[::1]:8000/items', 'server.address': '[::1]'},
+            '::1',
+            8000,
+        ),
+        (
+            {
+                'http.method': 'GET',
+                'http.target': '/items',
+                'http.scheme': 'http',
+                'http.host': '[::1]:8000',
+                'net.peer.port': 8000,
+            },
+            '::1',
+            8000,
+        ),
+    ],
+)
+def test_http_client_message_preserves_endpoint_port(
+    exporter: TestExporter, attributes: dict[str, Any], expected_host: str | None, expected_port: int | None
+) -> None:
+    with get_tracer(__name__).start_span('GET', kind=SpanKind.CLIENT, attributes=attributes):
+        pass
+
+    [span] = exporter.exported_spans_as_dict()
+    message = span['attributes']['logfire.msg']
+    assert isinstance(message, str)
+    endpoint = urlsplit('//' + message.split(' ', 2)[1])
+    assert (endpoint.hostname, endpoint.port) == (expected_host, expected_port)
+    assert endpoint.path == '/items'
+    assert endpoint.username is None
+    assert endpoint.password is None
+    assert span['name'] == 'GET'
 
 
 _ns_currnet_ts = 0

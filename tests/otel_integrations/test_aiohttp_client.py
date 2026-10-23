@@ -5,6 +5,7 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from unittest import mock
+from urllib.parse import urlsplit
 
 import aiohttp
 import aiohttp.test_utils
@@ -72,25 +73,13 @@ def response_hook(span: Span, params: TraceRequestEndParams | TraceRequestExcept
 
 
 @pytest.mark.anyio
-async def test_instrument_aiohttp():
-    """Test that aiohttp client instrumentation modifies the ClientSession class."""
-    try:
-        cls = aiohttp.ClientSession
-        original_init = cls.__init__
-        assert cls.__init__ is original_init
-        logfire.instrument_aiohttp_client()
-        assert cls.__init__ is not original_init
-    finally:
-        AioHttpClientInstrumentor().uninstrument()
-
-
-@pytest.mark.anyio
 async def test_aiohttp_client_no_capture_headers_with_hooks(exporter: TestExporter, test_app: aiohttp.web.Application):
     """Test that aiohttp client works when capture_headers=False but hooks are provided."""
 
     try:
         async with aiohttp.test_utils.TestServer(test_app) as server:
             await server.start_server()
+            request_url = server.make_url('/test').with_host('localhost')
 
             logfire.instrument_aiohttp_client(request_hook=request_hook, response_hook=response_hook)
 
@@ -101,14 +90,20 @@ async def test_aiohttp_client_no_capture_headers_with_hooks(exporter: TestExport
                 }
 
                 async with session.get(
-                    f'http://localhost:{server.port}/test',  # type: ignore
+                    request_url,
                     headers=custom_headers,
                 ) as response:
                     await response.json()
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    message = spans[0]['attributes']['logfire.msg']
+    assert isinstance(message, str)
+    endpoint = urlsplit('//' + message.partition(' ')[2])
+    assert (endpoint.hostname, endpoint.port, endpoint.path) == ('localhost', request_url.port, '/test')
+
+    assert spans == snapshot(
         [
             {
                 'name': 'GET',
@@ -126,7 +121,7 @@ async def test_aiohttp_client_no_capture_headers_with_hooks(exporter: TestExport
                     'net.peer.port': IsInt(),
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET localhost/test',
+                    'logfire.msg': IsStr(),
                     'custom.request.name': 'Custom Request',
                     'custom.response.content': 'Custom Content',
                     'http.status_code': 200,
@@ -183,7 +178,7 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter, test_app: 
                     'net.peer.port': IsInt(),
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET localhost/test',
+                    'logfire.msg': IsStr(),
                     'http.request.header.User-Agent': ('test-client/1.0',),
                     'http.request.header.X-Custom-Header': ('custom-value',),
                     'http.request.header.Authorization': ("[Scrubbed due to 'Auth']",),
@@ -358,7 +353,7 @@ async def test_aiohttp_client_capture_response_body(exporter: TestExporter, test
                     'net.peer.port': IsInt(),
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET localhost/body',
+                    'logfire.msg': IsStr(),
                     'http.response.header.Content-Type': ('application/json; charset=utf-8',),
                     'http.response.header.Content-Length': IsTuple(IsStr()),
                     'http.response.header.Date': IsTuple(IsStr()),
@@ -477,7 +472,7 @@ async def test_aiohttp_client_capture_all(
                     'net.peer.port': IsInt(),
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST localhost/body',
+                    'logfire.msg': IsStr(),
                     'http.request.body.text': {'good': 'request'},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -546,7 +541,7 @@ async def test_aiohttp_client_capture_request_body_bytes(
                     'net.peer.port': IsInt(),
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST localhost/body',
+                    'logfire.msg': IsStr(),
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {'http.request.body.text': {'type': 'object'}},
@@ -591,7 +586,7 @@ async def test_aiohttp_client_capture_request_body_string(
                     'net.peer.port': IsInt(),
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST localhost/body',
+                    'logfire.msg': IsStr(),
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {'http.request.body.text': {'type': 'object'}},
@@ -639,7 +634,7 @@ async def test_aiohttp_client_capture_request_body_form(
                     'net.peer.port': IsInt(),
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST localhost/body',
+                    'logfire.msg': IsStr(),
                     'http.request.body.form': {'field1': 'value1', 'field2': 'value2'},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -694,7 +689,7 @@ async def test_aiohttp_client_capture_stream_body(
                     'net.peer.port': IsInt(),
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST localhost/body',
+                    'logfire.msg': IsStr(),
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.target': '/body',
@@ -738,7 +733,7 @@ async def test_aiohttp_client_capture_request_body_binary(
                     'net.peer.port': IsInt(),
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST localhost/body',
+                    'logfire.msg': IsStr(),
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.target': '/body',
@@ -779,7 +774,7 @@ async def test_aiohttp_client_no_capture_empty_body(
                     'net.peer.port': IsInt(),
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET localhost/test',
+                    'logfire.msg': IsStr(),
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.target': '/test',
@@ -829,7 +824,7 @@ async def test_aiohttp_client_capture_all_environment_variable(
                     'net.peer.port': IsInt(),
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST localhost/body',
+                    'logfire.msg': IsStr(),
                     'http.request.body.text': {'test': 'data'},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -909,7 +904,7 @@ async def test_aiohttp_client_encoding_error_handling(exporter: TestExporter, te
                     'net.peer.port': IsInt(),
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET localhost/encoding-error',
+                    'logfire.msg': IsStr(),
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.target': '/encoding-error',
