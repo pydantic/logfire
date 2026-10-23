@@ -128,6 +128,8 @@ def _format_message(record: LogRecord) -> tuple[str, Mapping[str, Any]]:
     if not args:
         return msg, {}
 
+    msg = str(msg)
+
     if type(args) is tuple:
         return msg % args, {ATTRIBUTES_LOGGING_ARGS_KEY: args}
 
