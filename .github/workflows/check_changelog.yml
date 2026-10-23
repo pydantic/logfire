@@ -49,9 +49,12 @@ jobs:
           fi
           VERSION_BEFORE=$(git show "$BASE_SHA:$VERSION_FILE_BEFORE" | python -c "import tomllib, sys; print(tomllib.loads(sys.stdin.read())['project']['version'])")
           VERSION_AFTER=$(python -c "import tomllib; print(tomllib.load(open('logfire-sdk/pyproject.toml', 'rb'))['project']['version'])")
-          if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$changelog_changed" == "false" ]; then
+          if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$changelog_changed" == "false" ] &&
+              ! grep -Fq "## [v$VERSION_AFTER] (" CHANGELOG.md; then
             echo "Version changed in logfire-sdk/pyproject.toml but no changes in CHANGELOG.md"
             exit 1
+          elif [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$changelog_changed" == "false" ]; then
+            echo "Version $VERSION_AFTER is already documented in CHANGELOG.md."
           elif [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] && [ "$changelog_changed" == "true" ]; then
             echo "Version changed and CHANGELOG.md updated."
           else

@@ -2,7 +2,7 @@ from _typeshed import Incomplete
 from claude_agent_sdk import AssistantMessage
 from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 from contextlib import AbstractContextManager
-from logfire._internal.integrations.llm_providers.semconv import CONVERSATION_ID as CONVERSATION_ID, ChatMessage as ChatMessage, ERROR_TYPE as ERROR_TYPE, INPUT_MESSAGES as INPUT_MESSAGES, MessagePart as MessagePart, OPERATION_NAME as OPERATION_NAME, OUTPUT_MESSAGES as OUTPUT_MESSAGES, OutputMessage as OutputMessage, PROVIDER_NAME as PROVIDER_NAME, REQUEST_MODEL as REQUEST_MODEL, RESPONSE_MODEL as RESPONSE_MODEL, ReasoningPart as ReasoningPart, SYSTEM as SYSTEM, SYSTEM_INSTRUCTIONS as SYSTEM_INSTRUCTIONS, TOOL_CALL_ARGUMENTS as TOOL_CALL_ARGUMENTS, TOOL_CALL_ID as TOOL_CALL_ID, TOOL_CALL_RESULT as TOOL_CALL_RESULT, TOOL_NAME as TOOL_NAME, TextPart as TextPart, ToolCallPart as ToolCallPart, ToolCallResponsePart as ToolCallResponsePart
+from logfire._internal.integrations.llm_providers.semconv import CONVERSATION_ID as CONVERSATION_ID, ChatMessage as ChatMessage, ERROR_TYPE as ERROR_TYPE, INPUT_MESSAGES as INPUT_MESSAGES, MessagePart as MessagePart, OPERATION_NAME as OPERATION_NAME, OUTPUT_MESSAGES as OUTPUT_MESSAGES, OutputMessage as OutputMessage, PROVIDER_NAME as PROVIDER_NAME, REQUEST_MODEL as REQUEST_MODEL, RESPONSE_FINISH_REASONS as RESPONSE_FINISH_REASONS, RESPONSE_ID as RESPONSE_ID, RESPONSE_MODEL as RESPONSE_MODEL, ReasoningPart as ReasoningPart, SYSTEM as SYSTEM, SYSTEM_INSTRUCTIONS as SYSTEM_INSTRUCTIONS, TOOL_CALL_ARGUMENTS as TOOL_CALL_ARGUMENTS, TOOL_CALL_ID as TOOL_CALL_ID, TOOL_CALL_RESULT as TOOL_CALL_RESULT, TOOL_NAME as TOOL_NAME, TextPart as TextPart, ToolCallPart as ToolCallPart, ToolCallResponsePart as ToolCallResponsePart
 from logfire._internal.main import Logfire as Logfire, LogfireSpan as LogfireSpan
 from logfire._internal.stack_info import get_user_stack_info as get_user_stack_info
 from logfire._internal.utils import handle_internal_errors as handle_internal_errors
@@ -63,5 +63,11 @@ class _ConversationState:
         """Handle UserMessage: open a new chat span for the next LLM call."""
     def handle_assistant_message(self, message: AssistantMessage) -> None:
         """Handle AssistantMessage: add output and usage to the current chat span."""
+    def set_finish_reason(self, stop_reason: str | None) -> None:
+        """Record the stop reason on the current chat span.
+
+        The CLI streams assistant messages with a null `stop_reason`;
+        the final one is only reported on the ResultMessage.
+        """
     def close(self) -> None:
         """Close chat span and end any orphaned tool spans."""

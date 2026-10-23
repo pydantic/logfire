@@ -121,3 +121,7 @@ docs-serve:
 
 .PHONY: all
 all: format lint test
+
+.PHONY: publish-firehose-template
+publish-firehose-template:  # Publish to an existing public S3 bucket. Set FIREHOSE_PUBLISH_ARGS.
+	python3 scripts/publish_firehose_template.py $(FIREHOSE_PUBLISH_ARGS)

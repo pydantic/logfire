@@ -938,6 +938,10 @@ class Logfire:
         [OpenTelemetry SQLAlchemy Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html)
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
 
+        If the installed SQLAlchemy version is outside the range that instrumentation supports, this raises
+        `RuntimeError` instead of returning without recording queries.
+        Pass `skip_dep_check=True` to bypass this check. That may produce no spans or errors if the version really is incompatible.
+
         Args:
             engine: The `sqlalchemy` engine to instrument.
             engines: An iterable of `sqlalchemy` engines to instrument.

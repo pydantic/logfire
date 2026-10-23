@@ -126,11 +126,21 @@ jobs:
             installer: pip
           - os: ubuntu-latest
             python-version: "3.14"
-            from-version: "5.1.0"
+            from-version: "5.2.0"
             installer: pip
           - os: ubuntu-latest
             python-version: "3.14"
-            from-version: "5.1.0"
+            from-version: "5.2.0"
+            installer: uv
+          - os: ubuntu-latest
+            python-version: "3.14"
+            from-version: "6.0.0b8"
+            from-state: beta
+            installer: pip
+          - os: ubuntu-latest
+            python-version: "3.14"
+            from-version: "6.0.0b8"
+            from-state: beta
             installer: uv
           - os: macos-14
             python-version: "3.14"
@@ -160,6 +170,7 @@ jobs:
           .github/workflows/scripts/upgrade_install_e2e.py
           --installer "${{ matrix.installer }}"
           --from-version "${{ matrix.from-version }}"
+          --from-state "${{ matrix.from-state || 'legacy' }}"
           --dist dist
 
   test:

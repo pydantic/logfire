@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire-sdk"
-version = "6.0.0b8"
+version = "5.3.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.10"
 authors = [
@@ -118,7 +118,7 @@ dev-mode-dirs = ["."]
 [tool.hatch.build.targets.wheel]
 packages = ["logfire"]
 
-# Pip installs dependencies before their dependants. During a v5 -> v6 upgrade,
+# Pip installs dependencies before their dependants. During a monolithic -> split upgrade,
 # uninstalling the old `logfire` distribution therefore deletes the top-level
 # files already installed by `logfire-sdk`. Keep a private fallback copy on the
 # import path so the SDK survives that uninstall; the normal copy remains for
