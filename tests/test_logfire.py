@@ -4282,6 +4282,22 @@ def test_http_spans_stable_semconv(exporter: TestExporter):
             8000,
         ),
         ({'http.method': 'GET', 'http.url': 'http://example.com:invalid/items'}, 'example.com', None),
+        (
+            {'http.method': 'GET', 'http.url': 'http://[::1]:8000/items', 'server.address': '[::1]'},
+            '::1',
+            8000,
+        ),
+        (
+            {
+                'http.method': 'GET',
+                'http.target': '/items',
+                'http.scheme': 'http',
+                'http.host': '[::1]:8000',
+                'net.peer.port': 8000,
+            },
+            '::1',
+            8000,
+        ),
     ],
 )
 def test_http_client_message_preserves_endpoint_port(

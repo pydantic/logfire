@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 from typing import Any
 from unittest import mock
+from urllib.parse import urlsplit
 
 import pytest
 import requests
@@ -43,7 +44,13 @@ async def test_requests_instrumentation(exporter: TestExporter):
         traceparent_header = response.headers['traceparent']
         assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    message = spans[0]['attributes']['logfire.msg']
+    assert isinstance(message, str)
+    endpoint = urlsplit('//' + message.partition(' ')[2])
+    assert (endpoint.hostname, endpoint.port, endpoint.path) == ('example.org', 8080, '/foo')
+
+    assert spans == snapshot(
         [
             {
                 'name': 'GET',

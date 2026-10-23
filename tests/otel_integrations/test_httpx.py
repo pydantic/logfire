@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Generic, TypeAlias, TypeVar, cast
 from unittest import mock
+from urllib.parse import urlsplit
 
 import httpx
 import httpx2
@@ -153,7 +154,13 @@ def test_httpx_client_instrumentation(exporter: TestExporter, httpx_family: HTTP
             response = client.get('https://example.org:8080/foo')
             checker(response)
 
-    assert without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+    spans = without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True))
+    message = spans[0]['attributes']['logfire.msg']
+    assert isinstance(message, str)
+    endpoint = urlsplit('//' + message.partition(' ')[2])
+    assert (endpoint.hostname, endpoint.port, endpoint.path) == ('example.org', 8080, '/foo')
+
+    assert spans == snapshot(
         [
             {
                 'name': 'GET',

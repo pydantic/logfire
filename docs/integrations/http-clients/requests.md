@@ -13,7 +13,8 @@ outgoing call shows up right next to the code that triggered it.
 ## What you'll capture
 
 - Each request as a span, with its URL, method, response status, and duration
-- Non-default ports in client span messages, so services on different ports remain distinguishable
+- Non-default ports in the request message (`logfire.msg`) shown in Logfire, such as
+  `GET api.example.com:8080/v1/items`, so services on different ports stay distinguishable
 - Any errors that occurred during the request
 
 {{ before_you_start() }}
