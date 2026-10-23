@@ -29,13 +29,11 @@ Logfire Enterprise supports [System for Cross-domain Identity Management (SCIM) 
 Organizations requiring:
 
 - Service Level Agreements (SLAs)
-- Custom Data Processing Agreements (DPAs)
+- Custom Data Processing Agreements (DPAs), beyond our [standard DPA](compliance.md#gdpr)
 - HIPAA Business Associate Agreements (BAAs)
 - Invoice billing
 - Custom retention
 - Custom Single Sign-On (SSO)
-
-Our standard GDPR Data Processing Addendum (DPA) applies on every plan, not only Enterprise. See [GDPR compliance](compliance.md#gdpr). Enterprise customers can negotiate custom DPA terms.
 
 ### Features
 
