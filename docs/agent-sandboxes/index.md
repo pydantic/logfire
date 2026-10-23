@@ -17,7 +17,7 @@ result back to your application.
 
 Many agents work better when they can write code instead of calling tools one at a time.
 For example, an agent can write a short loop that calls a search tool ten times and combines the results.
-But the code comes from a model, so you can't trust it.
+But model-generated code can contain mistakes or unsafe operations.
 Running it in your application process would give it access to your files, network, and secrets.
 
 A **sandbox** is an isolated environment that runs code with no access to the machine around it.
@@ -27,11 +27,11 @@ Code in a sandbox can only reach the outside world through functions you choose 
 
 With Agent Sandboxes, Logfire runs the sandboxes for you:
 
-- **No sandbox infrastructure to run**: you don't deploy, scale, or patch anything.
+- **Managed sandboxes**: Logfire deploys, scales, and patches the sandbox service.
 - **Isolation from your application**: agent code runs on Logfire's servers, not in your process.
 - **Sessions that keep state**: variables and functions defined in one run are available in the next run of the same
   session, so an agent can build up work step by step.
-- **Persistent sessions, snapshots, and forks**: each session's state is saved under a session ID, so you can resume it
+- **Persistent sessions, snapshots, and forks**: unless you choose an ephemeral session, Logfire saves its state under a session ID. You can resume it
   from a new connection, take a snapshot as a checkpoint, or fork it into independent branches.
 - **Host functions**: you pass your own Python functions to a run, and the sandbox calls back to your application to run
   them.
@@ -65,26 +65,25 @@ You authenticate with a Logfire API key that has permission to run code in your 
 !!! warning "Code and data are sent to Logfire"
     The code you run, its inputs, host function arguments and results, and
     printed output are sent to Logfire's servers to be executed.
-    With tracing on (the default), they are also recorded in your Logfire project, after Logfire's standard
-    [scrubbing](../how-to-guides/scrubbing.md) hides sensitive values such as passwords and tokens.
+    The default client instrumentation also records this content in your project. It applies Logfire's standard
+    [scrubbing](../how-to-guides/scrubbing.md) before it sends telemetry. Scrubbing does not remove values from the
+    execution request or saved session state. See [tracing and storage controls](limits.md#control-client-tracing).
 
-## Choose between tool calls, a container, and Agent Sandboxes
+## Choose a workflow
 
-|                                                     | One tool call per model turn        | A container-based sandbox              | Agent Sandboxes                                  |
-| --------------------------------------------------- | ----------------------------------- | -------------------------------------- | ------------------------------------------------ |
-| A question that needs many calls or large results   | The model reads every result        | A script can do it                     | A script does it, and the model reads the answer |
-| Where your tools and credentials live               | Your application                    | Inside the container, or behind a network path you open | Your application                     |
-| Waiting hours for a person in the middle of a task  | Stop the run, and call the model again afterwards | Keep the container, or save its disk and memory | Save the paused script, and resume it in any process |
-| Third-party packages, files, and a shell            | Not applicable                      | Yes                                    | No. Call a function in your application instead  |
-
-Each claim in the last column has a guide with a measured example:
-[many tool calls](many-tool-calls.md), [large results](large-results.md), and [approval](approval.md).
+| Your task | Start here |
+| --- | --- |
+| Fetch many tool results and calculate an answer | [Call tools from Python](many-tool-calls.md) |
+| Compare large results from several sources | [Reduce results before the model reads them](large-results.md) |
+| Check calls against an API's types | [Expose a typed module](typed-api.md) |
+| Wait for a person before an action | [Pause for approval](approval.md) |
+| Reuse data in a later conversation turn | [Keep a session across turns](conversations.md) |
 
 ## When not to use Agent Sandboxes
 
-- **The code is your own.** Code you wrote and reviewed doesn't need a sandbox.
+- **You only need to run trusted application code.** Run it directly when it does not need the sandbox's isolation or session features.
 - **The code needs Python features that Monty doesn't support.** Monty runs a subset of Python.
-  Check [what Monty supports](https://github.com/pydantic/monty) before you rely on a feature.
+  Check [what Monty supports](https://pydantic.dev/docs/monty/limitations/) before you rely on a feature.
 - **You need to run code offline or entirely on your own machines.** Run Monty locally with the `pydantic-monty` package
   instead, and [trace it with Logfire](../integrations/monty.md).
 

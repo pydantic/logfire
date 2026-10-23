@@ -5,6 +5,9 @@ description: "Let a Pydantic AI agent call its tools from Python scripts that ru
 
 # Use Agent Sandboxes with Pydantic AI
 
+!!! info "Experimental"
+    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+
 Let a [Pydantic AI](https://pydantic.dev/docs/ai/overview/) agent answer a question with one Python script instead of many tool calls.
 You keep your tools as they are. Pydantic AI's **Code Mode** (a capability that turns an agent's tools into functions
 the model can call from Python) gives the model one `run_code` tool, and Agent Sandboxes runs each script.
@@ -12,15 +15,30 @@ the model can call from Python) gives the model one `run_code` tool, and Agent S
 Code Mode writes the type stubs from your tools, checks each script against them, sends errors back to the model, and
 records every run in Logfire. You add one argument.
 
+!!! warning "This integration requires an unreleased Pydantic AI change"
+    The `monty_pool_factory` support shown here depends on
+    [Pydantic AI PR #11179](https://github.com/pydantic/pydantic-ai/pull/11179). It is not in a released Harness version.
+    The example below requires a development build that includes that change.
+    Use [Add a code tool to any agent](any-framework.md) with released Pydantic AI versions.
+
+!!! warning "Scripts and tool results leave your application"
+    Scripts, tool arguments, and results pass through Logfire for execution. Default client instrumentation also
+    records them in your project. See [tracing and storage controls](limits.md#control-client-tracing).
+
 ## Before you start
 
 - Follow [Run code from Python](python.md) to set `LOGFIRE_API_KEY` to a key with permission to run
   code in agent sandboxes.
-- Install Logfire with the `agent-sandboxes` extra, and Pydantic AI Harness with the `codemode` extra:
+- Set `ANTHROPIC_API_KEY` to a key from the [Claude Console API keys page](https://platform.claude.com/settings/keys).
+  The example sends model requests to Anthropic.
+- Install Logfire with the `agent-sandboxes` extra:
 
 ```bash
-pip install 'logfire[agent-sandboxes]' 'pydantic-ai-harness[codemode]'
+pip install 'logfire[agent-sandboxes]'
 ```
+
+Install a development build of Pydantic AI Harness with the `codemode` extra that includes the change linked above.
+A regular `pip install pydantic-ai-harness` does not yet provide the required integration.
 
 ## Run the agent's code in Agent Sandboxes
 
@@ -28,11 +46,11 @@ Add `CodeMode` to the agent's capabilities, and pass `logfire.agent_sandboxes` a
 sandbox pool:
 
 ```python title="agent.py" hl_lines="14-16" skip-run="true" skip-reason="external-connection"
-import logfire
 from pydantic_ai import Agent
 from pydantic_ai_harness import CodeMode
-
 from tools import get_request_stats, list_customers, list_open_tickets
+
+import logfire
 
 logfire.configure()
 logfire.instrument_pydantic_ai()
@@ -74,7 +92,7 @@ Your tools run in your process, as they would without Code Mode. Only the script
 
 Each agent run starts a new session. To let a later turn use the variables an earlier turn defined, pass a `repl_store`
 to `CodeMode`. Code Mode saves the session at the end of each run and loads it at the start of the next run in the same
-conversation. See [Keep the REPL across runs](https://pydantic.dev/docs/ai/harness/code-mode/#keep-the-repl-across-runs) in
+conversation. See [Keep the REPL (read-eval-print loop) across runs](https://pydantic.dev/docs/ai/harness/code-mode/#keep-the-repl-across-runs) in
 the Pydantic AI docs, and [Keep an agent's work across conversation turns](conversations.md) for how this works.
 
 ## Verify it worked
@@ -82,11 +100,6 @@ the Pydantic AI docs, and [Keep an agent's work across conversation turns](conve
 Run `python agent.py`, then open the [Live view](../guides/web-ui/live.md). You should see the agent run's **trace**
 (the full journey of one request, made of nested spans). Inside it, find the `run_code` tool call. It contains a
 `run code` span with the script the model wrote, and a span for each tool the script called.
-
-!!! warning "Scripts and tool results pass through and are recorded in Logfire"
-    The scripts, your tools' arguments and results, and the final result are sent to Logfire's servers to run. With
-    tracing on, Logfire also records them in your project, after its standard
-    [scrubbing](../how-to-guides/scrubbing.md).
 
 ## Troubleshooting
 

@@ -5,16 +5,19 @@ description: "Expose a Python module to agent code with type stubs, and reject c
 
 # Give an agent a whole API without a tool for every endpoint
 
-An internal API with dozens of operations becomes dozens of tool definitions. The model reads every definition on every turn, and the
-list grows each time you add an operation. Each call is still one model turn.
+!!! info "Experimental"
+    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+
+An internal API with dozens of operations can require dozens of tool definitions. The model reads those definitions
+on each turn. A script can combine several calls without another model request between them.
 
 With Agent Sandboxes, you expose the API as one importable Python module. The model reads a short **type stub** (a
 `.pyi` file that lists function signatures and data shapes, without code) and writes a script that imports the module
-and calls it. Before the script runs, the sandbox checks it against the stub. A script that calls a function with the
-wrong arguments, or reads a field that does not exist, never runs. The model gets the error and fixes the script.
+and calls it. The sandbox checks the script against the stub before it runs. The check catches the invalid arguments
+and field names shown below. The model gets the errors so it can correct the script.
 
 That check matters most for APIs that change things. A script that passes a status that does not exist, or reads a
-field that does not exist, fails the check before its first call. The check cannot tell whether a valid value is the
+field that does not exist, fails the check before its first call. Type checking is not an authorization boundary. It cannot tell whether a valid value is the
 right one, for example whether an invoice ID belongs to the right customer. Your functions must still check that.
 
 ## Before you start
@@ -40,7 +43,6 @@ class Invoice(TypedDict):
     status: Literal['paid', 'open', 'void']
 
 def list_invoices(customer_id: str, status: Literal['paid', 'open', 'void'] | None = None) -> list[Invoice]: ...
-def void_invoice(invoice_id: str) -> Invoice: ...
 """
 
 
@@ -52,11 +54,7 @@ def list_invoices(customer_id: str, status: str | None = None) -> list[dict]:
     return [i for i in invoices if status is None or i['status'] == status]
 
 
-def void_invoice(invoice_id: str) -> dict:
-    raise NotImplementedError('replace with a call to your billing service')
-
-
-billing = ExternalModule({'list_invoices': list_invoices, 'void_invoice': void_invoice}, stubs=BILLING_STUB)
+billing = ExternalModule({'list_invoices': list_invoices}, stubs=BILLING_STUB)
 ```
 
 Each function in the module runs in your application when sandbox code calls it, like any other host function.
@@ -69,10 +67,10 @@ two mistakes a model can make: a status that does not exist, and a field name th
 ```python title="main.py" skip-run="true" skip-reason="external-connection"
 import asyncio
 
-import logfire
+from billing import billing
 from pydantic_monty import MontyTypingError
 
-from billing import billing
+import logfire
 
 logfire.configure()
 
@@ -123,8 +121,6 @@ info: Function defined here
  9 |
 10 | def list_invoices(customer_id: str, status: Literal['paid', 'open', 'void'] | None = None) -> list[Invoice]: ...
    |     ^^^^^^^^^^^^^                   ----------------------------------------------------- Parameter declared here
-11 | def void_invoice(invoice_id: str) -> Invoice: ...
-   |
 
 error[invalid-key]: Unknown key "amount" for TypedDict `Invoice`
  --> main.py:5:7
@@ -165,6 +161,6 @@ code ran.
 
 ## Next steps
 
-- [Pause agent code for human approval](approval.md): let a script call `void_invoice`, but only after a person agrees.
+- [Pause agent code for human approval](approval.md): require a person's decision before the host executes a sensitive operation.
 - [Use Agent Sandboxes with Pydantic AI](pydantic-ai.md): Pydantic AI writes the stub from your tools for you.
 - [Answer questions that need dozens of tool calls](many-tool-calls.md): call the API in parallel from one script.

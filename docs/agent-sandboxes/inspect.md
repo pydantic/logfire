@@ -5,6 +5,9 @@ description: "Use the overview, recorded source, and Live view to investigate sa
 
 # Inspect sandbox runs
 
+!!! info "Experimental"
+    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+
 Find a sandbox session, read the Python it ran, and follow related activity when a result is slow or fails.
 A **session** is a group of related interactions, which can include several code runs and calls.
 
@@ -49,7 +52,7 @@ Expand the session to inspect its code runs and related calls.
 ## Verify
 
 Check that the session and recorded source match the example you ran.
-Open it in Live view and confirm that the filter selects the expected activity.
+Open it in Live view. Confirm that its code runs and related calls match the source shown in the code dialog.
 
 ## Troubleshooting
 

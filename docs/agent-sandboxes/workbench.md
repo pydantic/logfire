@@ -5,6 +5,9 @@ description: "Run Python interactively, reuse variables within a connected sessi
 
 # Run code in the Workbench
 
+!!! info "Experimental"
+    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+
 Try Python in your project's sandbox and read the result without installing a client.
 Each submission runs in the same session while the connection stays open.
 A **session** is a group of related interactions, which here can share Python variables.

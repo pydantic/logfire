@@ -5,6 +5,9 @@ description: "Create, select, rename, and delete project profiles for Agent Sand
 
 # Manage sandbox profiles
 
+!!! info "Experimental"
+    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+
 Give sandbox sessions a stable, named profile that you can select when you run code.
 A profile belongs to one project and has its own ID.
 A **session** is a group of related interactions, such as successive Workbench code runs.
@@ -62,7 +65,7 @@ Select **Use profile** and check that the Workbench selects that profile before 
 ## Troubleshooting
 
 - **Create, Rename, or Delete is unavailable.** Ask your project administrator to check your profile permissions.
-- **The profile no longer exists.** Refresh the list and choose a current profile. In the Workbench, **Run without a profile** starts an unprofiled session instead.
+- **The profile no longer exists.** Refresh the list and choose a current profile. If the Workbench reports that the selected profile was deleted, **Run without a profile** starts an unprofiled session. The **No profile** selector option chooses an unprofiled session before it starts.
 - **The list or save fails.** Use **Retry** where shown, or retry the save. Check the refreshed list before you create a duplicate.
 
 ## Next steps

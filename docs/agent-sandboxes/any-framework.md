@@ -5,17 +5,25 @@ description: "Give an agent built with any framework, or none, one run_code tool
 
 # Add a code tool to any agent
 
+!!! info "Experimental"
+    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+
 Give your agent one tool, `run_code`, that takes a Python script, runs it in an [Agent Sandbox](index.md), and returns
 the result. The script can call the functions you choose. This works with any agent framework that supports tool
 calls, and with a model API that you call directly.
 
-If you use Pydantic AI, use [its built-in support](pydantic-ai.md) instead. It builds this tool from your existing
-tools.
+If you use Pydantic AI, [Code Mode](pydantic-ai.md) can build this tool from your existing tools.
+Its Agent Sandboxes integration currently requires an unreleased change. This guide provides an alternative.
 
 ## Before you start
 
 Follow [Run code from Python](python.md) to install `logfire[agent-sandboxes]` and set `LOGFIRE_API_KEY` to a key with
 permission to run code in agent sandboxes.
+
+!!! warning "Code and tool data leave your application"
+    Scripts, tool arguments, and tool results pass through Logfire for execution. Default client instrumentation
+    also records them in your project. `ephemeral=True` prevents saved session state. It does not disable telemetry.
+    See [tracing controls](limits.md#control-client-tracing).
 
 ## Write the tool
 
@@ -28,8 +36,9 @@ The tool needs three things:
   try.
 
 ```python title="code_tool.py" skip-run="true" skip-reason="external-connection"
-import logfire
 from pydantic_monty import MontyError, MontyTypingError
+
+import logfire
 
 
 async def get_order(order_id: str) -> dict:
@@ -64,7 +73,7 @@ async def run_code(code: str) -> str:
 ```
 
 `logfire.agent_sandboxes()` does not connect until the first `checkout()`. Enter the pool once when your application
-starts (`await pool.__aenter__()`, or `async with pool:` around your server), and leave it open. Each `run_code` call
+starts, with `async with pool:` around the code that serves tool calls. The test below shows this lifecycle. Each `run_code` call
 checks out a fresh session, so one agent run cannot see another's variables. `ephemeral=True` tells Logfire not to
 store the session when it closes, because nothing will load it again. Stored sessions count toward your organization's
 storage limit. To keep variables between calls, see [Keep an agent's work across conversation
@@ -73,17 +82,20 @@ turns](conversations.md).
 ## Register it with your agent
 
 Register `run_code` as a tool with one string parameter, `code`, and use `RUN_CODE_DESCRIPTION` as its description. For
-example, as a JSON Schema tool definition, the format most model APIs accept:
+example, this Python dictionary uses Anthropic's Messages API tool format. Other model APIs use different keys.
+The `description` value is the full string defined above, including the available functions and limits.
 
-```json
-{
-  "name": "run_code",
-  "description": "<RUN_CODE_DESCRIPTION>",
-  "input_schema": {
-    "type": "object",
-    "properties": {"code": {"type": "string", "description": "The Python script to run."}},
-    "required": ["code"]
-  }
+```python skip-run="true" skip-reason="external-connection"
+from code_tool import RUN_CODE_DESCRIPTION
+
+run_code_tool = {
+    'name': 'run_code',
+    'description': RUN_CODE_DESCRIPTION,
+    'input_schema': {
+        'type': 'object',
+        'properties': {'code': {'type': 'string', 'description': 'The Python script to run.'}},
+        'required': ['code'],
+    },
 }
 ```
 
@@ -104,8 +116,12 @@ from code_tool import pool, run_code
 
 async def main():
     async with pool:
-        print(await run_code("import asyncio\norders = await asyncio.gather(get_order('o1'), get_order('o2'))\n[o['status'] for o in orders]"))
-        print(await run_code("await get_order(42)"))
+        print(
+            await run_code(
+                "import asyncio\norders = await asyncio.gather(get_order('o1'), get_order('o2'))\n[o['status'] for o in orders]"
+            )
+        )
+        print(await run_code('await get_order(42)'))
 
 
 asyncio.run(main())

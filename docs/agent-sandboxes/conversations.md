@@ -5,6 +5,9 @@ description: "Give each conversation its own sandbox session, so data an agent l
 
 # Keep an agent's work across conversation turns
 
+!!! info "Experimental"
+    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+
 A person asks your data agent "which customers churned last quarter?", then "which of those had open tickets?", then
 "show me the three biggest". If each turn starts from nothing, the agent fetches the same customers three times, or
 pastes them back into the conversation so it can read them again.
@@ -56,13 +59,17 @@ async def list_open_tickets(customer_id: str) -> list[dict]:
 
 When a session closes, Logfire saves its state under `session.session_id`. Store that ID with the conversation. On the
 next turn, check out a new session and load the stored ID into it. Loading gives the new session a new ID, so store the
-new one when the turn ends.
+new one after the session closes successfully.
+
+Process only one tool call at a time for each conversation. Concurrent calls can load the same old state and overwrite
+each other's saved ID. If several servers handle the conversation, serialize those calls in your application and
+store the mapping in a shared database. The dictionary below is a single-process example.
 
 ```python title="code_tool.py" skip-run="true" skip-reason="external-connection"
-import logfire
 from pydantic_monty import MontyError, MontyTypingError
-
 from tools import STUBS, TOOLS
+
+import logfire
 
 logfire.configure()
 pool = logfire.agent_sandboxes()
@@ -72,17 +79,23 @@ session_ids: dict[str, bytes] = {}  # use your database: one row per conversatio
 
 async def run_code(conversation_id: str, code: str) -> str:
     async with pool.checkout(type_check=True, type_check_stubs=STUBS) as session:
-        if conversation_id in session_ids:
-            await session.load_session(session_ids[conversation_id])
+        try:
+            if conversation_id in session_ids:
+                await session.load_session(session_ids[conversation_id])
+        except MontyError as e:
+            return (
+                f'The previous session could not be loaded: {e}. Retry the load or explicitly reset the conversation.'
+            )
         try:
             result = await session.feed_run(code, external_lookup=TOOLS)
         except MontyTypingError as e:
-            return f'The script did not run, because it has type errors:\n{e.display()}'
+            response = f'The script did not run, because it has type errors:\n{e.display()}'
         except MontyError as e:
-            return f'The script failed: {e}'
-        finally:
-            session_ids[conversation_id] = session.session_id
-    return repr(result)
+            response = f'The script failed: {e}'
+        else:
+            response = repr(result)
+    session_ids[conversation_id] = session.session_id
+    return response
 ```
 
 `conversation_id` comes from your application, not from the model. Pass it to the tool yourself, for example from the
@@ -130,7 +143,7 @@ Run `python main.py`. It prints the answer to each turn:
 In a new session, the second script would fail with `NameError: name 'churned' is not defined`. Here it finds `churned`
 from the first turn.
 
-Turns do not need to come from the same process. A conversation can continue on another server, or days later, as long
+With a shared, persistent session-ID mapping, turns do not need to come from the same process. A conversation can continue on another server, or days later, as long
 as the stored session ID is less than 7 days old.
 
 ## Verify it worked
@@ -144,9 +157,10 @@ span has `list_open_tickets` calls, but no `list_customers` call.
   moment. A turn that starts immediately after the previous one can try to load it too early. Retry the load after a
   short wait.
 - **`NameError` for a variable from an earlier turn**: the stored ID is from an older turn. Check that you store
-  `session.session_id` after every turn, including turns that failed.
-- **A conversation is older than 7 days**: its saved state is gone. Start a new session, and let the agent fetch the
-  data again.
+  `session.session_id` after the session closes, including turns where the script failed. A failed load preserves the
+  previous ID so a transient error does not silently discard the conversation state.
+- **The saved state is older than 7 days**: it has expired. Explicitly remove its ID from your application's mapping,
+  then start a new session and let the agent fetch the data again. Do not reset the ID for every load failure.
 
 ## Next steps
 

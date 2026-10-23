@@ -86,7 +86,7 @@ Available scopes depend on whether you're creating an organization or project AP
 | Query telemetry (`project:read_otlp`) | Specific project only | ✓              |
 | Read datasets (`project:read_datasets`) | ✓                  | ✓               |
 | Write datasets (`project:write_datasets`) | ✓                 | ✓               |
-| Execute agent sandboxes (`project:execute_agent_sandboxes`) | Specific project only | ✓ |
+| Run code in this project's agent sandboxes (`project:execute_agent_sandboxes`) | Specific project only | ✓ |
 | Project settings                     | ✓                    | ✓               |
 | Write tokens management              | ✓                    | ✓               |
 | Read tokens management               | ✓                    | ✓               |

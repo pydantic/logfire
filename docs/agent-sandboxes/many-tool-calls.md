@@ -1,9 +1,12 @@
 ---
-title: "Answer questions that need dozens of tool calls in one step"
+title: "Answer questions that need dozens of tool calls"
 description: "Let your agent write one short script that calls your tools in parallel and does the math in Python, so the model reads only the answer."
 ---
 
 # Answer questions that need dozens of tool calls
+
+!!! info "Experimental"
+    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
 
 "Which enterprise customers missed their availability target this week, and do they have an open support ticket?" To
 answer, an agent fetches 40 customers, then a week of request counts for each one, then tickets. With plain tool calls,
@@ -28,6 +31,9 @@ endpoints, which is the shape a real metrics API returns.
 | Input tokens (median)       | 140,522                   | 7,333                      |
 | Time (median)               | 34 seconds                | 12 seconds                 |
 
+These are three-run results on fixed sample data, not a prediction of production accuracy, latency, or cost.
+Measure your own tools and questions before choosing an approach.
+
 The model was `gpt-5.5`. A smaller model, `gpt-5.4-mini`, gave the same picture: 0 of 3 correct with 141,262 input
 tokens, and 3 of 3 correct with 5,886 tokens. With plain tool calls, both models named the wrong customers. They were
 not adding up 1,680 rows reliably by reading them. In the sandbox, Python did the adding.
@@ -49,7 +55,7 @@ Replace their bodies with calls to your own services.
 ```python title="tools.py" skip-run="true" skip-reason="external-connection"
 import asyncio
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 CUSTOMERS = [
     {'id': f'c{i:03}', 'name': f'Customer {i}', 'plan': 'enterprise' if i % 3 == 0 else 'team', 'target': 0.999}
@@ -72,14 +78,20 @@ async def get_request_stats(customer_id: str, days: int) -> list[dict]:
     rnd = random.Random(customer_id)
     rows = []
     for day in range(days):
-        date = (datetime(2026, 10, 23) - timedelta(days=day)).date().isoformat()
+        date = (datetime(2026, 10, 23, tzinfo=timezone.utc) - timedelta(days=day)).date().isoformat()
         for endpoint in ENDPOINTS:
             requests = rnd.randint(2000, 9000)
             errors = rnd.randint(0, 3)
             if customer_id in ('c009', 'c042', 'c087', 'c111') and endpoint == '/v1/search':
                 errors = int(requests * 0.02)
             rows.append(
-                {'date': date, 'endpoint': endpoint, 'requests': requests, 'errors': errors, 'p95_ms': rnd.randint(80, 400)}
+                {
+                    'date': date,
+                    'endpoint': endpoint,
+                    'requests': requests,
+                    'errors': errors,
+                    'p95_ms': rnd.randint(80, 400),
+                }
             )
     return rows
 
@@ -92,46 +104,21 @@ async def list_open_tickets(customer_id: str) -> list[dict]:
 
 ## See the code the agent writes
 
-In one of the runs above, `gpt-5.5` called the sandbox three times. Each script continues from the variables of the
-one before it. This is the code it wrote, unchanged. The first script loads the customers:
+In one comparison run, the agent called the sandbox three times. Each script continued from the previous script's
+variables. The following example adapts that workflow to return compact results:
 
-```python
-customers = await list_customers(plan='enterprise')
-customers
-```
+1. Load the customers and return their count.
+2. Fetch each customer's request counts and return the names below their availability target.
+3. Look up tickets for those customers and return the names with open tickets.
 
-The second fetches every customer's request counts in parallel, and keeps only the customers below their target:
-
-```python
-import asyncio
-stats_lists = await asyncio.gather(*[get_request_stats(customer_id=c['id'], days=7) for c in customers])
-missed=[]
-for c, rows in zip(customers, stats_lists):
-    total=sum(r['requests'] for r in rows)
-    errors=sum(r['errors'] for r in rows)
-    avail=(total-errors)/total if total else 1
-    if avail < c['target']:
-        missed.append({'id':c['id'],'name':c['name'],'availability':avail,'target':c['target'],'requests':total,'errors':errors})
-missed
-```
-
-The third looks up tickets only for those customers:
-
-```python
-tickets_lists = await asyncio.gather(*[list_open_tickets(customer_id=c['id']) for c in missed])
-[(c['name'], len(tickets), tickets) for c, tickets in zip(missed, tickets_lists)]
-```
-
-## Run the same code yourself
-
-You can run these scripts without a model. This shows exactly what the agent's code does in a sandbox:
+You can run these scripts without a model. Save the code below as `main.py` beside `tools.py`:
 
 ```python title="main.py" skip-run="true" skip-reason="external-connection"
 import asyncio
 
-import logfire
-
 from tools import get_request_stats, list_customers, list_open_tickets
+
+import logfire
 
 logfire.configure()
 
@@ -147,7 +134,8 @@ missed = []
 for c, rows in zip(customers, stats_lists):
     total = sum(r['requests'] for r in rows)
     errors = sum(r['errors'] for r in rows)
-    if (total - errors) / total < c['target']:
+    availability = (total - errors) / total if total else 1.0
+    if availability < c['target']:
         missed.append(c)
 [c['name'] for c in missed]
 """,

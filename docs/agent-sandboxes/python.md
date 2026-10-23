@@ -19,7 +19,7 @@ You need a Logfire API key with permission to run code in your project's agent s
 (`project:execute_agent_sandboxes`):
 
 1. Open your project in Logfire.
-2. Go to **Agent Sandboxes → Setup**, and select **Create execution key**.
+2. Go to **AI Optimization → Agent Sandboxes → Setup**, and select **Create execution key**.
 3. Copy the key.
    It won't be shown again.
 
@@ -74,8 +74,8 @@ It prints:
 ```
 
 `logfire.agent_sandboxes()` returns a pool of sandboxes.
-No connection is made until you call `pool.checkout()`, which gives you a session with its own sandbox.
-Code runs only inside `session.feed_run()`.
+The pool opens a connection when you call `pool.checkout()`, which gives you a session with its own sandbox.
+`session.feed_run()` executes the submitted snippet. The pool also supports step-by-step execution with `feed_start()`.
 
 ## Keep state across runs
 
@@ -112,8 +112,9 @@ This is the only way sandbox code can reach anything outside the sandbox, so exp
 ```python skip-run="true" skip-reason="external-connection" hl_lines="19"
 import asyncio
 
-import logfire
 from pydantic_monty import CollectString
+
+import logfire
 
 logfire.configure()
 
@@ -153,9 +154,10 @@ made of nested spans).
 !!! warning "Sandbox content is recorded in your project"
     With tracing on, Logfire records the code, its inputs and
     result, host function arguments and results, and printed output in your Logfire project.
-    Logfire applies its standard [scrubbing](../how-to-guides/scrubbing.md) before sending data.
+    The client applies its standard [scrubbing](../how-to-guides/scrubbing.md) before it sends telemetry.
+    Scrubbing does not redact the code or values sent for execution or session storage.
 
-To turn tracing off, pass `instrument=False`:
+To skip enabling client instrumentation, pass `instrument=False`:
 
 ```python skip-run="true" skip-reason="external-connection"
 import logfire
@@ -165,6 +167,7 @@ pool = logfire.agent_sandboxes(instrument=False)
 
 `instrument_monty()` applies to the whole process, and its first call wins.
 If anything in your process has already called it, sandbox sessions are still traced.
+This option does not disable server-side telemetry or session storage. See [tracing controls](limits.md#control-client-tracing).
 
 ## Configure the pool
 
