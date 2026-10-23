@@ -3460,6 +3460,29 @@ def test_distributed_tracing_disabled(exporter: TestExporter, config_kwargs: dic
     )
 
 
+def test_distributed_tracing_disabled_drops_incoming_baggage(config_kwargs: dict[str, Any]):
+    config_kwargs['distributed_tracing'] = False
+    logfire.configure(**config_kwargs)
+    carrier = {'baggage': 'plan=enterprise'}
+
+    with logfire.set_baggage(region='us'):
+        # A third-party integration extracts an incoming request: its baggage is dropped, and the
+        # baggage this process set is kept.
+        with propagate.attach_context(carrier, third_party=True):
+            assert logfire.get_baggage() == {'region': 'us'}
+        # Propagation that Logfire itself controls, such as between threads, keeps baggage.
+        with propagate.attach_context(carrier):
+            assert logfire.get_baggage() == {'plan': 'enterprise'}
+
+
+def test_distributed_tracing_enabled_keeps_incoming_baggage(config_kwargs: dict[str, Any]):
+    config_kwargs['distributed_tracing'] = True
+    logfire.configure(**config_kwargs)
+
+    with propagate.attach_context({'baggage': 'plan=enterprise'}, third_party=True):
+        assert logfire.get_baggage() == {'plan': 'enterprise'}
+
+
 def test_quiet_span_exporter(caplog: LogCaptureFixture):
     class ConnectionErrorExporter(SpanExporter):
         def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:

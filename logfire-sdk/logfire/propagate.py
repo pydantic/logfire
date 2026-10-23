@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from opentelemetry import context as otel_context, propagate, trace
+from opentelemetry import baggage, context as otel_context, propagate, trace
 from opentelemetry.propagators.textmap import TextMapPropagator
 
 import logfire
@@ -114,9 +114,10 @@ class WrapperPropagator(TextMapPropagator):
 
 
 class NoExtractTraceContextPropagator(WrapperPropagator):
-    """A propagator that ignores any trace context that was extracted by the wrapped propagator.
+    """A propagator that ignores any trace context and baggage that the wrapped propagator extracted.
 
-    Used when `logfire.configure(distributed_tracing=False)` is called.
+    Used when `logfire.configure(distributed_tracing=False)` is called. Baggage is dropped too, so
+    code that reads baggage, such as feature-flag targeting, only sees entries that this process set.
     """
 
     def extract(
@@ -130,7 +131,11 @@ class NoExtractTraceContextPropagator(WrapperPropagator):
         if result == context:  # pragma: no cover
             # Optimization: nothing was extracted by the wrapped propagator
             return result
-        return trace.set_span_in_context(trace.get_current_span(context), result)
+        result = trace.set_span_in_context(trace.get_current_span(context), result)
+        result = baggage.clear(result)
+        for key, value in baggage.get_all(context).items():
+            result = baggage.set_baggage(key, value, result)
+        return result
 
 
 @dataclass
