@@ -10,6 +10,14 @@ description: "Use the Logfire CLI to simplify project management. Use commands t
 {{ logfire_help }}
 ```
 
+## Update notices
+
+Interactive `auth` and `info` commands show a notice when a newer Logfire release is available on
+PyPI. Successful checks are cached in `~/.logfire/version_check.json` for one week.
+
+Checks are skipped with `--non-interactive` or when standard error is not a terminal. Network
+and cache errors do not interrupt the command.
+
 ## Authentication (`auth`)
 
 You need to be authenticated to use the **Logfire**.

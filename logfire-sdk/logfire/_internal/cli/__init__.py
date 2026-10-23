@@ -38,6 +38,7 @@ from ..utils import READ_TOKEN_FILENAME, ensure_data_dir_exists
 from .auth import parse_auth, parse_logout
 from .prompt import parse_prompt
 from .run import collect_instrumentation_context, parse_run, print_otel_summary
+from .version_check import check_for_updates
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
 BASE_DOCS_URL = 'https://logfire.pydantic.dev/docs'
@@ -1020,6 +1021,9 @@ def _main(args: list[str] | None = None) -> None:
     set_non_interactive(namespace.non_interactive)
 
     namespace.logfire_url = _get_logfire_url(namespace.base_url, namespace.region)
+
+    if not namespace.version and namespace.func in (parse_auth, parse_info):
+        check_for_updates()
 
     tracer = SDKTracerProvider().get_tracer(__name__)
 
