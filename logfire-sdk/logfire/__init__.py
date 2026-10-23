@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from logfire.propagate import attach_context, get_context
 from logfire.sampling import SamplingOptions
@@ -127,6 +127,18 @@ def loguru_handler() -> Any:
 
 __version__ = VERSION
 
+if TYPE_CHECKING:
+    # Declared for type checkers only. The module-level `__getattr__` below resolves the value
+    # at runtime so that it reflects `logfire.configure()` calls made after import.
+    project_url: str | None
+
+
+def __getattr__(name: str) -> Any:
+    if name == 'project_url':
+        return DEFAULT_LOGFIRE_INSTANCE.project_url
+    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
+
+
 __all__ = (
     'Logfire',
     'LogfireSpan',
@@ -136,6 +148,7 @@ __all__ = (
     'CodeSource',
     'PydanticPlugin',
     'configure',
+    'project_url',
     'span',
     'instrument',
     'log',
