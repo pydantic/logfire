@@ -14,8 +14,8 @@ records every run in Logfire. You add one argument.
 
 ## Before you start
 
-- Follow [Run code from Python](python.md) to set `LOGFIRE_API_KEY` to a key with the **Execute agent sandboxes**
-  permission.
+- Follow [Run code from Python](python.md) to set `LOGFIRE_API_KEY` to a key with permission to run
+  code in agent sandboxes.
 - Install Logfire with the `agent-sandboxes` extra, and Pydantic AI Harness with the `codemode` extra:
 
 ```bash

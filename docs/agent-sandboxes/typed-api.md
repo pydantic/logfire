@@ -19,7 +19,7 @@ before its first call.
 ## Before you start
 
 Follow [Run code from Python](python.md) to install `logfire[agent-sandboxes]` and set `LOGFIRE_API_KEY` to a key with
-the **Execute agent sandboxes** permission.
+permission to run code in agent sandboxes.
 
 ## Describe the API with a type stub
 

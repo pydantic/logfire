@@ -15,7 +15,7 @@ tools.
 ## Before you start
 
 Follow [Run code from Python](python.md) to install `logfire[agent-sandboxes]` and set `LOGFIRE_API_KEY` to a key with
-the **Execute agent sandboxes** permission.
+permission to run code in agent sandboxes.
 
 ## Write the tool
 
@@ -48,6 +48,7 @@ The script can `await` these functions, and run several at once with `asyncio.ga
 {STUBS}
 Only a subset of Python is available. There is no network or file access, and no third-party packages."""
 
+logfire.configure()
 pool = logfire.agent_sandboxes()
 
 
@@ -96,11 +97,7 @@ Call the tool with the kind of script a model writes, and with one that has a mi
 ```python title="main.py" skip-run="true" skip-reason="external-connection"
 import asyncio
 
-import logfire
-
 from code_tool import pool, run_code
-
-logfire.configure()
 
 
 async def main():

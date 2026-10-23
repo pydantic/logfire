@@ -20,7 +20,7 @@ model needs to read: account histories, search results, spreadsheets, or log lin
 ## Before you start
 
 - Follow [Run code from Python](python.md) to install `logfire[agent-sandboxes]` and set `LOGFIRE_API_KEY` to a key with
-  the **Execute agent sandboxes** permission.
+permission to run code in agent sandboxes.
 - To query your real data, create a **read token** (a credential that lets code query your project's data) in
   **Settings → Read tokens**. See [Query API](../how-to-guides/query-api.md).
 
@@ -72,7 +72,7 @@ from datetime import datetime, timedelta
 
 rows = await query_logfire("""
     SELECT service_name, time_bucket('5 minutes', start_timestamp) AS bucket,
-           count(*) FILTER (WHERE is_exception) AS errors, count(*) AS requests
+           count(*) FILTER (WHERE is_exception) AS errors, count(*) AS spans
     FROM records
     WHERE start_timestamp > now() - interval '6 hours'
     GROUP BY service_name, bucket
@@ -82,8 +82,8 @@ deploys = await list_deploys(since_hours=6)
 
 def error_rate(service, start, end):
     window = [r for r in rows if r['service_name'] == service and start <= datetime.fromisoformat(r['bucket']) < end]
-    requests = sum(r['requests'] for r in window)
-    return sum(r['errors'] for r in window) / requests if requests else 0.0
+    spans = sum(r['spans'] for r in window)
+    return sum(r['errors'] for r in window) / spans if spans else 0.0
 
 
 suspects = []
@@ -119,6 +119,11 @@ and a bad `auth` deploy, the query returns 288 rows, and the script prints one d
 
 The model reads that line, not 288 rows. It can then ask a follow-up question in the same session, because `rows` and
 `deploys` are still defined there. See [Keep an agent's work across conversation turns](conversations.md).
+
+We asked this question of a Pydantic AI agent with `gpt-5.4-mini`, three times with plain tool calls and three times
+with [Agent Sandboxes through Code Mode](pydantic-ai.md). Both found the `auth` deploy every time. With plain tool
+calls, the model read all 288 rows, and each run used about 34,600 input tokens. With Agent Sandboxes, each run used
+about 7,400.
 
 In your application, the agent writes the script and your code runs it. See [Use Agent Sandboxes with Pydantic
 AI](pydantic-ai.md) or [Add a code tool to any agent](any-framework.md).

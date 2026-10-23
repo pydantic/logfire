@@ -1,37 +1,43 @@
 ---
 title: "Answer questions that need dozens of tool calls in one step"
-description: "Let your agent write one short script that calls your tools in loops and in parallel, and return only the answer to the model."
+description: "Let your agent write one short script that calls your tools in parallel and does the math in Python, so the model reads only the answer."
 ---
 
 # Answer questions that need dozens of tool calls
 
-Some questions need many tool calls: "Which enterprise customers missed their availability target this week, and do
-they have an open support ticket?" With one tool call per model turn, your agent fetches 40 customers, then makes 40
-availability calls, then a few ticket lookups. Each round trip waits for the model, and every result fills its
-**context window** (the text the model reads on each turn, which you pay for in **tokens**, the units models read and
-bill by).
+"Which enterprise customers missed their availability target this week, and do they have an open support ticket?" To
+answer, an agent fetches 40 customers, then a week of request counts for each one, then tickets. With plain tool calls,
+every row of every result goes into the model's **context window** (the text the model reads on each turn, which you
+pay for in **tokens**, the units models read and bill by). Then the model must add up thousands of numbers by reading
+them.
 
-With Agent Sandboxes, the model writes one short Python script instead. The script calls your tools as functions, in
-parallel, filters the results, and returns only the rows that answer the question. Your tools run in your application.
-The script runs in a [sandbox](index.md).
+With Agent Sandboxes, the model writes a short Python script instead. The script calls your tools as functions, in
+parallel, and computes the answer in Python. Your tools run in your application. The script runs in a
+[sandbox](index.md). The model reads only what the script returns.
 
-## What changes
+## What this changes
 
-|                                  | One tool call per turn                    | One script in a sandbox                         |
-| -------------------------------- | ----------------------------------------- | ----------------------------------------------- |
-| Model turns                      | One or more for each batch of calls       | One                                             |
-| What the model reads             | Every customer, every result              | The two rows that answer the question           |
-| Who does the filtering and math  | The model, by reading                     | Python, exactly                                 |
-| Where your tools run             | Your application                          | Your application                                |
+We asked this question of a Pydantic AI agent three times with plain tool calls, and three times with
+[Agent Sandboxes through Code Mode](pydantic-ai.md). Each customer's request counts were 42 rows: 7 days for 6 API
+endpoints, which is the shape a real metrics API returns.
 
-The last row matters: the sandbox never holds your credentials or connects to your systems. When the script calls
-`get_availability(...)`, the sandbox pauses, your application runs the real function, and the sandbox continues with the
-result.
+|                             | Plain tool calls          | Agent Sandboxes            |
+| --------------------------- | ------------------------- | -------------------------- |
+| Correct answers             | 0 of 3                    | 3 of 3                     |
+| Input tokens (median)       | 140,522                   | 7,333                      |
+| Time (median)               | 34 seconds                | 12 seconds                 |
+
+The model was `gpt-5.5`. A smaller model, `gpt-5.4-mini`, gave the same picture: 0 of 3 correct with 141,262 input
+tokens, and 3 of 3 correct with 5,886 tokens. With plain tool calls, both models named the wrong customers. They were
+not adding up 1,680 rows reliably by reading them. In the sandbox, Python did the adding.
+
+The gain comes from tools that return more data than the model needs to read. When each tool returns one small value,
+plain tool calls already work well, and a sandbox mostly saves model turns.
 
 ## Before you start
 
 Follow [Run code from Python](python.md) to install `logfire[agent-sandboxes]` and set `LOGFIRE_API_KEY` to a key with
-the **Execute agent sandboxes** permission.
+the permission to run code in agent sandboxes.
 
 ## Write your tools as normal Python functions
 
@@ -40,22 +46,40 @@ Replace their bodies with calls to your own services.
 
 ```python title="tools.py" skip-run="true" skip-reason="external-connection"
 import asyncio
+import random
+from datetime import datetime, timedelta
 
 CUSTOMERS = [
     {'id': f'c{i:03}', 'name': f'Customer {i}', 'plan': 'enterprise' if i % 3 == 0 else 'team', 'target': 0.999}
     for i in range(120)
 ]
+ENDPOINTS = ['/v1/orders', '/v1/search', '/v1/auth', '/v1/payments', '/v1/users', '/v1/export']
 
 
 async def list_customers(plan: str) -> list[dict]:
-    """List customers on a plan."""
+    """List customers on a plan ('enterprise' or 'team'). Each has `id`, `name`, `plan`, and availability `target`."""
     return [c for c in CUSTOMERS if c['plan'] == plan]
 
 
-async def get_availability(customer_id: str, days: int) -> float:
-    """Return the fraction of successful requests for a customer over the last `days` days."""
+async def get_request_stats(customer_id: str, days: int) -> list[dict]:
+    """Return request counts for a customer for each day and endpoint over the last `days` days.
+
+    Each row has `date`, `endpoint`, `requests`, `errors` (5xx responses), and `p95_ms`.
+    """
     await asyncio.sleep(0.05)  # stands in for a real API call
-    return 0.997 if customer_id in ('c009', 'c042', 'c087', 'c111') else 0.9995
+    rnd = random.Random(customer_id)
+    rows = []
+    for day in range(days):
+        date = (datetime(2026, 10, 23) - timedelta(days=day)).date().isoformat()
+        for endpoint in ENDPOINTS:
+            requests = rnd.randint(2000, 9000)
+            errors = rnd.randint(0, 3)
+            if customer_id in ('c009', 'c042', 'c087', 'c111') and endpoint == '/v1/search':
+                errors = int(requests * 0.02)
+            rows.append(
+                {'date': date, 'endpoint': endpoint, 'requests': requests, 'errors': errors, 'p95_ms': rnd.randint(80, 400)}
+            )
+    return rows
 
 
 async def list_open_tickets(customer_id: str) -> list[dict]:
@@ -64,81 +88,119 @@ async def list_open_tickets(customer_id: str) -> list[dict]:
     return [{'id': 'T-1', 'title': 'API timeouts'}] if customer_id in ('c042', 'c087') else []
 ```
 
-## See the script your agent writes
+## See the code the agent writes
 
-Asked the question above, a model writes a script like this one. It uses `asyncio.gather` to make the availability
-calls at the same time, then looks up tickets only for the customers that missed their target:
+In one of the runs above, `gpt-5.5` called the sandbox three times. Each script continues from the variables of the
+one before it. This is the code it wrote, unchanged. The first script loads the customers:
+
+```python
+customers = await list_customers(plan='enterprise')
+customers
+```
+
+The second fetches every customer's request counts in parallel, and keeps only the customers below their target:
+
+```python
+import asyncio
+stats_lists = await asyncio.gather(*[get_request_stats(customer_id=c['id'], days=7) for c in customers])
+missed=[]
+for c, rows in zip(customers, stats_lists):
+    total=sum(r['requests'] for r in rows)
+    errors=sum(r['errors'] for r in rows)
+    avail=(total-errors)/total if total else 1
+    if avail < c['target']:
+        missed.append({'id':c['id'],'name':c['name'],'availability':avail,'target':c['target'],'requests':total,'errors':errors})
+missed
+```
+
+The third looks up tickets only for those customers:
+
+```python
+tickets_lists = await asyncio.gather(*[list_open_tickets(customer_id=c['id']) for c in missed])
+[(c['name'], len(tickets), tickets) for c, tickets in zip(missed, tickets_lists)]
+```
+
+## Run the same code yourself
+
+You can run these scripts without a model. This shows exactly what the agent's code does in a sandbox:
 
 ```python title="main.py" skip-run="true" skip-reason="external-connection"
 import asyncio
 
 import logfire
 
-from tools import get_availability, list_customers, list_open_tickets
+from tools import get_request_stats, list_customers, list_open_tickets
 
 logfire.configure()
 
-AGENT_CODE = """
-import asyncio
-
+SCRIPTS = [
+    """
 customers = await list_customers(plan='enterprise')
-availability = await asyncio.gather(*[get_availability(c['id'], days=7) for c in customers])
-missed = [(c, a) for c, a in zip(customers, availability) if a < c['target']]
-tickets = await asyncio.gather(*[list_open_tickets(c['id']) for c, _ in missed])
-[
-    {'customer': c['name'], 'availability': a, 'open_tickets': [t['title'] for t in ts]}
-    for (c, a), ts in zip(missed, tickets)
-    if ts
+len(customers)
+""",
+    """
+import asyncio
+stats_lists = await asyncio.gather(*[get_request_stats(customer_id=c['id'], days=7) for c in customers])
+missed = []
+for c, rows in zip(customers, stats_lists):
+    total = sum(r['requests'] for r in rows)
+    errors = sum(r['errors'] for r in rows)
+    if (total - errors) / total < c['target']:
+        missed.append(c)
+[c['name'] for c in missed]
+""",
+    """
+tickets_lists = await asyncio.gather(*[list_open_tickets(customer_id=c['id']) for c in missed])
+[c['name'] for c, tickets in zip(missed, tickets_lists) if tickets]
+""",
 ]
-"""
 
 
 async def main():
+    tools = {
+        'list_customers': list_customers,
+        'get_request_stats': get_request_stats,
+        'list_open_tickets': list_open_tickets,
+    }
     async with logfire.agent_sandboxes() as pool:
         async with pool.checkout() as session:
-            result = await session.feed_run(
-                AGENT_CODE,
-                external_lookup={
-                    'list_customers': list_customers,
-                    'get_availability': get_availability,
-                    'list_open_tickets': list_open_tickets,
-                },
-            )
-    print(result)
+            for script in SCRIPTS:
+                print(await session.feed_run(script, external_lookup=tools))
 
 
 asyncio.run(main())
 ```
 
-Run `python main.py`. It prints the only two rows the model needs:
+Run `python main.py`. It prints what the model reads after each script:
 
 ```
-[{'customer': 'Customer 42', 'availability': 0.997, 'open_tickets': ['API timeouts']}, {'customer': 'Customer 87', 'availability': 0.997, 'open_tickets': ['API timeouts']}]
+40
+['Customer 9', 'Customer 42', 'Customer 87', 'Customer 111']
+['Customer 42', 'Customer 87']
 ```
 
-The script made 45 tool calls. The model wrote about 12 lines and read two rows.
+The scripts made 81 tool calls and handled 1,680 rows of request counts. The model read three short lines.
 
-Here you run the script yourself, so you can see what happens. In your application, the agent writes the script and
-your code runs it. See [Use Agent Sandboxes with Pydantic AI](pydantic-ai.md) or [Add a code tool to any
-agent](any-framework.md) to connect the two.
+In your application, the agent writes the scripts and your code runs them. See [Use Agent Sandboxes with Pydantic
+AI](pydantic-ai.md) or [Add a code tool to any agent](any-framework.md) to connect the two.
 
 ## Verify it worked
 
-Open the [Live view](../guides/web-ui/live.md). You should see one `run code` span (one unit of work: a single
-operation, with a name, a start, and a duration) with a child span for each of the 45 tool calls. The availability
-calls overlap in time, because the script ran them in parallel.
+Open the [Live view](../guides/web-ui/live.md). You should see a `run code` span (one unit of work: a single operation,
+with a name, a start, and a duration) for each script. The second one has a child span for each of the 40
+`get_request_stats` calls, and they overlap in time because the script ran them in parallel.
 
 !!! warning "Tool arguments and results are recorded in your project"
-    With tracing on (the default), Logfire records the script, each tool call's arguments and result, and the final
-    result in your project, after its standard [scrubbing](../how-to-guides/scrubbing.md). The script and the tool
+    With tracing on (the default), Logfire records each script, each tool call's arguments and result, and each final
+    result in your project, after its standard [scrubbing](../how-to-guides/scrubbing.md). The scripts and the tool
     results also pass through Logfire's servers to run.
 
 ## When to use this, and when not
 
-Use a script when the agent needs many calls whose results it does not need to read one by one: lookups for each item
-in a list, the same check across many services, or several sources joined into one answer.
+Use a script when tools return more data than the model needs to read, or when the answer needs arithmetic, filtering,
+or joining across many results.
 
-Keep plain tool calls when each step depends on the model's judgment about the last result, for example reading a
+Keep plain tool calls when each step depends on the model's judgment about the previous result, for example reading a
 document and deciding what to search next. A script cannot replace that reasoning.
 
 ## Troubleshooting
@@ -152,6 +214,6 @@ document and deciding what to search next. A script cannot replace that reasonin
 
 ## Next steps
 
-- [Work with large results without filling the context window](large-results.md): reduce thousands of rows to a summary.
+- [Work with large tool results without filling the context window](large-results.md): join data from several sources.
 - [Give an agent a whole API](typed-api.md): check the agent's code against your types before it runs.
 - [Use Agent Sandboxes with Pydantic AI](pydantic-ai.md): let a Pydantic AI agent write and run these scripts.

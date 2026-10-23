@@ -16,7 +16,7 @@ sandbox, not in the model's **context window** (the text the model reads on each
 ## Before you start
 
 - Follow [Run code from Python](python.md) to install `logfire[agent-sandboxes]` and set `LOGFIRE_API_KEY` to a key
-  with the **Execute agent sandboxes** permission.
+  with permission to run code in agent sandboxes.
 - Have a `run_code` tool. See [Add a code tool to any agent](any-framework.md). This page changes it to keep one
   session for each conversation.
 
@@ -64,6 +64,7 @@ from pydantic_monty import MontyError, MontyTypingError
 
 from tools import STUBS, TOOLS
 
+logfire.configure()
 pool = logfire.agent_sandboxes()
 
 session_ids: dict[str, bytes] = {}  # use your database: one row per conversation
@@ -93,8 +94,6 @@ Over two turns, a model writes two scripts. The second one uses `churned` from t
 
 ```python title="main.py" skip-run="true" skip-reason="external-connection"
 import asyncio
-
-import logfire
 
 from code_tool import pool, run_code
 

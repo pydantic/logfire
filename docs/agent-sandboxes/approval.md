@@ -10,14 +10,14 @@ approval, and the person may answer in five minutes or tomorrow. After the appro
 refund, email the customer, and report the total.
 
 With Agent Sandboxes, the agent writes all of that as one script. When the script reaches `issue_refund(...)`, your
-application stops it and saves it. The saved script is a few kilobytes. When the person approves, any process loads it
+application stops it and saves it. Logfire stores the paused script and gives you a short ID. When the person approves, any process loads it
 and the script continues from that exact line, with every variable it had. The model is not called again, so the steps
 after the approval run exactly as the agent wrote them.
 
 ## Before you start
 
 Follow [Run code from Python](python.md) to install `logfire[agent-sandboxes]` and set `LOGFIRE_API_KEY` to a key with
-the **Execute agent sandboxes** permission.
+permission to run code in agent sandboxes.
 
 !!! warning "The saved state is stored by Logfire for 7 days"
     A paused script's state, including the values it computed from your data, is stored by Logfire so that any process
@@ -92,7 +92,7 @@ async def main():
         async with pool.checkout() as session:
             snapshot = await run_until_approval(await session.feed_start(AGENT_CODE, external_lookup=TOOLS))
             print(snapshot.function_name, snapshot.args, snapshot.kwargs)
-            saved = snapshot.dump()  # store these bytes with the approval request
+            saved = snapshot.dump()  # a short ID: store it with the approval request
     with open('pending-refund.bin', 'wb') as f:
         f.write(saved)
 
@@ -170,7 +170,7 @@ call that needs approval, `run_until_approval` stops there too, and you repeat t
 ## Why this works in a sandbox
 
 Your application does not keep a process, a connection, or a container open while it waits. The paused script is a
-small saved value, so it can wait for days, survive a deploy of your application, and resume on a different machine.
+short ID, so it can wait for days, survive a deploy of your application, and resume on a different machine.
 
 Give the result back to the model only if it needs to react, for example to tell the customer. A denial can also go
 back to the model, so that it can write a different plan.
