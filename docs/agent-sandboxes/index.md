@@ -73,7 +73,14 @@ With tracing on (the default), they are also recorded in your Logfire project, a
 
 ## Next steps
 
-- [Run code from Python](python.md): install the SDK, create an API key, and run your first snippet.
-- [Persist, resume, and fork sessions](sessions.md): keep state between connections, checkpoint it, and branch it.
-- [Trace local Monty sandboxes](../integrations/monty.md): see what local sandboxes do in Logfire.
-- [Use API keys](../reference/advanced/use-api-keys.md): create and scope the key Agent Sandboxes need.
+Start with [Run code from Python](python.md) to run your first script. Then pick the guide for what you want your agent
+to do:
+
+- [Answer questions that need dozens of tool calls](many-tool-calls.md): one script instead of a tool call per item.
+- [Work with large tool results](large-results.md): reduce thousands of rows to the answer before the model reads them.
+- [Give an agent a whole API](typed-api.md): one typed module instead of a tool per operation, checked before it runs.
+- [Pause agent code for human approval](approval.md): stop at a sensitive call and continue hours later.
+- [Keep an agent's work across conversation turns](conversations.md): keep loaded data for follow-up questions.
+
+To connect your agent, see [Use Agent Sandboxes with Pydantic AI](pydantic-ai.md) or [Add a code tool to any
+agent](any-framework.md). For what scripts can run, see [What sandbox code can do](limits.md).
