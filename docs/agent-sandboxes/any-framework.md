@@ -53,7 +53,7 @@ pool = logfire.agent_sandboxes()
 
 
 async def run_code(code: str) -> str:
-    async with pool.checkout(type_check=True, type_check_stubs=STUBS) as session:
+    async with pool.checkout(type_check=True, type_check_stubs=STUBS, ephemeral=True) as session:
         try:
             result = await session.feed_run(code, external_lookup=TOOLS)
         except MontyTypingError as e:
@@ -65,8 +65,10 @@ async def run_code(code: str) -> str:
 
 `logfire.agent_sandboxes()` does not connect until the first `checkout()`. Enter the pool once when your application
 starts (`await pool.__aenter__()`, or `async with pool:` around your server), and leave it open. Each `run_code` call
-checks out a fresh session, so one agent run cannot see another's variables. To keep variables between calls, see
-[Keep an agent's work across conversation turns](conversations.md).
+checks out a fresh session, so one agent run cannot see another's variables. `ephemeral=True` tells Logfire not to
+store the session when it closes, because nothing will load it again. Stored sessions count toward your organization's
+storage limit. To keep variables between calls, see [Keep an agent's work across conversation
+turns](conversations.md).
 
 ## Register it with your agent
 

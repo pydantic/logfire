@@ -31,23 +31,26 @@ second returns recent deploys. Replace it with a call to your deploy system.
 
 ```python title="tools.py" skip-run="true" skip-reason="external-connection"
 import os
+from datetime import datetime, timedelta, timezone
 
-from logfire.experimental.query_client import AsyncLogfireQueryClient
+from logfire.query_client import AsyncLogfireQueryClient
 
 
 async def query_logfire(sql: str) -> list[dict]:
-    """Run a SQL query against the Logfire project and return the rows."""
+    """Run a SQL query against the Logfire project's last 24 hours of data and return the rows."""
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
     async with AsyncLogfireQueryClient(read_token=os.environ['LOGFIRE_READ_TOKEN']) as client:
-        result = await client.query_json_rows(sql)
+        result = await client.query_json_rows(sql, min_timestamp=since)
     return result['rows']
 
 
 async def list_deploys(since_hours: int) -> list[dict]:
     """List deploys from the last `since_hours` hours, oldest first."""
+    now = datetime.now(timezone.utc)
     return [  # replace with a call to your deploy system
-        {'service': 'checkout', 'version': 'v412', 'deployed_at': '2026-10-23T08:00:00+00:00'},
-        {'service': 'auth', 'version': 'v88', 'deployed_at': '2026-10-23T09:00:00+00:00'},
-        {'service': 'search', 'version': 'v1201', 'deployed_at': '2026-10-23T10:30:00+00:00'},
+        {'service': 'checkout', 'version': 'v412', 'deployed_at': (now - timedelta(hours=4)).isoformat()},
+        {'service': 'auth', 'version': 'v88', 'deployed_at': (now - timedelta(hours=3)).isoformat()},
+        {'service': 'search', 'version': 'v1201', 'deployed_at': (now - timedelta(hours=1)).isoformat()},
     ]
 ```
 
@@ -136,6 +139,9 @@ and the model can change the comparison for each question without you adding a n
 
 When one query can answer the whole question, let the agent run that query as a plain tool call. A sandbox adds nothing
 there.
+
+A sandbox holds at most 20 MiB of data, so a script can work with a few thousand rows at a time, not millions. Let the
+query aggregate first, as the five-minute buckets do here, and let the script compare and join.
 
 ## Verify it worked
 

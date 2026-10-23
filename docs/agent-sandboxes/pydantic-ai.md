@@ -32,24 +32,24 @@ import logfire
 from pydantic_ai import Agent
 from pydantic_ai_harness import CodeMode
 
-from tools import get_availability, list_customers, list_open_tickets
+from tools import get_request_stats, list_customers, list_open_tickets
 
 logfire.configure()
 logfire.instrument_pydantic_ai()
 
 agent = Agent(
     'anthropic:claude-sonnet-4-5',
-    tools=[list_customers, get_availability, list_open_tickets],
+    tools=[list_customers, get_request_stats, list_open_tickets],
     capabilities=[
         CodeMode(
-            monty_pool_factory=lambda: logfire.agent_sandboxes(request_timeout=40),
+            monty_pool_factory=logfire.agent_sandboxes,
         )
     ],
 )
 
 result = agent.run_sync(
-    'Which enterprise customers missed their availability target in the last 7 days, '
-    'and which of them have open support tickets?'
+    'Which enterprise customers missed their availability target (successful requests / all requests) '
+    'over the last 7 days, and which of them have open support tickets?'
 )
 print(result.output)
 ```
@@ -59,17 +59,14 @@ print(result.output)
 Code Mode calls `logfire.agent_sandboxes()` once for each agent run, so concurrent runs each get their own pool. The
 pool connects only when the model first calls `run_code`.
 
-`request_timeout=40` gives each script up to 40 seconds between calls to your tools. The default, 10 seconds, is less
-than Code Mode's own 30-second limit for a script. With the default, a slow script loses its connection instead of
-getting Code Mode's clearer time-limit error.
-
 ## What the model writes
 
 The model sees one tool, `run_code`, with your three tools listed as Python functions. For the question above it writes
-one script, like the one on [Answer questions that need dozens of tool
-calls](many-tool-calls.md#see-the-script-your-agent-writes): it fetches the enterprise customers, checks their
-availability in parallel with `asyncio.gather`, and returns only the customers with open tickets. The exact code
-changes from run to run.
+short scripts like the ones on [Answer questions that need dozens of tool
+calls](many-tool-calls.md#see-the-code-the-agent-writes). They fetch the enterprise customers, fetch each customer's
+request counts in parallel with `asyncio.gather`, compute availability in Python, and return only the customers that
+missed their target. Each script continues from the variables of the one before it. The exact code changes from run
+to run.
 
 Your tools run in your process, as they would without Code Mode. Only the script runs in the sandbox.
 
@@ -96,7 +93,6 @@ Run `python agent.py`, then open the [Live view](../guides/web-ui/live.md). You 
 - **`UserError` that mentions `monty_sandbox_url`**: set either `monty_pool_factory` or `monty_sandbox_url`, not both.
 - **`LogfireConfigError: Agent sandboxes require a Logfire API key`**: the run started without an API key. Set
   `LOGFIRE_API_KEY`, or pass `api_key` to `logfire.configure()`.
-- **The model retries after a "crashed worker" error on long scripts**: increase `request_timeout`, as above.
 - **The model calls a tool directly instead of from `run_code`**: Code Mode keeps some tools outside the sandbox, such as
   tools that load lazily. See [Selective tool sandboxing](https://pydantic.dev/docs/ai/harness/code-mode/#selective-tool-sandboxing).
 

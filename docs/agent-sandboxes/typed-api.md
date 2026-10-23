@@ -5,7 +5,7 @@ description: "Expose a Python module to agent code with type stubs, and reject c
 
 # Give an agent a whole API without a tool for every endpoint
 
-An internal API with 50 operations becomes 50 tool definitions. The model reads every definition on every turn, and the
+An internal API with dozens of operations becomes dozens of tool definitions. The model reads every definition on every turn, and the
 list grows each time you add an operation. Each call is still one model turn.
 
 With Agent Sandboxes, you expose the API as one importable Python module. The model reads a short **type stub** (a
@@ -13,8 +13,9 @@ With Agent Sandboxes, you expose the API as one importable Python module. The mo
 and calls it. Before the script runs, the sandbox checks it against the stub. A script that calls a function with the
 wrong arguments, or reads a field that does not exist, never runs. The model gets the error and fixes the script.
 
-That check matters most for APIs that change things. A script that would have voided the wrong invoice fails the check
-before its first call.
+That check matters most for APIs that change things. A script that passes a status that does not exist, or reads a
+field that does not exist, fails the check before its first call. The check cannot tell whether a valid value is the
+right one, for example whether an invoice ID belongs to the right customer. Your functions must still check that.
 
 ## Before you start
 

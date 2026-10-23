@@ -5,6 +5,10 @@ description: "Install the Logfire SDK, create an API key, and run code in Logfir
 
 # Run code from Python
 
+!!! info "Experimental"
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+
 Run Python in a remote [Agent Sandbox](index.md) from your application, with one call to
 [`logfire.agent_sandboxes()`][logfire.Logfire.agent_sandboxes].
 You check out a session, send it code, and get the result back.
@@ -142,9 +146,10 @@ and a duration).
 If your application already has a current span, the sandbox spans join its **trace** (the full journey of one request,
 made of nested spans).
 
-!!! warning "Sandbox content is recorded in your project" With tracing on, Logfire records the code, its inputs and
-result, host function arguments and results, and printed output in your Logfire project.
-Logfire applies its standard [scrubbing](../how-to-guides/scrubbing.md) before sending data.
+!!! warning "Sandbox content is recorded in your project"
+    With tracing on, Logfire records the code, its inputs and
+    result, host function arguments and results, and printed output in your Logfire project.
+    Logfire applies its standard [scrubbing](../how-to-guides/scrubbing.md) before sending data.
 
 To turn tracing off, pass `instrument=False`:
 

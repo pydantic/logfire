@@ -5,6 +5,10 @@ description: "What Logfire Agent Sandboxes are, when to use them, and how they f
 
 # Agent Sandboxes
 
+!!! info "Experimental"
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+
 Let your AI agents write and run Python without running that code on your own servers.
 Logfire Agent Sandboxes run each piece of code in an isolated, remote Python environment hosted by Logfire, and send the
 result back to your application.
@@ -58,10 +62,23 @@ result          ◀──────── result ────────    r
 You authenticate with a Logfire API key that has permission to run code in your project's agent sandboxes
 (`project:execute_agent_sandboxes`).
 
-!!! warning "Code and data are sent to Logfire" The code you run, its inputs, host function arguments and results, and
-printed output are sent to Logfire's servers to be executed.
-With tracing on (the default), they are also recorded in your Logfire project, after Logfire's standard
-[scrubbing](../how-to-guides/scrubbing.md) hides sensitive values such as passwords and tokens.
+!!! warning "Code and data are sent to Logfire"
+    The code you run, its inputs, host function arguments and results, and
+    printed output are sent to Logfire's servers to be executed.
+    With tracing on (the default), they are also recorded in your Logfire project, after Logfire's standard
+    [scrubbing](../how-to-guides/scrubbing.md) hides sensitive values such as passwords and tokens.
+
+## Choose between tool calls, a container, and Agent Sandboxes
+
+|                                                     | One tool call per model turn        | A container-based sandbox              | Agent Sandboxes                                  |
+| --------------------------------------------------- | ----------------------------------- | -------------------------------------- | ------------------------------------------------ |
+| A question that needs many calls or large results   | The model reads every result        | A script can do it                     | A script does it, and the model reads the answer |
+| Where your tools and credentials live               | Your application                    | Inside the container, or behind a network path you open | Your application                     |
+| Waiting hours for a person in the middle of a task  | Stop the run, and call the model again afterwards | Keep the container, or save its disk and memory | Save the paused script, and resume it in any process |
+| Third-party packages, files, and a shell            | Not applicable                      | Yes                                    | No. Call a function in your application instead  |
+
+Each claim in the last column has a guide with a measured example:
+[many tool calls](many-tool-calls.md), [large results](large-results.md), and [approval](approval.md).
 
 ## When not to use Agent Sandboxes
 

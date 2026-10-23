@@ -1,199 +1,245 @@
 ---
 title: "Pause agent code for human approval, and resume it later"
-description: "Stop an agent's script at a sensitive call, save it, ask a person, and continue the same script hours later from any process."
+description: "Let an agent plan a batch of sensitive actions in one script, ask a person once, and finish the plan hours later from any process without calling the model again."
 ---
 
 # Pause agent code for human approval, and resume it later
 
-A support agent decides that a customer should get a refund for two damaged orders. The refund needs a person's
-approval, and the person may answer in five minutes or tomorrow. After the approval, the agent must still issue the
-refund, email the customer, and report the total.
+An incident charged 25 customers for 37 orders that then failed. A support agent can find the orders, refund each one,
+and email each customer. But a person must approve the refunds first, and that person may answer in five minutes or
+tomorrow.
 
-With Agent Sandboxes, the agent writes all of that as one script. When the script reaches `issue_refund(...)`, your
-application stops it and saves it. Logfire stores the paused script and gives you a short ID. When the person approves, any process loads it
-and the script continues from that exact line, with every variable it had. The model is not called again, so the steps
-after the approval run exactly as the agent wrote them.
+With Agent Sandboxes, the agent writes the whole job as one script: find the orders, ask for approval once with the
+complete plan, then refund and email. When the script reaches the approval, your application stops it, and Logfire
+stores it. When the person decides, any process loads the script and it continues from that line, with every variable
+it had. The model is not called again.
+
+## What this changes
+
+We gave this task to a Pydantic AI agent three times with Pydantic AI's built-in
+[approval for tool calls](https://pydantic.dev/docs/ai/tools-toolsets/deferred-tools/), and three times with the
+approach on this page.
+
+|                                     | Approval for each tool call       | Agent Sandboxes           |
+| ----------------------------------- | --------------------------------- | ------------------------- |
+| Approval requests for the person    | 37, one for each refund           | 1, with the complete plan |
+| Model requests after the approval   | 2, with about 25,700 input tokens | None                      |
+| Refunds correct                     | 3 of 3                            | 3 of 3                    |
+
+The model was `gpt-5.5`. With approval for each tool call, the person approves 37 separate refunds, and the model must
+run again afterwards to send the emails. With a sandbox, the steps after the approval are already written. They run
+exactly as the person saw them in the plan.
 
 ## Before you start
 
 Follow [Run code from Python](python.md) to install `logfire[agent-sandboxes]` and set `LOGFIRE_API_KEY` to a key with
-permission to run code in agent sandboxes.
+permission to run code in agent sandboxes. This page uses [Pydantic AI](https://pydantic.dev/docs/ai/overview/) for the
+agent. The same `run_code` function works as a tool in any agent framework.
 
-!!! warning "The saved state is stored by Logfire for 7 days"
+!!! warning "Logfire stores the paused script for 7 days"
     A paused script's state, including the values it computed from your data, is stored by Logfire so that any process
-    can resume it. Logfire deletes it after 7 days. Resume or discard each paused script before then. See
+    can resume it. Logfire deletes it 7 days after it is saved. Resume each paused script before then. See
     [Persist, resume, and fork sessions](sessions.md).
 
-## Run the script until it reaches a sensitive call
+## Define the functions, including the one that needs approval
 
-`feed_run()` runs a script to the end. To stop at a call, use `feed_start()` instead. It returns a **snapshot** (the
-paused script) at each call to one of your functions. `resume_auto()` runs that call and continues to the next one.
-Stop when the snapshot is a call that needs approval, and save it with `dump()`.
+`request_approval` never runs on its own. The script pauses when it calls it. The type stub tells the model to call it
+once, with the whole plan, before any refund.
 
-```python title="refunds.py" skip-run="true" skip-reason="external-connection"
-from pydantic_monty import AsyncFunctionSnapshot, MontyComplete
-
-NEEDS_APPROVAL = {'issue_refund'}
+```python title="tools.py" skip-run="true" skip-reason="external-connection"
+async def list_orders_during(start: str, end: str) -> list[dict]:
+    return []  # replace with a query on your order system
 
 
-def get_orders(customer_id: str) -> list[dict]:
-    return [  # replace with a call to your order system
-        {'id': 'o1', 'total': 120.0, 'status': 'damaged'},
-        {'id': 'o2', 'total': 40.0, 'status': 'delivered'},
-        {'id': 'o3', 'total': 75.5, 'status': 'damaged'},
-    ]
+async def issue_refund(order_id: str, amount: float, idempotency_key: str) -> dict:
+    return {'order_id': order_id, 'status': 'refunded'}  # replace with a call to your payment system
 
 
-def issue_refund(customer_id: str, amount: float, reason: str) -> bool:
-    print(f'Refunding {amount} to {customer_id}: {reason}')  # replace with a call to your payment system
-    return True
+async def send_email(customer_id: str, subject: str, body: str) -> None:
+    pass  # replace with a call to your email system
 
 
-def send_email(customer_id: str, body: str) -> None:
-    print(f'Email to {customer_id}: {body}')  # replace with a call to your email system
+async def request_approval(summary: str, total: float) -> bool:
+    raise RuntimeError('A person answers this call. It never runs on its own.')
 
 
-TOOLS = {'get_orders': get_orders, 'issue_refund': issue_refund, 'send_email': send_email}
+TOOLS = {
+    'list_orders_during': list_orders_during,
+    'issue_refund': issue_refund,
+    'send_email': send_email,
+    'request_approval': request_approval,
+}
+NEEDS_APPROVAL = {'request_approval'}
+
+STUBS = '''
+async def list_orders_during(start: str, end: str) -> list[dict]:
+    """Orders created between start and end (ISO timestamps), with order_id, customer_id, total, status, created_at.
+    Orders that charged the customer but failed have status 'failed_capture'."""
+async def issue_refund(order_id: str, amount: float, idempotency_key: str) -> dict:
+    """Refund an order. Pass a unique idempotency_key for each order."""
+async def send_email(customer_id: str, subject: str, body: str) -> None:
+    """Email a customer."""
+async def request_approval(summary: str, total: float) -> bool:
+    """Ask a person to approve a plan. Call it once, with the whole plan, before any issue_refund call.
+    The script waits here until the person answers, which can take hours. Returns True if approved."""
+'''
+```
+
+## Give the agent a code tool that can pause
+
+`run_code` runs the agent's script until it finishes, or until it calls a function in `NEEDS_APPROVAL`. Then it stores
+the paused script and tells the model that the script is waiting.
+
+```python title="code_tool.py" skip-run="true" skip-reason="external-connection"
+import inspect
+import json
+
+import logfire
+from pydantic_monty import AsyncFunctionSnapshot, MontyComplete, MontyError
+
+from tools import NEEDS_APPROVAL, STUBS, TOOLS
+
+logfire.configure()
+pool = logfire.agent_sandboxes()
 
 
 async def run_until_approval(snapshot):
-    """Run the script until it finishes or reaches a call that needs approval."""
+    """Run the script until it finishes, or until it calls a function that needs approval."""
     while not isinstance(snapshot, MontyComplete):
         if isinstance(snapshot, AsyncFunctionSnapshot) and snapshot.function_name in NEEDS_APPROVAL:
             return snapshot
         snapshot = await snapshot.resume_auto()
     return snapshot
+
+
+async def run_code(code: str) -> str:
+    async with pool.checkout() as session:
+        try:
+            snapshot = await run_until_approval(await session.feed_start(code, external_lookup=TOOLS))
+        except MontyError as e:
+            return f'The script failed: {e}'
+        if isinstance(snapshot, MontyComplete):
+            return repr(snapshot.output)
+        request = {'saved': snapshot.dump().hex(), 'args': snapshot.args, 'kwargs': snapshot.kwargs}
+    with open('pending-approval.json', 'w') as f:  # use your database
+        json.dump(request, f)
+    return f'The script is paused until a person answers: {snapshot.args} {snapshot.kwargs}. Tell the user.'
+
+
+async def answer(snapshot, outcome: dict):
+    """Answer the call the script is waiting on, with a return value or an exception."""
+    if inspect.iscoroutinefunction(TOOLS[snapshot.function_name]):
+        # The script awaited an async function, so settle that pending call.
+        pending = await snapshot.resume({'future': ...})
+        return await pending.resume({snapshot.call_id: outcome})
+    return await snapshot.resume(outcome)
+
+
+RUN_CODE_DESCRIPTION = f"""Run a Python script and return the value of its last expression.
+The script can `await` these functions, and run several at once with `asyncio.gather`:
+{STUBS}"""
 ```
 
-The agent wrote this script. The model does not know that `issue_refund` needs approval, and does not need to:
+`snapshot.dump()` returns a short ID. Logfire stores the paused script under it. Store the ID with the approval
+request, for example in the row your approval UI reads.
 
-```python title="main.py" skip-run="true" skip-reason="external-connection"
+## Run the agent
+
+```python title="agent.py" skip-run="true" skip-reason="external-connection"
 import asyncio
 
-import logfire
+from pydantic_ai import Agent, Tool
 
-from refunds import TOOLS, run_until_approval
+from code_tool import RUN_CODE_DESCRIPTION, pool, run_code
 
-logfire.configure()
-
-AGENT_CODE = """
-orders = get_orders('cus_123')
-damaged = [o for o in orders if o['status'] == 'damaged']
-total = sum(o['total'] for o in damaged)
-approved = issue_refund('cus_123', total, reason=f'{len(damaged)} damaged orders')
-if approved:
-    send_email('cus_123', f'We refunded ${total:.2f} for your damaged orders.')
-{'refunded': total if approved else 0}
-"""
+agent = Agent('openai:gpt-5.5', tools=[Tool(run_code, description=RUN_CODE_DESCRIPTION)])
 
 
 async def main():
-    async with logfire.agent_sandboxes() as pool:
-        async with pool.checkout() as session:
-            snapshot = await run_until_approval(await session.feed_start(AGENT_CODE, external_lookup=TOOLS))
-            print(snapshot.function_name, snapshot.args, snapshot.kwargs)
-            saved = snapshot.dump()  # a short ID: store it with the approval request
-    with open('pending-refund.bin', 'wb') as f:
-        f.write(saved)
+    async with pool:
+        result = await agent.run(
+            'Incident INC-1042 (2026-10-22 10:00 to 18:00 UTC) charged customers for orders that then failed. '
+            'Refund every affected order in full, then email each affected customer once to apologize and '
+            'confirm the refund amount.'
+        )
+    print(result.output)
 
 
 asyncio.run(main())
 ```
 
-Run `python main.py`. It prints the call that is waiting for approval:
-
-```
-issue_refund ('cus_123', 195.5) {'reason': '2 damaged orders'}
-```
-
-`get_orders` ran. `issue_refund` and `send_email` did not. Show the person the function name and arguments: they are
-exactly what will run if they approve. In a real application, store `saved` in your database next to the approval
-request, not in a file.
+Run `python agent.py`. The agent writes one script and runs it. The script finds the orders and stops at
+`request_approval`, so the agent replies that the refunds are waiting for approval. `pending-approval.json` holds the
+plan that the script passed to `request_approval`. Show that plan to the person who approves.
 
 ## Resume the script after the decision
 
-Later, in any process, load the saved script into a new session and answer the waiting call. To approve, run the real
-function and pass its result. To deny, pass an exception: the script sees it raised by `issue_refund`.
+Later, from any process, load the paused script and answer the call. To approve, pass `True`. To deny, pass an
+exception: the script sees it raised by `request_approval`.
 
-```python title="resume.py" skip-run="true" skip-reason="external-connection"
+```python title="approve.py" skip-run="true" skip-reason="external-connection"
 import asyncio
+import json
+import sys
 
-import logfire
-from pydantic_monty import MontyRuntimeError
+from pydantic_monty import MontyComplete
 
-from refunds import TOOLS, issue_refund, run_until_approval
-
-logfire.configure()
+from code_tool import answer, pool, run_until_approval
+from tools import TOOLS
 
 
 async def main(approved: bool):
-    with open('pending-refund.bin', 'rb') as f:
-        saved = f.read()
-    async with logfire.agent_sandboxes() as pool:
+    with open('pending-approval.json') as f:
+        request = json.load(f)
+    if approved:
+        outcome = {'return_value': True}
+    else:
+        outcome = {'exception': PermissionError('A person declined the refunds.')}
+    async with pool:
         async with pool.checkout() as session:
-            snapshot = await session.load_snapshot(saved, external_lookup=TOOLS)
-            if approved:
-                answer = {'return_value': issue_refund(*snapshot.args, **snapshot.kwargs)}
-            else:
-                answer = {'exception': PermissionError('A person declined this refund.')}
-            try:
-                result = await run_until_approval(await snapshot.resume(answer))
-            except MontyRuntimeError as e:
-                print(e)  # the script did not catch the denial: send this back to the model
-                return
-    print(result.output)
+            snapshot = await session.load_snapshot(bytes.fromhex(request['saved']), external_lookup=TOOLS)
+            result = await run_until_approval(await answer(snapshot, outcome))
+    if isinstance(result, MontyComplete):
+        print('Finished:', result.output)
+    else:
+        print('Paused again at', result.function_name)
 
 
-asyncio.run(main(approved=True))
+asyncio.run(main(approved=sys.argv[1:] != ['deny']))
 ```
 
-Run `python resume.py`. The script continues from the refund, sends the email, and returns its result:
+Run `python approve.py`. The script refunds the orders, emails the customers, and prints what it returned. The model is
+not called. Run `python approve.py deny` instead to decline, and `request_approval` raises `PermissionError` inside the
+script. If the script does not catch it, `approve.py` raises `MontyRuntimeError`.
 
-```
-Refunding 195.5 to cus_123: 2 damaged orders
-Email to cus_123: We refunded $195.50 for your damaged orders.
-{'refunded': 195.5}
-```
-
-The model wrote the follow-up steps before the pause, and they ran unchanged after it.
-
-Call `main(approved=False)` instead, and `issue_refund` raises the `PermissionError` inside the script. This script does
-not catch it, so the script stops and `resume.py` prints:
-
-```
-PermissionError: A person declined this refund.
-```
-
-`send_email` never runs. If the script makes a second
-call that needs approval, `run_until_approval` stops there too, and you repeat the same steps.
+If the script calls `request_approval` a second time, it pauses again, and you repeat this step.
 
 ## Why this works in a sandbox
 
 Your application does not keep a process, a connection, or a container open while it waits. The paused script is a
-short ID, so it can wait for days, survive a deploy of your application, and resume on a different machine.
+stored value, so it can wait for days, survive a deploy of your application, and resume on a different machine.
 
-Give the result back to the model only if it needs to react, for example to tell the customer. A denial can also go
-back to the model, so that it can write a different plan.
+Give the result to the model only if it needs to react, for example to tell the customer what happened. A denial can
+also go back to the model, so that it can write a different plan.
 
 ## Verify it worked
 
-Open the [Live view](../guides/web-ui/live.md). You should see two traces: one for `main.py` that ends at the
-`issue_refund` call, and one for `resume.py` that starts there and includes the `send_email` call.
+Open **Agent Sandboxes → Overview** in Logfire. You should see two sessions: one that ends at the `request_approval`
+call, and one that starts there and contains the `issue_refund` and `send_email` calls.
 
 ## Troubleshooting
 
-- **A call runs twice after a resume.** If your application stops while it is answering a call, a resumed script asks
-  for the same call again. Make functions that change things safe to repeat, for example by passing an idempotency key
-  to your payment system.
-- **Resuming fails with `TypeError: An asyncio.Future, a coroutine or an awaitable is required`**: the script called the
-  function that needs approval inside `asyncio.gather(...)`. Tell the agent, in its instructions, to call functions that
-  need approval on their own line, not inside `asyncio.gather`.
-- **`load_snapshot()` raises `MontyRuntimeError`**: the saved state has expired. Logfire keeps it for 7 days. Start a
-  new run.
+- **A call runs twice after a resume.** If your application stops while it answers a call, the resumed script asks for
+  the same call again. Make functions that change things safe to repeat. Here, `issue_refund` takes an idempotency key.
+- **`TypeError: 'bool' object can't be awaited`** after a resume: the script awaited an async function, and you
+  answered with `snapshot.resume({'return_value': ...})` directly. Use `answer()`, which settles the awaited call.
+- **The script refunds before asking for approval**: the model ignored the stub. Make `issue_refund` itself check that
+  approval was given, and raise an error if not. The script then fails before the refund, and the model sees why.
+- **`load_snapshot()` raises `MontyRuntimeError`**: the paused script has expired. Logfire keeps it for 7 days.
 
 ## Next steps
 
-- [Persist, resume, and fork sessions](sessions.md): how saved state is stored, and how long it is kept.
+- [Persist, resume, and fork sessions](sessions.md): how Logfire stores sessions, and for how long.
 - [Give an agent a whole API](typed-api.md): check the agent's script against your types before it can reach a
   sensitive call.
-- [Add a code tool to any agent](any-framework.md): connect this flow to your agent's tool calls.
+- [Add a code tool to any agent](any-framework.md): use `run_code` with another agent framework.

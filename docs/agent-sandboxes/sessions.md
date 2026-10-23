@@ -52,9 +52,10 @@ The server saves a session's state, which Monty calls **parking** the session, i
 Saved sessions and snapshots are kept for 7 days after they're saved, then deleted.
 They count toward your organization's snapshot storage quota.
 
-!!! warning "Session state is stored by Logfire" The values your sandbox code creates, including anything computed from
-inputs or host function results, are stored on Logfire's servers for up to 7 days.
-Use an [ephemeral session](#opt-out-of-storage-with-ephemeral-sessions) if state must not be stored.
+!!! warning "Session state is stored by Logfire"
+    The values your sandbox code creates, including anything computed from
+    inputs or host function results, are stored on Logfire's servers for up to 7 days.
+    Use an [ephemeral session](#opt-out-of-storage-with-ephemeral-sessions) if state must not be stored.
 
 ## Resume a session from a new connection
 

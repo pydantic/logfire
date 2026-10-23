@@ -97,8 +97,6 @@ import asyncio
 
 from code_tool import pool, run_code
 
-logfire.configure()
-
 TURN_1 = """
 customers = await list_customers()
 churned = [c for c in customers if c['churned_at'] and c['churned_at'] >= '2026-07-01']

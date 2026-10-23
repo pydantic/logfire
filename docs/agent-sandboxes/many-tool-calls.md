@@ -17,8 +17,9 @@ parallel, and computes the answer in Python. Your tools run in your application.
 
 ## What this changes
 
-We asked this question of a Pydantic AI agent three times with plain tool calls, and three times with
-[Agent Sandboxes through Code Mode](pydantic-ai.md). Each customer's request counts were 42 rows: 7 days for 6 API
+We asked this question of a Pydantic AI agent three times with plain tool calls, and three times with Agent Sandboxes
+through [Code Mode](pydantic-ai.md) (a Pydantic AI feature that turns an agent's tools into functions its scripts can
+call). Each customer's request counts were 42 rows: 7 days for 6 API
 endpoints, which is the shape a real metrics API returns.
 
 |                             | Plain tool calls          | Agent Sandboxes            |
@@ -31,8 +32,9 @@ The model was `gpt-5.5`. A smaller model, `gpt-5.4-mini`, gave the same picture:
 tokens, and 3 of 3 correct with 5,886 tokens. With plain tool calls, both models named the wrong customers. They were
 not adding up 1,680 rows reliably by reading them. In the sandbox, Python did the adding.
 
-The gain comes from tools that return more data than the model needs to read. When each tool returns one small value,
-plain tool calls already work well, and a sandbox mostly saves model turns.
+The gain is largest when tools return more data than the model needs to read. But even with a tool that returns one
+availability number for each customer, `gpt-5.4-mini` matched numbers to the wrong customers in 3 of 3 runs with plain
+tool calls, and was right in 3 of 3 runs with Agent Sandboxes. `gpt-5.5` was right every time with both.
 
 ## Before you start
 
@@ -179,7 +181,7 @@ Run `python main.py`. It prints what the model reads after each script:
 ['Customer 42', 'Customer 87']
 ```
 
-The scripts made 81 tool calls and handled 1,680 rows of request counts. The model read three short lines.
+The scripts made 45 tool calls and handled 1,680 rows of request counts. The model read three short lines.
 
 In your application, the agent writes the scripts and your code runs them. See [Use Agent Sandboxes with Pydantic
 AI](pydantic-ai.md) or [Add a code tool to any agent](any-framework.md) to connect the two.
@@ -188,7 +190,7 @@ AI](pydantic-ai.md) or [Add a code tool to any agent](any-framework.md) to conne
 
 Open the [Live view](../guides/web-ui/live.md). You should see a `run code` span (one unit of work: a single operation,
 with a name, a start, and a duration) for each script. The second one has a child span for each of the 40
-`get_request_stats` calls, and they overlap in time because the script ran them in parallel.
+`get_request_stats` calls.
 
 !!! warning "Tool arguments and results are recorded in your project"
     With tracing on (the default), Logfire records each script, each tool call's arguments and result, and each final
@@ -207,8 +209,8 @@ document and deciding what to search next. A script cannot replace that reasonin
 
 - **`NameError: name 'list_customers' is not defined`**: the script called a function that is not in `external_lookup`.
   Pass every function the agent may call.
-- **`MontyCrashedError` with `timed_out=True`**: the slowest tool call took longer than `request_timeout` (10 seconds
-  by default). Pass a larger `request_timeout` to `logfire.agent_sandboxes()`.
+- **`MontyRuntimeError: MemoryError`**: the script holds more data than a sandbox allows. Let your tools return fewer
+  fields or rows. See [What sandbox code can do](limits.md#resource-limits).
 - **The script fails on an unsupported feature**, such as a class that inherits from another class: sandboxes run a
   subset of Python. See [What sandbox code can do](limits.md).
 

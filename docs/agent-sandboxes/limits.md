@@ -51,13 +51,18 @@ Each run of a script in Agent Sandboxes (one `feed_run()` call) has these limits
 | Limit | Value | What happens when code goes over it |
 | ----- | ----- | ----------------------------------- |
 | Processing time | 50 milliseconds | `MontyRuntimeError: TimeoutError: feed time limit exceeded` |
-| Memory | 20 MiB | `MontyRuntimeError: MemoryError: memory limit exceeded` |
+| Memory | 20 MiB | `MontyRuntimeError: MemoryError: memory limit exceeded`, or `MemoryError: the worker exceeded its memory limit and was terminated` for one large allocation. The session is lost in the second case. |
 
 Time that the script spends waiting for your functions does not count toward the processing time. A script that makes
 100 calls to a slow API and then filters the results stays well inside the limit. A script that does heavy computation
 does not. Do heavy computation in your own functions, or in your database query.
 
-Saved sessions and snapshots are kept for 7 days. See [Persist, resume, and fork sessions](sessions.md).
+In practice, a script can hold a few thousand rows of tool results at a time. A test with 5,000 rows of four short
+fields stayed inside the limit. 20,000 rows did not.
+
+Saved sessions and snapshots are kept for 7 days. They count toward a storage limit for each organization, currently
+128 stored objects and 2 GiB in total. Use `checkout(ephemeral=True)` for sessions that nothing will load again. See
+[Persist, resume, and fork sessions](sessions.md).
 
 ## Turn off tracing
 
