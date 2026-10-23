@@ -45,6 +45,7 @@ from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
 from opentelemetry.sdk.metrics.view import View
 from opentelemetry.sdk.resources import ResourceDetector
 from opentelemetry.sdk.trace import SpanProcessor
+from opentelemetry.sdk.trace.export import SpanExporter as SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
 from typing import Any, ClassVar, Literal, TextIO
@@ -80,6 +81,7 @@ class AdvancedOptions:
     server_response_hook: ServerResponseCallback | None = ...
     resource_detectors: Sequence[ResourceDetector | str] | None = ...
     compression: CompressionValues | None = ...
+    pending_spans: bool | None = ...
     def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
         """Resolve the base API URL for `token`, honouring an explicitly configured `base_url`.
 
