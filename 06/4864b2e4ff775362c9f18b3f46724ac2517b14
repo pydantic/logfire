@@ -1,0 +1,76 @@
+CHANGELOG.md
+  s_b3f1e74a1dec17::t_cfa3ee68794147 5-7
+  s_b3f1e74a1dec17::t_4a0aa4c98f04c1 9
+  s_b3f1e74a1dec17::t_327142c861c870 10
+  s_b3f1e74a1dec17::t_6a3584407db1c7 13
+  s_b3f1e74a1dec17::t_6b0cddace5413d 15
+  s_b3f1e74a1dec17::t_ba1f61c290711f 18
+  s_b3f1e74a1dec17::t_334fc734e395d6 16
+  s_b3f1e74a1dec17::t_35aedc51aece1e 8
+  s_b3f1e74a1dec17::t_eb7a6e943a56f5 11
+  s_b3f1e74a1dec17::t_692baaca4455f8 20
+  s_b3f1e74a1dec17::t_9d486a1e4f8d7e 19
+  s_b3f1e74a1dec17::t_3cd1edc971205c 3-4
+  s_b3f1e74a1dec17::t_dc98110d1588bb 12
+  s_b3f1e74a1dec17::t_5217f0d6e94fa0 14
+  s_b3f1e74a1dec17::t_d9b4f386e92ad8 17
+  s_b3f1e74a1dec17::t_f32ff90856d95f 21-23
+  h_d9dd17644dded9 24-43,1435
+pyproject.toml
+  h_d9dd17644dded9 151
+logfire-api/logfire_api/_internal/cli/auth.pyi
+  h_d9dd17644dded9 13-17
+logfire-api/logfire_api/_internal/config.pyi
+  h_d9dd17644dded9 48,84
+logfire-api/logfire_api/_internal/config_params.pyi
+  h_d9dd17644dded9 61
+logfire-api/logfire_api/_internal/integrations/claude_agent_sdk.pyi
+  h_d9dd17644dded9 5,66-71
+logfire-api/logfire_api/_internal/integrations/fastapi.pyi
+  h_d9dd17644dded9 1,12,15,18,22,27-45,47-48
+logfire-api/logfire_api/_internal/integrations/flask.pyi
+  h_d9dd17644dded9 2,7
+logfire-api/logfire_api/_internal/integrations/openai_agents.pyi
+  h_d9dd17644dded9 10-11
+logfire-api/logfire_api/_internal/integrations/starlette.pyi
+  h_d9dd17644dded9 8
+logfire-api/logfire_api/_internal/json_encoder.pyi
+  h_d9dd17644dded9 7-10
+logfire-api/logfire_api/_internal/main.pyi
+  h_d9dd17644dded9 941-944
+logfire-api/logfire_api/_internal/tracer.pyi
+  h_d9dd17644dded9 5
+logfire-api/logfire_api/integrations/logging.pyi
+  h_d9dd17644dded9 2
+logfire-api/logfire_api/integrations/structlog.pyi
+  h_d9dd17644dded9 2
+logfire-api/pyproject.toml
+  h_d9dd17644dded9 7
+logfire-sdk/pyproject.toml
+  h_d9dd17644dded9 7
+logfire/pyproject.toml
+  h_d9dd17644dded9 7,48,57-86
+uv.lock
+  h_d9dd17644dded9 31,3106,3242,3490,5483,5485,5487
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "064864b2e4ff775362c9f18b3f46724ac2517b14",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_b3f1e74a1dec17": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1792748893306",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
