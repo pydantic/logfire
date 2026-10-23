@@ -23,6 +23,10 @@ You need a Logfire API key with permission to run code in your project's agent s
 3. Copy the key.
    It won't be shown again.
 
+<img src="/logfire/images/guide/agent-sandboxes/connect-key.webp" alt="Connect to Monty setup with Create execution key, Use existing key, and View API keys" width="720" height="184" loading="lazy" />
+
+*The setup page offers key creation or use of an existing key.*
+
 You can also create the key in **Project settings → Security & access → API keys → New API key**. Open **Advanced** and
 select **Run code in this project's agent sandboxes**.
 

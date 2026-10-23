@@ -101,3 +101,12 @@ to do:
 
 To connect your agent, see [Use Agent Sandboxes with Pydantic AI](pydantic-ai.md) or [Add a code tool to any
 agent](any-framework.md). For what scripts can run, see [What sandbox code can do](limits.md).
+
+### Use the web UI
+
+Open **AI Optimization** > **Agent Sandboxes** in your project.
+The available tabs depend on the features enabled for your organization.
+
+- [Run code in the Workbench](workbench.md): try Python without installing a local client.
+- [Manage profiles](profiles.md): create and select a named profile for a session.
+- [Inspect sandbox runs](inspect.md): read recorded source and follow related calls in Live view.

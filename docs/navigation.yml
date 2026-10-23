@@ -725,6 +725,17 @@ navigation:
       - page: "Run Code from Python"
         path: "agent-sandboxes/python.md"
         slug: "agent-sandboxes/python"
+      - section: "Use the web UI"
+        contents:
+          - page: "Run code in the Workbench"
+            path: "agent-sandboxes/workbench.md"
+            slug: "agent-sandboxes/workbench"
+          - page: "Manage profiles"
+            path: "agent-sandboxes/profiles.md"
+            slug: "agent-sandboxes/profiles"
+          - page: "Inspect runs"
+            path: "agent-sandboxes/inspect.md"
+            slug: "agent-sandboxes/inspect"
       - section: "Connect Your Agent"
         contents:
           - page: "Pydantic AI"
