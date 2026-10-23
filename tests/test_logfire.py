@@ -4244,6 +4244,17 @@ def test_http_spans_stable_semconv(exporter: TestExporter):
         (
             {
                 'http.request.method': 'GET',
+                'url.path': '/items',
+                'url.query': 'page=1',
+                'url.full': 'http://example.com:8000/ignored?other=2',
+            },
+            'example.com',
+            8000,
+        ),
+        ({'http.method': 'GET', 'http.target': '/items'}, None, None),
+        (
+            {
+                'http.request.method': 'GET',
                 'url.full': 'http://example.com:8000/items',
                 'server.address': 'override.example.com',
             },
@@ -4301,7 +4312,7 @@ def test_http_spans_stable_semconv(exporter: TestExporter):
     ],
 )
 def test_http_client_message_preserves_endpoint_port(
-    exporter: TestExporter, attributes: dict[str, Any], expected_host: str, expected_port: int | None
+    exporter: TestExporter, attributes: dict[str, Any], expected_host: str | None, expected_port: int | None
 ) -> None:
     with get_tracer(__name__).start_span('GET', kind=SpanKind.CLIENT, attributes=attributes):
         pass
@@ -4309,8 +4320,9 @@ def test_http_client_message_preserves_endpoint_port(
     [span] = exporter.exported_spans_as_dict()
     message = span['attributes']['logfire.msg']
     assert isinstance(message, str)
-    endpoint = urlsplit('//' + message.partition(' ')[2])
+    endpoint = urlsplit('//' + message.split(' ', 2)[1])
     assert (endpoint.hostname, endpoint.port) == (expected_host, expected_port)
+    assert endpoint.path == '/items'
     assert endpoint.username is None
     assert endpoint.password is None
     assert span['name'] == 'GET'
