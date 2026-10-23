@@ -40,7 +40,7 @@ Consider the following factors when selecting a region:
 
 - **Geographic proximity**: Choose a region closer to your location or your users for optimal performance
 - **Data residency requirements**: Select the region that aligns with your regulatory compliance needs
-- **GDPR compliance**: Companies requiring GDPR compliance are advised to use the EU region
+- **GDPR compliance**: Companies requiring GDPR compliance are advised to use the EU region. Our standard Data Processing Addendum (DPA) applies in both regions; see [GDPR compliance](../compliance.md#gdpr)
 
 ## Connecting the SDK and API
 

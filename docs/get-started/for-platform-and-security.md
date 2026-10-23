@@ -15,7 +15,7 @@ Each link says why it's here.
 
 2. **[Choose your data region](../reference/data-regions.md)**: Logfire stores data in separate US and EU regions, and your region follows the URL you sign up at. Your account in each region is separate, with its own login and data, and nothing is shared between them, so choose up front for data residency and local regulations; a project's data stays in its region.
 
-3. **[Compliance](../compliance.md)**: Logfire is SOC 2 Type II certified and HIPAA compliant, offers business associate agreements (BAAs), and provides an EU region for GDPR. Use this page to request the SOC 2 report and other documentation.
+3. **[Compliance](../compliance.md)**: Logfire is SOC 2 Type II certified and HIPAA compliant, offers business associate agreements (BAAs), includes a standard GDPR Data Processing Addendum (DPA) on every plan, and provides an EU region. Use this page to request the SOC 2 report and other documentation.
 
 4. **[Single sign-on (SSO) setup](../how-to-guides/sso-setup.md)**: let your team sign in through your existing identity provider (Microsoft Entra ID, Okta, or a Keycloak OpenID Connect (OIDC) provider) instead of separate Logfire logins. Available on Enterprise Cloud.
 

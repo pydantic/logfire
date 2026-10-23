@@ -35,6 +35,8 @@ Organizations requiring:
 - Custom retention
 - Custom Single Sign-On (SSO)
 
+Our standard GDPR Data Processing Addendum (DPA) applies on every plan, not only Enterprise. See [GDPR compliance](compliance.md#gdpr). Enterprise customers can negotiate custom DPA terms.
+
 ### Features
 
 | Feature                         | Description                                                        |
