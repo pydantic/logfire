@@ -176,6 +176,15 @@ def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
             name=part.get('name', ''),
             arguments=part.get('input'),
         )
+    elif part_type in ('server_tool_use', 'mcp_tool_use'):
+        return make_tool_call_part(
+            tool_call_id=part.get('id', ''),
+            name=part.get('name', ''),
+            arguments=part.get('input'),
+        )
+    elif part_type.endswith('_tool_result') and part_type != 'tool_result' and 'tool_use_id' in part:
+        # Results of server-side tools such as `web_search_tool_result` or `web_fetch_tool_result`
+        return ToolCallResponsePart(type='tool_call_response', id=part['tool_use_id'], response=part.get('content'))
     elif part_type == 'tool_result':  # pragma: no cover
         result_content = part.get('content')
         if isinstance(result_content, list):
@@ -230,11 +239,21 @@ def convert_messages_to_semconv(
     return input_messages, system_instructions
 
 
+def _to_jsonable(value: Any) -> Any:
+    """Turn the SDK models in a server tool result into plain dicts and lists."""
+    if isinstance(value, list):
+        return [_to_jsonable(item) for item in cast('list[Any]', value)]
+    if hasattr(value, 'model_dump'):
+        return value.model_dump()
+    return value
+
+
 def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage:
     """Convert an Anthropic response message to OTel Gen AI Semantic Convention format."""
     parts: list[MessagePart] = []
 
     for block in message.content:
+        block_type = getattr(block, 'type', None)
         text = getattr(block, 'text', None)
         if isinstance(block, (TextBlock, BetaTextBlock)) and text is not None:
             parts.append(TextPart(type='text', content=text))
@@ -244,6 +263,23 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
                     tool_call_id=block.id,
                     name=block.name,
                     arguments=block.input,
+                )
+            )
+        elif block_type in ('server_tool_use', 'mcp_tool_use'):
+            parts.append(
+                make_tool_call_part(
+                    tool_call_id=getattr(block, 'id', ''),
+                    name=getattr(block, 'name', ''),
+                    arguments=getattr(block, 'input', None),
+                )
+            )
+        elif isinstance(block_type, str) and block_type.endswith('_tool_result') and hasattr(block, 'tool_use_id'):
+            # Results of server-side tools such as `web_search_tool_result` or `web_fetch_tool_result`
+            parts.append(
+                ToolCallResponsePart(
+                    type='tool_call_response',
+                    id=getattr(block, 'tool_use_id', ''),
+                    response=_to_jsonable(getattr(block, 'content', None)),
                 )
             )
         elif hasattr(block, 'type'):  # pragma: no cover
