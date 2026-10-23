@@ -725,6 +725,9 @@ navigation:
       - page: "Run Code from Python"
         path: "agent-sandboxes/python.md"
         slug: "agent-sandboxes/python"
+      - page: "Persist, Resume, and Fork Sessions"
+        path: "agent-sandboxes/sessions.md"
+        slug: "agent-sandboxes/sessions"
   - section: "Observability"
     slug: ""
     contents:
