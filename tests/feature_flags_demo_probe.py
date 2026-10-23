@@ -439,7 +439,20 @@ def main(scenario: str, *, wait_for_recovery_poll: bool = False) -> None:
         }, declarations
         assert set(declarations.values()) == {1}, declarations
         assert {variable.name for variable in sdk.variables_get()} == set(declarations)
-        serialized = repr([dict(span.attributes or {}) for span in spans])
+        # The targeting key is recorded as `feature_flag.context.id` by design. Every other attribute,
+        # including the targeting attributes, must keep customer identifiers and credentials out.
+        context_ids = {
+            str(context_id)
+            for span in evaluations
+            if (context_id := (span.attributes or {}).get('feature_flag.context.id')) is not None
+        }
+        assert context_ids and all(value.startswith('customer-private-') for value in context_ids), context_ids
+        serialized = repr(
+            [
+                {key: value for key, value in (span.attributes or {}).items() if key != 'feature_flag.context.id'}
+                for span in spans
+            ]
+        )
         for secret in (
             'customer-private-',
             'demo-local-credential',

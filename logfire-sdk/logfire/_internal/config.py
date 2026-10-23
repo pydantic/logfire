@@ -484,6 +484,12 @@ class VariablesOptions:
     """Whether to include OpenTelemetry resource attributes when resolving variables."""
     include_baggage_in_context: bool = True
     """Whether to include OpenTelemetry baggage when resolving variables."""
+    include_targeting_key_in_telemetry: bool = True
+    """Whether resolution spans record the targeting key.
+
+    Feature flags record it as `feature_flag.context.id`, and only when the application supplied it.
+    Managed variables record it as `targeting_key`.
+    """
     instrument: bool = True
     """Whether to create spans when resolving variables."""
     template_mismatch_policy: TemplateMismatchPolicy = 'warn'
@@ -520,6 +526,12 @@ class LocalVariablesOptions:
     """Whether to include OpenTelemetry resource attributes when resolving variables."""
     include_baggage_in_context: bool = True
     """Whether to include OpenTelemetry baggage when resolving variables."""
+    include_targeting_key_in_telemetry: bool = True
+    """Whether resolution spans record the targeting key.
+
+    Feature flags record it as `feature_flag.context.id`, and only when the application supplied it.
+    Managed variables record it as `targeting_key`.
+    """
     instrument: bool = True
     """Whether to create spans when resolving variables."""
     template_mismatch_policy: TemplateMismatchPolicy = 'warn'

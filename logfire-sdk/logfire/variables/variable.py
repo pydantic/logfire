@@ -1,9 +1,11 @@
 from __future__ import annotations as _annotations
 
+import hmac
 import inspect
 import json
 import math
 import os
+import secrets
 import threading
 import warnings
 from collections.abc import Generator, Mapping, Sequence
@@ -140,6 +142,13 @@ class _TargetingContextData:
 
 _TARGETING_CONTEXT: ContextVar[_TargetingContextData | None] = ContextVar('_TARGETING_CONTEXT', default=None)
 _FEATURE_TARGETING_KEY: ContextVar[str | None] = ContextVar('_FEATURE_TARGETING_KEY', default=None)
+# Where the targeting key of the feature flag being evaluated came from: 'explicit' for a call-site
+# or context key, 'trace' or 'ephemeral' for a fallback key that Logfire chose.
+_FEATURE_TARGETING_KEY_SOURCE: ContextVar[str | None] = ContextVar('_FEATURE_TARGETING_KEY_SOURCE', default=None)
+# A fallback key for unkeyed flag evaluations outside a trace. It stays set for the rest of the context.
+_EPHEMERAL_TARGETING_KEY: ContextVar[str | None] = ContextVar('_EPHEMERAL_TARGETING_KEY', default=None)
+# Callers control incoming trace IDs. The process secret keeps them from choosing a rollout bucket.
+_TRACE_TARGETING_KEY_SECRET = secrets.token_bytes(32)
 _SUPPRESS_FEATURE_FLAG_TELEMETRY: ContextVar[frozenset[object]] = ContextVar(
     '_SUPPRESS_FEATURE_FLAG_TELEMETRY', default=frozenset()
 )
@@ -253,14 +262,22 @@ def _feature_flag_evaluation_details(
 
     if result.reason == 'validation_error':
         reason = 'error'
-        error_code = 'type_mismatch'
-        error_message = 'Configured value did not match the declared flag type.'
+        if _is_json_parse_error(result.exception):
+            error_code = 'parse_error'
+            error_message = 'Configured value is not valid JSON.'
+        else:
+            error_code = 'type_mismatch'
+            error_message = _type_mismatch_message(result.exception)
     elif result.reason == 'other_error' or result.exception is not None:
         reason = 'error'
         error_code = 'general'
         error_message = 'Feature flag evaluation failed.'
     elif result.reason == 'context_override':
-        reason = 'static'
+        reason = 'context_override'
+    elif isinstance(result, _ResolvedFeatureFlag) and result.flag_not_found:
+        reason = 'error'
+        error_code = 'flag_not_found'
+        error_message = f"Feature flag '{result.name}' is not configured in Logfire."
     elif result.rule_evaluation_reason == 'split':
         reason = 'split'
     elif result.rule_evaluation_reason == 'targeting_match' and result.reason == 'resolved':
@@ -293,6 +310,13 @@ def _feature_flag_evaluation_details(
         metadata['logfire.value_version'] = result.version
     if provider_state == 'stale' and not has_error and result.reason != 'context_override':
         metadata['logfire.provider_state'] = 'stale'
+    if (
+        isinstance(result, _ResolvedFeatureFlag)
+        and result.targeting_key_source in ('trace', 'ephemeral')
+        and reason == 'split'
+    ):
+        # The split used a fallback key, so the variant is only consistent within this trace.
+        metadata['logfire.targeting_key_source'] = result.targeting_key_source
     return FlagEvaluationDetails(
         flag_key=result.name,
         value=result.value,
@@ -302,6 +326,30 @@ def _feature_flag_evaluation_details(
         error_message=error_message,
         flag_metadata=metadata,
     )
+
+
+def _is_json_parse_error(exception: Exception | None) -> bool:
+    """Return whether validation failed because the configured value is not valid JSON."""
+    return isinstance(exception, ValidationError) and any(
+        error['type'] == 'json_invalid' for error in exception.errors(include_input=False, include_url=False)
+    )
+
+
+def _type_mismatch_message(exception: Exception | None) -> str:
+    """Name the failing fields and error types without including the rejected input."""
+    message = 'Configured value did not match the declared flag type'
+    if not isinstance(exception, ValidationError):
+        return f'{message}.'
+    # Error types and locations come from the declared schema. Error messages can quote custom
+    # validator text, and the input can contain secrets, so neither is included.
+    problems = [
+        f'{".".join(str(part) for part in error["loc"]) or "value"} ({error["type"]})'
+        for error in exception.errors(include_input=False, include_url=False)
+    ]
+    shown = ', '.join(problems[:3])
+    if len(problems) > 3:
+        shown += f', and {len(problems) - 3} more'
+    return f'{message}: {shown}.'
 
 
 def _feature_flag_telemetry_attributes(
@@ -408,6 +456,10 @@ class _ResolvedFeatureFlag(ResolvedVariable[T_co]):
     """A resolution paired with the provider-health snapshot used for its telemetry and return value."""
 
     provider_state: VariableProviderEvaluationState
+    flag_not_found: bool = False
+    """Whether a ready provider has no configuration for this flag."""
+    targeting_key_source: str | None = None
+    """Where the targeting key came from: 'explicit', 'trace', 'ephemeral', or None without a key."""
 
 
 class _FlagEvaluationCore(Generic[T_co]):
@@ -1263,13 +1315,8 @@ class _FlagEvaluationCore(Generic[T_co]):
         if targeting_key is None:
             targeting_key = _get_contextvar_targeting_key(self.name)
 
-        if (
-            targeting_key is None
-            and self._uses_trace_id_as_targeting_key()
-            and (current_trace_id := get_current_span().get_span_context().trace_id)
-        ):
-            # If there is no active trace, the current_trace_id will be zero
-            targeting_key = f'trace_id:{current_trace_id:032x}'
+        if targeting_key is None:
+            targeting_key = self._fallback_targeting_key()
 
         # Include the variable name directly here to make the span name more useful,
         # it'll still be low cardinality. This also prevents it from being scrubbed from the message.
@@ -1344,15 +1391,19 @@ class _FlagEvaluationCore(Generic[T_co]):
 
     def _telemetry_context(self, targeting_key: str | None, attributes: Mapping[str, Any]) -> dict[str, Any]:
         """Return evaluation context attributes included on the resolution span."""
+        if not _include_targeting_key_in_telemetry(self.logfire_instance.config.variables):
+            return {'attributes': attributes}
         return {'targeting_key': targeting_key, 'attributes': attributes}
 
     def _record_resolution_exception(self, span: logfire.LogfireSpan, exception: BaseException) -> None:
         """Record a managed-variable resolution exception."""
         span.record_exception(exception)
 
-    def _uses_trace_id_as_targeting_key(self) -> bool:
-        """Return whether an active trace may provide a fallback targeting key."""
-        return True
+    def _fallback_targeting_key(self) -> str | None:
+        """Return the targeting key to use when neither the caller nor the context supplies one."""
+        current_trace_id = get_current_span().get_span_context().trace_id
+        # If there is no active trace, the current_trace_id will be zero
+        return f'trace_id:{current_trace_id:032x}' if current_trace_id else None
 
     def get(
         self,
@@ -1406,9 +1457,22 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         stage_description = 'value failed validation' if stage == 'validation' else f'{stage} failed'
         _emit_resolution_warning(f"Feature flag '{self.name}' {stage_description}; falling back to code default.")
 
-    def _uses_trace_id_as_targeting_key(self) -> bool:
-        # Inbound trace IDs can be controlled by callers and must not influence feature assignment.
-        return False
+    def _fallback_targeting_key(self) -> str:
+        """Return a key that keeps unkeyed evaluations consistent within the current trace.
+
+        A caller controls an incoming trace ID, so the trace ID is hashed with a process secret
+        before it selects a rollout bucket. Outside a trace, a random key stays set for the rest of
+        the current context.
+        """
+        trace_id = get_current_span().get_span_context().trace_id
+        if trace_id:
+            digest = hmac.new(_TRACE_TARGETING_KEY_SECRET, trace_id.to_bytes(16, 'big'), 'sha256').hexdigest()
+            return f'trace:{digest[:32]}'
+        key = _EPHEMERAL_TARGETING_KEY.get()
+        if key is None:
+            key = f'ephemeral:{secrets.token_hex(16)}'
+            _EPHEMERAL_TARGETING_KEY.set(key)
+        return key
 
     def __init__(
         self,
@@ -1456,12 +1520,12 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
                     return overrides[self._override_key]
         return self._deserialize(serialized_value)
 
-    @contextmanager
-    def override(self, value: FlagT | ResolveFunction[FlagT]) -> Generator[None]:
-        """Validate a compatibility override once before it enters the flag's context."""
+    def override(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self, value: FlagT | ResolveFunction[FlagT]
+    ) -> AbstractContextManager[None]:
+        """Validate the override value when it is created, before it enters the flag's context."""
         validated_value: FlagT = self.type_adapter.validate_python(value, strict=True)
-        with super().override(validated_value):
-            yield
+        return super().override(validated_value)
 
     def get(
         self,
@@ -1471,12 +1535,20 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         label: str | None = None,
     ) -> ResolvedVariable[FlagT]:
         """Evaluate the flag and return its value and resolution details."""
-        context_targeting_key = self._get_context_targeting_key()
-        has_stable_targeting_key = targeting_key is not None or context_targeting_key is not None
         if targeting_key is None:
-            targeting_key = context_targeting_key
+            targeting_key = self._get_context_targeting_key()
+        has_stable_targeting_key = targeting_key is not None
+        if has_stable_targeting_key:
+            source = 'explicit'
+        else:
+            targeting_key = self._fallback_targeting_key()
+            source = 'trace' if targeting_key.startswith('trace:') else 'ephemeral'
 
-        result = super().get(targeting_key, attributes, label=label)
+        source_token = _FEATURE_TARGETING_KEY_SOURCE.set(source)
+        try:
+            result = super().get(targeting_key, attributes, label=label)
+        finally:
+            _FEATURE_TARGETING_KEY_SOURCE.reset(source_token)
         if not has_stable_targeting_key and result.reason != 'context_override':
             try:
                 variable_config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
@@ -1492,7 +1564,8 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
             )
             if requires_targeting_key and not label_selects_static_value:
                 _emit_resolution_warning(
-                    f"Feature flag '{self.name}' has a percentage rollout but no stable targeting key. "
+                    f"Feature flag '{self.name}' has a percentage rollout but no stable targeting key, "
+                    'so the variant stays the same only within the current trace. '
                     'Pass targeting_key=... or use feature_context(...) to keep each subject on one variant.',
                 )
         return result
@@ -1507,27 +1580,18 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
             return feature_key
         return context.default if context is not None else None
 
-    def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
-        # Propagated baggage can be supplied by an untrusted caller. Feature targeting only uses
-        # process-owned resource attributes and attributes supplied explicitly by application code.
-        from logfire._internal.config import LocalVariablesOptions, VariablesOptions
-
-        result: dict[str, Any] = {}
-        variables = self.logfire_instance.config.variables
-        if not isinstance(variables, (VariablesOptions, LocalVariablesOptions)) or (
-            variables.include_resource_attributes_in_context
-        ):
-            result.update(self.logfire_instance.resource_attributes)
-        result.update(_get_contextvar_attributes())
-        if attributes is not None:
-            result.update(attributes)
-        return result
-
     def _telemetry_context(self, targeting_key: str | None, attributes: Mapping[str, Any]) -> dict[str, Any]:
-        # Evaluation context can contain identifiers or customer attributes. Decisions happen
-        # locally, so the surrounding trace is sufficient for correlation and the raw context
-        # does not need to leave the process.
-        return {}
+        # Targeting attributes can contain customer data, so they never leave the process. The
+        # targeting key answers "why did this subject get this variant?", so it is recorded as
+        # OpenTelemetry's `feature_flag.context.id` when the application supplied it.
+        del attributes
+        if (
+            targeting_key is None
+            or _FEATURE_TARGETING_KEY_SOURCE.get() != 'explicit'
+            or not _include_targeting_key_in_telemetry(self.logfire_instance.config.variables)
+        ):
+            return {}
+        return {'feature_flag.context.id': targeting_key}
 
     def _record_resolution_exception(self, span: logfire.LogfireSpan, exception: BaseException) -> None:
         # Provider exceptions may contain targeting data. The generic error attributes retain the
@@ -1591,7 +1655,29 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
             reason=result.reason,
             rule_evaluation_reason=result.rule_evaluation_reason,
             provider_state=provider_state,
+            flag_not_found=self._is_flag_not_found(result, provider_state),
+            targeting_key_source=_FEATURE_TARGETING_KEY_SOURCE.get(),
         )
+
+    def _is_flag_not_found(
+        self, result: ResolvedVariable[FlagT], provider_state: VariableProviderEvaluationState
+    ) -> bool:
+        """Return whether a provider with loaded configuration has no entry for this flag.
+
+        A flag that is configured but whose rollout selects the code default is not missing.
+        Without a configured provider, for example without an API key, flags use their code
+        defaults without reporting an error.
+        """
+        from logfire.variables.abstract import NoOpVariableProvider
+
+        if result.reason != 'code_default' or result.exception is not None or provider_state not in ('ready', 'stale'):
+            return False
+        try:
+            provider = self.logfire_instance.config.get_variable_provider()
+            return not isinstance(provider, NoOpVariableProvider) and provider.get_variable_config(self.name) is None
+        except Exception:
+            # This check only classifies a value that resolution already returned safely.
+            return False
 
     def _result_for_provider_state(
         self,
@@ -1617,11 +1703,6 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         if state in ('not_ready', 'ready', 'stale', 'fatal'):
             return state
         return 'error'
-
-    def override_for_testing(self, value: FlagT) -> AbstractContextManager[None]:
-        """Temporarily replace the flag value in the current context."""
-        validated_value: FlagT = self.type_adapter.validate_python(value, strict=True)
-        return super().override(validated_value)
 
 
 class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
@@ -1951,7 +2032,12 @@ def feature_context(
     Args:
         targeting_key: Stable identifier used for deterministic rollouts, such as a user or organization ID.
         attributes: Optional targeting attributes, such as the user's plan or region.
+
+    Raises:
+        ValueError: If `targeting_key` is empty.
     """
+    if not targeting_key:
+        raise ValueError('feature_context() requires a non-empty targeting key.')
     feature_token = _FEATURE_TARGETING_KEY.set(targeting_key)
     try:
         with targeting_context(targeting_key, attributes=attributes):
@@ -1981,6 +2067,15 @@ def _get_contextvar_attributes() -> Mapping[str, Any]:
     """Return request-local targeting attributes."""
     ctx = _TARGETING_CONTEXT.get()
     return ctx.attributes if ctx is not None else {}
+
+
+def _include_targeting_key_in_telemetry(variables: Any) -> bool:
+    """Get the `include_targeting_key_in_telemetry` setting, defaulting to True."""
+    from logfire._internal.config import LocalVariablesOptions, VariablesOptions
+
+    if isinstance(variables, (VariablesOptions, LocalVariablesOptions)):
+        return variables.include_targeting_key_in_telemetry
+    return True
 
 
 def _get_variables_instrument(variables: Any) -> bool:

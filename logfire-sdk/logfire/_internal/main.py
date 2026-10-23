@@ -2637,7 +2637,7 @@ class Logfire:
         """Register a typed feature flag on this Logfire instance."""
         from logfire.variables import ensure_variables_dependencies
 
-        ensure_variables_dependencies()
+        ensure_variables_dependencies('feature-flags')
 
         from logfire.variables.variable import _ManagedVariableFlagAdapter  # pyright: ignore[reportPrivateUsage]
 

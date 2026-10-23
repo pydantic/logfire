@@ -38,7 +38,7 @@ def postprocess_feature_flags_pyi(content: str) -> str:
     typed_constructor = 'def __init__(self: Flag[InferableFlagT], name: str, *, default: InferableFlagT,'
     content = content.replace(
         'FlagEvaluationReason: Incomplete',
-        "FlagEvaluationReason = Literal['cached', 'default', 'disabled', 'error', 'split', 'stale', 'static', 'targeting_match', 'unknown']",
+        "FlagEvaluationReason = Literal['cached', 'context_override', 'default', 'disabled', 'error', 'split', 'stale', 'static', 'targeting_match', 'unknown']",
     ).replace(
         'FlagErrorCode: Incomplete',
         "FlagErrorCode = Literal['flag_not_found', 'general', 'invalid_context', 'parse_error', 'provider_fatal', 'provider_not_ready', 'targeting_key_missing', 'type_mismatch']",

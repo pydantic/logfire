@@ -6,7 +6,7 @@ This API may change while its evaluation context and telemetry contracts are ref
 from __future__ import annotations
 
 from collections.abc import Mapping
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, ExitStack
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
@@ -40,6 +40,7 @@ InferableFlagT = TypeVar('InferableFlagT', bound=InferableFlagValue)
 
 FlagEvaluationReason = Literal[
     'cached',
+    'context_override',
     'default',
     'disabled',
     'error',
@@ -49,7 +50,21 @@ FlagEvaluationReason = Literal[
     'targeting_match',
     'unknown',
 ]
-"""Why a feature-flag evaluation returned its value."""
+"""Why a feature-flag evaluation returned its value.
+
+The values follow the OpenFeature specification's resolution reasons, lowercased, plus the
+Logfire-specific `context_override`:
+
+- `static`: the configured rollout serves one value to every subject.
+- `split`: a percentage rollout selected the value.
+- `targeting_match`: a targeting rule matched the evaluation context.
+- `default`: the code default was used because no configured value applies.
+- `stale`: the value comes from configuration that a recent refresh could not update.
+- `error`: evaluation failed and returned the code default. `error_code` says why.
+- `context_override`: a value set with `Flag.override()` was used. Managed variables report the
+  same reason.
+- `cached`, `disabled`, `unknown`: reserved to match OpenFeature. Logfire does not return them.
+"""
 
 FlagErrorCode = Literal[
     'flag_not_found',
@@ -61,12 +76,34 @@ FlagErrorCode = Literal[
     'targeting_key_missing',
     'type_mismatch',
 ]
-"""A stable classification for a native Logfire feature-flag evaluation error."""
+"""A stable classification for a feature-flag evaluation error.
+
+The values follow the OpenFeature specification's error codes, lowercased. `targeting_key_missing`
+and `invalid_context` are reserved to match OpenFeature. Logfire does not return them: an evaluation
+without a targeting key uses a key that stays the same for the rest of the trace instead.
+"""
 
 
 @dataclass(frozen=True, slots=True)
 class FlagEvaluationDetails(Generic[T]):
-    """The result of evaluating a Logfire feature flag."""
+    """The result of evaluating a Logfire feature flag.
+
+    The fields follow OpenFeature's evaluation details.
+
+    Use the details as a context manager to tag telemetry with the selected variant. Inside the
+    block, Logfire sets the `logfire.variables.<flag name>` baggage entry, the same entry that
+    `logfire.var(...).get()` sets. Spans and logs created in the block carry it as an attribute,
+    so you can filter them by variant without joining on the trace ID:
+
+    ```python skip="true"
+    with new_checkout.details(user_id) as details:
+        if details.value:
+            ...
+    ```
+
+    Baggage also travels to downstream services and to outgoing HTTP requests, including
+    requests to third-party APIs. Do not use this for variant names that must stay private.
+    """
 
     flag_key: str
     value: T
@@ -75,6 +112,31 @@ class FlagEvaluationDetails(Generic[T]):
     error_code: FlagErrorCode | None = None
     error_message: str | None = None
     flag_metadata: Mapping[str, Any] = field(default_factory=dict[str, Any])
+    _baggage_scopes: list[ExitStack] = field(
+        default_factory=list[ExitStack], init=False, repr=False, compare=False, hash=False
+    )
+
+    def __enter__(self) -> FlagEvaluationDetails[T]:
+        import logfire
+
+        if self.variant is not None:
+            label = self.variant
+        elif self.reason == 'context_override':
+            label = '<context_override>'
+        else:
+            label = '<code_default>'
+        baggage_entries = {f'logfire.variables.{self.flag_key}': label}
+        version = self.flag_metadata.get('logfire.value_version')
+        if version is not None:
+            baggage_entries[f'logfire.variables.{self.flag_key}.version'] = str(version)
+        stack = ExitStack()
+        stack.enter_context(logfire.set_baggage(**baggage_entries))
+        # One stack per entry, so nested or repeated use of the same details unwinds in order.
+        self._baggage_scopes.append(stack)
+        return self
+
+    def __exit__(self, *exc_info: Any) -> None:
+        self._baggage_scopes.pop().close()
 
 
 class Flag(Generic[T]):
@@ -118,7 +180,7 @@ class Flag(Generic[T]):
         logfire_instance: Logfire | None = None,
     ):
         """Define a typed feature flag backed by the configured Logfire provider."""
-        ensure_variables_dependencies()
+        ensure_variables_dependencies('feature-flags')
         if logfire_instance is None:
             from logfire import DEFAULT_LOGFIRE_INSTANCE
 
@@ -156,9 +218,19 @@ class Flag(Generic[T]):
         """Evaluate the flag and return native Logfire evaluation details."""
         return self._adapter.evaluate_flag(targeting_key, attributes)
 
-    def override_for_testing(self, value: T) -> AbstractContextManager[None]:
-        """Temporarily replace the flag value in the current context."""
-        return self._adapter.override_for_testing(value)
+    def override(self, value: T) -> AbstractContextManager[None]:
+        """Replace the flag value in the current context.
+
+        Use this in tests, or in production to force a value for one request, such as for internal
+        users. Evaluations in the block report the `context_override` reason, so overridden values
+        stay visible in telemetry.
+
+        The override is stored in a context variable. It applies to async tasks, `asyncio.to_thread`
+        and `run_in_executor` calls, and Starlette or FastAPI `TestClient` requests started in the
+        block. It does not apply to threads that do not copy the context, such as a plain
+        `threading.Thread` or a `concurrent.futures` executor, or to other processes.
+        """
+        return self._adapter.override(value)
 
 
 def _infer_flag_type(default: object) -> type[Any]:
@@ -206,8 +278,11 @@ def feature_context(
     *,
     attributes: Mapping[str, Any] | None = None,
 ) -> AbstractContextManager[None]:
-    """Set request-local identity and attributes for feature-flag evaluations."""
-    ensure_variables_dependencies()
+    """Set request-local identity and attributes for feature-flag evaluations.
+
+    The targeting key is the evaluation context's OpenFeature targeting key. It must not be empty.
+    """
+    ensure_variables_dependencies('feature-flags')
     from logfire.variables.variable import feature_context as _feature_context
 
     return _feature_context(targeting_key, attributes=attributes)

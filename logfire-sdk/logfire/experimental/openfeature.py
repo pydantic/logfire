@@ -44,8 +44,10 @@ __all__ = ('LogfireProvider',)
 
 T = TypeVar('T')
 
-_REASONS: dict[FlagEvaluationReason, Reason] = {
+# OpenFeature allows provider-specific reasons. `CONTEXT_OVERRIDE` reports `Flag.override()` values.
+_REASONS: dict[FlagEvaluationReason, Reason | str] = {
     'cached': Reason.CACHED,
+    'context_override': 'CONTEXT_OVERRIDE',
     'default': Reason.DEFAULT,
     'disabled': Reason.DISABLED,
     'error': Reason.ERROR,
@@ -75,7 +77,7 @@ class LogfireProvider(AbstractProvider):
     """
 
     def __init__(self, logfire_instance: Logfire | None = None):
-        ensure_variables_dependencies()
+        ensure_variables_dependencies('openfeature')
         if logfire_instance is None:
             from logfire import DEFAULT_LOGFIRE_INSTANCE
 
@@ -198,6 +200,7 @@ class LogfireProvider(AbstractProvider):
         from logfire.variables.variable import (
             _SUPPRESS_FEATURE_FLAG_TELEMETRY,  # pyright: ignore[reportPrivateUsage]
             _get_variables_instrument,  # pyright: ignore[reportPrivateUsage]
+            _include_targeting_key_in_telemetry,  # pyright: ignore[reportPrivateUsage]
             _scrub_feature_flag_result,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -230,6 +233,9 @@ class LogfireProvider(AbstractProvider):
                 telemetry = _evaluation_telemetry(flag_key, result, record_value=not used_caller_default)
                 if 'feature_flag.result.value' in telemetry:
                     telemetry = _scrub_feature_flag_result(telemetry, flag_key, result.value, self._logfire)
+                targeting_key = context.targeting_key if context is not None else None
+                if targeting_key and _include_targeting_key_in_telemetry(self._logfire.config.variables):
+                    telemetry['feature_flag.context.id'] = targeting_key
                 span.set_attributes(telemetry)
             return result
 
@@ -333,13 +339,6 @@ class LogfireProvider(AbstractProvider):
         finally:
             _SUPPRESS_FEATURE_FLAG_TELEMETRY.reset(token)
         used_caller_default = result.reason == 'code_default'
-        if (
-            used_caller_default
-            and result.rule_evaluation_reason is None
-            and result.exception is None
-            and result.provider_state in ('ready', 'stale')
-        ):
-            return _flag_not_found(flag_key, default_value), used_caller_default
         resolution = _to_openfeature_details(
             _feature_flag_evaluation_details(result, result.provider_state), default_value
         )
@@ -429,15 +428,6 @@ def _type_mismatch(default_value: T, message: str) -> FlagResolutionDetails[T]:
         reason=Reason.ERROR,
         error_code=ErrorCode.TYPE_MISMATCH,
         error_message=message,
-    )
-
-
-def _flag_not_found(flag_key: str, default_value: T) -> FlagResolutionDetails[T]:
-    return FlagResolutionDetails(
-        value=default_value,
-        reason=Reason.ERROR,
-        error_code=ErrorCode.FLAG_NOT_FOUND,
-        error_message=f"Flag '{flag_key}' has no configured value.",
     )
 
 

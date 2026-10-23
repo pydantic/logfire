@@ -2936,10 +2936,14 @@ class TestFeatureFlag:
         logfire.configure(**config_kwargs)
         flag = create_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
 
+        # The provider has loaded configuration without this flag, so a typo in its name shows up.
         assert flag.value() is False
-        assert flag.details().reason == 'default'
-        with flag.override_for_testing(True):
+        missing = flag.details()
+        assert (missing.reason, missing.error_code) == ('error', 'flag_not_found')
+        assert missing.error_message == "Feature flag 'new_checkout' is not configured in Logfire."
+        with flag.override(True):
             assert flag.value() is True
+            assert flag.details().reason == 'context_override'
 
     def test_invalid_managed_value_keeps_boolean_contract(self, config_kwargs: dict[str, Any]):
         config = VariablesConfig(
@@ -2962,7 +2966,7 @@ class TestFeatureFlag:
         assert details.value is False
         assert details.reason == 'error'
         assert details.error_code == 'type_mismatch'
-        assert details.error_message == 'Configured value did not match the declared flag type.'
+        assert details.error_message == 'Configured value did not match the declared flag type: value (bool_type).'
 
     def test_evaluate_with_feature_context(self, config_kwargs: dict[str, Any], feature_flags_config: VariablesConfig):
         config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
@@ -3164,17 +3168,34 @@ class TestFeatureFlag:
             with feature_context('user-456'):
                 flag.value()
 
-    def test_propagated_baggage_does_not_target_feature_flags(
+    def test_baggage_targets_feature_flags_and_explicit_attributes_win(
         self, config_kwargs: dict[str, Any], feature_flags_config: VariablesConfig
     ):
         config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
         logfire.configure(**config_kwargs)
         flag = create_flag('new_checkout', default=False)
 
+        # user-123 resolves differently for the base rollout and the free-plan override.
+        assert flag.details(targeting_key='user-123').variant == 'enabled'
         with logfire.set_baggage(plan='free'):
-            # user-123 resolves differently for the base rollout and the free-plan override.
+            # Baggage set higher up the call stack in this service targets the flag.
+            assert flag.details(targeting_key='user-123').variant == 'disabled'
+            # An attribute passed explicitly takes precedence over baggage.
+            assert flag.details(targeting_key='user-123', attributes={'plan': 'team'}).variant == 'enabled'
+            with feature_context('user-123', attributes={'plan': 'team'}):
+                assert flag.details().variant == 'enabled'
+
+    def test_baggage_can_be_excluded_from_feature_flag_targeting(
+        self, config_kwargs: dict[str, Any], feature_flags_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=feature_flags_config, include_baggage_in_context=False
+        )
+        logfire.configure(**config_kwargs)
+        flag = create_flag('new_checkout', default=False)
+
+        with logfire.set_baggage(plan='free'):
             assert flag.details(targeting_key='user-123').variant == 'enabled'
-            assert flag.details(targeting_key='user-123', attributes={'plan': 'free'}).variant == 'disabled'
 
     def test_resource_attributes_can_be_excluded_from_feature_flag_targeting(
         self,

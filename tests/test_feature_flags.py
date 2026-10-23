@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 # pyright: reportPrivateUsage=false
+import contextvars
 import json
 import math
 import os
@@ -499,7 +500,8 @@ def test_openfeature_telemetry_omits_non_json_fallbacks(config_kwargs: dict[str,
     assert details.value is value
     attributes = _finished_flag_spans(exporter)[0].attributes
     assert 'feature_flag.result.value' not in attributes
-    assert attributes['logfire.feature_flag.result.value_status'] == 'error_fallback'
+    # Without a configured provider the caller default is not an error, and it is still not exported.
+    assert attributes['logfire.feature_flag.result.value_status'] == 'caller_default'
 
 
 def test_openfeature_does_not_suppress_same_named_flags_on_another_logfire_instance(
@@ -565,6 +567,15 @@ def _boolean_config(*, rollout: Rollout, overrides: list[RolloutOverride] | None
     )
 
 
+def _code_default_config(*names: str) -> VariablesConfig:
+    """Configure flags whose rollout selects the code default, so they exist but have no value."""
+    return VariablesConfig(
+        variables={
+            name: VariableConfig(name=name, labels={}, rollout=Rollout(labels={}), overrides=[]) for name in names
+        }
+    )
+
+
 def _rollout_from_parts(parts: tuple[int, int, int]) -> Rollout:
     return Rollout(
         labels={
@@ -613,7 +624,7 @@ def test_boolean_flag_rejects_non_boolean_defaults(constructor: Any):
             ResolvedVariable(name='test_flag', value=True, reason='context_override'),
             None,
             {},
-            'static',
+            'context_override',
             None,
         ),
         (
@@ -795,7 +806,7 @@ def test_feature_flag_existing_outcome_does_not_consult_unknown_provider_state(r
         ResolvedVariable(name='test_flag', value=False, reason=reason),
         cast(Any, 'not-a-provider-state'),
     )
-    assert details.reason == ('static' if reason == 'context_override' else 'error')
+    assert details.reason == ('context_override' if reason == 'context_override' else 'error')
 
 
 def test_rollout_warning_inspection_cannot_break_a_resolved_value():
@@ -1058,7 +1069,7 @@ def test_typed_flag_validates_pydantic_models_and_overrides():
 
     assert checkout.value() == CheckoutConfig(provider='stripe', retries=3)
     assert checkout.details().variant == 'fast'
-    with checkout.override_for_testing(CheckoutConfig(provider='test', retries=0)):
+    with checkout.override(CheckoutConfig(provider='test', retries=0)):
         assert checkout.value() == CheckoutConfig(provider='test', retries=0)
 
 
@@ -1135,18 +1146,19 @@ def test_feature_flag_override_is_normalized_once_and_restored(compatibility_api
         variables=LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False),
     )
     setting = create_flag('normalized', type=cast(Any, Annotated[int, AfterValidator(normalize)]), default=0)
-    manager = logfire.variables_get()[0].override(1) if compatibility_api else setting.override_for_testing(1)
-    assert calls == ([0] if compatibility_api else [0, 1])
+    manager = logfire.variables_get()[0].override(1) if compatibility_api else setting.override(1)
+    # Both override APIs validate the value when the override is created.
+    assert calls == [0, 1]
     assert setting.value() == 1
     with manager:
         assert setting.value() == 2
         assert setting.details().value == 2
         assert LogfireProvider().resolve_integer_details('normalized', -1).value == 2
-        with setting.override_for_testing(10):
+        with setting.override(10):
             assert setting.value() == 11
         assert setting.value() == 2
         with pytest.raises(RuntimeError, match='cancelled'):
-            with setting.override_for_testing(20):
+            with setting.override(20):
                 assert setting.value() == 21
                 raise RuntimeError('cancelled')
         assert setting.value() == 2
@@ -1175,7 +1187,7 @@ def test_feature_flag_provider_override_is_validated_without_a_local_override(ot
         ),
     ):
         if other_override:
-            stack.enter_context(other.override_for_testing(True))
+            stack.enter_context(other.override(True))
         assert setting.value() == 6
 
 
@@ -1190,12 +1202,12 @@ def test_feature_flag_overrides_are_isolated_from_other_instances_and_legacy_var
         legacy_variable = legacy.var('shared_key', default=False)
         composed = left.var('message', default='flag=@{shared_key}@')
 
-        with left_flag.override_for_testing(True):
+        with left_flag.override(True):
             assert left_flag.value() is True
             assert right_flag.value() is False
             assert legacy_variable.get().value is False
             assert composed.get().value == 'flag=true'
-            with right_flag.override_for_testing(False):
+            with right_flag.override(False):
                 assert left_flag.value() is True
                 assert right_flag.value() is False
         with legacy_variable.override(True):
@@ -1220,7 +1232,7 @@ def test_feature_flag_defaults_and_overrides_still_compose():
     logfire.var('region', default='eu')
     setting = create_flag('message', default='Hello @{region}@')
     assert setting.value() == 'Hello eu'
-    with setting.override_for_testing('Goodbye @{region}@'):
+    with setting.override('Goodbye @{region}@'):
         assert setting.value() == 'Goodbye eu'
     assert setting.value() == 'Hello eu'
 
@@ -1292,9 +1304,9 @@ def test_feature_flag_validates_test_overrides_before_installing_them():
     enabled = create_flag('enabled', default=False)
 
     with pytest.raises(ValidationError, match='bool_type'):
-        enabled.override_for_testing(cast(Any, object()))
+        enabled.override(cast(Any, object()))
     with pytest.raises(ValidationError, match='bool_type'):
-        enabled._adapter.override_for_testing(cast(Any, object()))
+        enabled._adapter.override(cast(Any, object()))
 
     assert enabled.value() is False
 
@@ -1341,7 +1353,7 @@ def test_typed_flags_do_not_coerce_defaults_or_test_overrides(value_type: type[A
 
     typed_flag = create_flag('typed_flag', type=value_type, default=value_type())
     with pytest.raises(ValidationError):
-        typed_flag.override_for_testing(invalid_value)
+        typed_flag.override(invalid_value)
 
 
 def test_float_flags_follow_pydantic_strict_numeric_widening():
@@ -1523,10 +1535,10 @@ def test_openfeature_remote_lookup_adopts_a_later_native_declaration(
     flag_type = Annotated[str, PlainSerializer(str.upper, return_type=str, when_used='json')]
     native = create_flag('test_flag', type=cast(Any, flag_type), default='')
     assert provider.resolve_string_details('test_flag', '').value == 'REMOTE'
-    with native.override_for_testing('testing'):
+    with native.override('testing'):
         overridden = provider.resolve_string_details('test_flag', '')
         assert overridden.value == 'TESTING'
-        assert overridden.reason == Reason.STATIC
+        assert overridden.reason == 'CONTEXT_OVERRIDE'
     assert provider.resolve_string_details('test_flag', '').value == 'REMOTE'
     assert len(logfire.variables_get()) == 1
     assert [span.attributes['feature_flag.result.value'] for span in _finished_flag_spans(exporter)] == [
@@ -1828,15 +1840,20 @@ def test_openfeature_remote_type_errors_preserve_and_hide_caller_defaults(
             )
             details = resolve('test_flag', fallback)
         assert details.value is fallback
-        assert details.error_code == ErrorCode.TYPE_MISMATCH
-        assert details.error_message == (
-            'The configured flag does not resolve to an object value.'
-            if method == 'object' and serialized != 'not-json'
-            else 'Configured value did not match the declared flag type.'
-        )
+        if serialized == 'not-json':
+            assert details.error_code == ErrorCode.PARSE_ERROR
+            assert details.error_message == 'Configured value is not valid JSON.'
+        elif method == 'object':
+            assert details.error_code == ErrorCode.TYPE_MISMATCH
+            assert details.error_message == 'The configured flag does not resolve to an object value.'
+        else:
+            assert details.error_code == ErrorCode.TYPE_MISMATCH
+            assert (details.error_message or '').startswith(
+                'Configured value did not match the declared flag type: value ('
+            )
         spans = _finished_flag_spans(exporter)
         assert len(spans) == 1
-        assert spans[0].attributes['error.type'] == 'type_mismatch'
+        assert spans[0].attributes['error.type'] == ('parse_error' if serialized == 'not-json' else 'type_mismatch')
         assert 'feature_flag.result.value' not in spans[0].attributes
         assert 'opaque-928413' not in repr([dict(span.attributes or {}) for span in exporter.exported_spans])
         assert logfire.variables_get() == []
@@ -1860,7 +1877,7 @@ def test_openfeature_remote_reads_do_not_capture_defaults_or_register_flags(
         details = provider.resolve_object_details(key, fallback)
         assert details.value is fallback
         assert details.error_code == ErrorCode.FLAG_NOT_FOUND
-        assert details.error_message == f"Flag '{key}' has no configured value."
+        assert details.error_message == f"Feature flag '{key}' is not configured in Logfire."
     assert logfire.variables_get() == []
     assert len(_finished_flag_spans(exporter)) == 3
     assert 'opaque-928413' not in repr([dict(span.attributes or {}) for span in exporter.exported_spans])
@@ -1975,7 +1992,7 @@ def test_openfeature_remote_values_reuse_composition_and_scrubbing(
     logfire.configure(variables=LocalVariablesOptions(config=config), **config_kwargs)
     customer = create_flag('customer', default='world')
     provider = LogfireProvider()
-    with customer.override_for_testing('team'):
+    with customer.override('team'):
         details = provider.resolve_string_details('message', 'fallback')
     assert details.value == 'Hello team'
     assert details.variant == 'active'
@@ -2611,17 +2628,29 @@ def test_openfeature_provider_uses_an_explicit_logfire_instance():
 
 
 def test_openfeature_provider_returns_object_defaults_for_missing_flags():
+    # Without a configured provider, for example without an API key, a flag is not an error.
     details = LogfireProvider().resolve_object_details('missing', {'fallback': True})
 
     assert details.value == {'fallback': True}
-    assert details.error_code == ErrorCode.FLAG_NOT_FOUND
+    assert details.error_code is None
+    assert details.reason == Reason.DEFAULT
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False),
+    )
+    missing = LogfireProvider().resolve_object_details('missing', {'fallback': True})
+
+    assert missing.value == {'fallback': True}
+    assert missing.error_code == ErrorCode.FLAG_NOT_FOUND
 
 
 def test_openfeature_provider_reports_object_serialization_errors():
     logfire.configure(
         send_to_logfire=False,
         console=False,
-        variables=LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False),
+        variables=LocalVariablesOptions(config=_code_default_config('checkout'), instrument=False),
     )
     checkout = create_flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
 
@@ -2703,7 +2732,7 @@ def test_openfeature_provider_serializes_typed_objects():
     logfire.configure(
         send_to_logfire=False,
         console=False,
-        variables=LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False),
+        variables=LocalVariablesOptions(config=_code_default_config('checkout'), instrument=False),
     )
     create_flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
     provider = LogfireProvider()
@@ -2808,7 +2837,7 @@ def test_split_flag_testing_override_does_not_warn_about_targeting():
         ),
     )
     checkout = create_flag('test_flag', default=False)
-    with checkout.override_for_testing(True):
+    with checkout.override(True):
         assert checkout.value() is True
 
 
@@ -2948,11 +2977,11 @@ def test_testing_override_does_not_depend_on_provider_availability(
     exporter.clear()
 
     with patch.object(adapter, '_get_provider_evaluation_state', return_value=provider_state):
-        with checkout.override_for_testing(True):
+        with checkout.override(True):
             details = checkout.details()
 
     assert details.value is True
-    assert details.reason == 'static'
+    assert details.reason == 'context_override'
     assert details.error_code is None
     assert details.flag_metadata == {}
     evaluation_span = next(
@@ -2961,27 +2990,77 @@ def test_testing_override_does_not_depend_on_provider_availability(
         if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
     )
     assert (evaluation_span.attributes or {})['feature_flag.result.value'] is True
-    assert (evaluation_span.attributes or {})['feature_flag.result.reason'] == 'static'
+    assert (evaluation_span.attributes or {})['feature_flag.result.reason'] == 'context_override'
 
 
-def test_feature_flag_telemetry_omits_targeting_context(config_kwargs: dict[str, Any], exporter: TestExporter):
-    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+def _evaluation_span_attributes(exporter: TestExporter) -> dict[str, Any]:
+    evaluation_span = next(
+        span
+        for span in reversed(exporter.exported_spans)
+        if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+    )
+    return dict(evaluation_span.attributes or {})
+
+
+def test_feature_flag_telemetry_records_targeting_key_but_not_attributes(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+):
+    config_kwargs['variables'] = LocalVariablesOptions(config=_code_default_config('region'), instrument=True)
     logfire.configure(**config_kwargs)
     region = create_flag('region', default='us')
     exporter.clear()
 
-    region.value(targeting_key='customer@example.com', attributes={'account_plan': 'confidential-plan'})
-
-    evaluation_span = next(
-        span
-        for span in exporter.exported_spans
-        if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
-    )
-    attributes = dict(evaluation_span.attributes or {})
+    region.value(targeting_key='account-123', attributes={'account_plan': 'confidential-plan'})
+    attributes = _evaluation_span_attributes(exporter)
+    assert attributes['feature_flag.context.id'] == 'account-123'
     assert 'targeting_key' not in attributes
     assert 'attributes' not in attributes
-    assert 'customer@example.com' not in repr(evaluation_span)
-    assert 'confidential-plan' not in repr(evaluation_span)
+    assert 'confidential-plan' not in repr(attributes)
+
+    with feature_context('account-456', attributes={'account_plan': 'confidential-plan'}):
+        region.value()
+    attributes = _evaluation_span_attributes(exporter)
+    assert attributes['feature_flag.context.id'] == 'account-456'
+    assert 'confidential-plan' not in repr(attributes)
+
+    # A fallback key that Logfire chose identifies nobody, so it is not recorded.
+    with logfire.span('request'):
+        region.value()
+    assert 'feature_flag.context.id' not in _evaluation_span_attributes(exporter)
+
+
+@pytest.mark.parametrize('openfeature', [False, True])
+def test_feature_flag_targeting_key_telemetry_can_be_disabled(
+    config_kwargs: dict[str, Any], exporter: TestExporter, openfeature: bool
+):
+    config_kwargs['variables'] = LocalVariablesOptions(
+        config=_code_default_config('region'), instrument=True, include_targeting_key_in_telemetry=False
+    )
+    logfire.configure(**config_kwargs)
+    region = create_flag('region', default='us')
+    exporter.clear()
+
+    if openfeature:
+        LogfireProvider().resolve_string_details('region', 'us', EvaluationContext(targeting_key='account-123'))
+    else:
+        region.value(targeting_key='account-123')
+    attributes = _evaluation_span_attributes(exporter)
+    assert 'feature_flag.context.id' not in attributes
+    assert 'account-123' not in repr(attributes)
+
+
+def test_openfeature_telemetry_records_the_targeting_key(config_kwargs: dict[str, Any], exporter: TestExporter):
+    config_kwargs['variables'] = LocalVariablesOptions(config=_code_default_config('region'), instrument=True)
+    logfire.configure(**config_kwargs)
+    create_flag('region', default='us')
+    exporter.clear()
+
+    LogfireProvider().resolve_string_details(
+        'region', 'us', EvaluationContext(targeting_key='account-123', attributes={'plan': 'confidential-plan'})
+    )
+    attributes = _evaluation_span_attributes(exporter)
+    assert attributes['feature_flag.context.id'] == 'account-123'
+    assert 'confidential-plan' not in repr(attributes)
 
 
 def test_typed_flag_telemetry_omits_scrubbed_structured_values(config_kwargs: dict[str, Any], exporter: TestExporter):
@@ -3048,7 +3127,7 @@ def test_flag_telemetry_honors_scalar_json_serializers(
     original: Any,
     serialized: Any,
 ):
-    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+    config_kwargs['variables'] = LocalVariablesOptions(config=_code_default_config('routing_hint'), instrument=True)
     logfire.configure(**config_kwargs)
     annotated = Annotated[value_type, PlainSerializer(lambda _: serialized, return_type=value_type, when_used='json')]
     setting = create_flag('routing_hint', type=cast(Any, annotated), default=original)
@@ -3415,7 +3494,7 @@ def test_rollout_warning_truth_table():
     assert len(caught) == 1
 
 
-def test_feature_flags_do_not_use_inbound_trace_ids_for_targeting():
+def test_feature_flags_use_an_unpredictable_per_trace_key_without_a_targeting_key():
     config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
     logfire.configure(
         send_to_logfire=False,
@@ -3427,12 +3506,49 @@ def test_feature_flags_do_not_use_inbound_trace_ids_for_targeting():
 
     with (
         patch.object(provider, 'get_serialized_value', wraps=provider.get_serialized_value) as get_serialized_value,
-        logfire.span('request'),
-        pytest.warns(RuntimeWarning, match='no stable targeting key'),
+        warnings.catch_warnings(),
     ):
-        flag.details()
+        warnings.simplefilter('ignore', RuntimeWarning)
+        with logfire.span('request') as span:
+            first = flag.details()
+            second = flag.details()
+        with logfire.span('other request'):
+            flag.details()
 
-    assert get_serialized_value.call_args.args[1] is None
+    keys = [call.args[1] for call in get_serialized_value.call_args_list]
+    trace_id = f'{span.get_span_context().trace_id:032x}'  # type: ignore[union-attr]
+    # A caller controls the inbound trace ID, so it must not be usable as the key directly.
+    assert all(key.startswith('trace:') and trace_id not in key for key in keys)
+    # Every evaluation in one trace gets the same key, so the trace sees one variant.
+    assert keys[0] == keys[1]
+    assert first.variant == second.variant
+    assert keys[2] != keys[0]
+    assert first.reason == 'split'
+    assert first.flag_metadata['logfire.targeting_key_source'] == 'trace'
+
+
+def test_feature_flags_without_a_trace_keep_one_key_for_the_context():
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+    flag = create_flag('test_flag', default=False)
+
+    def evaluate_repeatedly() -> list[str | None]:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            return [flag.details().variant for _ in range(20)]
+
+    # Each fresh context draws its own key, but every evaluation in one context agrees.
+    variants = [contextvars.Context().run(evaluate_repeatedly) for _ in range(20)]
+    assert all(len(set(run)) == 1 for run in variants)
+    assert {run[0] for run in variants} == {'enabled', 'disabled'}
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', RuntimeWarning)
+        details = contextvars.Context().run(flag.details)
+    assert details.flag_metadata['logfire.targeting_key_source'] == 'ephemeral'
 
 
 def test_resource_attributes_target_feature_flags_when_enabled(
@@ -3496,7 +3612,7 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
         self.base_results = {key: self.flag.details(targeting_key=key) for key in self.KEYS}
 
     @rule(
-        targeting_key=st.sampled_from(KEYS),
+        targeting_key=st.sampled_from([key for key in KEYS if key]),
         plan=st.sampled_from(('none', 'team', 'guest')),
         region=st.sampled_from(('us', 'eu', 'apac')),
     )
@@ -3516,7 +3632,7 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
 
     @rule(value=st.booleans())
     def enter_override(self, value: bool):
-        manager = self.flag.override_for_testing(value)
+        manager = self.flag.override(value)
         manager.__enter__()
         self.overrides.append((manager, value))
 
@@ -3547,7 +3663,7 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
         if self.overrides:
             expected_value = self.overrides[-1][1]
             expected_variant = None
-            expected_reason = 'static'
+            expected_reason = 'context_override'
         elif expected_attributes.get('plan') == 'team':
             expected_value = True
             expected_variant = 'enabled'
@@ -3735,7 +3851,7 @@ async def test_cancelled_feature_scope_restores_parent_without_leaking_to_siblin
 
     async def cancelled_child() -> None:
         try:
-            with feature_context('child', attributes={'scope': 'child'}), gate.override_for_testing(True):
+            with feature_context('child', attributes={'scope': 'child'}), gate.override(True):
                 assert gate.value() is True
                 entered.set()
                 await anyio.sleep_forever()
@@ -3748,7 +3864,7 @@ async def test_cancelled_feature_scope_restores_parent_without_leaking_to_siblin
         check_parent()
         sibling_checked.set()
 
-    with feature_context('parent', attributes={'scope': 'parent'}), gate.override_for_testing(False):
+    with feature_context('parent', attributes={'scope': 'parent'}), gate.override(False):
         with anyio.fail_after(5):
             async with anyio.create_task_group() as group:
                 group.start_soon(cancelled_child)
@@ -3777,3 +3893,147 @@ def test_openfeature_rejects_validator_output_that_changes_scalar_shape(config_k
     assert details.value == 42
     assert details.error_code == ErrorCode.TYPE_MISMATCH
     assert details.variant is None
+
+
+def test_details_context_manager_sets_variant_baggage(config_kwargs: dict[str, Any], exporter: TestExporter):
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 1.0}))
+    config_kwargs['variables'] = LocalVariablesOptions(config=config, instrument=False)
+    # The test fixture turns this off. Logfire enables it by default.
+    config_kwargs['add_baggage_to_attributes'] = True
+    logfire.configure(**config_kwargs)
+    flag = create_flag('test_flag', default=False)
+
+    details = flag.details('account-123')
+    # Without `with`, evaluation does not touch baggage.
+    assert logfire.get_baggage() == {}
+    with details as entered:
+        assert entered is details
+        assert logfire.get_baggage() == {
+            'logfire.variables.test_flag': 'enabled',
+            'logfire.variables.test_flag.version': '2',
+        }
+        logfire.info('downstream')
+    assert logfire.get_baggage() == {}
+
+    log = next(span for span in exporter.exported_spans if span.name == 'downstream')
+    assert (log.attributes or {})['logfire.variables.test_flag'] == 'enabled'
+
+
+def test_details_context_manager_marks_defaults_and_overrides(config_kwargs: dict[str, Any]):
+    config_kwargs['variables'] = LocalVariablesOptions(config=_code_default_config('checkout'), instrument=False)
+    logfire.configure(**config_kwargs)
+    checkout = create_flag('checkout', default=False)
+
+    with checkout.details():
+        assert logfire.get_baggage() == {'logfire.variables.checkout': '<code_default>'}
+    with checkout.override(True), checkout.details():
+        assert logfire.get_baggage() == {'logfire.variables.checkout': '<context_override>'}
+
+
+def test_details_context_manager_nests_and_can_be_reentered(config_kwargs: dict[str, Any]):
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 1.0}))
+    config_kwargs['variables'] = LocalVariablesOptions(config=config, instrument=False)
+    logfire.configure(**config_kwargs)
+    flag = create_flag('test_flag', default=False)
+    details = flag.details('account-123')
+
+    with logfire.set_baggage(outer='kept'):
+        with details:
+            with details:
+                assert logfire.get_baggage()['logfire.variables.test_flag'] == 'enabled'
+            # Leaving the inner block keeps the outer block's entry.
+            assert logfire.get_baggage()['logfire.variables.test_flag'] == 'enabled'
+        assert logfire.get_baggage() == {'outer': 'kept'}
+        # The same details can be entered again after leaving.
+        with details:
+            assert logfire.get_baggage()['logfire.variables.test_flag'] == 'enabled'
+        assert logfire.get_baggage() == {'outer': 'kept'}
+
+
+def test_details_context_manager_does_not_affect_equality_or_repr(config_kwargs: dict[str, Any]):
+    logfire.configure(**config_kwargs)
+    details = FlagEvaluationDetails(flag_key='checkout', value=True, variant='on', reason='static')
+    with details:
+        assert details == FlagEvaluationDetails(flag_key='checkout', value=True, variant='on', reason='static')
+    assert '_baggage_scopes' not in repr(details)
+
+
+def test_missing_flag_reports_flag_not_found_only_when_a_provider_is_configured(config_kwargs: dict[str, Any]):
+    logfire.configure(**config_kwargs)
+    unconfigured = create_flag('typo_flag', default=False)
+    # Without a configured provider, for example without an API key, the code default is not an error.
+    details = unconfigured.details()
+    assert (details.value, details.reason, details.error_code) == (False, 'default', None)
+
+    logfire.configure(variables=LocalVariablesOptions(config=_code_default_config('present')), **config_kwargs)
+    present = create_flag('present', default=False)
+    missing = create_flag('missing', default=True)
+    # A configured flag whose rollout selects the code default is not missing.
+    assert present.details().error_code is None
+    missing_details = missing.details()
+    assert missing_details.value is True
+    assert (missing_details.reason, missing_details.error_code) == ('error', 'flag_not_found')
+    assert missing_details.variant is None
+
+
+def test_malformed_json_reports_parse_error(config_kwargs: dict[str, Any]):
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 1.0}))
+    config.variables['test_flag'].labels['enabled'] = LabeledValue(version=2, serialized_value='{not json')
+    logfire.configure(variables=LocalVariablesOptions(config=config, instrument=False), **config_kwargs)
+    flag = create_flag('test_flag', default=False)
+
+    with pytest.warns(RuntimeWarning, match='value failed validation'):
+        details = flag.details('account-123')
+    assert (details.value, details.reason, details.error_code) == (False, 'error', 'parse_error')
+    assert details.error_message == 'Configured value is not valid JSON.'
+
+
+def test_type_mismatch_message_names_fields_without_values(config_kwargs: dict[str, Any]):
+    class Limits(BaseModel):
+        retries: int
+        timeout: float
+        region: str
+        tier: int
+
+    config = VariablesConfig(
+        variables={
+            'limits': VariableConfig(
+                name='limits',
+                labels={
+                    'bad': LabeledValue(
+                        version=1,
+                        serialized_value='{"retries": "opaque-1", "timeout": "opaque-2", "region": 3, "tier": "opaque-4"}',
+                    )
+                },
+                rollout=Rollout(labels={'bad': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+    logfire.configure(variables=LocalVariablesOptions(config=config, instrument=False), **config_kwargs)
+    limits = create_flag('limits', default=Limits(retries=1, timeout=1.0, region='us', tier=1))
+
+    with pytest.warns(RuntimeWarning, match='value failed validation'):
+        details = limits.details('account-123')
+    assert details.error_code == 'type_mismatch'
+    assert details.error_message == (
+        'Configured value did not match the declared flag type: '
+        'retries (int_type), timeout (float_type), region (string_type), and 1 more.'
+    )
+    assert 'opaque' not in (details.error_message or '')
+
+
+def test_feature_context_rejects_an_empty_targeting_key():
+    with pytest.raises(ValueError, match='non-empty targeting key'):
+        with feature_context(''):
+            pass  # pragma: no cover
+
+
+@pytest.mark.parametrize('entry_point', ['flag', 'feature_context'])
+def test_missing_dependencies_name_the_feature_flags_extra(entry_point: str):
+    with patch.dict('sys.modules', {'pydantic_handlebars': None}):
+        with pytest.raises(ImportError, match=r"pip install 'logfire\[feature-flags\]'"):
+            if entry_point == 'flag':
+                create_flag('needs_extra', default=False)
+            else:
+                feature_context('account-123')

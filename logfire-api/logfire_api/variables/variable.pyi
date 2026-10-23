@@ -84,6 +84,8 @@ class _ResolveAttempt:
 class _ResolvedFeatureFlag(ResolvedVariable[T_co]):
     """A resolution paired with the provider-health snapshot used for its telemetry and return value."""
     provider_state: VariableProviderEvaluationState
+    flag_not_found: bool = ...
+    targeting_key_source: str | None = ...
 
 class _FlagEvaluationCore(Generic[T_co]):
     """Shared typed evaluation engine for feature flags and the legacy variables API."""
@@ -181,15 +183,12 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):
     """Native feature-flag adapter backed by the shared typed evaluation core."""
     kind: str
     def __init__(self, name: str, *, type: type[FlagT], default: FlagT, description: str | None = None, logfire_instance: logfire.Logfire) -> None: ...
-    @contextmanager
-    def override(self, value: FlagT | ResolveFunction[FlagT]) -> Generator[None]:
-        """Validate a compatibility override once before it enters the flag's context."""
+    def override(self, value: FlagT | ResolveFunction[FlagT]) -> AbstractContextManager[None]:
+        """Validate the override value when it is created, before it enters the flag's context."""
     def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None, *, label: str | None = None) -> ResolvedVariable[FlagT]:
         """Evaluate the flag and return its value and resolution details."""
     def evaluate_flag(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> FlagEvaluationDetails[FlagT]:
         """Evaluate through managed variables and translate to the feature-flag contract."""
-    def override_for_testing(self, value: FlagT) -> AbstractContextManager[None]:
-        """Temporarily replace the flag value in the current context."""
 
 class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
     """A managed variable with integrated template rendering.
@@ -290,4 +289,7 @@ def feature_context(targeting_key: str, *, attributes: Mapping[str, Any] | None 
     Args:
         targeting_key: Stable identifier used for deterministic rollouts, such as a user or organization ID.
         attributes: Optional targeting attributes, such as the user's plan or region.
+
+    Raises:
+        ValueError: If `targeting_key` is empty.
     """
