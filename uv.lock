@@ -3110,6 +3110,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+agent-sandboxes = [
+    { name = "logfire-sdk", extra = ["agent-sandboxes"] },
+]
 aiohttp = [
     { name = "logfire-sdk", extra = ["aiohttp"] },
 ]
@@ -3204,6 +3207,7 @@ wsgi = [
 [package.metadata]
 requires-dist = [
     { name = "logfire-sdk", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["agent-sandboxes"], marker = "extra == 'agent-sandboxes'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["aiohttp"], marker = "extra == 'aiohttp'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["aiohttp-client"], marker = "extra == 'aiohttp-client'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["aiohttp-server"], marker = "extra == 'aiohttp-server'", editable = "logfire-sdk" },
@@ -3235,7 +3239,7 @@ requires-dist = [
     { name = "logfire-sdk", extras = ["variables"], marker = "extra == 'variables'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["wsgi"], marker = "extra == 'wsgi'", editable = "logfire-sdk" },
 ]
-provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "agent-sandboxes", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
 
 [[package]]
 name = "logfire-api"
@@ -3505,6 +3509,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+agent-sandboxes = [
+    { name = "pydantic-monty-client" },
+]
 aiohttp = [
     { name = "opentelemetry-instrumentation-aiohttp-client" },
 ]
@@ -3654,6 +3661,7 @@ requires-dist = [
     { name = "pydantic", marker = "extra == 'variables'", specifier = ">=2" },
     { name = "pydantic-evals", marker = "extra == 'datasets'", specifier = ">=1.0.0" },
     { name = "pydantic-handlebars", marker = "extra == 'variables'", specifier = ">=0.2.1" },
+    { name = "pydantic-monty-client", marker = "extra == 'agent-sandboxes'", specifier = ">=1.0.0" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rich", specifier = ">=13.4.2" },
     { name = "starlette", marker = "extra == 'gateway'", specifier = ">=0.37.0" },
@@ -3661,7 +3669,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.13.0" },
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "agent-sandboxes", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
 
 [[package]]
 name = "loguru"
