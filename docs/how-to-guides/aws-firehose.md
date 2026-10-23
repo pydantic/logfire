@@ -44,9 +44,10 @@ Avoid collecting the same metrics through both Firehose and an OpenTelemetry Col
    If data is already arriving, click **Set up cloud provider** at the top right, then select **AWS**.
    Select **Direct Firehose** to send logs and metrics without a Collector.
    **CloudWatch API** and **Firehose via Collector** use your own OpenTelemetry Collector.
-   To use an existing token, clear **Create a dedicated write token for Firehose** before creating a key.
-2. Click **Create write token**. Logfire creates a dedicated key that can only send data to this project and copies it.
-   If copying fails, copy the visible token. Click **Launch in AWS** to open CloudFormation.
+2. To create a token, click **Create write token**. Logfire creates a dedicated key that can only send data to this project and copies it.
+   If copying fails, copy the visible token. Save it before leaving the Logfire page.
+   To use an existing project write token, clear **Create a dedicated write token for Firehose** and keep that token ready instead.
+   Click **Launch in AWS** to open CloudFormation.
    The endpoint, setup ID, and logs-and-metrics default are filled in.
 3. In AWS, choose the source account and region. Review these parameters:
 
@@ -61,8 +62,7 @@ Avoid collecting the same metrics through both Firehose and an OpenTelemetry Col
 
 4. Acknowledge the IAM resources and create the stack. Wait for `CREATE_COMPLETE`.
 
-The token is shown once in Logfire. Copy and save it before you leave the AWS page.
-Keep it until you create the stack.
+Logfire shows a generated token once. Keep the token until you create the stack.
 CloudFormation does not prefill secret parameters from a quick-create link.
 Paste the token into its masked field in AWS.
 Organization lifetime policies apply to generated tokens. Update the stack when you rotate an expiring token.
