@@ -189,7 +189,7 @@ Yes. Logfire provides:
 
 - SOC2 Type II certified
 - HIPAA compliant
-- GDPR compliant, with a standard [Data Processing Addendum (DPA)](compliance.md#gdpr) on every plan
+- GDPR compliant
 - EU data region available
 - SSO/SAML support
 - Self-hosting option
