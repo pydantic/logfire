@@ -127,7 +127,12 @@ import inspect
 import json
 from pathlib import Path
 
-from pydantic_monty import AsyncFunctionSnapshot, MontyComplete, MontyError, MontyTypingError
+from pydantic_monty import (
+    AsyncFunctionSnapshot,
+    MontyComplete,
+    MontyError,
+    MontyTypingError,
+)
 from tools import NEEDS_APPROVAL, STUBS, TOOLS
 
 import logfire
