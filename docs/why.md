@@ -110,9 +110,9 @@ objects the same as the interpreter. Python has the deepest integration, but Log
 
 ### Rich display of Python objects
 
-<!-- ladle-screenshot story="product--live--docs-traces--web-apps--fastapi-arguments-details" image="images/logfire-screenshot-fastapi-arguments" alt="Logfire FastAPI screenshot" viewport="1280x720" scale="2" selector="[data-panel-id='details-panel']" padding="8" time="2026-08-01T12:10:00Z" -->
-<img class="only-light" src="images/logfire-screenshot-fastapi-arguments-light.png" alt="Logfire FastAPI screenshot" width="1280" height="768" loading="lazy" />
-<img class="only-dark" src="images/logfire-screenshot-fastapi-arguments-dark.png" alt="Logfire FastAPI screenshot" width="1280" height="768" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--fastapi-arguments-details" image="images/logfire-screenshot-fastapi-arguments" alt="Logfire FastAPI screenshot" viewport="1440x640" scale="2" selector="#details-panel" padding="8" time="2026-08-01T12:10:00Z" -->
+<img class="only-light" src="images/logfire-screenshot-fastapi-arguments-light.png" alt="Logfire FastAPI screenshot" width="710" height="616" loading="lazy" />
+<img class="only-dark" src="images/logfire-screenshot-fastapi-arguments-dark.png" alt="Logfire FastAPI screenshot" width="710" height="616" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 In this example, you can see the parameters passed to a FastAPI endpoint formatted as a Python object.
