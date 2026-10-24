@@ -246,6 +246,8 @@ def is_uv_installed() -> bool:
 def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: dict[str, str]) -> list[str]:
     """Call every `logfire.instrument_x()` we can based on what's installed.
 
+    Packages without a Logfire method fall back to their own OpenTelemetry instrumentors.
+
     Returns a list of packages that were successfully instrumented.
     """
     instrumented: list[str] = []
@@ -259,6 +261,11 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
         base_pkg = otel_pkg_name.replace('opentelemetry-instrumentation-', '')
 
         import_name = instrument_pkg_map[otel_pkg_name]
+        if not hasattr(logfire, f'instrument_{import_name}'):
+            # Logfire has no method for this package, so use the package's own OpenTelemetry instrumentor.
+            if instrument_with_entry_points(otel_pkg_name):
+                instrumented.append(base_pkg)
+            continue
         try:
             instrument_package(import_name, *INSTRUMENTATION_CALL_ARGUMENTS.get(otel_pkg_name, ()))
         except Exception:
@@ -275,6 +282,41 @@ def instrument_package(import_name: str, *args: str) -> None:
         getattr(module, instrument_attr)(logfire.DEFAULT_LOGFIRE_INSTANCE)
     else:
         getattr(logfire, instrument_attr)(*args)
+
+
+def instrument_with_entry_points(otel_pkg_name: str) -> bool:
+    """Call the `opentelemetry_instrumentor` entry points registered by an OpenTelemetry instrumentation package.
+
+    This follows `opentelemetry-instrument`, but passes Logfire's providers.
+    Returns whether at least one instrumentor was activated.
+    """
+    from opentelemetry.instrumentation.dependencies import get_dist_dependency_conflicts
+    from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    instrumented = False
+    for entry_point in importlib.metadata.entry_points(group='opentelemetry_instrumentor'):
+        # Match the distribution the same way `installed_packages()` names it.
+        if entry_point.dist is None or entry_point.dist.name.lower() != otel_pkg_name:
+            continue
+        try:
+            # Skip quietly when the instrumented library is missing or incompatible.
+            if get_dist_dependency_conflicts(entry_point.dist):
+                continue
+            instrumentor = cast(type[BaseInstrumentor], entry_point.load())()
+            # Pass Logfire's providers explicitly, like the `logfire.instrument_*()` methods, not the global ones.
+            instrumentor.instrument(
+                tracer_provider=config.get_tracer_provider(),
+                meter_provider=config.get_meter_provider(),
+                # The check above passes if any library of the package is usable, e.g. botocore without aiobotocore,
+                # so each instrumentor also checks its own library, raising on a conflict instead of logging an error.
+                raise_exception_on_conflict=True,
+            )
+        except Exception:
+            continue
+        # `instrument()` doesn't raise on a conflict before 0.53b0, so ask whether it actually instrumented.
+        instrumented = instrumented or instrumentor.is_instrumented_by_opentelemetry
+    return instrumented
 
 
 def find_recommended_instrumentations_to_install(
@@ -370,8 +412,8 @@ def instrumented_packages_text(
             if is_instrumented:
                 text.append(f'✓ {target_package} (installed and instrumented)\n', style='green')
             else:
-                # This covers packages without a Logfire method and client families
-                # unsupported by an older OTel package.
+                # This covers failed Logfire methods, packages whose OpenTelemetry instrumentors couldn't be
+                # activated, and client families unsupported by an older OTel package.
                 text.append(f'⚠️ {target_package} (installed but not automatically instrumented)\n', style='yellow')
     return text
 
