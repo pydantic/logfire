@@ -1338,7 +1338,7 @@ class Logfire:
         logfire.instrument_openai(client)
 
         response = client.chat.completions.create(
-            model='gpt-4',
+            model='gpt-5-mini',
             messages=[
                 {'role': 'system', 'content': 'You are a helpful assistant.'},
                 {'role': 'user', 'content': 'What is four plus five?'},
@@ -1446,7 +1446,7 @@ class Logfire:
         logfire.instrument_anthropic(client)
 
         response = client.messages.create(
-            model='claude-3-haiku-20240307',
+            model='claude-haiku-5-5',
             system='You are a helpful assistant.',
             messages=[
                 {'role': 'user', 'content': 'What is four plus five?'},
