@@ -64,7 +64,7 @@ Every supported instrumentation records the same token and cost data: swap in [`
 
 Once calls are flowing, the **LLMs and providers** view (in the project sidebar; the page itself is titled **LLMs**) gives you a per-model breakdown without writing any SQL. Each row is one `(provider, model)` pair (for example `openai` / `gpt-4o`) with its call count, errors, latency, input and output tokens, and total **Cost**. Sort by cost to see which model is spending the most.
 
-<!-- ladle-screenshot story="product--llms-and-providers--models-page--single-model" image="../images/guide/llms-view" alt="The LLMs and providers view: a per-model breakdown of calls, errors, latency, tokens, and cost" viewport="1900x600" scale="2" aspect="1218:298" padding="32" time="2026-08-13T12:00:00Z" -->
+<!-- ladle-screenshot story="product--llms-and-providers--models-page--single-model" image="../images/guide/llms-view" alt="The LLMs and providers view: a per-model breakdown of calls, errors, latency, tokens, and cost" viewport="1800x600" scale="2" aspect="1218:298" padding="32" time="2026-08-13T12:00:00Z" -->
 <img class="only-light" src="../images/guide/llms-view-light.png" alt="The LLMs and providers view: a per-model breakdown of calls, errors, latency, tokens, and cost" width="1344" height="329" loading="lazy" />
 <img class="only-dark" src="../images/guide/llms-view-dark.png" alt="The LLMs and providers view: a per-model breakdown of calls, errors, latency, tokens, and cost" width="1344" height="329" loading="lazy" />
 <!-- /ladle-screenshot -->
