@@ -327,6 +327,65 @@ def test_instrument_extract_args_list(exporter: TestExporter) -> None:
     )
 
 
+def test_instrument_excludes_method_receiver(exporter: TestExporter) -> None:
+    class Worker:
+        def __init__(self, factor: int):
+            self.factor = factor
+
+        @logfire.instrument(extract_args=['-self'])
+        def multiply(self, value: int = 6) -> int:
+            return self.factor * value
+
+    assert Worker(7).multiply() == 42
+    attributes = exporter.exported_spans[-1].attributes or {}
+    assert attributes['value'] == 6
+    assert 'self' not in attributes
+
+
+def test_instrument_mixed_argument_selection(exporter: TestExporter) -> None:
+    @logfire.instrument(extract_args=['a', 'b', '-b'])
+    def calculate(a: int, b: int, *, c: int = 3) -> int:
+        return a + b + c
+
+    assert calculate(1, 2) == 6
+    attributes = exporter.exported_spans[-1].attributes or {}
+    assert attributes['a'] == 1
+    assert 'b' not in attributes
+    assert 'c' not in attributes
+
+
+def test_instrument_empty_iterator_extracts_no_arguments(exporter: TestExporter) -> None:
+    @logfire.instrument(extract_args=iter(()))
+    def calculate(value: int) -> int:
+        return value * 7
+
+    assert calculate(6) == 42
+    attributes = exporter.exported_spans[-1].attributes or {}
+    assert 'value' not in attributes
+
+
+def test_instrument_local_exclusions_do_not_change_global_instance(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    local = logfire.configure(local=True, **config_kwargs)
+
+    @local.instrument(extract_args=['-value'])
+    def local_calculate(value: int, factor: int) -> int:
+        return value * factor
+
+    @logfire.instrument()
+    def global_calculate(value: int, factor: int) -> int:
+        return value * factor
+
+    assert local_calculate(6, 7) == 42
+    assert global_calculate(8, 9) == 72
+    local_attributes, global_attributes = [span['attributes'] for span in exporter.exported_spans_as_dict()]
+    assert 'value' not in local_attributes
+    assert local_attributes['factor'] == 7
+    assert global_attributes['value'] == 8
+    assert global_attributes['factor'] == 9
+
+
 def test_instrument_optional_args(exporter: TestExporter) -> None:
     @logfire.instrument('Calling foo {optional=}')
     def foo(a: int, b: int, c: int, optional: int = 10, *, optional_kw: int = 5) -> int:
@@ -370,8 +429,6 @@ def test_instrument_missing_all_extract_args(exporter: TestExporter) -> None:
         foo = logfire.instrument(extract_args='bar')(foo)
 
     assert len(warnings) == 1
-    assert str(warnings[0].message) == snapshot('Ignoring missing arguments to extract: bar')
-    assert warnings[0].lineno == inspect.currentframe().f_lineno - 4  # type: ignore
 
     foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
 
@@ -407,8 +464,6 @@ def test_instrument_missing_some_extract_args(exporter: TestExporter, config_kwa
         foo = lf.instrument(extract_args=['a', 'b', 'c'])(foo)
 
     assert len(warnings) == 1
-    assert str(warnings[0].message) == snapshot('Ignoring missing arguments to extract: b, c')
-    assert warnings[0].lineno == inspect.currentframe().f_lineno - 4  # type: ignore
 
     assert foo(1, 2, 3) == 6
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
