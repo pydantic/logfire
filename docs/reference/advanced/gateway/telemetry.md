@@ -26,21 +26,24 @@ The Gateway reads two headers: `traceparent`, which names the span in your app t
 
 ### With Pydantic AI
 
-The `gateway/` model provider in Pydantic AI adds both headers for you whenever your app has an active trace. Install the packages, and set the credentials as environment variables. Use the base URL that **Gateway → Connect** shows for your region.
+The `gateway/` model provider in Pydantic AI adds both headers for you whenever your app has an active trace. Install the packages, and export your write token:
 
 ```bash
 pip install logfire pydantic-ai
-export PYDANTIC_AI_GATEWAY_API_KEY='<YOUR_GATEWAY_API_KEY>'
-export PYDANTIC_AI_GATEWAY_BASE_URL='https://gateway-us.pydantic.dev/proxy'
 export LOGFIRE_TOKEN='<YOUR_WRITE_TOKEN>'
 ```
 
-Then run this script:
+Then run this script. It sends the model call to the Gateway: the `gateway/` prefix in the model name selects the Gateway provider, and the two `PYDANTIC_AI_GATEWAY_*` variables hold your API key and the Gateway URL. Use the base URL that **Gateway → Connect** shows for your region.
 
 ```python skip-run="true" skip-reason="external-connection"
+import os
+
 from pydantic_ai import Agent
 
 import logfire
+
+os.environ['PYDANTIC_AI_GATEWAY_API_KEY'] = '<YOUR_GATEWAY_API_KEY>'
+os.environ['PYDANTIC_AI_GATEWAY_BASE_URL'] = 'https://gateway-us.pydantic.dev/proxy'
 
 logfire.configure(service_name='gateway-demo')
 logfire.instrument_pydantic_ai()
