@@ -247,6 +247,18 @@ def convert_chat_completions_to_semconv(
             # Add tool call parts (for assistant messages with tool calls)
             if tool_calls:  # pragma: no cover
                 for tc in tool_calls:
+                    if tc.get('type') == 'custom':
+                        # Custom tools take a free-form `input` string instead of JSON `arguments`.
+                        custom = tc.get('custom', {})
+                        parts.append(
+                            ToolCallPart(
+                                type='tool_call',
+                                id=tc.get('id', ''),
+                                name=custom.get('name', ''),
+                                arguments=custom.get('input'),
+                            )
+                        )
+                        continue
                     function = tc.get('function', {})
                     parts.append(
                         make_tool_call_part(
@@ -403,13 +415,22 @@ def convert_openai_response_to_semconv(
 
     if message.tool_calls:  # pragma: no cover
         for tc in message.tool_calls:
-            # Only handle function tool calls (not custom tool calls)
             if isinstance(tc, ChatCompletionMessageFunctionToolCall):  # pragma: no cover
                 parts.append(
                     make_tool_call_part(
                         tool_call_id=tc.id,
                         name=tc.function.name,
                         arguments=tc.function.arguments,
+                    )
+                )
+            elif tc.type == 'custom':
+                # A custom tool takes a free-form `input` string instead of JSON `arguments`, so it is not parsed.
+                parts.append(
+                    ToolCallPart(
+                        type='tool_call',
+                        id=tc.id,
+                        name=tc.custom.name,
+                        arguments=tc.custom.input,
                     )
                 )
 
