@@ -31,7 +31,10 @@ Use the controls above the list to narrow a large project:
 
 Choose stable, descriptive names. Hosted dataset names must start with a letter or number and can contain only letters, numbers, dots, underscores, and hyphens. Code-defined names can contain `/` for path-prefix grouping, but a name containing `/` cannot currently be reused by a hosted dataset.
 
-![Find datasets by name, type, or path prefix](../images/guide/evals/datasets-list.webp)
+<!-- ladle-screenshot story="product--evals--unified-evals-landing--with-datasets" image="../images/guide/evals/datasets-list" alt="Find datasets by name, type, or path prefix" viewport="1280x800" scale="2" time="2026-03-14T12:00:00Z" -->
+<img class="only-light" src="../images/guide/evals/datasets-list-light.png" alt="Find datasets by name, type, or path prefix" width="1280" height="517" loading="lazy" />
+<img class="only-dark" src="../images/guide/evals/datasets-list-dark.png" alt="Find datasets by name, type, or path prefix" width="1280" height="517" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 Each row shows the actions available for that dataset. **Edit cases** is available when cases are hosted in Logfire. **Review experiments** opens the runs associated with that dataset.
 
