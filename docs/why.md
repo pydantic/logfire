@@ -72,7 +72,13 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
 Pydantic Logfire was built by developers who understand real applications: from async Python services to JavaScript frontends to multi-language distributed systems. With deep integrations across Python, JavaScript/TypeScript, Rust, and any OpenTelemetry-compatible language, it's about having the _right_ data, presented in ways that make sense for your applications.
 
-![Logfire FastAPI screenshot](images/index/logfire-screenshot-fastapi-200.png)
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--fastapi-valid-request" image="images/index/logfire-screenshot-fastapi-200" alt="Logfire FastAPI screenshot" viewport="1280x720" scale="2" time="2026-08-01T21:57:00Z" -->
+<img class="only-light" src="images/index/logfire-screenshot-fastapi-200-light.png" alt="Logfire FastAPI screenshot" width="1280" height="768" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-fastapi-200-dark.png" alt="Logfire FastAPI screenshot" width="1280" height="768" loading="lazy" />
+<!-- /ladle-screenshot -->
+<img class="only-light" src="images/index/logfire-screenshot-fastapi-200-light.png" alt="Logfire FastAPI screenshot" width="1280" height="768" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-fastapi-200-dark.png" alt="Logfire FastAPI screenshot" width="1280" height="768" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## Simple to use, deep when you need it {#simplicity-and-power}
 
@@ -82,7 +88,10 @@ and productivity, reimagined for observability.
 
 Within a few minutes you'll have your first logs:
 
-![Logfire hello world screenshot](images/index/logfire-screenshot-hello-world-age.png)
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--hello-world-age" image="images/index/logfire-screenshot-hello-world-age" alt="Logfire hello world screenshot" viewport="1280x571" scale="2" aspect="2560:1142" padding="0" time="2024-09-18T21:38:00Z" -->
+<img class="only-light" src="images/index/logfire-screenshot-hello-world-age-light.png" alt="Logfire hello world screenshot" width="1280" height="571" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-hello-world-age-dark.png" alt="Logfire hello world screenshot" width="1280" height="571" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 This might look like ordinary logging, but it does much more. You get:
 
@@ -101,13 +110,19 @@ objects the same as the interpreter. Python has the deepest integration, but Log
 
 ### Rich display of Python objects
 
-![Logfire FastAPI screenshot](images/logfire-screenshot-fastapi-arguments.png)
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--fastapi-arguments-details" image="images/logfire-screenshot-fastapi-arguments" alt="Logfire FastAPI screenshot" viewport="1280x720" scale="2" time="2026-08-01T12:10:00Z" -->
+<img class="only-light" src="images/logfire-screenshot-fastapi-arguments-light.png" alt="Logfire FastAPI screenshot" width="1280" height="768" loading="lazy" />
+<img class="only-dark" src="images/logfire-screenshot-fastapi-arguments-dark.png" alt="Logfire FastAPI screenshot" width="1280" height="768" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 In this example, you can see the parameters passed to a FastAPI endpoint formatted as a Python object.
 
 ### Profiling Python code
 
-![Logfire Auto-tracing screenshot](images/logfire-screenshot-autotracing.png)
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--auto-tracing-spans" image="images/logfire-screenshot-autotracing" alt="Logfire Auto-tracing screenshot" viewport="1280x720" scale="2" time="2026-08-01T14:20:00Z" -->
+<img class="only-light" src="images/logfire-screenshot-autotracing-light.png" alt="Logfire Auto-tracing screenshot" width="1280" height="768" loading="lazy" />
+<img class="only-dark" src="images/logfire-screenshot-autotracing-dark.png" alt="Logfire Auto-tracing screenshot" width="1280" height="768" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 In this simple app example, you can see every interaction the user makes with the web app automatically traced to the Live view using the [Auto-tracing method](guides/onboarding-checklist/add-auto-tracing.md).
 
@@ -141,7 +156,10 @@ logfire.info('user processed: {user!r}', user=user)  # (1)!
 
 1. This will show `user processed: User(name='Anne', country_code='USA', dob=datetime.date(2000, 1, 1))`, but also allow you to see a "pretty" view of the model within the Logfire Platform.
 
-![Logfire pydantic manual screenshot](images/index/logfire-screenshot-pydantic-manual.png)
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--pydantic-manual-log" image="images/index/logfire-screenshot-pydantic-manual" alt="Logfire pydantic manual screenshot" viewport="1280x720" scale="2" time="2026-08-01T09:55:00Z" -->
+<img class="only-light" src="images/index/logfire-screenshot-pydantic-manual-light.png" alt="Logfire pydantic manual screenshot" width="1280" height="768" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-pydantic-manual-dark.png" alt="Logfire pydantic manual screenshot" width="1280" height="768" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 Or we can record information about validations automatically:
 
@@ -172,7 +190,10 @@ User(name='Charlie', country_code='GBR', dob='1990-03-03')
 
 Learn more about the [Pydantic Plugin here](integrations/pydantic.md).
 
-![Logfire pydantic plugin screenshot](images/index/logfire-screenshot-pydantic-plugin.png)
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--pydantic-plugin-spans" image="images/index/logfire-screenshot-pydantic-plugin" alt="Logfire pydantic plugin screenshot" viewport="1280x720" scale="2" time="2026-08-01T10:00:00Z" -->
+<img class="only-light" src="images/index/logfire-screenshot-pydantic-plugin-light.png" alt="Logfire pydantic plugin screenshot" width="1280" height="781" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-pydantic-plugin-dark.png" alt="Logfire pydantic plugin screenshot" width="1280" height="781" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## OpenTelemetry under the hood {#opentelemetry-under-the-hood}
 
@@ -224,11 +245,14 @@ uvicorn main:app # (2)!
 
 This will give you information on the HTTP request and details of results from successful input validations:
 
-![Logfire FastAPI 200 response screenshot](images/index/logfire-screenshot-fastapi-200.png)
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--fastapi-valid-request" image="images/index/logfire-screenshot-fastapi-200" alt="Logfire FastAPI 200 response screenshot" viewport="1280x720" scale="2" time="2026-08-01T21:57:00Z" -->
 
 And, importantly, details of failed input validations:
 
-![Logfire FastAPI 422 response screenshot](images/index/logfire-screenshot-fastapi-422.png)
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--fastapi-invalid-request" image="images/index/logfire-screenshot-fastapi-422" alt="Logfire FastAPI 422 response screenshot" viewport="1280x720" scale="2" time="2026-08-01T21:57:00Z" -->
+<img class="only-light" src="images/index/logfire-screenshot-fastapi-422-light.png" alt="Logfire FastAPI 422 response screenshot" width="1280" height="843" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-fastapi-422-dark.png" alt="Logfire FastAPI 422 response screenshot" width="1280" height="843" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 In the example above, we can see the FastAPI arguments failing (`user` is null when it should always be populated). This demonstrates type-checking from Pydantic used built-in with FastAPI.
 

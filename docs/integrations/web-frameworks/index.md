@@ -85,7 +85,10 @@ Notice how we filtered on records that have the `http.method` attributes set. It
 
 You can use this query in a Time Series chart in a dashboard:
 
-![Requests duration per percentile as Time Series chart](../../images/integrations/use-cases/web-frameworks/logfire-screenshot-chart-percentiles.png)
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-http-duration-percentiles" image="../../images/integrations/use-cases/web-frameworks/logfire-screenshot-chart-percentiles" alt="Requests duration per percentile as Time Series chart" viewport="771x600" scale="2" aspect="1542:654" padding="0" -->
+<img class="only-light" src="../../images/integrations/use-cases/web-frameworks/logfire-screenshot-chart-percentiles-light.png" alt="Requests duration per percentile as Time Series chart" width="771" height="327" loading="lazy" />
+<img class="only-dark" src="../../images/integrations/use-cases/web-frameworks/logfire-screenshot-chart-percentiles-dark.png" alt="Requests duration per percentile as Time Series chart" width="771" height="327" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 See the [DataFusion documentation](https://datafusion.apache.org/user-guide/sql/aggregate_functions.html#approx-percentile-cont) for more information on the `approx_percentile_cont` function.
 

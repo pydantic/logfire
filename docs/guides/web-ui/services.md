@@ -25,7 +25,10 @@ When the **Databases** or **Queues** toggle is available, you can include resour
 
 Each resource type is limited to its 200 busiest entries in the selected range. Logfire displays a warning when results reach that limit.
 
-![Services inventory with summary signals and service rows](../../images/services/inventory.png)
+<!-- ladle-screenshot story="product--services--services-page--shop-inventory" image="../../images/services/inventory" alt="Services inventory with summary signals and service rows" viewport="1280x800" scale="2" aspect="16:9" padding="0" time="2026-08-13T02:02:30Z" -->
+<img class="only-light" src="../../images/services/inventory-light.png" alt="Services inventory with summary signals and service rows" width="1280" height="720" loading="lazy" />
+<img class="only-dark" src="../../images/services/inventory-dark.png" alt="Services inventory with summary signals and service rows" width="1280" height="720" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## Investigate one service
 
@@ -36,7 +39,10 @@ Select a service to open its detail page. It shows:
 - Reliability targets, top operations, database dependencies, versions, and recent errors.
 - Links that preserve the service filter in **Live view** and **Explore**.
 
-![Service detail page with request, error, and latency signals](../../images/services/service-detail.png)
+<!-- ladle-screenshot story="product--services--service-detail-page--checkout-service" image="../../images/services/service-detail" alt="Service detail page with request, error, and latency signals" viewport="1232x900" scale="2" aspect="1232:664" padding="32" time="2026-08-13T01:00:30Z" -->
+<img class="only-light" src="../../images/services/service-detail-light.png" alt="Service detail page with request, error, and latency signals" width="1232" height="664" loading="lazy" />
+<img class="only-dark" src="../../images/services/service-detail-dark.png" alt="Service detail page with request, error, and latency signals" width="1232" height="664" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## Read the topology correctly
 
@@ -46,7 +52,10 @@ Traffic on a neighboring node or edge includes only calls exchanged with the sel
 
 Select a neighboring service to open its detail page.
 
-![One-hop service topology centered on checkout](../../images/services/topology.png)
+<!-- ladle-screenshot story="product--services--service-detail-page--checkout-service" image="../../images/services/topology" alt="One-hop service topology centered on checkout" viewport="1280x900" scale="2" selector="section:has(> div > h2)" aspect="1168:420" padding="0" time="2026-08-13T01:00:30Z" -->
+<img class="only-light" src="../../images/services/topology-light.png" alt="One-hop service topology centered on checkout" width="1280" height="460" loading="lazy" />
+<img class="only-dark" src="../../images/services/topology-dark.png" alt="One-hop service topology centered on checkout" width="1280" height="460" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## Send the attributes the page needs
 

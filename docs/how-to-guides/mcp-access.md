@@ -35,7 +35,10 @@ Changes save immediately and apply on the client's next request. Clients do not 
 
 If an organization leaves the Enterprise plan while **Read-only** is selected, Logfire continues enforcing read-only access so the plan change cannot silently re-enable write tools. Upgrade again or contact support before changing that stored policy.
 
-![Organization MCP access settings with Read-only selected and agent feedback enabled](../images/guide/mcp-access.png)
+<!-- ladle-screenshot story="product--organization-settings--external-mcp-access--read-only" image="../images/guide/mcp-access" alt="Organization MCP access settings with Read-only selected and agent feedback enabled" viewport="1000x700" scale="2" padding="0" -->
+<img class="only-light" src="../images/guide/mcp-access-light.png" alt="Organization MCP access settings with Read-only selected and agent feedback enabled" width="1000" height="558" loading="lazy" />
+<img class="only-dark" src="../images/guide/mcp-access-dark.png" alt="Organization MCP access settings with Read-only selected and agent feedback enabled" width="1000" height="558" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## Decide whether agents can share feedback
 

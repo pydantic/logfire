@@ -54,7 +54,10 @@ The connection starts in Logfire. PagerDuty asks you to approve the services dur
 2. Approve the installation. PagerDuty returns you to the Logfire **Connections** page.
 3. Expand **PagerDuty** and confirm that the account shows **Connected** and the expected number of approved services.
 
-    ![The Logfire Connections page showing a connected PagerDuty account with one approved service](../images/guide/pagerduty-connected.png)
+<!-- ladle-screenshot story="product--organization-settings--connections--pager-duty-connected" image="../images/guide/pagerduty-connected" alt="The Logfire Connections page showing a connected PagerDuty account with one approved service" viewport="1280x400" scale="2" padding="0" time="2026-09-19T12:07:00Z" -->
+<img class="only-light" src="../images/guide/pagerduty-connected-light.png" alt="The Logfire Connections page showing a connected PagerDuty account with one approved service" width="1280" height="499" loading="lazy" />
+<img class="only-dark" src="../images/guide/pagerduty-connected-dark.png" alt="The Logfire Connections page showing a connected PagerDuty account with one approved service" width="1280" height="499" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 For each service you approve, Logfire receives a key that lets it send alerts and resolve incidents for that service. Logfire encrypts these keys at rest. It does not request access to read or manage other PagerDuty data.
 
@@ -68,7 +71,10 @@ A notification channel is an organization-level destination that you attach to o
 4. Select **PagerDuty** as the type.
 5. Select the connected PagerDuty account and service.
 
-    ![The New channel dialog with a PagerDuty account and service selected](../images/guide/pagerduty-channel.png)
+<!-- ladle-screenshot story="product--project-settings--delivery--channel-detail--new-pager-duty-channel-dialog" image="../images/guide/pagerduty-channel" alt="The New channel dialog with a PagerDuty account and service selected" viewport="1280x900" scale="2" selector="[role=dialog]" padding="0" -->
+<img class="only-light" src="../images/guide/pagerduty-channel-light.png" alt="The New channel dialog with a PagerDuty account and service selected" width="512" height="540" loading="lazy" />
+<img class="only-dark" src="../images/guide/pagerduty-channel-dark.png" alt="The New channel dialog with a PagerDuty account and service selected" width="512" height="540" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 6. Click **Send test message**.
 7. Confirm that the test incident appears on the selected PagerDuty service, then resolve it in PagerDuty.

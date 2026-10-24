@@ -36,7 +36,10 @@ The switch only controls where the sharing controls appear in your browser. Proj
 
 Anyone with the link can open it without signing in. Treat the link as a credential and send it only to people who should see the conversation.
 
-![A shared public conversation showing only the selected exchange in a chat-style view](../../../images/guide/public-conversations/public-conversation.png)
+<!-- ladle-screenshot story="product--sharing--public-conversation--page--single-exchange" image="../../../images/guide/public-conversations/public-conversation" alt="A shared public conversation showing only the selected exchange in a chat-style view" viewport="1440x1100" scale="1" aspect="1440:1100" padding="0" time="2026-01-01T00:02:00Z" -->
+<img class="only-light" src="../../../images/guide/public-conversations/public-conversation-light.png" alt="A shared public conversation showing only the selected exchange in a chat-style view" width="1440" height="1100" loading="lazy" />
+<img class="only-dark" src="../../../images/guide/public-conversations/public-conversation-dark.png" alt="A shared public conversation showing only the selected exchange in a chat-style view" width="1440" height="1100" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 !!! warning "Advanced views expose the full span"
 

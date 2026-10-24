@@ -26,7 +26,10 @@ If you've used logging before, think of a span as a log with a duration and stru
 !!! info
     Spans let you **add context** to your logs and **measure how long code takes to run**. Multiple spans combine to form a trace, giving a complete picture of an operation's journey through your system.
 
-![Spans](images/concepts/spans.png)
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--concepts-spans" image="images/concepts/spans" alt="Spans" viewport="920x160" scale="2" selector=".live-view-row" aspect="1834:232" padding="4" time="2025-09-25T11:57:00Z" -->
+<img class="only-light" src="images/concepts/spans-light.png" alt="Spans" width="896" height="113" loading="lazy" />
+<img class="only-dark" src="images/concepts/spans-dark.png" alt="Spans" width="896" height="113" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## What is a Trace?
 
@@ -37,7 +40,10 @@ Spans are ordered and nested: a span can contain other spans, so a trace reads l
 !!! info
     Traces are not limited to a single service. They can be propagated to completely different and isolated services. For example, a single trace could contain http requests to both a Python API and a SQL database.
 
-![Trace](images/concepts/trace.png)
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--concepts-trace" image="images/concepts/trace" alt="Trace" viewport="920x300" scale="2" selector=".live-view-row" aspect="1828:582" padding="4" time="2025-09-25T11:57:00Z" -->
+<img class="only-light" src="images/concepts/trace-light.png" alt="Trace" width="896" height="285" loading="lazy" />
+<img class="only-dark" src="images/concepts/trace-dark.png" alt="Trace" width="896" height="285" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ### Example - File size counter
 
@@ -66,7 +72,10 @@ with logfire.span('counting size of {cwd=}', cwd=cwd):
     logfire.info('total size of {cwd} is {size} bytes', cwd=cwd, size=total_size)
 ```
 
-![Counting size of loaded files screenshot](images/logfire-screenshot-first-steps-load-files.png)
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--concepts-file-size" image="images/logfire-screenshot-first-steps-load-files" alt="Counting size of loaded files screenshot" viewport="1280x160" scale="2" selector=".live-view-row" aspect="2560:818" time="2025-09-25T12:08:00Z" -->
+<img class="only-light" src="images/logfire-screenshot-first-steps-load-files-light.png" alt="Counting size of loaded files screenshot" width="1256" height="401" loading="lazy" />
+<img class="only-dark" src="images/logfire-screenshot-first-steps-load-files-dark.png" alt="Counting size of loaded files screenshot" width="1256" height="401" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ---
 
@@ -95,7 +104,10 @@ with logfire.span('Asking the user for their {question}', question='birthday'): 
 2. Attempt to extract a date from the user input. If any exception is raised, the outer span will include the details of the exception.
 3. This will log for example `dob=2000-01-01 age=datetime.timedelta(days=8838)` with `debug` level.
 
-![Logfire hello world screenshot](images/index/logfire-screenshot-hello-world-age.png)
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--hello-world-age" image="images/index/logfire-screenshot-hello-world-age" alt="Logfire hello world screenshot" viewport="1280x571" scale="2" aspect="2560:1142" padding="0" time="2024-09-18T21:38:00Z" -->
+<img class="only-light" src="images/index/logfire-screenshot-hello-world-age-light.png" alt="Logfire hello world screenshot" width="1280" height="571" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-hello-world-age-dark.png" alt="Logfire hello world screenshot" width="1280" height="571" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ---
 

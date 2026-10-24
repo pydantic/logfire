@@ -15,7 +15,10 @@ You'll find Agents in the project sidebar. The time picker is shared with the re
 
 Each agent detected in the selected time window appears as one row, with its run count, cost, token usage, and when it was last active. Click a row to open that agent's detail page.
 
-![The Agents list, one card per detected agent](../../images/agents/agents-list.png)
+<!-- ladle-screenshot story="product--agents--agent-list--docs-agent-cards" image="../../images/agents/agents-list" alt="The Agents list, one card per detected agent" viewport="1400x800" scale="2" selector="[aria-label='Agent cards']" aspect="1377:390" padding="0" time="2026-07-19T12:00:00Z" -->
+<img class="only-light" src="../../images/agents/agents-list-light.png" alt="The Agents list, one card per detected agent" width="1400" height="397" loading="lazy" />
+<img class="only-dark" src="../../images/agents/agents-list-dark.png" alt="The Agents list, one card per detected agent" width="1400" height="397" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 If you don't see an agent you expect, widen the time range: the list only reflects agent activity in the current window.
 
@@ -57,7 +60,10 @@ The Runs table lists one row per agent run, newest first, with:
 
 Search the message text, or open **Filters** to narrow by model, cost, duration, token counts, or annotation state. Failed runs are marked with an error icon.
 
-![The Runs tab, one row per agent run](../../images/agents/runs-table.png)
+<!-- ladle-screenshot story="product--agents--runs-table--docs-runs-table" image="../../images/agents/runs-table" alt="The Runs tab, one row per agent run" viewport="1400x800" scale="2" selector="div:has(> table)" aspect="1329:300" padding="0" time="2026-07-19T12:30:00Z" -->
+<img class="only-light" src="../../images/agents/runs-table-light.png" alt="The Runs tab, one row per agent run" width="1327" height="300" loading="lazy" />
+<img class="only-dark" src="../../images/agents/runs-table-dark.png" alt="The Runs tab, one row per agent run" width="1327" height="300" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## Reviewing a single run
 
@@ -70,11 +76,17 @@ A run detail has four tabs:
 - **Messages**: the full conversation for the run.
 - **Trace**: the underlying span tree, so you can drop into the raw trace.
 
-![A run's detail panel, with the Tools tab showing each tool's schema and calls](../../images/agents/run-tools.png)
+<!-- ladle-screenshot story="product--agents--run-details--view--tools-tab" image="../../images/agents/run-tools" alt="A run's detail panel, with the Tools tab showing each tool's schema and calls" viewport="1400x800" scale="2" aspect="1327:472" padding="0" time="2026-07-19T12:30:00Z" -->
+<img class="only-light" src="../../images/agents/run-tools-light.png" alt="A run's detail panel, with the Tools tab showing each tool's schema and calls" width="1327" height="472" loading="lazy" />
+<img class="only-dark" src="../../images/agents/run-tools-dark.png" alt="A run's detail panel, with the Tools tab showing each tool's schema and calls" width="1327" height="472" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 If a run failed, a banner at the top of the Summary tab surfaces the exception type, message, and traceback, so you can see why it failed without leaving the page.
 
-![The exception banner on a failed run](../../images/agents/run-error.png)
+<!-- ladle-screenshot story="product--agents--run-exception-banner--stripe-reconcile-failure" image="../../images/agents/run-error" alt="The exception banner on a failed run" viewport="1400x800" scale="2" aspect="1295:435" padding="0" time="2026-07-19T12:30:00Z" -->
+<img class="only-light" src="../../images/agents/run-error-light.png" alt="The exception banner on a failed run" width="1295" height="435" loading="lazy" />
+<img class="only-dark" src="../../images/agents/run-error-dark.png" alt="The exception banner on a failed run" width="1295" height="435" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## Annotating a run
 

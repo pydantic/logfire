@@ -16,7 +16,10 @@ You need permission to manage billing for the personal account. You will choose 
 3. Select **Team** or **Growth** to compare what it adds to your Personal plan.
 4. Select **Upgrade to Team** or **Upgrade to Growth**.
 
-![Choose Team or Growth and compare what the plan adds](../images/guide/convert-to-org-plan-selection.png)
+<!-- ladle-screenshot story="product--organization-settings--billing-and-usage--plan-comparison--personal-plan-picker-with-current-plan" image="../images/guide/convert-to-org-plan-selection" alt="Choose Team or Growth and compare what the plan adds" viewport="1328x900" scale="2" aspect="1328:872" padding="0" time="2026-08-01T12:00:00Z" -->
+<img class="only-light" src="../images/guide/convert-to-org-plan-selection-light.png" alt="Choose Team or Growth and compare what the plan adds" width="1328" height="872" loading="lazy" />
+<img class="only-dark" src="../images/guide/convert-to-org-plan-selection-dark.png" alt="Choose Team or Growth and compare what the plan adds" width="1328" height="872" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## Name the team
 

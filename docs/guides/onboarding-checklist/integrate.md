@@ -76,7 +76,10 @@ If we run the above code, with `python main.py`, we will see the following outpu
 
 If you go to the link, you will see the `"Hello Fred!"` log in the Web UI:
 
-![Logfire Web UI with logs](../../images/guide/browser-integrate.png)
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--logging-error-log" image="../../images/guide/browser-integrate" alt="Logfire Web UI with logs" viewport="1280x800" scale="2" time="2026-08-01T12:40:00Z" -->
+<img class="only-light" src="../../images/guide/browser-integrate-light.png" alt="Logfire Web UI with logs" width="1280" height="848" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-integrate-dark.png" alt="Logfire Web UI with logs" width="1280" height="848" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ### Loguru
 

@@ -23,7 +23,7 @@ You need organization-admin access to configure protections.
 
    <div align="center">
 
-   [![A prebuilt OpenAI API key protection with its endpoint targeting and action choices](../../../images/guide/ai-gateway/prebuilt-protection.png)](../../../images/guide/ai-gateway/prebuilt-protection.png)
+   <!-- ladle-screenshot story="product--gateway--guardrails--create-form--open-ai-key-protection" image="../../../images/guide/ai-gateway/prebuilt-protection" alt="A prebuilt OpenAI API key protection with its endpoint targeting and action choices" viewport="1200x800" padding="16" aspect="1200:760" -->
 
    *A prebuilt API-key detector in Observe mode across all endpoints.*
 

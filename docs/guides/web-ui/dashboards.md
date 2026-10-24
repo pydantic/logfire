@@ -94,7 +94,10 @@ Standard dashboards are read-only, so they show a **Standard** badge next to the
 2. Enter a name for the copy. It defaults to "Copy of" followed by the original name.
 3. Confirm. Logfire creates a new custom dashboard with the same panels, variables, and layout, and opens it.
 
-![Toolbar of a standard dashboard showing the Standard badge and the Clone button](../../images/guide/dashboard-standard-clone.png)
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-standard-clone" image="../../images/guide/dashboard-standard-clone" alt="Toolbar of a standard dashboard showing the Standard badge and the Clone button" viewport="1152x700" scale="2" aspect="2304:556" padding="0" time="2026-08-01T15:56:20Z" -->
+<img class="only-light" src="../../images/guide/dashboard-standard-clone-light.png" alt="Toolbar of a standard dashboard showing the Standard badge and the Clone button" width="1152" height="278" loading="lazy" />
+<img class="only-dark" src="../../images/guide/dashboard-standard-clone-dark.png" alt="Toolbar of a standard dashboard showing the Standard badge and the Clone button" width="1152" height="278" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 The copy is a snapshot. It doesn't receive the updates the Logfire team makes to the original standard dashboard.
 
@@ -163,7 +166,10 @@ To show at a glance whether a number is healthy, set a **warning** and a **criti
 
 Variables let you change what a dashboard shows without editing its queries. You define a variable once, reference it in your SQL queries as `$variable_name`, and Logfire adds a selector for it to the top of the dashboard.
 
-![A dashboard toolbar with variable controls](../../images/guide/dashboard-variable-controls.png)
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-variable-controls" image="../../images/guide/dashboard-variable-controls" alt="A dashboard toolbar with variable controls" viewport="1150x700" scale="2" aspect="2300:834" padding="0" -->
+<img class="only-light" src="../../images/guide/dashboard-variable-controls-light.png" alt="A dashboard toolbar with variable controls" width="1150" height="417" loading="lazy" />
+<img class="only-dark" src="../../images/guide/dashboard-variable-controls-dark.png" alt="A dashboard toolbar with variable controls" width="1150" height="417" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 To add variables to a custom dashboard:
 
@@ -172,7 +178,10 @@ To add variables to a custom dashboard:
 3. Click **+ Add variable**.
 4. Define and configure your variables, then click **Save** on the dashboard.
 
-![A dashboard toolbar highlighting the edit variables button](../../images/guide/dashboard-edit-variables-button.png)
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-variables-tooltip" image="../../images/guide/dashboard-edit-variables-button" alt="A dashboard toolbar highlighting the edit variables button" viewport="1150x700" scale="2" aspect="2300:834" padding="0" -->
+<img class="only-light" src="../../images/guide/dashboard-edit-variables-button-light.png" alt="A dashboard toolbar highlighting the edit variables button" width="1150" height="417" loading="lazy" />
+<img class="only-dark" src="../../images/guide/dashboard-edit-variables-button-dark.png" alt="A dashboard toolbar highlighting the edit variables button" width="1150" height="417" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 Each variable has a **Name** (how you reference it in queries), plus an optional **Display Label** and **Description** shown on its selector. There are two variable types:
 
@@ -344,25 +353,37 @@ Your changes stay in your browser until you click **Save**. **Cancel** discards 
 
 If you changed a variable selection while editing, the save dialog asks whether to store it as the dashboard's new default. See [Variable defaults](#variable-defaults).
 
-![Edit button](../../images/guide/browser-edit-layout-button.png)
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-button" image="../../images/guide/browser-edit-layout-button" alt="Edit button" viewport="1152x700" scale="2" aspect="2304:896" padding="0" -->
+<img class="only-light" src="../../images/guide/browser-edit-layout-button-light.png" alt="Edit button" width="1152" height="448" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-edit-layout-button-dark.png" alt="Edit button" width="1152" height="448" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ### Move panels
 
 While in edit mode, drag a panel by its title bar to move it.
 
-![Move panels](../../images/guide/browser-move-panel.png)
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-mode" image="../../images/guide/browser-move-panel" alt="Move panels" viewport="1152x700" scale="2" aspect="2304:896" padding="0" -->
+<img class="only-light" src="../../images/guide/browser-move-panel-light.png" alt="Move panels" width="1152" height="448" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-move-panel-dark.png" alt="Move panels" width="1152" height="448" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ### Resize panels
 
 While in edit mode, drag the bottom right corner of a panel to resize it.
 
-![Resize panels](../../images/guide/browser-resize-panel.png)
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-mode" image="../../images/guide/browser-resize-panel" alt="Resize panels" viewport="1152x700" scale="2" aspect="2304:896" padding="0" -->
+<img class="only-light" src="../../images/guide/browser-resize-panel-light.png" alt="Resize panels" width="1152" height="448" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-resize-panel-dark.png" alt="Resize panels" width="1152" height="448" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ### Reorder panel groups
 
 While in edit mode, click the up and down arrows in the top right corner of a panel group to move it.
 
-![Reorder panel groups](../../images/guide/browser-reorder-panel-group.png)
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-panel-group-move" image="../../images/guide/browser-reorder-panel-group" alt="Reorder panel groups" viewport="1152x700" scale="2" aspect="2304:896" padding="0" -->
+<img class="only-light" src="../../images/guide/browser-reorder-panel-group-light.png" alt="Reorder panel groups" width="1152" height="448" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-reorder-panel-group-dark.png" alt="Reorder panel groups" width="1152" height="448" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ### Exporting and editing the dashboard as JSON
 
@@ -377,13 +398,19 @@ Every dashboard is stored as a JSON document. This is the same format the [Terra
 
 The time range picker in the top right of the dashboard controls the window of data shown. Choose a preset such as `last 5 minutes`, `last 15 minutes`, `last 30 minutes`, `last 6 hours`, up to `last 14 days`, or set a custom range.
 
-![Time picker on a dashboard](../../images/guide/dashboard-time-picker.png)
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-time-picker" image="../../images/guide/dashboard-time-picker" alt="Time picker on a dashboard" viewport="1183x700" scale="2" aspect="2366:1402" padding="0" -->
+<img class="only-light" src="../../images/guide/dashboard-time-picker-light.png" alt="Time picker on a dashboard" width="1183" height="701" loading="lazy" />
+<img class="only-dark" src="../../images/guide/dashboard-time-picker-dark.png" alt="Time picker on a dashboard" width="1183" height="701" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 Turn on **Live** next to the picker to keep the dashboard current. Logfire re-runs the panel queries on an interval matched to the time range, between 15 seconds and 1 minute, and the time window keeps moving forward with the clock.
 
 Pausing **Live** freezes the time window where it is, so you can inspect the data without it moving. Resuming follows the clock again.
 
-![Live mode button](../../images/guide/dashboard-live-button.png)
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-live" image="../../images/guide/dashboard-live-button" alt="Live mode button" viewport="1183x700" scale="2" aspect="2366:1402" padding="0" time="2026-08-01T15:56:20Z" -->
+<img class="only-light" src="../../images/guide/dashboard-live-button-light.png" alt="Live mode button" width="1183" height="701" loading="lazy" />
+<img class="only-dark" src="../../images/guide/dashboard-live-button-dark.png" alt="Live mode button" width="1183" height="701" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## Next steps
 

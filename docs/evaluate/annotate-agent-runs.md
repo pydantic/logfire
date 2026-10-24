@@ -55,7 +55,10 @@ Choose a verdict using the criterion your team agreed on, then add enough contex
 
 Use **Comment** to state the evidence you found in the run. Add **Tags** to group related reviews, such as `hallucination`, `tone`, or `tool-error`. Select **Save** to store the annotation, or **Save & next** to continue through the remaining runs.
 
-![The run annotation panel lets you choose a verdict, write a comment, and add tags.](../images/agent-run-annotation-form.png)
+<!-- ladle-screenshot story="product--agents--annotate-sidebar-form--empty" image="../images/agent-run-annotation-form" alt="The run annotation panel lets you choose a verdict, write a comment, and add tags." viewport="420x500" scale="2" selector="aside" padding="16" -->
+<img class="only-light" src="../images/agent-run-annotation-form-light.png" alt="The run annotation panel lets you choose a verdict, write a comment, and add tags." width="388" height="411" loading="lazy" />
+<img class="only-dark" src="../images/agent-run-annotation-form-dark.png" alt="The run annotation panel lets you choose a verdict, write a comment, and add tags." width="388" height="411" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ### Add a category and an expected output
 

@@ -347,7 +347,10 @@ logfire.info('hello')
 
 will show this:
 
-![Service name and version in the Live view](../images/sql-reference/service-name-version-live.png)
+<!-- ladle-screenshot story="components--telemetry--service-pill--name-and-version-tooltip" image="../images/sql-reference/service-name-version-live" alt="Service name and version in the Live view" viewport="320x200" scale="2" aspect="462:218" padding="12" -->
+<img class="only-light" src="../images/sql-reference/service-name-version-live-light.png" alt="Service name and version in the Live view" width="320" height="151" loading="lazy" />
+<img class="only-dark" src="../images/sql-reference/service-name-version-live-dark.png" alt="Service name and version in the Live view" width="320" height="151" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 #### `service_instance_id`
 

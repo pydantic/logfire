@@ -18,13 +18,12 @@ You need organization-admin access and a credential for a supported provider. Se
 
 1. Open [**AI Engineering → Gateway → Providers**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/providers), check the selected organization, and click **New BYOK provider** (or **Create BYOK provider** if the list is empty). From an empty **Connect** tab, you can also click **Add your own provider**.
 
-   <div align="center">
+<!-- ladle-screenshot story="product--gateway--providers--add-provider--default" image="../../../images/guide/ai-gateway/provider-types" alt="The provider type choices in the Add BYOK provider flow" viewport="1200x700" scale="2" aspect="1200:550" padding="16" time="2026-08-01T12:00:00Z" -->
+<img class="only-light" src="../../../images/guide/ai-gateway/provider-types-light.png" alt="The provider type choices in the Add BYOK provider flow" width="1200" height="550" loading="lazy" />
+<img class="only-dark" src="../../../images/guide/ai-gateway/provider-types-dark.png" alt="The provider type choices in the Add BYOK provider flow" width="1200" height="550" loading="lazy" />
+<!-- /ladle-screenshot -->
 
-   [![The provider type choices in the Add BYOK provider flow](../../../images/guide/ai-gateway/provider-types.png)](../../../images/guide/ai-gateway/provider-types.png)
-
-   *The picker also has a search field for other provider types.*
-
-   </div>
+*The picker also has a search field for other provider types.*
 
 2. Choose a **Provider type**. Use a named provider when possible; select a custom OpenAI- or Anthropic-compatible provider only if your plan permits custom endpoints.
 3. Under **Connect provider**, enter the credential and any vendor-specific endpoint details. The default base URL is filled in for providers that have one.

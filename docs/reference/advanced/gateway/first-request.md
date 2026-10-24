@@ -17,9 +17,10 @@ This flow is available on every Gateway plan, including Personal. [Per-key and o
 
    <div align="center">
 
-   [![The Connect tab with a selected provider and the Get your credential actions](../../../images/guide/ai-gateway/connect-route.png)](../../../images/guide/ai-gateway/connect-route.png)
-
-   *Connect after selecting an OpenAI-compatible provider.*
+   <!-- ladle-screenshot story="product--gateway--connect--configured--connect-through-provider-route" image="../../../images/guide/ai-gateway/connect-route" alt="The Connect tab with a selected provider and the Get your credential actions" viewport="850x700" scale="2" selector="[role='tabpanel']" aspect="850:440" padding="0" time="2026-08-01T12:00:00Z" -->
+   <img class="only-light" src="../../../images/guide/ai-gateway/connect-route-light.png" alt="The Connect tab with a selected provider and the Get your credential actions" width="752" height="389" loading="lazy" />
+   <img class="only-dark" src="../../../images/guide/ai-gateway/connect-route-dark.png" alt="The Connect tab with a selected provider and the Get your credential actions" width="752" height="389" loading="lazy" />
+   <!-- /ladle-screenshot -->  *Connect after selecting an OpenAI-compatible provider.*
 
    </div>
 

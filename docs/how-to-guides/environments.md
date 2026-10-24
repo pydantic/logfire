@@ -33,7 +33,10 @@ The picker lives in the side navigation, directly below the project picker, and 
 and [SQL Workbench](../guides/web-ui/explore.md) (on pages where environments don't apply,
 the picker is shown disabled):
 
-![Environments](../images/guide/environments.png)
+<!-- ladle-screenshot story="components--breadcrumbs--environment-combobox--sidebar-switcher-open" image="../images/guide/environments" alt="Environments" viewport="800x600" scale="2" selector=".w-72, [data-radix-popper-content-wrapper]" aspect="545:845" padding="0" -->
+<img class="only-light" src="../images/guide/environments-light.png" alt="Environments" width="288" height="447" loading="lazy" />
+<img class="only-dark" src="../images/guide/environments-dark.png" alt="Environments" width="288" height="447" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 !!! info
     When using an environment for the first time, it may take a **few minutes** for the environment to appear in the UI.

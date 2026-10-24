@@ -34,7 +34,10 @@ You'll see a panel where you can enter a query using either:
 - Click **Run** to execute your query.
 - The results will appear in the main view, and your query will be added to the **Recent** tab for easy access.
 
-![Recent tab](../../images/guide/browser-saved-searches-recent.png)
+<!-- ladle-screenshot story="product--live--searches-panel--docs-recent-searches" image="../../images/guide/browser-saved-searches-recent" alt="Recent tab" viewport="720x400" scale="2" aspect="1374:524" padding="8" time="2026-07-09T10:30:00Z" -->
+<img class="only-light" src="../../images/guide/browser-saved-searches-recent-light.png" alt="Recent tab" width="696" height="265" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-saved-searches-recent-dark.png" alt="Recent tab" width="696" height="265" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## 4. Saving Searches
 
@@ -52,7 +55,10 @@ You'll see a panel where you can enter a query using either:
 - To delete a saved search, click the three-dot menu next to it and select **Delete**.
 - **Tip:** Clicking any item in the Recent or Saved list will immediately execute the corresponding query and display the results.
 
-![Saved tab](../../images/guide/browser-saved-searches-saved.png)
+<!-- ladle-screenshot story="product--live--searches-panel--docs-saved-searches" image="../../images/guide/browser-saved-searches-saved" alt="Saved tab" viewport="720x400" scale="2" aspect="1348:484" padding="8" time="2026-07-09T10:30:00Z" -->
+<img class="only-light" src="../../images/guide/browser-saved-searches-saved-light.png" alt="Saved tab" width="696" height="250" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-saved-searches-saved-dark.png" alt="Saved tab" width="696" height="250" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## 6. Sharing and Collaboration
 

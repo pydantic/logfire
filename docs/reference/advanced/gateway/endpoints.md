@@ -18,7 +18,10 @@ Endpoint priorities and weights are included on every Gateway plan. Your plan's 
 
    <div align="center">
 
-   [![The routing editor showing priority, weight, availability, and the first-attempt preview for a sample provider](../../../images/guide/ai-gateway/routing-priority-weight.png)](../../../images/guide/ai-gateway/routing-priority-weight.png)
+<!-- ladle-screenshot story="product--gateway--endpoint-providers--edit-sole-provider-routing-dialog" image="../../../images/guide/ai-gateway/routing-priority-weight" alt="The routing editor showing priority, weight, availability, and the first-attempt preview for a sample provider" viewport="1280x900" scale="2" selector="[role=dialog]" aspect="1344:1000" padding="0" -->
+<img class="only-light" src="../../../images/guide/ai-gateway/routing-priority-weight-light.png" alt="The routing editor showing priority, weight, availability, and the first-attempt preview for a sample provider" width="672" height="500" loading="lazy" />
+<img class="only-dark" src="../../../images/guide/ai-gateway/routing-priority-weight-dark.png" alt="The routing editor showing priority, weight, availability, and the first-attempt preview for a sample provider" width="672" height="500" loading="lazy" />
+<!-- /ladle-screenshot -->
 
    *Routing controls for one provider in the first-choice group.*
 

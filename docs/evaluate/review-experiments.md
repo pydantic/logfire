@@ -15,7 +15,10 @@ Open a project, then select **AI Evaluations** > **Datasets & experiments** > **
 
 The Experiments page lists runs in the selected time range. Search by experiment name, group runs by dataset, and select **Review results** on the run you want to investigate.
 
-![Find an experiment by name or dataset](../images/guide/evals/experiments-list.webp)
+<!-- ladle-screenshot story="product--evals--experiments--support-triage-search" image="../images/guide/evals/experiments-list" alt="Find an experiment by name or dataset" viewport="1221x800" scale="2" aspect="1221:390" padding="48" time="2026-07-31T12:00:00Z" -->
+<img class="only-light" src="../images/guide/evals/experiments-list-light.png" alt="Find an experiment by name or dataset" width="1221" height="390" loading="lazy" />
+<img class="only-dark" src="../images/guide/evals/experiments-list-dark.png" alt="Find an experiment by name or dataset" width="1221" height="390" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 Use a descriptive experiment name for the change under test, such as `candidate-routing-prompt-v2`. The dataset identifies what you tested; the experiment name identifies the version or hypothesis you tested.
 
@@ -32,7 +35,10 @@ The **Overview** tab answers whether the run completed and where to investigate:
 - **Evaluator analysis** shows each evaluator separately. Assertion evaluators show their pass and fail mix; numeric evaluators show an average and score distribution.
 - **Operational metrics** report task duration, tokens, and cost when the run provides them.
 
-![Read the aggregate result before opening individual cases](../images/guide/evals/experiment-overview.webp)
+<!-- ladle-screenshot story="product--evals--experiment-aggregate-analysis--support-triage-run" image="../images/guide/evals/experiment-overview" alt="Read the aggregate result before opening individual cases" viewport="1269x900" scale="2" selector="[aria-label='Aggregate experiment analysis']" aspect="1221:851" padding="0" -->
+<img class="only-light" src="../images/guide/evals/experiment-overview-light.png" alt="Read the aggregate result before opening individual cases" width="1221" height="851" loading="lazy" />
+<img class="only-dark" src="../images/guide/evals/experiment-overview-dark.png" alt="Read the aggregate result before opening individual cases" width="1221" height="851" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 Aggregate results are a triage tool, not the final decision. For a numeric evaluator, use the average to understand the center of the run and the histogram to see its spread. An improved average can still hide a low-scoring tail.
 
@@ -42,7 +48,10 @@ Open the **Cases** tab, then start with **Needs review**, **Failed**, or **Error
 
 Before opening a case, scan its input and output preview alongside the selected evaluator values. Use **Metrics** to choose the evaluator columns that matter to the decision, then select **Open case** for the full evidence. Hover an evaluator value to see its name and exact value. Numeric scores also show the run-wide distribution with the current case marked.
 
-![Use input and output previews to find cases that need inspection](../images/guide/evals/case-previews.webp)
+<!-- ladle-screenshot story="product--evals--experiment-results-browser--failed-case-previews" image="../images/guide/evals/case-previews" alt="Use input and output previews to find cases that need inspection" viewport="1241x800" scale="2" selector="[aria-label='Experiment review workspace']" aspect="1209:373" padding="0" -->
+<img class="only-light" src="../images/guide/evals/case-previews-light.png" alt="Use input and output previews to find cases that need inspection" width="1209" height="373" loading="lazy" />
+<img class="only-dark" src="../images/guide/evals/case-previews-dark.png" alt="Use input and output previews to find cases that need inspection" width="1209" height="373" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 Read each case in this order:
 
@@ -52,7 +61,7 @@ Read each case in this order:
 4. **Technical details**: inspect expected output, metadata, duration, tokens, and cost.
 5. **Open trace in Live view**: follow model calls, tool calls, and exceptions when the output does not explain the result.
 
-![Review a failed case with its input, output, and evaluator results](../images/guide/evals/case-review.webp)
+<!-- ladle-screenshot story="product--evals--experiment-results-browser--failed-case-review" image="../images/guide/evals/case-review" alt="Review a failed case with its input, output, and evaluator results" viewport="1253x900" scale="2" selector="[aria-label='Experiment review workspace']" aspect="1221:840" padding="0" -->
 
 Use **Prev** and **Next**, or the displayed keyboard shortcuts, to work through the current filtered list without returning to the table.
 
@@ -62,7 +71,10 @@ From an experiment result, select **Compare runs**. The current run remains the 
 
 Start on **Overview** to compare completion, assertions, task errors, evaluator aggregates, and operational metrics. Assertion bars make changes in the pass and fail mix visible. Numeric histograms show whether an average-score change came from broad improvement, a shifted cluster, or a few outliers.
 
-![Compare aggregate results for a baseline and candidate](../images/guide/evals/comparison-overview.webp)
+<!-- ladle-screenshot story="product--evals--experiment-workbench--support-triage-comparison-overview" image="../images/guide/evals/comparison-overview" alt="Compare aggregate results for a baseline and candidate" viewport="1285x900" scale="2" selector="[aria-label='Experiment comparison']" aspect="1221:700" padding="0" -->
+<img class="only-light" src="../images/guide/evals/comparison-overview-light.png" alt="Compare aggregate results for a baseline and candidate" width="1221" height="700" loading="lazy" />
+<img class="only-dark" src="../images/guide/evals/comparison-overview-dark.png" alt="Compare aggregate results for a baseline and candidate" width="1221" height="700" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 Then open **Cases**:
 
@@ -72,7 +84,10 @@ Then open **Cases**:
 - Set **Group by** to **Outcome** to put regressions and errors ahead of unchanged cases.
 - Scan each case's input preview and evaluator deltas, then open it to compare baseline and candidate outputs with the full evidence.
 
-![Group compared cases by outcome and inspect the metrics that explain the change](../images/guide/evals/comparison-cases.webp)
+<!-- ladle-screenshot story="product--evals--experiment-workbench--support-triage-comparison-cases" image="../images/guide/evals/comparison-cases" alt="Group compared cases by outcome and inspect the metrics that explain the change" viewport="1285x900" scale="2" selector="[aria-label='Comparison review workspace']" aspect="1221:600" padding="0" -->
+<img class="only-light" src="../images/guide/evals/comparison-cases-light.png" alt="Group compared cases by outcome and inspect the metrics that explain the change" width="1221" height="600" loading="lazy" />
+<img class="only-dark" src="../images/guide/evals/comparison-cases-dark.png" alt="Group compared cases by outcome and inspect the metrics that explain the change" width="1221" height="600" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 Metric direction matters. A positive raw delta is not always an improvement: higher latency, token use, or cost can be worse. Set **Better score** to match the metric's meaning, then use the outcome group rather than interpreting the sign alone.
 

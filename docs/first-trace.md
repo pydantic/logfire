@@ -149,7 +149,10 @@ Pick your language below; the Python, JavaScript/TypeScript, and Rust tabs are c
 
 Open the [**Live view**](guides/web-ui/live.md) in Logfire. Your `greeting` trace appears as it arrives:
 
-![Traces arriving in the Logfire Live view](images/logfire-live-view.png)
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--checkout-webhook-trace" image="images/logfire-live-view" alt="Traces arriving in the Logfire Live view" viewport="1280x300" scale="2" selector=".live-view-row" padding="8" time="2026-08-01T13:52:00Z" -->
+<img class="only-light" src="images/logfire-live-view-light.png" alt="Traces arriving in the Logfire Live view" width="1256" height="60" loading="lazy" />
+<img class="only-dark" src="images/logfire-live-view-dark.png" alt="Traces arriving in the Logfire Live view" width="1256" height="60" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 Each row is one span, with its service, name, and duration. Click a span to open its full trace and read its details. The example above shows a busier app: a checkout request with a nested validation error. Your `greeting` span shows up as a row, with the `Hello world!` log nested inside it.
 
