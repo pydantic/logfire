@@ -2420,23 +2420,16 @@ def test_on_response_reads_legacy_raw_body_without_json_method() -> None:
     assert span.attributes['gen_ai.response.id'] == 'legacy_id'
 
 
-def test_unwrap_raw_message_falls_back_to_none() -> None:
-    from logfire._internal.integrations.llm_providers.anthropic import _unwrap_raw_message
-
-    class _FakeRaw:
-        def __init__(self, http_response: Any) -> None:
-            self.http_response = http_response
-
-        def parse(self) -> None:
-            return None
+def test_on_response_skips_unparseable_raw_response() -> None:
+    from logfire._internal.integrations.llm_providers.anthropic import on_response
 
     class _BoomHttp:
-        def json(self) -> None:
+        def json(self):
             raise RuntimeError('boom')
 
     class _ListHttp:
-        def json(self) -> list:
-            return [1, 2, 3]  # type: ignore[return-value]
+        def json(self):
+            return [1, 2, 3]
 
     class _EventHttp:
         def json(self) -> dict[str, Any]:
@@ -2446,13 +2439,28 @@ def test_unwrap_raw_message_falls_back_to_none() -> None:
         def json(self) -> dict[str, Any]:
             return {'id': 'msg_x', 'type': 'message'}  # missing required fields
 
-    # http_response.json() raises; payload is a list; type != message; message fails validation
-    assert _unwrap_raw_message(_FakeRaw(_BoomHttp())) is None
-    assert _unwrap_raw_message(_FakeRaw(_ListHttp())) is None
-    assert _unwrap_raw_message(_FakeRaw(_EventHttp())) is None
-    assert _unwrap_raw_message(_FakeRaw(_BadMessageHttp())) is None
-    # no http_response / callable.parse guard
-    assert _unwrap_raw_message(object()) is None
+    class _Raw:
+        def __init__(self, http_response: Any) -> None:
+            self.http_response = http_response
+
+        def parse(self) -> None:
+            return None
+
+    class MockSpan:
+        def __init__(self) -> None:
+            self.attributes: dict[str, Any] = {}
+
+        def set_attribute(self, key: str, value: Any) -> None:
+            self.attributes[key] = value
+
+        def set_attributes(self, attributes: dict[str, Any]) -> None:
+            for key, value in attributes.items():
+                self.set_attribute(key, value)
+
+    for http in (_BoomHttp(), _ListHttp(), _EventHttp(), _BadMessageHttp()):
+        span = MockSpan()
+        on_response(_Raw(http), span, version=2)  # type: ignore[arg-type]
+        assert span.attributes == {}
 
 
 def test_messages_records_cache_token_attributes(exporter: TestExporter) -> None:
