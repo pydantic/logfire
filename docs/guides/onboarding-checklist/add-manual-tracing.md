@@ -180,9 +180,9 @@ with logfire.span('This is a span'):
 
 If you click on the span in the Live view, the panel on the right will have an 'Exception Traceback' tab:
 
-<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--exception-traceback" image="../../images/guide/manual-tracing-traceback" alt="Traceback in UI" viewport="520x400" scale="2" selector="#details-container" aspect="412:180" padding="4" time="2026-08-01T12:02:00Z" -->
-<img class="only-light" src="../../images/guide/manual-tracing-traceback-light.png" alt="Traceback in UI" width="496" height="217" loading="lazy" />
-<img class="only-dark" src="../../images/guide/manual-tracing-traceback-dark.png" alt="Traceback in UI" width="496" height="217" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--exception-traceback" image="../../images/guide/manual-tracing-traceback" alt="Traceback in UI" viewport="480x600" scale="2" selector="#details-container [role=tablist], #details-container [role=tablist] + section" aspect="412:180" padding="4" time="2026-08-01T12:02:00Z" -->
+<img class="only-light" src="../../images/guide/manual-tracing-traceback-light.png" alt="Traceback in UI" width="432" height="189" loading="lazy" />
+<img class="only-dark" src="../../images/guide/manual-tracing-traceback-dark.png" alt="Traceback in UI" width="432" height="189" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 Exceptions which are caught and not re-raised will not be recorded, e.g:
