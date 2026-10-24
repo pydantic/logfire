@@ -12,9 +12,9 @@ You'll find this view in the project sidebar.
 
 ## The LLMs page
 
-<!-- ladle-screenshot story="product--llms-and-providers--models-page--inventory" image="../../images/llms/inventory" alt="LLMs page inventory" viewport="1231x700" scale="2" aspect="1231:557" padding="32" time="2026-08-13T12:00:00Z" -->
-<img class="only-light" src="../../images/llms/inventory-light.png" alt="LLMs page inventory" width="1231" height="557" loading="lazy" />
-<img class="only-dark" src="../../images/llms/inventory-dark.png" alt="LLMs page inventory" width="1231" height="557" loading="lazy" />
+<!-- ladle-screenshot story="product--llms-and-providers--models-page--inventory" image="../../images/llms/inventory" alt="LLMs page inventory" viewport="1231x700" scale="2" padding="32" time="2026-08-13T12:00:00Z" -->
+<img class="only-light" src="../../images/llms/inventory-light.png" alt="LLMs page inventory" width="1231" height="678" loading="lazy" />
+<img class="only-dark" src="../../images/llms/inventory-dark.png" alt="LLMs page inventory" width="1231" height="678" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 Each row is a model your application has called in the window. Columns:
