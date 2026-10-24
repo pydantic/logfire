@@ -72,9 +72,9 @@ with logfire.span('counting size of {cwd=}', cwd=cwd):
     logfire.info('total size of {cwd} is {size} bytes', cwd=cwd, size=total_size)
 ```
 
-<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--concepts-file-size" image="images/logfire-screenshot-first-steps-load-files" alt="Counting size of loaded files screenshot" viewport="1280x160" scale="2" selector=".live-view-row" aspect="2560:818" time="2025-09-25T12:08:00Z" -->
-<img class="only-light" src="images/logfire-screenshot-first-steps-load-files-light.png" alt="Counting size of loaded files screenshot" width="1256" height="401" loading="lazy" />
-<img class="only-dark" src="images/logfire-screenshot-first-steps-load-files-dark.png" alt="Counting size of loaded files screenshot" width="1256" height="401" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--concepts-file-size" image="images/logfire-screenshot-first-steps-load-files" alt="Counting size of loaded files screenshot" viewport="1280x409" scale="2" aspect="2560:818" padding="0" time="2025-09-25T12:07:34Z" -->
+<img class="only-light" src="images/logfire-screenshot-first-steps-load-files-light.png" alt="Counting size of loaded files screenshot" width="1280" height="409" loading="lazy" />
+<img class="only-dark" src="images/logfire-screenshot-first-steps-load-files-dark.png" alt="Counting size of loaded files screenshot" width="1280" height="409" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ---
@@ -104,8 +104,8 @@ with logfire.span('Asking the user for their {question}', question='birthday'): 
 2. Attempt to extract a date from the user input. If any exception is raised, the outer span will include the details of the exception.
 3. This will log for example `dob=2000-01-01 age=datetime.timedelta(days=8838)` with `debug` level.
 
-<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--hello-world-age" image="images/index/logfire-screenshot-hello-world-age" alt="Logfire hello world screenshot" viewport="1280x571" scale="2" aspect="2560:1142" padding="0" time="2024-09-18T21:38:00Z" -->
-<img class="only-light" src="images/index/logfire-screenshot-hello-world-age-light.png" alt="Logfire hello world screenshot" width="1280" height="571" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--hello-world-age" image="images/index/logfire-screenshot-hello-world-age" alt="Logfire hello world screenshot" viewport="1440x642" scale="2" aspect="2560:1142" padding="0" time="2024-09-18T21:40:15Z" -->
+<img class="only-light" src="images/index/logfire-screenshot-hello-world-age-light.png" alt="Logfire hello world screenshot" width="1440" height="642" loading="lazy" />
 <img class="only-dark" src="images/index/logfire-screenshot-hello-world-age-dark.png" alt="Logfire hello world screenshot" width="1280" height="571" loading="lazy" />
 <!-- /ladle-screenshot -->
 

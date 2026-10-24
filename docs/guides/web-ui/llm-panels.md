@@ -103,7 +103,7 @@ result = agent.run_sync("Which city is the capital of France?")
 print(result.output)
 ```
 
-<!-- ladle-screenshot story="components--ai--llm-generation-details--docs-basic-panel" image="../../images/llm-panels/basic-llm-panel" alt="Basic LLM panel" viewport="640x900" scale="2" selector="#details-container" aspect="1234:432" padding="0" -->
+<!-- ladle-screenshot story="components--ai--llm-generation-details--docs-basic-panel" image="../../images/llm-panels/basic-llm-panel" alt="Basic LLM panel" viewport="640x1100" scale="2" selector="#details-container" aspect="1234:432" padding="0" -->
 <img class="only-light" src="../../images/llm-panels/basic-llm-panel-light.png" alt="Basic LLM panel" width="640" height="224" loading="lazy" />
 <img class="only-dark" src="../../images/llm-panels/basic-llm-panel-dark.png" alt="Basic LLM panel" width="640" height="224" loading="lazy" />
 <!-- /ladle-screenshot -->
@@ -118,9 +118,9 @@ agent = Agent(
 result = agent.run_sync("Please write me a limerick about Python logging.")
 ```
 
-<!-- ladle-screenshot story="components--ai--llm-generation-details--docs-panel-with-system-prompt" image="../../images/llm-panels/basic-llm-panel-with-system-prompt" alt="Panel with system prompt" viewport="640x900" scale="2" selector="#details-container" aspect="1238:632" padding="0" -->
-<img class="only-light" src="../../images/llm-panels/basic-llm-panel-with-system-prompt-light.png" alt="Panel with system prompt" width="640" height="327" loading="lazy" />
-<img class="only-dark" src="../../images/llm-panels/basic-llm-panel-with-system-prompt-dark.png" alt="Panel with system prompt" width="640" height="327" loading="lazy" />
+<!-- ladle-screenshot story="components--ai--llm-generation-details--docs-panel-with-system-prompt" image="../../images/llm-panels/basic-llm-panel-with-system-prompt" alt="Panel with system prompt" viewport="760x1100" scale="2" selector="#details-container" aspect="1238:632" padding="0" -->
+<img class="only-light" src="../../images/llm-panels/basic-llm-panel-with-system-prompt-light.png" alt="Panel with system prompt" width="760" height="388" loading="lazy" />
+<img class="only-dark" src="../../images/llm-panels/basic-llm-panel-with-system-prompt-dark.png" alt="Panel with system prompt" width="760" height="388" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ---
@@ -129,13 +129,13 @@ result = agent.run_sync("Please write me a limerick about Python logging.")
 
 Logfire displays every tool invocation and its structured response.
 
-<!-- ladle-screenshot story="components--ai--llm-generation-details--docs-panel-with-tool" image="../../images/llm-panels/llm-panel-with-tool" alt="Tool‑call example" viewport="640x900" scale="2" selector="#details-container" aspect="1234:946" padding="0" -->
-<img class="only-light" src="../../images/llm-panels/llm-panel-with-tool-light.png" alt="Tool‑call example" width="640" height="491" loading="lazy" />
-<img class="only-dark" src="../../images/llm-panels/llm-panel-with-tool-dark.png" alt="Tool‑call example" width="640" height="491" loading="lazy" />
+<!-- ladle-screenshot story="components--ai--llm-generation-details--docs-panel-with-tool" image="../../images/llm-panels/llm-panel-with-tool" alt="Tool‑call example" viewport="690x1100" scale="2" selector="#details-container" aspect="1234:946" padding="0" -->
+<img class="only-light" src="../../images/llm-panels/llm-panel-with-tool-light.png" alt="Tool‑call example" width="690" height="529" loading="lazy" />
+<img class="only-dark" src="../../images/llm-panels/llm-panel-with-tool-dark.png" alt="Tool‑call example" width="690" height="529" loading="lazy" />
 <!-- /ladle-screenshot -->
-<!-- ladle-screenshot story="components--ai--llm-generation-details--docs-panel-with-weather-tool" image="../../images/llm-panels/llm-panel-with-tool-weather" alt="Weather‑tool example" viewport="640x900" scale="2" selector="#details-container" aspect="1238:1086" padding="0" -->
-<img class="only-light" src="../../images/llm-panels/llm-panel-with-tool-weather-light.png" alt="Weather‑tool example" width="640" height="561" loading="lazy" />
-<img class="only-dark" src="../../images/llm-panels/llm-panel-with-tool-weather-dark.png" alt="Weather‑tool example" width="640" height="561" loading="lazy" />
+<!-- ladle-screenshot story="components--ai--llm-generation-details--docs-panel-with-weather-tool" image="../../images/llm-panels/llm-panel-with-tool-weather" alt="Weather‑tool example" viewport="770x1100" scale="2" selector="#details-container" aspect="1238:1086" padding="0" -->
+<img class="only-light" src="../../images/llm-panels/llm-panel-with-tool-weather-light.png" alt="Weather‑tool example" width="770" height="675" loading="lazy" />
+<img class="only-dark" src="../../images/llm-panels/llm-panel-with-tool-weather-dark.png" alt="Weather‑tool example" width="770" height="675" loading="lazy" />
 <!-- /ladle-screenshot -->
 <!-- ladle-screenshot story="components--ai--llm-generation-details--docs-panel-with-tool-array-response" image="../../images/llm-panels/llm-panel-with-tool-array-response" alt="Array‑response example" viewport="640x900" scale="2" selector="#details-container" aspect="1244:1194" padding="0" -->
 <img class="only-light" src="../../images/llm-panels/llm-panel-with-tool-array-response-light.png" alt="Array‑response example" width="640" height="614" loading="lazy" />
@@ -149,9 +149,9 @@ Logfire displays every tool invocation and its structured response.
 When a prompt includes a file, binary, blob, or URL, Logfire attaches a preview so you can verify exactly what the model received.
 
 #### LLM panel with image url:
-<!-- ladle-screenshot story="components--ai--llm-generation-details--docs-panel-with-image-url" image="../../images/llm-panels/llm-panel-with-image-url" alt="File‑attachment with image url example" viewport="640x900" scale="2" selector="#details-container" aspect="1144:932" padding="0" -->
-<img class="only-light" src="../../images/llm-panels/llm-panel-with-image-url-light.png" alt="File‑attachment with image url example" width="640" height="521" loading="lazy" />
-<img class="only-dark" src="../../images/llm-panels/llm-panel-with-image-url-dark.png" alt="File‑attachment with image url example" width="640" height="521" loading="lazy" />
+<!-- ladle-screenshot story="components--ai--llm-generation-details--docs-panel-with-image-url" image="../../images/llm-panels/llm-panel-with-image-url" alt="File‑attachment with image url example" viewport="660x1100" scale="2" selector="#details-container" aspect="1144:932" padding="0" -->
+<img class="only-light" src="../../images/llm-panels/llm-panel-with-image-url-light.png" alt="File‑attachment with image url example" width="660" height="538" loading="lazy" />
+<img class="only-dark" src="../../images/llm-panels/llm-panel-with-image-url-dark.png" alt="File‑attachment with image url example" width="660" height="538" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 #### LLM panel with PDF file:

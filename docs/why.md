@@ -72,12 +72,9 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
 Pydantic Logfire was built by developers who understand real applications: from async Python services to JavaScript frontends to multi-language distributed systems. With deep integrations across Python, JavaScript/TypeScript, Rust, and any OpenTelemetry-compatible language, it's about having the _right_ data, presented in ways that make sense for your applications.
 
-<!-- ladle-screenshot story="product--live--docs-traces--web-apps--fastapi-valid-request" image="images/index/logfire-screenshot-fastapi-200" alt="Logfire FastAPI screenshot" viewport="1280x720" scale="2" time="2026-08-01T21:57:00Z" -->
-<img class="only-light" src="images/index/logfire-screenshot-fastapi-200-light.png" alt="Logfire FastAPI screenshot" width="1280" height="768" loading="lazy" />
-<img class="only-dark" src="images/index/logfire-screenshot-fastapi-200-dark.png" alt="Logfire FastAPI screenshot" width="1280" height="768" loading="lazy" />
-<!-- /ladle-screenshot -->
-<img class="only-light" src="images/index/logfire-screenshot-fastapi-200-light.png" alt="Logfire FastAPI screenshot" width="1280" height="768" loading="lazy" />
-<img class="only-dark" src="images/index/logfire-screenshot-fastapi-200-dark.png" alt="Logfire FastAPI screenshot" width="1280" height="768" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--fastapi-valid-request" image="images/index/logfire-screenshot-fastapi-200" alt="Logfire FastAPI screenshot" viewport="1440x900" scale="2" aspect="2560:1600" padding="0" time="2026-08-01T21:57:00Z" -->
+<img class="only-light" src="images/index/logfire-screenshot-fastapi-200-light.png" alt="Logfire FastAPI screenshot" width="1440" height="900" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-fastapi-200-dark.png" alt="Logfire FastAPI screenshot" width="1440" height="900" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ## Simple to use, deep when you need it {#simplicity-and-power}
@@ -89,7 +86,7 @@ and productivity, reimagined for observability.
 Within a few minutes you'll have your first logs:
 
 <!-- ladle-screenshot story="product--live--docs-traces--core-sdk--hello-world-age" image="images/index/logfire-screenshot-hello-world-age" alt="Logfire hello world screenshot" viewport="1280x571" scale="2" aspect="2560:1142" padding="0" time="2024-09-18T21:38:00Z" -->
-<img class="only-light" src="images/index/logfire-screenshot-hello-world-age-light.png" alt="Logfire hello world screenshot" width="1280" height="571" loading="lazy" />
+<img class="only-light" src="images/index/logfire-screenshot-hello-world-age-light.png" alt="Logfire hello world screenshot" width="1440" height="642" loading="lazy" />
 <img class="only-dark" src="images/index/logfire-screenshot-hello-world-age-dark.png" alt="Logfire hello world screenshot" width="1280" height="571" loading="lazy" />
 <!-- /ladle-screenshot -->
 
@@ -156,9 +153,9 @@ logfire.info('user processed: {user!r}', user=user)  # (1)!
 
 1. This will show `user processed: User(name='Anne', country_code='USA', dob=datetime.date(2000, 1, 1))`, but also allow you to see a "pretty" view of the model within the Logfire Platform.
 
-<!-- ladle-screenshot story="product--live--docs-traces--web-apps--pydantic-manual-log" image="images/index/logfire-screenshot-pydantic-manual" alt="Logfire pydantic manual screenshot" viewport="1280x720" scale="2" time="2026-08-01T09:55:00Z" -->
-<img class="only-light" src="images/index/logfire-screenshot-pydantic-manual-light.png" alt="Logfire pydantic manual screenshot" width="1280" height="768" loading="lazy" />
-<img class="only-dark" src="images/index/logfire-screenshot-pydantic-manual-dark.png" alt="Logfire pydantic manual screenshot" width="1280" height="768" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--pydantic-manual-log" image="images/index/logfire-screenshot-pydantic-manual" alt="Logfire pydantic manual screenshot" viewport="1440x687" scale="2" aspect="2560:1222" padding="0" time="2026-08-01T09:55:00Z" -->
+<img class="only-light" src="images/index/logfire-screenshot-pydantic-manual-light.png" alt="Logfire pydantic manual screenshot" width="1440" height="687" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-pydantic-manual-dark.png" alt="Logfire pydantic manual screenshot" width="1440" height="687" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 Or we can record information about validations automatically:
@@ -190,9 +187,9 @@ User(name='Charlie', country_code='GBR', dob='1990-03-03')
 
 Learn more about the [Pydantic Plugin here](integrations/pydantic.md).
 
-<!-- ladle-screenshot story="product--live--docs-traces--web-apps--pydantic-plugin-spans" image="images/index/logfire-screenshot-pydantic-plugin" alt="Logfire pydantic plugin screenshot" viewport="1280x720" scale="2" time="2026-08-01T10:00:00Z" -->
-<img class="only-light" src="images/index/logfire-screenshot-pydantic-plugin-light.png" alt="Logfire pydantic plugin screenshot" width="1280" height="781" loading="lazy" />
-<img class="only-dark" src="images/index/logfire-screenshot-pydantic-plugin-dark.png" alt="Logfire pydantic plugin screenshot" width="1280" height="781" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--pydantic-plugin-spans" image="images/index/logfire-screenshot-pydantic-plugin" alt="Logfire pydantic plugin screenshot" viewport="1440x770" scale="2" aspect="2560:1368" padding="0" time="2026-08-01T10:00:00Z" -->
+<img class="only-light" src="images/index/logfire-screenshot-pydantic-plugin-light.png" alt="Logfire pydantic plugin screenshot" width="1440" height="770" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-pydantic-plugin-dark.png" alt="Logfire pydantic plugin screenshot" width="1440" height="770" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ## OpenTelemetry under the hood {#opentelemetry-under-the-hood}
@@ -245,13 +242,16 @@ uvicorn main:app # (2)!
 
 This will give you information on the HTTP request and details of results from successful input validations:
 
-<!-- ladle-screenshot story="product--live--docs-traces--web-apps--fastapi-valid-request" image="images/index/logfire-screenshot-fastapi-200" alt="Logfire FastAPI 200 response screenshot" viewport="1280x720" scale="2" time="2026-08-01T21:57:00Z" -->
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--fastapi-valid-request" image="images/index/logfire-screenshot-fastapi-200" alt="Logfire FastAPI 200 response screenshot" viewport="1440x900" scale="2" aspect="2560:1600" padding="0" time="2026-08-01T21:57:00Z" -->
+<img class="only-light" src="images/index/logfire-screenshot-fastapi-200-light.png" alt="Logfire FastAPI 200 response screenshot" width="1280" height="768" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-fastapi-200-dark.png" alt="Logfire FastAPI 200 response screenshot" width="1280" height="768" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 And, importantly, details of failed input validations:
 
-<!-- ladle-screenshot story="product--live--docs-traces--web-apps--fastapi-invalid-request" image="images/index/logfire-screenshot-fastapi-422" alt="Logfire FastAPI 422 response screenshot" viewport="1280x720" scale="2" time="2026-08-01T21:57:00Z" -->
-<img class="only-light" src="images/index/logfire-screenshot-fastapi-422-light.png" alt="Logfire FastAPI 422 response screenshot" width="1280" height="843" loading="lazy" />
-<img class="only-dark" src="images/index/logfire-screenshot-fastapi-422-dark.png" alt="Logfire FastAPI 422 response screenshot" width="1280" height="843" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--fastapi-invalid-request" image="images/index/logfire-screenshot-fastapi-422" alt="Logfire FastAPI 422 response screenshot" viewport="1440x881" scale="2" aspect="2560:1566" padding="0" time="2026-08-01T21:57:00Z" -->
+<img class="only-light" src="images/index/logfire-screenshot-fastapi-422-light.png" alt="Logfire FastAPI 422 response screenshot" width="1440" height="881" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-fastapi-422-dark.png" alt="Logfire FastAPI 422 response screenshot" width="1440" height="881" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 In the example above, we can see the FastAPI arguments failing (`user` is null when it should always be populated). This demonstrates type-checking from Pydantic used built-in with FastAPI.
