@@ -46,6 +46,7 @@ from .semconv import (
     NormalizedSemconvVersion,
     OutputMessage,
     OutputMessages,
+    ReasoningPart,
     Role,
     SystemInstructions,
     TextPart,
@@ -350,6 +351,9 @@ def convert_responses_inputs_to_semconv(
                 if typ in (None, 'message') and content:
                     parts: list[MessagePart] = _convert_content_part_or_parts(content)
                     input_messages.append(ChatMessage(role=role, parts=parts))
+                elif typ == 'reasoning':
+                    if reasoning_parts := _reasoning_parts(inp):
+                        input_messages.append(ChatMessage(role='assistant', parts=reasoning_parts))
                 elif typ == 'function_call':
                     input_messages.append(
                         ChatMessage(
@@ -438,34 +442,53 @@ def responses_finish_reasons(response: Any) -> list[str]:
     return []
 
 
+def _reasoning_parts(item: dict[str, Any]) -> list[MessagePart]:
+    """Reasoning summary (or raw reasoning text) of a Responses `reasoning` item, one part per entry."""
+    parts: list[MessagePart] = []
+    entries = cast('list[Any]', item.get('summary') or []) + cast('list[Any]', item.get('content') or [])
+    for entry in entries:
+        if isinstance(entry, dict) and (text := cast('dict[str, Any]', entry).get('text')):
+            parts.append(ReasoningPart(type='reasoning', content=text))
+    return parts
+
+
 def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
     """Convert Responses API outputs to OTel Gen AI Semantic Convention format."""
     output_messages: OutputMessages = []
+    # Reasoning comes before the message or tool call it led to, so it joins that assistant message.
+    pending_reasoning: list[MessagePart] = []
     for out in response.output:
         out_dict = out.model_dump()
         typ = out_dict.get('type')
         content = out_dict.get('content')
 
-        if typ in (None, 'message') and content:
+        if typ == 'reasoning':
+            pending_reasoning.extend(_reasoning_parts(out_dict))
+        elif typ in (None, 'message') and content:
             output_messages.append(
                 OutputMessage(
                     role='assistant',
-                    parts=_convert_content_part_or_parts(content),
+                    parts=[*pending_reasoning, *_convert_content_part_or_parts(content)],
                 )
             )
+            pending_reasoning = []
         elif typ == 'function_call':  # pragma: no cover - outputs are typically 'message' type
             output_messages.append(
                 OutputMessage(
                     role='assistant',
                     parts=[
+                        *pending_reasoning,
                         make_tool_call_part(
                             tool_call_id=out_dict.get('call_id', ''),
                             name=out_dict.get('name', ''),
                             arguments=out_dict.get('arguments'),
-                        )
+                        ),
                     ],
                 )
             )
+            pending_reasoning = []
+    if pending_reasoning:
+        output_messages.append(OutputMessage(role='assistant', parts=pending_reasoning))
     return output_messages
 
 
