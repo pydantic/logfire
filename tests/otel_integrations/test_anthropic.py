@@ -2388,6 +2388,81 @@ def test_messages_stream_records_cache_token_attributes() -> None:
     assert attributes['gen_ai.usage.cache_creation.input_tokens'] == 5
 
 
+_REFUSAL_MESSAGE: dict[str, Any] = {
+    'id': 'msg_refusal',
+    'type': 'message',
+    'role': 'assistant',
+    'model': 'claude-haiku-4-5',
+    'content': [],
+    'stop_reason': 'refusal',
+    'stop_sequence': None,
+    'stop_details': {'type': 'refusal', 'category': None, 'explanation': 'I cannot help with that.'},
+    'usage': {'input_tokens': 10, 'output_tokens': 5},
+}
+
+
+@pytest.mark.parametrize('beta', [False, True])
+def test_refusal_explanation_is_recorded_as_output_text(beta: bool) -> None:
+    from anthropic.types import Message
+    from anthropic.types.beta import BetaMessage
+
+    from logfire._internal.integrations.llm_providers.anthropic import convert_response_to_semconv
+
+    message = (BetaMessage if beta else Message).model_validate(_REFUSAL_MESSAGE)
+
+    assert convert_response_to_semconv(message) == {
+        'role': 'assistant',
+        'parts': [{'type': 'text', 'content': 'I cannot help with that.'}],
+        'finish_reason': 'refusal',
+    }
+
+
+def test_refusal_without_explanation_keeps_empty_parts() -> None:
+    from anthropic.types import Message
+
+    from logfire._internal.integrations.llm_providers.anthropic import convert_response_to_semconv
+
+    message = Message.model_validate({**_REFUSAL_MESSAGE, 'stop_details': None})
+
+    assert convert_response_to_semconv(message)['parts'] == []
+
+
+@pytest.mark.parametrize('beta', [False, True])
+def test_streamed_refusal_explanation_is_recorded_as_output_text(beta: bool) -> None:
+    from anthropic.types import MessageStreamEvent, RawMessageStreamEvent
+    from anthropic.types.beta import BetaRawMessageStreamEvent
+
+    from logfire._internal.integrations.llm_providers.anthropic import AnthropicMessageStreamState
+
+    adapter = pydantic.TypeAdapter(BetaRawMessageStreamEvent if beta else RawMessageStreamEvent)
+    events: list[dict[str, Any]] = [
+        {'type': 'message_start', 'message': {**_REFUSAL_MESSAGE, 'stop_reason': None, 'stop_details': None}},
+        {
+            'type': 'message_delta',
+            'delta': {
+                'stop_reason': 'refusal',
+                'stop_sequence': None,
+                'stop_details': _REFUSAL_MESSAGE['stop_details'],
+            },
+            'usage': {'output_tokens': 5},
+        },
+        {'type': 'message_stop'},
+    ]
+    state = AnthropicMessageStreamState()
+    for event in events:
+        state.record_chunk(cast('MessageStreamEvent', adapter.validate_python(event)))
+
+    attributes = state.get_attributes({})
+    assert attributes['gen_ai.output.messages'] == [
+        {
+            'role': 'assistant',
+            'parts': [{'type': 'text', 'content': 'I cannot help with that.'}],
+            'finish_reason': 'refusal',
+        }
+    ]
+    assert attributes['gen_ai.response.finish_reasons'] == ['refusal']
+
+
 @pytest.mark.parametrize(
     'content, expected_response',
     [
