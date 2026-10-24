@@ -401,6 +401,10 @@ def convert_openai_response_to_semconv(
     if refusal := getattr(message, 'refusal', None):
         parts.append(TextPart(type='text', content=refusal))
 
+    # An audio response leaves `content` empty and carries its text as a transcript.
+    if (audio := getattr(message, 'audio', None)) and audio.transcript:
+        parts.append(TextPart(type='text', content=audio.transcript))
+
     if message.tool_calls:  # pragma: no cover
         for tc in message.tool_calls:
             # Only handle function tool calls (not custom tool calls)
@@ -412,6 +416,16 @@ def convert_openai_response_to_semconv(
                         arguments=tc.function.arguments,
                     )
                 )
+
+    # The legacy `function_call` field has no call id.
+    if function_call := getattr(message, 'function_call', None):
+        parts.append(
+            make_tool_call_part(
+                tool_call_id='',
+                name=function_call.name,
+                arguments=function_call.arguments,
+            )
+        )
 
     result: OutputMessage = {
         'role': message.role,
