@@ -103,6 +103,18 @@ def safe_repr(obj: Any) -> str:
         return '<unknown (repr failed)>'
 
 
+def safe_str(obj: Any) -> str:
+    """Return `str(obj)`, or a placeholder if calling `str()` itself raises.
+
+    Some objects (notably exceptions that were never fully initialised) raise from `__str__`.
+    Callers on the telemetry path must never let that abort their own work.
+    """
+    try:
+        return str(obj)
+    except Exception:
+        return f'<{type(obj).__name__} str() failed>'
+
+
 Truncatable = TypeVar('Truncatable', str, bytes, 'list[Any]', 'tuple[Any, ...]')
 
 
