@@ -243,8 +243,8 @@ uvicorn main:app # (2)!
 This will give you information on the HTTP request and details of results from successful input validations:
 
 <!-- ladle-screenshot story="product--live--docs-traces--web-apps--fastapi-valid-request" image="images/index/logfire-screenshot-fastapi-200" alt="Logfire FastAPI 200 response screenshot" viewport="1440x900" scale="2" aspect="2560:1600" padding="0" time="2026-08-01T21:57:00Z" -->
-<img class="only-light" src="images/index/logfire-screenshot-fastapi-200-light.png" alt="Logfire FastAPI 200 response screenshot" width="1280" height="768" loading="lazy" />
-<img class="only-dark" src="images/index/logfire-screenshot-fastapi-200-dark.png" alt="Logfire FastAPI 200 response screenshot" width="1280" height="768" loading="lazy" />
+<img class="only-light" src="images/index/logfire-screenshot-fastapi-200-light.png" alt="Logfire FastAPI 200 response screenshot" width="1440" height="900" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-fastapi-200-dark.png" alt="Logfire FastAPI 200 response screenshot" width="1440" height="900" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 And, importantly, details of failed input validations:

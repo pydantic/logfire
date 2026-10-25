@@ -380,9 +380,9 @@ While in edit mode, drag the bottom right corner of a panel to resize it.
 
 While in edit mode, click the up and down arrows in the top right corner of a panel group to move it.
 
-<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-panel-group-move" image="../../images/guide/browser-reorder-panel-group" alt="Reorder panel groups" viewport="1152x700" scale="2" aspect="2304:896" selector=".react-grid-item:nth-child(6), .react-grid-item:nth-child(7), .react-grid-item:nth-child(9)" hover="[aria-label='move group Throughput and commands down']" padding="0" -->
-<img class="only-light" src="../../images/guide/browser-reorder-panel-group-light.png" alt="Reorder panel groups" width="1152" height="448" loading="lazy" />
-<img class="only-dark" src="../../images/guide/browser-reorder-panel-group-dark.png" alt="Reorder panel groups" width="1152" height="448" loading="lazy" />
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-panel-group-move" image="../../images/guide/browser-reorder-panel-group" alt="Reorder panel groups" viewport="1152x700" scale="2" selector=".react-grid-item:nth-child(6), .react-grid-item:nth-child(7), .react-grid-item:nth-child(9), [data-radix-popper-content-wrapper]" hover="[aria-label='move group Throughput and commands down']" aspect="2304:896" padding="0" -->
+<img class="only-light" src="../../images/guide/browser-reorder-panel-group-light.png" alt="Reorder panel groups" width="1115" height="434" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-reorder-panel-group-dark.png" alt="Reorder panel groups" width="1115" height="434" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ### Exporting and editing the dashboard as JSON
