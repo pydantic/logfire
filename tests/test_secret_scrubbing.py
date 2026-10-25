@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -295,12 +296,6 @@ def test_scrub_message(exporter: TestExporter):
         pytest.param(b'\x00\x01ab', b'\x00\x01ab', [], id='plain'),
         pytest.param(b'password=hunter2', "[Scrubbed due to 'password']", ['password'], id='secret'),
         pytest.param(b'\x00\xff\xfe', b'\x00\xff\xfe', [], id='not-utf8'),
-        pytest.param(
-            b'[' * 1100 + b'"password"' + b']' * 1100,
-            "[Scrubbed due to 'password']",
-            ['password'],
-            id='deeply-nested-json',
-        ),
     ],
 )
 def test_scrub_binary_values(value: bytes, expected: bytes | str, expected_notes: list[str]):
@@ -309,6 +304,20 @@ def test_scrub_binary_values(value: bytes, expected: bytes | str, expected_notes
 
     assert result == expected
     assert [note['matched_substring'] for note in scrubbed_notes] == expected_notes
+
+
+def test_scrub_json_that_cannot_be_parsed(monkeypatch: pytest.MonkeyPatch):
+    """A parse error must redact the text instead of aborting scrubbing of the whole span."""
+
+    def raise_recursion_error(*args: Any, **kwargs: Any):
+        raise RecursionError('maximum recursion depth exceeded')
+
+    monkeypatch.setattr(json, 'loads', raise_recursion_error)
+
+    result, scrubbed_notes = Scrubber(None).scrub_value(('attributes', 'payload'), b'["password"]')
+
+    assert result == "[Scrubbed due to 'password']"
+    assert [note['matched_substring'] for note in scrubbed_notes] == ['password']
 
 
 class PasswordError(Exception):
