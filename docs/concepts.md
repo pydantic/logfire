@@ -106,7 +106,7 @@ with logfire.span('Asking the user for their {question}', question='birthday'): 
 
 <!-- ladle-screenshot story="product--live--docs-traces--core-sdk--hello-world-age" image="images/index/logfire-screenshot-hello-world-age" alt="Logfire hello world screenshot" viewport="1440x642" scale="2" aspect="2560:1142" padding="0" time="2024-09-18T21:40:15Z" -->
 <img class="only-light" src="images/index/logfire-screenshot-hello-world-age-light.png" alt="Logfire hello world screenshot" width="1440" height="642" loading="lazy" />
-<img class="only-dark" src="images/index/logfire-screenshot-hello-world-age-dark.png" alt="Logfire hello world screenshot" width="1280" height="571" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-hello-world-age-dark.png" alt="Logfire hello world screenshot" width="1440" height="642" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ---

@@ -85,9 +85,9 @@ and productivity, reimagined for observability.
 
 Within a few minutes you'll have your first logs:
 
-<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--hello-world-age" image="images/index/logfire-screenshot-hello-world-age" alt="Logfire hello world screenshot" viewport="1280x571" scale="2" aspect="2560:1142" padding="0" time="2024-09-18T21:38:00Z" -->
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--hello-world-age" image="images/index/logfire-screenshot-hello-world-age" alt="Logfire hello world screenshot" viewport="1440x642" scale="2" aspect="2560:1142" padding="0" time="2024-09-18T21:40:15Z" -->
 <img class="only-light" src="images/index/logfire-screenshot-hello-world-age-light.png" alt="Logfire hello world screenshot" width="1440" height="642" loading="lazy" />
-<img class="only-dark" src="images/index/logfire-screenshot-hello-world-age-dark.png" alt="Logfire hello world screenshot" width="1280" height="571" loading="lazy" />
+<img class="only-dark" src="images/index/logfire-screenshot-hello-world-age-dark.png" alt="Logfire hello world screenshot" width="1440" height="642" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 This might look like ordinary logging, but it does much more. You get:
