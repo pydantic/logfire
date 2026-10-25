@@ -19,7 +19,7 @@ Open **Evals: Live Monitoring** from the sidebar. The target list shows agents a
 2. Find the target you want to inspect. Each row shows the target type, its evaluators, the number of events, and when the last event arrived.
 3. Read the evaluator summaries. They show a pass rate for pass/fail checks and binary `0`/`1` scores, an average for other numeric scores, or one label plus the number of other labels seen. The small activity bars show when results arrived in the selected time range.
 
-<!-- ladle-screenshot story="product--evals--live-monitoring--directory--docs-target-list" image="../images/live-evaluations-directory" alt="The Live Evaluations target list, showing two targets and summaries for their pass/fail, numeric, and label-based evaluators" viewport="1400x800" scale="2" aspect="1253:183" padding="0" time="2026-07-31T06:00:30Z" -->
+<!-- ladle-screenshot story="product--evals--live-monitoring--directory--docs-live-evaluations-page" image="../images/live-evaluations-directory" alt="The Live Evaluations target list, showing two targets and summaries for their pass/fail, numeric, and label-based evaluators" viewport="1440x1000" scale="2" aspect="1440:560" padding="0" time="2026-07-31T06:00:30Z" -->
 <img class="only-light" src="../images/live-evaluations-directory-light.png" alt="The Live Evaluations target list, showing two targets and summaries for their pass/fail, numeric, and label-based evaluators" width="1253" height="183" loading="lazy" />
 <img class="only-dark" src="../images/live-evaluations-directory-dark.png" alt="The Live Evaluations target list, showing two targets and summaries for their pass/fail, numeric, and label-based evaluators" width="1253" height="183" loading="lazy" />
 <!-- /ladle-screenshot -->
@@ -36,7 +36,7 @@ Select a target to open its detail page. It brings together the evaluation resul
 2. Review **Recent events** for the individual results and their explanations. Use the evaluator filter to focus on one check.
 3. Select the trace link on an event to open it in Live View. A trace is the record of the request that produced the evaluated result. It lets you inspect the evaluation event and any prompt, response, tool-call, or other context that your application recorded.
 
-<!-- ladle-screenshot story="product--evals--live-monitoring--target-detail--docs-failing-evaluator" image="../images/live-evaluations-target-detail" alt="A target detail page, with evaluator cards and a recent-events table including a failing evaluator result" viewport="1400x1000" scale="2" aspect="1253:900" padding="0" time="2026-07-31T06:00:30Z" -->
+<!-- ladle-screenshot story="product--evals--live-monitoring--target-detail--docs-failing-evaluator-page" image="../images/live-evaluations-target-detail" alt="A target detail page, with evaluator cards and a recent-events table including a failing evaluator result" viewport="1440x1000" scale="2" aspect="1440:1000" padding="0" time="2026-07-31T06:00:30Z" -->
 <img class="only-light" src="../images/live-evaluations-target-detail-light.png" alt="A target detail page, with evaluator cards and a recent-events table including a failing evaluator result" width="1253" height="900" loading="lazy" />
 <img class="only-dark" src="../images/live-evaluations-target-detail-dark.png" alt="A target detail page, with evaluator cards and a recent-events table including a failing evaluator result" width="1253" height="900" loading="lazy" />
 <!-- /ladle-screenshot -->

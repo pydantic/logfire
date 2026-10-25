@@ -94,7 +94,7 @@ Standard dashboards are read-only, so they show a **Standard** badge next to the
 2. Enter a name for the copy. It defaults to "Copy of" followed by the original name.
 3. Confirm. Logfire creates a new custom dashboard with the same panels, variables, and layout, and opens it.
 
-<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-standard-clone" image="../../images/guide/dashboard-standard-clone" alt="Toolbar of a standard dashboard showing the Standard badge and the Clone button" viewport="1152x700" scale="2" aspect="2304:556" padding="0" hover="[aria-label='Duplicate dashboard']" time="2026-08-01T15:56:20Z" -->
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-standard-clone" image="../../images/guide/dashboard-standard-clone" alt="Toolbar of a standard dashboard showing the Standard badge and the Clone button" viewport="1152x700" scale="2" hover="[aria-label='Duplicate dashboard']" aspect="2304:556" padding="0" time="2026-08-01T15:56:20Z" -->
 <img class="only-light" src="../../images/guide/dashboard-standard-clone-light.png" alt="Toolbar of a standard dashboard showing the Standard badge and the Clone button" width="1152" height="278" loading="lazy" />
 <img class="only-dark" src="../../images/guide/dashboard-standard-clone-dark.png" alt="Toolbar of a standard dashboard showing the Standard badge and the Clone button" width="1152" height="278" loading="lazy" />
 <!-- /ladle-screenshot -->
@@ -178,7 +178,7 @@ To add variables to a custom dashboard:
 3. Click **+ Add variable**.
 4. Define and configure your variables, then click **Save** on the dashboard.
 
-<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-variables-tooltip" image="../../images/guide/dashboard-edit-variables-button" alt="A dashboard toolbar highlighting the edit variables button" viewport="1150x700" scale="2" aspect="2300:834" hover="[aria-label='Edit variables']" padding="0" -->
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-variables-tooltip" image="../../images/guide/dashboard-edit-variables-button" alt="A dashboard toolbar highlighting the edit variables button" viewport="1150x700" scale="2" hover="[aria-label='Edit variables']" aspect="2300:834" padding="0" -->
 <img class="only-light" src="../../images/guide/dashboard-edit-variables-button-light.png" alt="A dashboard toolbar highlighting the edit variables button" width="1150" height="417" loading="lazy" />
 <img class="only-dark" src="../../images/guide/dashboard-edit-variables-button-dark.png" alt="A dashboard toolbar highlighting the edit variables button" width="1150" height="417" loading="lazy" />
 <!-- /ladle-screenshot -->
@@ -362,18 +362,18 @@ If you changed a variable selection while editing, the save dialog asks whether 
 
 While in edit mode, drag a panel by its title bar to move it.
 
-<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-mode" image="../../images/guide/browser-move-panel" alt="Move panels" viewport="1152x700" scale="2" aspect="2304:896" padding="0" -->
-<img class="only-light" src="../../images/guide/browser-move-panel-light.png" alt="Move panels" width="1152" height="448" loading="lazy" />
-<img class="only-dark" src="../../images/guide/browser-move-panel-dark.png" alt="Move panels" width="1152" height="448" loading="lazy" />
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-mode" image="../../images/guide/browser-move-panel" alt="Move panels" viewport="1152x1100" scale="2" selector=".react-grid-item:nth-child(6), .react-grid-item:nth-child(7)" hover=".react-grid-item:nth-child(6) .drag-handle" aspect="2304:896" padding="0" -->
+<img class="only-light" src="../../images/guide/browser-move-panel-light.png" alt="Move panels" width="1088" height="423" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-move-panel-dark.png" alt="Move panels" width="1088" height="423" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ### Resize panels
 
 While in edit mode, drag the bottom right corner of a panel to resize it.
 
-<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-mode" image="../../images/guide/browser-resize-panel" alt="Resize panels" viewport="1152x700" scale="2" aspect="2304:896" padding="0" -->
-<img class="only-light" src="../../images/guide/browser-resize-panel-light.png" alt="Resize panels" width="1152" height="448" loading="lazy" />
-<img class="only-dark" src="../../images/guide/browser-resize-panel-dark.png" alt="Resize panels" width="1152" height="448" loading="lazy" />
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-mode" image="../../images/guide/browser-resize-panel" alt="Resize panels" viewport="1152x1100" scale="2" selector=".react-grid-item:nth-child(6), .react-grid-item:nth-child(7)" hover=".react-grid-item:nth-child(6) .react-resizable-handle" aspect="2304:896" padding="0" -->
+<img class="only-light" src="../../images/guide/browser-resize-panel-light.png" alt="Resize panels" width="1088" height="423" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-resize-panel-dark.png" alt="Resize panels" width="1088" height="423" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ### Reorder panel groups
@@ -398,7 +398,7 @@ Every dashboard is stored as a JSON document. This is the same format the [Terra
 
 The time range picker in the top right of the dashboard controls the window of data shown. Choose a preset such as `last 5 minutes`, `last 15 minutes`, `last 30 minutes`, `last 6 hours`, up to `last 14 days`, or set a custom range.
 
-<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-time-picker" image="../../images/guide/dashboard-time-picker" alt="Time picker on a dashboard" viewport="1183x700" scale="2" aspect="2366:1402" padding="0" -->
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-time-picker" image="../../images/guide/dashboard-time-picker" alt="Time picker on a dashboard" viewport="1183x700" scale="2" hover="[aria-label='Time range presets'] button:has-text('Last hour')" aspect="2366:1402" padding="0" time="2026-08-01T15:56:20Z" -->
 <img class="only-light" src="../../images/guide/dashboard-time-picker-light.png" alt="Time picker on a dashboard" width="1183" height="701" loading="lazy" />
 <img class="only-dark" src="../../images/guide/dashboard-time-picker-dark.png" alt="Time picker on a dashboard" width="1183" height="701" loading="lazy" />
 <!-- /ladle-screenshot -->
