@@ -145,9 +145,10 @@ and a duration).
 If your application already has a current span, the sandbox spans join its **trace** (the full journey of one request,
 made of nested spans).
 
-!!! warning "Sandbox content is recorded in your project" With tracing on, Logfire records the code, its inputs and
-result, host function arguments and results, and printed output in your Logfire project.
-Logfire applies its standard [scrubbing](../how-to-guides/scrubbing.md) before sending data.
+!!! warning "Sandbox content is recorded in your project"
+    With tracing on, Logfire records the code, its inputs and result, host function arguments and results, and printed
+    output in your Logfire project.
+    Logfire applies its standard [scrubbing](../how-to-guides/scrubbing.md) before sending data.
 
 To turn tracing off, pass `instrument=False`:
 
@@ -186,7 +187,8 @@ took.
 
 ## Troubleshooting
 
-- **`LogfireConfigError: Agent sandboxes require a Logfire API key`**: no API key was found.
+- **`LogfireConfigError: Agent sandboxes require a Logfire API key with the project:execute_agent_sandboxes scope`**:
+  no API key was found.
   Set `LOGFIRE_API_KEY`, pass `api_key` to `logfire.configure()`, or pass `api_key` to `logfire.agent_sandboxes()`.
 - **`RuntimeError: failed to spawn monty worker: ...
   HTTP error: 401 Unauthorized`**: the server rejected the API key.

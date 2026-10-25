@@ -34,13 +34,8 @@ These are not saved:
 
 ## When a session is saved
 
-The server saves a session's state, which Monty calls **parking** the session, in these cases:
+The server saves a session's state in these cases:
 
-- **The session is idle for 60 seconds.** The server releases the sandbox and keeps your connection open.
-  Your next call loads the state into a new sandbox under the same session ID, so your code sees no difference apart
-  from a short delay on that call.
-  This is the equivalent of an automatic pause and resume after an idle timeout.
-  A parked session doesn't hold a sandbox, so you can keep more sessions open than there are sandboxes running.
 - **Your application closes the connection**, or stops answering keepalive pings for about 10 seconds.
   The state is saved under the session ID, and you can [resume it](#resume-a-session-from-a-new-connection) later.
 - **The server is being redeployed.** With `auto_resume=True` (the default), the client reconnects, loads the session on
@@ -52,23 +47,25 @@ The server saves a session's state, which Monty calls **parking** the session, i
 Saved sessions and snapshots are kept for 7 days after they're saved, then deleted.
 They count toward your organization's snapshot storage quota.
 
-!!! warning "Session state is stored by Logfire" The values your sandbox code creates, including anything computed from
-inputs or host function results, are stored on Logfire's servers for up to 7 days.
-Use an [ephemeral session](#opt-out-of-storage-with-ephemeral-sessions) if state must not be stored.
+!!! warning "Session state is stored by Logfire"
+    The values your sandbox code creates, including anything computed from inputs or host function results, are stored
+    on Logfire's servers for up to 7 days.
+    Use an [ephemeral session](#opt-out-of-storage-with-ephemeral-sessions) if state must not be stored.
 
 ## Resume a session from a new connection
 
 Read `session.session_id` while the session is open.
-It's 16 bytes, the bytes of a UUID.
-Store it wherever your application keeps the agent's conversation state, such as a database row.
+It's an opaque `bytes` value.
+Store it, for example as hex text, wherever your application keeps the agent's conversation state, such as a database
+row.
 
 To resume, check out a new session and pass the ID to `load_session()`:
 
 ```python skip-run="true" skip-reason="external-connection"
 import asyncio
-import uuid
 
 import logfire
+from pydantic_monty import MontyRuntimeError
 
 logfire.configure()
 
@@ -77,14 +74,23 @@ async def first_turn() -> str:
     async with logfire.agent_sandboxes() as pool:
         async with pool.checkout() as session:
             await session.feed_run('total = 40')
-            return str(uuid.UUID(bytes=session.session_id))
+            return session.session_id.hex()
 
 
 async def later_turn(session_id: str) -> None:
     async with logfire.agent_sandboxes() as pool:
-        async with pool.checkout() as session:
-            await session.load_session(uuid.UUID(session_id).bytes)
-            print(await session.feed_run('total + 2'))  # 42
+        for attempt in range(5):
+            async with pool.checkout() as session:
+                try:
+                    await session.load_session(bytes.fromhex(session_id))
+                except MontyRuntimeError as exc:
+                    # The first session may still be saving.
+                    if 'unknown session' not in str(exc) or attempt == 4:
+                        raise
+                    await asyncio.sleep(0.5)
+                    continue
+                print(await session.feed_run('total + 2'))  # 42
+                return
 
 
 async def main():
@@ -105,7 +111,8 @@ That is the state when the connection closed, unless the server stopped without 
 If you need a guaranteed restore point, take a snapshot.
 
 The server saves the session as the connection closes, which takes a moment.
-`load_session()` raises `MontyRuntimeError: unknown session` if you call it before the save completes.
+`load_session()` raises `MontyRuntimeError: unknown session` if you call it before the save completes, so the example
+retries.
 
 ## Take a snapshot as a checkpoint
 
@@ -200,10 +207,8 @@ This is how they apply to Agent Sandboxes:
 
 - **Persistence, persistent sessions**: the default.
   Every session is saved unless it's ephemeral.
-- **Pause and resume, suspend, hibernate, auto-pause, idle timeout**: parking.
-  A session is parked after 60 seconds idle and resumes on the next call, with its memory state intact and the same
-  session ID.
-  After a disconnect, resuming with `load_session()` gives a new session ID.
+- **Pause and resume, suspend, hibernate**: closing the connection, then calling `load_session()` with the session ID.
+  The memory state is kept, and the resumed session gets a new session ID.
 - **Snapshot, checkpoint, memory snapshot**: `dump()`.
   The snapshot holds interpreter memory: variables, functions, and classes.
   There is no filesystem snapshot, because a session has no filesystem of its own.
@@ -225,8 +230,12 @@ This is how they apply to Agent Sandboxes:
       Retry after a short delay.
 - **`MontyRuntimeError` from `dump()` on an ephemeral session**: ephemeral sessions can't be saved.
   Check out the session without `ephemeral=True`.
-- **`MontyShutdown` raised during a call**: the server was redeployed and resuming the session on another server failed.
-  Load `session.session_id` in a new session to continue from the last saved state.
+- **`MontyShutdown` raised during a call**: the server was redeployed, and the session wasn't resumed on another server.
+  Either you passed `auto_resume=False`, or the resume failed.
+  The call that raised it didn't run.
+  If the exception's `dump` attribute isn't `None`, pass it to `load_session()` in a new session to continue from the
+  saved state.
+  It's `None` for an ephemeral session, or if the server couldn't save the session in time.
 
 ## Next steps
 

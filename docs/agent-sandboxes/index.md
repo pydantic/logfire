@@ -57,11 +57,13 @@ result          ◀──────── result ────────    r
 
 You authenticate with a Logfire API key that has the **Run code in this project's agent sandboxes** permission
 (`project:execute_agent_sandboxes`).
+The key must be a project API key that isn't personal: see [Before you start](python.md#before-you-start).
 
-!!! warning "Code and data are sent to Logfire" The code you run, its inputs, host function arguments and results, and
-printed output are sent to Logfire's servers to be executed.
-With tracing on (the default), they are also recorded in your Logfire project, after Logfire's standard
-[scrubbing](../how-to-guides/scrubbing.md) hides sensitive values such as passwords and tokens.
+!!! warning "Code and data are sent to Logfire"
+    The code you run, its inputs, host function arguments and results, and printed output are sent to Logfire's servers
+    to be executed.
+    With tracing on (the default), they are also recorded in your Logfire project, after Logfire's standard
+    [scrubbing](../how-to-guides/scrubbing.md) hides sensitive values such as passwords and tokens.
 
 ## When not to use Agent Sandboxes
 
