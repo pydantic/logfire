@@ -334,12 +334,13 @@ class SpanScrubber:
             # Iterating over a binary value yields integers, so recursing into it would rewrite
             # the value into a sequence of ints. Decode it instead, so text hidden in bytes is
             # still scrubbed.
+            binary = bytes(cast(Any, value))
             try:
-                text = bytes(value).decode()
+                text = binary.decode()
             except UnicodeDecodeError:
-                return value
+                return binary
             scrubbed = self.scrub(path, text)
-            return value if scrubbed == text else scrubbed
+            return binary if scrubbed == text else scrubbed
         elif isinstance(value, Sequence):
             return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
         elif isinstance(value, Mapping):

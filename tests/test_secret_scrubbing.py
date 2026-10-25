@@ -293,10 +293,10 @@ def test_scrub_bytes_attributes(exporter: TestExporter):
     """Binary attributes stay binary, and text hidden in them is still scrubbed."""
     # Iterating over a binary value yields integers, so the scrubber used to rewrite it into a
     # sequence of ints. Binary values that decode as text must still be scrubbed.
-    with logfire.span('test') as span:
-        span.add_event('plain', {'payload': b'\x00\x01ab'})
-        span.add_event('secret', {'payload': b'password=hunter2'})
-        span.add_event('binary', {'payload': b'\x00\xff\xfe'})
+    with logfire.span('test'):
+        get_current_span().add_event('plain', {'payload': b'\x00\x01ab'})
+        get_current_span().add_event('secret', {'payload': b'password=hunter2'})
+        get_current_span().add_event('binary', {'payload': b'\x00\xff\xfe'})
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
