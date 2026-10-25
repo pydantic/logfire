@@ -289,44 +289,20 @@ def test_scrub_message(exporter: TestExporter):
     )
 
 
-def test_scrub_bytes_attributes(exporter: TestExporter):
-    """Binary attributes stay binary, and text hidden in them is still scrubbed."""
-    # Iterating over a binary value yields integers, so the scrubber used to rewrite it into a
-    # sequence of ints. Binary values that decode as text must still be scrubbed.
-    with logfire.span('test'):
-        get_current_span().add_event('plain', {'payload': b'\x00\x01ab'})
-        get_current_span().add_event('secret', {'payload': b'password=hunter2'})
-        get_current_span().add_event('binary', {'payload': b'\x00\xff\xfe'})
+@pytest.mark.parametrize(
+    ('value', 'expected', 'expected_notes'),
+    [
+        pytest.param(b'\x00\x01ab', b'\x00\x01ab', [], id='plain'),
+        pytest.param(b'password=hunter2', "[Scrubbed due to 'password']", ['password'], id='secret'),
+        pytest.param(b'\x00\xff\xfe', b'\x00\xff\xfe', [], id='not-utf8'),
+    ],
+)
+def test_scrub_binary_values(value: bytes, expected: bytes | str, expected_notes: list[str]):
+    """Binary values stay binary, and text hidden in them is still scrubbed."""
+    result, scrubbed_notes = Scrubber(None).scrub_value(('attributes', 'payload'), value)
 
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'test',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 5000000000,
-                'attributes': {
-                    'code.filepath': 'test_secret_scrubbing.py',
-                    'code.function': 'test_scrub_bytes_attributes',
-                    'code.lineno': 123,
-                    'logfire.msg_template': 'test',
-                    'logfire.msg': 'test',
-                    'logfire.span_type': 'span',
-                    'logfire.scrubbed': '[{"path": ["otel_events", 1, "attributes", "payload"], "matched_substring": "password"}]',
-                },
-                'events': [
-                    {'name': 'plain', 'timestamp': 2000000000, 'attributes': {'payload': b'\x00\x01ab'}},
-                    {
-                        'name': 'secret',
-                        'timestamp': 3000000000,
-                        'attributes': {'payload': "[Scrubbed due to 'password']"},
-                    },
-                    {'name': 'binary', 'timestamp': 4000000000, 'attributes': {'payload': b'\x00\xff\xfe'}},
-                ],
-            }
-        ]
-    )
+    assert result == expected
+    assert [note['matched_substring'] for note in scrubbed_notes] == expected_notes
 
 
 class PasswordError(Exception):
