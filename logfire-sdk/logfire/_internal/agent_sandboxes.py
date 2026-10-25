@@ -17,14 +17,12 @@ except ImportError:
 if TYPE_CHECKING:
     from logfire import Logfire
 
-AGENT_SANDBOXES_PATH = '/monty-ws/'
-
 
 def agent_sandboxes_url(base_url: str) -> str:
     """Convert a Logfire HTTP(S) base URL into the agent sandboxes WebSocket URL."""
     scheme, _, rest = base_url.partition('://')
     scheme = {'https': 'wss', 'http': 'ws'}.get(scheme, scheme)
-    return f'{scheme}://{rest.rstrip("/")}{AGENT_SANDBOXES_PATH}'
+    return f'{scheme}://{rest.rstrip("/")}/monty-ws/'
 
 
 def create_agent_sandboxes(
