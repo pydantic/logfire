@@ -522,7 +522,7 @@ def test_exception_with_metaclass_that_rejects_name(exporter: TestExporter, conf
 
     class NoNameMeta(type):
         @property
-        def __name__(cls) -> str:
+        def __name__(cls) -> str:  # pyright: ignore[reportIncompatibleVariableOverride]
             raise RuntimeError('no name')
 
     class NoName(Exception, metaclass=NoNameMeta):
