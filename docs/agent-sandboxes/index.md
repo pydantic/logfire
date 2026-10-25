@@ -55,7 +55,7 @@ host function   ◀──── function call ─────    calls get_weath
 result          ◀──────── result ────────    returns the final value
 ```
 
-You authenticate with a Logfire API key that has the **Execute agent sandboxes** permission
+You authenticate with a Logfire API key that has the **Run code in this project's agent sandboxes** permission
 (`project:execute_agent_sandboxes`).
 
 !!! warning "Code and data are sent to Logfire" The code you run, its inputs, host function arguments and results, and

@@ -11,13 +11,19 @@ You check out a session, send it code, and get the result back.
 
 ## Before you start
 
-You need a Logfire API key with the **Execute agent sandboxes** permission (`project:execute_agent_sandboxes`):
+You need a Logfire API key with the **Run code in this project's agent sandboxes** permission
+(`project:execute_agent_sandboxes`):
 
 1. Open your project in Logfire.
 2. Go to **Settings → API Keys → New API Key**.
-3. Select **Execute agent sandboxes**, then create the key.
+3. Select **Run code in this project's agent sandboxes**, then create the key.
 4. Copy the key.
    It won't be shown again.
+
+Agent Sandboxes accept only project API keys that aren't
+[personal](../reference/advanced/use-api-keys.md#personal-api-keys).
+Organization API keys and personal keys are rejected.
+Only organization and project admins can create a key that isn't personal.
 
 Set it as the `LOGFIRE_API_KEY` environment variable where your application runs:
 
@@ -184,7 +190,8 @@ took.
   Set `LOGFIRE_API_KEY`, pass `api_key` to `logfire.configure()`, or pass `api_key` to `logfire.agent_sandboxes()`.
 - **`RuntimeError: failed to spawn monty worker: ...
   HTTP error: 401 Unauthorized`**: the server rejected the API key.
-  Check that the key is correct, hasn't been deleted, and has the **Execute agent sandboxes** permission.
+  Check that the key is correct, hasn't been deleted, and has the **Run code in this project's agent sandboxes**
+  permission.
 - **`RuntimeError: logfire.agent_sandboxes() requires the pydantic-monty-client package`**: install Logfire with the
   extra: `pip install 'logfire[agent-sandboxes]'`.
 - **`MontyCrashedError` with `timed_out=True`**: the call took longer than `request_timeout`.
