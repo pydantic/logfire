@@ -48,9 +48,9 @@ Open the **Cases** tab, then start with **Needs review**, **Failed**, or **Error
 
 Before opening a case, scan its input and output preview alongside the selected evaluator values. Use **Metrics** to choose the evaluator columns that matter to the decision, then select **Open case** for the full evidence. Hover an evaluator value to see its name and exact value. Numeric scores also show the run-wide distribution with the current case marked.
 
-<!-- ladle-screenshot story="product--evals--experiment-results-browser--failed-case-previews" image="../images/guide/evals/case-previews" alt="Use input and output previews to find cases that need inspection" viewport="1200x800" scale="2" selector="[aria-label='Experiment review workspace']" aspect="1209:373" padding="0" -->
-<img class="only-light" src="../images/guide/evals/case-previews-light.png" alt="Use input and output previews to find cases that need inspection" width="968" height="299" loading="lazy" />
-<img class="only-dark" src="../images/guide/evals/case-previews-dark.png" alt="Use input and output previews to find cases that need inspection" width="968" height="299" loading="lazy" />
+<!-- ladle-screenshot story="product--evals--experiment-results-browser--failed-case-previews" image="../images/guide/evals/case-previews" alt="Use input and output previews to find cases that need inspection" viewport="1290x800" scale="2" selector="[aria-label='Experiment review workspace']" aspect="1209:373" padding="0" -->
+<img class="only-light" src="../images/guide/evals/case-previews-light.png" alt="Use input and output previews to find cases that need inspection" width="1168" height="360" loading="lazy" />
+<img class="only-dark" src="../images/guide/evals/case-previews-dark.png" alt="Use input and output previews to find cases that need inspection" width="1168" height="360" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 Read each case in this order:

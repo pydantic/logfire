@@ -372,8 +372,8 @@ While in edit mode, drag a panel by its title bar to move it.
 While in edit mode, drag the bottom right corner of a panel to resize it.
 
 <!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-mode" image="../../images/guide/browser-resize-panel" alt="Resize panels" viewport="1152x700" scale="2" selector=".react-grid-item:nth-child(5), .react-grid-item:nth-child(6)" hover=".react-grid-item:nth-child(6) .react-resizable-handle" aspect="2304:896" padding="0" -->
-<img class="only-light" src="../../images/guide/browser-resize-panel-light.png" alt="Resize panels" width="1416" height="551" loading="lazy" />
-<img class="only-dark" src="../../images/guide/browser-resize-panel-dark.png" alt="Resize panels" width="1416" height="551" loading="lazy" />
+<img class="only-light" src="../../images/guide/browser-resize-panel-light.png" alt="Resize panels" width="1088" height="423" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-resize-panel-dark.png" alt="Resize panels" width="1088" height="423" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ### Reorder panel groups
