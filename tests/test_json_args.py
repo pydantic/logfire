@@ -10,7 +10,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
-from pathlib import Path
+from pathlib import Path, PurePosixPath, WindowsPath
 from typing import Any
 from unittest.mock import MagicMock, Mock
 from uuid import UUID
@@ -474,6 +474,20 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             '"/tmp/test.py"',
             {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
             id='path',
+        ),
+        pytest.param(
+            PurePosixPath('/tmp/test.py'),
+            '/tmp/test.py',
+            '"/tmp/test.py"',
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+            id='pure-posix-path',
+        ),
+        pytest.param(
+            WindowsPath('C:/tmp/test.py'),
+            'C:/tmp/test.py',
+            '"C:/tmp/test.py"',
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+            id='windows-path',
         ),
         pytest.param(
             FilePath(__file__),  # type: ignore
