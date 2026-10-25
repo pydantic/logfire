@@ -476,14 +476,14 @@ def test_span_records_exception_whose_str_raises(exporter: TestExporter, config_
 
     (_pending, span) = exporter.exported_spans
     assert span.status.status_code == StatusCode.ERROR
-    assert span.status.description == 'BadStr: <BadStr str() failed>'
+    assert span.status.description == 'BadStr: <exception str() failed>'
     assert span.attributes is not None
     assert ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY in span.attributes
     [event] = span.events
     assert event.name == 'exception'
     assert event.attributes is not None
     assert event.attributes['exception.type'] == f'{BadStr.__module__}.{BadStr.__qualname__}'
-    assert event.attributes['exception.message'] == '<BadStr str() failed>'
+    assert event.attributes['exception.message'] == '<exception str() failed>'
     assert event.attributes['exception.escaped'] == 'True'
     stacktrace = event.attributes['exception.stacktrace']
     assert isinstance(stacktrace, str)
@@ -511,7 +511,34 @@ def test_log_with_exception_whose_str_raises(exporter: TestExporter, config_kwar
     (span,) = exporter.exported_spans
     assert span.name == 'caught it'
     assert span.status.status_code == StatusCode.ERROR
-    assert span.status.description == 'BadStr: <BadStr str() failed>'
+    assert span.status.description == 'BadStr: <exception str() failed>'
     [event] = span.events
     assert event.attributes is not None
-    assert event.attributes['exception.message'] == '<BadStr str() failed>'
+    assert event.attributes['exception.message'] == '<exception str() failed>'
+
+
+def test_exception_with_metaclass_that_rejects_name(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    """Reading the class name can raise as well, so the recorder must not depend on it."""
+
+    class NoNameMeta(type):
+        @property
+        def __name__(cls) -> str:
+            raise RuntimeError('no name')
+
+    class NoName(Exception, metaclass=NoNameMeta):
+        def __str__(self) -> str:
+            raise RuntimeError('str boom')
+
+    logfire.configure(**config_kwargs)
+
+    try:
+        raise NoName('details')
+    except NoName:
+        logfire.exception('caught it')
+
+    (span,) = exporter.exported_spans
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.status.description == 'exception: <exception str() failed>'
+    [event] = span.events
+    assert event.attributes is not None
+    assert event.attributes['exception.type'] == f'{NoName.__module__}.{NoName.__qualname__}'

@@ -37,7 +37,13 @@ from .constants import (
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     log_level_attributes,
 )
-from .utils import handle_internal_errors, is_instrumentation_suppressed, safe_str, sha256_string
+from .utils import (
+    handle_internal_errors,
+    is_instrumentation_suppressed,
+    safe_str,
+    safe_type_name,
+    sha256_string,
+)
 
 if TYPE_CHECKING:
     from ..types import ExceptionCallback
@@ -550,6 +556,6 @@ def set_exception_status(span: trace_api.Span, exception: BaseException):
     span.set_status(
         trace_api.Status(
             status_code=StatusCode.ERROR,
-            description=f'{exception.__class__.__name__}: {safe_str(exception)}',
+            description=f'{safe_type_name(exception)}: {safe_str(exception)}',
         )
     )

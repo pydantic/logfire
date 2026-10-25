@@ -107,12 +107,25 @@ def safe_str(obj: Any) -> str:
     """Return `str(obj)`, or a placeholder if calling `str()` itself raises.
 
     Some objects (notably exceptions that were never fully initialised) raise from `__str__`.
-    Callers on the telemetry path must never let that abort their own work.
+    Callers on the telemetry path must never let that abort their own work, so the placeholder
+    deliberately avoids looking anything up on the object or its class.
     """
     try:
         return str(obj)
     except Exception:
-        return f'<{type(obj).__name__} str() failed>'
+        return '<exception str() failed>'
+
+
+def safe_type_name(obj: Any) -> str:
+    """Return the bare class name of `obj`, or a placeholder if that lookup raises.
+
+    A metaclass can turn `__name__` into a property that raises, so even reading the class
+    name is not safe on the telemetry path.
+    """
+    try:
+        return str(type(obj).__name__)
+    except Exception:
+        return 'exception'
 
 
 Truncatable = TypeVar('Truncatable', str, bytes, 'list[Any]', 'tuple[Any, ...]')
