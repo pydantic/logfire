@@ -21,8 +21,8 @@ You need a project that receives exception data and permission to change its con
 A plain error-level message does not contain the exception data needed to create an issue. For Python examples, see [record exceptions](../onboarding-checklist/add-manual-tracing.md#exceptions).
 
 <!-- ladle-screenshot story="product--error-tracking--issues-form--enable-without-channels" image="../../images/guide/browser-error-tracking-enable" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." viewport="1140x400" scale="2" selector="form" aspect="2278:684" padding="16" -->
-<img class="only-light" src="../../images/guide/browser-error-tracking-enable-light.png" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." width="1140" height="342" loading="lazy" />
-<img class="only-dark" src="../../images/guide/browser-error-tracking-enable-dark.png" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." width="1140" height="342" loading="lazy" />
+<img class="only-light" src="../../images/guide/browser-error-tracking-enable-light.png" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." width="1108" height="333" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-error-tracking-enable-dark.png" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." width="1108" height="333" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 To change filters or channels later, select **Configure**.
