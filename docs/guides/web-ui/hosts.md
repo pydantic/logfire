@@ -32,7 +32,7 @@ The findings summary calls out conditions you may want to investigate. Select **
 - **High memory**: at least three readings spanning 2 minutes stayed at or above 90% memory usage.
 - **Full filesystem**: the latest reported usage for a filesystem is at least 90% of its capacity.
 
-<!-- ladle-screenshot story="product--infrastructure--resource-findings--host-findings-summary" image="../../images/hosts/findings" alt="Host findings summary and filter" viewport="1264x800" scale="2" aspect="1248:315" padding="0" time="2026-09-03T12:00:00Z" -->
+<!-- ladle-screenshot story="product--infrastructure--resource-findings--host-findings-summary" image="../../images/hosts/findings" alt="Host findings summary and filter" viewport="1264x800" scale="2" selector="[cmdk-root]" aspect="1248:315" padding="0" time="2026-09-03T12:00:00Z" -->
 <img class="only-light" src="../../images/hosts/findings-light.png" alt="Host findings summary and filter" width="1264" height="319" loading="lazy" />
 <img class="only-dark" src="../../images/hosts/findings-dark.png" alt="Host findings summary and filter" width="1264" height="319" loading="lazy" />
 <!-- /ladle-screenshot -->

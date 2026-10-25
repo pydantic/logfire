@@ -68,9 +68,9 @@ ruby hello.rb
 
 Open the [**Live view**](../guides/web-ui/live.md) in Logfire. Your `Hello World` span appears as it arrives:
 
-<!-- ladle-screenshot story="product--live--docs-traces--web-apps--checkout-webhook-trace" image="../images/logfire-live-view" alt="Traces arriving in the Logfire Live view" viewport="1280x300" scale="2" selector=".live-view-row" padding="8" time="2026-08-01T13:52:00Z" -->
-<img class="only-light" src="../images/logfire-live-view-light.png" alt="Traces arriving in the Logfire Live view" width="1256" height="60" loading="lazy" />
-<img class="only-dark" src="../images/logfire-live-view-dark.png" alt="Traces arriving in the Logfire Live view" width="1256" height="60" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--web-apps--checkout-webhook-trace" image="../images/logfire-live-view" alt="Traces arriving in the Logfire Live view" viewport="1280x720" scale="2" aspect="1280:720" padding="0" time="2026-08-01T13:52:00Z" -->
+<img class="only-light" src="../images/logfire-live-view-light.png" alt="Traces arriving in the Logfire Live view" width="1280" height="720" loading="lazy" />
+<img class="only-dark" src="../images/logfire-live-view-dark.png" alt="Traces arriving in the Logfire Live view" width="1280" height="720" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 Each row is one span, with its service, name, and duration. The screenshot shows a busier app; your run appears as its own row, service `hello-ruby` and span `Hello World`, which you can click to open the full trace.

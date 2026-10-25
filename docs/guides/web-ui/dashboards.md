@@ -94,7 +94,7 @@ Standard dashboards are read-only, so they show a **Standard** badge next to the
 2. Enter a name for the copy. It defaults to "Copy of" followed by the original name.
 3. Confirm. Logfire creates a new custom dashboard with the same panels, variables, and layout, and opens it.
 
-<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-standard-clone" image="../../images/guide/dashboard-standard-clone" alt="Toolbar of a standard dashboard showing the Standard badge and the Clone button" viewport="1152x700" scale="2" aspect="2304:556" padding="0" time="2026-08-01T15:56:20Z" -->
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-standard-clone" image="../../images/guide/dashboard-standard-clone" alt="Toolbar of a standard dashboard showing the Standard badge and the Clone button" viewport="1152x700" scale="2" aspect="2304:556" padding="0" hover="[aria-label='Duplicate dashboard']" time="2026-08-01T15:56:20Z" -->
 <img class="only-light" src="../../images/guide/dashboard-standard-clone-light.png" alt="Toolbar of a standard dashboard showing the Standard badge and the Clone button" width="1152" height="278" loading="lazy" />
 <img class="only-dark" src="../../images/guide/dashboard-standard-clone-dark.png" alt="Toolbar of a standard dashboard showing the Standard badge and the Clone button" width="1152" height="278" loading="lazy" />
 <!-- /ladle-screenshot -->
@@ -178,7 +178,7 @@ To add variables to a custom dashboard:
 3. Click **+ Add variable**.
 4. Define and configure your variables, then click **Save** on the dashboard.
 
-<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-variables-tooltip" image="../../images/guide/dashboard-edit-variables-button" alt="A dashboard toolbar highlighting the edit variables button" viewport="1150x700" scale="2" aspect="2300:834" padding="0" -->
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-variables-tooltip" image="../../images/guide/dashboard-edit-variables-button" alt="A dashboard toolbar highlighting the edit variables button" viewport="1150x700" scale="2" aspect="2300:834" hover="[aria-label='Edit variables']" padding="0" -->
 <img class="only-light" src="../../images/guide/dashboard-edit-variables-button-light.png" alt="A dashboard toolbar highlighting the edit variables button" width="1150" height="417" loading="lazy" />
 <img class="only-dark" src="../../images/guide/dashboard-edit-variables-button-dark.png" alt="A dashboard toolbar highlighting the edit variables button" width="1150" height="417" loading="lazy" />
 <!-- /ladle-screenshot -->

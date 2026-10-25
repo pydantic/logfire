@@ -48,9 +48,9 @@ Open the **Cases** tab, then start with **Needs review**, **Failed**, or **Error
 
 Before opening a case, scan its input and output preview alongside the selected evaluator values. Use **Metrics** to choose the evaluator columns that matter to the decision, then select **Open case** for the full evidence. Hover an evaluator value to see its name and exact value. Numeric scores also show the run-wide distribution with the current case marked.
 
-<!-- ladle-screenshot story="product--evals--experiment-results-browser--failed-case-previews" image="../images/guide/evals/case-previews" alt="Use input and output previews to find cases that need inspection" viewport="1241x800" scale="2" selector="[aria-label='Experiment review workspace']" aspect="1209:373" padding="0" -->
-<img class="only-light" src="../images/guide/evals/case-previews-light.png" alt="Use input and output previews to find cases that need inspection" width="1209" height="373" loading="lazy" />
-<img class="only-dark" src="../images/guide/evals/case-previews-dark.png" alt="Use input and output previews to find cases that need inspection" width="1209" height="373" loading="lazy" />
+<!-- ladle-screenshot story="product--evals--experiment-results-browser--failed-case-previews" image="../images/guide/evals/case-previews" alt="Use input and output previews to find cases that need inspection" viewport="1420x800" scale="2" selector="[aria-label='Experiment review workspace']" aspect="1209:373" padding="0" -->
+<img class="only-light" src="../images/guide/evals/case-previews-light.png" alt="Use input and output previews to find cases that need inspection" width="1388" height="428" loading="lazy" />
+<img class="only-dark" src="../images/guide/evals/case-previews-dark.png" alt="Use input and output previews to find cases that need inspection" width="1388" height="428" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 Read each case in this order:
@@ -62,6 +62,9 @@ Read each case in this order:
 5. **Open trace in Live view**: follow model calls, tool calls, and exceptions when the output does not explain the result.
 
 <!-- ladle-screenshot story="product--evals--experiment-results-browser--failed-case-review" image="../images/guide/evals/case-review" alt="Review a failed case with its input, output, and evaluator results" viewport="1253x900" scale="2" selector="[aria-label='Experiment review workspace']" aspect="1221:840" padding="0" -->
+<img class="only-light" src="../images/guide/evals/case-review-light.png" alt="Review a failed case with its input, output, and evaluator results" width="1221" height="840" loading="lazy" />
+<img class="only-dark" src="../images/guide/evals/case-review-dark.png" alt="Review a failed case with its input, output, and evaluator results" width="1221" height="840" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 Use **Prev** and **Next**, or the displayed keyboard shortcuts, to work through the current filtered list without returning to the table.
 

@@ -8,9 +8,9 @@ Find and compare the metrics your project receives without writing SQL. A **metr
 
 Open the <OpenInLogfire path="metrics" variant="inline" label="Metrics Explorer" /> by clicking **Metrics** in the project sidebar. The catalog includes every supported metric the project has received. **Recently active** and the catalog previews use the last hour. After you open a metric, the time picker controls its chart and attribute comparisons.
 
-<!-- ladle-screenshot story="product--metrics--namespace-step--kubernetes-project" image="../../images/metrics/metrics-overview" alt="Metrics Explorer search, recently active metrics, and namespace cards" viewport="1176x820" scale="2" aspect="1280:820" padding="0" -->
-<img class="only-light" src="../../images/metrics/metrics-overview-light.png" alt="Metrics Explorer search, recently active metrics, and namespace cards" width="1176" height="753" loading="lazy" />
-<img class="only-dark" src="../../images/metrics/metrics-overview-dark.png" alt="Metrics Explorer search, recently active metrics, and namespace cards" width="1176" height="753" loading="lazy" />
+<!-- ladle-screenshot story="product--metrics--namespace-step--kubernetes-project" image="../../images/metrics/metrics-overview" alt="Metrics Explorer search, recently active metrics, and namespace cards" viewport="1280x820" scale="2" aspect="1280:820" padding="0" -->
+<img class="only-light" src="../../images/metrics/metrics-overview-light.png" alt="Metrics Explorer search, recently active metrics, and namespace cards" width="1280" height="820" loading="lazy" />
+<img class="only-dark" src="../../images/metrics/metrics-overview-dark.png" alt="Metrics Explorer search, recently active metrics, and namespace cards" width="1280" height="820" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ## Find a metric
@@ -25,9 +25,9 @@ A **namespace** is the prefix before the first dot in a metric name. `http.serve
 
 Opening a namespace shows each metric's type, unit, and a small preview of its last hour. A metric without a recent sample shows **No activity in the last hour** instead. Search within the namespace when the list is long. Large namespaces may be divided by the next part of the metric name, such as `k8s.container` and `k8s.node`, so related metrics stay together.
 
-<!-- ladle-screenshot story="product--metrics--metric-step--kubernetes-namespace" image="../../images/metrics/metric-catalog" alt="Metrics grouped within the k8s namespace" viewport="1176x820" scale="2" aspect="1280:820" padding="0" -->
-<img class="only-light" src="../../images/metrics/metric-catalog-light.png" alt="Metrics grouped within the k8s namespace" width="1176" height="753" loading="lazy" />
-<img class="only-dark" src="../../images/metrics/metric-catalog-dark.png" alt="Metrics grouped within the k8s namespace" width="1176" height="753" loading="lazy" />
+<!-- ladle-screenshot story="product--metrics--metric-step--kubernetes-namespace" image="../../images/metrics/metric-catalog" alt="Metrics grouped within the k8s namespace" viewport="1280x820" scale="2" hover="[cmdk-item]:has-text('k8s.node.allocatable_cpu')" aspect="1280:820" padding="0" -->
+<img class="only-light" src="../../images/metrics/metric-catalog-light.png" alt="Metrics grouped within the k8s namespace" width="1280" height="820" loading="lazy" />
+<img class="only-dark" src="../../images/metrics/metric-catalog-dark.png" alt="Metrics grouped within the k8s namespace" width="1280" height="820" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ## Compare a metric across attributes

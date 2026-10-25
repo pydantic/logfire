@@ -71,9 +71,9 @@ With that you get:
 </figure>
 
 <figure markdown="span">
-<!-- ladle-screenshot story="product--live--record-details--arguments-details--anthropic-request-and-response" image="../../images/logfire-screenshot-anthropic-arguments" alt="Logfire Anthropic Arguments" viewport="870x600" scale="2" aspect="870:510" padding="0" time="2026-08-01T12:00:00Z" -->
-<img class="only-light" src="../../images/logfire-screenshot-anthropic-arguments-light.png" alt="Logfire Anthropic Arguments" width="870" height="510" loading="lazy" />
-<img class="only-dark" src="../../images/logfire-screenshot-anthropic-arguments-dark.png" alt="Logfire Anthropic Arguments" width="870" height="510" loading="lazy" />
+<!-- ladle-screenshot story="product--live--record-details--arguments-details--anthropic-request-and-response" image="../../images/logfire-screenshot-anthropic-arguments" alt="Logfire Anthropic Arguments" viewport="1000x700" scale="2" aspect="870:510" padding="0" time="2026-08-01T12:00:00Z" -->
+<img class="only-light" src="../../images/logfire-screenshot-anthropic-arguments-light.png" alt="Logfire Anthropic Arguments" width="1000" height="586" loading="lazy" />
+<img class="only-dark" src="../../images/logfire-screenshot-anthropic-arguments-dark.png" alt="Logfire Anthropic Arguments" width="1000" height="586" loading="lazy" />
 <!-- /ladle-screenshot -->
   <figcaption>Span arguments including response details</figcaption>
 </figure>

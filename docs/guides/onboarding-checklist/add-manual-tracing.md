@@ -69,9 +69,9 @@ logfire.info('Hello', name='world')
 
 If you click on the 'Hello' log in the Live view, you should see this in the details panel on the right:
 
-<!-- ladle-screenshot story="product--live--docs-traces--hello-world-attribute" image="../../images/guide/manual-tracing-attribute-hello-world" alt="name attribute in Live view" viewport="470x500" scale="2" selector="#details-container .grow.overflow-y-auto.branded-scrollbar" aspect="220:86" padding="4" time="2026-08-01T21:05:00Z" -->
-<img class="only-light" src="../../images/guide/manual-tracing-attribute-hello-world-light.png" alt="name attribute in Live view" width="418" height="163" loading="lazy" />
-<img class="only-dark" src="../../images/guide/manual-tracing-attribute-hello-world-dark.png" alt="name attribute in Live view" width="418" height="163" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--hello-world-attribute" image="../../images/guide/manual-tracing-attribute-hello-world" alt="name attribute in Live view" viewport="330x500" scale="2" selector="#details-container .grow.overflow-y-auto.branded-scrollbar:not(:has(> button))" aspect="220:86" padding="4" time="2026-08-01T21:05:00Z" -->
+<img class="only-light" src="../../images/guide/manual-tracing-attribute-hello-world-light.png" alt="name attribute in Live view" width="278" height="109" loading="lazy" />
+<img class="only-dark" src="../../images/guide/manual-tracing-attribute-hello-world-dark.png" alt="name attribute in Live view" width="278" height="109" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 This data is stored in the `attributes` column in the `records` table as JSON. You can use e.g. `attributes->>'name' = 'world'` in the SQL filter at the top of the Live view to show only this log. This is used as the `WHERE` clause of a SQL query on the `records` table.

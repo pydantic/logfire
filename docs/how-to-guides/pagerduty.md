@@ -54,7 +54,7 @@ The connection starts in Logfire. PagerDuty asks you to approve the services dur
 2. Approve the installation. PagerDuty returns you to the Logfire **Connections** page.
 3. Expand **PagerDuty** and confirm that the account shows **Connected** and the expected number of approved services.
 
-<!-- ladle-screenshot story="product--organization-settings--connections--pager-duty-connected" image="../images/guide/pagerduty-connected" alt="The Logfire Connections page showing a connected PagerDuty account with one approved service" viewport="1280x400" scale="2" padding="0" time="2026-09-19T12:07:00Z" -->
+<!-- ladle-screenshot story="product--organization-settings--connections--pager-duty-connected" image="../images/guide/pagerduty-connected" alt="The Logfire Connections page showing a connected PagerDuty account with one approved service" viewport="900x640" scale="2" aspect="1280:900" padding="16" time="2026-09-19T12:07:00Z" -->
 <img class="only-light" src="../images/guide/pagerduty-connected-light.png" alt="The Logfire Connections page showing a connected PagerDuty account with one approved service" width="1280" height="499" loading="lazy" />
 <img class="only-dark" src="../images/guide/pagerduty-connected-dark.png" alt="The Logfire Connections page showing a connected PagerDuty account with one approved service" width="1280" height="499" loading="lazy" />
 <!-- /ladle-screenshot -->

@@ -60,7 +60,7 @@ The Runs table lists one row per agent run, newest first, with:
 
 Search the message text, or open **Filters** to narrow by model, cost, duration, token counts, or annotation state. Failed runs are marked with an error icon.
 
-<!-- ladle-screenshot story="product--agents--runs-table--docs-runs-table" image="../../images/agents/runs-table" alt="The Runs tab, one row per agent run" viewport="1400x800" scale="2" selector="div:has(> table)" aspect="1329:300" padding="0" time="2026-07-19T12:30:00Z" -->
+<!-- ladle-screenshot story="product--agents--runs-table--docs-runs-table" image="../../images/agents/runs-table" alt="The Runs tab, one row per agent run" viewport="1500x800" scale="2" selector="div:has(> table)" aspect="1329:300" padding="0" time="2026-07-19T12:30:00Z" -->
 <img class="only-light" src="../../images/agents/runs-table-light.png" alt="The Runs tab, one row per agent run" width="1327" height="300" loading="lazy" />
 <img class="only-dark" src="../../images/agents/runs-table-dark.png" alt="The Runs tab, one row per agent run" width="1327" height="300" loading="lazy" />
 <!-- /ladle-screenshot -->

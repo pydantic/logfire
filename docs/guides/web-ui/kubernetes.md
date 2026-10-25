@@ -35,9 +35,9 @@ The **Nodes**, **Workloads**, and **Pods** tabs show finding counts. Open one of
 - **Workloads**: a deployment has fewer available replicas than desired, or a job reports failed pods.
 - **Pods**: pending or failed, or reporting at least three cumulative container restarts. This is the count reported by Kubernetes, not the number of restarts in the selected range. Kubernetes can reset it after a node restart.
 
-<!-- ladle-screenshot story="product--infrastructure--kubernetes--kubernetes-page--docs-findings-nodes" image="../../images/kubernetes/findings-overview" alt="Kubernetes node findings and full-fleet filter" viewport="1280x800" scale="2" aspect="1280:540" padding="0" time="2026-07-18T12:00:30Z" -->
-<img class="only-light" src="../../images/kubernetes/findings-overview-light.png" alt="Kubernetes node findings and full-fleet filter" width="1280" height="540" loading="lazy" />
-<img class="only-dark" src="../../images/kubernetes/findings-overview-dark.png" alt="Kubernetes node findings and full-fleet filter" width="1280" height="540" loading="lazy" />
+<!-- ladle-screenshot story="product--infrastructure--kubernetes--kubernetes-page--docs-findings-nodes" image="../../images/kubernetes/findings-overview" alt="Kubernetes node findings and full-fleet filter" viewport="1560x900" scale="2" aspect="1280:540" padding="0" time="2026-07-18T12:00:30Z" -->
+<img class="only-light" src="../../images/kubernetes/findings-overview-light.png" alt="Kubernetes node findings and full-fleet filter" width="1560" height="658" loading="lazy" />
+<img class="only-dark" src="../../images/kubernetes/findings-overview-dark.png" alt="Kubernetes node findings and full-fleet filter" width="1560" height="658" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 Finding counts use metric samples from the final 15 minutes of the selected range, or the whole range if it is shorter. **With findings** checks the latest 15 minutes at the time of the request, regardless of the selected range. In a historical range, the counts and filtered rows can therefore differ.
