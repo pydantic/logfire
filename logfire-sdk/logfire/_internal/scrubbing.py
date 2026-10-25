@@ -326,7 +326,9 @@ class SpanScrubber:
                     return value
                 try:
                     value = json.loads(value)
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, RecursionError):
+                    # Deeply nested JSON raises before it can be parsed, and letting that escape
+                    # aborts scrubbing of the whole span, so treat the value as plain text.
                     return self._redact(ScrubMatch(path, value, match))
                 else:
                     return json.dumps(self.scrub(path, value))

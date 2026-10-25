@@ -295,6 +295,12 @@ def test_scrub_message(exporter: TestExporter):
         pytest.param(b'\x00\x01ab', b'\x00\x01ab', [], id='plain'),
         pytest.param(b'password=hunter2', "[Scrubbed due to 'password']", ['password'], id='secret'),
         pytest.param(b'\x00\xff\xfe', b'\x00\xff\xfe', [], id='not-utf8'),
+        pytest.param(
+            b'[' * 1100 + b'"password"' + b']' * 1100,
+            "[Scrubbed due to 'password']",
+            ['password'],
+            id='deeply-nested-json',
+        ),
     ],
 )
 def test_scrub_binary_values(value: bytes, expected: bytes | str, expected_notes: list[str]):
