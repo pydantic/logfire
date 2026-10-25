@@ -362,9 +362,9 @@ If you changed a variable selection while editing, the save dialog asks whether 
 
 While in edit mode, drag a panel by its title bar to move it.
 
-<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-mode" image="../../images/guide/browser-move-panel" alt="Move panels" viewport="1152x700" scale="2" selector=".react-grid-item:nth-child(5), .react-grid-item:nth-child(6)" hover=".react-grid-item:nth-child(6) .drag-handle" aspect="2304:896" padding="0" -->
-<img class="only-light" src="../../images/guide/browser-move-panel-light.png" alt="Move panels" width="1088" height="423" loading="lazy" />
-<img class="only-dark" src="../../images/guide/browser-move-panel-dark.png" alt="Move panels" width="1088" height="423" loading="lazy" />
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-mode" image="../../images/guide/browser-move-panel" alt="Move panels" viewport="1480x1000" scale="2" selector=".react-grid-item:nth-child(5), .react-grid-item:nth-child(6), .react-grid-item:nth-child(7), .react-grid-item:nth-child(8), .react-grid-item:nth-child(9)" hover=".react-grid-item:nth-child(6) .drag-handle" aspect="2304:896" padding="0" -->
+<img class="only-light" src="../../images/guide/browser-move-panel-light.png" alt="Move panels" width="1416" height="551" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-move-panel-dark.png" alt="Move panels" width="1416" height="551" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ### Resize panels
@@ -372,15 +372,15 @@ While in edit mode, drag a panel by its title bar to move it.
 While in edit mode, drag the bottom right corner of a panel to resize it.
 
 <!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-edit-mode" image="../../images/guide/browser-resize-panel" alt="Resize panels" viewport="1152x700" scale="2" selector=".react-grid-item:nth-child(5), .react-grid-item:nth-child(6)" hover=".react-grid-item:nth-child(6) .react-resizable-handle" aspect="2304:896" padding="0" -->
-<img class="only-light" src="../../images/guide/browser-resize-panel-light.png" alt="Resize panels" width="1088" height="423" loading="lazy" />
-<img class="only-dark" src="../../images/guide/browser-resize-panel-dark.png" alt="Resize panels" width="1088" height="423" loading="lazy" />
+<img class="only-light" src="../../images/guide/browser-resize-panel-light.png" alt="Resize panels" width="1416" height="551" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-resize-panel-dark.png" alt="Resize panels" width="1416" height="551" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ### Reorder panel groups
 
 While in edit mode, click the up and down arrows in the top right corner of a panel group to move it.
 
-<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-panel-group-move" image="../../images/guide/browser-reorder-panel-group" alt="Reorder panel groups" viewport="1152x700" scale="2" selector=".react-grid-item:nth-child(6), .react-grid-item:nth-child(7), .react-grid-item:nth-child(9), [data-radix-popper-content-wrapper]" hover="[aria-label='move group Throughput and commands down']" aspect="2304:896" padding="0" -->
+<!-- ladle-screenshot story="product--dashboards--conformance--docs-dashboard-panel-group-move" image="../../images/guide/browser-reorder-panel-group" alt="Reorder panel groups" viewport="1152x1200" scale="2" selector=".react-grid-item:nth-child(6), .react-grid-item:nth-child(7), .react-grid-item:nth-child(9), [data-radix-popper-content-wrapper]" hover="[aria-label='move group Throughput and commands down']" aspect="2304:896" padding="0" -->
 <img class="only-light" src="../../images/guide/browser-reorder-panel-group-light.png" alt="Reorder panel groups" width="1115" height="434" loading="lazy" />
 <img class="only-dark" src="../../images/guide/browser-reorder-panel-group-dark.png" alt="Reorder panel groups" width="1115" height="434" loading="lazy" />
 <!-- /ladle-screenshot -->
