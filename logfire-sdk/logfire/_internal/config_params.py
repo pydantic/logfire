@@ -239,7 +239,10 @@ class ParamManager:
         if tp is bool:
             return _check_bool(value, name)  # pyright: ignore[reportReturnType]
         if tp is float:
-            return float(value)  # pyright: ignore[reportReturnType]
+            try:
+                return float(value)  # pyright: ignore[reportReturnType]
+            except (TypeError, ValueError):
+                raise LogfireConfigError(f'Expected {name} to be a number, got {value!r}') from None
         if tp is Path:
             return Path(value)  # pyright: ignore[reportReturnType]
         if get_origin(tp) is set and get_args(tp) == (str,):  # pragma: no branch
