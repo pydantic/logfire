@@ -325,13 +325,12 @@ class SpanScrubber:
                     # it's considered safe.
                     return value
                 try:
-                    value = json.loads(value)
+                    return json.dumps(self.scrub(path, json.loads(value)))
                 except (json.JSONDecodeError, RecursionError):
-                    # Deeply nested JSON raises before it can be parsed, and letting that escape
-                    # aborts scrubbing of the whole span, so treat the value as plain text.
+                    # Deeply nested JSON can raise while it is parsed, walked or written back out,
+                    # and letting that escape aborts scrubbing of the whole span,
+                    # so treat the original value as plain text.
                     return self._redact(ScrubMatch(path, value, match))
-                else:
-                    return json.dumps(self.scrub(path, value))
         elif isinstance(value, (bytes, bytearray, memoryview)):
             # Iterating over a binary value yields integers, so recursing into it would rewrite
             # the value into a sequence of ints. Decode it instead, so text hidden in bytes is

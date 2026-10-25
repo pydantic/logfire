@@ -320,6 +320,20 @@ def test_scrub_json_that_cannot_be_parsed(monkeypatch: pytest.MonkeyPatch):
     assert [note['matched_substring'] for note in scrubbed_notes] == ['password']
 
 
+def test_scrub_json_that_cannot_be_written_back(monkeypatch: pytest.MonkeyPatch):
+    """A value that parses but cannot be walked or serialised is redacted as plain text."""
+
+    def raise_recursion_error(*args: Any, **kwargs: Any):
+        raise RecursionError('maximum recursion depth exceeded')
+
+    monkeypatch.setattr(json, 'dumps', raise_recursion_error)
+
+    result, scrubbed_notes = Scrubber(None).scrub_value(('attributes', 'payload'), b'["password"]')
+
+    assert result == "[Scrubbed due to 'password']"
+    assert [note['matched_substring'] for note in scrubbed_notes] == ['password']
+
+
 class PasswordError(Exception):
     pass
 
