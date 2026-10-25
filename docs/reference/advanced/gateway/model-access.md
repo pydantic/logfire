@@ -16,9 +16,9 @@ You do not need the **Models** tab to send requests: every model a provider serv
 
 1. Open [**AI Engineering → Gateway → Providers**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/providers), check the selected organization, click **Edit** on a provider, and open the **Models** tab. The list shows each model the provider serves, with its access and price.
 
-<!-- ladle-screenshot story="product--gateway--providers--provider-models--searched-models-with-catalog-pricing" image="../../../images/guide/ai-gateway/model-access-models-tab" alt="The Models tab for an OpenAI BYOK provider, searched for gpt-5.4, with Default model access set to Allow and gpt-5.4-mini selected" viewport="1280x900" scale="2" padding="0" time="2026-08-01T12:00:00Z" -->
-<img class="only-light" src="../../../images/guide/ai-gateway/model-access-models-tab-light.png" alt="The Models tab for an OpenAI BYOK provider, searched for gpt-5.4, with Default model access set to Allow and gpt-5.4-mini selected" width="1280" height="872" loading="lazy" />
-<img class="only-dark" src="../../../images/guide/ai-gateway/model-access-models-tab-dark.png" alt="The Models tab for an OpenAI BYOK provider, searched for gpt-5.4, with Default model access set to Allow and gpt-5.4-mini selected" width="1280" height="872" loading="lazy" />
+<!-- ladle-screenshot story="product--gateway--providers--provider-models--searched-models-with-catalog-pricing" image="../../../images/guide/ai-gateway/model-access-models-tab" alt="The Models tab for an OpenAI BYOK provider, searched for gpt-5.4, with Default model access set to Allow and gpt-5.4-mini selected" viewport="1512x982" scale="2" aspect="1512:982" padding="0" time="2026-08-01T12:00:00Z" -->
+<img class="only-light" src="../../../images/guide/ai-gateway/model-access-models-tab-light.png" alt="The Models tab for an OpenAI BYOK provider, searched for gpt-5.4, with Default model access set to Allow and gpt-5.4-mini selected" width="1512" height="982" loading="lazy" />
+<img class="only-dark" src="../../../images/guide/ai-gateway/model-access-models-tab-dark.png" alt="The Models tab for an OpenAI BYOK provider, searched for gpt-5.4, with Default model access set to Allow and gpt-5.4-mini selected" width="1512" height="982" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 *Every model follows **Default model access** until you give it its own setting.*
@@ -44,9 +44,9 @@ If the provider doesn't list a model, such as your own fine-tuned model, add it 
 2. Choose **Model access**. On a BYOK provider, turn on **Set pricing** to enter prices, as described in the next section.
 3. Click **Add model**. The model appears in the list with a **Custom model** label.
 
-<!-- ladle-screenshot story="product--gateway--providers--provider-models--add-model-dialog-with-pricing" image="../../../images/guide/ai-gateway/model-access-add-model" alt="The Add model dialog with a fine-tuned model ID, access set to Allow, and custom input and output prices" viewport="1280x900" scale="2" selector="[role='dialog']" time="2026-08-01T12:00:00Z" -->
-<img class="only-light" src="../../../images/guide/ai-gateway/model-access-add-model-light.png" alt="The Add model dialog with a fine-tuned model ID, access set to Allow, and custom input and output prices" width="560" height="630" loading="lazy" />
-<img class="only-dark" src="../../../images/guide/ai-gateway/model-access-add-model-dark.png" alt="The Add model dialog with a fine-tuned model ID, access set to Allow, and custom input and output prices" width="560" height="630" loading="lazy" />
+<!-- ladle-screenshot story="product--gateway--providers--provider-models--add-model-dialog-with-pricing" image="../../../images/guide/ai-gateway/model-access-add-model" alt="The Add model dialog with a fine-tuned model ID, access set to Allow, and custom input and output prices" viewport="1512x982" scale="2" aspect="1512:982" padding="0" time="2026-08-01T12:00:00Z" -->
+<img class="only-light" src="../../../images/guide/ai-gateway/model-access-add-model-light.png" alt="The Add model dialog with a fine-tuned model ID, access set to Allow, and custom input and output prices" width="1512" height="982" loading="lazy" />
+<img class="only-dark" src="../../../images/guide/ai-gateway/model-access-add-model-dark.png" alt="The Add model dialog with a fine-tuned model ID, access set to Allow, and custom input and output prices" width="1512" height="982" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 *A fine-tuned model with its own prices. Without a price, Gateway can't calculate the model's cost.*
@@ -60,9 +60,9 @@ Gateway calculates each request's cost from its token counts and a price in USD 
 3. Enter **Input** and **Output** prices. **Cache read** and **Cache write** price tokens served from or written to the provider's prompt cache; they are optional, and empty values use the input price.
 4. Click **Save model**. The model shows a **Custom price** badge.
 
-<!-- ladle-screenshot story="product--gateway--providers--provider-models--price-override-enabled" image="../../../images/guide/ai-gateway/model-access-price-override" alt="Overriding the catalog price of gpt-5.4-mini with custom input, output, and cache read prices" viewport="1280x900" scale="2" padding="0" time="2026-08-01T12:00:00Z" -->
-<img class="only-light" src="../../../images/guide/ai-gateway/model-access-price-override-light.png" alt="Overriding the catalog price of gpt-5.4-mini with custom input, output, and cache read prices" width="1280" height="872" loading="lazy" />
-<img class="only-dark" src="../../../images/guide/ai-gateway/model-access-price-override-dark.png" alt="Overriding the catalog price of gpt-5.4-mini with custom input, output, and cache read prices" width="1280" height="872" loading="lazy" />
+<!-- ladle-screenshot story="product--gateway--providers--provider-models--price-override-enabled" image="../../../images/guide/ai-gateway/model-access-price-override" alt="Overriding the catalog price of gpt-5.4-mini with custom input, output, and cache read prices" viewport="1512x982" scale="2" aspect="1512:982" padding="0" time="2026-08-01T12:00:00Z" -->
+<img class="only-light" src="../../../images/guide/ai-gateway/model-access-price-override-light.png" alt="Overriding the catalog price of gpt-5.4-mini with custom input, output, and cache read prices" width="1512" height="982" loading="lazy" />
+<img class="only-dark" src="../../../images/guide/ai-gateway/model-access-price-override-dark.png" alt="Overriding the catalog price of gpt-5.4-mini with custom input, output, and cache read prices" width="1512" height="982" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 *A custom price on `gpt-5.4-mini`, replacing the catalog price shown under **Default pricing**.*

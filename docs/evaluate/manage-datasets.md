@@ -49,9 +49,9 @@ Select **New dataset**, then choose where the source of truth should live:
 
 If you manage the dataset in code, choose whether to **Sync cases to Logfire** or **Keep cases in code**. Experiment results can appear in Logfire with either choice when you configure Logfire for the run. Syncing also makes the cases available to browse and edit in Logfire.
 
-<!-- ladle-screenshot story="product--evals--new-dataset-entry--definition" image="../images/guide/evals/new-dataset" alt="Choose how to manage a new dataset" viewport="960x600" scale="2" selector="#ladle-root .overflow-hidden" aspect="913:372" padding="8" time="2026-08-01T12:00:00Z" -->
-<img class="only-light" src="../images/guide/evals/new-dataset-light.png" alt="Choose how to manage a new dataset" width="896" height="365" loading="lazy" />
-<img class="only-dark" src="../images/guide/evals/new-dataset-dark.png" alt="Choose how to manage a new dataset" width="896" height="365" loading="lazy" />
+<!-- ladle-screenshot story="product--evals--unified-evals-landing--new-dataset-dialog" image="../images/guide/evals/new-dataset" alt="Choose how to manage a new dataset" viewport="1221x800" scale="2" selector="[role='dialog']" aspect="913:372" padding="8" time="2026-08-01T12:00:00Z" -->
+<img class="only-light" src="../images/guide/evals/new-dataset-light.png" alt="Choose how to manage a new dataset" width="913" height="372" loading="lazy" />
+<img class="only-dark" src="../images/guide/evals/new-dataset-dark.png" alt="Choose how to manage a new dataset" width="913" height="372" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ## Create a hosted dataset
