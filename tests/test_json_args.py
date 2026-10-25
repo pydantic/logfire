@@ -10,7 +10,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
-from pathlib import Path, PurePosixPath, WindowsPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 from unittest.mock import MagicMock, Mock
 from uuid import UUID
@@ -483,9 +483,9 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             id='pure-posix-path',
         ),
         pytest.param(
-            WindowsPath('C:/tmp/test.py'),
-            'C:/tmp/test.py',
-            '"C:/tmp/test.py"',
+            PureWindowsPath('C:/tmp/test.py'),
+            'C:\\tmp\\test.py',
+            '"C:\\\\tmp\\\\test.py"',
             {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
             id='windows-path',
         ),
