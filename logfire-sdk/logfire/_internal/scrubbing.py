@@ -331,9 +331,15 @@ class SpanScrubber:
                 else:
                     return json.dumps(self.scrub(path, value))
         elif isinstance(value, (bytes, bytearray, memoryview)):
-            # Binary values can't contain a matchable substring, and iterating over them yields
-            # integers, so recursing would silently rewrite the value into a sequence of ints.
-            return value
+            # Iterating over a binary value yields integers, so recursing into it would rewrite
+            # the value into a sequence of ints. Decode it instead, so text hidden in bytes is
+            # still scrubbed.
+            try:
+                text = bytes(value).decode()
+            except UnicodeDecodeError:
+                return value
+            scrubbed = self.scrub(path, text)
+            return value if scrubbed == text else scrubbed
         elif isinstance(value, Sequence):
             return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
         elif isinstance(value, Mapping):

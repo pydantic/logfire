@@ -290,20 +290,43 @@ def test_scrub_message(exporter: TestExporter):
 
 
 def test_scrub_bytes_attributes(exporter: TestExporter):
-    # `bytes` is a legal attribute value for events, and OpenTelemetry keeps it as-is.
-    # Recursing into it would iterate over the individual integers and silently rewrite
-    # the value into a sequence of ints, so it has to be treated as opaque.
+    """Binary attributes stay binary, and text hidden in them is still scrubbed."""
+    # Iterating over a binary value yields integers, so the scrubber used to rewrite it into a
+    # sequence of ints. Binary values that decode as text must still be scrubbed.
     with logfire.span('test') as span:
         span.add_event('plain', {'payload': b'\x00\x01ab'})
-        span.add_event('secret', {'payload': b'\x00\x01ab', 'password': 'hunter2'})
+        span.add_event('secret', {'payload': b'password=hunter2'})
+        span.add_event('binary', {'payload': b'\x00\xff\xfe'})
 
-    [span_dict] = exporter.exported_spans_as_dict()
-    plain_attributes, secret_attributes = (event['attributes'] for event in span_dict['events'])
-    assert plain_attributes == {'payload': b'\x00\x01ab'}
-    assert secret_attributes == {
-        'payload': b'\x00\x01ab',
-        'password': "[Scrubbed due to 'password']",
-    }
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'test',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_scrub_bytes_attributes',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test',
+                    'logfire.msg': 'test',
+                    'logfire.span_type': 'span',
+                    'logfire.scrubbed': '[{"path": ["otel_events", 1, "attributes", "payload"], "matched_substring": "password"}]',
+                },
+                'events': [
+                    {'name': 'plain', 'timestamp': 2000000000, 'attributes': {'payload': b'\x00\x01ab'}},
+                    {
+                        'name': 'secret',
+                        'timestamp': 3000000000,
+                        'attributes': {'payload': "[Scrubbed due to 'password']"},
+                    },
+                    {'name': 'binary', 'timestamp': 4000000000, 'attributes': {'payload': b'\x00\xff\xfe'}},
+                ],
+            }
+        ]
+    )
 
 
 class PasswordError(Exception):
