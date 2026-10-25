@@ -17,7 +17,7 @@ But the code comes from a model, so you can't trust it.
 Running it in your application process would give it access to your files, network, and secrets.
 
 A **sandbox** is an isolated environment that runs code with no access to the machine around it.
-Agent Sandboxes use [Pydantic Monty](https://github.com/pydantic/monty), a Python interpreter written in Rust and
+Agent Sandboxes use [Pydantic Monty](https://pydantic.dev/docs/monty/), a Python interpreter written in Rust and
 designed for sandboxing.
 Code in a sandbox can only reach the outside world through functions you choose to expose to it.
 
@@ -69,7 +69,7 @@ The key must be a project API key that isn't personal: see [Before you start](py
 
 - **The code is your own.** Code you wrote and reviewed doesn't need a sandbox.
 - **The code needs Python features that Monty doesn't support.** Monty runs a subset of Python.
-  Check [what Monty supports](https://github.com/pydantic/monty) before you rely on a feature.
+  Check [what Monty supports](https://pydantic.dev/docs/monty/limitations/) before you rely on a feature.
 - **You need to run code offline or entirely on your own machines.** Run Monty locally with the `pydantic-monty` package
   instead, and [trace it with Logfire](../integrations/monty.md).
 

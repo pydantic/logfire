@@ -163,7 +163,8 @@ If anything in your process has already called it, sandbox sessions are still tr
 
 ## Configure the pool
 
-`logfire.agent_sandboxes()` accepts the same pool options as Monty's `AsyncMontyWebsocket`.
+`logfire.agent_sandboxes()` accepts the same pool options as Monty's
+[`AsyncMontyWebsocket`](https://pydantic.dev/docs/monty/api/python/websocket/#pydantic_monty.AsyncMontyWebsocket).
 The most common ones:
 
 - `max_processes`: the maximum number of sessions open at once (defaults to the number of CPUs).

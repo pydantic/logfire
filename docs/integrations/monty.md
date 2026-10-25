@@ -5,7 +5,7 @@ integration: logfire
 ---
 # Pydantic Monty
 
-See what code does inside a [Pydantic Monty](https://github.com/pydantic/monty) sandbox, including
+See what code does inside a [Pydantic Monty](https://pydantic.dev/docs/monty/) sandbox, including
 its inputs, result, host calls, printed output, errors, and time spent running or waiting on the
 host.
 Each checkout (borrowing a sandbox worker from the pool) creates a session **span** (one unit of work:
