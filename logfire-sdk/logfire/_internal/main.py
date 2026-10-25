@@ -1246,7 +1246,7 @@ class Logfire:
 
         Requires the `agent-sandboxes` extra, e.g. `pip install 'logfire[agent-sandboxes]'`.
 
-        Returns a [`pydantic_monty.AsyncMontyWebsocket`](https://github.com/pydantic/monty) pool;
+        Returns a [`pydantic_monty.AsyncMontyWebsocket`](https://pydantic.dev/docs/monty/api/python/websocket/#pydantic_monty.AsyncMontyWebsocket) pool;
         use it as an async context manager and check out sessions from it:
 
         ```py
