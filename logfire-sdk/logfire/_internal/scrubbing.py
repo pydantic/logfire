@@ -330,6 +330,10 @@ class SpanScrubber:
                     return self._redact(ScrubMatch(path, value, match))
                 else:
                     return json.dumps(self.scrub(path, value))
+        elif isinstance(value, (bytes, bytearray, memoryview)):
+            # Binary values can't contain a matchable substring, and iterating over them yields
+            # integers, so recursing would silently rewrite the value into a sequence of ints.
+            return value
         elif isinstance(value, Sequence):
             return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
         elif isinstance(value, Mapping):

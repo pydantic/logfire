@@ -289,6 +289,23 @@ def test_scrub_message(exporter: TestExporter):
     )
 
 
+def test_scrub_bytes_attributes(exporter: TestExporter):
+    # `bytes` is a legal attribute value for events, and OpenTelemetry keeps it as-is.
+    # Recursing into it would iterate over the individual integers and silently rewrite
+    # the value into a sequence of ints, so it has to be treated as opaque.
+    with logfire.span('test') as span:
+        span.add_event('plain', {'payload': b'\x00\x01ab'})
+        span.add_event('secret', {'payload': b'\x00\x01ab', 'password': 'hunter2'})
+
+    [span_dict] = exporter.exported_spans_as_dict()
+    plain_attributes, secret_attributes = (event['attributes'] for event in span_dict['events'])
+    assert plain_attributes == {'payload': b'\x00\x01ab'}
+    assert secret_attributes == {
+        'payload': b'\x00\x01ab',
+        'password': "[Scrubbed due to 'password']",
+    }
+
+
 class PasswordError(Exception):
     pass
 
