@@ -269,7 +269,7 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
         sa_data = _get_sqlalchemy_data(o, seen)
         if sa_data is not None:
             return sa_data
-        elif dataclasses.is_dataclass(o):
+        elif dataclasses.is_dataclass(type(o)):  # pyright: ignore[reportUnknownArgumentType]
             return {f.name: to_json_value(getattr(o, f.name), seen) for f in dataclasses.fields(o) if f.repr}
         elif is_attrs(o.__class__):
             return _get_attrs_data(o, seen)

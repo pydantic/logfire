@@ -77,6 +77,11 @@ class MyPydanticComplexDataclass:
 
 
 @dataclass
+class MyDefaultsDataclass:
+    t: int = 1
+
+
+@dataclass
 class MyReprDataclass:
     in_repr: int
     not_in_repr: MyDataclass = field(repr=False)
@@ -883,6 +888,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
                 'type': 'array',
             },
             id='list_of_dataclass_type',
+        ),
+        pytest.param(
+            MyDefaultsDataclass,
+            "<class 'tests.test_json_args.MyDefaultsDataclass'>",
+            '"<class \'tests.test_json_args.MyDefaultsDataclass\'>"',
+            {'type': 'object', 'x-python-datatype': 'unknown'},
+            id='dataclass_type_with_defaults',
         ),
     ],
 )
@@ -1730,7 +1742,7 @@ def test_mock(exporter: TestExporter):
     class Bar(Mixin, MagicMock):
         pass
 
-    logfire.info('hi', foo=Foo(), bar=Bar(), mock=Mock(), magic_mock=MagicMock())
+    logfire.info('hi', foo=Foo(), bar=Bar(), mock=Mock(), magic_mock=MagicMock(), spec_mock=MagicMock(spec=MyDataclass))
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -1752,7 +1764,8 @@ def test_mock(exporter: TestExporter):
                     'bar': '"Bar()"',
                     'mock': IsStr(regex=r'^"<Mock id=\'\d+\'>"'),
                     'magic_mock': IsStr(regex=r'^"<MagicMock id=\'\d+\'>"'),
-                    'logfire.json_schema': '{"type":"object","properties":{"foo":{"type":"object","x-python-datatype":"unknown"},"bar":{"type":"object","x-python-datatype":"unknown"},"mock":{"type":"object","x-python-datatype":"unknown"},"magic_mock":{"type":"object","x-python-datatype":"unknown"}}}',
+                    'spec_mock': IsStr(regex=r'^"<MagicMock spec=\'MyDataclass\' id=\'\d+\'>"'),
+                    'logfire.json_schema': '{"type":"object","properties":{"foo":{"type":"object","x-python-datatype":"unknown"},"bar":{"type":"object","x-python-datatype":"unknown"},"mock":{"type":"object","x-python-datatype":"unknown"},"magic_mock":{"type":"object","x-python-datatype":"unknown"},"spec_mock":{"type":"object","x-python-datatype":"unknown"}}}',
                 },
             }
         ]
