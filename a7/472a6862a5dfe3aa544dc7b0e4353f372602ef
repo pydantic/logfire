@@ -1,0 +1,24 @@
+tests/test_agent_sandboxes.py
+  s_6c3e2843f3023e::t_1654a98d66877e 93-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a7472a6862a5dfe3aa544dc7b0e4353f372602ef",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_6c3e2843f3023e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17815-4633-75b1-a1f5-c4a7e23b16bc",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
