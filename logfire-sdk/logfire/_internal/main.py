@@ -1241,7 +1241,6 @@ class Logfire:
         *,
         api_key: str | None = None,
         url: str | None = None,
-        instrument_locally: bool = False,
         max_processes: int | None | _Unset = _UNSET,
         checkout_timeout: float | None | _Unset = _UNSET,
         request_timeout: float | None | _Unset = _UNSET,
@@ -1272,6 +1271,9 @@ class Logfire:
 
         No connection is made until a session is checked out.
 
+        The Logfire platform records sandbox usage itself. The current trace context is sent
+        with each session so those spans join the caller's trace.
+
         Omitted pool options use the defaults of the installed `pydantic-monty-client` version.
         The defaults described below are the currently assumed defaults and may change in future versions.
 
@@ -1281,10 +1283,6 @@ class Logfire:
                 then the `LOGFIRE_API_KEY` environment variable.
             url: The WebSocket URL of the sandboxes server.
                 Defaults to the Logfire region the API key belongs to.
-            instrument_locally: Whether to also call [`instrument_monty()`][logfire.Logfire.instrument_monty]
-                to record client-side spans for sandbox sessions and code runs.
-                Defaults to `False`: the Logfire platform records sandbox usage itself, and the current
-                trace context is sent with each session so those spans join the caller's trace.
             max_processes: Cap on concurrent sandbox connections. Defaults to `None`, which uses
                 the CPU count; checkouts beyond it wait.
             checkout_timeout: Seconds `checkout()` waits for capacity before raising `TimeoutError`.
@@ -1317,7 +1315,6 @@ class Logfire:
             self,
             api_key=api_key,
             url=url,
-            instrument_locally=instrument_locally,
             **{name: value for name, value in pool_options.items() if value is not _UNSET},
             **kwargs,
         )

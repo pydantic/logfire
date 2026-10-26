@@ -14,7 +14,6 @@ from websockets.asyncio.server import ServerConnection, serve
 
 import logfire
 from logfire._internal import agent_sandboxes as agent_sandboxes_module
-from logfire._internal.integrations import monty as monty_integration
 from logfire.exceptions import LogfireConfigError
 from logfire.testing import TestExporter
 
@@ -93,21 +92,6 @@ async def test_agent_sandboxes_run_code(sandbox_server: SandboxServer, exporter:
     # Earlier tests may have enabled process-wide Monty instrumentation, adding local spans.
     [parent] = [span for span in exporter.exported_spans_as_dict() if span['name'] == 'parent']
     # The current span is propagated to the server, so the server's spans join this trace.
-    assert headers['traceparent'] == f'00-{parent["context"]["trace_id"]:032x}-{parent["context"]["span_id"]:016x}-01'
-
-
-@pytest.mark.anyio
-async def test_agent_sandboxes_instrument_locally(sandbox_server: SandboxServer, exporter: TestExporter) -> None:
-    with logfire.span('parent'):
-        async with logfire.agent_sandboxes(api_key=API_KEY, url=sandbox_server.url, instrument_locally=True) as pool:
-            async with pool.checkout() as session:
-                assert await session.feed_run('1 + 1') == 2
-
-    [(_, headers)] = sandbox_server.requests
-    spans = exporter.exported_spans_as_dict()
-    assert [span['name'] for span in spans] == snapshot(['run code', 'session {script_name}', 'parent'])
-    parent = spans[2]
-    # Monty's integration sends the span current at checkout, as `logfire.agent_sandboxes()` does without it.
     assert headers['traceparent'] == f'00-{parent["context"]["trace_id"]:032x}-{parent["context"]["span_id"]:016x}-01'
 
 
@@ -191,21 +175,6 @@ def test_agent_sandboxes_url(
 
     logfire.agent_sandboxes(api_key=api_key)
     assert urls == [expected]
-
-
-@pytest.mark.parametrize('instrument_locally', [True, False])
-def test_agent_sandboxes_instrument(instrument_locally: bool, monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[dict[str, Any]] = []
-
-    def instrument_telemetry(**kwargs: Any) -> None:
-        calls.append(kwargs)
-
-    monkeypatch.setattr(monty_integration, '_installed', False)
-    monkeypatch.setattr(monty_integration, 'instrument_telemetry', instrument_telemetry)
-
-    logfire.agent_sandboxes(api_key=API_KEY, instrument_locally=instrument_locally)
-
-    assert len(calls) == int(instrument_locally)
 
 
 @pytest.mark.parametrize(

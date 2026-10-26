@@ -31,7 +31,6 @@ def create_agent_sandboxes(
     *,
     api_key: str | None,
     url: str | None,
-    instrument_locally: bool,
     connect_headers: Callable[[], Mapping[str, str]] | None = None,
     **kwargs: Any,
 ) -> AsyncMontyWebsocket:
@@ -44,9 +43,6 @@ def create_agent_sandboxes(
         )
     if url is None:
         url = agent_sandboxes_url(config.advanced.generate_base_url(api_key))
-
-    if instrument_locally:
-        logfire_instance.instrument_monty()
 
     def headers() -> dict[str, str]:
         # `traceparent` for the current span, so the server's spans for this session join the caller's trace.
