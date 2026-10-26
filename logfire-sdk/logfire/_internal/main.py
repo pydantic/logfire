@@ -1241,7 +1241,7 @@ class Logfire:
         *,
         api_key: str | None = None,
         url: str | None = None,
-        instrument: bool = True,
+        instrument_locally: bool = False,
         max_processes: int | None | _Unset = _UNSET,
         checkout_timeout: float | None | _Unset = _UNSET,
         request_timeout: float | None | _Unset = _UNSET,
@@ -1281,8 +1281,10 @@ class Logfire:
                 then the `LOGFIRE_API_KEY` environment variable.
             url: The WebSocket URL of the sandboxes server.
                 Defaults to the Logfire region the API key belongs to.
-            instrument: Whether to call [`instrument_monty()`][logfire.Logfire.instrument_monty]
-                so that sandbox sessions and code runs are recorded as spans in the current trace.
+            instrument_locally: Whether to also call [`instrument_monty()`][logfire.Logfire.instrument_monty]
+                to record client-side spans for sandbox sessions and code runs.
+                Defaults to `False`: the Logfire platform records sandbox usage itself, and the current
+                trace context is sent with each session so those spans join the caller's trace.
             max_processes: Cap on concurrent sandbox connections. Defaults to `None`, which uses
                 the CPU count; checkouts beyond it wait.
             checkout_timeout: Seconds `checkout()` waits for capacity before raising `TimeoutError`.
@@ -1315,7 +1317,7 @@ class Logfire:
             self,
             api_key=api_key,
             url=url,
-            instrument=instrument,
+            instrument_locally=instrument_locally,
             **{name: value for name, value in pool_options.items() if value is not _UNSET},
             **kwargs,
         )
