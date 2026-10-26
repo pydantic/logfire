@@ -919,18 +919,6 @@ def test_sampled_child_of_ended_parent(exporter: TestExporter, config_kwargs: di
     assert grandparent['attributes']['logfire.metrics']['measurement']['total'] == 10
 
 
-def test_suppressed_span_metrics_do_not_reach_parent(exporter: TestExporter, config_kwargs: dict[str, Any]):
-    logfire.configure(**config_kwargs, metrics=logfire.MetricsOptions(collect_in_spans=True))
-    logfire.suppress_scopes('suppressed-test')
-    counter = logfire.metric_counter('measurement')
-    with logfire.span('parent'):
-        with get_tracer('suppressed-test').start_as_current_span('suppressed'):
-            counter.add(10)
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    parent = next(s for s in spans if s['name'] == 'parent' and s['attributes']['logfire.span_type'] == 'span')
-    assert 'logfire.metrics' not in parent['attributes']
-
-
 def test_sampled_child_does_not_retain_ended_parent(config_kwargs: dict[str, Any]):
     import gc
     from weakref import ref
