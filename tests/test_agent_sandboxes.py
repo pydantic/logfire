@@ -90,8 +90,8 @@ async def test_agent_sandboxes_run_code(sandbox_server: SandboxServer, exporter:
     assert headers['authorization'] == f'Bearer {API_KEY}'
     assert headers['x-custom'] == 'custom-value'
 
-    [parent] = exporter.exported_spans_as_dict()
-    assert parent['name'] == 'parent'
+    # Earlier tests may have enabled process-wide Monty instrumentation, adding local spans.
+    [parent] = [span for span in exporter.exported_spans_as_dict() if span['name'] == 'parent']
     # The current span is propagated to the server, so the server's spans join this trace.
     assert headers['traceparent'] == f'00-{parent["context"]["trace_id"]:032x}-{parent["context"]["span_id"]:016x}-01'
 
