@@ -4,6 +4,7 @@ from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any
 
 from logfire.exceptions import LogfireConfigError
+from logfire.propagate import get_context
 
 try:
     from pydantic_monty import AsyncMontyWebsocket
@@ -30,7 +31,6 @@ def create_agent_sandboxes(
     *,
     api_key: str | None,
     url: str | None,
-    instrument: bool,
     connect_headers: Callable[[], Mapping[str, str]] | None = None,
     **kwargs: Any,
 ) -> AsyncMontyWebsocket:
@@ -44,11 +44,10 @@ def create_agent_sandboxes(
     if url is None:
         url = agent_sandboxes_url(config.advanced.generate_base_url(api_key))
 
-    if instrument:
-        logfire_instance.instrument_monty()
-
     def headers() -> dict[str, str]:
-        result = {'authorization': f'Bearer {api_key}'}
+        # `traceparent` for the current span, so the server's spans for this session join the caller's trace.
+        result = {name.lower(): value for name, value in get_context().items()}
+        result['authorization'] = f'Bearer {api_key}'
         if connect_headers is not None:
             result.update((name.lower(), value) for name, value in connect_headers().items())
         return result

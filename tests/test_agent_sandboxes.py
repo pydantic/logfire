@@ -14,7 +14,6 @@ from websockets.asyncio.server import ServerConnection, serve
 
 import logfire
 from logfire._internal import agent_sandboxes as agent_sandboxes_module
-from logfire._internal.integrations import monty as monty_integration
 from logfire.exceptions import LogfireConfigError
 from logfire.testing import TestExporter
 
@@ -89,12 +88,11 @@ async def test_agent_sandboxes_run_code(sandbox_server: SandboxServer, exporter:
     assert path == '/monty-ws/'
     assert headers['authorization'] == f'Bearer {API_KEY}'
     assert headers['x-custom'] == 'custom-value'
-    # The session span is propagated to the server.
-    assert 'traceparent' in headers
 
-    assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot(
-        ['run code', 'session {script_name}', 'parent']
-    )
+    # Earlier tests may have enabled process-wide Monty instrumentation, adding local spans.
+    [parent] = [span for span in exporter.exported_spans_as_dict() if span['name'] == 'parent']
+    # The current span is propagated to the server, so the server's spans join this trace.
+    assert headers['traceparent'] == f'00-{parent["context"]["trace_id"]:032x}-{parent["context"]["span_id"]:016x}-01'
 
 
 @pytest.mark.anyio
@@ -175,23 +173,8 @@ def test_agent_sandboxes_url(
 
     monkeypatch.setattr(agent_sandboxes_module, 'AsyncMontyWebsocket', fake_websocket)
 
-    logfire.agent_sandboxes(api_key=api_key, instrument=False)
+    logfire.agent_sandboxes(api_key=api_key)
     assert urls == [expected]
-
-
-@pytest.mark.parametrize('instrument', [True, False])
-def test_agent_sandboxes_instrument(instrument: bool, monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[dict[str, Any]] = []
-
-    def instrument_telemetry(**kwargs: Any) -> None:
-        calls.append(kwargs)
-
-    monkeypatch.setattr(monty_integration, '_installed', False)
-    monkeypatch.setattr(monty_integration, 'instrument_telemetry', instrument_telemetry)
-
-    logfire.agent_sandboxes(api_key=API_KEY, instrument=instrument)
-
-    assert len(calls) == int(instrument)
 
 
 @pytest.mark.parametrize(
@@ -226,7 +209,7 @@ def test_agent_sandboxes_pool_options(options: dict[str, Any], monkeypatch: pyte
 
     monkeypatch.setattr(agent_sandboxes_module, 'AsyncMontyWebsocket', fake_websocket)
 
-    logfire.agent_sandboxes(api_key=API_KEY, instrument=False, **options)
+    logfire.agent_sandboxes(api_key=API_KEY, **options)
 
     headers = received.pop('connect_headers')
     assert headers() == {'authorization': f'Bearer {API_KEY}'}
