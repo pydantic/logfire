@@ -49,7 +49,7 @@ class JsonArgsValueFormatter:
             'IPv6Address': partial(self._write, 'IPv6Address(', ')', True),
             'IPv6Interface': partial(self._write, 'IPv6Interface(', ')', True),
             'IPv6Network': partial(self._write, 'IPv6Network(', ')', True),
-            'PosixPath': partial(self._write, 'PosixPath(', ')', True),
+            'Path': partial(self._write, 'Path(', ')', True),
             'Pattern': partial(self._write, 're.compile(', ')', True),
             'SecretBytes': partial(self._write, 'SecretBytes(', ')', False),
             'SecretStr': partial(self._write, 'SecretStr(', ')', True),

@@ -10,7 +10,7 @@ from decimal import Decimal
 from enum import Enum
 from functools import cache, lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
-from pathlib import PosixPath
+from pathlib import PurePath
 from re import Pattern
 from types import GeneratorType
 from typing import Any
@@ -209,7 +209,7 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
         IPv6Address: _to_str,
         IPv6Interface: _to_str,
         IPv6Network: _to_str,
-        PosixPath: _to_str,
+        PurePath: _to_str,
         Pattern: lambda o, seen: to_json_value(o.pattern, seen),
         UUID: _to_str,
         Exception: _to_str,
