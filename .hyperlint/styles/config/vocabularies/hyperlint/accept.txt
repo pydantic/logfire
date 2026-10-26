@@ -2,6 +2,7 @@ validator
 [Pp]ydantic
 validators
 [Mm]agentic
+[Pp]ixeltable
 namespace
 Hyperlint
 preprocess
