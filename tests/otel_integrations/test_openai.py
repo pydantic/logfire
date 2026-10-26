@@ -5313,6 +5313,159 @@ def test_cached_prompt_tokens_recorded(exporter: TestExporter) -> None:
     assert 'gen_ai.usage.cache_creation.input_tokens' not in chat_span['attributes']
 
 
+def test_cache_write_tokens_recorded(exporter: TestExporter) -> None:
+    chat_body = {
+        'id': 'chatcmpl-1',
+        'object': 'chat.completion',
+        'created': 0,
+        'model': 'gpt-4o-mini',
+        'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'Nine'}, 'finish_reason': 'stop'}],
+        'usage': {
+            'prompt_tokens': 100,
+            'completion_tokens': 3,
+            'total_tokens': 103,
+            'prompt_tokens_details': {'cached_tokens': 20, 'cache_write_tokens': 30},
+        },
+    }
+    responses_body: dict[str, Any] = {
+        'id': 'resp_1',
+        'object': 'response',
+        'created_at': 0,
+        'model': 'gpt-4o-mini',
+        'status': 'completed',
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+        'output': [
+            {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'status': 'completed',
+                'content': [{'type': 'output_text', 'text': 'Nine', 'annotations': []}],
+            }
+        ],
+        'usage': {
+            'input_tokens': 100,
+            'output_tokens': 3,
+            'total_tokens': 103,
+            'input_tokens_details': {'cached_tokens': 0, 'cache_write_tokens': 40},
+            'output_tokens_details': {'reasoning_tokens': 0},
+        },
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=responses_body if request.url.path.endswith('/responses') else chat_body)
+
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    with logfire.instrument_openai(client):
+        client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
+        client.responses.create(model='gpt-4o-mini', input='hi')
+
+    chat_span, responses_span = exporter.exported_spans_as_dict()
+    assert chat_span['attributes']['gen_ai.usage.cache_creation.input_tokens'] == 30
+    assert chat_span['attributes']['gen_ai.usage.cache_read.input_tokens'] == 20
+    assert responses_span['attributes']['gen_ai.usage.cache_creation.input_tokens'] == 40
+    assert 'gen_ai.usage.cache_read.input_tokens' not in responses_span['attributes']
+
+
+def test_cache_write_tokens_recorded_from_streams(exporter: TestExporter) -> None:
+    chat_chunks: list[dict[str, Any]] = [
+        {
+            'id': 'chatcmpl-1',
+            'object': 'chat.completion.chunk',
+            'created': 0,
+            'model': 'gpt-4o-mini',
+            'choices': [{'index': 0, 'delta': {'role': 'assistant', 'content': 'Nine'}, 'finish_reason': None}],
+        },
+        {
+            'id': 'chatcmpl-1',
+            'object': 'chat.completion.chunk',
+            'created': 0,
+            'model': 'gpt-4o-mini',
+            'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'stop'}],
+        },
+        {
+            'id': 'chatcmpl-1',
+            'object': 'chat.completion.chunk',
+            'created': 0,
+            'model': 'gpt-4o-mini',
+            'choices': [],
+            'usage': {
+                'prompt_tokens': 100,
+                'completion_tokens': 3,
+                'total_tokens': 103,
+                'prompt_tokens_details': {'cached_tokens': 20, 'cache_write_tokens': 30},
+            },
+        },
+    ]
+    response: dict[str, Any] = {
+        'id': 'resp_1',
+        'object': 'response',
+        'created_at': 1,
+        'model': 'gpt-4o-mini',
+        'output': [],
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+    }
+    responses_events: list[dict[str, Any]] = [
+        {'type': 'response.created', 'sequence_number': 0, 'response': {**response, 'status': 'in_progress'}},
+        {
+            'type': 'response.completed',
+            'sequence_number': 1,
+            'response': {
+                **response,
+                'status': 'completed',
+                'output': [
+                    {
+                        'id': 'msg_1',
+                        'type': 'message',
+                        'status': 'completed',
+                        'role': 'assistant',
+                        'content': [{'type': 'output_text', 'text': 'Nine', 'annotations': []}],
+                    }
+                ],
+                'usage': {
+                    'input_tokens': 100,
+                    'input_tokens_details': {'cached_tokens': 0, 'cache_write_tokens': 40},
+                    'output_tokens': 3,
+                    'output_tokens_details': {'reasoning_tokens': 0},
+                    'total_tokens': 103,
+                },
+            },
+        },
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/responses'):
+            body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in responses_events)
+        else:
+            body = ''.join(f'data: {json.dumps(chunk)}\n\n' for chunk in chat_chunks) + 'data: [DONE]\n\n'
+        return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream'})
+
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    with logfire.instrument_openai(client):
+        list(
+            client.chat.completions.create(
+                model='gpt-4o-mini',
+                messages=[{'role': 'user', 'content': 'hi'}],
+                stream=True,
+                stream_options={'include_usage': True},
+            )
+        )
+        list(client.responses.create(model='gpt-4o-mini', input='hi', stream=True))
+
+    chat_span, responses_span = (
+        span for span in exporter.exported_spans_as_dict() if span['name'].startswith('streaming response')
+    )
+    assert chat_span['attributes']['gen_ai.usage.cache_creation.input_tokens'] == 30
+    assert chat_span['attributes']['gen_ai.usage.cache_read.input_tokens'] == 20
+    assert responses_span['attributes']['gen_ai.usage.cache_creation.input_tokens'] == 40
+    assert 'gen_ai.usage.cache_read.input_tokens' not in responses_span['attributes']
+    client.close()
+
+
 def test_uncached_prompt_tokens_omit_cache_attribute(exporter: TestExporter) -> None:
     body = {
         'id': 'chatcmpl-1',

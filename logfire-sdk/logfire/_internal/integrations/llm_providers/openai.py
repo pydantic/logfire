@@ -21,7 +21,6 @@ from logfire import LogfireSpan
 
 from ...utils import handle_internal_errors, log_internal_error
 from .semconv import (
-    CACHE_READ_INPUT_TOKENS,
     INPUT_MESSAGES,
     OPERATION_NAME,
     OUTPUT_MESSAGES,
@@ -650,15 +649,19 @@ def get_openai_usage_attributes(response: Any, base_url: str | None = None) -> d
     else:
         api_flavor = 'chat'
     # Chat completions report cached prompt tokens under `prompt_tokens_details`, the Responses API
-    # under `input_tokens_details`.
+    # under `input_tokens_details`. Cache reads are `cached_tokens` and cache writes `cache_write_tokens`.
     details = getattr(usage, 'prompt_tokens_details', None) or getattr(usage, 'input_tokens_details', None)
-    result = get_usage_attributes(
-        response, usage, input_tokens, output_tokens, provider_id='openai', api_flavor=api_flavor, provider_url=base_url
+    return get_usage_attributes(
+        response,
+        usage,
+        input_tokens,
+        output_tokens,
+        provider_id='openai',
+        api_flavor=api_flavor,
+        provider_url=base_url,
+        cache_read_tokens=getattr(details, 'cached_tokens', None),
+        cache_write_tokens=getattr(details, 'cache_write_tokens', None),
     )
-    cached = getattr(details, 'cached_tokens', None)
-    if isinstance(cached, int) and cached:
-        result[CACHE_READ_INPUT_TOKENS] = cached
-    return result
 
 
 @handle_internal_errors
