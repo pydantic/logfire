@@ -401,9 +401,13 @@ def convert_openai_response_to_semconv(
     if refusal := getattr(message, 'refusal', None):
         parts.append(TextPart(type='text', content=refusal))
 
-    # An audio response leaves `content` empty and carries its text as a transcript.
-    if (audio := getattr(message, 'audio', None)) and audio.transcript:
-        parts.append(TextPart(type='text', content=audio.transcript))
+    # An audio response leaves `content` empty: the audio is a blob part, like `input_audio`,
+    # and its text is the transcript.
+    if audio := getattr(message, 'audio', None):
+        if audio.data:
+            parts.append(BlobPart(type='blob', content=audio.data, modality='audio'))
+        if audio.transcript:
+            parts.append(TextPart(type='text', content=audio.transcript))
 
     if message.tool_calls:  # pragma: no cover
         for tc in message.tool_calls:

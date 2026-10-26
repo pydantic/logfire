@@ -4532,7 +4532,7 @@ def test_convert_openai_response_refusal() -> None:
 
 
 def test_convert_openai_response_audio_transcript() -> None:
-    """An audio response has no content, so its transcript is recorded as a text part."""
+    """An audio response has no content: the audio is a blob part and its transcript a text part."""
     from openai.types.chat.chat_completion_audio import ChatCompletionAudio
 
     from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
@@ -4545,7 +4545,10 @@ def test_convert_openai_response_audio_transcript() -> None:
     assert convert_openai_response_to_semconv(message, 'stop') == snapshot(
         {
             'role': 'assistant',
-            'parts': [{'type': 'text', 'content': 'Hello there.'}],
+            'parts': [
+                {'type': 'blob', 'content': 'UklGRg==', 'modality': 'audio'},
+                {'type': 'text', 'content': 'Hello there.'},
+            ],
             'finish_reason': 'stop',
         }
     )
@@ -4624,14 +4627,25 @@ def _stream_output_messages(deltas: list[tuple[dict[str, Any], str | None]]) -> 
 
 
 def test_chat_completion_stream_state_audio_transcript() -> None:
-    """A streamed audio response ends up in the output messages as its transcript."""
+    """A streamed audio response ends up in the output messages as its audio and transcript."""
     assert _stream_output_messages(
         [
             ({'role': 'assistant', 'audio': {'id': 'audio_1', 'transcript': 'Hel'}}, None),
             ({'audio': {'transcript': 'lo.', 'data': 'UklGRg==', 'expires_at': 1}}, None),
             ({}, 'stop'),
         ]
-    ) == snapshot([{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello.'}], 'finish_reason': 'stop'}])
+    ) == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [
+                    {'type': 'blob', 'content': 'UklGRg==', 'modality': 'audio'},
+                    {'type': 'text', 'content': 'Hello.'},
+                ],
+                'finish_reason': 'stop',
+            }
+        ]
+    )
 
 
 def test_chat_completion_stream_state_legacy_function_call() -> None:
