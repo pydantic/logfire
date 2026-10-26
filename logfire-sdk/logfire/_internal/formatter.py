@@ -164,7 +164,14 @@ class ChunksFormatter(Formatter):
         # We currently don't use positional arguments
         args = ()
         value_cleaner = MessageValueCleaner(scrubber, check_keys=False)
-        for literal_text, field_name, format_spec, conversion in self.parse(format_string):
+        try:
+            fields = list(self.parse(format_string))
+        except ValueError as exc:
+            # `str.Formatter.parse` raises for things like unbalanced braces,
+            # which are common in messages that aren't really templates, e.g. JSON fragments or code snippets.
+            # Just use the message as-is (with a nice warning) instead of reporting an internal error.
+            raise KnownFormattingError(str(exc)) from None
+        for literal_text, field_name, format_spec, conversion in fields:
             # output the literal text
             if literal_text:
                 result.append({'v': literal_text, 't': 'lit'})
