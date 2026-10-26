@@ -31,13 +31,7 @@ def create_agent_sandboxes(
     api_key: str | None,
     url: str | None,
     instrument: bool,
-    max_processes: int | None,
-    checkout_timeout: float | None,
-    request_timeout: float | None,
-    connect_headers: Callable[[], Mapping[str, str]] | None,
-    feed_duration_limit_grace: float | None,
-    turn_duration_limit_grace: float | None,
-    auto_resume: bool,
+    connect_headers: Callable[[], Mapping[str, str]] | None = None,
     **kwargs: Any,
 ) -> AsyncMontyWebsocket:
     config = logfire_instance.config
@@ -61,12 +55,6 @@ def create_agent_sandboxes(
 
     return AsyncMontyWebsocket(
         url,
-        max_processes=max_processes,
-        checkout_timeout=checkout_timeout,
-        request_timeout=request_timeout,
         connect_headers=headers,
-        feed_duration_limit_grace=feed_duration_limit_grace,
-        turn_duration_limit_grace=turn_duration_limit_grace,
-        auto_resume=auto_resume,
         **kwargs,
     )

@@ -194,7 +194,31 @@ def test_agent_sandboxes_instrument(instrument: bool, monkeypatch: pytest.Monkey
     assert len(calls) == int(instrument)
 
 
-def test_agent_sandboxes_extra_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    'options',
+    [
+        {},
+        {'connect_headers': None},
+        {
+            'max_processes': 2,
+            'checkout_timeout': 3.0,
+            'request_timeout': 4.0,
+            'feed_duration_limit_grace': 5.0,
+            'turn_duration_limit_grace': 6.0,
+            'auto_resume': True,
+        },
+        {
+            'max_processes': None,
+            'checkout_timeout': None,
+            'request_timeout': None,
+            'feed_duration_limit_grace': None,
+            'turn_duration_limit_grace': None,
+            'auto_resume': False,
+        },
+        {'future_option': 'custom-value'},
+    ],
+)
+def test_agent_sandboxes_pool_options(options: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
     received: dict[str, Any] = {}
 
     def fake_websocket(url: str, **kwargs: Any) -> None:
@@ -202,9 +226,11 @@ def test_agent_sandboxes_extra_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(agent_sandboxes_module, 'AsyncMontyWebsocket', fake_websocket)
 
-    logfire.agent_sandboxes(api_key=API_KEY, instrument=False, future_option='custom-value')
+    logfire.agent_sandboxes(api_key=API_KEY, instrument=False, **options)
 
-    assert received['future_option'] == 'custom-value'
+    headers = received.pop('connect_headers')
+    assert headers() == {'authorization': f'Bearer {API_KEY}'}
+    assert received == {name: value for name, value in options.items() if name != 'connect_headers'}
 
 
 def test_agent_sandboxes_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
