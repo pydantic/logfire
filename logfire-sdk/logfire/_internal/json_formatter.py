@@ -29,8 +29,8 @@ class JsonArgsValueFormatter:
             'tuple': partial(self._format_list_like, '(', ')'),
             'Sequence': partial(self._format_sequence, '([', '])'),
             'range': self._format_range,
-            'set': partial(self._format_list_like, '{', '}'),
-            'frozenset': partial(self._format_list_like, 'frozenset({', '})'),
+            'set': partial(self._format_set_like, 'set()', '{', '}'),
+            'frozenset': partial(self._format_set_like, 'frozenset()', 'frozenset({', '})'),
             'deque': partial(self._format_list_like, 'deque([', '])'),
             'generator': partial(self._format_list_like, 'generator((', '))'),
             'bytes': self._format_bytes,
@@ -174,6 +174,15 @@ class JsonArgsValueFormatter:
         if self._newlines and not first:
             self._stream.write(comma)
         self._stream.write(indent_current * ' ' + close_)
+
+    def _format_set_like(
+        self, empty: str, open_: str, close_: str, indent_current: int, value: Any, schema: JSONSchema | None
+    ) -> None:
+        if value:
+            self._format_list_like(open_, close_, indent_current, value, schema)
+        else:
+            # `{}` would read as an empty dict, so match repr() instead.
+            self._stream.write(empty)
 
     def _format_items(
         self,
