@@ -392,6 +392,24 @@ async def instrumented_async_client() -> AsyncIterator[openai.AsyncClient]:
             yield openai_client
 
 
+def test_sync_chat_completions_max_completion_tokens(
+    instrumented_client: openai.Client, exporter: TestExporter
+) -> None:
+    """Reasoning models take `max_completion_tokens`, which is recorded as the requested max tokens."""
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[
+            {'role': 'system', 'content': 'You are a helpful assistant.'},
+            {'role': 'user', 'content': 'What is four plus five?'},
+        ],
+        max_completion_tokens=300,
+    )
+    assert response.choices[0].message.content == 'Nine'
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['gen_ai.request.max_tokens'] == 300
+
+
 def test_sync_chat_completions(instrumented_client: openai.Client, exporter: TestExporter) -> None:
     response = instrumented_client.chat.completions.create(
         model='gpt-4',
@@ -763,6 +781,25 @@ def test_extract_request_parameters_max_output_tokens() -> None:
     span_data: dict[str, Any] = {}
     _extract_request_parameters(json_data, span_data)
     assert span_data['gen_ai.request.max_tokens'] == 200
+
+
+def test_extract_request_parameters_max_completion_tokens() -> None:
+    """Test that max_completion_tokens is extracted when max_tokens is absent.
+
+    Chat completions use max_completion_tokens for reasoning models, which reject max_tokens.
+    """
+    from logfire._internal.integrations.llm_providers.openai import (
+        _extract_request_parameters,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    span_data: dict[str, Any] = {}
+    _extract_request_parameters({'max_completion_tokens': 300}, span_data)
+    assert span_data['gen_ai.request.max_tokens'] == 300
+
+    # max_tokens still wins when both are given.
+    span_data = {}
+    _extract_request_parameters({'max_tokens': 100, 'max_completion_tokens': 300}, span_data)
+    assert span_data['gen_ai.request.max_tokens'] == 100
 
 
 def test_normalize_versions_validation() -> None:

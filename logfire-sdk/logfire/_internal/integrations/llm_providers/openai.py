@@ -72,6 +72,8 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
     """Extract request parameters from json_data and add to span_data."""
     if (max_tokens := json_data.get('max_tokens')) is not None:
         span_data[REQUEST_MAX_TOKENS] = max_tokens
+    elif (max_completion_tokens := json_data.get('max_completion_tokens')) is not None:
+        span_data[REQUEST_MAX_TOKENS] = max_completion_tokens
     elif (max_output_tokens := json_data.get('max_output_tokens')) is not None:
         span_data[REQUEST_MAX_TOKENS] = max_output_tokens
 
