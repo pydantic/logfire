@@ -216,8 +216,7 @@ except ImportError:
 
             def url_from_eval(self, *args, **kwargs) -> str | None: ...
 
-            @property
-            def project_url(self) -> str | None:
+            def get_project_url(self, *args, **kwargs) -> str | None:
                 return None
 
             def forward_export_request(self, *args, **kwargs) -> MagicMock:
@@ -230,7 +229,7 @@ except ImportError:
 
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span
-        project_url = DEFAULT_LOGFIRE_INSTANCE.project_url
+        get_project_url = DEFAULT_LOGFIRE_INSTANCE.get_project_url
         log = DEFAULT_LOGFIRE_INSTANCE.log
         trace = DEFAULT_LOGFIRE_INSTANCE.trace
         debug = DEFAULT_LOGFIRE_INSTANCE.debug

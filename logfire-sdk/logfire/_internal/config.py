@@ -1032,13 +1032,12 @@ class LogfireConfig(_LogfireConfigData):
         self._initialized = False
         self._lock = RLock()
 
-    @property
-    def project_url(self) -> str | None:
-        """The URL of the Logfire project, or `None` if it isn't known.
+    def get_project_url(self) -> str | None:
+        """Get the URL of the Logfire project, or `None` if it isn't known.
 
         `logfire.configure()` may validate the token in a background thread, which is what
         discovers the project URL when it isn't already available from a credentials file.
-        Reading this property waits for that thread to finish so the value is deterministic.
+        Calling this method waits for that thread to finish so the value is deterministic.
         """
         token_check_thread = self._token_check_thread
         if token_check_thread is not None and token_check_thread is not current_thread():

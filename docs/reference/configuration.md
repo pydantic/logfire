@@ -16,17 +16,17 @@ For more details, please refer to our [API documentation][logfire.configure].
 
 ### Get the project URL after configuring
 
-After [`logfire.configure()`][logfire.configure] has run, `logfire.project_url` returns the URL of the project that telemetry is sent to:
+After [`logfire.configure()`][logfire.configure] has run, `logfire.get_project_url()` returns the URL of the project that telemetry is sent to:
 
 ```python
 import logfire
 
 logfire.configure(token='...')
 
-project_url = logfire.project_url
+project_url = logfire.get_project_url()
 ```
 
-`project_url` is a string such as `https://logfire-us.pydantic.dev/my-organization/my-project`, or `None` when the URL isn't known, for example when `send_to_logfire=False`, or on AWS Lambda with a token but no credentials file, where Logfire skips the background token check. The value comes from the credentials file, or from validating the configured token. Reading `logfire.project_url` waits for any background token validation to finish, so the value is stable.
+The return value is a string such as `https://logfire-us.pydantic.dev/my-organization/my-project`, or `None` when the URL isn't known, for example when `send_to_logfire=False`, or on AWS Lambda with a token but no credentials file, where Logfire skips the background token check. The value comes from the credentials file, or from validating the configured token. Calling `logfire.get_project_url()` waits for any background token validation to finish, so the value is stable.
 
 ## Using environment variables
 

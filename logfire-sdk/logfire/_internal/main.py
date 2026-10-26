@@ -174,15 +174,14 @@ class Logfire:
     def config(self) -> LogfireConfig:
         return self._config
 
-    @property
-    def project_url(self) -> str | None:
-        """The URL of the Logfire project, or `None` if it isn't known.
+    def get_project_url(self) -> str | None:
+        """Get the URL of the Logfire project, or `None` if it isn't known.
 
         This is set by `logfire.configure()` from the credentials file or by validating the
-        configured token. If that validation is still running in a background thread, reading
-        this property waits for it to finish.
+        configured token. If that validation is still running in a background thread, calling
+        this method waits for it to finish.
         """
-        return self._config.project_url
+        return self._config.get_project_url()
 
     @property
     def _variables(self) -> dict[str, Variable[Any] | TemplateVariable[Any, Any]]:
@@ -942,7 +941,7 @@ class Logfire:
         Returns:
             The URL string, or `None` if the project URL or trace/span IDs are not available.
         """
-        project_url = self._config._project_url  # type: ignore[reportPrivateUsage]
+        project_url = self.get_project_url()
         trace_id = report.trace_id
         span_id = report.span_id
         if not project_url or not trace_id or not span_id:

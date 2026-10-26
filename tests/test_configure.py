@@ -2463,13 +2463,13 @@ def test_token_check_is_skipped_on_aws_lambda(monkeypatch: pytest.MonkeyPatch) -
             release.set()
 
 
-def test_project_url_without_credentials(config_kwargs: dict[str, Any]) -> None:
+def test_get_project_url_without_credentials(config_kwargs: dict[str, Any]) -> None:
     configure(**config_kwargs)
-    assert logfire.project_url is None
-    assert logfire.DEFAULT_LOGFIRE_INSTANCE.project_url is None
+    assert logfire.get_project_url() is None
+    assert logfire.DEFAULT_LOGFIRE_INSTANCE.get_project_url() is None
 
 
-def test_project_url_waits_for_token_check() -> None:
+def test_get_project_url_waits_for_token_check() -> None:
     release = threading.Event()
     request_started = threading.Event()
 
@@ -2481,7 +2481,7 @@ def test_project_url_waits_for_token_check() -> None:
     project_urls: list[str | None] = []
 
     def read_project_url() -> None:
-        project_urls.append(logfire.project_url)
+        project_urls.append(logfire.get_project_url())
 
     with requests_mock.Mocker() as request_mocker:
         request_mocker.get('https://logfire-us.pydantic.dev/v1/info', json=held_back_info)
@@ -2492,7 +2492,7 @@ def test_project_url_waits_for_token_check() -> None:
             reader = threading.Thread(target=read_project_url)
             reader.start()
             reader.join(timeout=0.1)
-            # The token check hasn't finished, so reading `project_url` must still be waiting.
+            # The token check hasn't finished, so `get_project_url()` must still be waiting.
             assert reader.is_alive()
             assert project_urls == []
         finally:
@@ -2503,11 +2503,11 @@ def test_project_url_waits_for_token_check() -> None:
     assert project_urls == ['fake_project_url']
 
 
-def test_project_url_read_from_token_check_thread() -> None:
+def test_get_project_url_read_from_token_check_thread() -> None:
     seen: list[str | None] = []
 
     def hook(_response: Any) -> None:
-        seen.append(logfire.project_url)
+        seen.append(logfire.get_project_url())
 
     with requests_mock.Mocker() as request_mocker:
         request_mocker.get(
@@ -2523,10 +2523,10 @@ def test_project_url_read_from_token_check_thread() -> None:
         wait_for_check_token_thread()
 
     assert seen == [None]
-    assert logfire.project_url == 'fake_project_url'
+    assert logfire.get_project_url() == 'fake_project_url'
 
 
-def test_project_url_ignores_superseded_token_check() -> None:
+def test_get_project_url_ignores_superseded_token_check() -> None:
     first_request_started = threading.Event()
     release_first_request = threading.Event()
 
@@ -2545,16 +2545,16 @@ def test_project_url_ignores_superseded_token_check() -> None:
 
             # Reconfigure while the first token check is still running.
             configure(token='second_token', send_to_logfire='if-token-present', console=False)
-            assert logfire.project_url == 'https://second.example.com'
+            assert logfire.get_project_url() == 'https://second.example.com'
         finally:
             release_first_request.set()
         wait_for_check_token_thread()
 
     # The superseded check must not overwrite the URL of the new configuration.
-    assert logfire.project_url == 'https://second.example.com'
+    assert logfire.get_project_url() == 'https://second.example.com'
 
 
-def test_project_url_bound_to_configuration_of_token_check(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_project_url_bound_to_configuration_of_token_check(monkeypatch: pytest.MonkeyPatch) -> None:
     # A check scheduled by `configure()` may start after a second `configure()` has replaced the
     # configuration. It must then still use the options it was scheduled with, in particular the
     # base URL, rather than sending its token to the newly configured server.
@@ -2595,7 +2595,7 @@ def test_project_url_bound_to_configuration_of_token_check(monkeypatch: pytest.M
             release_check.set()
         wait_for_check_token_thread()
 
-    assert logfire.project_url == 'https://second.example.com'
+    assert logfire.get_project_url() == 'https://second.example.com'
     assert sorted((request.url, request.headers['Authorization']) for request in request_mocker.request_history) == [
         ('https://first.example.com/v1/info', 'first_token'),
         ('https://second.example.com/v1/info', 'second_token'),
@@ -2728,7 +2728,7 @@ def test_load_creds_file_with_token_different_from_env(tmp_path: Path, capsys: p
         assert len(request_mocker.request_history) == 1
         assert request_mocker.request_history[0].headers['Authorization'] == 'fake_token'
         # The creds file's token belongs to another project, so its URL must not be used.
-        assert logfire.project_url == 'fake_project_url'
+        assert logfire.get_project_url() == 'fake_project_url'
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
 
