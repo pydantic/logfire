@@ -1522,7 +1522,7 @@ class Logfire:
 
         - [`client.messages.create`](https://docs.anthropic.com/en/api/messages)
         - [`client.messages.stream`](https://docs.anthropic.com/en/api/messages-streaming)
-        - [`client.beta.tools.messages.create`](https://docs.anthropic.com/en/docs/tool-use)
+        - [`client.beta.messages.create`](https://docs.anthropic.com/en/docs/tool-use)
 
         When `stream=True` a second span is created to instrument the streamed response.
 
