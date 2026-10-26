@@ -41,7 +41,7 @@ def create_agent_sandboxes(
     **kwargs: Any,
 ) -> AsyncMontyWebsocket:
     config = logfire_instance.config
-    api_key = api_key or config.api_key or config.param_manager.load_param('api_key')
+    api_key = api_key or config.api_key
     if not api_key:
         raise LogfireConfigError(
             'Agent sandboxes require a Logfire API key with the `project:execute_agent_sandboxes` scope. '
