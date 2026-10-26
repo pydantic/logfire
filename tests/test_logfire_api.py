@@ -339,6 +339,12 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
                 logfire_api.instrument_dspy()
     logfire__all__.remove('instrument_dspy')
 
+    assert hasattr(logfire_api, 'agent_sandboxes')
+    if module_name == 'logfire_api.':
+        with pytest.raises(RuntimeError, match=r'requires the `logfire` package'):
+            logfire_api.agent_sandboxes()
+    logfire__all__.remove('agent_sandboxes')
+
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
         if member == 'instrument_monty' and module_name == 'logfire.':

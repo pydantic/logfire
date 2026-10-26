@@ -91,6 +91,7 @@ if TYPE_CHECKING:
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
     from pydantic_evals.reporting import EvaluationReport
+    from pydantic_monty import AsyncMontyWebsocket
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
     from snowflake.connector.connection import SnowflakeConnection
     from sqlalchemy import Engine
@@ -150,6 +151,14 @@ if TYPE_CHECKING:
 
 T = TypeVar('T')
 InputsT = TypeVar('InputsT')
+
+
+class _Unset(Enum):
+    UNSET = 'UNSET'
+
+
+_UNSET = _Unset.UNSET
+"""Distinguish omitted pool options from explicit values, including `None`."""
 
 
 class Logfire:
@@ -1226,6 +1235,90 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         instrument_monty(self)
+
+    def agent_sandboxes(
+        self,
+        *,
+        api_key: str | None = None,
+        url: str | None = None,
+        instrument: bool = True,
+        max_processes: int | None | _Unset = _UNSET,
+        checkout_timeout: float | None | _Unset = _UNSET,
+        request_timeout: float | None | _Unset = _UNSET,
+        connect_headers: Callable[[], Mapping[str, str]] | None | _Unset = _UNSET,
+        feed_duration_limit_grace: float | None | _Unset = _UNSET,
+        turn_duration_limit_grace: float | None | _Unset = _UNSET,
+        auto_resume: bool | _Unset = _UNSET,
+        **kwargs: Any,
+    ) -> AsyncMontyWebsocket:
+        """Connect to Logfire Agent Sandboxes, remote Pydantic Monty workers hosted by Logfire.
+
+        Requires the `agent-sandboxes` extra, e.g. `pip install 'logfire[agent-sandboxes]'`.
+
+        Returns a [`pydantic_monty.AsyncMontyWebsocket`][pydantic_monty.AsyncMontyWebsocket] pool;
+        use it as an async context manager and check out sessions from it:
+
+        ```py
+        import logfire
+
+        logfire.configure()
+
+
+        async def main():
+            async with logfire.agent_sandboxes() as pool:
+                async with pool.checkout() as session:
+                    result = await session.feed_run('1 + 1')
+        ```
+
+        No connection is made until a session is checked out.
+
+        Omitted pool options use the defaults of the installed `pydantic-monty-client` version.
+        The defaults described below are the currently assumed defaults and may change in future versions.
+
+        Args:
+            api_key: A Logfire API key with the `project:execute_agent_sandboxes` scope.
+                Defaults to the `api_key` passed to [`configure()`][logfire.configure],
+                then the `LOGFIRE_API_KEY` environment variable.
+            url: The WebSocket URL of the sandboxes server.
+                Defaults to the Logfire region the API key belongs to.
+            instrument: Whether to call [`instrument_monty()`][logfire.Logfire.instrument_monty]
+                so that sandbox sessions and code runs are recorded as spans in the current trace.
+            max_processes: Cap on concurrent sandbox connections. Defaults to `None`, which uses
+                the CPU count; checkouts beyond it wait.
+            checkout_timeout: Seconds `checkout()` waits for capacity before raising `TimeoutError`.
+                Defaults to `None`, which waits forever.
+            request_timeout: Hard per-turn deadline in seconds. A sandbox that exceeds it has its
+                connection closed and the call raises `MontyCrashedError`. `None` waits indefinitely.
+                Defaults to `10.0`. Raise this when installing dependencies in a sandbox.
+            connect_headers: Called once per session to produce extra headers for the WebSocket
+                connection. These are merged with the `Authorization` header and win on conflicts.
+                Defaults to `None`, which adds no extra headers beyond Logfire authentication.
+            feed_duration_limit_grace: Seconds to wait past a feed's `max_feed_duration_secs`
+                before closing the sandbox. Defaults to `1.0`; `None` disables this backstop.
+            turn_duration_limit_grace: The same, for `max_turn_duration_secs`. Defaults to `1.0`.
+            auto_resume: When the server drains a stored session, transparently resume it on
+                another server instead of raising `MontyShutdown`. Defaults to `True`.
+            kwargs: Additional keyword arguments passed to `AsyncMontyWebsocket` for future compatibility.
+        """
+        from .agent_sandboxes import create_agent_sandboxes
+
+        pool_options = {
+            'max_processes': max_processes,
+            'checkout_timeout': checkout_timeout,
+            'request_timeout': request_timeout,
+            'connect_headers': connect_headers,
+            'feed_duration_limit_grace': feed_duration_limit_grace,
+            'turn_duration_limit_grace': turn_duration_limit_grace,
+            'auto_resume': auto_resume,
+        }
+        return create_agent_sandboxes(
+            self,
+            api_key=api_key,
+            url=url,
+            instrument=instrument,
+            **{name: value for name, value in pool_options.items() if value is not _UNSET},
+            **kwargs,
+        )
 
     def instrument_fastapi(
         self,
