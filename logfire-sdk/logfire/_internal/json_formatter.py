@@ -32,7 +32,7 @@ class JsonArgsValueFormatter:
             'set': partial(self._format_set_like, 'set()', '{', '}'),
             'frozenset': partial(self._format_set_like, 'frozenset()', 'frozenset({', '})'),
             'deque': partial(self._format_list_like, 'deque([', '])'),
-            'generator': partial(self._format_list_like, 'generator((', '))'),
+            'generator': self._format_generator,
             'bytes': self._format_bytes,
             'bytearray': self._format_bytearray,
             'Decimal': partial(self._write, 'Decimal(', ')', True),
@@ -132,6 +132,13 @@ class JsonArgsValueFormatter:
         else:
             args = '0, 0'
         self._write('range(', ')', False, 0, args, None)
+
+    def _format_generator(self, indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        if isinstance(value, str):
+            # The JSON encoder stores a generator as its repr() rather than consuming it.
+            self._write('', '', False, 0, value, None)
+        else:
+            self._format_list_like('generator((', '))', indent_current, value, schema)
 
     def _format_ndarray(self, indent_current: int, value: Any, schema: JSONSchema | None) -> None:
         if schema is not None and schema.get('x-shape') == []:
