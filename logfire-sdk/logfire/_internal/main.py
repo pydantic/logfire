@@ -152,7 +152,12 @@ if TYPE_CHECKING:
 T = TypeVar('T')
 InputsT = TypeVar('InputsT')
 
-_UNSET: Any = object()
+
+class _Unset(Enum):
+    UNSET = 'UNSET'
+
+
+_UNSET: Any = _Unset.UNSET
 """Distinguish omitted pool options from explicit values, including `None`."""
 
 
