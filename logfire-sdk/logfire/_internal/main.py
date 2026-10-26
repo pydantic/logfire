@@ -157,7 +157,7 @@ class _Unset(Enum):
     UNSET = 'UNSET'
 
 
-_UNSET: Any = _Unset.UNSET
+_UNSET = _Unset.UNSET
 """Distinguish omitted pool options from explicit values, including `None`."""
 
 
@@ -1242,13 +1242,13 @@ class Logfire:
         api_key: str | None = None,
         url: str | None = None,
         instrument: bool = True,
-        max_processes: int | None = _UNSET,
-        checkout_timeout: float | None = _UNSET,
-        request_timeout: float | None = _UNSET,
-        connect_headers: Callable[[], Mapping[str, str]] | None = _UNSET,
-        feed_duration_limit_grace: float | None = _UNSET,
-        turn_duration_limit_grace: float | None = _UNSET,
-        auto_resume: bool = _UNSET,
+        max_processes: int | None | _Unset = _UNSET,
+        checkout_timeout: float | None | _Unset = _UNSET,
+        request_timeout: float | None | _Unset = _UNSET,
+        connect_headers: Callable[[], Mapping[str, str]] | None | _Unset = _UNSET,
+        feed_duration_limit_grace: float | None | _Unset = _UNSET,
+        turn_duration_limit_grace: float | None | _Unset = _UNSET,
+        auto_resume: bool | _Unset = _UNSET,
         **kwargs: Any,
     ) -> AsyncMontyWebsocket:
         """Connect to Logfire Agent Sandboxes, remote Pydantic Monty workers hosted by Logfire.
