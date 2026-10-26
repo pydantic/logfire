@@ -53,9 +53,9 @@ def create_agent_sandboxes(
         logfire_instance.instrument_monty()
 
     def headers() -> dict[str, str]:
-        result = {'Authorization': f'Bearer {api_key}'}
+        result = {'authorization': f'Bearer {api_key}'}
         if connect_headers is not None:
-            result.update(connect_headers())
+            result.update((name.lower(), value) for name, value in connect_headers().items())
         return result
 
     return AsyncMontyWebsocket(

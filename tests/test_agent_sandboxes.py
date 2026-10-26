@@ -98,11 +98,12 @@ async def test_agent_sandboxes_run_code(sandbox_server: SandboxServer, exporter:
 
 
 @pytest.mark.anyio
-async def test_agent_sandboxes_connect_headers_override(sandbox_server: SandboxServer) -> None:
+@pytest.mark.parametrize('header_name', ['Authorization', 'authorization', 'aUtHoRiZaTiOn'])
+async def test_agent_sandboxes_connect_headers_override(sandbox_server: SandboxServer, header_name: str) -> None:
     async with logfire.agent_sandboxes(
         api_key=API_KEY,
         url=sandbox_server.url,
-        connect_headers=lambda: {'Authorization': 'Bearer other'},
+        connect_headers=lambda: {header_name: 'Bearer other'},
     ) as pool:
         async with pool.checkout() as session:
             assert await session.feed_run('2 * 3') == 6
