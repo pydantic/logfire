@@ -94,8 +94,12 @@ def test_appendix_headings_ignore_windows_separators(monkeypatch: pytest.MonkeyP
             return '# Authentication\n\nUse a write token.\n'
 
     reference = _WindowsReference('C:/skills/logfire-instrumentation/references/auth.md')
+
+    def _fake_reference_files(_skill_dir: Path) -> list[PureWindowsPath]:
+        return [reference]
+
     monkeypatch.setattr(build_offline_skill_prompt, 'SKILLS_ROOT', PureWindowsPath('C:/skills'))
-    monkeypatch.setattr(build_offline_skill_prompt, '_reference_files', lambda _skill_dir: [reference])
+    monkeypatch.setattr(build_offline_skill_prompt, '_reference_files', _fake_reference_files)
 
     appendix = _render_appendix(
         'logfire-instrumentation',
