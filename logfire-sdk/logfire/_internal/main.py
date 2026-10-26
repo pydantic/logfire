@@ -599,7 +599,8 @@ class Logfire:
         ```
 
         Args:
-            msg_template: The template for the span message.
+            msg_template: A string template for the span message. Passing another type emits a formatting
+                warning and uses its `str()` representation without interpolating it.
             _span_name: The span name. If not provided, the `msg_template` will be used.
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
@@ -752,7 +753,8 @@ class Logfire:
 
         Args:
             level: The level of the log.
-            msg_template: The message to log.
+            msg_template: A string message or template. Passing another type emits a formatting warning
+                and uses its `str()` representation without interpolating it.
             attributes: The attributes to bind to the log.
             tags: An optional sequence of tags to include in the log.
             exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
