@@ -24,6 +24,8 @@ The advantages of this approach include:
 - **Flexibility**: Transform, enrich, or aggregate metrics before sending them to Logfire
 - **Vendor lock in**: Send the same metrics to multiple monitoring systems if needed
 
+For AWS deployments that enable Firehose ingestion, you can also [send CloudWatch logs and metrics through Firehose](aws-firehose.md).
+
 For general information about setting up and configuring the OpenTelemetry Collector, see our [OpenTelemetry Collector guide](./otel-collector/otel-collector-overview.md).
 
 One important consideration before you embark on this guide is what your overall data flow is going to be.
