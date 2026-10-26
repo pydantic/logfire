@@ -1241,6 +1241,7 @@ class Logfire:
         feed_duration_limit_grace: float | None = 1.0,
         turn_duration_limit_grace: float | None = 1.0,
         auto_resume: bool = True,
+        **kwargs: Any,
     ) -> AsyncMontyWebsocket:
         """Connect to Logfire Agent Sandboxes, remote Pydantic Monty workers hosted by Logfire.
 
@@ -1285,6 +1286,7 @@ class Logfire:
             turn_duration_limit_grace: The same, for `max_turn_duration_secs`.
             auto_resume: When the server drains a stored session, transparently resume it on
                 another server instead of raising `MontyShutdown`.
+            kwargs: Additional keyword arguments passed to `AsyncMontyWebsocket` for future compatibility.
         """
         from .agent_sandboxes import create_agent_sandboxes
 
@@ -1300,6 +1302,7 @@ class Logfire:
             feed_duration_limit_grace=feed_duration_limit_grace,
             turn_duration_limit_grace=turn_duration_limit_grace,
             auto_resume=auto_resume,
+            **kwargs,
         )
 
     def instrument_fastapi(

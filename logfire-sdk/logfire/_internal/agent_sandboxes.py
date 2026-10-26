@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from logfire.exceptions import LogfireConfigError
 
@@ -38,6 +38,7 @@ def create_agent_sandboxes(
     feed_duration_limit_grace: float | None,
     turn_duration_limit_grace: float | None,
     auto_resume: bool,
+    **kwargs: Any,
 ) -> AsyncMontyWebsocket:
     config = logfire_instance.config
     api_key = api_key or config.api_key or config.param_manager.load_param('api_key')
@@ -67,4 +68,5 @@ def create_agent_sandboxes(
         feed_duration_limit_grace=feed_duration_limit_grace,
         turn_duration_limit_grace=turn_duration_limit_grace,
         auto_resume=auto_resume,
+        **kwargs,
     )

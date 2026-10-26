@@ -194,6 +194,19 @@ def test_agent_sandboxes_instrument(instrument: bool, monkeypatch: pytest.Monkey
     assert len(calls) == int(instrument)
 
 
+def test_agent_sandboxes_extra_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
+    received: dict[str, Any] = {}
+
+    def fake_websocket(url: str, **kwargs: Any) -> None:
+        received.update(kwargs)
+
+    monkeypatch.setattr(agent_sandboxes_module, 'AsyncMontyWebsocket', fake_websocket)
+
+    logfire.agent_sandboxes(api_key=API_KEY, instrument=False, future_option='custom-value')
+
+    assert received['future_option'] == 'custom-value'
+
+
 def test_agent_sandboxes_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sys.modules, 'pydantic_monty', None)
 
