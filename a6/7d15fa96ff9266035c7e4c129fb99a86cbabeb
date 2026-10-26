@@ -1,0 +1,29 @@
+logfire-sdk/logfire/_internal/agent_sandboxes.py
+  s_27792f3d56f7e4::t_265b42574d90cd 34
+logfire-sdk/logfire/_internal/main.py
+  s_27792f3d56f7e4::t_265b42574d90cd 155-157,1240-1246,1270-1272,1281-1282,1284,1287,1290,1292-1293,1295,1300-1308,1314
+tests/test_agent_sandboxes.py
+  s_27792f3d56f7e4::t_254a91a16eb284 201,233
+  s_27792f3d56f7e4::t_265b42574d90cd 197-200,202-221,229,231-232
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a67d15fa96ff9266035c7e4c129fb99a86cbabeb",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_27792f3d56f7e4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1779c-047d-71e0-a241-4b61d17cbfd7",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
