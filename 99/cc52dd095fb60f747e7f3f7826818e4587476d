@@ -1,0 +1,24 @@
+logfire-sdk/logfire/_internal/agent_sandboxes.py
+  s_27792f3d56f7e4::t_b7a83c594c8040 44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "99cc52dd095fb60f747e7f3f7826818e4587476d",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_27792f3d56f7e4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1779c-047d-71e0-a241-4b61d17cbfd7",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
