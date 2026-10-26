@@ -31,7 +31,7 @@ DataType = Literal[
     'IPv6Address',
     'IPv6Interface',
     'IPv6Network',
-    'PosixPath',
+    'Path',
     'Pattern',
     # iterable types
     'set',

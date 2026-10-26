@@ -59,7 +59,7 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
         re.Pattern: {'type': 'string', 'format': 'regex'},
         uuid.UUID: {'type': 'string', 'format': 'uuid'},
         range: {'type': 'array', 'x-python-datatype': 'range'},
-        PurePath: {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+        PurePath: {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
         Exception: _exception_schema,
     }
     with contextlib.suppress(ModuleNotFoundError):

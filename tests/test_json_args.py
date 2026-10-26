@@ -472,28 +472,28 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             Path('/tmp/test.py'),
             '/tmp/test.py',
             '"/tmp/test.py"',
-            {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
             id='path',
         ),
         pytest.param(
             PurePosixPath('/tmp/test.py'),
             '/tmp/test.py',
             '"/tmp/test.py"',
-            {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
             id='pure-posix-path',
         ),
         pytest.param(
             PureWindowsPath('C:/tmp/test.py'),
             'C:\\tmp\\test.py',
             '"C:\\\\tmp\\\\test.py"',
-            {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
             id='windows-path',
         ),
         pytest.param(
             FilePath(__file__),  # type: ignore
             __file__,
             f'"{__file__}"',
-            {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
             id='pydantic_file_path',
         ),
         pytest.param(

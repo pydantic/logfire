@@ -264,9 +264,9 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
         ),
         pytest.param(
             '/tmp/test.py',
-            {'type': 'string', 'x-python-datatype': 'PosixPath'},
-            "PosixPath('/tmp/test.py')",
-            id='PosixPath',
+            {'type': 'string', 'x-python-datatype': 'Path'},
+            "Path('/tmp/test.py')",
+            id='Path',
         ),
         pytest.param(
             'test',
