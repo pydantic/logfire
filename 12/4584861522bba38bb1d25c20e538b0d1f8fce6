@@ -1,0 +1,19 @@
+docs/how-to-guides/distributed-tracing.md
+  s_9a4bb0f8fbe30e::t_5b4ce0c17776c1 83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "124584861522bba38bb1d25c20e538b0d1f8fce6",
+  "prompts": {},
+  "sessions": {
+    "s_9a4bb0f8fbe30e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17d2a-eb30-7e32-8f1b-4e38c0fff5fe",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
