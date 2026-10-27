@@ -2,7 +2,7 @@
 name = "logfire-python"
 version = "0.0.0"
 requires-python = ">=3.10"
-dependencies = ["logfire-sdk"]
+dependencies = ["logfire"]
 
 [dependency-groups]
 editor-tests = [
@@ -132,7 +132,6 @@ dev = [
     "pydantic-handlebars>=0.2.1",
     "claude-agent-sdk>=0",
     "hypothesis>=6.0",
-    "mutmut>=3.7.0",
     "openfeature-sdk>=0.10,<1",
 ]
 [tool.inline-snapshot]
@@ -140,6 +139,7 @@ default-flags = ["disable"]
 format-command = "ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
+logfire = { workspace = true }
 logfire-api = { workspace = true }
 logfire-sdk = { workspace = true }
 
@@ -225,36 +225,12 @@ extraPaths = ["logfire-sdk"]
 venvPath = "."
 venv = ".venv"
 
-[tool.mutmut]
-source_paths = ["src/logfire/"]
-only_mutate = [
-    "src/logfire/experimental/feature_flags.py",
-    "src/logfire/experimental/openfeature.py",
-    "src/logfire/variables/config.py",
-    "src/logfire/variables/variable.py",
-]
-pytest_add_cli_args_test_selection = [
-    "tests/test_feature_flags.py",
-    "tests/test_feature_flag_properties.py",
-    "tests/test_variables.py",
-    "-k",
-    "flag or openfeature or declaration_schema or remote_health or requires_targeting_key or VarDuplicateName or VarInvalidName",
-    "-p",
-    "no:logfire",
-    "-p",
-    "no:pytest_logfire",
-]
-mutate_only_covered_lines = true
-max_stack_depth = 12
-
 [tool.pytest.ini_options]
 xfail_strict = true
 pythonpath = ["."]
 markers = [
     "otel_collector: requires Docker and runs against a pinned OpenTelemetry Collector",
 ]
-# Preserve pytest's default exclusions and ignore mutmut's generated copy of the repository.
-norecursedirs = ["*.egg", "*.egg-info", ".*", "__pycache__", "_darcs", "build", "CVS", "dist", "node_modules", "venv", "{arch}", "mutants"]
 # The langsmith pytest plugin messes with test_langchain.py
 addopts = "-p no:langsmith_plugin"
 filterwarnings = [

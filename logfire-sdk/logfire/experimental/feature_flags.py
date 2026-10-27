@@ -236,7 +236,7 @@ class Flag(Generic[T]):
 
 def _infer_flag_type(default: object) -> type[Any]:
     if default is None or isinstance(default, (list, dict, set, tuple)):
-        message = 'Pass type=... for nullable or parameterized feature flags; their type cannot be inferred safely.'  # pragma: no mutate
+        message = 'Pass type=... for nullable or parameterized feature flags; their type cannot be inferred safely.'
         raise TypeError(message)
     return type(default)
 

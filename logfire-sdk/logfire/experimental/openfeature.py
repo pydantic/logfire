@@ -201,12 +201,17 @@ class LogfireProvider(AbstractProvider):
         # The bridge owns this span: native resolution happens before OpenFeature applies its
         # caller default and serializes the result. Recording there would report the wrong value.
         from logfire.variables.variable import (
+            _PRECOMPUTED_FALLBACK_TARGETING_KEY,  # pyright: ignore[reportPrivateUsage]
             _SUPPRESS_FEATURE_FLAG_TELEMETRY,  # pyright: ignore[reportPrivateUsage]
+            _feature_flag_fallback_targeting_key,  # pyright: ignore[reportPrivateUsage]
             _get_variables_instrument,  # pyright: ignore[reportPrivateUsage]
             _scrub_feature_flag_result,  # pyright: ignore[reportPrivateUsage]
         )
 
         with ExitStack() as stack:
+            if not (context is not None and context.targeting_key):
+                fallback_token = _PRECOMPUTED_FALLBACK_TARGETING_KEY.set(_feature_flag_fallback_targeting_key())
+                stack.callback(_PRECOMPUTED_FALLBACK_TARGETING_KEY.reset, fallback_token)
             span = None
             adapter = self._get_adapter(flag_key)
             if _get_variables_instrument(self._logfire.config.variables):

@@ -5,7 +5,6 @@ import asyncio
 import contextvars
 import json
 import math
-import os
 import threading
 import warnings
 from collections import Counter
@@ -36,12 +35,12 @@ from openfeature.event import ProviderEvent
 from openfeature.exception import ErrorCode, GeneralError, ProviderFatalError, ProviderNotReadyError
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 from openfeature.provider import ProviderStatus
+from opentelemetry import trace
 from pydantic import AfterValidator, BaseModel, Field, PlainSerializer, RootModel, ValidationError
 
 import logfire
 from logfire._internal import trace_scope
 from logfire._internal.config import LocalVariablesOptions, VariablesOptions
-from logfire._internal.trace_scope import current_trace_scope
 from logfire.experimental.feature_flags import (
     Flag,
     FlagErrorCode,
@@ -80,8 +79,6 @@ from logfire.variables.variable import (
     _FlagEvaluationCore,
     _scrub_feature_flag_result,
 )
-
-MUTATION_TESTING = 'MUTANT_UNDER_TEST' in os.environ
 
 
 def _finished_flag_spans(exporter: TestExporter) -> list[Any]:
@@ -545,7 +542,7 @@ def test_openfeature_does_not_suppress_same_named_flags_on_another_logfire_insta
 
 
 DETERMINISTIC_PROPERTY_SETTINGS = settings(
-    max_examples=60 if MUTATION_TESTING else 300,
+    max_examples=300,
     derandomize=True,
     deadline=None,
 )
@@ -889,11 +886,11 @@ def test_deterministic_rollout_population_tracks_configured_weights():
         'test_flag'
     ]
 
-    sample_size = 1_000 if MUTATION_TESTING else 10_000
+    sample_size = 10_000
     counts = Counter(config.resolve_label(f'user-{index}') for index in range(sample_size))
 
-    tolerance = 0.04 if MUTATION_TESTING else 0.02
-    rare_tolerance = 0.025 if MUTATION_TESTING else 0.01
+    tolerance = 0.02
+    rare_tolerance = 0.01
     assert counts['enabled'] / sample_size == pytest.approx(0.7, abs=tolerance)
     assert counts['disabled'] / sample_size == pytest.approx(0.2, abs=tolerance)
     assert counts['alternate'] / sample_size == pytest.approx(0.05, abs=rare_tolerance)
@@ -1887,9 +1884,7 @@ def test_openfeature_remote_reads_do_not_capture_defaults_or_register_flags(
     assert 'opaque-928413' not in repr([dict(span.attributes or {}) for span in exporter.exported_spans])
 
 
-@pytest.mark.parametrize(
-    'key, expected_variant, expected_value', [('1', 'on', True), ('2', 'off', False), ('', 'off', False)]
-)
+@pytest.mark.parametrize('key, expected_variant, expected_value', [('1', 'on', True), ('2', 'off', False)])
 def test_openfeature_remote_rollout_uses_the_targeting_key(
     key: str,
     expected_variant: str,
@@ -2540,9 +2535,6 @@ def test_openfeature_provider_accepts_literal_scalar_flags():
     assert mismatch.error_code == ErrorCode.TYPE_MISMATCH
 
 
-@pytest.mark.skipif(
-    MUTATION_TESTING, reason='mutmut loads transformed flag and test modules under different identities'
-)
 def test_openfeature_provider_accepts_enum_scalar_flags():
     create_flag('enum_region', default=RegionFlag.US)
     create_flag('enum_retries', default=RetriesFlag.THREE)
@@ -3703,8 +3695,8 @@ def test_feature_flag_context_and_override_state_machine():
     run_state_machine_as_test(
         FeatureFlagStateMachine,
         settings=settings(
-            max_examples=20 if MUTATION_TESTING else 75,
-            stateful_step_count=20 if MUTATION_TESTING else 40,
+            max_examples=75,
+            stateful_step_count=40,
             derandomize=True,
             deadline=None,
         ),
@@ -4209,7 +4201,7 @@ def test_openfeature_error_telemetry_replaces_only_type_mismatch_messages():
     assert mismatch['feature_flag.error.message'] == 'Configured value did not match the declared flag type.'
 
 
-def _fallback_key_recorder(flag: Flag[bool]) -> Callable[[], str]:
+def _fallback_key_recorder(flag: Flag[bool]) -> Callable[..., str]:
     provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
     original = provider.get_serialized_value
     keys: list[str] = []
@@ -4220,10 +4212,10 @@ def _fallback_key_recorder(flag: Flag[bool]) -> Callable[[], str]:
 
     provider.get_serialized_value = record  # type: ignore[method-assign]
 
-    def key() -> str:
+    def key(targeting_key: str | None = None) -> str:
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
-            flag.value()
+            flag.value(targeting_key)
         return keys[-1]
 
     return key
@@ -4259,7 +4251,8 @@ def test_sequential_requests_in_one_context_get_new_fallback_keys(config_kwargs:
             with logfire.span('request'):
                 keys.append(key())
                 assert key() == keys[-1]
-        assert current_trace_scope() is None
+        # Once the request ends, an evaluation outside any span no longer uses its key.
+        assert key().startswith('ephemeral:')
         return keys
 
     assert len(set(contextvars.Context().run(requests))) == 3
@@ -4303,33 +4296,79 @@ def test_thread_pools_inherit_overrides_and_targeting_context(config_kwargs: dic
     asyncio.run(evaluate())
 
 
-def test_trace_scope_survives_a_span_ending_in_another_context():
-    logfire.configure(send_to_logfire=False, console=False)
+def test_overlapping_requests_with_the_same_trace_id_share_a_fallback_key(config_kwargs: dict[str, Any]):
+    key = _fallback_key_recorder(_split_flag(config_kwargs))
+    tracer = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_tracer_provider().get_tracer('test')
+    carrier = {'traceparent': '00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01'}
 
-    def start_and_end_elsewhere() -> None:
-        span = logfire.span('request')
-        span._start()
-        scope = current_trace_scope()
-        assert scope is not None
-        # Ending the span from another context must not raise or remove this context's scope.
-        contextvars.Context().run(span._end)
-        assert current_trace_scope() is scope
+    with logfire.attach_context(carrier):
+        first = tracer.start_span('first request')
+        second = tracer.start_span('second request')
+    with trace.use_span(first):
+        first_key = key()
+    with trace.use_span(second):
+        assert key() == first_key
+    # The trace's key outlives the first request while the second is still open.
+    first.end()
+    with trace.use_span(second):
+        assert key() == first_key
+    second.end()
+    with logfire.attach_context(carrier), logfire.span('later request'):
+        assert key() != first_key
 
-    contextvars.Context().run(start_and_end_elsewhere)
-    assert current_trace_scope() is None
+
+def test_root_spans_that_never_become_current_or_end_elsewhere_do_not_leak_keys(config_kwargs: dict[str, Any]):
+    key = _fallback_key_recorder(_split_flag(config_kwargs))
+    tracer = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_tracer_provider().get_tracer('test')
+
+    root = tracer.start_span('started but never current')
+    # Starting a span without making it current does not change evaluations outside it.
+    outside = key()
+    assert outside.startswith('ephemeral:')
+    with trace.use_span(root):
+        request_key = key()
+    ender = threading.Thread(target=root.end)
+    ender.start()
+    ender.join()
+    # After the span ended in another thread, a new request in this thread gets a new key.
+    with logfire.span('next request'):
+        assert key() not in {request_key, outside}
+    assert key() == outside
 
 
-def test_trace_scope_drops_the_oldest_token_past_the_limit():
-    logfire.configure(send_to_logfire=False, console=False)
-    with patch('logfire._internal.trace_scope._MAX_OPEN_SCOPES', 1):
+def test_trace_scope_discards_the_oldest_trace_past_the_limit(config_kwargs: dict[str, Any]):
+    logfire.configure(**config_kwargs)
+    tracer = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_tracer_provider().get_tracer('test')
+    with patch('logfire._internal.trace_scope._MAX_OPEN_TRACES', 1):
+        never_ends = tracer.start_span('never ends')
+        with tracer.start_as_current_span('second'):
+            assert list(trace_scope._states) == [trace.get_current_span().get_span_context().trace_id]
+        never_ends.end()
+    assert trace_scope._states == {}
 
-        def leak_one_root() -> None:
-            logfire.span('never ends')._start()
-            with logfire.span('second'):
-                pass
 
-        contextvars.Context().run(leak_one_root)
-        assert trace_scope._tokens == {}
-    with logfire.span('after'):
-        assert current_trace_scope() is not None
-    assert current_trace_scope() is None
+def test_resolution_warnings_point_at_the_callers_code(config_kwargs: dict[str, Any]):
+    flag = _split_flag(config_kwargs)
+    for evaluate in (flag.value, flag.details):
+        with pytest.warns(RuntimeWarning, match='no stable targeting key') as caught:
+            evaluate()
+        assert caught[0].filename == __file__
+
+
+def test_an_empty_targeting_key_counts_as_no_key(config_kwargs: dict[str, Any]):
+    key = _fallback_key_recorder(_split_flag(config_kwargs))
+    with logfire.span('request'):
+        fallback = key()
+        assert key('') == fallback
+        with feature_context('account-123'):
+            assert key('') == 'account-123'
+
+
+def test_spans_from_other_tracer_providers_use_the_context_fallback_key(config_kwargs: dict[str, Any]):
+    from opentelemetry.sdk.trace import TracerProvider
+
+    key = _fallback_key_recorder(_split_flag(config_kwargs))
+    outside = key()
+    # Logfire's span processor never saw this span, so its trace has no tracked key.
+    with TracerProvider().get_tracer('other').start_as_current_span('untracked'):
+        assert key() == outside

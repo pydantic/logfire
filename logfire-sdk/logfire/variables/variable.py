@@ -40,7 +40,8 @@ else:
 
 import logfire
 from logfire._internal.integrations.executors import THREAD_CONTEXTVARS
-from logfire._internal.trace_scope import current_trace_scope
+from logfire._internal.stack_info import warn_at_user_stacklevel
+from logfire._internal.trace_scope import feature_flag_targeting_key
 from logfire.variables.abstract import ResolutionReason, ResolvedVariable, VariableProviderEvaluationState
 
 __all__ = (
@@ -149,10 +150,14 @@ _FEATURE_TARGETING_KEY: ContextVar[str | None] = ContextVar('_FEATURE_TARGETING_
 _FEATURE_TARGETING_KEY_SOURCE: ContextVar[str | None] = ContextVar('_FEATURE_TARGETING_KEY_SOURCE', default=None)
 # A fallback key for unkeyed flag evaluations outside a trace. It stays set for the rest of the context.
 _EPHEMERAL_TARGETING_KEY: ContextVar[str | None] = ContextVar('_EPHEMERAL_TARGETING_KEY', default=None)
+# The OpenFeature adapter opens its evaluation span before resolving. It picks the fallback key
+# first, so that span does not become the trace that the key belongs to.
+_PRECOMPUTED_FALLBACK_TARGETING_KEY: ContextVar[str | None] = ContextVar(
+    '_PRECOMPUTED_FALLBACK_TARGETING_KEY', default=None
+)
 _SUPPRESS_FEATURE_FLAG_TELEMETRY: ContextVar[frozenset[object]] = ContextVar(
     '_SUPPRESS_FEATURE_FLAG_TELEMETRY', default=frozenset()
 )
-_TRACE_TARGETING_KEY_LOCK = threading.Lock()
 
 # Thread pool tasks see the overrides and targeting context of the code that submitted them.
 THREAD_CONTEXTVARS.extend([_VARIABLE_OVERRIDES, _TARGETING_CONTEXT, _FEATURE_TARGETING_KEY, _EPHEMERAL_TARGETING_KEY])
@@ -236,7 +241,7 @@ def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:
         return required_positional <= 2 and total_positional >= 2
 
 
-def _emit_resolution_warning(message: str, *, stacklevel: int = 3) -> None:
+def _emit_resolution_warning(message: str) -> None:
     """Emit a non-fatal resolution warning without letting it abort or corrupt resolution.
 
     Resolution is *filter-independent*: a ``-W error`` / ``filterwarnings=error`` config would
@@ -245,10 +250,11 @@ def _emit_resolution_warning(message: str, *, stacklevel: int = 3) -> None:
     ``ResolvedVariable`` (whose ``reason``/``exception`` already carry the real signal) with a
     bogus ``reason='other_error'`` and the ``RuntimeWarning`` as its exception. Suppressing the
     escalation here guarantees callers always get the structured result regardless of the active
-    warning filter; the warning is still shown whenever the filter permits.
+    warning filter; the warning is still shown whenever the filter permits. The warning points at
+    the first frame outside Logfire, so the user sees which of their evaluations triggered it.
     """
     try:
-        warnings.warn(message, category=RuntimeWarning, stacklevel=stacklevel)
+        warn_at_user_stacklevel(message, RuntimeWarning)
     except Exception:
         pass
 
@@ -484,7 +490,7 @@ class _ResolvedFeatureFlag(ResolvedVariable[T_co]):
 
 
 class _FlagEvaluationCore(Generic[T_co]):
-    """Shared typed evaluation engine for feature flags and the legacy variables API."""
+    """Shared typed evaluation engine for feature flags and managed variables."""
 
     kind: Literal['feature_flag', 'variable']
     """The product surface the concrete declaration API represents."""
@@ -546,7 +552,7 @@ class _FlagEvaluationCore(Generic[T_co]):
 
     @property
     def _override_key(self) -> object:
-        """Preserve the legacy name-based override scope for managed variables."""
+        """Scope managed-variable overrides by name."""
         return self.name
 
     @contextmanager
@@ -1056,7 +1062,7 @@ class _FlagEvaluationCore(Generic[T_co]):
         return 'validation_error' if stage == 'validation' else 'other_error'
 
     def _record_invalid_value(self, span: logfire.LogfireSpan, label: str | None, value: str | None) -> None:
-        """Preserve the legacy managed-variable diagnostics."""
+        """Record the rejected value on the span for managed variables."""
         span.set_attribute('invalid_serialized_label', label)
         span.set_attribute('invalid_serialized_value', value)
 
@@ -1364,7 +1370,7 @@ class _FlagEvaluationCore(Generic[T_co]):
             )
             if span is not None:
                 # Serialize value safely for OTel span attributes, which only support primitives.
-                # Keep the legacy repr fallback for variables, never for feature flags: repr
+                # Keep the repr fallback for managed variables, never for feature flags: repr
                 # can include fields absent from the JSON shape inspected by the scrubber.
                 try:
                     serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')
@@ -1467,7 +1473,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
 
     def _record_invalid_value(self, span: logfire.LogfireSpan, label: str | None, value: str | None) -> None:
         # Rejected configuration can contain secrets too. Only record the safe error classification,
-        # never the raw input or its label through the legacy diagnostic path.
+        # never the raw input or its label through the managed-variable diagnostic path.
         pass
 
     def _warn_fallback(self, stage: _FailureStage, exception: Exception, *, code_default: bool = False) -> None:
@@ -1479,23 +1485,12 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
     def _fallback_targeting_key(self) -> str:
         """Return a random key that keeps unkeyed evaluations consistent within the current trace.
 
-        The key belongs to the local trace scope, which lasts from the start to the end of this
-        process's root span for the trace. Work started inside that span shares the key, and a new
-        root span draws a new one, even with the same trace ID. A caller therefore cannot reuse a
-        trace ID to keep a variant. Outside a trace, a random key stays set for the rest of the
-        current context.
+        The key lasts while the trace has open local root spans in this process, so every thread and
+        task in the trace shares it. A request that reuses a trace ID after the trace ended gets a
+        new key, so a caller cannot reuse a trace ID to keep a variant. Outside a trace, a random key
+        stays set for the rest of the current context.
         """
-        scope = current_trace_scope()
-        if scope is not None:
-            with _TRACE_TARGETING_KEY_LOCK:
-                if scope.feature_flag_targeting_key is None:
-                    scope.feature_flag_targeting_key = f'trace:{secrets.token_hex(16)}'
-                return scope.feature_flag_targeting_key
-        key = _EPHEMERAL_TARGETING_KEY.get()
-        if key is None:
-            key = f'ephemeral:{secrets.token_hex(16)}'
-            _EPHEMERAL_TARGETING_KEY.set(key)
-        return key
+        return _PRECOMPUTED_FALLBACK_TARGETING_KEY.get() or _feature_flag_fallback_targeting_key()
 
     def __init__(
         self,
@@ -1535,7 +1530,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         if serialized_value == serialized_result.value:
             if serialized_result.reason == 'code_default':
                 # Native flags reject callable defaults at construction; the shared core also
-                # supports legacy callable defaults, so its attribute type is wider.
+                # supports callable defaults for managed variables, so its attribute type is wider.
                 return self.default  # pyright: ignore[reportReturnType]
             if serialized_result.reason == 'context_override':
                 overrides = _VARIABLE_OVERRIDES.get()
@@ -1558,7 +1553,8 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         label: str | None = None,
     ) -> ResolvedVariable[FlagT]:
         """Evaluate the flag and return its value and resolution details."""
-        if targeting_key is None:
+        if not targeting_key:
+            # An empty key would put every subject in one bucket, so it counts as no key.
             targeting_key = self._get_context_targeting_key()
         has_stable_targeting_key = targeting_key is not None
         if has_stable_targeting_key:
@@ -2087,6 +2083,18 @@ def _get_contextvar_attributes() -> Mapping[str, Any]:
     """Return request-local targeting attributes."""
     ctx = _TARGETING_CONTEXT.get()
     return ctx.attributes if ctx is not None else {}
+
+
+def _feature_flag_fallback_targeting_key() -> str:
+    """Return the random fallback key for the current trace, or for the current context outside a trace."""
+    key = feature_flag_targeting_key()
+    if key is not None:
+        return key
+    key = _EPHEMERAL_TARGETING_KEY.get()
+    if key is None:
+        key = f'ephemeral:{secrets.token_hex(16)}'
+        _EPHEMERAL_TARGETING_KEY.set(key)
+    return key
 
 
 def _get_variables_instrument(variables: Any) -> bool:
