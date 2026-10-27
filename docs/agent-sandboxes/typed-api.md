@@ -13,7 +13,7 @@ on each turn. A script can combine several calls without another model request b
 
 With Agent Sandboxes, you expose the API as one importable Python module. The model reads a short **type stub** (a
 `.pyi` file that lists function signatures and data shapes, without code) and writes a script that imports the module
-and calls it. The sandbox checks the script against the stub before it runs. The check catches the invalid arguments
+and calls it. With `type_check=True`, the sandbox checks the script against the stub before it runs. The check catches the invalid arguments
 and field names shown below. The model gets the errors so it can correct the script.
 
 That check matters most for APIs that change things. A script that passes a status that does not exist, or reads a

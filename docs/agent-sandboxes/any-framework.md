@@ -21,9 +21,9 @@ Follow [Run code from Python](python.md) to install `logfire[agent-sandboxes]` a
 permission to run code in agent sandboxes.
 
 !!! warning "Code and tool data leave your application"
-    Scripts, tool arguments, and tool results pass through Logfire for execution. Default client instrumentation
-    also records them in your project. `ephemeral=True` prevents saved session state. It does not disable telemetry.
-    See [tracing controls](limits.md#control-client-tracing).
+    Scripts, tool arguments, and tool results pass through Logfire for execution. Hosted telemetry can record this content
+    in your project. `ephemeral=True` prevents saved session state. It does not disable telemetry.
+    See [tracing and storage](limits.md#understand-tracing-and-storage).
 
 ## Write the tool
 

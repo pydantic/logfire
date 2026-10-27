@@ -29,9 +29,9 @@ model needs to read: account histories, search results, spreadsheets, or log lin
   **Settings → Read tokens**. See [Query API](../how-to-guides/query-api.md).
 
 !!! warning "Query results leave your application"
-    Query results pass through Logfire's sandbox service. Default client instrumentation also records the rows in
-    your project. Scrubbing applies to client telemetry, not the execution request or saved state.
-    See [tracing controls](limits.md#control-client-tracing) before you send sensitive data.
+    Query results pass through Logfire's sandbox service. Hosted telemetry can record this content in your project.
+    Client scrubbing does not redact execution requests or saved state.
+    See [tracing and storage](limits.md#understand-tracing-and-storage) before you send sensitive data.
 
 ## Give the agent the data sources as functions
 
@@ -87,7 +87,7 @@ rows = await query_logfire("""
            count(*) FILTER (WHERE is_exception) AS errors, count(*) AS spans
     FROM records
     WHERE start_timestamp > now() - interval '6 hours'
-      AND span_type = 'span'
+      AND kind = 'span'
     GROUP BY service_name, bucket
 """)
 deploys = await list_deploys(since_hours=6)
@@ -141,8 +141,9 @@ with [Agent Sandboxes through Code Mode](pydantic-ai.md). Both found the `auth` 
 calls, the model read all 2,160 rows, and each run used about 70,500 input tokens. With Agent Sandboxes, each run used
 about 4,000. These three-run results use fixed sample data. They do not predict production cost or accuracy.
 
-The difference grows with the number of rows. With 288 rows (five-minute buckets), plain tool calls used about 10,000
-input tokens and were also correct every time. Agent Sandboxes used about 22,600, so a sandbox did not help. A smaller
+In separate runs with `gpt-6.1-sol` and 288 rows (five-minute buckets), plain tool calls used about 10,000
+input tokens and were also correct every time. Agent Sandboxes used about 22,600, so a sandbox did not help.
+These results do not establish how token use scales with the number of rows. A smaller
 model, `gpt-6-luna`, often returned every row from its scripts instead of a summary, and used more tokens with Agent
 Sandboxes than without. Tell your agent to return a summary from its scripts if your model does not do it unprompted.
 

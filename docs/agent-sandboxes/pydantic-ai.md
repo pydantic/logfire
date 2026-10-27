@@ -22,15 +22,15 @@ records every run in Logfire. You add one argument.
     Use [Add a code tool to any agent](any-framework.md) with released Pydantic AI versions.
 
 !!! warning "Scripts and tool results leave your application"
-    Scripts, tool arguments, and results pass through Logfire for execution. Default client instrumentation also
-    records them in your project. See [tracing and storage controls](limits.md#control-client-tracing).
+    Scripts, tool arguments, and results pass through Logfire for execution. Hosted telemetry can record this content
+    in your project. See [tracing and storage](limits.md#understand-tracing-and-storage).
 
 ## Before you start
 
 - Follow [Run code from Python](python.md) to set `LOGFIRE_API_KEY` to a key with permission to run
   code in agent sandboxes.
-- Set `ANTHROPIC_API_KEY` to a key from the [Claude Console API keys page](https://platform.claude.com/settings/keys).
-  The example sends model requests to Anthropic.
+- Set `OPENAI_API_KEY` to a key from the [OpenAI API keys page](https://platform.openai.com/api-keys).
+  The example sends model requests to OpenAI.
 - Install Logfire with the `agent-sandboxes` extra:
 
 ```bash

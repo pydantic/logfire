@@ -94,7 +94,8 @@ async def run_code(conversation_id: str, code: str) -> str:
             response = f'The script failed: {e}'
         else:
             response = repr(result)
-    session_ids[conversation_id] = session.session_id
+        session_id = session.session_id
+    session_ids[conversation_id] = session_id
     return response
 ```
 

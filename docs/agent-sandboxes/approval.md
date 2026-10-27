@@ -188,7 +188,7 @@ async def answer(snapshot, outcome: dict):
 RUN_CODE_DESCRIPTION = f"""Run a Python script and return the value of its last expression.
 The script can `await` these functions, and run several at once with `asyncio.gather`:
 {STUBS}
-`asyncio.gather` takes no keyword arguments, so do not pass `return_exceptions`.
+In this sandbox, `asyncio.gather` takes no keyword arguments, so do not pass `return_exceptions`.
 If the task needs approval, write the whole task as one script. After `request_approval` returns True, the same
 script must continue and do the rest of the task. You will not be called again after the approval."""
 ```
