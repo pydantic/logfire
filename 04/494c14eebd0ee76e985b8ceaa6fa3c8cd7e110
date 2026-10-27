@@ -1,0 +1,29 @@
+docs/how-to-guides/distributed-tracing.md
+  s_7bac1b5ef8845b::t_9dbd2fb69fadcc 81
+logfire-api/logfire_api/_internal/config.pyi
+  s_7bac1b5ef8845b::t_80adc871d6d0cb 224
+logfire-api/logfire_api/propagate.pyi
+  s_7bac1b5ef8845b::t_eee2265d2db538 73
+logfire-sdk/logfire/_internal/config.py
+  s_7bac1b5ef8845b::t_975f2b737f00b1 633
+logfire-sdk/logfire/propagate.py
+  s_7bac1b5ef8845b::t_d785594c110321 135,154
+tests/test_configure.py
+  s_7bac1b5ef8845b::t_f18adadff76cb3 3233,3278,3286-3287,3343
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "04494c14eebd0ee76e985b8ceaa6fa3c8cd7e110",
+  "prompts": {},
+  "sessions": {
+    "s_7bac1b5ef8845b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17d2a-5e7d-7eb3-8c66-42fa9be6dcf8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
