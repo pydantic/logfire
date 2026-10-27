@@ -104,7 +104,7 @@ Each database user needs owner permissions so chart migrations can create and up
 
 An instance with 2 vCPU and 16 GB of memory is a good starting size. Resize it from the CPU and connection use that you see. FusionFire migrations set autovacuum settings on the `ff` tables that change most often, so do not override them.
 
-Connect each DSN directly to PostgreSQL, or through PgBouncer in transaction mode. The migration jobs, the FusionFire maintenance scheduler, and Dex need a session-mode pool or a direct connection. The [chart README](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#connection-poolers) lists the PgBouncer settings and the connections that each workload opens.
+Connect each DSN directly to PostgreSQL, or through a connection pooler in transaction mode. The migration jobs, the FusionFire maintenance scheduler, and Dex then need a session-mode pool or a direct connection. The [chart README](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#connection-poolers) lists what the pooler must support, the session DSN values, and the connections that each workload opens.
 
 You can provide the two Logfire database DSNs directly:
 
