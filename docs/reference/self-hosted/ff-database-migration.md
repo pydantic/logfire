@@ -122,6 +122,12 @@ helm upgrade logfire pydantic/logfire \
   --namespace logfire
 ```
 
+Wait until every `logfire-ff-ingest` pod runs with the new retry limit. A pod that still has the 10-minute limit loses data once the workloads stop:
+
+```bash
+kubectl -n logfire rollout status statefulset/logfire-ff-ingest
+```
+
 Then scale the workloads down:
 
 ```bash
@@ -140,7 +146,7 @@ WHERE datname = 'ff' AND pid <> pg_backend_pid();
 The query must return no rows before you continue. If it returns rows, find and stop the clients that it shows.
 
 !!! note
-    Queries in the Logfire UI and the API fail until Step 3 is complete. `logfire-ff-ingest` buffers incoming data on disk for as long as `FF_INGEST_REMOTE_RETRY_MAX_DURATION` allows. Finish Step 3 before that time ends, and monitor the ingest disk usage.
+    Queries in the Logfire UI and the API fail until Step 3 is complete. `logfire-ff-ingest` buffers incoming data on disk for as long as `FF_INGEST_REMOTE_RETRY_MAX_DURATION` allows. Finish Step 3 before that time ends, and monitor the ingest disk usage. If the ingest disk fills, ingest writes new data to the `_ingest_failover` prefix, and queries do not return that data. If the ingest autoscaler removes a pod during the window, that pod's buffered data stays on its volume until the pod starts again.
 
 ---
 
