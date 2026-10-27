@@ -8,7 +8,7 @@ import os
 import secrets
 import threading
 import warnings
-from collections.abc import Generator, Mapping, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import AbstractContextManager, ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, cast
 
 from opentelemetry.trace import get_current_span
 from pydantic import TypeAdapter, ValidationError
+from pydantic_core import ErrorDetails
 from typing_extensions import TypeIs, assert_never
 
 from logfire.variables.composition import (
@@ -335,17 +336,30 @@ def _is_json_parse_error(exception: Exception | None) -> bool:
     )
 
 
-def _type_mismatch_message(exception: Exception | None) -> str:
-    """Name the failing fields and error types without including the rejected input."""
+def _error_with_location(error: ErrorDetails) -> str:
+    """Describe a validation error by its location and type."""
+    return f'{".".join(str(part) for part in error["loc"]) or "value"} ({error["type"]})'
+
+
+def _error_type(error: ErrorDetails) -> str:
+    """Describe a validation error by its type only."""
+    return error['type']
+
+
+def _type_mismatch_message(
+    exception: Exception | None, describe_error: Callable[[ErrorDetails], str] = _error_with_location
+) -> str:
+    """Describe the failing fields and error types without including the rejected input.
+
+    Locations can contain keys from the configured value, such as the keys of a dict-typed flag.
+    Telemetry leaves the process, so it describes each error with `_error_type` only.
+    """
     message = 'Configured value did not match the declared flag type'
     if not isinstance(exception, ValidationError):
         return f'{message}.'
-    # Error types and locations come from the declared schema. Error messages can quote custom
-    # validator text, and the input can contain secrets, so neither is included.
-    problems = [
-        f'{".".join(str(part) for part in error["loc"]) or "value"} ({error["type"]})'
-        for error in exception.errors(include_input=False, include_url=False)
-    ]
+    # Error messages can quote custom validator text, and the input can contain secrets, so
+    # neither is included.
+    problems = [describe_error(error) for error in exception.errors(include_input=False, include_url=False)]
     shown = ', '.join(problems[:3])
     if len(problems) > 3:
         shown += f', and {len(problems) - 3} more'
@@ -374,7 +388,11 @@ def _feature_flag_telemetry_attributes(
     if details.error_code is not None:
         result_attributes['error.type'] = details.error_code.lower()
         # Every internal error classification above has a matching safe, generic message.
-        result_attributes['feature_flag.error.message'] = details.error_message
+        result_attributes['feature_flag.error.message'] = (
+            _type_mismatch_message(result.exception, _error_type)
+            if details.error_code == 'type_mismatch'
+            else details.error_message
+        )
     return result_attributes
 
 

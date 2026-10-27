@@ -4123,3 +4123,33 @@ def test_remote_provider_does_not_fetch_after_shutdown():
     with requests_mock_module.Mocker() as mocker:
         remote.refresh(force=True)
         assert not mocker.called
+
+
+def test_type_mismatch_telemetry_omits_value_derived_locations(config_kwargs: dict[str, Any], exporter: TestExporter):
+    config = VariablesConfig(
+        variables={
+            'limits': VariableConfig(
+                name='limits',
+                labels={'bad': LabeledValue(version=1, serialized_value='{"customer-private-key": "not a number"}')},
+                rollout=Rollout(labels={'bad': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+    config_kwargs['variables'] = LocalVariablesOptions(config=config, instrument=True)
+    logfire.configure(**config_kwargs)
+    limits = create_flag('limits', type=dict[str, int], default={})
+    exporter.clear()
+
+    with pytest.warns(RuntimeWarning, match='value failed validation'):
+        details = limits.details('account-123')
+    # The in-process details name the failing key so a developer can find it.
+    assert details.error_message == (
+        'Configured value did not match the declared flag type: customer-private-key (int_type).'
+    )
+    # Telemetry leaves the process, so it only records the error types.
+    attributes = _evaluation_span_attributes(exporter)
+    assert (
+        attributes['feature_flag.error.message'] == 'Configured value did not match the declared flag type: int_type.'
+    )
+    assert 'customer-private-key' not in repr(attributes)
