@@ -85,7 +85,7 @@ def attach_context(
     if propagator is None:
         propagator = propagate.get_global_textmap()
         if not third_party:
-            while isinstance(propagator, (WarnOnExtractTraceContextPropagator, NoExtractContextPropagator)):
+            while isinstance(propagator, (WarnOnExtractTraceContextPropagator, NoExtractTraceContextPropagator)):
                 propagator = propagator.wrapped
     assert propagator
     new_context = propagator.extract(carrier=carrier)
@@ -113,7 +113,7 @@ class WrapperPropagator(TextMapPropagator):
         return self.wrapped.fields
 
 
-class NoExtractContextPropagator(WrapperPropagator):
+class NoExtractTraceContextPropagator(WrapperPropagator):
     """A propagator that ignores all incoming context and preserves local context.
 
     Used when `logfire.configure(distributed_tracing=False)` is called. Extraction returns the

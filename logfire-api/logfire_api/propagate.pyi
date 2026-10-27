@@ -60,7 +60,7 @@ class WrapperPropagator(TextMapPropagator):
     @property
     def fields(self): ...
 
-class NoExtractContextPropagator(WrapperPropagator):
+class NoExtractTraceContextPropagator(WrapperPropagator):
     """A propagator that ignores all incoming context and preserves local context.
 
     Used when `logfire.configure(distributed_tracing=False)` is called. Extraction returns the

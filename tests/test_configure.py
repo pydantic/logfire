@@ -90,7 +90,7 @@ from logfire._internal.tracer import PendingSpanProcessor
 from logfire._internal.utils import SeededRandomIdGenerator, get_version
 from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
-from logfire.propagate import NoExtractContextPropagator, WarnOnExtractTraceContextPropagator
+from logfire.propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from logfire.testing import TestExporter, TestLogExporter
 from logfire.version import VERSION
 
@@ -3396,7 +3396,7 @@ def test_distributed_tracing_disabled(exporter: TestExporter, config_kwargs: dic
     config_kwargs['distributed_tracing'] = False
     logfire.configure(**config_kwargs)
 
-    assert isinstance(get_global_textmap(), NoExtractContextPropagator)
+    assert isinstance(get_global_textmap(), NoExtractTraceContextPropagator)
     assert get_global_textmap().fields == {'baggage', 'traceparent', 'tracestate'}
 
     with logfire.span('span1'):
@@ -3481,7 +3481,7 @@ def test_distributed_tracing_disabled_preserves_local_context(config_kwargs: dic
     config_kwargs['distributed_tracing'] = False
     logfire.configure(**config_kwargs)
     propagator = get_global_textmap()
-    assert isinstance(propagator, NoExtractContextPropagator)
+    assert isinstance(propagator, NoExtractTraceContextPropagator)
 
     with logfire.span('local span'), logfire.set_baggage(region='us'):
         local_context = otel_context.set_value('custom-local', 'local')

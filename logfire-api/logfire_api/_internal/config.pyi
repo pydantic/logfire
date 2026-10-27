@@ -1,7 +1,7 @@
 import dataclasses
 import functools
 import requests
-from ..propagate import NoExtractContextPropagator as NoExtractContextPropagator, WarnOnExtractTraceContextPropagator as WarnOnExtractTraceContextPropagator
+from ..propagate import NoExtractTraceContextPropagator as NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator as WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback as ExceptionCallback
 from .client import InvalidProjectName as InvalidProjectName, LogfireClient as LogfireClient, ProjectAlreadyExists as ProjectAlreadyExists
 from .config_params import CompressionValues as CompressionValues, ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues, normalize_token as normalize_token

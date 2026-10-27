@@ -77,7 +77,7 @@ from logfire.sampling._tail_sampling import TailSamplingProcessor
 from logfire.variables.abstract import NoOpVariableProvider, VariableProvider
 from logfire.version import VERSION
 
-from ..propagate import NoExtractContextPropagator, WarnOnExtractTraceContextPropagator
+from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import CompressionValues, ParamManager, PydanticPluginRecordValues, normalize_token
@@ -1544,14 +1544,14 @@ class LogfireConfig(_LogfireConfigData):
             instrument_executors()
 
             current_textmap = get_global_textmap()
-            while isinstance(current_textmap, (WarnOnExtractTraceContextPropagator, NoExtractContextPropagator)):
+            while isinstance(current_textmap, (WarnOnExtractTraceContextPropagator, NoExtractTraceContextPropagator)):
                 current_textmap = current_textmap.wrapped
             if self.distributed_tracing is None:
                 new_textmap = WarnOnExtractTraceContextPropagator(current_textmap)
             elif self.distributed_tracing:
                 new_textmap = current_textmap
             else:
-                new_textmap = NoExtractContextPropagator(current_textmap)
+                new_textmap = NoExtractTraceContextPropagator(current_textmap)
             set_global_textmap(new_textmap)
 
             self._ensure_flush_after_aws_lambda()
