@@ -3030,12 +3030,11 @@ def test_feature_flag_telemetry_records_targeting_key_but_not_attributes(
 
 
 @pytest.mark.parametrize('openfeature', [False, True])
-def test_feature_flag_targeting_key_telemetry_can_be_disabled(
+def test_scrubbing_can_redact_the_targeting_key(
     config_kwargs: dict[str, Any], exporter: TestExporter, openfeature: bool
 ):
-    config_kwargs['variables'] = LocalVariablesOptions(
-        config=_code_default_config('region'), instrument=True, include_targeting_key_in_telemetry=False
-    )
+    config_kwargs['variables'] = LocalVariablesOptions(config=_code_default_config('region'), instrument=True)
+    config_kwargs['scrubbing'] = logfire.ScrubbingOptions(extra_patterns=[r'context\.id'])
     logfire.configure(**config_kwargs)
     region = create_flag('region', default='us')
     exporter.clear()
@@ -3045,7 +3044,7 @@ def test_feature_flag_targeting_key_telemetry_can_be_disabled(
     else:
         region.value(targeting_key='account-123')
     attributes = _evaluation_span_attributes(exporter)
-    assert 'feature_flag.context.id' not in attributes
+    assert attributes['feature_flag.context.id'] == "[Scrubbed due to 'context.id']"
     assert 'account-123' not in repr(attributes)
 
 

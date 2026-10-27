@@ -203,7 +203,6 @@ class LogfireProvider(AbstractProvider):
         from logfire.variables.variable import (
             _SUPPRESS_FEATURE_FLAG_TELEMETRY,  # pyright: ignore[reportPrivateUsage]
             _get_variables_instrument,  # pyright: ignore[reportPrivateUsage]
-            _include_targeting_key_in_telemetry,  # pyright: ignore[reportPrivateUsage]
             _scrub_feature_flag_result,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -237,7 +236,7 @@ class LogfireProvider(AbstractProvider):
                 if 'feature_flag.result.value' in telemetry:
                     telemetry = _scrub_feature_flag_result(telemetry, flag_key, result.value, self._logfire)
                 targeting_key = context.targeting_key if context is not None else None
-                if targeting_key and _include_targeting_key_in_telemetry(self._logfire.config.variables):
+                if targeting_key:
                     telemetry['feature_flag.context.id'] = targeting_key
                 span.set_attributes(telemetry)
             return result

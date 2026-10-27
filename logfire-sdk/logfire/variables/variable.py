@@ -1409,8 +1409,6 @@ class _FlagEvaluationCore(Generic[T_co]):
 
     def _telemetry_context(self, targeting_key: str | None, attributes: Mapping[str, Any]) -> dict[str, Any]:
         """Return evaluation context attributes included on the resolution span."""
-        if not _include_targeting_key_in_telemetry(self.logfire_instance.config.variables):
-            return {'attributes': attributes}
         return {'targeting_key': targeting_key, 'attributes': attributes}
 
     def _record_resolution_exception(self, span: logfire.LogfireSpan, exception: BaseException) -> None:
@@ -1603,11 +1601,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         # targeting key answers "why did this subject get this variant?", so it is recorded as
         # OpenTelemetry's `feature_flag.context.id` when the application supplied it.
         del attributes
-        if (
-            targeting_key is None
-            or _FEATURE_TARGETING_KEY_SOURCE.get() != 'explicit'
-            or not _include_targeting_key_in_telemetry(self.logfire_instance.config.variables)
-        ):
+        if targeting_key is None or _FEATURE_TARGETING_KEY_SOURCE.get() != 'explicit':
             return {}
         return {'feature_flag.context.id': targeting_key}
 
@@ -2044,8 +2038,9 @@ def feature_context(
 ) -> Generator[None]:
     """Set request-local targeting for feature flags and other managed variables.
 
-    This is an experimental convenience alias for :func:`targeting_context`. Attributes
-    supplied directly to an evaluation take precedence over values set here.
+    Inside the block, feature flags use this targeting key even when a nested `targeting_context()`
+    sets another default key. Managed variables use it like a `targeting_context()` default.
+    Attributes supplied directly to an evaluation take precedence over values set here.
 
     Args:
         targeting_key: Stable identifier used for deterministic rollouts, such as a user or organization ID.
@@ -2085,15 +2080,6 @@ def _get_contextvar_attributes() -> Mapping[str, Any]:
     """Return request-local targeting attributes."""
     ctx = _TARGETING_CONTEXT.get()
     return ctx.attributes if ctx is not None else {}
-
-
-def _include_targeting_key_in_telemetry(variables: Any) -> bool:
-    """Get the `include_targeting_key_in_telemetry` setting, defaulting to True."""
-    from logfire._internal.config import LocalVariablesOptions, VariablesOptions
-
-    if isinstance(variables, (VariablesOptions, LocalVariablesOptions)):
-        return variables.include_targeting_key_in_telemetry
-    return True
 
 
 def _get_variables_instrument(variables: Any) -> bool:
