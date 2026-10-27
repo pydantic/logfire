@@ -2493,3 +2493,13 @@ def test_an_empty_targeting_key_counts_as_no_key(config_kwargs: dict[str, Any]):
         assert key('') == fallback
         with feature_context('account-123'):
             assert key('') == 'account-123'
+
+
+def test_spans_from_other_tracer_providers_use_the_context_fallback_key(config_kwargs: dict[str, Any]):
+    from opentelemetry.sdk.trace import TracerProvider
+
+    key = _fallback_key_recorder(_split_flag(config_kwargs))
+    outside = key()
+    # Logfire's span processor never saw this span, so its trace has no tracked key.
+    with TracerProvider().get_tracer('other').start_as_current_span('untracked'):
+        assert key() == outside
