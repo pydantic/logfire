@@ -6648,4 +6648,13 @@ def test_thread_pools_inherit_variable_overrides_and_targeting_context(config_kw
                 executor.submit(value).result()
             assert executor.submit(value).result() == 'a'
 
+            def failing_task() -> None:
+                assert value() == 'overridden'
+                raise ValueError('worker failed')
+
+            with pooled.override('overridden'):
+                with pytest.raises(ValueError, match='worker failed'):
+                    executor.submit(failing_task).result()
+            assert executor.submit(value).result() == 'a'
+
     asyncio.run(evaluate())
