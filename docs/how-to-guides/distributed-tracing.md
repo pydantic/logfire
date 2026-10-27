@@ -80,7 +80,7 @@ Because instrumented web servers automatically extract the `traceparent` header 
 
 By default, **Logfire** warns you when trace context is extracted, e.g. when server instrumentation finds a `traceparent` header. You can deal with this by setting the [`distributed_tracing` argument of `logfire.configure()`][logfire.configure(distributed_tracing)] or by setting the `LOGFIRE_DISTRIBUTED_TRACING` environment variable:
 
-- Setting to `False` will prevent trace context and [baggage](../reference/advanced/baggage.md) from being extracted. This is recommended for web services exposed to the public internet. You can still attach/inject context to propagate to other services and create distributed traces with the web service as the root.
+- Setting to `False` will prevent all incoming context from being extracted, including trace context, [baggage](../reference/advanced/baggage.md), and context from custom propagators. Context already set locally is preserved. This is recommended for web services exposed to the public internet. You can still attach/inject context to propagate to other services and create distributed traces with the web service as the root.
 - Setting to `True` implies that the context propagation is intentional and will silence the warning.
 
 The `distributed_tracing` configuration (including the warning by default) only applies when the raw OpenTelemetry API is used to extract context, as this is typically done by third-party libraries. By default, [`logfire.attach_context`][logfire.attach_context] assumes that context propagation is intended by the application. If you are writing a library, use `attach_context(context, third_party=True)` to respect the `distributed_tracing` configuration.
