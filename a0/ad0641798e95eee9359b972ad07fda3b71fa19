@@ -1,0 +1,17 @@
+docs/how-to-guides/distributed-tracing.md
+  h_d9dd17644dded9 83
+logfire-sdk/logfire/propagate.py
+  h_d9dd17644dded9 150
+  h_d9dd17644dded9 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a0ad0641798e95eee9359b972ad07fda3b71fa19",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
