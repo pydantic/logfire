@@ -2,6 +2,7 @@ from __future__ import annotations
 
 # pyright: reportPrivateUsage=false
 import contextvars
+import json
 import math
 import os
 import threading
@@ -2210,3 +2211,89 @@ def test_missing_dependencies_name_the_feature_flags_extra(entry_point: str):
                 create_flag('needs_extra', default=False)
             else:
                 feature_context('account-123')
+
+
+def test_flag_evaluation_records_composed_references_without_values(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+):
+    config = VariablesConfig(
+        variables={
+            'greeting': VariableConfig(
+                name='greeting',
+                labels={'v': LabeledValue(version=3, serialized_value='"Hello @{name}@"')},
+                rollout=Rollout(labels={'v': 1.0}),
+                overrides=[],
+            ),
+            'name': VariableConfig(
+                name='name',
+                labels={'b': LabeledValue(version=7, serialized_value='"opaque-928413"')},
+                rollout=Rollout(labels={'b': 1.0}),
+                overrides=[],
+            ),
+        }
+    )
+    config_kwargs['variables'] = LocalVariablesOptions(config=config, instrument=True)
+    logfire.configure(**config_kwargs)
+    greeting = create_flag('greeting', default='hi')
+    exporter.clear()
+
+    assert greeting.value('account-123') == 'Hello opaque-928413'
+    attributes = _evaluation_span_attributes(exporter)
+    # A change to a composed variable changes the served value without changing the flag's own
+    # version, so the composed labels and versions must be visible for variant analysis.
+    assert json.loads(attributes['composed_from']) == [
+        {'name': 'name', 'version': 7, 'label': 'b', 'reason': 'resolved', 'error': None}
+    ]
+    assert 'opaque-928413' not in attributes['composed_from']
+
+
+def test_targeting_key_precedence(config_kwargs: dict[str, Any]):
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
+    config_kwargs['variables'] = LocalVariablesOptions(config=config, instrument=False)
+    logfire.configure(**config_kwargs)
+    flag = create_flag('test_flag', default=False)
+    provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+
+    def key_used(**kwargs: Any) -> str:
+        with patch.object(provider, 'get_serialized_value', wraps=provider.get_serialized_value) as lookup:
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', RuntimeWarning)
+                flag.details(**kwargs)
+        return lookup.call_args.args[1]
+
+    def scenario() -> None:
+        # Outside a trace, the first unkeyed evaluation sets a random key for this context.
+        ephemeral = key_used()
+        assert ephemeral.startswith('ephemeral:')
+        assert key_used() == ephemeral
+        with logfire.span('request'):
+            # A trace takes precedence over the random key set earlier in the root context.
+            trace_key = key_used()
+            assert trace_key.startswith('trace:')
+            with feature_context('account-context'):
+                assert key_used() == 'account-context'
+                assert key_used(targeting_key='account-explicit') == 'account-explicit'
+        assert key_used() == ephemeral
+
+    contextvars.Context().run(scenario)
+
+
+def test_flag_not_found_check_does_not_break_evaluation(config_kwargs: dict[str, Any]):
+    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False)
+    logfire.configure(**config_kwargs)
+    checkout = create_flag('checkout', default=True)
+    provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+
+    with patch.object(provider, 'get_variable_config', side_effect=RuntimeError('broken provider')):
+        details = checkout.details('account-123')
+    assert (details.value, details.reason, details.error_code) == (True, 'default', None)
+
+
+def test_remote_provider_does_not_fetch_after_shutdown():
+    remote = LogfireRemoteVariableProvider(
+        base_url='http://localhost:8000/', token='fake', options=VariablesOptions(block_before_first_resolve=False)
+    )
+    remote.shutdown()
+    with requests_mock_module.Mocker() as mocker:
+        remote.refresh(force=True)
+        assert not mocker.called

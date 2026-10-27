@@ -56,6 +56,8 @@ print(details.reason)
 
 Each evaluation creates a `feature_flag.evaluation` span. It records the flag, the serialized value and variant, the selected value version, and the reason. Values honor Pydantic serializers and Logfire scrubbing. The span also records the targeting key as `feature_flag.context.id`, so you can see why a user received a variant. It never records targeting attributes, which can contain customer data. To leave out the targeting key too, configure `include_targeting_key_in_telemetry=False`.
 
+A flag value can include other managed variables with `@{name}@` references. The span then also records `composed_from`: the name, label, and version of each referenced variable, without their values. A change to a referenced variable changes what the flag serves without changing the flag's own version, so use `composed_from` to tell those values apart when you compare variants.
+
 Native evaluation details use OpenFeature's reasons in lowercase, such as `split`, `targeting_match`, `static`, `default`, or `error`. A value set with [`override()`](#test-both-outcomes) reports `context_override`, the same reason that managed variables use. When the reason is `error`, `error_code` says why:
 
 - `flag_not_found`: Logfire loaded configuration, but it has no flag with this name.
