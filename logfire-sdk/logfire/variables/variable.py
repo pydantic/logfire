@@ -1,6 +1,5 @@
 from __future__ import annotations as _annotations
 
-import hmac
 import inspect
 import json
 import math
@@ -40,6 +39,8 @@ else:
     from asyncio import to_thread  # pragma: no cover
 
 import logfire
+from logfire._internal.integrations.executors import THREAD_CONTEXTVARS
+from logfire._internal.trace_scope import current_trace_scope
 from logfire.variables.abstract import ResolutionReason, ResolvedVariable, VariableProviderEvaluationState
 
 __all__ = (
@@ -148,11 +149,13 @@ _FEATURE_TARGETING_KEY: ContextVar[str | None] = ContextVar('_FEATURE_TARGETING_
 _FEATURE_TARGETING_KEY_SOURCE: ContextVar[str | None] = ContextVar('_FEATURE_TARGETING_KEY_SOURCE', default=None)
 # A fallback key for unkeyed flag evaluations outside a trace. It stays set for the rest of the context.
 _EPHEMERAL_TARGETING_KEY: ContextVar[str | None] = ContextVar('_EPHEMERAL_TARGETING_KEY', default=None)
-# Callers control incoming trace IDs. The process secret keeps them from choosing a rollout bucket.
-_TRACE_TARGETING_KEY_SECRET = secrets.token_bytes(32)
 _SUPPRESS_FEATURE_FLAG_TELEMETRY: ContextVar[frozenset[object]] = ContextVar(
     '_SUPPRESS_FEATURE_FLAG_TELEMETRY', default=frozenset()
 )
+_TRACE_TARGETING_KEY_LOCK = threading.Lock()
+
+# Thread pool tasks see the overrides and targeting context of the code that submitted them.
+THREAD_CONTEXTVARS.extend([_VARIABLE_OVERRIDES, _TARGETING_CONTEXT, _FEATURE_TARGETING_KEY, _EPHEMERAL_TARGETING_KEY])
 
 
 class ResolveFunction(Protocol[T_co]):
@@ -1474,16 +1477,20 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         _emit_resolution_warning(f"Feature flag '{self.name}' {stage_description}; falling back to code default.")
 
     def _fallback_targeting_key(self) -> str:
-        """Return a key that keeps unkeyed evaluations consistent within the current trace.
+        """Return a random key that keeps unkeyed evaluations consistent within the current trace.
 
-        A caller controls an incoming trace ID, so the trace ID is hashed with a process secret
-        before it selects a rollout bucket. Outside a trace, a random key stays set for the rest of
-        the current context.
+        The key belongs to the local trace scope, which lasts from the start to the end of this
+        process's root span for the trace. Work started inside that span shares the key, and a new
+        root span draws a new one, even with the same trace ID. A caller therefore cannot reuse a
+        trace ID to keep a variant. Outside a trace, a random key stays set for the rest of the
+        current context.
         """
-        trace_id = get_current_span().get_span_context().trace_id
-        if trace_id:
-            digest = hmac.new(_TRACE_TARGETING_KEY_SECRET, trace_id.to_bytes(16, 'big'), 'sha256').hexdigest()
-            return f'trace:{digest[:32]}'
+        scope = current_trace_scope()
+        if scope is not None:
+            with _TRACE_TARGETING_KEY_LOCK:
+                if scope.feature_flag_targeting_key is None:
+                    scope.feature_flag_targeting_key = f'trace:{secrets.token_hex(16)}'
+                return scope.feature_flag_targeting_key
         key = _EPHEMERAL_TARGETING_KEY.get()
         if key is None:
             key = f'ephemeral:{secrets.token_hex(16)}'

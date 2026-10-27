@@ -80,8 +80,8 @@ FlagErrorCode = Literal[
 
 The values follow the OpenFeature specification's error codes, lowercased. `targeting_key_missing`
 and `invalid_context` are reserved to match OpenFeature. Logfire does not return them: an evaluation
-without a targeting key uses a fallback key, which stays the same for the current trace, or outside
-a trace for the current async task or thread.
+without a targeting key uses a random fallback key, which stays the same for the current request,
+or outside a trace for the current async task or thread.
 """
 
 
@@ -227,9 +227,9 @@ class Flag(Generic[T]):
         stay visible in telemetry.
 
         The override is stored in a context variable. It applies to async tasks, `asyncio.to_thread`
-        calls, and Starlette or FastAPI `TestClient` requests started in the block. It does not
-        apply to threads that do not copy the context, such as a plain `threading.Thread`, a
-        `concurrent.futures` executor, or `loop.run_in_executor`, or to other processes.
+        calls, and Starlette or FastAPI `TestClient` requests started in the block. After
+        `logfire.configure()`, it also applies to thread pool tasks, including `loop.run_in_executor`.
+        It does not apply to a plain `threading.Thread` or to other processes.
         """
         return self._adapter.override(value)
 

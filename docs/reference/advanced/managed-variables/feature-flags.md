@@ -42,7 +42,7 @@ Targeting rules also see [baggage](../baggage.md), the key-value pairs that `log
 
 Baggage can also arrive with an incoming request from another service. If your application serves requests from callers you don't control and a targeting rule depends on baggage, configure `logfire.configure(distributed_tracing=False)`. Instrumented servers and libraries then ignore incoming trace context and baggage, so only your own code can set the attributes that rules see. Context that your own code attaches with `logfire.attach_context()` is still accepted, as [Distributed tracing](../../../how-to-guides/distributed-tracing.md#unintentional-distributed-tracing) describes.
 
-Without a targeting key, a percentage rollout picks one variant for each trace, the record of one request. Every evaluation for that request in the same process gets the same variant, but the next request can get a different one, and so can another service that handles the same trace. Outside a trace, Logfire picks one random key for the current async task or thread, or for the whole run of a simple script. Logfire also warns once, because a user can switch between variants. Logfire combines the trace ID with a secret that only the running process knows, so a caller can't predict which variant a trace ID selects. When a flag protects something that a caller must not choose, always pass a stable targeting key.
+Without a targeting key, a percentage rollout picks a random variant for each request. Logfire draws a random key when the request's first span starts in this process, and drops it when that span ends. Every evaluation during the request gets the same variant, including evaluations in async tasks and thread pools that the request starts. The next request can get a different variant, even if it sends the same trace ID, and so can another service that handles the same trace. Outside a trace, Logfire picks one random key for the current async task or thread, or for the whole run of a simple script. Logfire also warns once, because a user can switch between variants. When a flag protects something that a caller must not choose, or a user must keep the same variant, always pass a stable targeting key.
 
 To inspect the selected variant, fallback reason, or error, call `details()`:
 
@@ -140,7 +140,7 @@ with new_checkout.override(False):
     assert new_checkout.value() is False
 ```
 
-An override applies to this flag until the `with` block ends, in the current thread or async task. Async tasks and `asyncio.to_thread()` calls started inside the block see it, and so do requests made with the Starlette or FastAPI `TestClient`. Threads that don't copy the context, such as a plain `threading.Thread` or a `concurrent.futures` executor, and other processes don't see it.
+An override applies to this flag until the `with` block ends, in the current thread or async task. Async tasks, `asyncio.to_thread()`, and requests made with the Starlette or FastAPI `TestClient` started inside the block see it. After `logfire.configure()`, so does work submitted to a thread pool, including `loop.run_in_executor()`. A plain `threading.Thread` and other processes don't see it.
 
 You can also override a flag in production, for example to give internal users a variant for one request. Evaluations report the `context_override` reason, so overridden values stay visible in telemetry.
 

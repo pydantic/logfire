@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pickle
 from collections.abc import Callable
+from contextvars import ContextVar
 from dataclasses import asdict
 from functools import partial, wraps
 from typing import Any
@@ -9,6 +10,21 @@ from typing import Any
 from logfire.propagate import ContextCarrier, attach_context, get_context
 
 from ..stack_info import warn_at_user_stacklevel
+from ..trace_scope import TRACE_SCOPE_CONTEXTVAR
+
+_MISSING = object()
+
+THREAD_CONTEXTVARS: list[ContextVar[Any]] = [TRACE_SCOPE_CONTEXTVAR]
+"""Context variables that thread pool tasks inherit from the code that submitted them.
+
+The OpenTelemetry context travels through a carrier. These in-process values are passed as-is,
+so a task sees the same overrides, targeting context, and trace scope as its submitter.
+"""
+
+
+def _capture_thread_contextvars() -> tuple[tuple[ContextVar[Any], Any], ...]:
+    return tuple((var, value) for var in THREAD_CONTEXTVARS if (value := var.get(_MISSING)) is not _MISSING)
+
 
 try:
     # concurrent.futures does not work in pyodide
@@ -33,7 +49,14 @@ try:
         """A wrapper around ThreadPoolExecutor.submit() that carries over OTEL context across threads."""
         fn = partial(fn, *args, **kwargs)
         carrier = get_context()
-        return submit_t_orig(s, _run_with_context, carrier=carrier, func=fn, parent_config=None)
+        return submit_t_orig(
+            s,
+            _run_with_context,
+            carrier=carrier,
+            func=fn,
+            parent_config=None,
+            contextvar_values=_capture_thread_contextvars(),
+        )
 
     @wraps(submit_p_orig)
     def submit_p(s: ProcessPoolExecutor, fn: Callable[..., Any], /, *args: Any, **kwargs: Any):
@@ -43,7 +66,10 @@ try:
         return submit_p_orig(s, _run_with_context, carrier=carrier, func=fn, parent_config=serialize_config())
 
     def _run_with_context(
-        carrier: ContextCarrier, func: Callable[[], Any], parent_config: dict[str, Any] | None
+        carrier: ContextCarrier,
+        func: Callable[[], Any],
+        parent_config: dict[str, Any] | None,
+        contextvar_values: tuple[tuple[ContextVar[Any], Any], ...] = (),
     ) -> Any:
         """A wrapper around a function that restores OTEL context from a carrier and then calls the function.
 
@@ -52,8 +78,13 @@ try:
         if parent_config is not None:
             deserialize_config(parent_config)  # pragma: no cover
 
-        with attach_context(carrier):
-            return func()
+        tokens = [(var, var.set(value)) for var, value in contextvar_values]
+        try:
+            with attach_context(carrier):
+                return func()
+        finally:
+            for var, token in reversed(tokens):
+                var.reset(token)
 
 except ImportError:  # pragma: no cover
 

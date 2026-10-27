@@ -1,10 +1,13 @@
 from ..stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
+from ..trace_scope import TRACE_SCOPE_CONTEXTVAR as TRACE_SCOPE_CONTEXTVAR
 from _typeshed import Incomplete
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from contextvars import ContextVar as ContextVar
 from logfire.propagate import ContextCarrier as ContextCarrier, attach_context as attach_context, get_context as get_context
 from typing import Any
 
+THREAD_CONTEXTVARS: list[ContextVar[Any]]
 submit_t_orig: Incomplete
 submit_p_orig: Incomplete
 
