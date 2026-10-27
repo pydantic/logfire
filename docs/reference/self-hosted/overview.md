@@ -42,7 +42,7 @@ The backend and FusionFire migrations run as Helm pre-upgrade jobs, before the n
 
 * Index changes use `CONCURRENTLY`.
 * Validations of large tables use locks that do not block reads or writes.
-* A statement that needs a stronger lock sets a lock timeout of a few seconds. If it cannot get the lock in that time, the migration fails and Kubernetes runs the job again.
+* A statement that needs a stronger lock sets a short lock timeout, usually under a second. If it cannot get the lock in that time, the migration fails and Kubernetes runs the job again.
 
 ## Moving From Logfire Cloud
 

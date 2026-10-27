@@ -26,7 +26,7 @@ The migration consists of three steps:
     * **Promote a replica.** Queries are unavailable for a few minutes. This method needs a physical replica of the old instance, for example a read replica from your PostgreSQL provider.
 3. **Deploy** the Helm chart with the new `postgresFFDsn` and start the workloads again.
 
-`logfire-ff-ingest` keeps running through all steps. It does not connect to PostgreSQL. It accepts telemetry and buffers it on disk until the other workloads start again.
+`logfire-ff-ingest` keeps running through all steps. It does not connect to PostgreSQL. It accepts telemetry and buffers it on disk until the other workloads start again. By default, it keeps retrying a batch for only 10 minutes, so Step 1 raises that limit for the length of the migration.
 
 ## Prerequisites
 
@@ -36,6 +36,7 @@ The migration consists of three steps:
 - A new PostgreSQL instance that meets the [PostgreSQL requirements](installation.md#postgresql). For dump and restore, it must run the same or a newer PostgreSQL major version than the old instance. A physical replica must run the same major version.
 - An empty `ff` database on the new instance, owned by the user in the new `postgresFFDsn`. That user must be able to create the `intarray` and `btree_gist` extensions.
 - Enough disk on the `logfire-ff-ingest` volumes to buffer incoming data for the length of the migration.
+- An estimate of how long the migration takes. Use a value that is longer than that estimate for `FF_INGEST_REMOTE_RETRY_MAX_DURATION` in Step 1.
 
 Use the same chart version and the same values before and after the migration, except for `postgresFFDsn`. Do not upgrade the chart in the same window. Record the installed chart version, and pass it to every `helm upgrade` in this guide:
 
@@ -49,11 +50,18 @@ The examples below assume the Helm release is named `logfire` and installed in t
 
 ## Step 1: Stop the FusionFire Workloads
 
-If your values enable HPA or KEDA autoscaling for these workloads, pause the autoscalers first. Otherwise, Kubernetes scales the workloads back up during the migration.
+Pause the autoscalers of these workloads first. Every `sizingPreset` turns on HPA for them, and your values can also turn on HPA or KEDA. Otherwise, Kubernetes scales the workloads back up during the migration.
+
+Also raise how long `logfire-ff-ingest` retries a batch. After `FF_INGEST_REMOTE_RETRY_MAX_DURATION` (10 minutes by default), ingest writes the batch to the `_ingest_failover` prefix of the bucket, and queries do not return that data. If your values already set `logfire-ff-ingest.env`, copy those entries into this file too, because Helm replaces the whole list.
 
 Create a temporary `migration-pause-ff.yaml` file:
 
 ```yaml
+logfire-ff-ingest:
+  env:
+    - name: FF_INGEST_REMOTE_RETRY_MAX_DURATION
+      value: "6h"
+
 logfire-ff-ingest-processor:
   autoscaling:
     hpa:
@@ -132,7 +140,7 @@ WHERE datname = 'ff' AND pid <> pg_backend_pid();
 The query must return no rows before you continue. If it returns rows, find and stop the clients that it shows.
 
 !!! note
-    Queries in the Logfire UI and the API fail until Step 3 is complete. Incoming data is not lost, because `logfire-ff-ingest` buffers it on disk. Keep the window as short as practical and monitor the ingest disk usage.
+    Queries in the Logfire UI and the API fail until Step 3 is complete. `logfire-ff-ingest` buffers incoming data on disk for as long as `FF_INGEST_REMOTE_RETRY_MAX_DURATION` allows. Finish Step 3 before that time ends, and monitor the ingest disk usage.
 
 ---
 
@@ -194,7 +202,7 @@ Update `postgresFFDsn` in your values, or the `postgresFFDsn` key of the Secret 
 postgresFFDsn: postgresql://logfire_ff:PASSWORD@new-postgres.example.com:5432/ff
 ```
 
-Deploy the updated Helm chart without `migration-pause-ff.yaml`, so Helm restores the autoscaling and replica settings from your production values:
+Deploy the updated Helm chart without `migration-pause-ff.yaml`, so Helm restores the autoscaling, replica, and ingest retry settings from your production values:
 
 ```bash
 helm upgrade logfire pydantic/logfire \
