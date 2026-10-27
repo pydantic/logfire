@@ -5,6 +5,7 @@ import asyncio
 import contextvars
 import json
 import math
+import os
 import threading
 import warnings
 from collections import Counter
@@ -60,6 +61,8 @@ from logfire.variables.variable import (
     _scrub_feature_flag_result,
 )
 
+MUTATION_TESTING = 'MUTANT_UNDER_TEST' in os.environ
+
 
 def _finished_flag_spans(exporter: TestExporter) -> list[Any]:
     return [
@@ -99,7 +102,7 @@ def test_rejected_flag_values_do_not_bypass_name_aware_scrubbing(config_kwargs: 
 
 
 DETERMINISTIC_PROPERTY_SETTINGS = settings(
-    max_examples=300,
+    max_examples=60 if MUTATION_TESTING else 300,
     derandomize=True,
     deadline=None,
 )
@@ -443,11 +446,11 @@ def test_deterministic_rollout_population_tracks_configured_weights():
         'test_flag'
     ]
 
-    sample_size = 10_000
+    sample_size = 1_000 if MUTATION_TESTING else 10_000
     counts = Counter(config.resolve_label(f'user-{index}') for index in range(sample_size))
 
-    tolerance = 0.02
-    rare_tolerance = 0.01
+    tolerance = 0.04 if MUTATION_TESTING else 0.02
+    rare_tolerance = 0.025 if MUTATION_TESTING else 0.01
     assert counts['enabled'] / sample_size == pytest.approx(0.7, abs=tolerance)
     assert counts['disabled'] / sample_size == pytest.approx(0.2, abs=tolerance)
     assert counts['alternate'] / sample_size == pytest.approx(0.05, abs=rare_tolerance)
@@ -1923,8 +1926,8 @@ def test_feature_flag_context_and_override_state_machine():
     run_state_machine_as_test(
         FeatureFlagStateMachine,
         settings=settings(
-            max_examples=75,
-            stateful_step_count=40,
+            max_examples=20 if MUTATION_TESTING else 75,
+            stateful_step_count=20 if MUTATION_TESTING else 40,
             derandomize=True,
             deadline=None,
         ),
