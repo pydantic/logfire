@@ -169,3 +169,17 @@ def test_truncate_sequence_preserves_existing_behavior(seq: Any, middle: Any, ex
         result = truncate_sequence(seq, max_length=len(middle) + extra_length, middle=middle)
         assert result == expected
         assert type(result) is type(seq)
+
+
+@pytest.mark.parametrize('extra_length', [0, 1])
+def test_truncate_sequence_zero_tail_does_not_alias_marker(extra_length: int) -> None:
+    seq = [1, 2, 3, 4, 5, 6]
+    middle = ['...']
+    result = truncate_sequence(seq, max_length=len(middle) + extra_length, middle=middle)
+
+    result.append('result mutation')
+    assert middle == ['...']
+    assert seq == [1, 2, 3, 4, 5, 6]
+
+    middle.append('marker mutation')
+    assert result == ['...', 'result mutation']

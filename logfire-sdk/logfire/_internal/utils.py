@@ -143,7 +143,7 @@ def truncate_sequence(seq: Truncatable, *, max_length: int, middle: Truncatable)
     remaining_length = max_length - len(middle)
     half = remaining_length // 2
     if half == 0:
-        return middle
+        return middle[:]
     return seq[:half] + middle + seq[-half:]
 
 
