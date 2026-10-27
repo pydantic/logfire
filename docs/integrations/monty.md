@@ -15,8 +15,8 @@ one request, made of nested spans). Otherwise, it starts a new trace.
 
 !!! tip "Run sandboxes without hosting them"
     To run Monty sandboxes on Logfire's servers instead of your own, use
-    [Agent Sandboxes](../agent-sandboxes/index.md). [`logfire.agent_sandboxes()`][logfire.Logfire.agent_sandboxes]
-    enables this integration for you.
+    [Agent Sandboxes](../agent-sandboxes/index.md). The hosted runtime records sandbox activity in your project.
+    [`logfire.agent_sandboxes()`][logfire.Logfire.agent_sandboxes] connects its spans to your application's trace.
 
 ## What you'll capture
 

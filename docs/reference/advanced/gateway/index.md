@@ -186,7 +186,12 @@ Separately, built-in provider usage draws from a **prepaid balance**. You can en
 
 ### Telemetry
 
-The gateway can record every request as traces in a Logfire project, so you get full observability of your LLM traffic (models, latency, token usage, and conversation content) alongside the rest of your telemetry. The recommended setup turns this on for your chosen project; you can manage it later from the gateway **Settings** tab.
+The gateway can record every request as a span (one unit of work, with a start and a duration) in a Logfire project, so you can see your LLM traffic next to the rest of your telemetry: models, latency, token usage, cost, and conversation content. The recommended setup turns this on for your chosen project. You can change the project, and whether traces include prompts and responses, later in **Gateway → Settings**, under **Telemetry**.
+
+!!! note
+    Turning on **Include messages** stores prompts, responses, and system instructions in your project. With it off, traces still show usage, cost, model, status, and timing. Existing traces are kept.
+
+To make a Gateway span part of the trace that your app already records, and to copy your own attributes onto it, see [Gateway requests in your app's trace](telemetry.md).
 
 ## Using the gateway with AI coding tools
 

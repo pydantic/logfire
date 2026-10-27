@@ -212,7 +212,7 @@ An ephemeral session has no session ID (`session.session_id` is `None`).
 `dump()` raises `MontyRuntimeError: this session is ephemeral, so it cannot be dumped`.
 The server discards the interpreter state when the connection closes or the server is redeployed.
 Ephemeral sessions still send code and data to Logfire for execution. They can also produce recorded telemetry.
-See [tracing controls](limits.md#control-client-tracing).
+See [tracing and storage](limits.md#understand-tracing-and-storage).
 
 ## Saved state is not durable execution
 

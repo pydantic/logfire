@@ -149,29 +149,17 @@ Without it, printed output goes to your application's standard output.
 
 ## See sandbox runs in Logfire
 
-By default, `logfire.agent_sandboxes()` also calls [`logfire.instrument_monty()`][logfire.Logfire.instrument_monty], so
-each session and each code run is recorded as a **span** (one unit of work: a single operation, with a name, a start,
-and a duration).
-If your application already has a current span, the sandbox spans join its **trace** (the full journey of one request,
-made of nested spans).
+The hosted runtime records each session and code run as a **span** (one unit of work, with a name, start, and duration).
+`logfire.agent_sandboxes()` sends the current trace context with each connection.
+If your application has a current span, the hosted sandbox spans join its **trace**, the full journey of one request.
+You do not need to call `logfire.instrument_monty()` for hosted sandbox activity.
 
 !!! warning "Sandbox content is recorded in your project"
-    With tracing on, Logfire records the code, its inputs and
-    result, host function arguments and results, and printed output in your Logfire project.
-    The client applies its standard [scrubbing](../how-to-guides/scrubbing.md) before it sends telemetry.
-    Scrubbing does not redact the code or values sent for execution or session storage.
+    Hosted telemetry can include your code, inputs, result, host function arguments and results, and printed output.
+    Client [scrubbing](../how-to-guides/scrubbing.md) does not redact execution requests or saved session state.
+    See [tracing and storage](limits.md#understand-tracing-and-storage) before you submit sensitive data.
 
-To skip enabling client instrumentation, pass `instrument=False`:
-
-```python skip-run="true" skip-reason="external-connection"
-import logfire
-
-pool = logfire.agent_sandboxes(instrument=False)
-```
-
-`instrument_monty()` applies to the whole process, and its first call wins.
-If anything in your process has already called it, sandbox sessions are still traced.
-This option does not disable server-side telemetry or session storage. See [tracing controls](limits.md#control-client-tracing).
+To record Monty execution on your own machines, see [Trace local Monty sandboxes](../integrations/monty.md).
 
 ## Configure the pool
 

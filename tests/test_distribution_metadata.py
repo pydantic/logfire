@@ -50,6 +50,14 @@ def test_distribution_versions_and_dependencies_stay_in_sync() -> None:
     assert str(sdk_requirements['requests'].specifier) == '>=2.31.0'
 
 
+def test_workspace_installs_compatibility_package() -> None:
+    """Keep the SDK and standalone CLI in the local development environment."""
+    workspace = load_pyproject(ROOT / 'pyproject.toml')
+
+    assert workspace['project']['dependencies'] == ['logfire']
+    assert workspace['tool']['uv']['sources']['logfire'] == {'workspace': True}
+
+
 def test_meta_package_forwards_every_sdk_extra() -> None:
     """Preserve `pip install logfire[extra]` across the distribution split."""
     sdk = load_pyproject(ROOT / 'logfire-sdk' / 'pyproject.toml')['project']

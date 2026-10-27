@@ -72,26 +72,19 @@ Use `checkout(ephemeral=True)` for sessions that nothing will load again. See [P
 Hosted [volumes](volumes.md) keep files between sessions when volume access is enabled for your organization.
 They are separate from Python snapshots. Restoring a snapshot does not roll back volume files.
 
-## Control client tracing
+## Understand tracing and storage
 
-By default, the client records each script, its inputs, host function arguments and results, and the final result in
-your project. To skip enabling that client instrumentation, pass `instrument=False`:
+The hosted runtime records sandbox sessions, code runs, and related activity in your project.
+`logfire.agent_sandboxes()` sends the current trace context so hosted spans join your application's trace.
+It does not enable the separate, process-wide `instrument_monty()` integration for local Monty pools.
 
-```python skip-run="true" skip-reason="external-connection"
-import logfire
+Client [scrubbing](../how-to-guides/scrubbing.md) does not redact the code and values sent to the hosted runtime.
+Check the source, inputs, and exposed host functions before you run untrusted code with sensitive data.
 
-pool = logfire.agent_sandboxes(instrument=False)
-```
-
-`instrument_monty()` applies to the whole process, and its first call wins. If another part of your process has
-already enabled it, `instrument=False` does not disable it.
-
-This option does not control server-side telemetry. Code and data still pass through Logfire's servers for execution.
-The client scrubs its telemetry before sending it. That scrubbing does not redact execution requests or saved state.
-
-Session storage is separate. Use [ephemeral sessions](sessions.md#opt-out-of-storage-with-ephemeral-sessions) to avoid
-saved interpreter state. Ephemeral sessions do not turn off telemetry. Do not send data that your application must
-keep entirely on its own machines.
+Session storage is separate from telemetry.
+Use [ephemeral sessions](sessions.md#opt-out-of-storage-with-ephemeral-sessions) to avoid saved interpreter state.
+Ephemeral sessions do not turn off hosted telemetry.
+Do not send data that your application must keep entirely on its own machines.
 
 ## Coming soon
 

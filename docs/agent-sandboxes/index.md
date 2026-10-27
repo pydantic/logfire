@@ -65,9 +65,9 @@ You authenticate with a Logfire API key that has permission to run code in your 
 !!! warning "Code and data are sent to Logfire"
     The code you run, its inputs, host function arguments and results, and
     printed output are sent to Logfire's servers to be executed.
-    The default client instrumentation also records this content in your project. It applies Logfire's standard
-    [scrubbing](../how-to-guides/scrubbing.md) before it sends telemetry. Scrubbing does not remove values from the
-    execution request or saved session state. See [tracing and storage controls](limits.md#control-client-tracing).
+    The hosted runtime also records sandbox activity in your project.
+    Client [scrubbing](../how-to-guides/scrubbing.md) does not remove values from execution requests or saved session state.
+    See [tracing and storage](limits.md#understand-tracing-and-storage).
 
 ## Choose a workflow
 

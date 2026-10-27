@@ -14,7 +14,6 @@ from websockets.asyncio.server import ServerConnection, serve
 
 import logfire
 from logfire._internal import agent_sandboxes as agent_sandboxes_module
-from logfire._internal.integrations import monty as monty_integration
 from logfire.exceptions import LogfireConfigError
 from logfire.testing import TestExporter
 
@@ -89,20 +88,20 @@ async def test_agent_sandboxes_run_code(sandbox_server: SandboxServer, exporter:
     assert path == '/monty-ws/'
     assert headers['authorization'] == f'Bearer {API_KEY}'
     assert headers['x-custom'] == 'custom-value'
-    # The session span is propagated to the server.
-    assert 'traceparent' in headers
 
-    assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot(
-        ['run code', 'session {script_name}', 'parent']
-    )
+    # Earlier tests may have enabled process-wide Monty instrumentation, adding local spans.
+    [parent] = [span for span in exporter.exported_spans_as_dict() if span['name'] == 'parent']
+    # The current span is propagated to the server, so the server's spans join this trace.
+    assert headers['traceparent'] == f'00-{parent["context"]["trace_id"]:032x}-{parent["context"]["span_id"]:016x}-01'
 
 
 @pytest.mark.anyio
-async def test_agent_sandboxes_connect_headers_override(sandbox_server: SandboxServer) -> None:
+@pytest.mark.parametrize('header_name', ['Authorization', 'authorization', 'aUtHoRiZaTiOn'])
+async def test_agent_sandboxes_connect_headers_override(sandbox_server: SandboxServer, header_name: str) -> None:
     async with logfire.agent_sandboxes(
         api_key=API_KEY,
         url=sandbox_server.url,
-        connect_headers=lambda: {'Authorization': 'Bearer other'},
+        connect_headers=lambda: {header_name: 'Bearer other'},
     ) as pool:
         async with pool.checkout() as session:
             assert await session.feed_run('2 * 3') == 6
@@ -174,23 +173,47 @@ def test_agent_sandboxes_url(
 
     monkeypatch.setattr(agent_sandboxes_module, 'AsyncMontyWebsocket', fake_websocket)
 
-    logfire.agent_sandboxes(api_key=api_key, instrument=False)
+    logfire.agent_sandboxes(api_key=api_key)
     assert urls == [expected]
 
 
-@pytest.mark.parametrize('instrument', [True, False])
-def test_agent_sandboxes_instrument(instrument: bool, monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[dict[str, Any]] = []
+@pytest.mark.parametrize(
+    'options',
+    [
+        {},
+        {'connect_headers': None},
+        {
+            'max_processes': 2,
+            'checkout_timeout': 3.0,
+            'request_timeout': 4.0,
+            'feed_duration_limit_grace': 5.0,
+            'turn_duration_limit_grace': 6.0,
+            'auto_resume': True,
+        },
+        {
+            'max_processes': None,
+            'checkout_timeout': None,
+            'request_timeout': None,
+            'feed_duration_limit_grace': None,
+            'turn_duration_limit_grace': None,
+            'auto_resume': False,
+        },
+        {'future_option': 'custom-value'},
+    ],
+)
+def test_agent_sandboxes_pool_options(options: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
+    received: dict[str, Any] = {}
 
-    def instrument_telemetry(**kwargs: Any) -> None:
-        calls.append(kwargs)
+    def fake_websocket(url: str, **kwargs: Any) -> None:
+        received.update(kwargs)
 
-    monkeypatch.setattr(monty_integration, '_installed', False)
-    monkeypatch.setattr(monty_integration, 'instrument_telemetry', instrument_telemetry)
+    monkeypatch.setattr(agent_sandboxes_module, 'AsyncMontyWebsocket', fake_websocket)
 
-    logfire.agent_sandboxes(api_key=API_KEY, instrument=instrument)
+    logfire.agent_sandboxes(api_key=API_KEY, **options)
 
-    assert len(calls) == int(instrument)
+    headers = received.pop('connect_headers')
+    assert headers() == {'authorization': f'Bearer {API_KEY}'}
+    assert received == {name: value for name, value in options.items() if name != 'connect_headers'}
 
 
 def test_agent_sandboxes_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
