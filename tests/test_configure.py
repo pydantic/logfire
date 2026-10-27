@@ -28,6 +28,7 @@ import requests.exceptions
 import requests_mock
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
+from opentelemetry import context as otel_context, trace
 from opentelemetry._logs import LogRecord, get_logger, get_logger_provider
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -3473,6 +3474,41 @@ def test_distributed_tracing_disabled_drops_incoming_baggage(config_kwargs: dict
         # Propagation that Logfire itself controls, such as between threads, keeps baggage.
         with propagate.attach_context(carrier):
             assert logfire.get_baggage() == {'plan': 'enterprise'}
+
+
+@pytest.mark.parametrize('context_kind', ['current', 'empty', 'explicit'])
+def test_distributed_tracing_disabled_preserves_local_context(config_kwargs: dict[str, Any], context_kind: str):
+    config_kwargs['distributed_tracing'] = False
+    logfire.configure(**config_kwargs)
+    propagator = get_global_textmap()
+    assert isinstance(propagator, NoExtractContextPropagator)
+
+    with logfire.span('local span'), logfire.set_baggage(region='us'):
+        local_context = otel_context.set_value('custom-local', 'local')
+        token = otel_context.attach(local_context)
+        try:
+            if context_kind == 'current':
+                supplied_context = None
+                expected_context = local_context
+            elif context_kind == 'empty':
+                supplied_context = expected_context = otel_context.Context()
+            else:
+                supplied_context = expected_context = otel_context.set_value(
+                    'custom-explicit', 'explicit', otel_context.Context()
+                )
+            incoming_context = otel_context.set_value('custom-incoming', 'incoming', expected_context)
+            # Custom propagators must not run either, regardless of the context they would extract.
+            with patch.object(propagator.wrapped, 'extract', return_value=incoming_context) as extract:
+                result = propagator.extract({'baggage': 'region=remote'}, context=supplied_context)
+            extract.assert_not_called()
+            assert result is expected_context
+            if context_kind == 'current':
+                assert trace.get_current_span(result) is trace.get_current_span(local_context)
+                assert logfire.get_baggage(result) == {'region': 'us'}
+                assert otel_context.get_value('custom-local', result) == 'local'
+            assert otel_context.get_current() is local_context
+        finally:
+            otel_context.detach(token)
 
 
 def test_distributed_tracing_enabled_keeps_incoming_baggage(config_kwargs: dict[str, Any]):
