@@ -1,0 +1,27 @@
+logfire-api/logfire_api/propagate.pyi
+  s_7bac1b5ef8845b::t_5813f675f9f9f8 63
+logfire-sdk/logfire/propagate.py
+  s_7bac1b5ef8845b::t_5813f675f9f9f8 88,116
+tests/test_configure.py
+  s_7bac1b5ef8845b::t_5813f675f9f9f8 92,3398
+logfire-api/logfire_api/_internal/config.pyi
+  s_7bac1b5ef8845b::t_5813f675f9f9f8 4
+logfire-sdk/logfire/_internal/config.py
+  s_7bac1b5ef8845b::t_5813f675f9f9f8 80,1547,1554
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8a1dd898281e47843ba64b66b328f7b823e99fcf",
+  "prompts": {},
+  "sessions": {
+    "s_7bac1b5ef8845b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17d2a-5e7d-7eb3-8c66-42fa9be6dcf8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
