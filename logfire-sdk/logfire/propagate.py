@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from opentelemetry import context as otel_context, propagate, trace
+from opentelemetry import context as otel_context, propagate
 from opentelemetry.propagators.textmap import TextMapPropagator
 
 import logfire
@@ -147,7 +147,7 @@ class WarnOnExtractTraceContextPropagator(WrapperPropagator):
         **kwargs: Any,
     ) -> otel_context.Context:
         result = super().extract(carrier, context, *args, **kwargs)
-        if not self.warned and result != context and trace.get_current_span(context) != trace.get_current_span(result):
+        if not self.warned and result != context:
             self.warned = True
             message = (
                 'Found propagated trace context. See '
