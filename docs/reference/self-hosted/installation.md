@@ -232,7 +232,7 @@ The chart's bundled Redis is for evaluation. For production, turn it off and con
 * Use one Redis endpoint: a standalone instance, or a primary with replicas behind one write endpoint. Redis Cluster mode is not supported.
 * Logfire is tested with Redis 7.2.
 * `redis://` and `rediss://` DSNs are supported. Put the password, or the ACL user and password, in the DSN.
-* With `rediss://`, the Redis server certificate must chain to a CA in the system trust store of the Logfire images. A private CA, such as the one that Memorystore uses for in-transit encryption, is not supported yet.
+* With `rediss://`, Logfire verifies the Redis server certificate. If a private CA signs it, such as the CA that Memorystore creates for each instance with in-transit encryption, set `trustedCaBundle` as the [chart README](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#private-ca-certificates) describes.
 
 You can provide the DSN directly:
 
