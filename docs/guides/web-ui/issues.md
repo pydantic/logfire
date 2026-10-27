@@ -20,9 +20,9 @@ You need a project that receives exception data and permission to change its con
 
 A plain error-level message does not contain the exception data needed to create an issue. For Python examples, see [record exceptions](../onboarding-checklist/add-manual-tracing.md#exceptions).
 
-<!-- ladle-screenshot story="product--error-tracking--issues-form--enable-without-channels" image="../../images/guide/browser-error-tracking-enable" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." viewport="1140x400" scale="2" selector="form" aspect="2278:684" padding="16" -->
-<img class="only-light" src="../../images/guide/browser-error-tracking-enable-light.png" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." width="1108" height="333" loading="lazy" />
-<img class="only-dark" src="../../images/guide/browser-error-tracking-enable-dark.png" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." width="1108" height="333" loading="lazy" />
+<!-- ladle-screenshot story="product--error-tracking--issues-route--enable-without-channels" image="../../images/guide/browser-error-tracking-enable" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." viewport="1140x400" scale="2" selector="form" aspect="2278:684" padding="16" -->
+<img class="only-light" src="../../images/guide/browser-error-tracking-enable-light.png" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." width="1106" height="332" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-error-tracking-enable-dark.png" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." width="1106" height="332" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 To change filters or channels later, select **Configure**.
@@ -39,7 +39,7 @@ The list shows each issue's exception type and message, affected services and en
 
 Open an issue to inspect its comparison cards, matching spans, and exception details.
 
-<!-- ladle-screenshot story="product--error-tracking--issues-page--checkout-issues" image="../../images/guide/browser-error-tracking-list" alt="Three open checkout issues, each with four hits, alongside state tabs, search, and configuration controls." viewport="1173x800" scale="2" aspect="2346:1020" padding="0" time="2026-09-19T12:09:30Z" -->
+<!-- ladle-screenshot story="product--error-tracking--issues-route--checkout-issues" image="../../images/guide/browser-error-tracking-list" alt="Three open checkout issues, each with four hits, alongside state tabs, search, and configuration controls." viewport="1173x800" scale="2" aspect="2346:1020" padding="0" time="2026-09-19T12:09:30Z" -->
 <img class="only-light" src="../../images/guide/browser-error-tracking-list-light.png" alt="Three open checkout issues, each with four hits, alongside state tabs, search, and configuration controls." width="1173" height="510" loading="lazy" />
 <img class="only-dark" src="../../images/guide/browser-error-tracking-list-dark.png" alt="Three open checkout issues, each with four hits, alongside state tabs, search, and configuration controls." width="1173" height="510" loading="lazy" />
 <!-- /ladle-screenshot -->

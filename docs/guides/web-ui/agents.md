@@ -83,9 +83,9 @@ A run detail has four tabs:
 
 If a run failed, a banner at the top of the Summary tab surfaces the exception type, message, and traceback, so you can see why it failed without leaving the page.
 
-<!-- ladle-screenshot story="product--agents--run-exception-banner--stripe-reconcile-failure" image="../../images/agents/run-error" alt="The exception banner on a failed run" viewport="1400x800" scale="2" aspect="1295:435" padding="0" time="2026-07-19T12:30:00Z" -->
-<img class="only-light" src="../../images/agents/run-error-light.png" alt="The exception banner on a failed run" width="1295" height="435" loading="lazy" />
-<img class="only-dark" src="../../images/agents/run-error-dark.png" alt="The exception banner on a failed run" width="1295" height="435" loading="lazy" />
+<!-- ladle-screenshot story="product--agents--run-details--view--failed-run" image="../../images/agents/run-error" alt="The exception banner on a failed run" viewport="1400x800" scale="2" aspect="1295:435" padding="0" time="2026-07-19T12:30:00Z" -->
+<img class="only-light" src="../../images/agents/run-error-light.png" alt="The exception banner on a failed run" width="1400" height="470" loading="lazy" />
+<img class="only-dark" src="../../images/agents/run-error-dark.png" alt="The exception banner on a failed run" width="1400" height="470" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ## Annotating a run

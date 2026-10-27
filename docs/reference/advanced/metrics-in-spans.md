@@ -86,8 +86,8 @@ with logfire.span('span'):
 The calls to `agent.run_sync` create child spans named `agent run`. The outer `span` aggregates the token metrics from these children, as shown in the Live View:
 
 <!-- ladle-screenshot story="product--live--docs-traces--core-sdk--metrics-in-spans" image="../../images/logfire-screenshot-metrics-in-spans-live-view" alt="Token and cost aggregation in live view" viewport="720x440" scale="2" selector=".live-view-row, [role=tooltip]" hover=".live-view-row .cursor-default.inline-flex" aspect="1028:526" padding="8" time="2026-08-01T12:02:00Z" -->
-<img class="only-light" src="../../images/logfire-screenshot-metrics-in-spans-live-view-light.png" alt="Token and cost aggregation in live view" width="696" height="356" loading="lazy" />
-<img class="only-dark" src="../../images/logfire-screenshot-metrics-in-spans-live-view-dark.png" alt="Token and cost aggregation in live view" width="696" height="356" loading="lazy" />
+<img class="only-light" src="../../images/logfire-screenshot-metrics-in-spans-live-view-light.png" alt="Token and cost aggregation in live view" width="694" height="355" loading="lazy" />
+<img class="only-dark" src="../../images/logfire-screenshot-metrics-in-spans-live-view-dark.png" alt="Token and cost aggregation in live view" width="694" height="355" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ### Understanding the Span Data

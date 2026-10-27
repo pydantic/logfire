@@ -22,9 +22,9 @@ and [auto-tracing](../guides/onboarding-checklist/add-auto-tracing.md). When you
 run the server locally and interact with the calculator, you'll see traces being
 automatically generated:
 
-<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--flask-sqlalchemy" image="../images/logfire-screenshot-examples-flask-sqlalchemy" alt="Flask and SQLAlchemy example" viewport="850x420" scale="2" selector=".live-view-row" aspect="1692:540" padding="4" time="2025-09-25T18:30:00Z" -->
-<img class="only-light" src="../images/logfire-screenshot-examples-flask-sqlalchemy-light.png" alt="Flask and SQLAlchemy example" width="826" height="264" loading="lazy" />
-<img class="only-dark" src="../images/logfire-screenshot-examples-flask-sqlalchemy-dark.png" alt="Flask and SQLAlchemy example" width="826" height="264" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--flask-sqlalchemy" image="../images/logfire-screenshot-examples-flask-sqlalchemy" alt="Flask and SQLAlchemy example" viewport="850x800" scale="2" selector=".live-view-row" aspect="1692:540" padding="4" time="2025-09-25T18:30:00Z" -->
+<img class="only-light" src="../images/logfire-screenshot-examples-flask-sqlalchemy-light.png" alt="Flask and SQLAlchemy example" width="824" height="263" loading="lazy" />
+<img class="only-dark" src="../images/logfire-screenshot-examples-flask-sqlalchemy-dark.png" alt="Flask and SQLAlchemy example" width="824" height="263" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 <a href="https://github.com/pydantic/logfire/tree/main/examples/python/flask-sqlalchemy/" target="_blank" rel="noopener">View on GitHub :material-open-in-new:</a>

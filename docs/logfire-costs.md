@@ -55,7 +55,7 @@ The page is divided into these tabs:
 The **Ingest over time** chart on the Usage tab can show daily usage grouped by project, write token, or unit type.
 You can also filter the chart by time range, project, token, and unit.
 
-<!-- ladle-screenshot story="product--organization-settings--billing-and-usage--cycle-usage--usage-tab-with-ingest-chart" image="images/logfire-screenshot-usage-chart" alt="Billing and usage page showing this cycle's included usage and ingest chart" viewport="1392x980" scale="2" aspect="1392:944" padding="0" time="2026-09-15T12:00:00Z" -->
+<!-- ladle-screenshot story="product--organization-settings--billing-and-usage--billing-route--usage-with-ingest-chart" image="images/logfire-screenshot-usage-chart" alt="Billing and usage page showing this cycle's included usage and ingest chart" viewport="1392x980" scale="2" aspect="1392:944" padding="0" time="2026-09-15T12:00:00Z" -->
 <img class="only-light" src="images/logfire-screenshot-usage-chart-light.png" alt="Billing and usage page showing this cycle's included usage and ingest chart" width="1392" height="944" loading="lazy" />
 <img class="only-dark" src="images/logfire-screenshot-usage-chart-dark.png" alt="Billing and usage page showing this cycle's included usage and ingest chart" width="1392" height="944" loading="lazy" />
 <!-- /ladle-screenshot -->

@@ -38,18 +38,18 @@ main()
 
 If you run this, everything seems fine:
 
-<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--generator-fine" image="../../images/guide/generator-fine" alt="Generating items going fine" viewport="420x200" scale="3" selector=".live-view-row-message, [data-testid=log-expansion-toggle]" aspect="282:177" padding="6" time="2026-08-01T12:02:00Z" -->
-<img class="only-light" src="../../images/guide/generator-fine-light.png" alt="Generating items going fine" width="251" height="158" loading="lazy" />
-<img class="only-dark" src="../../images/guide/generator-fine-dark.png" alt="Generating items going fine" width="251" height="158" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--generator-fine" image="../../images/guide/generator-fine" alt="Generating items going fine" viewport="420x500" scale="3" selector=".live-view-row-message, [data-testid=log-expansion-toggle]" aspect="282:177" padding="6" time="2026-08-01T12:02:00Z" -->
+<img class="only-light" src="../../images/guide/generator-fine-light.png" alt="Generating items going fine" width="249" height="156" loading="lazy" />
+<img class="only-dark" src="../../images/guide/generator-fine-dark.png" alt="Generating items going fine" width="249" height="156" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 The `Got item` log lines are inside the `Generating items` span, and the `After processing items` log is outside it, as expected.
 
 But if you uncomment the `break` line, you'll see that the `After processing items` log line is also inside the `Generating items` span:
 
-<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--generator-break" image="../../images/guide/generator-break" alt="Generating items going wrong" viewport="420x200" scale="3" selector=".live-view-row-message, [data-testid=log-expansion-toggle], .live-view-row > div.flex.gap-1" aspect="307:101" padding="6" time="2026-08-01T12:02:00Z" -->
-<img class="only-light" src="../../images/guide/generator-break-light.png" alt="Generating items going wrong" width="259" height="85" loading="lazy" />
-<img class="only-dark" src="../../images/guide/generator-break-dark.png" alt="Generating items going wrong" width="259" height="85" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--generator-break" image="../../images/guide/generator-break" alt="Generating items going wrong" viewport="420x500" scale="3" selector=".live-view-row-message, [data-testid=log-expansion-toggle], .live-view-row > div.flex.gap-1" aspect="307:101" padding="6" time="2026-08-01T12:02:00Z" -->
+<img class="only-light" src="../../images/guide/generator-break-light.png" alt="Generating items going wrong" width="257" height="85" loading="lazy" />
+<img class="only-dark" src="../../images/guide/generator-break-dark.png" alt="Generating items going wrong" width="257" height="85" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 This is because the `generate_items` generator is left suspended at the `yield` statement, and the `with logfire.span('Generating items'):` block is still active, so the `After processing items` log sees that span as its parent. This is confusing, and can happen anytime that iteration over a generator is interrupted, including by exceptions.

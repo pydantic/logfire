@@ -26,9 +26,9 @@ If you've used logging before, think of a span as a log with a duration and stru
 !!! info
     Spans let you **add context** to your logs and **measure how long code takes to run**. Multiple spans combine to form a trace, giving a complete picture of an operation's journey through your system.
 
-<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--concepts-spans" image="images/concepts/spans" alt="Spans" viewport="920x160" scale="2" selector=".live-view-row" aspect="1834:232" padding="4" time="2025-09-25T11:57:00Z" -->
-<img class="only-light" src="images/concepts/spans-light.png" alt="Spans" width="896" height="113" loading="lazy" />
-<img class="only-dark" src="images/concepts/spans-dark.png" alt="Spans" width="896" height="113" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--concepts-spans" image="images/concepts/spans" alt="Spans" viewport="920x500" scale="2" selector=".live-view-row" aspect="1834:232" padding="4" time="2025-09-25T11:57:00Z" -->
+<img class="only-light" src="images/concepts/spans-light.png" alt="Spans" width="894" height="113" loading="lazy" />
+<img class="only-dark" src="images/concepts/spans-dark.png" alt="Spans" width="894" height="113" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ## What is a Trace?
@@ -40,9 +40,9 @@ Spans are ordered and nested: a span can contain other spans, so a trace reads l
 !!! info
     Traces are not limited to a single service. They can be propagated to completely different and isolated services. For example, a single trace could contain http requests to both a Python API and a SQL database.
 
-<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--concepts-trace" image="images/concepts/trace" alt="Trace" viewport="920x300" scale="2" selector=".live-view-row" aspect="1828:582" padding="4" time="2025-09-25T11:57:00Z" -->
-<img class="only-light" src="images/concepts/trace-light.png" alt="Trace" width="896" height="285" loading="lazy" />
-<img class="only-dark" src="images/concepts/trace-dark.png" alt="Trace" width="896" height="285" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--concepts-trace" image="images/concepts/trace" alt="Trace" viewport="920x700" scale="2" selector=".live-view-row" aspect="1828:582" padding="4" time="2025-09-25T11:57:00Z" -->
+<img class="only-light" src="images/concepts/trace-light.png" alt="Trace" width="894" height="285" loading="lazy" />
+<img class="only-dark" src="images/concepts/trace-dark.png" alt="Trace" width="894" height="285" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ### Example - File size counter

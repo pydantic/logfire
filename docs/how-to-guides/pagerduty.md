@@ -71,7 +71,7 @@ A notification channel is an organization-level destination that you attach to o
 4. Select **PagerDuty** as the type.
 5. Select the connected PagerDuty account and service.
 
-<!-- ladle-screenshot story="product--project-settings--delivery--channel-detail--new-pager-duty-channel-dialog" image="../images/guide/pagerduty-channel" alt="The New channel dialog with a PagerDuty account and service selected" viewport="1280x900" scale="2" aspect="1280:900" padding="0" -->
+<!-- ladle-screenshot story="product--project-settings--delivery--channels-page--new-pager-duty-channel" image="../images/guide/pagerduty-channel" alt="The New channel dialog with a PagerDuty account and service selected" viewport="1280x900" scale="2" aspect="1280:900" padding="0" -->
 <img class="only-light" src="../images/guide/pagerduty-channel-light.png" alt="The New channel dialog with a PagerDuty account and service selected" width="1280" height="900" loading="lazy" />
 <img class="only-dark" src="../images/guide/pagerduty-channel-dark.png" alt="The New channel dialog with a PagerDuty account and service selected" width="1280" height="900" loading="lazy" />
 <!-- /ladle-screenshot -->

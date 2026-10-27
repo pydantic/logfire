@@ -347,9 +347,9 @@ logfire.info('hello')
 
 will show this:
 
-<!-- ladle-screenshot story="product--live--docs-traces--service-name-and-version" image="../images/sql-reference/service-name-version-live" alt="Service name and version in the Live view" viewport="560x200" scale="3" selector=".live-view-row > :nth-child(-n+3), .live-view-row-message__content, [role=tooltip]" hover=".live-view-service-pill" aspect="462:218" padding="12" time="2026-08-01T19:00:00Z" -->
-<img class="only-light" src="../images/sql-reference/service-name-version-live-light.png" alt="Service name and version in the Live view" width="229" height="108" loading="lazy" />
-<img class="only-dark" src="../images/sql-reference/service-name-version-live-dark.png" alt="Service name and version in the Live view" width="229" height="108" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--service-name-and-version" image="../images/sql-reference/service-name-version-live" alt="Service name and version in the Live view" viewport="640x500" scale="2" selector=".live-view-row, [role=tooltip]" hover=".live-view-service-pill" padding="0" time="2026-08-01T19:00:00Z" -->
+<img class="only-light" src="../images/sql-reference/service-name-version-live-light.png" alt="Service name and version in the Live view" width="614" height="85" loading="lazy" />
+<img class="only-dark" src="../images/sql-reference/service-name-version-live-dark.png" alt="Service name and version in the Live view" width="614" height="85" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 #### `service_instance_id`

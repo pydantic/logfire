@@ -29,16 +29,16 @@ Logfire project URL: https://logfire.pydantic.dev/my_username/my_project_name
 
 Opening the project URL should show something like this in the Live view:
 
-<!-- ladle-screenshot story="product--live--docs-traces--manual-tracing-collapsed" image="../../images/guide/manual-tracing-basic-closed-span" alt="Simple example in Live view" viewport="589x200" scale="2" selector=".live-view-row" aspect="573:30" padding="4" time="2026-08-01T21:05:00Z" -->
-<img class="only-light" src="../../images/guide/manual-tracing-basic-closed-span-light.png" alt="Simple example in Live view" width="565" height="30" loading="lazy" />
-<img class="only-dark" src="../../images/guide/manual-tracing-basic-closed-span-dark.png" alt="Simple example in Live view" width="565" height="30" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--manual-tracing-collapsed" image="../../images/guide/manual-tracing-basic-closed-span" alt="Simple example in Live view" viewport="589x500" scale="2" selector=".live-view-row" aspect="573:30" padding="4" time="2026-08-01T21:05:00Z" -->
+<img class="only-light" src="../../images/guide/manual-tracing-basic-closed-span-light.png" alt="Simple example in Live view" width="563" height="29" loading="lazy" />
+<img class="only-dark" src="../../images/guide/manual-tracing-basic-closed-span-dark.png" alt="Simple example in Live view" width="563" height="29" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 The blue box with `1+` means that the span contains 1 direct child. Clicking on that box expands the span to reveal its children:
 
-<!-- ladle-screenshot story="product--live--docs-traces--manual-tracing-expanded" image="../../images/guide/manual-tracing-basic" alt="Simple example in Live view with span opened" viewport="589x200" scale="2" selector=".live-view-row" aspect="573:52" padding="4" time="2026-08-01T21:05:00Z" -->
-<img class="only-light" src="../../images/guide/manual-tracing-basic-light.png" alt="Simple example in Live view with span opened" width="565" height="51" loading="lazy" />
-<img class="only-dark" src="../../images/guide/manual-tracing-basic-dark.png" alt="Simple example in Live view with span opened" width="565" height="51" loading="lazy" />
+<!-- ladle-screenshot story="product--live--docs-traces--manual-tracing-expanded" image="../../images/guide/manual-tracing-basic" alt="Simple example in Live view with span opened" viewport="589x500" scale="2" selector=".live-view-row" aspect="573:52" padding="4" time="2026-08-01T21:05:00Z" -->
+<img class="only-light" src="../../images/guide/manual-tracing-basic-light.png" alt="Simple example in Live view with span opened" width="563" height="51" loading="lazy" />
+<img class="only-dark" src="../../images/guide/manual-tracing-basic-dark.png" alt="Simple example in Live view with span opened" width="563" height="51" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 Note that:
@@ -70,8 +70,8 @@ logfire.info('Hello', name='world')
 If you click on the 'Hello' log in the Live view, you should see this in the details panel on the right:
 
 <!-- ladle-screenshot story="product--live--docs-traces--hello-world-attribute" image="../../images/guide/manual-tracing-attribute-hello-world" alt="name attribute in Live view" viewport="330x500" scale="2" selector="#details-container .grow.overflow-y-auto.branded-scrollbar:not(:has(> button))" aspect="220:86" padding="4" time="2026-08-01T21:05:00Z" -->
-<img class="only-light" src="../../images/guide/manual-tracing-attribute-hello-world-light.png" alt="name attribute in Live view" width="278" height="109" loading="lazy" />
-<img class="only-dark" src="../../images/guide/manual-tracing-attribute-hello-world-dark.png" alt="name attribute in Live view" width="278" height="109" loading="lazy" />
+<img class="only-light" src="../../images/guide/manual-tracing-attribute-hello-world-light.png" alt="name attribute in Live view" width="276" height="108" loading="lazy" />
+<img class="only-dark" src="../../images/guide/manual-tracing-attribute-hello-world-dark.png" alt="name attribute in Live view" width="276" height="108" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 This data is stored in the `attributes` column in the `records` table as JSON. You can use e.g. `attributes->>'name' = 'world'` in the SQL filter at the top of the Live view to show only this log. This is used as the `WHERE` clause of a SQL query on the `records` table.
@@ -181,8 +181,8 @@ with logfire.span('This is a span'):
 If you click on the span in the Live view, the panel on the right will have an 'Exception Traceback' tab:
 
 <!-- ladle-screenshot story="product--live--docs-traces--core-sdk--exception-traceback" image="../../images/guide/manual-tracing-traceback" alt="Traceback in UI" viewport="480x600" scale="2" selector="#details-container [role=tablist], #details-container [role=tablist] + section" aspect="412:180" padding="4" time="2026-08-01T12:02:00Z" -->
-<img class="only-light" src="../../images/guide/manual-tracing-traceback-light.png" alt="Traceback in UI" width="432" height="189" loading="lazy" />
-<img class="only-dark" src="../../images/guide/manual-tracing-traceback-dark.png" alt="Traceback in UI" width="432" height="189" loading="lazy" />
+<img class="only-light" src="../../images/guide/manual-tracing-traceback-light.png" alt="Traceback in UI" width="430" height="188" loading="lazy" />
+<img class="only-dark" src="../../images/guide/manual-tracing-traceback-dark.png" alt="Traceback in UI" width="430" height="188" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 Exceptions which are caught and not re-raised will not be recorded, e.g:
