@@ -70,7 +70,7 @@ class NoExtractTraceContextPropagator(WrapperPropagator):
 
 @dataclass
 class WarnOnExtractTraceContextPropagator(WrapperPropagator):
-    """A propagator that warns the first time that trace context is extracted by the wrapped propagator.
+    """A propagator that warns the first time that incoming context is extracted by the wrapped propagator.
 
     Used when `logfire.configure(distributed_tracing=None)` is called. This is the default behavior.
     """

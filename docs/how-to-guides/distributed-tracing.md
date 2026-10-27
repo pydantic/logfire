@@ -78,7 +78,7 @@ Because instrumented web servers automatically extract the `traceparent` header 
 - Spans being mysteriously grouped together.
 - Spans missing entirely because the original trace was excluded by sampling.
 
-By default, **Logfire** warns you when trace context is extracted, e.g. when server instrumentation finds a `traceparent` header. You can deal with this by setting the [`distributed_tracing` argument of `logfire.configure()`][logfire.configure(distributed_tracing)] or by setting the `LOGFIRE_DISTRIBUTED_TRACING` environment variable:
+By default, **Logfire** warns you when incoming context is extracted, e.g. when server instrumentation finds a `traceparent` or `baggage` header. You can deal with this by setting the [`distributed_tracing` argument of `logfire.configure()`][logfire.configure(distributed_tracing)] or by setting the `LOGFIRE_DISTRIBUTED_TRACING` environment variable:
 
 - Setting to `False` will prevent all incoming context from being extracted, including trace context and [baggage](../reference/advanced/baggage.md). This is recommended for web services exposed to the public internet. You can still attach/inject context to propagate to other services and create distributed traces with the web service as the root.
 - Setting to `True` implies that the context propagation is intentional and will silence the warning.

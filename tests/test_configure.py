@@ -3230,7 +3230,7 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
     with inline_snapshot.extra.warns(
         snapshot(
             [
-                'RuntimeWarning: Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.'
+                'RuntimeWarning: Found propagated context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.'
             ]
         )
     ):
@@ -3275,7 +3275,7 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
                 },
             },
             {
-                'name': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
+                'name': 'Found propagated context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
                 'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
                 'parent': None,
                 'start_time': 4000000000,
@@ -3283,8 +3283,8 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
-                    'logfire.msg_template': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
-                    'logfire.msg': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
+                    'logfire.msg_template': 'Found propagated context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
+                    'logfire.msg': 'Found propagated context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
                     'code.filepath': 'test_configure.py',
                     'code.function': 'test_distributed_tracing_default',
                     'code.lineno': 123,
@@ -3340,7 +3340,7 @@ def test_distributed_tracing_default_warns_on_incoming_baggage(config_kwargs: di
     config_kwargs['distributed_tracing'] = None
     logfire.configure(**config_kwargs)
 
-    with pytest.warns(RuntimeWarning, match='Found propagated trace context') as warning_records:
+    with pytest.warns(RuntimeWarning, match='Found propagated context') as warning_records:
         with propagate.attach_context({'baggage': 'plan=enterprise'}, third_party=True):
             assert logfire.get_baggage() == {'plan': 'enterprise'}
     assert len(warning_records) == 1

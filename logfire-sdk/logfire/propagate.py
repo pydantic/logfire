@@ -132,7 +132,7 @@ class NoExtractTraceContextPropagator(WrapperPropagator):
 
 @dataclass
 class WarnOnExtractTraceContextPropagator(WrapperPropagator):
-    """A propagator that warns the first time that trace context is extracted by the wrapped propagator.
+    """A propagator that warns the first time that incoming context is extracted by the wrapped propagator.
 
     Used when `logfire.configure(distributed_tracing=None)` is called. This is the default behavior.
     """
@@ -151,7 +151,7 @@ class WarnOnExtractTraceContextPropagator(WrapperPropagator):
         if not self.warned and result != original_context:
             self.warned = True
             message = (
-                'Found propagated trace context. See '
+                'Found propagated context. See '
                 'https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.'
             )
             warn_at_user_stacklevel(message, RuntimeWarning)

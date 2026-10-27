@@ -221,7 +221,7 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
         variables: Options related to managed variables.
-        distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
+        distributed_tracing: By default, incoming context is extracted, but generates a warning.
             Set to `True` to disable the warning.
             Set to `False` to suppress extraction of all incoming context, preserving local context.
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
