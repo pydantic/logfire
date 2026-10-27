@@ -50,7 +50,12 @@ from logfire.variables.config import (
 )
 from logfire.variables.local import LocalVariableProvider
 from logfire.variables.remote import _CONSECUTIVE_FAILURES_BEFORE_ERROR, LogfireRemoteVariableProvider
-from logfire.variables.variable import Variable, _declaration_schema_without_defaults, is_resolve_function
+from logfire.variables.variable import (
+    Variable,
+    _declaration_schema_without_defaults,
+    is_resolve_function,
+    targeting_context,
+)
 
 # =============================================================================
 # Test Condition Classes
@@ -8519,3 +8524,48 @@ class TestSSEHardening:
         # The worker must break out of the loop (due to shutdown) BEFORE executing the follow-up,
         # so only the single normal refresh at the top of the loop should have been called.
         assert call_count == 1
+
+
+def test_thread_pools_inherit_variable_overrides_and_targeting_context(config_kwargs: dict[str, Any]):
+    config = VariablesConfig(
+        variables={
+            'pooled': VariableConfig(
+                name='pooled',
+                labels={'a': LabeledValue(version=1, serialized_value='"a"')},
+                rollout=Rollout(labels={'a': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+    config_kwargs['variables'] = LocalVariablesOptions(config=config)
+    logfire.configure(**config_kwargs)
+    pooled = logfire.var('pooled', type=str, default='code')
+    key_echo = logfire.var('key_echo', type=str, default=lambda targeting_key, attributes: targeting_key or 'no key')
+
+    def value() -> str:
+        return pooled.get().value
+
+    async def evaluate() -> None:
+        loop = asyncio.get_running_loop()
+        with pooled.override('overridden'):
+            assert await loop.run_in_executor(None, value) == 'overridden'
+            with ThreadPoolExecutor() as executor:
+                assert executor.submit(value).result() == 'overridden'
+        with targeting_context('account-123'):
+            assert await loop.run_in_executor(None, lambda: key_echo.get().value) == 'account-123'
+        # A worker thread reuses its context, so the values must not leak into later tasks.
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            with pooled.override('overridden'):
+                executor.submit(value).result()
+            assert executor.submit(value).result() == 'a'
+
+            def failing_task() -> None:
+                assert value() == 'overridden'
+                raise ValueError('worker failed')
+
+            with pooled.override('overridden'):
+                with pytest.raises(ValueError, match='worker failed'):
+                    executor.submit(failing_task).result()
+            assert executor.submit(value).result() == 'a'
+
+    asyncio.run(evaluate())

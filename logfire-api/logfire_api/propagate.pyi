@@ -61,16 +61,16 @@ class WrapperPropagator(TextMapPropagator):
     def fields(self): ...
 
 class NoExtractTraceContextPropagator(WrapperPropagator):
-    """A propagator that ignores any trace context and baggage that the wrapped propagator extracted.
+    """A propagator that ignores all incoming context and preserves local context.
 
-    Used when `logfire.configure(distributed_tracing=False)` is called. Baggage is dropped too, so
-    code that reads baggage, such as feature-flag targeting, only sees entries that this process set.
+    Used when `logfire.configure(distributed_tracing=False)` is called. Extraction returns the
+    supplied context, or the current context if none is supplied, without calling the wrapped propagator.
     """
     def extract(self, carrier: Any, context: otel_context.Context | None = None, *args: Any, **kwargs: Any) -> otel_context.Context: ...
 
 @dataclass
 class WarnOnExtractTraceContextPropagator(WrapperPropagator):
-    """A propagator that warns the first time that trace context is extracted by the wrapped propagator.
+    """A propagator that warns the first time that incoming context is extracted by the wrapped propagator.
 
     Used when `logfire.configure(distributed_tracing=None)` is called. This is the default behavior.
     """
