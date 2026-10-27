@@ -3185,23 +3185,6 @@ class TestFeatureFlag:
             with feature_context('user-123', attributes={'plan': 'team'}):
                 assert flag.details().variant == 'enabled'
 
-    def test_variable_telemetry_can_omit_the_targeting_key(self, config_kwargs: dict[str, Any], exporter: TestExporter):
-        config_kwargs['variables'] = LocalVariablesOptions(
-            config=VariablesConfig(variables={}), include_targeting_key_in_telemetry=False
-        )
-        logfire.configure(**config_kwargs)
-        variable = logfire.var('omits_key', type=str, default='x')
-        exporter.clear()
-
-        variable.get(targeting_key='account-123', attributes={'plan': 'team'})
-        span = next(
-            span
-            for span in exporter.exported_spans
-            if span.name == 'Resolve variable omits_key' and (span.attributes or {}).get('logfire.span_type') == 'span'
-        )
-        assert 'targeting_key' not in (span.attributes or {})
-        assert 'account-123' not in repr(dict(span.attributes or {}))
-
     def test_baggage_can_be_excluded_from_feature_flag_targeting(
         self, config_kwargs: dict[str, Any], feature_flags_config: VariablesConfig
     ):

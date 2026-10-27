@@ -42,7 +42,7 @@ Targeting rules also see [baggage](../baggage.md), the key-value pairs that `log
 
 Baggage can also arrive with an incoming request from another service. If your application serves requests from callers you don't control and a targeting rule depends on baggage, configure `logfire.configure(distributed_tracing=False)`. Logfire then ignores incoming trace context and baggage, so only your own code can set the attributes that rules see.
 
-Without a targeting key, a percentage rollout picks one variant for each trace. Every evaluation in the same request gets the same result, but the next request can get a different one. Logfire also warns once, because each user can switch between variants. Callers can't choose their variant by sending a chosen trace ID: Logfire combines the trace ID with a secret that only the running process knows.
+Without a targeting key, a percentage rollout picks one variant for each trace. Every evaluation in the same request gets the same result, but the next request can get a different one. Outside a trace, Logfire picks a random key that lasts for the rest of the current context. Logfire also warns once, because each user can switch between variants. Callers can't choose their variant by sending a chosen trace ID: Logfire combines the trace ID with a secret that only the running process knows.
 
 To inspect the selected variant, fallback reason, or error, call `details()`:
 
@@ -54,7 +54,7 @@ print(details.variant)
 print(details.reason)
 ```
 
-Each evaluation creates a `feature_flag.evaluation` span. It records the flag, the serialized value and variant, the selected value version, and the reason. Values honor Pydantic serializers and Logfire scrubbing. The span also records the targeting key as `feature_flag.context.id`, so you can see why a user received a variant. It never records targeting attributes, which can contain customer data. To leave out the targeting key too, configure `include_targeting_key_in_telemetry=False`.
+Each evaluation creates a `feature_flag.evaluation` span. It records the flag, the serialized value and variant, the selected value version, and the reason. Values honor Pydantic serializers and Logfire scrubbing. The span also records the targeting key as `feature_flag.context.id`, so you can see why a user received a variant. It never records targeting attributes, which can contain customer data. To keep the targeting key out of telemetry too, add a [scrubbing](../../../how-to-guides/scrubbing.md) pattern that matches the attribute, for example `logfire.configure(scrubbing=logfire.ScrubbingOptions(extra_patterns=[r'context\.id']))`.
 
 A flag value can include other managed variables with `@{name}@` references. The span then also records `composed_from`: the name, label, and version of each referenced variable, without their values. A change to a referenced variable changes what the flag serves without changing the flag's own version, so use `composed_from` to tell those values apart when you compare variants.
 
@@ -63,11 +63,13 @@ Native evaluation details use OpenFeature's reasons in lowercase, such as `split
 - `flag_not_found`: Logfire loaded configuration, but it has no flag with this name.
 - `type_mismatch`: the configured value doesn't match the flag's type.
 - `parse_error`: the configured value isn't valid JSON.
-- `provider_not_ready` or `provider_fatal`: Logfire could not load configuration.
+- `provider_not_ready`: Logfire has not loaded configuration yet, or has shut down.
+- `provider_fatal`: Logfire's background configuration client failed to start, so it will not load configuration.
+- `general`: evaluation failed for another reason, for example because Logfire could not fetch configuration and has never loaded any.
 
 In each case the evaluation returns the code default.
 
-Declaration schemas omit default annotations. Code defaults are recorded separately with Logfire scrubbing applied.
+The first time a process evaluates a flag, Logfire also creates a `Declare variable <name>` span. It records the flag's JSON schema, its description, and its code default, so Logfire can show flags that your code defines. The schema leaves out default values, and the code default goes through Logfire scrubbing. Managed variables create the same span.
 
 ## Validate structured flag values with Pydantic
 
