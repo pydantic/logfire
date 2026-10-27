@@ -149,6 +149,9 @@ _FEATURE_TARGETING_KEY_SOURCE: ContextVar[str | None] = ContextVar('_FEATURE_TAR
 _EPHEMERAL_TARGETING_KEY: ContextVar[str | None] = ContextVar('_EPHEMERAL_TARGETING_KEY', default=None)
 # Callers control incoming trace IDs. The process secret keeps them from choosing a rollout bucket.
 _TRACE_TARGETING_KEY_SECRET = secrets.token_bytes(32)
+_SUPPRESS_FEATURE_FLAG_TELEMETRY: ContextVar[frozenset[object]] = ContextVar(
+    '_SUPPRESS_FEATURE_FLAG_TELEMETRY', default=frozenset()
+)
 
 
 class ResolveFunction(Protocol[T_co]):
@@ -1321,7 +1324,9 @@ class _FlagEvaluationCore(Generic[T_co]):
         span_name = 'feature_flag.evaluation' if self.kind == 'feature_flag' else f'Resolve variable {self.name}'
         with ExitStack() as stack:
             span: logfire.LogfireSpan | None = None
-            if _get_variables_instrument(self.logfire_instance.config.variables):
+            if _get_variables_instrument(self.logfire_instance.config.variables) and not (
+                self.kind == 'feature_flag' and self in _SUPPRESS_FEATURE_FLAG_TELEMETRY.get()
+            ):
                 span_context = self._telemetry_context(targeting_key, merged_attributes)
                 span = stack.enter_context(
                     self.logfire_instance.span(

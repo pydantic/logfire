@@ -17,6 +17,8 @@ from typing import Any
 
 import requests
 import uvicorn
+from openfeature import api
+from openfeature.provider.no_op_provider import NoOpProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, Sum
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
@@ -151,6 +153,34 @@ def serving(app: Any):
 
 
 def main(scenario: str, *, wait_for_recovery_poll: bool = False) -> None:
+    if scenario == 'lifecycle':
+        client = api.get_client(domain='support-demo')
+        previous = client.provider
+        default = api.get_client().provider
+        unrelated = NoOpProvider()
+        api.set_provider_and_wait(unrelated, domain='unrelated-demo')
+        for _ in range(2):
+            with serving(create_app()) as url:
+                response = requests.post(
+                    url + '/support', json={'customer_id': 'example-account', 'plan': 'team'}, timeout=5
+                )
+                assert response.status_code == 200, response.text
+                assert response.json()['assisted'] is True
+                assert client.provider is not previous
+            assert client.provider is previous, 'app left its stopped provider registered'
+            assert client.get_boolean_value('citations', False) is False
+            assert api.get_client().provider is default
+            assert api.get_client(domain='unrelated-demo').provider is unrelated
+
+        replacement = NoOpProvider()
+        with serving(create_app()):
+            api.set_provider_and_wait(replacement, domain='support-demo')
+        assert client.provider is replacement, 'teardown overwrote a newer provider'
+        assert api.get_client().provider is default
+        assert api.get_client(domain='unrelated-demo').provider is unrelated
+        print(json.dumps({'scenario': scenario, 'requests': 2, 'domains_preserved': True}))
+        return
+
     if scenario == 'local':
         with serving(create_app()) as url:
             for plan, enabled in (('team', True), ('free', False)):
@@ -232,11 +262,11 @@ def main(scenario: str, *, wait_for_recovery_poll: bool = False) -> None:
             assert initial['prompt'] == 'Help Acme customers with installation.'
             assert initial['citations'] is True
             assert initial['voice'] == 'friendly'
-            assert initial['reply_budget'] == 256
+            assert initial['reply_budget'] == initial['alias_budget'] == 256
             assert initial['temperature'] == 0.2
             assert initial['tool_options'] == {'search': True, 'timeout': 2}
             assert initial['layout_reason'] == 'split'
-            phases.append('all value types, targeting, and composed prompt')
+            phases.append('all value types, targeting, alias, and composed prompt')
 
             with delivery.condition:
                 initial_polls = len(delivery.polls)
@@ -287,7 +317,7 @@ def main(scenario: str, *, wait_for_recovery_poll: bool = False) -> None:
             if wait_for_recovery_poll:
                 assert cache_phase_polls == [recovery_revalidation]
             # Each read emits exactly once; the emergency flag is short-circuited for free users.
-            assert evaluation_count() - initial_evaluations == 80 * 13 + 80 * 12
+            assert evaluation_count() - initial_evaluations == 80 * 14 + 80 * 13
             phases.append('160 concurrent requests: stable assignments, isolated contexts, no per-request fetches')
 
             # Explicit revalidation should transfer no body when the cached version is current.
@@ -320,7 +350,7 @@ def main(scenario: str, *, wait_for_recovery_poll: bool = False) -> None:
             assert invalid_result['model'] == 'small'
             assert invalid_result['max_documents'] == 1
             assert invalid_result['reply_budget'] == 64
-            assert invalid_result['budget_error'] == 'type_mismatch'
+            assert invalid_result['budget_error'] == 'TYPE_MISMATCH'
             phases.append('invalid Pydantic policy and boolean-as-integer safely fall back')
 
             delivery.publish(config)
@@ -331,7 +361,7 @@ def main(scenario: str, *, wait_for_recovery_poll: bool = False) -> None:
             assert stale['assisted'] is True
             assert stale['max_documents'] == 7
             assert stale['reply_budget'] == 256
-            assert stale['budget_reason'] == 'stale'
+            assert stale['budget_reason'] == 'STALE'
             phases.append('outage retains last loaded values and reports staleness')
 
             delivery.publish(config)
@@ -359,11 +389,11 @@ def main(scenario: str, *, wait_for_recovery_poll: bool = False) -> None:
             del config.variables['banner']
             del config.variables['reply_budget']
             delivery.publish(config)
-            eventually(lambda: support()['budget_error'] == 'flag_not_found', 'deleted flag remained cached')
+            eventually(lambda: support()['budget_error'] == 'FLAG_NOT_FOUND', 'deleted flag remained cached')
             deleted = support()
             assert deleted['banner'] is None
-            assert deleted['reply_budget'] == 64
-            phases.append('deleted flags return safe defaults and report flag_not_found')
+            assert deleted['reply_budget'] == deleted['alias_budget'] == 64
+            phases.append('deletion and removed aliases return safe defaults')
 
             bad_request = requests.post(url + '/support', json={'plan': 'not-a-plan'}, timeout=5)
             assert bad_request.status_code == 422
@@ -405,11 +435,6 @@ def main(scenario: str, *, wait_for_recovery_poll: bool = False) -> None:
             'banner',
             'brand',
             'emergency_shutdown',
-            'citations',
-            'voice',
-            'reply_budget',
-            'temperature',
-            'tool_options',
             'support_prompt',
         }, declarations
         assert set(declarations.values()) == {1}, declarations
