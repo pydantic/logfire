@@ -44,6 +44,10 @@ objectStore:
 postgresDsn: postgresql://logfire_crud:PASSWORD@postgres.example.com:5432/crud
 postgresFFDsn: postgresql://logfire_ff:PASSWORD@postgres.example.com:5432/ff
 
+logfire-redis:
+  enabled: false
+redisDsn: rediss://USER:PASSWORD@redis.example.com:6379
+
 logfire-dex:
   config:
     storage:
@@ -104,7 +108,7 @@ Each database user needs owner permissions so chart migrations can create and up
 
 An instance with 2 vCPU and 16 GB of memory is a good starting size. Resize it from the CPU and connection use that you see. FusionFire migrations set autovacuum settings on the `ff` tables that change most often, so do not override them.
 
-Connect each DSN directly to PostgreSQL, or through a connection pooler in transaction mode. The migration jobs, the FusionFire maintenance scheduler, and Dex then need a session-mode pool or a direct connection. The [chart README](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#connection-poolers) lists what the pooler must support, the session DSN values, and the connections that each workload opens.
+Connect the Logfire services directly to PostgreSQL, or through a connection pooler in transaction mode. With a pooler, the migration jobs, the FusionFire maintenance scheduler, and Dex need a separate session-mode pool or direct connection. The [chart README](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#connection-poolers) lists what the pooler must support, the session DSN values, and the connections that each workload opens.
 
 You can provide the two Logfire database DSNs directly:
 

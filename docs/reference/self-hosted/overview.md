@@ -46,7 +46,7 @@ The backend and FusionFire migrations run as Helm pre-upgrade jobs, before the n
 
 ## Moving From Logfire Cloud
 
-There is no supported way to move existing data from Logfire Cloud to a self-hosted instance. To switch, send telemetry to both destinations during the transition, and keep access to Logfire Cloud until you no longer need the data that is there.
+There is no supported way to move existing data from Logfire Cloud to a self-hosted instance. Point your applications at the self-hosted instance, and keep access to Logfire Cloud until you no longer need the data there.
 
 ## Client Configuration
 

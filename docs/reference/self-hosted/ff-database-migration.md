@@ -33,11 +33,15 @@ The migration consists of three steps:
 - Admin access to your **Kubernetes** cluster.
 - The [Helm](https://helm.sh) CLI installed.
 - `pg_dump`, `pg_restore`, and `psql` with the same major version as the new instance.
-- A new PostgreSQL instance that meets the [PostgreSQL requirements](installation.md#postgresql). It must run the same or a newer PostgreSQL major version than the old instance.
+- A new PostgreSQL instance that meets the [PostgreSQL requirements](installation.md#postgresql). For dump and restore, it must run the same or a newer PostgreSQL major version than the old instance. A physical replica must run the same major version.
 - An empty `ff` database on the new instance, owned by the user in the new `postgresFFDsn`. That user must be able to create the `intarray` and `btree_gist` extensions.
 - Enough disk on the `logfire-ff-ingest` volumes to buffer incoming data for the length of the migration.
 
-Use the same chart version and the same values before and after the migration, except for `postgresFFDsn`. Do not upgrade the chart in the same window.
+Use the same chart version and the same values before and after the migration, except for `postgresFFDsn`. Do not upgrade the chart in the same window. Record the installed chart version, and pass it to every `helm upgrade` in this guide:
+
+```bash
+CHART_VERSION=$(helm list -n logfire -f '^logfire$' -o json | jq -r '.[0].chart | sub("^logfire-"; "")')
+```
 
 The examples below assume the Helm release is named `logfire` and installed in the `logfire` namespace. Adjust the commands if your deployment uses different names.
 
@@ -104,6 +108,7 @@ Apply it with your current production values:
 
 ```bash
 helm upgrade logfire pydantic/logfire \
+  --version "$CHART_VERSION" \
   -f values.yaml \
   -f migration-pause-ff.yaml \
   --namespace logfire
@@ -112,15 +117,8 @@ helm upgrade logfire pydantic/logfire \
 Then scale the workloads down:
 
 ```bash
-kubectl -n logfire scale deployment \
-  logfire-ff-ingest-processor \
-  logfire-ff-compaction-worker \
-  logfire-ff-maintenance-worker \
-  logfire-ff-maintenance-scheduler \
-  logfire-ff-crud-api \
-  logfire-ff-query-api \
-  logfire-ff-query-worker \
-  --replicas=0
+kubectl -n logfire scale deployment --replicas=0 \
+  -l 'app.kubernetes.io/component in (logfire-ff-ingest-processor,logfire-ff-compaction-worker,logfire-ff-maintenance-worker,logfire-ff-maintenance-scheduler,logfire-ff-crud-api,logfire-ff-query-api,logfire-ff-query-worker)'
 ```
 
 Make sure that no client is still connected to the old `ff` database:
@@ -182,7 +180,7 @@ This guide does not cover logical replication. Logical replication does not copy
 
 After Step 1 is complete:
 
-1. Wait until the replica has replayed every change from the old instance. Your provider shows this as a replication lag of zero. On a self-managed replica, `pg_last_wal_replay_lsn()` on the replica must equal `pg_current_wal_lsn()` on the old instance.
+1. Wait until the replica has replayed every change from the old instance. Your provider shows this as a replication lag of zero. On a self-managed replica, run `SELECT pg_current_wal_lsn();` on the old instance after Step 1. Then wait until `SELECT pg_wal_lsn_diff(pg_last_wal_replay_lsn(), '<LSN>') >= 0;` returns `true` on the replica.
 2. Promote the replica to a standalone instance, with your provider's promote action or with `pg_promote()`.
 3. Make sure that the user in the new `postgresFFDsn` can sign in to the promoted instance and owns the `ff` database.
 
@@ -200,13 +198,14 @@ Deploy the updated Helm chart without `migration-pause-ff.yaml`, so Helm restore
 
 ```bash
 helm upgrade logfire pydantic/logfire \
+  --version "$CHART_VERSION" \
   -f values.yaml \
   --namespace logfire
 ```
 
 The FusionFire migration job runs against the new database first. The chart version did not change, so the job has no migration to apply.
 
-Pods that read `postgresFFDsn` restart with the new value, including `logfire-ff-ingest`. Its buffer is on a persistent volume, so the restart does not lose buffered data. If an external tool manages the Secret and the pods did not restart, restart the FusionFire deployments and the `logfire-ff-ingest` StatefulSet with `kubectl rollout restart`.
+The chart restarts every pod that receives `postgresFFDsn`. That includes `logfire-ff-ingest`, which receives the value but does not use it. Its buffer is on a persistent volume, so the restart does not lose buffered data. If an external tool manages the Secret and the pods did not restart, restart the FusionFire deployments and the `logfire-ff-ingest` StatefulSet with `kubectl rollout restart`.
 
 If the Helm upgrade does not restore the workloads, scale them back up manually to your previous replica counts.
 
