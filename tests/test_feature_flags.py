@@ -4180,3 +4180,27 @@ def test_openfeature_type_mismatch_telemetry_omits_value_derived_locations(
     attributes = _evaluation_span_attributes(exporter)
     assert attributes['feature_flag.error.message'] == 'Configured value did not match the declared flag type.'
     assert 'customer-private-key' not in repr(attributes)
+
+
+def test_openfeature_error_telemetry_replaces_only_type_mismatch_messages():
+    general = _evaluation_telemetry(
+        'region',
+        FlagResolutionDetails(
+            value='us',
+            reason=Reason.ERROR,
+            error_code=ErrorCode.GENERAL,
+            error_message='Feature flag evaluation failed.',
+        ),
+    )
+    assert general['feature_flag.error.message'] == 'Feature flag evaluation failed.'
+
+    mismatch = _evaluation_telemetry(
+        'region',
+        FlagResolutionDetails(
+            value='us',
+            reason=Reason.ERROR,
+            error_code=ErrorCode.TYPE_MISMATCH,
+            error_message='Configured value did not match the declared flag type: customer-private-key (int_type).',
+        ),
+    )
+    assert mismatch['feature_flag.error.message'] == 'Configured value did not match the declared flag type.'
