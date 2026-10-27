@@ -423,6 +423,9 @@ navigation:
           - page: "Instructor"
             path: "integrations/llms/instructor.md"
             slug: "integrations/llms/instructor"
+          - page: "Pixeltable"
+            path: "integrations/llms/pixeltable.md"
+            slug: "integrations/llms/pixeltable"
       - section: "Agent frameworks"
         contents:
           - page: "Overview"
@@ -761,6 +764,9 @@ navigation:
         slug: "guides/cloud-metrics"
         aliases:
           - "how-to-guides/cloud-metrics"
+      - page: "Send AWS logs and metrics through Firehose"
+        path: "how-to-guides/aws-firehose.md"
+        slug: "guides/aws-firehose"
       - section: "OpenTelemetry Collector"
         contents:
           - page: "Overview"

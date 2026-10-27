@@ -2,7 +2,7 @@ import opentelemetry.trace as trace_api
 from ..types import ExceptionCallback as ExceptionCallback
 from .config import LogfireConfig as LogfireConfig
 from .constants import ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY as ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, log_level_attributes as log_level_attributes
-from .utils import handle_internal_errors as handle_internal_errors, is_instrumentation_suppressed as is_instrumentation_suppressed, sha256_string as sha256_string
+from .utils import handle_internal_errors as handle_internal_errors, is_instrumentation_suppressed as is_instrumentation_suppressed, safe_str as safe_str, safe_type_name as safe_type_name, sha256_string as sha256_string
 from _typeshed import Incomplete
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field

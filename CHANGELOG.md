@@ -1,5 +1,25 @@
 # Release Notes
 
+## [v5.4.0] (2026-10-26)
+
+* `logfire.agent_sandboxes()` by @samuelcolvin in [#2658](https://github.com/pydantic/logfire/pull/2658) and [#2672](https://github.com/pydantic/logfire/pull/2672)
+* fix(sdk): serialize all pathlib.Path variants as plain strings by @RichardoMrMu in [#2669](https://github.com/pydantic/logfire/pull/2669)
+* Format an empty set as set() in the console exporter by @chrikrah in [#2671](https://github.com/pydantic/logfire/pull/2671)
+* Keep binary attributes out of the secret scrubber by @Eapp1e in [#2668](https://github.com/pydantic/logfire/pull/2668)
+* Keep recording exceptions whose `__str__` raises by @Eapp1e in [#2667](https://github.com/pydantic/logfire/pull/2667)
+* Print generator attributes as their repr in the console exporter by @CyberNativeAI in [#2657](https://github.com/pydantic/logfire/pull/2657)
+* Record OpenAI cache write tokens on spans by @pcbeingused333 in [#2637](https://github.com/pydantic/logfire/pull/2637)
+* Keep non-string messages from breaking exporters by @oxura in [#2655](https://github.com/pydantic/logfire/pull/2655)
+* Count only top-level CTE names in SQL summaries by @gokay-ai in [#2652](https://github.com/pydantic/logfire/pull/2652)
+* Log dataclass types as their repr, not their default field values by @chrikrah in [#2649](https://github.com/pydantic/logfire/pull/2649)
+* Record max_completion_tokens as the requested max tokens on OpenAI chat spans by @pcbeingused333 in [#2646](https://github.com/pydantic/logfire/pull/2646)
+* Record custom tool calls from OpenAI chat completions by @pcbeingused333 in [#2647](https://github.com/pydantic/logfire/pull/2647)
+* Convert Anthropic document and file-backed image input blocks to semconv parts by @pcbeingused333 in [#2645](https://github.com/pydantic/logfire/pull/2645)
+* Harden remote strings in log messages by @dmontagu in [#2654](https://github.com/pydantic/logfire/pull/2654)
+* Remove the duplicated tool call from message content by @RachelWanggg in [#2442](https://github.com/pydantic/logfire/pull/2442)
+* Record errors raised during LLM stream consumption by @deepanshupal in [#2491](https://github.com/pydantic/logfire/pull/2491)
+* fix(formatter): treat unbalanced braces as a formatting failure by @Eapp1e in [#2675](https://github.com/pydantic/logfire/pull/2675)
+
 ## [v5.3.0] (2026-10-23)
 
 * Automatically instrument FastAPI with logfire run by @alexmojaki in [#2606](https://github.com/pydantic/logfire/pull/2606)
@@ -1433,3 +1453,4 @@ First release from new repo!
 [v6.0.0b7]: https://github.com/pydantic/logfire/compare/v6.0.0b6...v6.0.0b7
 [v6.0.0b8]: https://github.com/pydantic/logfire/compare/v6.0.0b7...v6.0.0b8
 [v5.3.0]: https://github.com/pydantic/logfire/compare/v6.0.0b8...v5.3.0
+[v5.4.0]: https://github.com/pydantic/logfire/compare/v5.3.0...v5.4.0

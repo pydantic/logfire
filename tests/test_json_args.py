@@ -10,7 +10,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 from unittest.mock import MagicMock, Mock
 from uuid import UUID
@@ -74,6 +74,11 @@ class MyComplexDataclass:
 @pydantic_dataclass(config=pydantic_model_config)
 class MyPydanticComplexDataclass:
     t: MyPydanticDataclass
+
+
+@dataclass
+class MyDefaultsDataclass:
+    t: int = 1
 
 
 @dataclass
@@ -472,14 +477,28 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             Path('/tmp/test.py'),
             '/tmp/test.py',
             '"/tmp/test.py"',
-            {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
             id='path',
+        ),
+        pytest.param(
+            PurePosixPath('/tmp/test.py'),
+            '/tmp/test.py',
+            '"/tmp/test.py"',
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
+            id='pure-posix-path',
+        ),
+        pytest.param(
+            PureWindowsPath('C:/tmp/test.py'),
+            'C:\\tmp\\test.py',
+            '"C:\\\\tmp\\\\test.py"',
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
+            id='windows-path',
         ),
         pytest.param(
             FilePath(__file__),  # type: ignore
             __file__,
             f'"{__file__}"',
-            {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
             id='pydantic_file_path',
         ),
         pytest.param(
@@ -869,6 +888,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
                 'type': 'array',
             },
             id='list_of_dataclass_type',
+        ),
+        pytest.param(
+            MyDefaultsDataclass,
+            "<class 'tests.test_json_args.MyDefaultsDataclass'>",
+            '"<class \'tests.test_json_args.MyDefaultsDataclass\'>"',
+            {'type': 'object', 'x-python-datatype': 'unknown'},
+            id='dataclass_type_with_defaults',
         ),
     ],
 )
@@ -1716,7 +1742,7 @@ def test_mock(exporter: TestExporter):
     class Bar(Mixin, MagicMock):
         pass
 
-    logfire.info('hi', foo=Foo(), bar=Bar(), mock=Mock(), magic_mock=MagicMock())
+    logfire.info('hi', foo=Foo(), bar=Bar(), mock=Mock(), magic_mock=MagicMock(), spec_mock=MagicMock(spec=MyDataclass))
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -1738,7 +1764,8 @@ def test_mock(exporter: TestExporter):
                     'bar': '"Bar()"',
                     'mock': IsStr(regex=r'^"<Mock id=\'\d+\'>"'),
                     'magic_mock': IsStr(regex=r'^"<MagicMock id=\'\d+\'>"'),
-                    'logfire.json_schema': '{"type":"object","properties":{"foo":{"type":"object","x-python-datatype":"unknown"},"bar":{"type":"object","x-python-datatype":"unknown"},"mock":{"type":"object","x-python-datatype":"unknown"},"magic_mock":{"type":"object","x-python-datatype":"unknown"}}}',
+                    'spec_mock': IsStr(regex=r'^"<MagicMock spec=\'MyDataclass\' id=\'\d+\'>"'),
+                    'logfire.json_schema': '{"type":"object","properties":{"foo":{"type":"object","x-python-datatype":"unknown"},"bar":{"type":"object","x-python-datatype":"unknown"},"mock":{"type":"object","x-python-datatype":"unknown"},"magic_mock":{"type":"object","x-python-datatype":"unknown"},"spec_mock":{"type":"object","x-python-datatype":"unknown"}}}',
                 },
             }
         ]

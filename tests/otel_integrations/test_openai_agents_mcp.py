@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from importlib import import_module
 from typing import TYPE_CHECKING
 
+import anyio
 import pytest
 from dirty_equals import IsPartialDict
 from inline_snapshot import snapshot
@@ -43,6 +44,40 @@ except ImportError:
 
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
 os.environ['OPENAI_DEFAULT_MODEL'] = 'gpt-4o'
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('logger_name', [None, '', 'my_logger', '{data}', '{missing!r:>20}', 'unmatched {'])
+async def test_mcp_logger_is_data(exporter: TestExporter, logger_name: str | None):
+    """Server logger names must remain literal data, never message format syntax."""
+    fastmcp = FastMCP()
+
+    async def emit_log(ctx: Context) -> str:
+        await ctx.log('info', 'hello', logger_name=logger_name)
+        return 'done'
+
+    fastmcp.tool()(emit_log)
+    ClientSession = import_module('mcp.client.session').ClientSession
+    async with create_client_server_memory_streams() as (client_streams, server_streams):
+        async with anyio.create_task_group() as task_group:
+            server = fastmcp._mcp_server
+            task_group.start_soon(server.run, *server_streams, server.create_initialization_options())
+            async with ClientSession(*client_streams) as session:
+                await session.initialize()
+                await session.call_tool('emit_log')
+            task_group.cancel_scope.cancel()
+
+    logs = [span for span in exporter.exported_spans_as_dict() if span['attributes'].get('logfire.span_type') == 'log']
+    assert len(logs) == 1
+    attributes = logs[0]['attributes']
+    assert attributes['data'] == 'hello'
+    if logger_name:
+        assert logs[0]['name'] == attributes['logfire.msg_template'] == 'MCP server log from {logger}'
+        assert attributes['logfire.msg'] == f'MCP server log from {logger_name}'
+        assert attributes['logger'] == logger_name
+    else:
+        assert logs[0]['name'] == attributes['logfire.msg_template'] == attributes['logfire.msg'] == 'MCP server log'
+        assert 'logger' not in attributes
 
 
 @pytest.mark.vcr()
@@ -273,7 +308,7 @@ async def test_mcp(exporter: TestExporter):
                 },
             },
             {
-                'name': 'MCP server log from my_logger',
+                'name': 'MCP server log from {logger}',
                 'context': {'trace_id': 2, 'span_id': 26, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 23, 'is_remote': True},
                 'start_time': 19000000000,
@@ -281,12 +316,13 @@ async def test_mcp(exporter: TestExporter):
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 21,
-                    'logfire.msg_template': 'MCP server log from my_logger',
+                    'logfire.msg_template': 'MCP server log from {logger}',
                     'logfire.msg': 'MCP server log from my_logger',
                     'code.filepath': 'session.py',
                     'code.function': '_receive_loop',
                     'code.lineno': 123,
                     'data': 'Dice broken! Improvising...',
+                    'logger': 'my_logger',
                 },
             },
             {

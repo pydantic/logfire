@@ -122,6 +122,21 @@ def test_console_range_attributes(
     assert not caplog.records
 
 
+def test_console_generator_attribute(config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture) -> None:
+    # A generator is encoded as its repr() without being consumed, so the console prints that repr as is.
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    gen = (x for x in [1, 2])
+    logfire.info('loaded', values=gen, count=2)
+
+    assert output.getvalue() == f'loaded\n│ values={gen!r}\n│ count=2\n'
+    assert list(gen) == [1, 2]
+    assert not caplog.records
+
+
 def test_console_bytearray_attribute(config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture) -> None:
     output = io.StringIO()
     config_kwargs['console'] = ConsoleOptions(

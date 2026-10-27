@@ -42,7 +42,7 @@ logfire.configure()
 
 
 @with_logfire()
-@anthropic.call('claude-sonnet-4-5')
+@anthropic.call('claude-sonnet-5-5')
 @prompt_template('Please recommend some {genre} books')
 def recommend_books(genre: str): ...
 
