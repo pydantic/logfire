@@ -283,8 +283,9 @@ def targeting_context(targeting_key: str, variables: Sequence[_TargetableVariabl
 def feature_context(targeting_key: str, *, attributes: Mapping[str, Any] | None = None) -> Generator[None]:
     """Set request-local targeting for feature flags and other managed variables.
 
-    This is an experimental convenience alias for :func:`targeting_context`. Attributes
-    supplied directly to an evaluation take precedence over values set here.
+    Inside the block, feature flags use this targeting key even when a nested `targeting_context()`
+    sets another default key. Managed variables use it like a `targeting_context()` default.
+    Attributes supplied directly to an evaluation take precedence over values set here.
 
     Args:
         targeting_key: Stable identifier used for deterministic rollouts, such as a user or organization ID.

@@ -51,10 +51,10 @@ the SDK's configuration and server-sent event endpoints. They cover:
 
 Only the delivery boundary is fake; flag evaluation, HTTP clients, event streaming, request
 handling, tracing, and metrics use their real implementations. These checks do not prove
-compatibility with a deployed Platform instance or a particular production workload.
+compatibility with the hosted Logfire service or a particular production workload.
 
-Flag telemetry records the targeting key as `feature_flag.context.id`, but never the targeting
-attributes. Managed-template telemetry records both, so this demo uses a non-personal
+Flag telemetry records the targeting key as `feature_flag.context.id`, but not the attributes
+passed for targeting. Managed-template telemetry records both, so this demo uses a non-personal
 service-level key for its shared prompt. It also disables capturing FastAPI endpoint arguments. Do not copy customer identities or credentials into application logs.
 
 The subprocesses and temporary servers stop after verification. Run `make test-feature-flags`

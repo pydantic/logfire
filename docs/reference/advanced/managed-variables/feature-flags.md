@@ -5,7 +5,7 @@ description: Define typed flags in code, target them consistently, and analyze e
 
 Use a feature flag when you need to turn behavior on or off without redeploying your application. The API is experimental: its import path and evaluation details may change while we learn from production use.
 
-The API follows [OpenFeature](https://openfeature.dev/), the vendor-neutral standard for feature flags. Evaluation details, reasons, and error codes use OpenFeature's names. OpenFeature clients in browsers and other languages can read the same flags through Logfire's [OpenFeature endpoints](external.md). Evaluation telemetry follows the OpenTelemetry [semantic conventions for feature flags](https://opentelemetry.io/docs/specs/semconv/feature-flags/), the standard attribute names for flag evaluations.
+The API follows [OpenFeature](https://openfeature.dev/), the vendor-neutral standard for feature flags. Evaluation details, reasons, and error codes use OpenFeature's names. Browser, mobile, and other clients can read the same flags through Logfire's OpenFeature endpoints: see [Client-side feature flags](../../../how-to-guides/client-side-feature-flags.md). Evaluation telemetry uses the attribute names from the OpenTelemetry [semantic conventions for feature flags](https://opentelemetry.io/docs/specs/semconv/feature-flags/), the standard names for flag evaluation data.
 
 Install the feature-flag dependencies:
 
@@ -17,7 +17,7 @@ To load values managed in Logfire, [create an API key](../use-api-keys.md#creati
 
 Define the flag once, near the code it controls. The required default keeps your application working before Logfire receives configuration. If a later refresh fails, flags keep using the last loaded configuration and report a `stale` reason. Invalid configured values fall back to the code default.
 
-Flag names currently share the managed-variable naming contract: use ASCII letters, digits, and underscores, without starting with a digit. For example, use `new_checkout` rather than `new-checkout`.
+Flags are managed variables, so they follow the same naming rules: use ASCII letters, digits, and underscores, without starting with a digit. For example, use `new_checkout` rather than `new-checkout`. A flag and a `logfire.var()` can't share a name in the same application. Defining the same name twice raises `ValueError`.
 
 ```python
 import logfire
@@ -36,13 +36,13 @@ with feature_context('account-123', attributes={'plan': 'team'}):
     #> False
 ```
 
-The targeting key identifies the subject receiving the flag. Use a stable user or organization identifier so percentage rollouts consistently select the same outcome. Attributes let targeting rules select groups such as plans or regions. Context set by `feature_context()` also applies to other managed variables evaluated inside the block; pass `targeting_key` or `attributes` directly to an evaluation when it needs different values.
+Each value configured for a flag in Logfire is a label, and the label an evaluation selects is its *variant*. A *percentage rollout* serves each label to a share of subjects, for example 10% `on` and 90% `off`. The targeting key identifies the subject receiving the flag. Use a stable user or organization identifier so a percentage rollout keeps each subject on the same variant. Attributes let targeting rules select groups such as plans or regions. Context set by `feature_context()` also applies to other managed variables evaluated inside the block; pass `targeting_key` or `attributes` directly to an evaluation when it needs different values.
 
 Targeting rules also see [baggage](../baggage.md), the key-value pairs that `logfire.set_baggage()` attaches to the current context. Use it to set an attribute once, higher up the call stack, for every flag evaluated below it. When an attribute comes from more than one place, attributes passed to the evaluation take precedence over `feature_context()`, which takes precedence over baggage. To ignore baggage, configure `LocalVariablesOptions` or `VariablesOptions` with `include_baggage_in_context=False`.
 
-Baggage can also arrive with an incoming request from another service. If your application serves requests from callers you don't control and a targeting rule depends on baggage, configure `logfire.configure(distributed_tracing=False)`. Logfire then ignores incoming trace context and baggage, so only your own code can set the attributes that rules see.
+Baggage can also arrive with an incoming request from another service. If your application serves requests from callers you don't control and a targeting rule depends on baggage, configure `logfire.configure(distributed_tracing=False)`. Instrumented servers and libraries then ignore incoming trace context and baggage, so only your own code can set the attributes that rules see. Context that your own code attaches with `logfire.attach_context()` is still accepted, as [Distributed tracing](../../../how-to-guides/distributed-tracing.md#unintentional-distributed-tracing) describes.
 
-Without a targeting key, a percentage rollout picks one variant for each trace. Every evaluation in the same request gets the same result, but the next request can get a different one. Outside a trace, Logfire picks a random key that lasts for the rest of the current context. Logfire also warns once, because each user can switch between variants. Callers can't choose their variant by sending a chosen trace ID: Logfire combines the trace ID with a secret that only the running process knows.
+Without a targeting key, a percentage rollout picks one variant for each trace, the record of one request. Every evaluation for that request in the same process gets the same variant, but the next request can get a different one, and so can another service that handles the same trace. Outside a trace, Logfire picks one random key for the current async task or thread, or for the whole run of a simple script. Logfire also warns once, because a user can switch between variants. Logfire combines the trace ID with a secret that only the running process knows, so a caller can't predict which variant a trace ID selects. When a flag protects something that a caller must not choose, always pass a stable targeting key.
 
 To inspect the selected variant, fallback reason, or error, call `details()`:
 
@@ -54,9 +54,9 @@ print(details.variant)
 print(details.reason)
 ```
 
-Each evaluation creates a `feature_flag.evaluation` span. It records the flag, the serialized value and variant, the selected value version, and the reason. Values honor Pydantic serializers and Logfire scrubbing. The span also records the targeting key as `feature_flag.context.id`, so you can see why a user received a variant. It never records targeting attributes, which can contain customer data. To keep the targeting key out of telemetry too, add a [scrubbing](../../../how-to-guides/scrubbing.md) pattern that matches the attribute, for example `logfire.configure(scrubbing=logfire.ScrubbingOptions(extra_patterns=[r'context\.id']))`.
+Each evaluation creates a `feature_flag.evaluation` span, the record of one operation in a Logfire trace. It records the flag, the serialized value and variant, the selected value version, and the reason. Values honor Pydantic serializers and Logfire scrubbing. The span also records the targeting key as `feature_flag.context.id`, so you can see why a user received a variant. It does not record attributes passed to the evaluation or to `feature_context()`, which can contain customer data. Baggage entries still appear on every span, including this one, unless you configure `logfire.configure(add_baggage_to_attributes=False)`. To keep the targeting key out of telemetry too, add a [scrubbing](../../../how-to-guides/scrubbing.md) pattern that matches the attribute, for example `logfire.configure(scrubbing=logfire.ScrubbingOptions(extra_patterns=[r'context\.id']))`.
 
-A flag value can include other managed variables with `@{name}@` references. The span then also records `composed_from`: the name, label, and version of each referenced variable, without their values. A change to a referenced variable changes what the flag serves without changing the flag's own version, so use `composed_from` to tell those values apart when you compare variants.
+A flag value can include other managed variables with `@{name}@` references. The span then also records `composed_from`: the name, label, version, and resolution reason of each referenced variable, and any composition error, without their values. A change to a referenced variable changes what the flag serves without changing the flag's own version, so use `composed_from` to tell those values apart when you compare variants.
 
 Native evaluation details use OpenFeature's reasons in lowercase, such as `split`, `targeting_match`, `static`, `default`, or `error`. A value set with [`override()`](#test-both-outcomes) reports `context_override`, the same reason that managed variables use. When the reason is `error`, `error_code` says why:
 
@@ -69,7 +69,7 @@ Native evaluation details use OpenFeature's reasons in lowercase, such as `split
 
 In each case the evaluation returns the code default.
 
-The first time a process evaluates a flag, Logfire also creates a `Declare variable <name>` span. It records the flag's JSON schema, its description, and its code default, so Logfire can show flags that your code defines. The schema leaves out default values, and the code default goes through Logfire scrubbing. Managed variables create the same span.
+The first time a process evaluates a flag, Logfire also creates a `Declare variable <name>` span. It records the flag's JSON schema (a description of the value's type), its description, and its code default, so Logfire can show flags that your code defines. The schema leaves out default values, and the code default goes through Logfire scrubbing. Managed variables create the same span.
 
 ## Validate structured flag values with Pydantic
 
@@ -120,7 +120,7 @@ with new_checkout.details(targeting_key=user_id) as details:
         render_old_checkout()
 ```
 
-Calling `details()` or `value()` without `with` does not set baggage.
+The entry's value is the variant. When the evaluation returned the code default, the value is `<code_default>`, and when it returned an [override](#test-both-outcomes), the value is `<context_override>`. Calling `details()` or `value()` without `with` does not set baggage.
 
 Baggage travels with distributed tracing. Downstream services receive the entry, and so do outgoing HTTP requests from instrumented clients, including requests to third-party APIs. This is usually what you want for analysis across services, but don't use it for variant names that must stay private.
 
@@ -140,7 +140,7 @@ with new_checkout.override(False):
     assert new_checkout.value() is False
 ```
 
-An override applies to this flag in the current context. Async tasks and `asyncio.to_thread()` calls started inside the block see it, and so do requests made with the Starlette or FastAPI `TestClient`. Threads that don't copy the context, such as a plain `threading.Thread` or a `concurrent.futures` executor, and other processes don't see it.
+An override applies to this flag until the `with` block ends, in the current thread or async task. Async tasks and `asyncio.to_thread()` calls started inside the block see it, and so do requests made with the Starlette or FastAPI `TestClient`. Threads that don't copy the context, such as a plain `threading.Thread` or a `concurrent.futures` executor, and other processes don't see it.
 
 You can also override a flag in production, for example to give internal users a variant for one request. Evaluations report the `context_override` reason, so overridden values stay visible in telemetry.
 
@@ -179,7 +179,7 @@ print(beta_banner.value())
 #> True
 ```
 
-Flags don't support `logfire.var()`'s `label=` argument for selecting a label by name. To serve a different value in each environment, add a targeting rule on the `deployment.environment` resource attribute instead.
+Flags don't support `logfire.var()`'s `label=` argument for selecting a label by name. To serve a different value in each environment, add a targeting rule on the `deployment.environment.name` resource attribute instead. Resource attributes describe the running application, and `logfire.configure(environment=...)` sets this one.
 
 ## Verify the flag
 
@@ -192,4 +192,4 @@ Run the application once, then find `feature_flag.evaluation` in Logfire. Confir
 - **A user changes variants between requests:** provide the same stable targeting key on every evaluation.
 - **A targeting rule does not match:** pass every attribute used by the rule either through `feature_context()` or directly to the evaluation.
 
-See [Targeting](targeting.md) for context precedence and [Remote variables](remote.md) for API-key setup.
+See [Targeting](targeting.md) for targeting rules and [Remote variables](remote.md) for API-key setup.

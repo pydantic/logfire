@@ -134,8 +134,8 @@ def create_app(sdk: logfire.Logfire | None = None) -> FastAPI:
                 settings = policy.details()
                 experiment = layout.details()
                 budget = reply_budget.details()
-                # Legacy template telemetry includes its targeting key. This shared prompt needs
-                # service-level targeting, not the customer's identity used by the flags.
+                # Template telemetry records its targeting key and attributes. This shared prompt
+                # uses a service-level key, so the customer's identity is not attached to it.
                 rendered = prompt.get(PromptInputs(topic=ticket.topic), targeting_key='support-service').value
                 request_counter.add(1, attributes)
                 sdk.info('Support request completed', assisted=after.value, variant=experiment.variant)

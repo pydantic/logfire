@@ -193,7 +193,7 @@ This is useful when you want different configurations based on user plan. For ex
 
 **Example: Environment-based targeting with resource attributes**
 
-Resource attributes like `deployment.environment` are automatically included, allowing you to use different configurations in different environments without code changes:
+Resource attributes like `deployment.environment.name` are automatically included, allowing you to use different configurations in different environments without code changes:
 
 - Use a more experimental prompt on staging to test changes before production
 - Enable verbose logging in development but not in production
