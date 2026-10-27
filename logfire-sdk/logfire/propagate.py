@@ -146,8 +146,9 @@ class WarnOnExtractTraceContextPropagator(WrapperPropagator):
         *args: Any,
         **kwargs: Any,
     ) -> otel_context.Context:
+        original_context = context if context is not None else otel_context.Context()
         result = super().extract(carrier, context, *args, **kwargs)
-        if not self.warned and result != context:
+        if not self.warned and result != original_context:
             self.warned = True
             message = (
                 'Found propagated trace context. See '

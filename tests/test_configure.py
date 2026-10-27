@@ -3326,6 +3326,28 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
     )
 
 
+@pytest.mark.parametrize('context', [None, otel_context.Context(), otel_context.Context({'local': 'value'})])
+def test_distributed_tracing_default_no_incoming_context(
+    config_kwargs: dict[str, Any], context: otel_context.Context | None
+):
+    config_kwargs['distributed_tracing'] = None
+    logfire.configure(**config_kwargs)
+
+    assert get_global_textmap().extract({}, context=context) == (context or {})
+
+
+def test_distributed_tracing_default_warns_on_incoming_baggage(config_kwargs: dict[str, Any]):
+    config_kwargs['distributed_tracing'] = None
+    logfire.configure(**config_kwargs)
+
+    with pytest.warns(RuntimeWarning, match='Found propagated trace context'):
+        with propagate.attach_context({'baggage': 'plan=enterprise'}, third_party=True):
+            assert logfire.get_baggage() == {'plan': 'enterprise'}
+    # Only warn once, even when more baggage is extracted.
+    with propagate.attach_context({'baggage': 'plan=enterprise'}, third_party=True):
+        assert logfire.get_baggage() == {'plan': 'enterprise'}
+
+
 def test_distributed_tracing_enabled(exporter: TestExporter):
     assert isinstance(get_global_textmap(), CompositePropagator)
     assert get_global_textmap().fields == {'baggage', 'traceparent', 'tracestate'}
