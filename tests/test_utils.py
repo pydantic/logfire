@@ -1,4 +1,5 @@
 import re
+from typing import Any
 
 import pytest
 import requests
@@ -6,7 +7,7 @@ import requests_mock
 from inline_snapshot import snapshot
 
 import logfire
-from logfire._internal.utils import UnexpectedResponse, handle_internal_errors
+from logfire._internal.utils import UnexpectedResponse, handle_internal_errors, truncate_sequence, truncate_string
 from tests.import_used_for_tests.internal_error_handling import internal_logfire_code_example, user_code_example
 
 
@@ -128,3 +129,43 @@ def test_internal_error_base_exception():
     with pytest.raises(BaseException):
         with handle_internal_errors:
             raise BaseException('base exception')
+
+
+@pytest.mark.parametrize('extra_length', [0, 1])
+@pytest.mark.parametrize(
+    'seq,middle',
+    [
+        ('abcdef', '...'),
+        (b'abcdef', b'...'),
+        ([1, 2, 3, 4, 5, 6], ['...']),
+        ((1, 2, 3, 4, 5, 6), ('...',)),
+    ],
+)
+def test_truncate_sequence_zero_tail(seq: Any, middle: Any, extra_length: int) -> None:
+    max_length = len(middle) + extra_length
+    result = truncate_sequence(seq, max_length=max_length, middle=middle)
+    assert result == middle
+    assert type(result) is type(seq)
+    assert len(result) <= max_length
+
+
+@pytest.mark.parametrize('max_length', [3, 4])
+def test_truncate_string_zero_tail(max_length: int) -> None:
+    assert truncate_string('abcdef', max_length=max_length) == '...'
+
+
+@pytest.mark.parametrize(
+    'seq,middle,expected',
+    [
+        ('abcdefghij', '...', 'ab...ij'),
+        (b'abcdefghij', b'...', b'ab...ij'),
+        ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], ['...'], [1, 2, '...', 9, 10]),
+        ((1, 2, 3, 4, 5, 6, 7, 8, 9, 10), ('...',), (1, 2, '...', 9, 10)),
+    ],
+)
+def test_truncate_sequence_preserves_existing_behavior(seq: Any, middle: Any, expected: Any) -> None:
+    assert truncate_sequence(seq, max_length=len(seq), middle=middle) is seq
+    for extra_length in (4, 5):
+        result = truncate_sequence(seq, max_length=len(middle) + extra_length, middle=middle)
+        assert result == expected
+        assert type(result) is type(seq)
