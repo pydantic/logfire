@@ -74,9 +74,9 @@ class Flag(Generic[T]):
         stay visible in telemetry.
 
         The override is stored in a context variable. It applies to async tasks, `asyncio.to_thread`
-        calls, and Starlette or FastAPI `TestClient` requests started in the block. It does not
-        apply to threads that do not copy the context, such as a plain `threading.Thread`, a
-        `concurrent.futures` executor, or `loop.run_in_executor`, or to other processes.
+        calls, and Starlette or FastAPI `TestClient` requests started in the block. After
+        `logfire.configure()`, it also applies to thread pool tasks, including `loop.run_in_executor`.
+        It does not apply to a plain `threading.Thread` or to other processes.
         """
 
 @overload

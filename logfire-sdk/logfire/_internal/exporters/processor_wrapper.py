@@ -28,6 +28,7 @@ from ..db_statement_summary import message_from_db_statement
 from ..integrations.llm_providers.semconv import PROVIDER_NAME
 from ..json_schema import JsonSchemaProperties, attributes_json_schema
 from ..scrubbing import BaseScrubber
+from ..trace_scope import enter_trace_scope, exit_trace_scope
 from ..utils import (
     ReadableSpanDict,
     handle_internal_errors,
@@ -48,10 +49,14 @@ class CheckSuppressInstrumentationProcessorWrapper(WrapperSpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
         if is_instrumentation_suppressed():
             return
+        # Span processors run in the context that starts and ends the span, so a local root span
+        # can scope per-trace state to exactly the work done inside it.
+        enter_trace_scope(span)
         with logfire.suppress_instrumentation():
             super().on_start(span, parent_context)
 
     def on_end(self, span: ReadableSpan) -> None:
+        exit_trace_scope(span)
         if is_instrumentation_suppressed():
             return
         with logfire.suppress_instrumentation():

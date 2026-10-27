@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 # pyright: reportPrivateUsage=false
+import asyncio
 import contextvars
 import json
 import math
@@ -8,7 +9,7 @@ import os
 import threading
 import warnings
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, ExitStack
 from dataclasses import replace
@@ -30,7 +31,9 @@ from hypothesis.stateful import (
 from pydantic import AfterValidator, BaseModel, Field, PlainSerializer, RootModel, ValidationError
 
 import logfire
+from logfire._internal import trace_scope
 from logfire._internal.config import LocalVariablesOptions, VariablesOptions
+from logfire._internal.trace_scope import current_trace_scope
 from logfire.experimental.feature_flags import (
     Flag,
     FlagEvaluationDetails,
@@ -50,6 +53,7 @@ from logfire.variables import (
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.remote import LogfireRemoteVariableProvider
 from logfire.variables.variable import (
+    _VARIABLE_OVERRIDES,
     _feature_flag_evaluation_details,
     _feature_flag_telemetry_attributes,
     _feature_flag_telemetry_value,
@@ -1716,7 +1720,7 @@ def test_rollout_warning_truth_table():
     assert len(caught) == 1
 
 
-def test_feature_flags_use_an_unpredictable_per_trace_key_without_a_targeting_key():
+def test_feature_flags_use_a_random_key_per_local_trace_without_a_targeting_key():
     config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
     logfire.configure(
         send_to_logfire=False,
@@ -1739,7 +1743,7 @@ def test_feature_flags_use_an_unpredictable_per_trace_key_without_a_targeting_ke
 
     keys = [call.args[1] for call in get_serialized_value.call_args_list]
     trace_id = f'{span.get_span_context().trace_id:032x}'  # type: ignore[union-attr]
-    # A caller controls the inbound trace ID, so it must not be usable as the key directly.
+    # A caller controls the inbound trace ID, so the key must not be derived from it.
     assert all(key.startswith('trace:') and trace_id not in key for key in keys)
     # Every evaluation in one trace gets the same key, so the trace sees one variant.
     assert keys[0] == keys[1]
@@ -2326,3 +2330,129 @@ def test_type_mismatch_telemetry_omits_value_derived_locations(config_kwargs: di
         attributes['feature_flag.error.message'] == 'Configured value did not match the declared flag type: int_type.'
     )
     assert 'customer-private-key' not in repr(attributes)
+
+
+def _fallback_key_recorder(flag: Flag[bool]) -> Callable[[], str]:
+    provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+    original = provider.get_serialized_value
+    keys: list[str] = []
+
+    def record(name: str, targeting_key: str | None, attributes: Mapping[str, Any] | None = None) -> Any:
+        keys.append(cast(str, targeting_key))
+        return original(name, targeting_key, attributes)
+
+    provider.get_serialized_value = record  # type: ignore[method-assign]
+
+    def key() -> str:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            flag.value()
+        return keys[-1]
+
+    return key
+
+
+def _split_flag(config_kwargs: dict[str, Any]) -> Flag[bool]:
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
+    config_kwargs['variables'] = LocalVariablesOptions(config=config, instrument=False)
+    logfire.configure(**config_kwargs)
+    return create_flag('test_flag', default=False)
+
+
+def test_requests_with_the_same_trace_id_get_independent_fallback_keys(config_kwargs: dict[str, Any]):
+    key = _fallback_key_recorder(_split_flag(config_kwargs))
+    carrier = {'traceparent': '00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01'}
+
+    def request() -> str:
+        with logfire.attach_context(carrier), logfire.span('request'):
+            return key()
+
+    # A caller who resends a trace ID gets a new key, so it cannot keep a variant it found.
+    keys = {contextvars.Context().run(request) for _ in range(5)}
+    assert len(keys) == 5
+
+
+def test_sequential_requests_in_one_context_get_new_fallback_keys(config_kwargs: dict[str, Any]):
+    key = _fallback_key_recorder(_split_flag(config_kwargs))
+
+    def requests() -> list[str]:
+        # A sync worker thread keeps one context across the requests that it handles.
+        keys: list[str] = []
+        for _ in range(3):
+            with logfire.span('request'):
+                keys.append(key())
+                assert key() == keys[-1]
+        assert current_trace_scope() is None
+        return keys
+
+    assert len(set(contextvars.Context().run(requests))) == 3
+
+
+def test_tasks_and_thread_pools_share_the_request_fallback_key(config_kwargs: dict[str, Any]):
+    key = _fallback_key_recorder(_split_flag(config_kwargs))
+
+    async def request() -> set[str]:
+        with logfire.span('request'):
+            loop = asyncio.get_running_loop()
+            # Siblings started before any evaluation share one key.
+            gathered = await asyncio.gather(asyncio.to_thread(key), asyncio.to_thread(key))
+            with ThreadPoolExecutor() as executor:
+                pooled = executor.submit(key).result()
+            in_executor = await loop.run_in_executor(None, key)
+            return {*gathered, pooled, in_executor, key()}
+
+    assert len(asyncio.run(request())) == 1
+
+
+def test_thread_pools_inherit_overrides_and_targeting_context(config_kwargs: dict[str, Any]):
+    flag = _split_flag(config_kwargs)
+    variable = logfire.var('pooled_variable', type=str, default='code')
+
+    async def evaluate() -> None:
+        loop = asyncio.get_running_loop()
+        with flag.override(True), variable.override('overridden'):
+            assert await loop.run_in_executor(None, flag.value) is True
+            with ThreadPoolExecutor() as executor:
+                assert executor.submit(lambda: variable.get().value).result() == 'overridden'
+        with feature_context('account-123', attributes={'plan': 'team'}):
+            details = await loop.run_in_executor(None, flag.details)
+            assert details.flag_metadata.get('logfire.targeting_key_source') is None
+        # The values are restored in the worker thread after each task.
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            with flag.override(True):
+                executor.submit(flag.value).result()
+            assert executor.submit(lambda: _VARIABLE_OVERRIDES.get()).result() is None
+
+    asyncio.run(evaluate())
+
+
+def test_trace_scope_survives_a_span_ending_in_another_context():
+    logfire.configure(send_to_logfire=False, console=False)
+
+    def start_and_end_elsewhere() -> None:
+        span = logfire.span('request')
+        span._start()
+        scope = current_trace_scope()
+        assert scope is not None
+        # Ending the span from another context must not raise or remove this context's scope.
+        contextvars.Context().run(span._end)
+        assert current_trace_scope() is scope
+
+    contextvars.Context().run(start_and_end_elsewhere)
+    assert current_trace_scope() is None
+
+
+def test_trace_scope_drops_the_oldest_token_past_the_limit():
+    logfire.configure(send_to_logfire=False, console=False)
+    with patch('logfire._internal.trace_scope._MAX_OPEN_SCOPES', 1):
+
+        def leak_one_root() -> None:
+            logfire.span('never ends')._start()
+            with logfire.span('second'):
+                pass
+
+        contextvars.Context().run(leak_one_root)
+        assert trace_scope._tokens == {}
+    with logfire.span('after'):
+        assert current_trace_scope() is not None
+    assert current_trace_scope() is None
