@@ -15,7 +15,8 @@ You can also take a **snapshot** (a saved copy of a session's state at one momen
 which forks the session into independent branches.
 
 This page assumes you have [run code from Python](python.md) already.
-[Workbench sessions](workbench.md#start-a-fresh-session) are ephemeral and do not use this persistence workflow.
+The [Workbench](workbench.md#continue-after-a-reload) also saves Python state and offers browser controls to continue or load it.
+Use [Snapshots](snapshots.md) to find saved state and manage its storage in the web UI.
 
 ## What is saved
 
@@ -33,6 +34,8 @@ These are not saved:
   Host functions, `print_callback`, and mounted host directories are passed again with each call.
 - Files in mounted host directories.
   They stay on your machine.
+- Files in hosted [volumes](volumes.md).
+  These files persist separately. A restored snapshot sees their current contents.
 - Objects that belong to your application.
   A `ClassInstance` passed into the sandbox comes back as a stand-in after a restore, and calling its methods fails.
 

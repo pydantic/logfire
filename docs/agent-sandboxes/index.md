@@ -104,8 +104,13 @@ agent](any-framework.md). For what scripts can run, see [What sandbox code can d
 ### Use the web UI
 
 Open **AI Optimization** > **Agent Sandboxes** in your project.
+If the project shows **Enable Agent Sandboxes**, ask a project manager to enable it.
+Sandboxes start on first use and shut down when idle.
+The project counts toward your organization's enabled-project limit until you disable it.
 The available tabs depend on the features enabled for your organization.
 
 - [Run code in the Workbench](workbench.md): try Python without installing a local client.
+- [Manage saved snapshots](snapshots.md): find saved Python state, open it in the Workbench, and free storage.
 - [Manage profiles](profiles.md): create and select a named profile for a session.
+- [Share files between sessions](volumes.md): mount persistent files in a profile when volume access is enabled.
 - [Inspect sandbox runs](inspect.md): read recorded source and follow related calls in Live view.

@@ -15,15 +15,19 @@ You check out a session, send it code, and get the result back.
 
 ## Before you start
 
-You need a Logfire API key with permission to run code in your project's agent sandboxes
+First, open **AI Optimization** > **Agent Sandboxes** in your project.
+If you see **Enable Agent Sandboxes**, ask a project manager to select it.
+An execution key does not enable the project by itself.
+
+You also need a Logfire API key with permission to run code in your project's agent sandboxes
 (`project:execute_agent_sandboxes`):
 
 1. Open your project in Logfire.
-2. Go to **AI Optimization → Agent Sandboxes → Setup**, and select **Create execution key**.
+2. Open **AI Optimization** > **Agent Sandboxes**. Select **Setup**, expand **Connect your application**, and select **Create execution key**.
 3. Copy the key.
    It won't be shown again.
 
-<img src="/logfire/images/guide/agent-sandboxes/connect-key.webp" alt="Connect to Monty setup with Create execution key, Use existing key, and View API keys" width="720" height="184" loading="lazy" />
+<img src="/logfire/images/guide/agent-sandboxes/connect-key.webp" alt="Connect your application expanded in Setup with Create execution key, Use existing key, and View API keys" width="768" height="194" loading="lazy" />
 
 *The setup page offers key creation or use of an existing key.*
 

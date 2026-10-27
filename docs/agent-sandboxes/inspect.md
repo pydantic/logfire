@@ -26,7 +26,8 @@ You need [access to Agent Sandboxes](index.md) and permission to read the projec
 The cards count **Sessions**, **Code runs**, **Host calls**, **OS calls**, and **Failures** in the selected window.
 Host calls are calls from sandbox code back to functions supplied by the client.
 OS calls are operating-system operations reported by the runtime.
-The overview describes the activity sent to this project, rather than the sandbox's current capacity.
+The overview shows hosted sandbox activity from the `monty-worker` service.
+It does not include every locally instrumented Monty client or show the sandbox's current capacity.
 
 ## Read recorded Python source
 
@@ -34,7 +35,7 @@ Select **View code** on the session row.
 The dialog lists the code runs with source recorded in the selected time range.
 Use the copy control beside a run to copy its source.
 
-<img src="/logfire/images/guide/agent-sandboxes/session-code.webp" alt="Session code dialog with two recorded Python snippets and an Open in Live view link" width="928" height="484" loading="lazy" />
+<img src="/logfire/images/guide/agent-sandboxes/session-code.webp" alt="Session code dialog with the recorded print and total commands and an Open in Live view link" width="896" height="317" loading="lazy" />
 
 *Example source inspector with sample code.*
 
@@ -56,7 +57,7 @@ Open it in Live view. Confirm that its code runs and related calls match the sou
 
 ## Troubleshooting
 
-- **The overview is empty.** Widen the time range, check the project and filters, then refresh. An empty view does not prove that execution failed.
+- **The overview is empty.** Widen the time range, check the project and filters, then refresh. Locally instrumented Monty activity appears in Live view but is outside this hosted overview.
 - **View code is unavailable or source is missing.** The selected window may lack a session record or source-bearing code runs. Widen it and inspect the related activity in Live view.
 - **A row says Activity without session details.** The project received activity without matching session details in this window. Open Live view to inspect the records that are available.
 - **A refresh fails.** Use **Retry** and check any warning about stale results before you rely on the displayed counts.

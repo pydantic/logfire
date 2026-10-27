@@ -64,9 +64,13 @@ counts toward the processing limit. Do heavy computation in your own functions, 
 In practice, a script can hold a few thousand rows of tool results at a time. A test with 5,000 rows of four short
 fields stayed inside the limit. 20,000 rows did not.
 
-Saved sessions and snapshots are kept for 7 days. They count toward a storage limit for each organization, currently
-128 stored objects and 2 GiB in total. Use `checkout(ephemeral=True)` for sessions that nothing will load again. See
-[Persist, resume, and fork sessions](sessions.md).
+Saved sessions and snapshots are kept for 7 days. They count toward your organization's snapshot storage limit.
+Open [Snapshots](snapshots.md) to see the plan allowance, the enforced limit if it differs, and the stored object count.
+Pending uploads and objects awaiting cleanup also count until cleanup finishes.
+Use `checkout(ephemeral=True)` for sessions that nothing will load again. See [Persist, resume, and fork sessions](sessions.md).
+
+Hosted [volumes](volumes.md) keep files between sessions when volume access is enabled for your organization.
+They are separate from Python snapshots. Restoring a snapshot does not roll back volume files.
 
 ## Control client tracing
 
@@ -96,7 +100,7 @@ These are not documented yet:
 - Pricing and plan limits
 - Which data regions run sandboxes
 - Running sandboxes in a self-hosted Logfire deployment
-- Giving sandboxes persistent storage, and connecting them to Model Context Protocol (MCP) servers
+- Connecting sandboxes to Model Context Protocol (MCP) servers
 
 ## Next steps
 
