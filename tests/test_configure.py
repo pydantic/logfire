@@ -3340,9 +3340,10 @@ def test_distributed_tracing_default_warns_on_incoming_baggage(config_kwargs: di
     config_kwargs['distributed_tracing'] = None
     logfire.configure(**config_kwargs)
 
-    with pytest.warns(RuntimeWarning, match='Found propagated trace context'):
+    with pytest.warns(RuntimeWarning, match='Found propagated trace context') as warning_records:
         with propagate.attach_context({'baggage': 'plan=enterprise'}, third_party=True):
             assert logfire.get_baggage() == {'plan': 'enterprise'}
+    assert len(warning_records) == 1
     # Only warn once, even when more baggage is extracted.
     with propagate.attach_context({'baggage': 'plan=enterprise'}, third_party=True):
         assert logfire.get_baggage() == {'plan': 'enterprise'}
