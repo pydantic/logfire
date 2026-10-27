@@ -1,11 +1,11 @@
 ---
 title: Use experimental feature flags
-description: Define typed flags in code, target them consistently, and use them through Logfire or OpenFeature.
+description: Define typed flags in code, target them consistently, and analyze each variant in Logfire.
 ---
 
 Use a feature flag when you need to turn behavior on or off without redeploying your application. The API is experimental: its import path and evaluation details may change while we learn from production use.
 
-The API follows [OpenFeature](https://openfeature.dev/), the vendor-neutral standard for feature flags. Evaluation details, reasons, and error codes use OpenFeature's names, so the optional [OpenFeature adapter](#use-the-openfeature-api) maps onto them one to one. Evaluation telemetry follows the OpenTelemetry [semantic conventions for feature flags](https://opentelemetry.io/docs/specs/semconv/feature-flags/), the standard attribute names for flag evaluations.
+The API follows [OpenFeature](https://openfeature.dev/), the vendor-neutral standard for feature flags. Evaluation details, reasons, and error codes use OpenFeature's names. OpenFeature clients in browsers and other languages can read the same flags through Logfire's [OpenFeature endpoints](external.md). Evaluation telemetry follows the OpenTelemetry [semantic conventions for feature flags](https://opentelemetry.io/docs/specs/semconv/feature-flags/), the standard attribute names for flag evaluations.
 
 Install the feature-flag dependencies:
 
@@ -118,7 +118,7 @@ with new_checkout.details(targeting_key=user_id) as details:
 
 Calling `details()` or `value()` without `with` does not set baggage.
 
-Baggage travels with distributed tracing. Downstream services receive the entry, and so do outgoing HTTP requests from instrumented clients, including requests to third-party APIs. This is usually what you want for analysis across services, but don't use it for variant names that must stay private. The OpenFeature adapter does not set baggage.
+Baggage travels with distributed tracing. Downstream services receive the entry, and so do outgoing HTTP requests from instrumented clients, including requests to third-party APIs. This is usually what you want for analysis across services, but don't use it for variant names that must stay private.
 
 ## Test both outcomes
 
@@ -176,39 +176,6 @@ print(beta_banner.value())
 ```
 
 Flags don't support `logfire.var()`'s `label=` argument for selecting a label by name. To serve a different value in each environment, add a targeting rule on the `deployment.environment` resource attribute instead.
-
-## Use the OpenFeature API
-
-Install the optional adapter when you want to evaluate Logfire flags through OpenFeature's vendor-neutral API:
-
-```bash
-pip install 'logfire[openfeature]'
-```
-
-`LogfireProvider` implements the OpenFeature Python provider interface. Register it to evaluate flags configured in Logfire; you don't need to declare them with Python's `flag()` function first:
-
-```python
-from openfeature import api
-
-import logfire
-from logfire.experimental.openfeature import LogfireProvider
-
-logfire.configure()
-api.set_provider_and_wait(LogfireProvider())
-
-client = api.get_client()
-enabled = client.get_boolean_value('new_checkout', False)
-```
-
-Native `flag()` declarations remain optional. If you declare a flag, the adapter also applies its Pydantic validation and serializers. Without a declaration, the OpenFeature method determines the expected value type. A missing flag returns `FLAG_NOT_FOUND` with the caller's default; a configured rollout that selects the default returns it without an error. Without a configured provider, for example without an API key, every flag returns the caller's default without an error. Neither case exports the caller's default in telemetry. These reads don't register native flags or emit code-first declaration events.
-
-Creating a Logfire `Flag` does not change OpenFeature's global provider. This avoids surprising applications that already configure another provider or use separate provider domains.
-
-`set_provider_and_wait()` waits for initial configuration and raises if it cannot load fresh values. Use `set_provider()` instead to initialize in the background; evaluations return the caller's default until initialization completes. The adapter reports later connection failures and recovery through OpenFeature provider events, using Logfire's existing refresh loop. Removing the adapter does not stop native Logfire flags or their connection.
-
-On an evaluation error, OpenFeature returns the default supplied to the client call, which can differ from the flag's declared default. Error telemetry records the code and reason but omits the caller's default, which may not be protected by the flag's serializers.
-
-When evaluating through an OpenFeature client, use OpenFeature's own evaluation context. If both context APIs are active, OpenFeature's merged context is passed to Logfire as explicit evaluation input and takes precedence over `feature_context()`.
 
 ## Verify the flag
 

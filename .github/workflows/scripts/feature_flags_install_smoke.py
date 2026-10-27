@@ -1,11 +1,5 @@
-from importlib import util
-
-
 def main() -> None:
-    """Smoke-test native feature flags without the optional OpenFeature adapter."""
-    if util.find_spec('openfeature') is not None:
-        raise AssertionError('logfire[feature-flags] must not install openfeature-sdk')
-
+    """Smoke-test native feature flags with only the `feature-flags` extra installed."""
     import logfire
     from logfire.experimental.feature_flags import flag
 

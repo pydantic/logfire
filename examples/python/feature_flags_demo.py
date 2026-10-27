@@ -1,4 +1,4 @@
-"""A support service using native typed flags, managed templates, and OpenFeature.
+"""A support service using typed feature flags and a managed prompt template.
 
 Run `make demo-feature-flags` from the repository root, then open /docs.
 The default configuration is entirely local; no telemetry leaves the machine.
@@ -14,13 +14,10 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI
-from openfeature import api
-from openfeature.evaluation_context import EvaluationContext
 from pydantic import BaseModel, Field, SecretStr
 
 import logfire
 from logfire.experimental.feature_flags import feature_context, flag
-from logfire.experimental.openfeature import LogfireProvider
 from logfire.variables.config import (
     LabeledValue,
     Rollout,
@@ -72,7 +69,6 @@ def demo_config() -> VariablesConfig:
         'banner': 'How can we help?',
         'brand': 'Acme',
         'support_prompt': 'Help @{brand}@ customers with {{topic}}.',
-        # These flags deliberately have no native Python declaration.
         'citations': True,
         'voice': 'friendly',
         'reply_budget': 256,
@@ -87,7 +83,6 @@ def demo_config() -> VariablesConfig:
     ]
     config.variables['layout'].labels['detailed'] = LabeledValue(version=1, serialized_value='"detailed"')
     config.variables['layout'].rollout = Rollout(labels={'live': 0.5, 'detailed': 0.5})
-    config.variables['reply_budget'].aliases = ['legacy_reply_budget']
     config.variables['support_prompt'].template_inputs_schema = PromptInputs.model_json_schema()
     return config
 
@@ -109,28 +104,23 @@ def create_app(sdk: logfire.Logfire | None = None) -> FastAPI:
     banner = flag('banner', type=str | None, default=None, logfire_instance=sdk)
     brand = flag('brand', default='Support', logfire_instance=sdk)
     emergency = flag('emergency_shutdown', default=False, logfire_instance=sdk)
+    citations = flag('citations', default=False, logfire_instance=sdk)
+    voice = flag('voice', default='neutral', logfire_instance=sdk)
+    reply_budget = flag('reply_budget', default=64, logfire_instance=sdk)
+    temperature = flag('temperature', default=0.0, logfire_instance=sdk)
+    tool_options = flag('tool_options', type=dict[str, Any], default={}, logfire_instance=sdk)
     prompt = sdk.template_var('support_prompt', default='Help with {{topic}}.', inputs_type=PromptInputs)
     request_counter = sdk.metric_counter('support.requests', description='Completed support requests')
-    provider = LogfireProvider(sdk)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-        # Background initialization lets the app start safely during a configuration outage.
-        previous_provider = client.provider
-        api.set_provider(provider, domain='support-demo')
         try:
             yield
         finally:
-            # Replace only our own registration; never clear other apps' domains or overwrite
-            # a provider that took over this domain while the demo was running.
-            if client.provider is provider:
-                api.set_provider(previous_provider, domain='support-demo')
-            provider.shutdown()
             if owns_sdk:
                 await asyncio.to_thread(sdk.shutdown)
 
     app = FastAPI(title='Feature flags support demo', lifespan=lifespan)
-    client = api.get_client(domain='support-demo')
 
     @app.post('/support')
     async def support(ticket: Ticket) -> dict[str, Any]:
@@ -143,8 +133,7 @@ def create_app(sdk: logfire.Logfire | None = None) -> FastAPI:
                 after = await asyncio.to_thread(assist.details)
                 settings = policy.details()
                 experiment = layout.details()
-                context = EvaluationContext(targeting_key=ticket.customer_id, attributes=attributes)
-                budget = client.get_integer_details('reply_budget', 64, context)
+                budget = reply_budget.details()
                 # Legacy template telemetry includes its targeting key. This shared prompt needs
                 # service-level targeting, not the customer's identity used by the flags.
                 rendered = prompt.get(PromptInputs(topic=ticket.topic), targeting_key='support-service').value
@@ -164,14 +153,13 @@ def create_app(sdk: logfire.Logfire | None = None) -> FastAPI:
                     'banner': banner.value(),
                     'brand': brand.value(),
                     'prompt': rendered,
-                    'citations': client.get_boolean_value('citations', False, context),
-                    'voice': client.get_string_value('voice', 'neutral', context),
+                    'citations': citations.value(),
+                    'voice': voice.value(),
                     'reply_budget': budget.value,
                     'budget_reason': budget.reason,
                     'budget_error': budget.error_code,
-                    'alias_budget': client.get_integer_value('legacy_reply_budget', 64, context),
-                    'temperature': client.get_float_value('temperature', 0.0, context),
-                    'tool_options': client.get_object_value('tool_options', {}, context),
+                    'temperature': temperature.value(),
+                    'tool_options': tool_options.value(),
                 }
 
     # Request identity and content belong in the targeting context, not captured endpoint arguments.

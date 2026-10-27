@@ -133,7 +133,6 @@ dev = [
     "claude-agent-sdk>=0",
     "hypothesis>=6.0",
     "mutmut>=3.7.0",
-    "openfeature-sdk>=0.10,<1",
 ]
 [tool.inline-snapshot]
 default-flags = ["disable"]
@@ -229,7 +228,6 @@ venv = ".venv"
 source_paths = ["src/logfire/"]
 only_mutate = [
     "src/logfire/experimental/feature_flags.py",
-    "src/logfire/experimental/openfeature.py",
     "src/logfire/variables/config.py",
     "src/logfire/variables/variable.py",
 ]
@@ -238,7 +236,7 @@ pytest_add_cli_args_test_selection = [
     "tests/test_feature_flag_properties.py",
     "tests/test_variables.py",
     "-k",
-    "flag or openfeature or declaration_schema or remote_health or requires_targeting_key or VarDuplicateName or VarInvalidName",
+    "flag or declaration_schema or remote_health or requires_targeting_key or VarDuplicateName or VarInvalidName",
     "-p",
     "no:logfire",
     "-p",
