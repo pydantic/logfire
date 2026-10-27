@@ -69,7 +69,7 @@ _ERROR_CODES: dict[FlagErrorCode, ErrorCode] = {
 }
 
 
-_TYPE_MISMATCH_PREFIX = 'Configured value did not match the declared flag type'
+_TYPE_MISMATCH_TELEMETRY_MESSAGE = 'Configured value did not match the declared flag type.'
 
 
 class LogfireProvider(AbstractProvider):
@@ -393,12 +393,11 @@ def _evaluation_telemetry(
         # Caller defaults may not match the registered type or pass through its serializers.
         # Return them unchanged to OpenFeature, but never export them as flag values.
         telemetry['error.type'] = result.error_code.value.lower()
-        message = result.error_message
-        if result.error_code == ErrorCode.TYPE_MISMATCH and message and message.startswith(_TYPE_MISMATCH_PREFIX):
-            # The caller receives the failing locations, but a location can be a key from the
-            # configured value, so telemetry only records that the type did not match.
-            message = f'{_TYPE_MISMATCH_PREFIX}.'
-        telemetry['feature_flag.error.message'] = message
+        # The caller receives the failing locations, but a location can be a key from the
+        # configured value, so telemetry only records that the type did not match.
+        telemetry['feature_flag.error.message'] = (
+            _TYPE_MISMATCH_TELEMETRY_MESSAGE if result.error_code == ErrorCode.TYPE_MISMATCH else result.error_message
+        )
         telemetry['logfire.feature_flag.result.value_status'] = 'error_fallback'
         return telemetry
     if not record_value:
