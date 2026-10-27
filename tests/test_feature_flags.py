@@ -4153,3 +4153,30 @@ def test_type_mismatch_telemetry_omits_value_derived_locations(config_kwargs: di
         attributes['feature_flag.error.message'] == 'Configured value did not match the declared flag type: int_type.'
     )
     assert 'customer-private-key' not in repr(attributes)
+
+
+def test_openfeature_type_mismatch_telemetry_omits_value_derived_locations(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+):
+    config = VariablesConfig(
+        variables={
+            'limits': VariableConfig(
+                name='limits',
+                labels={'bad': LabeledValue(version=1, serialized_value='{"customer-private-key": "not a number"}')},
+                rollout=Rollout(labels={'bad': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+    config_kwargs['variables'] = LocalVariablesOptions(config=config, instrument=True)
+    logfire.configure(**config_kwargs)
+    create_flag('limits', type=dict[str, int], default={})
+    exporter.clear()
+
+    with pytest.warns(RuntimeWarning, match='value failed validation'):
+        details = LogfireProvider().resolve_object_details('limits', {})
+    assert details.error_code == ErrorCode.TYPE_MISMATCH
+    assert 'customer-private-key' in (details.error_message or '')
+    attributes = _evaluation_span_attributes(exporter)
+    assert attributes['feature_flag.error.message'] == 'Configured value did not match the declared flag type.'
+    assert 'customer-private-key' not in repr(attributes)
