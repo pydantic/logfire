@@ -23,7 +23,7 @@ body:
         Please run the following command in your terminal:
 
         ```bash
-        logfire info
+        python -c 'import logfire; print(logfire.logfire_info())'
         ```
 
         Or in python run:
