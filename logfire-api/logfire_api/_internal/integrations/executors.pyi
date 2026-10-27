@@ -1,5 +1,4 @@
 from ..stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
-from ..trace_scope import TRACE_SCOPE_CONTEXTVAR as TRACE_SCOPE_CONTEXTVAR
 from _typeshed import Incomplete
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor

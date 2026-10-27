@@ -10,15 +10,14 @@ from typing import Any
 from logfire.propagate import ContextCarrier, attach_context, get_context
 
 from ..stack_info import warn_at_user_stacklevel
-from ..trace_scope import TRACE_SCOPE_CONTEXTVAR
 
 _MISSING = object()
 
-THREAD_CONTEXTVARS: list[ContextVar[Any]] = [TRACE_SCOPE_CONTEXTVAR]
+THREAD_CONTEXTVARS: list[ContextVar[Any]] = []
 """Context variables that thread pool tasks inherit from the code that submitted them.
 
 The OpenTelemetry context travels through a carrier. These in-process values are passed as-is,
-so a task sees the same overrides, targeting context, and trace scope as its submitter.
+so a task sees the same overrides and targeting context as its submitter.
 """
 
 

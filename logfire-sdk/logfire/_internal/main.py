@@ -2972,9 +2972,9 @@ class Logfire:
         self._variables.clear()
 
     def variables_get(self) -> list[Variable[Any] | TemplateVariable[Any, Any]]:
-        """Get all variables registered with this Logfire instance's config."""
-        # Feature-flag adapters preserve the legacy `Variable` protocol without inheriting the
-        # compatibility class; keep this old API's return type stable for existing callers.
+        """Get all managed variables and feature flags registered with this Logfire instance's config."""
+        # Feature flags implement the same interface as `Variable`, but they are not instances of it.
+        # The declared type stays the same for existing callers.
         return cast('list[Variable[Any] | TemplateVariable[Any, Any]]', list(self._variables.values()))
 
     def variables_push(

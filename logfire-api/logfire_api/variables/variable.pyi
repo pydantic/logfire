@@ -88,7 +88,7 @@ class _ResolvedFeatureFlag(ResolvedVariable[T_co]):
     targeting_key_source: str | None = ...
 
 class _FlagEvaluationCore(Generic[T_co]):
-    """Shared typed evaluation engine for feature flags and the legacy variables API."""
+    """Shared typed evaluation engine for feature flags and managed variables."""
     kind: Literal['feature_flag', 'variable']
     name: str
     value_type: type[T_co]

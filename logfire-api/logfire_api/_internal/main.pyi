@@ -1352,7 +1352,7 @@ class Logfire:
         ensure a clean state between test cases.
         """
     def variables_get(self) -> list[Variable[Any] | TemplateVariable[Any, Any]]:
-        """Get all variables registered with this Logfire instance's config."""
+        """Get all managed variables and feature flags registered with this Logfire instance's config."""
     def variables_push(self, variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None, *, dry_run: bool = False, yes: bool = False, strict: bool = True) -> bool:
         """Push variable definitions (metadata only) to the configured variable provider.
 
