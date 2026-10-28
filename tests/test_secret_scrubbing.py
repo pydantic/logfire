@@ -842,3 +842,36 @@ def test_passphrase_and_signing_keys_scrubbed(exporter: TestExporter):
             'keyboard_layout': 'uk',
         }
     )
+
+
+def test_agent_control_hint_attributes_are_not_scrubbed(exporter: TestExporter):
+    """The Agent Control config hint reaches Logfire as written, with scrubbing at its default.
+
+    `auth`, `session` and `token` are ordinary words in a prompt, a tool description, an agent's name
+    and a service's name, and every value here matches one. The baseline is the document a config is
+    created from and is digested before export, so a redaction inside it is a corrupted document
+    rather than a hidden secret, and a redacted variable name names no variable at all.
+    """
+    attributes: dict[str, Any] = {
+        'agent_control.baseline': '{"instructions":"Order tools are authoritative for refunds."}',
+        'agent_control.variable_name': 'agent__auth_router',
+        'agent_control.agent_name': 'auth_router',
+        'agent_control.service_name': 'checkout-session-api',
+        'agent_control.environment': 'pr-auth-refresh',
+        'agent_control.service_version': '1.4.0+authz.2',
+    }
+    logfire.info('Agent Control reported the code baseline for this agent', **attributes)
+
+    [span] = exporter.exported_spans_as_dict()
+    assert {key: span['attributes'][key] for key in attributes} == attributes
+    assert 'logfire.scrubbed' not in span['attributes']
+
+
+def test_a_safe_key_does_not_exempt_its_neighbours(exporter: TestExporter):
+    """The exemption is per key: an unlisted key on the same span is still scrubbed."""
+    attributes: dict[str, Any] = {'agent_control.agent_name': 'auth_router', 'agent_control.auth_note': 'x'}
+    logfire.info('hint', **attributes)
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['agent_control.agent_name'] == 'auth_router'
+    assert span['attributes']['agent_control.auth_note'] == "[Scrubbed due to 'auth']"
