@@ -41,9 +41,6 @@ EOF
 
 Replace `<your Logfire write token>` with a [write token](create-write-tokens.md) from your project's **Settings → Write tokens**. For an EU project, use `https://logfire-eu.pydantic.dev`. If you set `XDG_CONFIG_HOME`, the plugin reads `$XDG_CONFIG_HOME/logfire-exporter/config.env` instead.
 
-!!! warning "Keep each value on its own line"
-    Do not put a `#` comment after a value on the same line. The plugin reads the comment as part of the value, and an endpoint with a comment fails without an error message. Put comments on their own lines.
-
 For a local Logfire instance:
 
 ```dotenv
@@ -125,7 +122,7 @@ Set `CODEX_LOGFIRE_DEBUG=true` in `config.env` to record each hook run and expor
 | Symptom | Cause and fix |
 | --- | --- |
 | No spans and no debug log after a turn | The hooks are not trusted. Run `/hooks` in Codex and trust the Logfire Exporter hooks, then start a new session. |
-| The debug log shows the hook ran, but no spans arrive | Check `config.env`: `LOGFIRE_TOKEN` is set, and no value has a `#` comment on the same line. |
+| The debug log shows the hook ran, but no spans arrive | Check that `LOGFIRE_TOKEN` and `LOGFIRE_BASE_URL` in `config.env` are correct. The debug log shows the export error. |
 | `config.env` cannot be created | The directory does not exist. Run `mkdir -p ~/.config/logfire-exporter`. |
 | Changes have no effect | Restart Codex or start a new conversation after changing plugin configuration. |
 
