@@ -16,10 +16,13 @@ The page groups browser telemetry by frontend application. A frontend applicatio
 
 ## Send browser data
 
-1. Open **Project settings → Frontend applications**.
-2. Select **New application** and give the application a stable name, such as `customer-portal`.
-3. Copy the generated setup into your browser application.
-4. Enable the browser signals you want to investigate. See the [browser SDK guide](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/) for automatic request tracing, Core Web Vitals, browser metrics, and framework-specific options.
+1. Open your project and choose **Frontend → Applications**.
+2. Open an existing application to reuse its public token. For a new application, choose **Create application**, give it a stable name such as `customer-portal`, then confirm **Create application and token**.
+3. Choose whether to **Include session replay**. The checkbox updates the install command and configuration snippet; it does not change your deployed application.
+4. Run the generated install command and initialize `logfire.configureFrontend()` once in your browser entry point. Copy the application's regional URL and public token from the setup instructions.
+5. Deploy the change and load your application. See the [browser SDK guide](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/) for capture options and framework-specific setup.
+
+Frontend observability and session replay use the same initializer and application token. Opening the instructions or changing the replay checkbox does not create another token. Do not put a project write token in browser code.
 
 Browser telemetry is sent to and stored in your Logfire project. Review the attributes your application adds before sending sensitive values.
 
@@ -39,13 +42,13 @@ When you filter to an investigation target, Logfire also shows related recorded 
 
 ## Verify browser data
 
-Load an instrumented page, interact with it, and return to **Frontend**. Expand the time range if needed. You should see a page load and the application's name. Core Web Vitals appear only after you enable `rum.webVitals` and supported browsers report measurements.
+Load an instrumented page, interact with it, and return to **Frontend**. Expand the time range if needed. You should see a page load and the application's name. `configureFrontend()` enables Core Web Vitals by default; measurements appear when supported browsers report them.
 
 ## Fix missing frontend data
 
 | Symptom | What to check |
 |---------|---------------|
 | **No frontend data in this range** | Confirm the generated browser setup is running, the token belongs to the selected application, and the time range includes a recent page load. |
-| The application is missing | Select **All applications**, then confirm the application still exists under **Project settings → Frontend applications**. |
-| Page loads appear without Core Web Vitals | Enable `rum.webVitals` in the browser SDK configuration, reload the page, and wait for supported measurements to complete. |
+| The application is missing | Select **All applications**, then confirm the application still exists under **Frontend → Applications**. |
+| Page loads appear without Core Web Vitals | Check that your configuration has not disabled `rum.webVitals`, reload the page, and wait for supported measurements to complete. |
 | Requests fail from the browser | Check the browser network panel for authentication, content-security-policy, or ad-blocker failures. |
