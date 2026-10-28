@@ -66,7 +66,7 @@ jobs:
           cd "$(mktemp -d)"
           "$GITHUB_WORKSPACE/.minimal-venv/bin/python" "$GITHUB_WORKSPACE/.github/workflows/scripts/minimal_install_smoke.py"
 
-      - name: Smoke test native feature flags
+      - name: Smoke test native feature flags without OpenFeature
         run: |
           uv venv --python 3.14 .feature-flags-venv
           uv pip install --python .feature-flags-venv './logfire-sdk[feature-flags]'

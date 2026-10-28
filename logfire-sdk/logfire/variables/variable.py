@@ -150,6 +150,14 @@ _FEATURE_TARGETING_KEY: ContextVar[str | None] = ContextVar('_FEATURE_TARGETING_
 _FEATURE_TARGETING_KEY_SOURCE: ContextVar[str | None] = ContextVar('_FEATURE_TARGETING_KEY_SOURCE', default=None)
 # A fallback key for unkeyed flag evaluations outside a trace. It stays set for the rest of the context.
 _EPHEMERAL_TARGETING_KEY: ContextVar[str | None] = ContextVar('_EPHEMERAL_TARGETING_KEY', default=None)
+# The OpenFeature adapter opens its evaluation span before resolving. It picks the fallback key
+# first, so that span does not become the trace that the key belongs to.
+_PRECOMPUTED_FALLBACK_TARGETING_KEY: ContextVar[str | None] = ContextVar(
+    '_PRECOMPUTED_FALLBACK_TARGETING_KEY', default=None
+)
+_SUPPRESS_FEATURE_FLAG_TELEMETRY: ContextVar[frozenset[object]] = ContextVar(
+    '_SUPPRESS_FEATURE_FLAG_TELEMETRY', default=frozenset()
+)
 
 # Thread pool tasks see the overrides and targeting context of the code that submitted them.
 THREAD_CONTEXTVARS.extend([_VARIABLE_OVERRIDES, _TARGETING_CONTEXT, _FEATURE_TARGETING_KEY, _EPHEMERAL_TARGETING_KEY])
@@ -1343,7 +1351,9 @@ class _FlagEvaluationCore(Generic[T_co]):
         span_name = 'feature_flag.evaluation' if self.kind == 'feature_flag' else f'Resolve variable {self.name}'
         with ExitStack() as stack:
             span: logfire.LogfireSpan | None = None
-            if _get_variables_instrument(self.logfire_instance.config.variables):
+            if _get_variables_instrument(self.logfire_instance.config.variables) and not (
+                self.kind == 'feature_flag' and self in _SUPPRESS_FEATURE_FLAG_TELEMETRY.get()
+            ):
                 span_context = self._telemetry_context(targeting_key, merged_attributes)
                 span = stack.enter_context(
                     self.logfire_instance.span(
@@ -1480,14 +1490,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         new key, so a caller cannot reuse a trace ID to keep a variant. Outside a trace, a random key
         stays set for the rest of the current context.
         """
-        key = feature_flag_targeting_key()
-        if key is not None:
-            return key
-        key = _EPHEMERAL_TARGETING_KEY.get()
-        if key is None:
-            key = f'ephemeral:{secrets.token_hex(16)}'
-            _EPHEMERAL_TARGETING_KEY.set(key)
-        return key
+        return _PRECOMPUTED_FALLBACK_TARGETING_KEY.get() or _feature_flag_fallback_targeting_key()
 
     def __init__(
         self,
@@ -2080,6 +2083,18 @@ def _get_contextvar_attributes() -> Mapping[str, Any]:
     """Return request-local targeting attributes."""
     ctx = _TARGETING_CONTEXT.get()
     return ctx.attributes if ctx is not None else {}
+
+
+def _feature_flag_fallback_targeting_key() -> str:
+    """Return the random fallback key for the current trace, or for the current context outside a trace."""
+    key = feature_flag_targeting_key()
+    if key is not None:
+        return key
+    key = _EPHEMERAL_TARGETING_KEY.get()
+    if key is None:
+        key = f'ephemeral:{secrets.token_hex(16)}'
+        _EPHEMERAL_TARGETING_KEY.set(key)
+    return key
 
 
 def _get_variables_instrument(variables: Any) -> bool:

@@ -132,6 +132,7 @@ dev = [
     "pydantic-handlebars>=0.2.1",
     "claude-agent-sdk>=0",
     "hypothesis>=6.0",
+    "openfeature-sdk>=0.10,<1",
 ]
 [tool.inline-snapshot]
 default-flags = ["disable"]

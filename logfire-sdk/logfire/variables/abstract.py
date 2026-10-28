@@ -4,7 +4,7 @@ import json
 import warnings
 from abc import ABC, abstractmethod
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
@@ -1211,6 +1211,12 @@ class VariableProvider(ABC):
     def get_evaluation_state(self) -> VariableProviderEvaluationState:
         """Return whether this provider can evaluate from fresh or cached configuration."""
         return 'ready'
+
+    def _subscribe_evaluation_state(
+        self, callback: Callable[[VariableProviderEvaluationState], None]
+    ) -> Callable[[], None]:
+        """Subscribe to remote health changes; static providers need no subscription."""
+        return lambda: None
 
     def shutdown(self, timeout_millis: float = 5000):
         """Clean up any resources used by the provider.

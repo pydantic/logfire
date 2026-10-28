@@ -9,7 +9,7 @@ import threading
 import time
 import warnings
 import weakref
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
@@ -117,6 +117,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._shutdown_cleanup_retry = False
         # Startup cleanup can update retry state within the same lifecycle transition.
         self._lifecycle_lock = threading.RLock()
+        self._evaluation_state_listeners: set[Callable[[VariableProviderEvaluationState], None]] = set()
+        self._notified_evaluation_state: tuple[VariableProviderEvaluationState, VariablesConfig | None] | None = None
         self._shutdown_complete = threading.Event()
         self._refresh_lock = threading.Lock()
         self._worker_awaken = threading.Event()
@@ -205,7 +207,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
     def start(self, logfire_instance: logfire.Logfire | None) -> None:
         """Start background polling, using the given Logfire instance to report errors."""
-        self._start(logfire_instance)
+        try:
+            self._start(logfire_instance)
+        finally:
+            self._notify_evaluation_state()
 
     def _start(self, logfire_instance: logfire.Logfire | None) -> None:
         """Start background polling with the given logfire instance for error logging.
@@ -520,10 +525,18 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
     def refresh(self, force: bool = False):
         """Fetch configuration if needed; force bypasses the polling interval."""
-        self._refresh(force)
+        try:
+            self._refresh(force)
+        finally:
+            # User/OpenFeature callbacks may evaluate a flag or refresh again. Never invoke
+            # them while holding the refresh, HTTP session, or lifecycle locks.
+            self._notify_evaluation_state()
 
     def _refresh_before_first_resolve(self) -> None:
-        self._refresh(initial_only=True)
+        try:
+            self._refresh(initial_only=True)
+        finally:
+            self._notify_evaluation_state()
 
     def _refresh(self, force: bool = False, *, initial_only: bool = False):
         """Fetch the latest variable configuration from the remote API.
@@ -680,7 +693,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
     def shutdown(self, timeout_millis: float = 5000):
         """Stop background work and clean up within the timeout budget in milliseconds."""
-        self._shutdown_provider(timeout_millis)
+        try:
+            self._shutdown_provider(timeout_millis)
+        finally:
+            self._notify_evaluation_state()
 
     def _shutdown_provider(self, timeout_millis: float = 5000):
         """Stop the background polling thread and clean up resources.
@@ -811,6 +827,32 @@ class LogfireRemoteVariableProvider(VariableProvider):
     def get_evaluation_state(self) -> VariableProviderEvaluationState:
         """Return a non-blocking snapshot of remote configuration health."""
         return self._evaluation_state
+
+    def _subscribe_evaluation_state(
+        self, callback: Callable[[VariableProviderEvaluationState], None]
+    ) -> Callable[[], None]:
+        with self._lifecycle_lock:
+            self._evaluation_state_listeners.add(callback)
+
+        def unsubscribe() -> None:
+            with self._lifecycle_lock:
+                self._evaluation_state_listeners.discard(callback)
+
+        return unsubscribe
+
+    def _notify_evaluation_state(self) -> None:
+        with self._lifecycle_lock:
+            state = self._evaluation_state
+            previous = self._notified_evaluation_state
+            if previous is not None and previous[0] == state and previous[1] is self._config:
+                return
+            # Commit before callbacks: a subscriber can refresh again without recursively
+            # publishing the same snapshot until the interpreter's recursion limit is reached.
+            self._notified_evaluation_state = state, self._config
+            listeners = tuple(self._evaluation_state_listeners)
+        for callback in listeners:
+            with suppress(Exception):
+                callback(state)
 
     def get_variable_config(self, name: str) -> VariableConfig | None:
         """Retrieve the full configuration for a variable from the cached config.
