@@ -27,6 +27,7 @@ DEFAULT_PATTERN_EXAMPLES = {
     'private[._ -]?key': 'has_private-key_value',
     'passphrase': 'has_passphrase_value',
     '(?:signing|hmac)[._ -]?key': 'has_signing_key_value',
+    r'(?:postgres(?:ql)?|mysql|mariadb|mssql|rediss?|amqps?|mongodb(?:\+srv)?)(?:\+[\w-]+)?://(?=[^\s/:@]*:[^\s/@]+@)': 'has postgresql://user:pw@host/db value',
     'api[._ -]?key': 'has_api.key_value',
     'session': 'has_session_value',
     'cookie': 'has_cookie_value',
@@ -108,6 +109,26 @@ def test_default_pattern_start_chars_cover_each_pattern():
         (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has idtoken value'),
         (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has access.token value'),
         ('(?:signing|hmac)[._ -]?key', 'has hmac-key value'),
+        (
+            r'(?:postgres(?:ql)?|mysql|mariadb|mssql|rediss?|amqps?|mongodb(?:\+srv)?)(?:\+[\w-]+)?://(?=[^\s/:@]*:[^\s/@]+@)',
+            'mysql://root:pw@localhost/app',
+        ),
+        (
+            r'(?:postgres(?:ql)?|mysql|mariadb|mssql|rediss?|amqps?|mongodb(?:\+srv)?)(?:\+[\w-]+)?://(?=[^\s/:@]*:[^\s/@]+@)',
+            'redis://:pw@cache:6379/0',
+        ),
+        (
+            r'(?:postgres(?:ql)?|mysql|mariadb|mssql|rediss?|amqps?|mongodb(?:\+srv)?)(?:\+[\w-]+)?://(?=[^\s/:@]*:[^\s/@]+@)',
+            'amqps://guest:pw@mq//',
+        ),
+        (
+            r'(?:postgres(?:ql)?|mysql|mariadb|mssql|rediss?|amqps?|mongodb(?:\+srv)?)(?:\+[\w-]+)?://(?=[^\s/:@]*:[^\s/@]+@)',
+            'mongodb+srv://u:pw@cluster0.example.net/db',
+        ),
+        (
+            r'(?:postgres(?:ql)?|mysql|mariadb|mssql|rediss?|amqps?|mongodb(?:\+srv)?)(?:\+[\w-]+)?://(?=[^\s/:@]*:[^\s/@]+@)',
+            'postgresql+psycopg://u:pw@h/db',
+        ),
         ('secret', 'has \u017fecret value'),
         ('credential', 'has credent\u0131al value'),
     ]
@@ -842,3 +863,29 @@ def test_passphrase_and_signing_keys_scrubbed(exporter: TestExporter):
             'keyboard_layout': 'uk',
         }
     )
+
+
+def test_connection_string_credentials_scrubbed(exporter: TestExporter):
+    logfire.info(
+        'hi',
+        database_url='postgresql://admin:hunter2@db.internal:5432/prod',
+        broker='amqp://guest:hunter2@mq//',
+        cache='redis://:hunter2@cache:6379/0',
+        user_only='postgresql://admin@db.internal/prod',
+        host_only='postgresql://db.internal/prod',
+        web='https://example.com/path',
+    )
+    span = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]
+    attributes = span['attributes']
+    assert {k: attributes[k] for k in ['database_url', 'broker', 'cache', 'user_only', 'host_only', 'web']} == snapshot(
+        {
+            'database_url': "[Scrubbed due to 'postgresql://']",
+            'broker': "[Scrubbed due to 'amqp://']",
+            'cache': "[Scrubbed due to 'redis://']",
+            'user_only': 'postgresql://admin@db.internal/prod',
+            'host_only': 'postgresql://db.internal/prod',
+            'web': 'https://example.com/path',
+        }
+    )
+    # The matched substring is reported, so it must not include the password.
+    assert 'hunter2' not in str(span)

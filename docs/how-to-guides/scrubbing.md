@@ -48,6 +48,7 @@ Here are the default scrubbing patterns:
     'private[._ -]?key',
     'passphrase',
     '(?:signing|hmac)[._ -]?key',
+    '(?:postgres(?:ql)?|mysql|mariadb|mssql|rediss?|amqps?|mongodb(?:\\+srv)?)(?:\\+[\\w-]+)?://(?=[^\\s/:@]*:[^\\s/@]+@)',
     'api[._ -]?key',
     'session',
     'cookie',
