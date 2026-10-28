@@ -426,9 +426,15 @@ def test_instrument_missing_all_extract_args(exporter: TestExporter) -> None:
         return 4
 
     with pytest.warns(UserWarning) as warnings:
+        frame = inspect.currentframe()
+        assert frame is not None
+        call_lineno = frame.f_lineno + 1
         foo = logfire.instrument(extract_args='bar')(foo)
 
     assert len(warnings) == 1
+    assert 'bar' in str(warnings[0].message)
+    assert warnings[0].filename == frame.f_code.co_filename
+    assert warnings[0].lineno == call_lineno
 
     foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
 
@@ -461,9 +467,15 @@ def test_instrument_missing_some_extract_args(exporter: TestExporter, config_kwa
         return a + d + e
 
     with pytest.warns(UserWarning) as warnings:
-        foo = lf.instrument(extract_args=['a', 'b', 'c'])(foo)
+        frame = inspect.currentframe()
+        assert frame is not None
+        call_lineno = frame.f_lineno + 1
+        foo = lf.instrument(extract_args=['a', 'missing_b', 'missing_c'])(foo)
 
     assert len(warnings) == 1
+    assert all(name in str(warnings[0].message) for name in ('missing_b', 'missing_c'))
+    assert warnings[0].filename == frame.f_code.co_filename
+    assert warnings[0].lineno == call_lineno
 
     assert foo(1, 2, 3) == 6
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
