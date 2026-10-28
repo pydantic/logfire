@@ -4531,8 +4531,8 @@ def test_convert_openai_response_refusal() -> None:
     )
 
 
-def test_convert_openai_response_audio_transcript() -> None:
-    """An audio response has no content: the audio is a blob part and its transcript a text part."""
+def test_convert_openai_response_audio() -> None:
+    """An audio response has no content: the audio is recorded as a blob part, with no text part made up from its transcript."""
     from openai.types.chat.chat_completion_audio import ChatCompletionAudio
 
     from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
@@ -4545,10 +4545,7 @@ def test_convert_openai_response_audio_transcript() -> None:
     assert convert_openai_response_to_semconv(message, 'stop') == snapshot(
         {
             'role': 'assistant',
-            'parts': [
-                {'type': 'blob', 'content': 'UklGRg==', 'modality': 'audio'},
-                {'type': 'text', 'content': 'Hello there.'},
-            ],
+            'parts': [{'type': 'blob', 'content': 'UklGRg==', 'modality': 'audio'}],
             'finish_reason': 'stop',
         }
     )
@@ -4626,8 +4623,8 @@ def _stream_output_messages(deltas: list[tuple[dict[str, Any], str | None]]) -> 
     return state.get_attributes({})['gen_ai.output.messages']
 
 
-def test_chat_completion_stream_state_audio_transcript() -> None:
-    """A streamed audio response ends up in the output messages as its audio and transcript."""
+def test_chat_completion_stream_state_audio() -> None:
+    """A streamed audio response ends up in the output messages as its audio only."""
     assert _stream_output_messages(
         [
             ({'role': 'assistant', 'audio': {'id': 'audio_1', 'transcript': 'Hel'}}, None),
@@ -4638,10 +4635,7 @@ def test_chat_completion_stream_state_audio_transcript() -> None:
         [
             {
                 'role': 'assistant',
-                'parts': [
-                    {'type': 'blob', 'content': 'UklGRg==', 'modality': 'audio'},
-                    {'type': 'text', 'content': 'Hello.'},
-                ],
+                'parts': [{'type': 'blob', 'content': 'UklGRg==', 'modality': 'audio'}],
                 'finish_reason': 'stop',
             }
         ]
