@@ -43,13 +43,13 @@ protocol = "binary"
 headers = { Authorization = "<your-write-token>" }
 
 # Traces: one span per turn with the model and token usage, and a span per tool call.
-# Required for the Agents view. High volume: see "Choose what Codex sends".
+# Required for the Agents view.
 [otel.trace_exporter.otlp-http]
 endpoint = "https://logfire-us.pydantic.dev/v1/traces"
 protocol = "binary"
 headers = { Authorization = "<your-write-token>" }
 
-# Metrics: token usage, tool calls, and latency. Low volume.
+# Metrics: token usage, tool calls, and latency.
 [otel.metrics_exporter.otlp-http]
 endpoint = "https://logfire-us.pydantic.dev/v1/metrics"
 protocol = "binary"
@@ -114,8 +114,8 @@ Each signal is configured independently. Remove or comment out an exporter table
 | `span_attributes = { "team" = "platform" }` | Adds these attributes to every span, for example to filter by team. |
 | Remove `[otel.trace_exporter.otlp-http]` | Stops sending traces. Logs and metrics still arrive, but Codex turns no longer appear in the Agents view. |
 
-!!! warning "Traces are high volume"
-    Codex sends many internal spans with each turn, often thousands, in addition to the turn and tool spans. These spans count toward your Logfire usage. Codex has no setting to sample or filter them. If you only need prompts, answers, and token counts, keep the log and metric exporters and remove the trace exporter.
+!!! note "Data volume"
+    Codex can produce hundreds of records per turn, and they count toward your Logfire usage. To send less, remove an exporter or turn off prompt logging.
 
 `[analytics] enabled = false` does not affect the exporters on this page. It only turns off Codex's own analytics.
 
