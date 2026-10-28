@@ -1,22 +1,20 @@
 ---
 title: Export Codex Activity to Logfire
-description: Install the Logfire Exporter plugin to send completed Codex turns and tool calls to Logfire as OpenTelemetry traces.
+description: Install the Logfire Exporter plugin to add one span per completed Codex turn, with the prompt and final answer, to Codex's built-in telemetry in Logfire.
 ---
 
 # Export Codex Activity to Logfire
 
-The **Logfire Exporter** plugin sends Codex's own activity telemetry to Logfire. It is separate from the
-main [Logfire plugin](skills.md#codex), which gives Codex skills and MCP access for instrumenting applications
-and querying existing telemetry.
+Read each Codex turn in Logfire as a conversation: your prompt and Codex's final answer, in Logfire's LLM panel and the **Codex** tab of the Live view. The **Logfire Exporter** plugin adds one span per completed turn to the data Codex already sends.
+
+Start with [Send Codex sessions to Logfire](../integrations/codex.md). Codex's built-in telemetry provides the model, token usage, tool calls, and Agents view runs. The plugin does not send those. Add the plugin when you also want the conversation view.
+
+The plugin is separate from the main [Logfire plugin](skills.md#codex), which gives Codex skills and MCP access for instrumenting applications and querying existing telemetry. The two plugins can be installed together.
 
 | Plugin | Purpose |
 | --- | --- |
 | **Logfire** | Helps Codex instrument your code, query Logfire data, and open Logfire UI views. |
-| **Logfire Exporter** | Exports Codex turns and tool calls to Logfire. |
-
-The two plugins solve different problems and can be installed together.
-
-For Codex's built-in session events, metrics, and native traces, see [Send Codex logs and metrics to Logfire](../integrations/codex.md). That setup uses Codex's own configuration and does not require either plugin.
+| **Logfire Exporter** | Exports one span per completed Codex turn to Logfire. |
 
 ## Install
 
@@ -29,26 +27,22 @@ codex plugin add logfire-exporter@pydantic-skills
 
 You can also enable **Logfire Exporter** from the **Pydantic** marketplace in the Codex plugin UI.
 
-After enabling the plugin:
-
-1. Restart Codex so hook configuration is loaded.
-2. Run `/hooks` if Codex asks you to review or trust the plugin hooks.
-3. Complete a new Codex turn: the exporter sends telemetry when the turn finishes.
-
 ## Configure
 
-Create a config file at:
+Create the configuration file. The path is the same on macOS and Linux:
 
-```text
-${XDG_CONFIG_HOME:-~/.config}/logfire-exporter/config.env
-```
-
-Example for Logfire Cloud:
-
-```dotenv
+```bash
+mkdir -p ~/.config/logfire-exporter
+cat > ~/.config/logfire-exporter/config.env <<'EOF'
 LOGFIRE_TOKEN=<your Logfire write token>
-LOGFIRE_BASE_URL=https://logfire-us.pydantic.dev  # or https://logfire-eu.pydantic.dev for the EU region
+LOGFIRE_BASE_URL=https://logfire-us.pydantic.dev
+EOF
 ```
+
+Replace `<your Logfire write token>` with a [write token](create-write-tokens.md) from your project's **Settings → Write tokens**. For an EU project, use `https://logfire-eu.pydantic.dev`. If you set `XDG_CONFIG_HOME`, the plugin reads `$XDG_CONFIG_HOME/logfire-exporter/config.env` instead.
+
+!!! warning "Keep each value on its own line"
+    Do not put a `#` comment after a value on the same line. The plugin reads the comment as part of the value, and an endpoint with a comment fails without an error message. Put comments on their own lines.
 
 For a local Logfire instance:
 
@@ -60,42 +54,47 @@ CODEX_LOGFIRE_DEBUG=true
 
 `LOGFIRE_URL` is still accepted as a compatibility alias, but `LOGFIRE_BASE_URL` takes precedence.
 
-The exporter sends `Authorization: <LOGFIRE_TOKEN>`, matching Logfire's direct OTLP client configuration. If you
-need a scheme-prefixed header, set `CODEX_LOGFIRE_AUTH_SCHEME=Bearer`.
+The exporter sends `Authorization: <LOGFIRE_TOKEN>`, matching Logfire's direct OTLP client configuration. If you need a scheme-prefixed header, set `CODEX_LOGFIRE_AUTH_SCHEME=Bearer`.
 
 !!! note
     Do not put tokens in URLs, command examples, or query strings. Keep credentials in `config.env` only.
 
-## How It Works
+## Trust the plugin hooks
 
-The exporter registers Codex lifecycle hooks:
+Codex runs a plugin's hooks only after you trust them. Until then, the plugin sends nothing, and Codex does not show an error.
+
+1. Start `codex` in a terminal.
+2. When Codex shows **Hooks need review**, select **Trust all and continue**. If Codex does not ask, run `/hooks` and trust the Logfire Exporter hooks.
+3. Start a new session and complete a turn. The exporter sends telemetry when the turn finishes.
+
+`codex exec` does not show the prompt and skips untrusted hooks. Trust the hooks in an interactive session first. For automation that already vets its hook sources, `codex exec --dangerously-bypass-hook-trust` runs the hooks without stored trust.
+
+## Verify
+
+After a turn completes, open the [Live view](../guides/web-ui/live.md) and search for `codex turn` spans from the `logfire-exporter` service. Select one and open the **Codex** tab to read the prompt and answer.
+
+## How it works
+
+The exporter registers two Codex lifecycle hooks:
 
 | Hook | Purpose |
 | --- | --- |
-| `SessionStart` | Initialize local telemetry state |
 | `UserPromptSubmit` | Store the submitted prompt and turn metadata |
-| `PostToolUse` | Store tool-call results for export as child spans |
-| `Stop` | Export the completed turn and its tool spans to Logfire |
+| `Stop` | Export the completed turn and the final answer to Logfire |
 
 ### Export boundary
 
-Only completed turns are exported. The exporter sends telemetry on the `Stop` hook. It does not live-stream every
-Codex action. Interrupted turns that never reach `Stop` are not exported.
+Only completed turns are exported. The exporter sends telemetry on the `Stop` hook. It does not stream every Codex action. Interrupted turns that never reach `Stop` are not exported.
 
 ### Trace model
 
-There is no long-lived session root span. Codex hooks do not provide a reliable session-end event, so the exporter
-deliberately avoids a session-level trace.
+Each completed turn becomes one root-level `codex turn` span. Turns from the same Codex conversation share a stable trace ID derived from Codex conversation metadata. There is no long-lived session root span, because Codex hooks do not provide a reliable session-end event.
 
-Instead, each completed turn becomes a root-level span in a deterministic conversation trace. Tool calls appear as
-child spans of that turn span. Spans for the same Codex conversation share a stable trace ID derived from Codex
-conversation metadata.
+The plugin does not send tool calls or token usage. Codex's built-in telemetry sends those: see [Send Codex sessions to Logfire](../integrations/codex.md).
 
-## Content Capture
+## Content capture
 
-Content capture controls whether prompt text, assistant text, tool inputs, tool outputs, and tool errors are
-included in exported span attributes. By default, the exporter uses `CODEX_LOGFIRE_CONTENT_CAPTURE_MODE=full`,
-which includes redacted content for all of those fields.
+Content capture controls whether the prompt and the final answer are included in exported span attributes. By default, the exporter uses `CODEX_LOGFIRE_CONTENT_CAPTURE_MODE=no_tool_content`, which includes the redacted prompt and final answer.
 
 For sensitive projects, set a narrower mode in `config.env`:
 
@@ -107,12 +106,11 @@ Available modes:
 
 | Mode | Captures |
 | --- | --- |
-| `full` | Redacted user prompt, final assistant message, tool input/output, and tool errors (default). |
-| `no_tool_content` | Redacted user prompt and final assistant message, but not tool input/output. |
-| `metadata_only` | No prompt, assistant, tool input, or tool output content. |
+| `full` | Redacted prompt and final answer. Codex's built-in log events carry tool arguments and output. |
+| `no_tool_content` | Redacted prompt and final answer (default). |
+| `metadata_only` | No prompt or answer content. |
 
-When content capture is enabled, spans include `pydantic_ai.all_messages`, the Pydantic AI message-schema attribute
-that lets Logfire show Codex turns in the generic LLM conversation details panel.
+When content capture is enabled, spans include `pydantic_ai.all_messages`, the Pydantic AI message-schema attribute that lets Logfire show Codex turns in the [LLM panel](../guides/web-ui/llm-panels.md).
 
 ## Troubleshooting
 
@@ -122,20 +120,24 @@ Debug logs are written to:
 ${XDG_STATE_HOME:-~/.local/state}/logfire-exporter/logs/
 ```
 
-If no spans appear after a completed Codex turn, check the Codex TUI log:
+Set `CODEX_LOGFIRE_DEBUG=true` in `config.env` to record each hook run and export there.
+
+| Symptom | Cause and fix |
+| --- | --- |
+| No spans and no debug log after a turn | The hooks are not trusted. Run `/hooks` in Codex and trust the Logfire Exporter hooks, then start a new session. |
+| The debug log shows the hook ran, but no spans arrive | Check `config.env`: `LOGFIRE_TOKEN` is set, and no value has a `#` comment on the same line. |
+| `config.env` cannot be created | The directory does not exist. Run `mkdir -p ~/.config/logfire-exporter`. |
+| Changes have no effect | Restart Codex or start a new conversation after changing plugin configuration. |
+
+If no debug log appears, check the Codex TUI log for plugin load errors:
 
 ```bash
 rg -n "logfire-exporter|failed to load plugin" ~/.codex/log/codex-tui.log
 ```
 
-Common issues:
-
-- **No spans after a turn**: confirm `LOGFIRE_TOKEN` is set in `config.env` and the turn completed normally (reached `Stop`).
-- **Hooks not trusted**: run `/hooks` in Codex and approve the exporter hooks.
-- **Stale plugin state**: restart Codex or start a new conversation after changing plugin configuration.
-
 ## See also
 
+- [Send Codex sessions to Logfire](../integrations/codex.md): Codex's built-in logs, traces, and metrics.
 - [Coding Agent Skills](skills.md): install the Logfire plugin and other Pydantic skills.
 - [Connect to MCP Server](mcp-server.md): configure Logfire MCP access through the Logfire plugin.
 - Source repository: [github.com/pydantic/skills](https://github.com/pydantic/skills)
