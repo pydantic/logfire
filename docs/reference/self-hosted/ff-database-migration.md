@@ -52,7 +52,7 @@ The examples below assume the Helm release is named `logfire` and installed in t
 
 Pause the autoscalers of these workloads first. Every `sizingPreset` turns on HPA for them, and your values can also turn on HPA or KEDA. Otherwise, Kubernetes scales the workloads back up during the migration.
 
-Also raise how long `logfire-ff-ingest` retries a batch. After `FF_INGEST_REMOTE_RETRY_MAX_DURATION` (10 minutes by default), ingest writes the batch to the `_ingest_failover` prefix of the bucket, and queries do not return that data. If your values already set `logfire-ff-ingest.env`, copy those entries into this file too, because Helm replaces the whole list.
+Also raise how long `logfire-ff-ingest` retries a batch. After `FF_INGEST_REMOTE_RETRY_MAX_DURATION` (10 minutes by default), ingest writes the batch to the `_ingest_failover` prefix of the bucket, and queries do not return that data. If your values already set `logfire-ff-ingest.env`, copy the other entries into this file too, because Helm replaces the whole list. Leave out any existing `FF_INGEST_REMOTE_RETRY_MAX_DURATION` entry.
 
 Create a temporary `migration-pause-ff.yaml` file:
 
