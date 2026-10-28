@@ -25,7 +25,7 @@ You need [Codex CLI](https://developers.openai.com/codex/cli) and a [write token
 !!! warning "Review the data Codex sends"
     This configuration sends your prompts, Codex's answers, and each tool call's arguments and output preview to Logfire. Every log event also includes your OpenAI account email and account ID. The Logfire SDK's scrubbing, which hides sensitive values before sending them, does not process data that Codex sends directly. To send less, see [Choose what Codex sends](#choose-what-codex-sends).
 
-Add these settings to `~/.codex/config.toml`, or `$CODEX_HOME/config.toml` if you use a custom Codex home. Merge them into any existing `[otel]` configuration:
+Add these settings to `~/.codex/config.toml`, or `$CODEX_HOME/config.toml` if you use a custom Codex home. Merge them into any existing `[otel]` configuration, and replace `<your-write-token>` in each exporter with your token:
 
 ```toml title="~/.codex/config.toml"
 [otel]
@@ -40,36 +40,38 @@ log_agent_responses = true
 [otel.exporter.otlp-http]
 endpoint = "https://logfire-us.pydantic.dev/v1/logs"
 protocol = "binary"
+headers = { Authorization = "<your-write-token>" }
 
 # Traces: one span per turn with the model and token usage, and a span per tool call.
 # Required for the Agents view.
 [otel.trace_exporter.otlp-http]
 endpoint = "https://logfire-us.pydantic.dev/v1/traces"
 protocol = "binary"
+headers = { Authorization = "<your-write-token>" }
 
 # Metrics: token usage, tool calls, and latency.
 [otel.metrics_exporter.otlp-http]
 endpoint = "https://logfire-us.pydantic.dev/v1/metrics"
 protocol = "binary"
+headers = { Authorization = "<your-write-token>" }
 ```
 
 For an EU project, replace `logfire-us.pydantic.dev` with `logfire-eu.pydantic.dev` in each endpoint. Keep the `/v1/logs`, `/v1/traces`, and `/v1/metrics` paths: Codex sends to the configured URL without appending a path. `protocol = "binary"` means Protocol Buffers over HTTP, which standard OpenTelemetry configuration calls `http/protobuf`.
 
-Set the authorization header in your shell, then restart Codex's background process from that same shell:
+Logfire expects the token directly, without a `Bearer` prefix. Codex does not expand variables such as `${LOGFIRE_TOKEN}` in `headers`, so paste the token itself.
+
+!!! warning "The token is stored in `config.toml`"
+    Anyone who can read `config.toml` can send data to your project. Restrict the file to your user with `chmod 600 ~/.codex/config.toml`, and do not commit it to a repository. The token is in the file because the Codex desktop app, the IDE extension, and Codex's background process do not reliably read your shell's environment variables.
+
+Then restart Codex's background process and start Codex:
 
 ```bash
-export OTEL_EXPORTER_OTLP_HEADERS='Authorization=<your-write-token>'
 codex app-server daemon restart
 codex
 ```
 
-Replace `<your-write-token>` with your token. Logfire expects the token directly, without a `Bearer` prefix. Add the `export` line to your shell profile so that new shells have it.
-
 !!! note "Restart after every change"
-    The terminal `codex` command does not run your turns itself. It starts a background process, the Codex app server, and reuses it for later sessions. That process reads `config.toml` and your environment variables only when it starts. If it was already running, it keeps sending with the old settings, or without the authorization header, and Logfire rejects the data. Run `codex app-server daemon restart` after you change `config.toml` or the token.
-
-!!! note "TOML headers are literal strings"
-    Codex also accepts `headers = { "Authorization" = "<your-write-token>" }` inside each `otlp-http` table. It does not expand `${CODEX_LOGFIRE_WRITE_TOKEN}` there. Use the environment variable above to avoid sending that placeholder as your credential.
+    The terminal `codex` command does not run your turns itself. It starts a background process, the Codex app server, and reuses it for later sessions. That process reads `config.toml` only when it starts. If it was already running, it keeps sending with the old settings. Run `codex app-server daemon restart` after you change `config.toml`. Restart the desktop app or IDE extension too.
 
 ### Which Codex process sends the data
 
@@ -80,7 +82,7 @@ Replace `<your-write-token>` with your token. Logfire expects the token directly
 | `codex exec` | The `exec` process | `codex_exec` |
 | Codex desktop app or IDE extension | The app server | `codex-app-server` |
 
-The desktop app and the IDE extension do not read your shell profile. If you start them from the Dock or an application launcher, they do not have `OTEL_EXPORTER_OTLP_HEADERS`, and Logfire rejects their data.
+The app server reads `~/.codex/config.toml`, or `$CODEX_HOME/config.toml` if `CODEX_HOME` is set in its environment.
 
 ## Verify
 
@@ -121,8 +123,8 @@ Each signal is configured independently. Remove or comment out an exporter table
 
 | Symptom | Cause and fix |
 | --- | --- |
-| Only `fs.read_file` and `fs.get_metadata` spans from `codex_cli_rs` arrive | The background app server started before you configured telemetry or set the token. Run `codex app-server daemon restart` from a shell where `OTEL_EXPORTER_OTLP_HEADERS` is set, then start a new session. |
-| Authentication fails or no data arrives | Use the full signal-specific path and the regional host that matches your project. Check that `OTEL_EXPORTER_OTLP_HEADERS` was set when the app server started, uses a valid write token without `Bearer`, and that no literal `${...}` header is in `config.toml`. |
+| Only `fs.read_file` and `fs.get_metadata` spans from `codex_cli_rs` arrive | The background app server started before you configured telemetry. Run `codex app-server daemon restart`, then start a new session. |
+| Authentication fails or no data arrives | Use the full signal-specific path and the regional host that matches your project. Check that each exporter has a `headers` entry with a valid write token, without `Bearer` and without a literal `${...}`. |
 | No Codex runs in the Agents view | Check that `[otel.trace_exporter.otlp-http]` is configured. Turns from `codex exec` and `codex --no-daemon` do not appear in the Agents view yet; their logs and metrics still arrive. |
 | Prompt shows `[REDACTED]` or answers are missing | Set `log_user_prompt = true` and `log_agent_responses = true`, then restart the app server. |
 | A recent event or measurement is missing | Codex sends data in batches. Complete a turn and wait a minute, or exit Codex normally to flush pending data. |
