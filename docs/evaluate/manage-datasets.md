@@ -97,9 +97,9 @@ Your plan sets how many hosted datasets a project can hold, how many cases each 
 | Growth and Enterprise Cloud | No limit | 10,000 | 1 GiB | No limit |
 | Enterprise Self-Hosted | No limit | 10,000 | No limit | No limit |
 
-An Enterprise contract can set different storage limits. Storage is the compressed size of the case data that Logfire stores, so it is usually smaller than the JSON you send.
+Enterprise Dedicated limits follow your contract, and any Enterprise contract can set different storage limits. One MiB (mebibyte) is 1,024 × 1,024 bytes, and one GiB (gibibyte) is 1,024 MiB. Storage is the compressed size of the case data that Logfire stores, so it is usually smaller than the JSON you send.
 
-The case limit counts the cases a write would create. Updating a case that already matches by name does not consume capacity, so a dataset sitting at the limit can still be re-pushed. A case with no name always counts as new. A single import request that would take the dataset past its case or storage limit is rejected without writing any cases. The error names the limit, for example `Dataset cannot exceed 1,000 cases.` To store a larger collection, split it across datasets or move to a plan with higher limits.
+The case limit counts the cases a write would create. Updating a case that already matches by name does not consume capacity, so a dataset sitting at the limit can still be re-pushed. A case with no name always counts as new. A single import request is rejected without writing any cases if it would take the dataset past its case limit or its storage limit, or take the organization past its storage limit. The error names the limit, for example `Dataset cannot exceed 1,000 cases.` If a per-dataset limit blocks a larger collection, split the collection across datasets. If the organization storage limit blocks it, splitting does not help, so delete cases you no longer need or move to a plan with a higher limit.
 
 The limits block only new growth. If your organization moves to a plan with lower limits, existing datasets and cases stay in place. Logfire rejects only the writes that add datasets, add cases, or increase storage beyond the new limits. Updates that reduce a dataset's storage still succeed.
 
