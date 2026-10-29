@@ -223,27 +223,39 @@ def test_loguru_console_log_false(exporter: TestExporter) -> None:
     )
 
 
-def test_loguru_console_log_inherits_instance_setting(exporter: TestExporter) -> None:
-    sink = LogfireHandler(logfire_instance=logfire.with_settings(console_log=False))
+@pytest.mark.parametrize('console_log,disabled', [(None, True), (True, None), (False, True)])
+def test_loguru_console_log_overrides_instance_setting(
+    exporter: TestExporter, console_log: bool | None, disabled: bool | None
+) -> None:
+    sink = LogfireHandler(logfire_instance=logfire.with_settings(console_log=False), console_log=console_log)
     with loguru_handlers({'sink': sink, 'format': '{message}'}):
         logger.info('quiet')
 
     [span] = exporter.exported_spans_as_dict()
-    assert span['attributes']['logfire.disable_console_log'] is True
+    assert span['attributes'].get('logfire.disable_console_log') == disabled
 
 
 @pytest.mark.parametrize(
     'console_log,expected',
     [
-        (True, ['LOGURU | Hello, World!', 'Hello, World!']),
-        (False, ['LOGURU | Hello, World!']),
+        (True, ['LOGURU | From Loguru', 'From Loguru', 'From Logfire']),
+        (False, ['LOGURU | From Loguru', 'From Logfire']),
     ],
 )
-def test_loguru_console_output(capsys: pytest.CaptureFixture[str], console_log: bool, expected: list[str]) -> None:
-    logfire.configure(send_to_logfire=False, console=ConsoleOptions(colors='never', include_timestamps=False))
+def test_loguru_console_output(
+    capsys: pytest.CaptureFixture[str],
+    exporter: TestExporter,
+    config_kwargs: dict[str, Any],
+    console_log: bool,
+    expected: list[str],
+) -> None:
+    config_kwargs['console'] = ConsoleOptions(colors='never', include_timestamps=False)
+    logfire.configure(**config_kwargs)
     loguru_sink = {'sink': sys.stdout, 'format': 'LOGURU | {message}'}
 
     with loguru_handlers(loguru_sink, loguru_handler(console_log=console_log)):
-        logger.info('Hello, World!')
+        logger.info('From Loguru')
+        logfire.info('From Logfire')
 
     assert capsys.readouterr().out.splitlines() == expected
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == ['From Loguru', 'From Logfire']
