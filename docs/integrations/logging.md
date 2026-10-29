@@ -109,6 +109,12 @@ basicConfig(handlers=[StreamHandler(), logfire.LogfireLoggingHandler(console_log
 getLogger(__name__).warning('Hello, %s!', 'World')
 ```
 
+Your terminal shows the message once, printed by the `StreamHandler`, and the log is still sent to Logfire:
+
+```
+WARNING:__main__:Hello, World!
+```
+
 ### Quiet a noisy logger
 
 Logging can be too verbose, especially from third-party libraries.
