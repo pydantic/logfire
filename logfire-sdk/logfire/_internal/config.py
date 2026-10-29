@@ -33,6 +33,7 @@ from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExp
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
+from opentelemetry.sdk import resources as otel_resources
 from opentelemetry.sdk._logs import Logger as SDKLogger, LoggerProvider as SDKLoggerProvider, LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
@@ -60,7 +61,7 @@ from opentelemetry.sdk.trace import (
     Tracer as SDKTracer,
     TracerProvider as SDKTracerProvider,
 )
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from rich.console import Console
@@ -79,7 +80,7 @@ from logfire.version import VERSION
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
-from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
+from .config_params import CompressionValues, ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
     ATTRIBUTES_CONFIG,
     ATTRIBUTES_PACKAGE_VERSIONS,
@@ -108,12 +109,14 @@ from .exporters.otlp import (
     QuietSpanExporter,
     RetryFewerSpansSpanExporter,
     cleanup_disk_retryers,
+    zstd_compress,
 )
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
 from .forwarding import OTLPForwardingManager
+from .http_transport import install_connection_policy
 from .integrations.executors import instrument_executors
 from .interactive import ask_or_default, ask_required, require_answer
 from .logs import ProxyLoggerProvider
@@ -174,7 +177,8 @@ class ConsoleOptions:
     verbose: bool = False
     """Whether to show verbose output.
 
-    It includes the filename, log level, and line number.
+    It includes the filename, log level, line number, and attributes.
+    `include_attributes` can override whether attributes are shown.
     """
     min_log_level: LevelName = 'info'
     """The minimum log level to show in the console."""
@@ -183,6 +187,12 @@ class ConsoleOptions:
     """Whether to print the URL of the Logfire project after initialization."""
     output: TextIO | None = None
     """The output stream to write console output to (default: stdout)."""
+    include_attributes: bool | None = None
+    """Whether to show formatted Logfire attributes beneath span and log messages. Defaults to `verbose`.
+
+    Set to `True` with `verbose=False` to show attributes without the filename, line number, or log level.
+    This uses Logfire's formatting metadata and does not change the message itself.
+    """
 
 
 @dataclass
@@ -275,6 +285,31 @@ class AdvancedOptions:
     precedence list and how to query the resulting attributes.
 
     Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
+    """
+
+    compression: CompressionValues | None = None
+    """Compression used for data sent to Logfire.
+
+    * `'gzip'`: Use gzip for compression (the default).
+    * `'zstd'`: Use Zstandard for compression. This compression is experimental, and can only be used under Python 3.14 or greater,
+      or if the [`backports.zstd`](https://pypi.org/project/backports.zstd/) backport is available.
+
+    This only affects data sent to Logfire, not to other OpenTelemetry endpoints.
+
+    Defaults to the `LOGFIRE_COMPRESSION` environment variable, or `'gzip'`.
+    """
+
+    pending_spans: bool | None = None
+    """Whether to send pending spans to Logfire.
+
+    A pending span is a placeholder that Logfire sends when a span starts, so the Logfire UI can show
+    spans that are still running. Set this to `False` to send only finished spans to Logfire, which
+    reduces the volume of data sent. Spans that are still running then do not show in the Logfire UI
+    until they finish.
+
+    This does not affect console output.
+
+    Defaults to the `LOGFIRE_PENDING_SPANS` environment variable, or `True`.
     """
 
     def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
@@ -595,9 +630,9 @@ def configure(
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
         variables: Options related to managed variables.
-        distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
+        distributed_tracing: By default, incoming context is extracted, but generates a warning.
             Set to `True` to disable the warning.
-            Set to `False` to suppress extraction of incoming trace context.
+            Set to `False` to suppress extraction of all incoming context, preserving local context.
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.
@@ -725,8 +760,8 @@ class _LogfireConfigData:
     def _load_configuration(
         self,
         # note that there are no defaults here so that the only place
-        # defaults exist is `__init__` and we don't forgot a parameter when
-        # forwarding parameters from `__init__` to `load_configuration`
+        # defaults exist is `__init__` and we don't forget a parameter when
+        # forwarding parameters from `__init__` to `_load_configuration`
         send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | list[str] | None,
         api_key: str | None,
@@ -797,6 +832,7 @@ class _LogfireConfigData:
                 include_timestamps=param_manager.load_param('console_include_timestamp'),
                 include_tags=param_manager.load_param('console_include_tags'),
                 verbose=param_manager.load_param('console_verbose'),
+                include_attributes=param_manager.load_param('console_include_attributes'),
                 min_log_level=param_manager.load_param('console_min_log_level'),
                 show_project_link=param_manager.load_param('console_show_project_link'),
             )
@@ -845,6 +881,8 @@ class _LogfireConfigData:
         advanced.emit_configuration_span = param_manager.load_param(
             'emit_configuration_span', advanced.emit_configuration_span
         )
+        advanced.pending_spans = param_manager.load_param('pending_spans', advanced.pending_spans)
+        advanced.compression = param_manager.load_param('compression', advanced.compression)
         resource_detectors = param_manager.load_param('resource_detectors', advanced.resource_detectors)
         if isinstance(resource_detectors, str):
             # A bare string satisfies `Sequence[str]` statically but would be iterated character by
@@ -944,7 +982,7 @@ class LogfireConfig(_LogfireConfigData):
 
         See `_LogfireConfigData` for parameter documentation.
         """
-        # The `load_configuration` is it's own method so that it can be called on an existing config object
+        # The `_load_configuration` is its own method so that it can be called on an existing config object
         # in particular the global config object.
         self._load_configuration(
             send_to_logfire=send_to_logfire,
@@ -1158,15 +1196,16 @@ class LogfireConfig(_LogfireConfigData):
             user_deferred_processors: list[SpanProcessor] = []
             main_multiprocessor = SynchronousMultiSpanProcessor()
 
+            pending_span_exporter_types: tuple[type[SpanExporter], ...] = (TestExporter, SimpleConsoleSpanExporter)
+            if self.advanced.pending_spans:
+                pending_span_exporter_types += (RemovePendingSpansExporter,)
+
             def add_span_processor(span_processor: SpanProcessor) -> None:
                 if self.sampling.tail and getattr(span_processor, 'tail_sampling_defer_on_start', False):
                     user_deferred_processors.append(span_processor)
                 else:
                     main_multiprocessor.add_span_processor(span_processor)
-                has_pending = isinstance(
-                    getattr(span_processor, 'span_exporter', None),
-                    (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
-                )
+                has_pending = isinstance(getattr(span_processor, 'span_exporter', None), pending_span_exporter_types)
                 if has_pending:
                     processors_with_pending_spans.append(span_processor)
 
@@ -1192,6 +1231,7 @@ class LogfireConfig(_LogfireConfigData):
                     include_timestamp=self.console.include_timestamps,
                     include_tags=self.console.include_tags,
                     verbose=self.console.verbose,
+                    include_attributes=self.console.include_attributes,
                     min_log_level=self.console.min_log_level,
                     output=self.console.output,
                 )
@@ -1274,17 +1314,29 @@ class LogfireConfig(_LogfireConfigData):
                         thread = Thread(target=check_tokens, name='check_logfire_token')
                         thread.start()
 
+                    use_zstd = self.advanced.compression == 'zstd'
+                    if use_zstd and zstd_compress is None:
+                        warn_at_user_stacklevel(
+                            "`compression='zstd'` requires Python 3.14+ or the `backports.zstd` package, using gzip instead.",
+                            category=LogfireConfigWarning,
+                        )
+                        use_zstd = False
+                    # The OpenTelemetry exporters don't support zstd yet, so the session compresses the data itself
+                    # (see https://github.com/open-telemetry/opentelemetry-specification/pull/5321).
+                    # TODO: pass the OTel SDK's zstd `Compression` value instead once it exists.
+                    compression = Compression.NoCompression if use_zstd else Compression.Gzip
+
                     # Create exporters for each token
                     for token in token_list:
                         base_url = self.advanced.generate_base_url(token)
                         otlp_forwarding_destinations.append((base_url, token))
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
-                        session = OTLPExporterHttpSession()
+                        session = OTLPExporterHttpSession(_use_zstd=use_zstd)
                         install_logfire_response_hook(session, self.advanced.server_response_hook)
                         span_exporter = BodySizeCheckingOTLPSpanExporter(
                             endpoint=urljoin(base_url, '/v1/traces'),
                             session=session,
-                            compression=Compression.Gzip,
+                            compression=compression,
                             headers=headers,
                         )
                         span_exporter = QuietSpanExporter(span_exporter)
@@ -1307,7 +1359,7 @@ class LogfireConfig(_LogfireConfigData):
                                             endpoint=urljoin(base_url, '/v1/metrics'),
                                             headers=headers,
                                             session=session,
-                                            compression=Compression.Gzip,
+                                            compression=compression,
                                             # I'm pretty sure that this line here is redundant,
                                             # and that passing it to the QuietMetricExporter is what matters
                                             # because the PeriodicExportingMetricReader will read it from there.
@@ -1322,7 +1374,7 @@ class LogfireConfig(_LogfireConfigData):
                             endpoint=urljoin(base_url, '/v1/logs'),
                             session=session,
                             headers=headers,
-                            compression=Compression.Gzip,
+                            compression=compression,
                         )
                         log_exporter = QuietLogExporter(log_exporter)
 
@@ -1647,6 +1699,7 @@ class LogfireConfig(_LogfireConfigData):
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         session = requests.Session()
+        install_connection_policy(session)
         install_logfire_response_hook(session, self.advanced.server_response_hook)
         # This runs in the background `check_logfire_token` thread, where a warning would be
         # attributed to the thread rather than to the user's `configure()` call and so wouldn't
@@ -2040,23 +2093,30 @@ class LogfireCredentials:
             LogfireConfigError: If there was an error creating projects.
         """
         organizations: list[str] = [item['organization_name'] for item in client.get_user_organizations()]
+        if not organizations:
+            raise LogfireConfigError(
+                'No organizations are available for project creation. '
+                'Create or join an organization in Logfire, then try again.'
+            )
 
         if organization not in organizations:
             if len(organizations) > 1:
                 # Get user default organization
                 user_details = client.get_user_information()
-                user_default_organization_name: str | None = user_details.get('default_organization', {}).get(
-                    'organization_name'
+                user_default_organization: dict[str, str] | None = user_details.get('default_organization')
+                user_default_organization_name = (
+                    user_default_organization.get('organization_name') if user_default_organization else None
                 )
 
                 if default_organization and user_default_organization_name:
                     organization = user_default_organization_name
                 else:
-                    require_answer(
-                        'Several organizations are available and none was selected: ' + ', '.join(organizations),
-                        'logfire projects new PROJECT_NAME --org ORGANIZATION',
-                        'logfire projects new PROJECT_NAME --default-org',
-                    )
+                    question = 'Several organizations are available and none was selected: ' + ', '.join(organizations)
+                    org_remedy = 'logfire projects new PROJECT_NAME --org ORGANIZATION'
+                    if user_default_organization_name:
+                        require_answer(question, org_remedy, 'logfire projects new PROJECT_NAME --default-org')
+                    else:
+                        require_answer(question, org_remedy)
                     org_default = user_default_organization_name or organizations[0]
                     organization = ask_or_default(
                         lambda: Prompt.ask(
@@ -2293,7 +2353,16 @@ def get_git_revision_hash() -> str:
     """Get the current git commit hash."""
     import subprocess
 
-    return subprocess.check_output(['git', 'rev-parse', 'HEAD'], stderr=subprocess.STDOUT).decode('ascii').strip()
+    return (
+        subprocess.check_output(
+            ['git', 'rev-parse', 'HEAD'],
+            stderr=subprocess.STDOUT,
+            # On Windows, don't flash a console window for git. `CREATE_NO_WINDOW` only exists on Windows; 0 is the default.
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+        )
+        .decode('ascii')
+        .strip()
+    )
 
 
 def sanitize_project_name(name: str) -> str:
@@ -2379,10 +2448,19 @@ def common_resource_attributes() -> dict[str, Any]:
 
 def host_resource_attributes() -> dict[str, Any]:
     # See test_host_resource_attributes
-    return {
+    attributes = {
         'host.name': socket.gethostname(),
         'host.arch': platform.machine(),
     }
+    # OpenTelemetry 1.45 added host.id. Reuse its platform-specific lookup when available.
+    get_host_id = getattr(otel_resources, '_get_host_id', None)
+    if get_host_id is not None:
+        try:
+            if host_id := get_host_id():
+                attributes['host.id'] = host_id
+        except Exception:
+            pass
+    return attributes
 
 
 class LogfireNotConfiguredWarning(UserWarning):

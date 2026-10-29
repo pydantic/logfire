@@ -7,6 +7,8 @@ description: "See every AI agent in your project, drill into individual runs end
 
 The **Agents view** is the entry point for finding and inspecting the AI agents running in your application. Logfire discovers an agent automatically from your traces: any span that follows the [OpenTelemetry semantic conventions for generative AI (GenAI) agents](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md), specifically an `invoke_agent` operation (`gen_ai.operation.name = 'invoke_agent'`), becomes an agent run. [Pydantic AI](https://ai.pydantic.dev) emits these spans natively, and any other SDK that follows the conventions appears here too. Logfire also detects agents instrumented with [OpenInference](https://github.com/Arize-ai/openinference), which covers many popular frameworks; see [Supported frameworks](#supported-frameworks).
 
+{{ video("02eb69ba8023a4f13c5ee3fbaf11ec48", 95, 56) }}
+
 You'll find Agents in the project sidebar. The time picker is shared with the rest of the observability surfaces.
 
 ## The Agents list
@@ -38,11 +40,12 @@ See the integration guide for your framework to set up the instrumentation that 
 
 ## Agent detail
 
-The detail page has three tabs:
+The detail page has these tabs:
 
 - **Metrics**: run volume, error rate, latency, cost, and token usage for the agent over time.
 - **Runs**: every individual run of the agent (see below).
 - **Info**: the agent's model, tools, and other metadata.
+- **Optimize** (Beta): reviews the agent's recent runs, weighting failing runs highest, and proposes changes to its system prompt that you can refine. This tab appears when AI features are enabled for your organization.
 
 ## The Runs tab
 
@@ -62,7 +65,7 @@ Click a row (or its `>` chevron) to expand the run detail inline; the **Expand**
 
 A run detail has four tabs:
 
-- **Summary**: a strip of the run's provider, model, token usage, cost, and duration; an AI-generated summary of what the run did (when AI features are enabled for your project); and the run's input and final output.
+- **Summary**: a strip of the run's provider, model, token usage, cost, and duration; an AI-generated summary of what the run did (when AI features are enabled for your organization); and the run's input and final output.
 - **Tools**: a combined view of the tools the agent had available and how it used them. Each tool shows its parameter schema and a count of how many times it was called, and expands to the arguments and result of every call.
 - **Messages**: the full conversation for the run.
 - **Trace**: the underlying span tree, so you can drop into the raw trace.

@@ -21,7 +21,8 @@ from logfire._internal.utils import maybe_capture_server_headers
 
 def instrument_starlette(
     logfire_instance: Logfire,
-    app: Starlette,
+    # Only the CLI omits app: instrument before application code imports `Starlette`.
+    app: Starlette | None = None,
     *,
     record_send_receive: bool = False,
     capture_headers: bool = False,
@@ -29,20 +30,21 @@ def instrument_starlette(
     client_request_hook: ClientRequestHook | None = None,
     client_response_hook: ClientResponseHook | None = None,
     **kwargs: Any,
-):
+) -> None:
     """Instrument `app` so that spans are automatically created for each request.
 
     See the `Logfire.instrument_starlette` method for details.
     """
     maybe_capture_server_headers(capture_headers)
-    StarletteInstrumentor().instrument_app(
-        app,
-        server_request_hook=server_request_hook,
-        client_request_hook=client_request_hook,
-        client_response_hook=client_response_hook,
-        **{  # pyright: ignore[reportArgumentType]
-            'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
-            'meter_provider': logfire_instance.config.get_meter_provider(),
-            **kwargs,
-        },
-    )
+    opentelemetry_kwargs: dict[str, Any] = {
+        'server_request_hook': server_request_hook,
+        'client_request_hook': client_request_hook,
+        'client_response_hook': client_response_hook,
+        'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
+        'meter_provider': logfire_instance.config.get_meter_provider(),
+        **kwargs,
+    }
+    if app is None:
+        StarletteInstrumentor().instrument(**opentelemetry_kwargs)
+    else:
+        StarletteInstrumentor().instrument_app(app, **opentelemetry_kwargs)

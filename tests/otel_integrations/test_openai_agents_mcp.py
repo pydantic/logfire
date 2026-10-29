@@ -4,36 +4,80 @@
 import asyncio
 import os
 from contextlib import asynccontextmanager
+from importlib import import_module
 from typing import TYPE_CHECKING
 
-import pydantic
+import anyio
 import pytest
 from dirty_equals import IsPartialDict
 from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
-from logfire._internal.utils import get_version
 from tests.otel_integrations.test_openai_agents import simplify_spans
+
+# The installed AI frameworks require Pydantic 2.12; skip before importing MCP.
+pytest.importorskip('pydantic', minversion='2.12')
+# These snapshots exercise Logfire's MCP 1 instrumentation; MCP 2 has its own tests.
+try:
+    import_module('mcp.shared.session')
+except ModuleNotFoundError as exc:
+    if exc.name not in {'mcp', 'mcp.shared', 'mcp.shared.session'}:
+        raise
+    pytest.skip('Requires MCP 1', allow_module_level=True)
+
+if TYPE_CHECKING:
+    from typing import Any as Context
+else:
+    Context = import_module('mcp.server.fastmcp').Context
 
 try:
     from agents import Agent, Runner, trace
     from agents.mcp.server import _MCPServerWithClientSession  # type: ignore
-    from mcp import types
-    from mcp.server.fastmcp import Context, FastMCP
+
+    types = import_module('mcp.types')
+    FastMCP = import_module('mcp.server.fastmcp').FastMCP
     from mcp.shared.memory import create_client_server_memory_streams
 except ImportError:
     if TYPE_CHECKING:
         assert False
 
-pytestmark = [
-    pytest.mark.skipif(
-        get_version(pydantic.__version__) < get_version('2.11'), reason='Requires Pydantic 2.11 or higher'
-    ),
-]
-
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
 os.environ['OPENAI_DEFAULT_MODEL'] = 'gpt-4o'
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('logger_name', [None, '', 'my_logger', '{data}', '{missing!r:>20}', 'unmatched {'])
+async def test_mcp_logger_is_data(exporter: TestExporter, logger_name: str | None):
+    """Server logger names must remain literal data, never message format syntax."""
+    fastmcp = FastMCP()
+
+    async def emit_log(ctx: Context) -> str:
+        await ctx.log('info', 'hello', logger_name=logger_name)
+        return 'done'
+
+    fastmcp.tool()(emit_log)
+    ClientSession = import_module('mcp.client.session').ClientSession
+    async with create_client_server_memory_streams() as (client_streams, server_streams):
+        async with anyio.create_task_group() as task_group:
+            server = fastmcp._mcp_server
+            task_group.start_soon(server.run, *server_streams, server.create_initialization_options())
+            async with ClientSession(*client_streams) as session:
+                await session.initialize()
+                await session.call_tool('emit_log')
+            task_group.cancel_scope.cancel()
+
+    logs = [span for span in exporter.exported_spans_as_dict() if span['attributes'].get('logfire.span_type') == 'log']
+    assert len(logs) == 1
+    attributes = logs[0]['attributes']
+    assert attributes['data'] == 'hello'
+    if logger_name:
+        assert logs[0]['name'] == attributes['logfire.msg_template'] == 'MCP server log from {logger}'
+        assert attributes['logfire.msg'] == f'MCP server log from {logger_name}'
+        assert attributes['logger'] == logger_name
+    else:
+        assert logs[0]['name'] == attributes['logfire.msg_template'] == attributes['logfire.msg'] == 'MCP server log'
+        assert 'logger' not in attributes
 
 
 @pytest.mark.vcr()
@@ -43,18 +87,19 @@ async def test_mcp(exporter: TestExporter):
 
     fastmcp = FastMCP()
 
-    @fastmcp.tool()
-    async def random_number(ctx: Context) -> int:  # type: ignore
+    async def random_number(ctx: Context) -> int:
         await ctx.info('Generating a random number')
         await ctx.log(
-            'alert',  # type: ignore  # mcp type hints problem
+            'alert',
             'Dice broken! Improvising...',
             logger_name='my_logger',
         )
         return 4
 
+    fastmcp.tool()(random_number)
+
     async with create_client_server_memory_streams() as (client_streams, server_streams):
-        lowlevel_mcp = fastmcp._mcp_server  # type: ignore
+        lowlevel_mcp = fastmcp._mcp_server
         asyncio.create_task(
             lowlevel_mcp.run(
                 *server_streams,
@@ -80,8 +125,8 @@ async def test_mcp(exporter: TestExporter):
 
             assert openai_mcp_server.session
             params1 = types.RequestParams()
-            params1.meta = {'foo': 'bar1'}  # type: ignore
-            params2 = types.RequestParams(_meta={'foo': 'bar2'})  # type: ignore
+            params1.meta = {'foo': 'bar1'}
+            params2 = types.RequestParams(_meta={'foo': 'bar2'})
             for params in (params1, params2):
                 await openai_mcp_server.session.send_request(
                     types.ClientRequest(types.PingRequest(method='ping', params=params)), types.EmptyResult
@@ -96,8 +141,8 @@ async def test_mcp(exporter: TestExporter):
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'test_openai_agents_mcp.py',
-                    'code.function': 'test_mcp',
+                    'code.filepath': 'session.py',
+                    'code.function': 'initialize',
                     'code.lineno': 123,
                     'request': {
                         'method': 'initialize',
@@ -119,6 +164,9 @@ async def test_mcp(exporter: TestExporter):
                 'start_time': 7000000000,
                 'end_time': 8000000000,
                 'attributes': {
+                    'code.filepath': 'server.py',
+                    'code.function': '_handle_message',
+                    'code.lineno': 123,
                     'request': {
                         'method': 'tools/list',
                         'params': {
@@ -149,8 +197,8 @@ async def test_mcp(exporter: TestExporter):
                 'start_time': 6000000000,
                 'end_time': 9000000000,
                 'attributes': {
-                    'code.filepath': 'test_openai_agents_mcp.py',
-                    'code.function': 'test_mcp',
+                    'code.filepath': 'session.py',
+                    'code.function': 'list_tools',
                     'code.lineno': 123,
                     'request': {
                         'method': 'tools/list',
@@ -194,10 +242,15 @@ async def test_mcp(exporter: TestExporter):
                 'start_time': 13000000000,
                 'end_time': 14000000000,
                 'attributes': {
+                    'code.filepath': '_asyncio.py',
+                    'code.function': 'run_test',
+                    'code.lineno': 123,
                     'gen_ai.request.model': 'gpt-4o',
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'response_id': 'resp_67e6908455c48191a9de5131e91abcb805b6a918ffc4827a',
+                    'gen_ai.response.id': 'resp_67e6908455c48191a9de5131e91abcb805b6a918ffc4827a',
+                    'gen_ai.response.finish_reasons': ['tool_calls'],
                     'usage': {
                         'requests': 1,
                         'input_tokens': 51,
@@ -248,11 +301,14 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'MCP server log',
                     'logfire.msg': 'MCP server log',
+                    'code.filepath': 'session.py',
+                    'code.function': '_receive_loop',
+                    'code.lineno': 123,
                     'data': 'Generating a random number',
                 },
             },
             {
-                'name': 'MCP server log from my_logger',
+                'name': 'MCP server log from {logger}',
                 'context': {'trace_id': 2, 'span_id': 26, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 23, 'is_remote': True},
                 'start_time': 19000000000,
@@ -260,9 +316,13 @@ async def test_mcp(exporter: TestExporter):
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 21,
-                    'logfire.msg_template': 'MCP server log from my_logger',
+                    'logfire.msg_template': 'MCP server log from {logger}',
                     'logfire.msg': 'MCP server log from my_logger',
+                    'code.filepath': 'session.py',
+                    'code.function': '_receive_loop',
+                    'code.lineno': 123,
                     'data': 'Dice broken! Improvising...',
+                    'logger': 'my_logger',
                 },
             },
             {
@@ -272,6 +332,9 @@ async def test_mcp(exporter: TestExporter):
                 'start_time': 17000000000,
                 'end_time': 20000000000,
                 'attributes': {
+                    'code.filepath': 'server.py',
+                    'code.function': '_handle_message',
+                    'code.lineno': 123,
                     'request': {
                         'method': 'tools/call',
                         'params': {
@@ -304,6 +367,9 @@ async def test_mcp(exporter: TestExporter):
                 'start_time': 16000000000,
                 'end_time': 21000000000,
                 'attributes': {
+                    'code.filepath': 'session.py',
+                    'code.function': 'call_tool',
+                    'code.lineno': 123,
                     'request': {
                         'method': 'tools/call',
                         'params': {'task': None, 'meta': None, 'name': 'random_number', 'arguments': {}},
@@ -329,6 +395,9 @@ async def test_mcp(exporter: TestExporter):
                 'start_time': 15000000000,
                 'end_time': 22000000000,
                 'attributes': {
+                    'code.filepath': '_asyncio.py',
+                    'code.function': 'run_test',
+                    'code.lineno': 123,
                     'logfire.msg_template': 'Function: {name}',
                     'logfire.span_type': 'span',
                     'name': 'random_number',
@@ -373,6 +442,9 @@ async def test_mcp(exporter: TestExporter):
                 'start_time': 26000000000,
                 'end_time': 27000000000,
                 'attributes': {
+                    'code.filepath': 'server.py',
+                    'code.function': '_handle_message',
+                    'code.lineno': 123,
                     'request': {
                         'method': 'tools/list',
                         'params': {
@@ -403,8 +475,8 @@ async def test_mcp(exporter: TestExporter):
                 'start_time': 25000000000,
                 'end_time': 28000000000,
                 'attributes': {
-                    'code.filepath': 'test_openai_agents_mcp.py',
-                    'code.function': 'test_mcp',
+                    'code.filepath': 'session.py',
+                    'code.function': 'list_tools',
                     'code.lineno': 123,
                     'request': {'method': 'tools/list', 'params': None},
                     'rpc.system': 'jsonrpc',
@@ -469,6 +541,8 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'response_id': 'resp_67e6908542b08191a02609780bb4c28205b6a918ffc4827a',
+                    'gen_ai.response.id': 'resp_67e6908542b08191a02609780bb4c28205b6a918ffc4827a',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'usage': {
                         'requests': 1,
                         'input_tokens': 83,
@@ -636,6 +710,9 @@ async def test_mcp(exporter: TestExporter):
                 'start_time': 38000000000,
                 'end_time': 39000000000,
                 'attributes': {
+                    'code.filepath': 'server.py',
+                    'code.function': '_handle_message',
+                    'code.lineno': 123,
                     'request': {
                         'method': 'ping',
                         'params': {
@@ -682,6 +759,9 @@ async def test_mcp(exporter: TestExporter):
                 'start_time': 42000000000,
                 'end_time': 43000000000,
                 'attributes': {
+                    'code.filepath': 'server.py',
+                    'code.function': '_handle_message',
+                    'code.lineno': 123,
                     'request': {
                         'method': 'ping',
                         'params': {

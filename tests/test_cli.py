@@ -7,6 +7,7 @@ import importlib
 import importlib.metadata
 import io
 import json
+import logging
 import os
 import re
 import shlex
@@ -31,6 +32,8 @@ import requests
 import requests_mock
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
+from opentelemetry import trace
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 import logfire._internal.cli
 import logfire._internal.cli.ai_tools as ai_tools
@@ -50,6 +53,7 @@ from logfire._internal.cli import (
     main,
 )
 from logfire._internal.cli.run import (
+    OTEL_INSTRUMENTATION_MAP,
     InstrumentationRecommendation,
     collect_instrumentation_context,
     find_recommended_instrumentations_to_install,
@@ -58,8 +62,10 @@ from logfire._internal.cli.run import (
     instrumented_packages_text,
 )
 from logfire._internal.config import LogfireConfigWarning, LogfireCredentials, sanitize_project_name
+from logfire._internal.http_transport import LogfireHTTPAdapter
 from logfire._internal.utils import READ_TOKEN_FILENAME
 from logfire.exceptions import LogfireConfigError
+from logfire.testing import TestExporter
 from tests.import_used_for_tests import run_script_test
 
 
@@ -107,6 +113,150 @@ def test_whoami_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
 
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+
+
+def test_cli_api_tracing_preserves_global_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    exporter = TestExporter()
+    provider = logfire._internal.cli.SDKTracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    monkeypatch.setattr(logfire._internal.cli, 'SDKTracerProvider', lambda: provider)
+    global_provider = trace.get_tracer_provider()
+    with patch.dict(os.environ, {'LOGFIRE_TOKEN': 'foobar'}), requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        main(['whoami'])
+        main(['whoami'])
+
+    spans = exporter.exported_spans
+    assert [span.name for span in spans] == ['logfire._internal.cli', 'logfire._internal.cli']
+    assert len(request_mocker.request_history) == 2
+    for request, span in zip(request_mocker.request_history, spans):
+        assert span.context is not None
+        assert request.headers['traceparent'] == (
+            f'00-{span.context.trace_id:032x}-{span.context.span_id:016x}-{span.context.trace_flags:02x}'
+        )
+    assert trace.get_tracer_provider() is global_provider
+
+
+def test_cli_owned_session_gets_connection_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+    sessions: list[requests.Session] = []
+    install_connection_policy = logfire._internal.cli.install_connection_policy
+
+    def capture_session(session: requests.Session) -> None:
+        install_connection_policy(session)
+        sessions.append(session)
+
+    monkeypatch.setattr(logfire._internal.cli, 'install_connection_policy', capture_session)
+    with patch.dict(os.environ, {'LOGFIRE_TOKEN': 'foobar'}), requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+
+        main(['whoami'])
+
+    [session] = sessions
+    assert isinstance(session.get_adapter('https://example.com'), LogfireHTTPAdapter)
+
+
+@pytest.mark.parametrize('fail', [False, True])
+def test_cli_logging_is_scoped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, fail: bool
+) -> None:
+    log_file = tmp_path / 'cli.log'
+    monkeypatch.setattr(logfire._internal.cli, 'LOGFIRE_LOG_FILE', log_file)
+    monkeypatch.setenv('LOGFIRE_TOKEN', 'foobar')
+    cli_logger = logging.getLogger('logfire._internal.cli')
+    urllib3_logger = logging.getLogger('urllib3')
+    caplog.set_level(logging.ERROR, logger=cli_logger.name)
+    caplog.set_level(logging.WARNING, logger=urllib3_logger.name)
+    loggers = (logging.getLogger(), cli_logger, urllib3_logger)
+    original_settings = [(logger.level, logger.handlers.copy()) for logger in loggers]
+
+    def respond(_request: object, _context: object) -> dict[str, str]:
+        logging.getLogger('urllib3.connectionpool').debug('HTTP client diagnostic')
+        logging.getLogger('application').warning('unrelated application log')
+        if fail:
+            raise RuntimeError('request failed')
+        return {'project_name': 'myproject', 'project_url': 'fake_project_url'}
+
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get('https://logfire-us.pydantic.dev/v1/info', json=respond)
+        if fail:
+            with pytest.raises(RuntimeError, match='request failed'):
+                main(['whoami'])
+        else:
+            main(['whoami'])
+
+    assert [(logger.level, logger.handlers) for logger in loggers] == original_settings
+    logs = log_file.read_text()
+    assert 'DEBUG:urllib3.connectionpool:HTTP client diagnostic' in logs
+    assert 'unrelated application log' not in logs
+    if not fail:
+        assert 'DEBUG:logfire._internal.cli:context=' in logs
+        assert 'url=https://logfire-us.pydantic.dev/v1/info' in logs
+
+
+@pytest.mark.parametrize('configured', [False, True])
+@pytest.mark.parametrize('module', [False, True])
+def test_run_preserves_application_logging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, configured: bool, module: bool
+) -> None:
+    script = tmp_path / 'logging_app.py'
+    script.write_text(
+        """
+import json
+import logging
+import sys
+
+import logfire._internal.cli
+import urllib3
+
+if sys.argv[-1] == 'configured':
+    logging.basicConfig(level=logging.ERROR, format='APP:%(levelname)s:%(message)s')
+
+print(json.dumps({
+    'root_level': logging.getLogger().level,
+    'root_handlers': len(logging.getLogger().handlers),
+    'cli_level': logging.getLogger('logfire._internal.cli').level,
+    'cli_handlers': len(logging.getLogger('logfire._internal.cli').handlers),
+    'urllib3_level': logging.getLogger('urllib3').level,
+    'urllib3_handlers': len(logging.getLogger('urllib3').handlers),
+}))
+logging.basicConfig(level=logging.INFO, format='APP:%(levelname)s:%(message)s')
+logging.getLogger('application').info('application message')
+logging.getLogger('urllib3.connectionpool').info('HTTP client message')
+logging.error('application error')
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    target = ['-m', 'logging_app'] if module else [str(script)]
+    target.append('configured' if configured else 'unconfigured')
+    direct = subprocess.run([sys.executable, *target], cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    wrapped = subprocess.run(
+        [
+            sys.executable,
+            '-m',
+            'logfire',
+            'run',
+            '--no-summary',
+            '--exclude',
+            ','.join(sorted(set(OTEL_INSTRUMENTATION_MAP.values()))),
+            *target,
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert direct.returncode == 0, direct.stderr
+    assert wrapped.returncode == 0, wrapped.stderr
+    assert wrapped.stdout == direct.stdout
+    # The unrelated global-tracer-provider warning can precede application output.
+    assert [line for line in wrapped.stderr.splitlines() if line.startswith('APP:')] == direct.stderr.splitlines()
 
 
 def test_whoami_eu_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
@@ -1301,6 +1451,59 @@ def test_projects_status_reports_a_failed_query(tmp_dir_cwd: Path, capsys: pytes
     assert 'Invalid read token' in err
 
 
+def test_auth_base_url_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    base_url = 'http://localhost:8080'
+    monkeypatch.setenv('LOGFIRE_BASE_URL', base_url)
+    auth_file = tmp_path / 'default.toml'
+    with (
+        patch('logfire._internal.auth.DEFAULT_FILE', auth_file),
+        patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file),
+        patch('logfire._internal.cli.auth.input', return_value='') as auth_input,
+        patch('logfire._internal.cli.auth.webbrowser.open'),
+        requests_mock.Mocker() as request_mocker,
+    ):
+        request_mocker.post(
+            f'{base_url}/v1/device-auth/new/',
+            json={'device_code': 'DC', 'frontend_auth_url': 'http://example.com/auth'},
+        )
+        request_mocker.get(
+            f'{base_url}/v1/device-auth/wait/DC',
+            json={'token': 'fake_token', 'expiration': 'fake_exp'},
+        )
+
+        main(['auth'])
+
+        # `_read_line()` passes its default empty prompt straight through to `input`.
+        auth_input.assert_called_once_with('')
+        assert [request.url.partition('?')[0] for request in request_mocker.request_history] == [
+            f'{base_url}/v1/device-auth/new/',
+            f'{base_url}/v1/device-auth/wait/DC',
+        ]
+
+
+@pytest.mark.parametrize(
+    ('args', 'expected_url'),
+    [
+        (['--base-url', 'http://cli:8080', 'auth'], 'http://cli:8080'),
+        (['--region', 'us', 'auth'], 'https://logfire-us.pydantic.dev'),
+    ],
+    ids=['base-url', 'region'],
+)
+def test_auth_cli_url_overrides_env(monkeypatch: pytest.MonkeyPatch, args: list[str], expected_url: str) -> None:
+    monkeypatch.setenv('LOGFIRE_BASE_URL', 'http://env:8080')
+    parse_auth = Mock()
+
+    def capture_args(args: argparse.Namespace) -> None:
+        """Capture the parsed auth arguments."""
+        parse_auth(args)
+
+    monkeypatch.setattr(logfire._internal.cli, 'parse_auth', capture_args)
+
+    main(args)
+
+    assert parse_auth.call_args.args[0].logfire_url == expected_url
+
+
 def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
@@ -1346,13 +1549,81 @@ def test_auth_permanent_failure(tmp_path: Path) -> None:
                 main(['--region', 'us', 'auth'])
 
 
-def test_auth_on_authenticated_user(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.parametrize(
+    ('args', 'target'),
+    [
+        (['--region', 'us', 'auth'], '--base-url https://logfire-us.pydantic.dev'),
+        (['--base-url', 'https://logfire-us.pydantic.dev', 'auth'], '--base-url https://logfire-us.pydantic.dev'),
+        (['auth'], '--base-url <base-url>'),
+    ],
+)
+def test_auth_on_authenticated_user(
+    default_credentials: Path, capsys: pytest.CaptureFixture[str], args: list[str], target: str
+) -> None:
+    original_credentials = default_credentials.read_text()
     with patch('logfire._internal.auth.DEFAULT_FILE', default_credentials):
-        # US is the default region in the default credentials fixture:
-        main(['--region', 'us', 'auth'])
+        main(args)
 
-        _, err = capsys.readouterr()
-        assert 'You are already logged in' in err
+    _, err = capsys.readouterr()
+    assert 'You are already logged in' in err
+    assert f'logfire {target} auth logout' in err
+    assert f'logfire {target} auth\n' in err
+    assert err.index('auth logout') < err.rindex('auth')
+    assert default_credentials.read_text() == original_credentials
+
+
+@pytest.mark.parametrize('env', [{}, {'LOGFIRE_BASE_URL': ''}], ids=['unset', 'empty'])
+def test_auth_on_authenticated_self_hosted_user(
+    default_credentials: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], env: dict[str, str]
+) -> None:
+    credentials = default_credentials.read_text().replace(
+        'https://logfire-us.pydantic.dev', 'https://logfire.example.com'
+    )
+    default_credentials.write_text(credentials)
+    monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
+
+    with patch.dict(os.environ, env), patch('logfire._internal.auth.DEFAULT_FILE', default_credentials):
+        main(['auth'])
+
+    _, err = capsys.readouterr()
+    assert 'logfire --base-url <base-url> auth logout' in err
+    assert 'logfire --base-url <base-url> auth\n' in err
+    assert '--region' not in err
+    assert default_credentials.read_text() == credentials
+
+
+@pytest.mark.parametrize('args', [['auth', '--help'], ['auth', 'logout', '--help']])
+def test_auth_logout_help(args: list[str], capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(args)
+
+    assert exc_info.value.code == 0
+    output = ' '.join(capsys.readouterr().out.split())
+    assert '--region' in output
+    assert '--base-url' in output
+    assert 'LOGFIRE_BASE_URL' in output
+    assert 'all stored user tokens' in output
+
+
+@pytest.mark.parametrize('base_url', [None, '', 'https://logfire-us.pydantic.dev'])
+def test_auth_logout_scope_from_env(
+    default_credentials: Path, monkeypatch: pytest.MonkeyPatch, base_url: str | None
+) -> None:
+    with default_credentials.open('a', encoding='utf-8') as auth_file:
+        auth_file.write(
+            '\n[tokens."https://logfire-eu.pydantic.dev"]\ntoken = "test-token"\nexpiration = "2099-12-31T23:59:59"\n'
+        )
+    if base_url is None:
+        monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
+    else:
+        monkeypatch.setenv('LOGFIRE_BASE_URL', base_url)
+
+    with patch('logfire._internal.auth.DEFAULT_FILE', default_credentials):
+        main(['auth', 'logout'])
+
+    credentials = default_credentials.read_text()
+    assert 'https://logfire-us.pydantic.dev' not in credentials
+    assert ('https://logfire-eu.pydantic.dev' in credentials) is bool(base_url)
 
 
 def test_auth_logout(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -1386,9 +1657,12 @@ def test_auth_logout_wrong_region(default_credentials: Path, capsys: pytest.Capt
     assert 'No user token was found matching' in capsys.readouterr().err
 
 
-def test_auth_no_region_specified(tmp_path: Path) -> None:
+@pytest.mark.parametrize('env', [{}, {'LOGFIRE_BASE_URL': ''}], ids=['unset', 'empty'])
+def test_auth_no_region_specified(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, env: dict[str, str]) -> None:
+    monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
+        stack.enter_context(patch.dict(os.environ, env))
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         # Necessary to assert that credentials are written to the `auth_file` (which happens from the `cli` module)
         stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
@@ -1786,6 +2060,53 @@ def test_projects_new_with_project_name_multiple_organizations(
             **create_project_response['json'],
             'logfire_api_url': 'https://logfire-us.pydantic.dev',
         }
+
+
+@pytest.mark.parametrize(
+    ('default_organization', 'expected_remedies'),
+    [
+        (None, '  logfire projects new PROJECT_NAME --org ORGANIZATION'),
+        (
+            {'organization_name': 'fake_default_org'},
+            '  logfire projects new PROJECT_NAME --org ORGANIZATION\n  logfire projects new PROJECT_NAME --default-org',
+        ),
+    ],
+)
+def test_projects_new_non_interactive_multiple_organizations_guidance(
+    default_credentials: Path,
+    capsys: pytest.CaptureFixture[str],
+    default_organization: dict[str, str] | None,
+    expected_remedies: str,
+) -> None:
+    with (
+        patch(
+            'logfire._internal.auth.UserTokenCollection.get_token',
+            return_value=UserToken(
+                token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+            ),
+        ),
+        requests_mock.Mocker() as m,
+    ):
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
+        )
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/account/me',
+            json={'default_organization': default_organization},
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['--non-interactive', 'projects', 'new', 'myproject'])
+
+    assert exc_info.value.code == 1
+    assert capsys.readouterr().err == (
+        'Several organizations are available and none was selected: fake_org, fake_default_org\n'
+        'Cannot prompt because --non-interactive was passed.\n'
+        'Supply it instead with:\n'
+        f'{expected_remedies}\n'
+    )
 
 
 def test_projects_new_with_project_name_and_default_org_multiple_organizations(
@@ -6184,6 +6505,17 @@ Your instrumentation checklist:
     )
 
 
+@pytest.mark.parametrize('fastapi_instrumentor_installed', [False, True])
+def test_instrumented_packages_text_shows_starlette_without_fastapi_instrumentation(
+    fastapi_instrumentor_installed: bool,
+) -> None:
+    installed_otel_pkgs = {'opentelemetry-instrumentation-starlette'}
+    if fastapi_instrumentor_installed:
+        installed_otel_pkgs.add('opentelemetry-instrumentation-fastapi')
+    text = instrumented_packages_text(installed_otel_pkgs, ['starlette'], {'fastapi', 'starlette'})
+    assert '✓ starlette (installed and instrumented)' in str(text)
+
+
 def test_parse_run_no_script(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr('logfire.configure', configure_mock := Mock())
     monkeypatch.setattr('logfire._internal.cli.run.instrument_package', Mock())
@@ -6192,6 +6524,266 @@ def test_parse_run_no_script(monkeypatch: pytest.MonkeyPatch) -> None:
         main(['run', '--no-summary'])
 
     assert configure_mock.call_count == 1
+
+
+@pytest.mark.parametrize('module', [False, True])
+def test_parse_run_global_tracer_in_fresh_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: bool
+) -> None:
+    script = tmp_path / 'traced_app.py'
+    script.write_text(
+        """
+import json
+
+from opentelemetry import trace
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+import logfire
+from logfire.testing import TestExporter
+
+exporter = TestExporter()
+logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[SimpleSpanProcessor(exporter)])
+with trace.get_tracer('demo').start_as_current_span('otel parent'):
+    with logfire.span('native child'):
+        pass
+print(json.dumps(exporter.exported_spans_as_dict()))
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    target = ['-m', 'traced_app'] if module else [str(script)]
+    result = subprocess.run(
+        [
+            sys.executable,
+            '-m',
+            'logfire',
+            'run',
+            '--exclude',
+            ','.join(sorted(set(OTEL_INSTRUMENTATION_MAP.values()))),
+            *target,
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    spans = json.loads(result.stdout)
+    assert [span['name'] for span in spans] == ['native child', 'otel parent']
+    child, parent = spans
+    assert child['parent'] == parent['context']
+    assert child['context']['trace_id'] == parent['context']['trace_id']
+    assert 'Overriding of current TracerProvider is not allowed' not in result.stderr
+
+
+@pytest.mark.parametrize('module', [False, True])
+@pytest.mark.parametrize('exclude_flask', [False, True])
+def test_parse_run_flask_in_fresh_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: bool, exclude_flask: bool
+) -> None:
+    script = tmp_path / 'flask_app.py'
+    script.write_text(
+        """
+import json
+
+from flask import Flask
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+import logfire
+from logfire.testing import TestExporter
+
+exporter = TestExporter()
+logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[SimpleSpanProcessor(exporter)])
+app = Flask(__name__)
+
+@app.get('/')
+def homepage():
+    return 'hello'
+
+response = app.test_client().get('/')
+assert response.status_code == 200
+assert response.text == 'hello'
+print(json.dumps(exporter.exported_spans_as_dict()))
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    # Exercise discovery and dispatch with only Flask enabled, regardless of other installed integrations.
+    excluded = set(OTEL_INSTRUMENTATION_MAP.values()) - {'flask'}
+    if exclude_flask:
+        excluded.add('flask')
+    target = ['-m', 'flask_app'] if module else [str(script)]
+    result = subprocess.run(
+        [sys.executable, '-m', 'logfire', 'run', '--summary', '--exclude', ','.join(sorted(excluded)), *target],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    spans = json.loads(result.stdout)
+    if exclude_flask:
+        assert spans == []
+        assert 'flask (installed and instrumented)' not in result.stderr
+    else:
+        assert [span['name'] for span in spans] == ['GET /']
+        assert spans[0]['attributes']['http.route'] == '/'
+        assert spans[0]['attributes']['http.status_code'] == 200
+        assert spans[0]['attributes']['logfire.msg'] == 'GET /'
+        assert 'flask (installed and instrumented)' in result.stderr
+
+
+@pytest.mark.parametrize('module', [False, True])
+@pytest.mark.parametrize('exclude_starlette', [False, True])
+def test_parse_run_starlette_in_fresh_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: bool, exclude_starlette: bool
+) -> None:
+    script = tmp_path / 'starlette_app.py'
+    script.write_text(
+        """
+import json
+
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
+from starlette.routing import Route
+from starlette.testclient import TestClient
+
+import logfire
+from logfire.testing import TestExporter
+
+exporter = TestExporter()
+logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[SimpleSpanProcessor(exporter)])
+
+async def homepage(request: Request) -> PlainTextResponse:
+    return PlainTextResponse('hello')
+
+app = Starlette(routes=[Route('/hello/{name}', homepage)])
+with TestClient(app) as client:
+    response = client.get('/hello/world')
+assert response.status_code == 200
+assert response.text == 'hello'
+print(json.dumps(exporter.exported_spans_as_dict()))
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    # Exercise discovery and dispatch with only Starlette enabled, regardless of other installed integrations.
+    excluded = set(OTEL_INSTRUMENTATION_MAP.values()) - {'starlette'}
+    if exclude_starlette:
+        excluded.add('starlette')
+    target = ['-m', 'starlette_app'] if module else [str(script)]
+    result = subprocess.run(
+        [sys.executable, '-m', 'logfire', 'run', '--summary', '--exclude', ','.join(sorted(excluded)), *target],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    spans = json.loads(result.stdout)
+    if exclude_starlette:
+        assert spans == []
+        assert 'starlette (installed and instrumented)' not in result.stderr
+    else:
+        # The default CLI configuration keeps the server span and filters send/receive spans.
+        assert [span['name'] for span in spans] == ['GET /hello/{name}']
+        assert spans[0]['attributes']['http.route'] == '/hello/{name}'
+        assert spans[0]['attributes']['http.status_code'] == 200
+        assert spans[0]['attributes']['logfire.msg'] == 'GET /hello/world'
+        assert 'starlette (installed and instrumented)' in result.stderr
+
+
+@pytest.mark.parametrize('module', [False, True])
+@pytest.mark.parametrize('instrumentation', ['fastapi', 'both', 'excluded', 'explicit', 'excluded-explicit'])
+def test_parse_run_fastapi_in_fresh_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: bool, instrumentation: str
+) -> None:
+    pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7', exc_type=ImportError)
+    script = tmp_path / 'fastapi_app.py'
+    script.write_text(
+        """
+import json
+import sys
+
+from fastapi import FastAPI
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
+from starlette.routing import Route
+from starlette.testclient import TestClient
+
+import logfire
+from logfire.testing import TestExporter
+
+exporter = TestExporter()
+logfire.configure(send_to_logfire=False, console=False, additional_span_processors=[SimpleSpanProcessor(exporter)])
+app = FastAPI()
+if 'explicit' in sys.argv:
+    logfire.instrument_fastapi(app)
+
+@app.get('/items/{item_id}')
+async def homepage(item_id: int) -> dict[str, int]:
+    return {'item_id': item_id}
+
+async def standalone(request: Request) -> PlainTextResponse:
+    return PlainTextResponse('hello')
+
+starlette_app = Starlette(routes=[Route('/standalone', standalone)])
+with TestClient(app) as client:
+    assert client.get('/items/123').json() == {'item_id': 123}
+with TestClient(starlette_app) as client:
+    assert client.get('/standalone').text == 'hello'
+print(json.dumps(exporter.exported_spans_as_dict(parse_json_attributes=True)))
+"""
+    )
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    enabled: set[str] = {'fastapi', 'starlette'} if instrumentation == 'both' else {'fastapi'}
+    if instrumentation.startswith('excluded'):
+        enabled = set()
+    excluded = set(OTEL_INSTRUMENTATION_MAP.values()) - enabled
+    target = ['-m', 'fastapi_app'] if module else [str(script)]
+    if 'explicit' in instrumentation:
+        target.append('explicit')
+    result = subprocess.run(
+        [sys.executable, '-m', 'logfire', 'run', '--summary', '--exclude', ','.join(sorted(excluded)), *target],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if instrumentation == 'explicit':
+        assert result.returncode != 0
+        assert (
+            'Global FastAPI instrumentation cannot be combined with logfire.instrument_fastapi(app). '
+            'Run your application with `logfire run --exclude fastapi ...` to use app-specific instrumentation instead. '
+            'If you need both global and app-specific instrumentation, please open an issue at '
+            'https://github.com/pydantic/logfire/issues.'
+        ) in result.stderr
+        return
+    assert result.returncode == 0, result.stderr
+    spans = json.loads(result.stdout)
+    if instrumentation == 'excluded':
+        # FastAPI's own native telemetry may remain active, without Logfire's enrichment.
+        assert not any('fastapi.arguments.start_timestamp' in span['attributes'] for span in spans)
+        assert 'fastapi (installed and instrumented)' not in result.stderr
+    else:
+        expected = ['GET /items/{item_id}']
+        if instrumentation == 'both':
+            expected.append('GET /standalone')
+        assert [span['name'] for span in spans] == expected
+        attributes = spans[0]['attributes']
+        assert attributes['fastapi.route.name'] == 'homepage'
+        assert attributes['fastapi.arguments.values'] == {'item_id': 123}
+        assert attributes['fastapi.arguments.errors'] == []
+        for phase in ('arguments', 'endpoint_function'):
+            for boundary in ('start_timestamp', 'end_timestamp'):
+                assert f'fastapi.{phase}.{boundary}' in attributes
+        assert attributes['http.status_code'] == 200
+        assert ('fastapi (installed and instrumented)' in result.stderr) == (instrumentation != 'excluded-explicit')
 
 
 def test_parse_run_script(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -6276,6 +6868,31 @@ def test_parse_run_console_entry_point_is_loaded_before_working_directory(
     monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[entry_point]))
 
     main(['run', '--no-summary', 'demo-cli'])
+
+    assert marker.exists()
+
+
+def test_parse_run_instruments_packages_before_working_directory(
+    tmp_dir_cwd: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    installed_dir = tmp_path / 'installed'
+    installed_dir.mkdir()
+    marker = tmp_path / 'imported-installed-package'
+    module_name = 'shadowed_instrumentation_target'
+    (installed_dir / f'{module_name}.py').write_text(f'from pathlib import Path\nPath({str(marker)!r}).touch()\n')
+    (tmp_dir_cwd / f'{module_name}.py').write_text("raise AssertionError('imported local module')\n")
+    # `python -m logfire` puts the working directory first on `sys.path`.
+    monkeypatch.setattr(sys, 'path', [str(tmp_dir_cwd), str(installed_dir), *sys.path])
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+    context = Mock(installed_otel_pkgs={'opentelemetry-instrumentation-demo'})
+    context.instrument_pkg_map = {'opentelemetry-instrumentation-demo': module_name}
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.instrument_package', importlib.import_module)
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[]))
+
+    with pytest.raises(FileNotFoundError):
+        main(['run', '--no-summary', 'missing-cli'])
 
     assert marker.exists()
 

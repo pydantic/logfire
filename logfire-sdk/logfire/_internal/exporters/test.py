@@ -114,6 +114,10 @@ class TestExporter(SpanExporter):
                 res['events'] = [build_event(event) for event in span.events]
             if include_resources:
                 resource_attributes = _build_attributes(span.resource.attributes)
+                # OpenTelemetry 1.45 adds host.id when the platform can provide one.
+                # test_host_resource_attributes checks it directly; omit it from snapshots.
+                assert resource_attributes is not None
+                resource_attributes.pop('host.id', None)
                 res['resource'] = {
                     'attributes': resource_attributes,
                 }
@@ -149,6 +153,8 @@ def process_attribute(
     if name == 'process.pid':
         assert value == os.getpid()
         return 1234
+    if name == 'service.name' and value == 'unknown_service:python':
+        return 'unknown_service'
     if name == 'service.instance.id':
         # OpenTelemetry <=1.42 set this to `uuid4().hex` (32 hex chars); 1.43+ uses the
         # dashed UUID form. Normalise either representation to a fixed value so snapshots
@@ -234,6 +240,8 @@ class TestLogExporter(InMemoryLogRecordExporter):
 
             if include_resources:  # pragma: no branch
                 resource_attributes = _build_attributes(log_data.resource.attributes)
+                assert resource_attributes is not None
+                resource_attributes.pop('host.id', None)
                 res['resource'] = {
                     'attributes': resource_attributes,
                 }

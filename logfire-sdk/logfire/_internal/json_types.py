@@ -18,6 +18,7 @@ DataType = Literal[
     'float',
     # bytes
     'bytes',
+    'bytearray',
     # temporal types
     'date',
     'datetime',
@@ -30,7 +31,7 @@ DataType = Literal[
     'IPv6Address',
     'IPv6Interface',
     'IPv6Network',
-    'PosixPath',
+    'Path',
     'Pattern',
     # iterable types
     'set',
@@ -40,6 +41,7 @@ DataType = Literal[
     'generator',
     'Mapping',
     'Sequence',
+    'range',
     'dataclass',
     # exceptions
     'Exception',

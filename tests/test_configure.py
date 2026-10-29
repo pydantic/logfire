@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import dataclasses
 import getpass
 import inspect
@@ -9,6 +10,7 @@ import pickle
 import signal
 import subprocess
 import sys
+import textwrap
 import threading
 import warnings
 from collections.abc import Callable, Iterable, Sequence
@@ -26,6 +28,7 @@ import requests.exceptions
 import requests_mock
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
+from opentelemetry import context as otel_context, trace
 from opentelemetry._logs import LogRecord, get_logger, get_logger_provider
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -549,6 +552,19 @@ def test_logfire_invalid_config_dir(tmp_path: Path):
         LogfireConfig(config_dir=tmp_path)
 
 
+def test_logfire_config_dir_permission_denied(tmp_path: Path):
+    original_exists = Path.exists
+
+    def exists(self: Path, *args: Any, **kwargs: Any) -> bool:
+        if self.name == 'pyproject.toml':
+            raise PermissionError(13, 'Permission denied', str(self))
+        return original_exists(self, *args, **kwargs)
+
+    with patch.object(Path, 'exists', exists):
+        with pytest.warns(UserWarning, match='Unable to access config file'):
+            LogfireConfig(config_dir=tmp_path)
+
+
 def test_logfire_config_console_options() -> None:
     assert LogfireConfig().console == ConsoleOptions()
     assert LogfireConfig(console=False).console is False
@@ -824,6 +840,23 @@ def test_configure_service_version(config_kwargs: dict[str, Any], exporter: Test
         assert resource_service_version() is None
     finally:
         os.chdir(dir)
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='console windows only exist on Windows')
+def test_configure_service_version_git_no_window(
+    config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def check_output(cmd: list[str], **kwargs: Any) -> bytes:
+        calls.append(kwargs)
+        return b'abc123\n'
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    configure(**config_kwargs)
+    assert calls[-1]['creationflags'] == 0x08000000  # subprocess.CREATE_NO_WINDOW, which only exists on Windows
+    assert GLOBAL_CONFIG.service_version == 'abc123'
 
 
 def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
@@ -1357,31 +1390,28 @@ def test_otel_resource_updater_sources() -> None:
     # The fork callback manually performs the lock-free equivalent of these private methods. Fail loudly if an
     # OpenTelemetry upgrade changes the state that needs updating.
     assert {
-        name: inspect.getsource(getattr(provider_class, '_update_resource'))
+        name: ast.unparse(ast.parse(textwrap.dedent(inspect.getsource(getattr(provider_class, '_update_resource')))))
         for name, provider_class in provider_classes.items()
     } == snapshot(
         {
             'traces': """\
-    def _update_resource(self, resource: Resource) -> None:
-        with self._tracers_lock:
-            self._resource = self._resource.merge(resource)
-            for tracer in self._tracers.values():
-                tracer._set_resource(self._resource)  # pylint: disable=protected-access
+def _update_resource(self, resource: Resource) -> None:
+    with self._tracers_lock:
+        self._resource = self._resource.merge(resource)
+        for tracer in self._tracers.values():
+            tracer._set_resource(self._resource)\
 """,
             'metrics': """\
-    def _update_resource(self, resource: Resource) -> None:
-        with self._meter_lock:
-            self._sdk_config.resource = self._sdk_config.resource.merge(
-                resource
-            )
+def _update_resource(self, resource: Resource) -> None:
+    with self._meter_lock:
+        self._sdk_config.resource = self._sdk_config.resource.merge(resource)\
 """,
             'logs': """\
-    def _update_resource(self, resource: Resource) -> None:
-        with self._active_loggers_lock:
-            self._resource = self._resource.merge(resource)
-            for logger in list(self._active_loggers):
-                # pylint: disable-next=protected-access
-                logger._set_resource(self._resource)
+def _update_resource(self, resource: Resource) -> None:
+    with self._active_loggers_lock:
+        self._resource = self._resource.merge(resource)
+        for logger in list(self._active_loggers):
+            logger._set_resource(self._resource)\
 """,
         }
     )
@@ -1679,6 +1709,27 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
         ]
 
 
+def test_initialize_project_without_available_organizations(tmp_dir_cwd: Path, tmp_path: Path):
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        request_mocker = stack.enter_context(requests_mock.Mocker())
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/', json=[])
+
+        with pytest.raises(
+            LogfireConfigError,
+            match=(
+                'No organizations are available for project creation. '
+                'Create or join an organization in Logfire, then try again.'
+            ),
+        ):
+            logfire.configure(send_to_logfire=True)
+
+
 def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
@@ -1956,7 +2007,19 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
 
 
 @pytest.mark.xdist_group(name='sequential')
-def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Path, tmp_path: Path):
+@pytest.mark.parametrize(
+    ('default_organization', 'expected_prompt_default'),
+    [
+        ({'organization_name': 'fake_org1'}, 'fake_org1'),
+        (None, 'fake_org'),
+    ],
+)
+def test_initialize_project_create_project_default_organization(
+    tmp_dir_cwd: Path,
+    tmp_path: Path,
+    default_organization: dict[str, str] | None,
+    expected_prompt_default: str,
+):
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
         '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
@@ -1981,7 +2044,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
         )
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/account/me',
-            json={'default_organization': {'organization_name': 'fake_org1'}},
+            json={'default_organization': default_organization},
         )
 
         create_project_response = {
@@ -2003,7 +2066,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
             call(
                 '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
                 choices=['fake_org', 'fake_org1'],
-                default='fake_org1',
+                default=expected_prompt_default,
             ),
             call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name)),
             call(
@@ -2683,6 +2746,27 @@ def test_send_to_logfire_under_pytest():
     assert GLOBAL_CONFIG.send_to_logfire is False
 
 
+@pytest.mark.parametrize('use_env_var', [False, True])
+def test_pending_spans_false(monkeypatch: pytest.MonkeyPatch, use_env_var: bool):
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+    if use_env_var:
+        monkeypatch.setenv('LOGFIRE_PENDING_SPANS', 'false')
+        advanced = None
+    else:
+        advanced = logfire.AdvancedOptions(pending_spans=False)
+    logfire.configure(send_to_logfire=True, token='foo', advanced=advanced)
+    wait_for_check_token_thread()
+
+    [console_span_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
+
+    assert isinstance(send_to_logfire_processor, DynamicBatchSpanProcessor)
+    assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
+
+    # Only the console still receives pending spans.
+    assert isinstance(pending_span_processor, PendingSpanProcessor)
+    assert pending_span_processor.processor.processor._span_processors == (console_span_processor,)  # type: ignore
+
+
 def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
     logfire.configure(send_to_logfire=True, token='foo')
@@ -3146,7 +3230,7 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
     with inline_snapshot.extra.warns(
         snapshot(
             [
-                'RuntimeWarning: Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.'
+                'RuntimeWarning: Found propagated context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.'
             ]
         )
     ):
@@ -3191,7 +3275,7 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
                 },
             },
             {
-                'name': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
+                'name': 'Found propagated context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
                 'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
                 'parent': None,
                 'start_time': 4000000000,
@@ -3199,8 +3283,8 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
-                    'logfire.msg_template': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
-                    'logfire.msg': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
+                    'logfire.msg_template': 'Found propagated context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
+                    'logfire.msg': 'Found propagated context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
                     'code.filepath': 'test_configure.py',
                     'code.function': 'test_distributed_tracing_default',
                     'code.lineno': 123,
@@ -3240,6 +3324,29 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
             },
         ]
     )
+
+
+@pytest.mark.parametrize('context', [None, otel_context.Context(), otel_context.Context({'local': 'value'})])
+def test_distributed_tracing_default_no_incoming_context(
+    config_kwargs: dict[str, Any], context: otel_context.Context | None
+):
+    config_kwargs['distributed_tracing'] = None
+    logfire.configure(**config_kwargs)
+
+    assert get_global_textmap().extract({}, context=context) == (context or {})
+
+
+def test_distributed_tracing_default_warns_on_incoming_baggage(config_kwargs: dict[str, Any]):
+    config_kwargs['distributed_tracing'] = None
+    logfire.configure(**config_kwargs)
+
+    with pytest.warns(RuntimeWarning, match='Found propagated context') as warning_records:
+        with propagate.attach_context({'baggage': 'plan=enterprise'}, third_party=True):
+            assert logfire.get_baggage() == {'plan': 'enterprise'}
+    assert len(warning_records) == 1
+    # Only warn once, even when more baggage is extracted.
+    with propagate.attach_context({'baggage': 'plan=enterprise'}, third_party=True):
+        assert logfire.get_baggage() == {'plan': 'enterprise'}
 
 
 def test_distributed_tracing_enabled(exporter: TestExporter):
@@ -3375,6 +3482,64 @@ def test_distributed_tracing_disabled(exporter: TestExporter, config_kwargs: dic
             },
         ]
     )
+
+
+def test_distributed_tracing_disabled_drops_incoming_baggage(config_kwargs: dict[str, Any]):
+    config_kwargs['distributed_tracing'] = False
+    logfire.configure(**config_kwargs)
+    carrier = {'baggage': 'plan=enterprise'}
+
+    with logfire.set_baggage(region='us'):
+        # A third-party integration extracts an incoming request: its baggage is dropped, and the
+        # baggage this process set is kept.
+        with propagate.attach_context(carrier, third_party=True):
+            assert logfire.get_baggage() == {'region': 'us'}
+        # Propagation that Logfire itself controls, such as between threads, keeps baggage.
+        with propagate.attach_context(carrier):
+            assert logfire.get_baggage() == {'plan': 'enterprise'}
+
+
+@pytest.mark.parametrize('context_kind', ['current', 'empty', 'explicit'])
+def test_distributed_tracing_disabled_preserves_local_context(config_kwargs: dict[str, Any], context_kind: str):
+    config_kwargs['distributed_tracing'] = False
+    logfire.configure(**config_kwargs)
+    propagator = get_global_textmap()
+    assert isinstance(propagator, NoExtractTraceContextPropagator)
+
+    with logfire.span('local span'), logfire.set_baggage(region='us'):
+        local_context = otel_context.set_value('custom-local', 'local')
+        token = otel_context.attach(local_context)
+        try:
+            if context_kind == 'current':
+                supplied_context = None
+                expected_context = local_context
+            elif context_kind == 'empty':
+                supplied_context = expected_context = otel_context.Context()
+            else:
+                supplied_context = expected_context = otel_context.set_value(
+                    'custom-explicit', 'explicit', otel_context.Context()
+                )
+            incoming_context = otel_context.set_value('custom-incoming', 'incoming', expected_context)
+            # Custom propagators must not run either, regardless of the context they would extract.
+            with patch.object(propagator.wrapped, 'extract', return_value=incoming_context) as extract:
+                result = propagator.extract({'baggage': 'region=remote'}, context=supplied_context)
+            extract.assert_not_called()
+            assert result is expected_context
+            if context_kind == 'current':
+                assert trace.get_current_span(result) is trace.get_current_span(local_context)
+                assert logfire.get_baggage(result) == {'region': 'us'}
+                assert otel_context.get_value('custom-local', result) == 'local'
+            assert otel_context.get_current() is local_context
+        finally:
+            otel_context.detach(token)
+
+
+def test_distributed_tracing_enabled_keeps_incoming_baggage(config_kwargs: dict[str, Any]):
+    config_kwargs['distributed_tracing'] = True
+    logfire.configure(**config_kwargs)
+
+    with propagate.attach_context({'baggage': 'plan=enterprise'}, third_party=True):
+        assert logfire.get_baggage() == {'plan': 'enterprise'}
 
 
 def test_quiet_span_exporter(caplog: LogCaptureFixture):
@@ -3606,7 +3771,17 @@ def test_normalize_token():
 
 
 def test_host_resource_attributes():
-    # Check that we're copying OTel accurately while avoiding the private import outside tests.
+    # Check that our host attributes match OTel while avoiding its private detector outside tests.
     from opentelemetry.sdk.resources import _HostResourceDetector  # pyright: ignore[reportPrivateUsage]
 
     assert config_module.host_resource_attributes() == _HostResourceDetector().detect().attributes
+
+
+@pytest.mark.parametrize('failure', [False, True])
+def test_host_resource_attributes_without_host_id(monkeypatch: pytest.MonkeyPatch, failure: bool) -> None:
+    def get_host_id() -> None:
+        if failure:
+            raise OSError('host id unavailable')
+
+    monkeypatch.setattr(config_module.otel_resources, '_get_host_id', get_host_id, raising=False)
+    assert 'host.id' not in config_module.host_resource_attributes()

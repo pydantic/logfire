@@ -26,11 +26,11 @@ async def test_faststream(exporter: TestExporter):
     # Registered on the broker by the decorators; not called directly.
     @broker.subscriber('test-channel')
     @broker.publisher('another-channel')
-    async def handle():  # pyright: ignore[reportUnusedFunction]
+    async def handle():
         return 'Hi!'
 
     @broker.subscriber('another-channel')
-    async def handle_next(msg: str):  # pyright: ignore[reportUnusedFunction]
+    async def handle_next(msg: str):
         assert msg == 'Hi!'
 
     async with TestRedisBroker(broker) as br:

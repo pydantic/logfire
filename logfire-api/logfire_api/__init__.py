@@ -155,6 +155,11 @@ except ImportError:
 
             def instrument_monty(self, *args, **kwargs) -> None: ...
 
+            def agent_sandboxes(self, *args, **kwargs) -> Any:
+                raise RuntimeError(
+                    "`logfire.agent_sandboxes()` requires the `logfire` package, install it with `pip install 'logfire[agent-sandboxes]'`"
+                )
+
             def instrument_pymongo(self, *args, **kwargs) -> None: ...
 
             def instrument_sqlalchemy(self, *args, **kwargs) -> None: ...
@@ -247,6 +252,7 @@ except ImportError:
         instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
         instrument_pydantic_ai = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic_ai
         instrument_monty = DEFAULT_LOGFIRE_INSTANCE.instrument_monty
+        agent_sandboxes = DEFAULT_LOGFIRE_INSTANCE.agent_sandboxes
         instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
         instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
         instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents

@@ -4,17 +4,18 @@ import requests
 from ..propagate import NoExtractTraceContextPropagator as NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator as WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback as ExceptionCallback
 from .client import InvalidProjectName as InvalidProjectName, LogfireClient as LogfireClient, ProjectAlreadyExists as ProjectAlreadyExists
-from .config_params import ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues, normalize_token as normalize_token
+from .config_params import CompressionValues as CompressionValues, ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues, normalize_token as normalize_token
 from .constants import ATTRIBUTES_CONFIG as ATTRIBUTES_CONFIG, ATTRIBUTES_PACKAGE_VERSIONS as ATTRIBUTES_PACKAGE_VERSIONS, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH, RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR, RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL, RESOURCE_ATTRIBUTES_VERSION as RESOURCE_ATTRIBUTES_VERSION
 from .exporters.console import ConsoleColorsValues as ConsoleColorsValues, ConsoleLogExporter as ConsoleLogExporter, IndentedConsoleSpanExporter as IndentedConsoleSpanExporter, ShowParentsConsoleSpanExporter as ShowParentsConsoleSpanExporter, SimpleConsoleSpanExporter as SimpleConsoleSpanExporter
 from .exporters.dynamic_batch import DynamicBatchSpanProcessor as DynamicBatchSpanProcessor
 from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper as CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper as MainLogProcessorWrapper
-from .exporters.otlp import BodySizeCheckingOTLPSpanExporter as BodySizeCheckingOTLPSpanExporter, OTLPExporterHttpSession as OTLPExporterHttpSession, QuietLogExporter as QuietLogExporter, QuietSpanExporter as QuietSpanExporter, RetryFewerSpansSpanExporter as RetryFewerSpansSpanExporter, cleanup_disk_retryers as cleanup_disk_retryers
+from .exporters.otlp import BodySizeCheckingOTLPSpanExporter as BodySizeCheckingOTLPSpanExporter, OTLPExporterHttpSession as OTLPExporterHttpSession, QuietLogExporter as QuietLogExporter, QuietSpanExporter as QuietSpanExporter, RetryFewerSpansSpanExporter as RetryFewerSpansSpanExporter, cleanup_disk_retryers as cleanup_disk_retryers, zstd_compress as zstd_compress
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper as CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper as MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
 from .exporters.test import TestExporter as TestExporter
 from .forwarding import OTLPForwardingManager as OTLPForwardingManager
+from .http_transport import install_connection_policy as install_connection_policy
 from .integrations.executors import instrument_executors as instrument_executors
 from .interactive import ask_or_default as ask_or_default, ask_required as ask_required, require_answer as require_answer
 from .logs import ProxyLoggerProvider as ProxyLoggerProvider
@@ -44,6 +45,7 @@ from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
 from opentelemetry.sdk.metrics.view import View
 from opentelemetry.sdk.resources import ResourceDetector
 from opentelemetry.sdk.trace import SpanProcessor
+from opentelemetry.sdk.trace.export import SpanExporter as SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
 from typing import Any, ClassVar, Literal, TextIO
@@ -65,6 +67,7 @@ class ConsoleOptions:
     min_log_level: LevelName = ...
     show_project_link: bool = ...
     output: TextIO | None = ...
+    include_attributes: bool | None = ...
 
 @dataclass
 class AdvancedOptions:
@@ -77,6 +80,8 @@ class AdvancedOptions:
     emit_configuration_span: bool | None = ...
     server_response_hook: ServerResponseCallback | None = ...
     resource_detectors: Sequence[ResourceDetector | str] | None = ...
+    compression: CompressionValues | None = ...
+    pending_spans: bool | None = ...
     def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
         """Resolve the base API URL for `token`, honouring an explicitly configured `base_url`.
 
@@ -216,9 +221,9 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
         variables: Options related to managed variables.
-        distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
+        distributed_tracing: By default, incoming context is extracted, but generates a warning.
             Set to `True` to disable the warning.
-            Set to `False` to suppress extraction of incoming trace context.
+            Set to `False` to suppress extraction of all incoming context, preserving local context.
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.

@@ -29,6 +29,8 @@ from logfire._internal.integrations.llm_providers.semconv import (
     OUTPUT_MESSAGES,
     PROVIDER_NAME,
     REQUEST_MODEL,
+    RESPONSE_FINISH_REASONS,
+    RESPONSE_ID,
     RESPONSE_MODEL,
     SYSTEM,
     SYSTEM_INSTRUCTIONS,
@@ -103,7 +105,7 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
                 ToolCallResponsePart(
                     type='tool_call_response',
                     id=block.tool_use_id or '',
-                    response=block.content,  # type: ignore
+                    response=block.content,
                 )
             )
         else:
@@ -375,6 +377,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
                             state.handle_user_message()
                         elif isinstance(msg, ResultMessage):  # pragma: no branch
                             _record_result(root_span, msg)
+                            state.set_finish_reason(msg.stop_reason)
                             if state.model:  # pragma: no branch
                                 root_span.set_attribute(REQUEST_MODEL, state.model)
                                 root_span.set_attribute(RESPONSE_MODEL, state.model)
@@ -554,6 +557,12 @@ class _ConversationState:
             self._current_span.message = f'chat {model}'
             self._current_span.update_name(f'chat {model}')  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType]
 
+        message_id = getattr(message, 'message_id', None)
+        if message_id:  # pragma: no branch
+            self._current_span.set_attribute(RESPONSE_ID, message_id)
+
+        self.set_finish_reason(getattr(message, 'stop_reason', None))
+
         usage = getattr(message, 'usage', None)
         if usage:  # pragma: no branch
             self._current_span.set_attributes(_extract_usage(usage, partial=True))
@@ -562,6 +571,15 @@ class _ConversationState:
         if error:  # pragma: no cover
             self._current_span.set_attribute(ERROR_TYPE, str(error))
             self._current_span.set_level('error')
+
+    def set_finish_reason(self, stop_reason: str | None) -> None:
+        """Record the stop reason on the current chat span.
+
+        The CLI streams assistant messages with a null `stop_reason`;
+        the final one is only reported on the ResultMessage.
+        """
+        if stop_reason and self._current_span is not None:
+            self._current_span.set_attribute(RESPONSE_FINISH_REASONS, [stop_reason])
 
     def close(self) -> None:
         """Close chat span and end any orphaned tool spans."""
@@ -589,8 +607,22 @@ def _record_result(span: LogfireSpan, msg: ResultMessage) -> None:
         if (value := getattr(msg, attr, None)) is not None:  # pragma: no branch
             attrs[attr] = value
 
+    is_error = getattr(msg, 'is_error', None)
+    if is_error:
+        attrs[ERROR_TYPE] = _result_error_type(msg)
+
     span.set_attributes(attrs)
 
-    is_error = getattr(msg, 'is_error', None)
-    if is_error:  # pragma: no cover
+    if is_error:
         span.set_level('error')
+
+
+def _result_error_type(msg: ResultMessage) -> str:
+    """Describe why a ResultMessage is an error: its subtype, else the HTTP status of the failed API call."""
+    subtype = getattr(msg, 'subtype', None)
+    if subtype and subtype != 'success':
+        return str(subtype)
+    api_error_status = getattr(msg, 'api_error_status', None)
+    if api_error_status is not None:
+        return str(api_error_status)
+    return 'error'

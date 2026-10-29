@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Callable, Generator, Iterable, Iterator
 from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
 from functools import wraps
@@ -28,7 +29,7 @@ class OnResponseFn(Protocol):
     provider that actually served the request.
     """
 
-    def __call__(self, response: Any, span: LogfireSpan, *, base_url: str | None = None) -> Any: ...
+    def __call__(self, response: Any, span: LogfireSpan, *, base_url: str | None = None) -> None: ...
 
 
 def instrument_llm_provider(
@@ -168,9 +169,8 @@ def instrument_llm_provider(
                 if kwargs.get('stream'):
                     return original_request_method(*args, **kwargs)
                 else:
-                    response = on_response_fn(
-                        original_request_method(*args, **kwargs), span, base_url=_client_base_url(args)
-                    )
+                    response = original_request_method(*args, **kwargs)
+                    on_response_fn(response, span, base_url=_client_base_url(args))
                     return response
 
     @wraps(original_request_method)
@@ -183,9 +183,8 @@ def instrument_llm_provider(
                 if kwargs.get('stream'):
                     return await original_request_method(*args, **kwargs)
                 else:
-                    response = on_response_fn(
-                        await original_request_method(*args, **kwargs), span, base_url=_client_base_url(args)
-                    )
+                    response = await original_request_method(*args, **kwargs)
+                    on_response_fn(response, span, base_url=_client_base_url(args))
                     return response
 
     if is_async:
@@ -241,13 +240,23 @@ def record_streaming(
 
     timer = logire_llm._config.advanced.ns_timestamp_generator  # pyright: ignore[reportPrivateUsage]
     start = timer()
+    stream_error: BaseException | None = None
     try:
         yield record_chunk
+    except (Exception, asyncio.CancelledError) as exc:
+        stream_error = exc
+        raise
     finally:
         duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
         with attach_context(original_context):
-            logire_llm.info(
+            attributes = stream_state.get_attributes(span_data)
+            if stream_error is not None:
+                attributes['error.type'] = type(stream_error).__name__
+            logire_llm.log(
+                'error' if stream_error is not None else 'info',
                 'streaming response from {request_data[model]!r} took {duration:.2f}s',
-                duration=duration,
-                **stream_state.get_attributes(span_data),
+                {'duration': duration, **attributes},
+                exc_info=(type(stream_error), stream_error, stream_error.__traceback__)
+                if stream_error is not None
+                else False,
             )

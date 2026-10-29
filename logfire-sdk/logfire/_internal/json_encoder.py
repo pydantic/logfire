@@ -10,8 +10,7 @@ from decimal import Decimal
 from enum import Enum
 from functools import cache, lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
-from itertools import chain
-from pathlib import PosixPath
+from pathlib import PurePath
 from re import Pattern
 from types import GeneratorType
 from typing import Any
@@ -60,6 +59,18 @@ def _to_repr(o: Any, _seen: set[int]) -> str:
     return repr(o)
 
 
+def pandas_display_slices(count: int, limit: int | None) -> tuple[slice, ...]:
+    """Return the first and last positions selected by a pandas display limit."""
+    # Pandas uses 0 for terminal auto-detection, which does not apply to JSON output.
+    if limit is None or limit <= 0 or count <= limit:
+        return (slice(None),)
+    front = (limit + 1) // 2
+    back = limit // 2
+    if back == 0:
+        return (slice(None, front),)
+    return (slice(None, front), slice(-back, None))
+
+
 def _pandas_data_frame_encoder(o: Any, seen: set[int]) -> JsonValue:
     """Encode pandas data frame by extracting important information.
 
@@ -82,26 +93,13 @@ def _pandas_data_frame_encoder(o: Any, seen: set[int]) -> JsonValue:
     """
     import pandas
 
-    max_rows = pandas.get_option('display.max_rows')
-    max_columns = pandas.get_option('display.max_columns')
-
-    col_middle = max_columns // 2
-    column_count = len(o.columns)
+    row_slices = pandas_display_slices(len(o), pandas.get_option('display.max_rows'))
+    column_slices = pandas_display_slices(len(o.columns), pandas.get_option('display.max_columns'))
 
     rows: list[Any] = []
-    row_count = len(o)
-
-    if row_count > max_rows:
-        row_middle = max_rows // 2
-        df_rows = chain(o.head(row_middle).iterrows(), o.tail(row_middle).iterrows())
-    else:
-        df_rows = o.iterrows()
-
-    for _, row in df_rows:
-        if column_count > max_columns:
-            rows.append(list(row[:col_middle]) + list(row[-col_middle:]))
-        else:
-            rows.append(list(row))
+    for row_slice in row_slices:
+        for _, row in o.iloc[row_slice].iterrows():
+            rows.append([item for column_slice in column_slices for item in row.iloc[column_slice]])
 
     return to_json_value(rows, seen)
 
@@ -211,7 +209,7 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
         IPv6Address: _to_str,
         IPv6Interface: _to_str,
         IPv6Network: _to_str,
-        PosixPath: _to_str,
+        PurePath: _to_str,
         Pattern: lambda o, seen: to_json_value(o.pattern, seen),
         UUID: _to_str,
         Exception: _to_str,
@@ -271,7 +269,7 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
         sa_data = _get_sqlalchemy_data(o, seen)
         if sa_data is not None:
             return sa_data
-        elif dataclasses.is_dataclass(o):
+        elif dataclasses.is_dataclass(type(o)):  # pyright: ignore[reportUnknownArgumentType]
             return {f.name: to_json_value(getattr(o, f.name), seen) for f in dataclasses.fields(o) if f.repr}
         elif is_attrs(o.__class__):
             return _get_attrs_data(o, seen)
@@ -343,4 +341,4 @@ def is_attrs(cls: type) -> bool:
 def _get_attrs_data(o: Any, seen: set[int]) -> JsonValue:
     import attrs
 
-    return {f.name: to_json_value(getattr(o, f.name), seen) for f in attrs.fields(o.__class__)}
+    return {f.name: to_json_value(getattr(o, f.name), seen) for f in attrs.fields(o.__class__) if f.repr is not False}

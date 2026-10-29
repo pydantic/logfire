@@ -28,11 +28,13 @@ class JsonArgsValueFormatter:
             'Mapping': partial(self._format_items, '({', ': ', '})', True),
             'tuple': partial(self._format_list_like, '(', ')'),
             'Sequence': partial(self._format_sequence, '([', '])'),
-            'set': partial(self._format_list_like, '{', '}'),
-            'frozenset': partial(self._format_list_like, 'frozenset({', '})'),
+            'range': self._format_range,
+            'set': partial(self._format_set_like, 'set()', '{', '}'),
+            'frozenset': partial(self._format_set_like, 'frozenset()', 'frozenset({', '})'),
             'deque': partial(self._format_list_like, 'deque([', '])'),
-            'generator': partial(self._format_list_like, 'generator((', '))'),
+            'generator': self._format_generator,
             'bytes': self._format_bytes,
+            'bytearray': self._format_bytearray,
             'Decimal': partial(self._write, 'Decimal(', ')', True),
             'date': self._format_date,
             'datetime': self._format_datetime,
@@ -47,14 +49,14 @@ class JsonArgsValueFormatter:
             'IPv6Address': partial(self._write, 'IPv6Address(', ')', True),
             'IPv6Interface': partial(self._write, 'IPv6Interface(', ')', True),
             'IPv6Network': partial(self._write, 'IPv6Network(', ')', True),
-            'PosixPath': partial(self._write, 'PosixPath(', ')', True),
+            'Path': partial(self._write, 'Path(', ')', True),
             'Pattern': partial(self._write, 're.compile(', ')', True),
             'SecretBytes': partial(self._write, 'SecretBytes(', ')', False),
             'SecretStr': partial(self._write, 'SecretStr(', ')', True),
             'NameEmail': partial(self._write, '', '', False),
             'UUID': partial(self._write, "UUID('", "')", False),
             'Exception': partial(self._write, '(', ')', True),
-            'ndarray': partial(self._format_list_like, 'array([', '])'),
+            'ndarray': self._format_ndarray,
             'DataFrame': self._format_data_frame,
             'attrs': partial(self._format_items, '(', '=', ')', False),
             'sqlalchemy': partial(self._format_items, '(', '=', ')', False),
@@ -116,9 +118,34 @@ class JsonArgsValueFormatter:
     ) -> None:
         schema = schema or {}
         if (cls := schema.get('title')) == 'range':
-            self._write('(', ')', False, 0, f'{value[0]}, {value[-1] + 1}', schema)
+            self._format_range(indent_current, value, schema)
         else:
             self._format_list_like(f'{cls}{open_}', close_, indent_current, value, None)
+
+    def _format_range(self, _indent_current: int, value: Any, _schema: JSONSchema | None) -> None:
+        # Reconstruct an equivalent range from encoded values, which omit the original bounds.
+        if value:
+            step = value[1] - value[0] if len(value) > 1 else 1
+            args = f'{value[0]}, {value[-1] + step}'
+            if step != 1:
+                args += f', {step}'
+        else:
+            args = '0, 0'
+        self._write('range(', ')', False, 0, args, None)
+
+    def _format_generator(self, indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        if isinstance(value, str):
+            # The JSON encoder stores a generator as its repr() rather than consuming it.
+            self._write('', '', False, 0, value, None)
+        else:
+            self._format_list_like('generator((', '))', indent_current, value, schema)
+
+    def _format_ndarray(self, indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        if schema is not None and schema.get('x-shape') == []:
+            # A zero-dimensional ndarray is encoded by tolist() as its scalar value.
+            self._write('array(', ')', True, indent_current, value, None)
+        else:
+            self._format_list_like('array([', '])', indent_current, value, schema)
 
     def _format_list_like(
         self, open_: str, close_: str, indent_current: int, value: Any, schema: JSONSchema | None
@@ -154,6 +181,15 @@ class JsonArgsValueFormatter:
         if self._newlines and not first:
             self._stream.write(comma)
         self._stream.write(indent_current * ' ' + close_)
+
+    def _format_set_like(
+        self, empty: str, open_: str, close_: str, indent_current: int, value: Any, schema: JSONSchema | None
+    ) -> None:
+        if value:
+            self._format_list_like(open_, close_, indent_current, value, schema)
+        else:
+            # `{}` would read as an empty dict, so match repr() instead.
+            self._stream.write(empty)
 
     def _format_items(
         self,
@@ -208,6 +244,10 @@ class JsonArgsValueFormatter:
         cls = schema and schema.get('title')
         output = f'{cls}({value})' if cls else value
         self._stream.write(output)
+
+    def _format_bytearray(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        cls = (schema and schema.get('title')) or 'bytearray'
+        self._stream.write(f'{cls}({value})')
 
     def _format_string(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
         """Format string value.
@@ -265,7 +305,8 @@ class JsonArgsValueFormatter:
         """
 
         def insert_into_list_middle(items: list[Any], item: str | list[str]) -> list[Any]:
-            midpoint = len(items) // 2
+            # Odd display limits retain one more leading item than trailing items.
+            midpoint = (len(items) + 1) // 2
             return items[0:midpoint] + [item] + items[midpoint:]
 
         # add a column at the begging for index

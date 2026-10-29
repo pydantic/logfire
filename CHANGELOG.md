@@ -1,5 +1,105 @@
 # Release Notes
 
+## [v5.4.0] (2026-10-26)
+
+* `logfire.agent_sandboxes()` by @samuelcolvin in [#2658](https://github.com/pydantic/logfire/pull/2658) and [#2672](https://github.com/pydantic/logfire/pull/2672)
+* fix(sdk): serialize all pathlib.Path variants as plain strings by @RichardoMrMu in [#2669](https://github.com/pydantic/logfire/pull/2669)
+* Format an empty set as set() in the console exporter by @chrikrah in [#2671](https://github.com/pydantic/logfire/pull/2671)
+* Keep binary attributes out of the secret scrubber by @Eapp1e in [#2668](https://github.com/pydantic/logfire/pull/2668)
+* Keep recording exceptions whose `__str__` raises by @Eapp1e in [#2667](https://github.com/pydantic/logfire/pull/2667)
+* Print generator attributes as their repr in the console exporter by @CyberNativeAI in [#2657](https://github.com/pydantic/logfire/pull/2657)
+* Record OpenAI cache write tokens on spans by @pcbeingused333 in [#2637](https://github.com/pydantic/logfire/pull/2637)
+* Keep non-string messages from breaking exporters by @oxura in [#2655](https://github.com/pydantic/logfire/pull/2655)
+* Count only top-level CTE names in SQL summaries by @gokay-ai in [#2652](https://github.com/pydantic/logfire/pull/2652)
+* Log dataclass types as their repr, not their default field values by @chrikrah in [#2649](https://github.com/pydantic/logfire/pull/2649)
+* Record max_completion_tokens as the requested max tokens on OpenAI chat spans by @pcbeingused333 in [#2646](https://github.com/pydantic/logfire/pull/2646)
+* Record custom tool calls from OpenAI chat completions by @pcbeingused333 in [#2647](https://github.com/pydantic/logfire/pull/2647)
+* Convert Anthropic document and file-backed image input blocks to semconv parts by @pcbeingused333 in [#2645](https://github.com/pydantic/logfire/pull/2645)
+* Harden remote strings in log messages by @dmontagu in [#2654](https://github.com/pydantic/logfire/pull/2654)
+* Remove the duplicated tool call from message content by @RachelWanggg in [#2442](https://github.com/pydantic/logfire/pull/2442)
+* Record errors raised during LLM stream consumption by @deepanshupal in [#2491](https://github.com/pydantic/logfire/pull/2491)
+* fix(formatter): treat unbalanced braces as a formatting failure by @Eapp1e in [#2675](https://github.com/pydantic/logfire/pull/2675)
+
+## [v5.3.0] (2026-10-23)
+
+* Automatically instrument FastAPI with logfire run by @alexmojaki in [#2606](https://github.com/pydantic/logfire/pull/2606)
+* Automatically instrument Starlette apps with logfire run by @alexmojaki in [#2596](https://github.com/pydantic/logfire/pull/2596)
+* Automatically instrument Flask apps with logfire run by @alexmojaki in [#2594](https://github.com/pydantic/logfire/pull/2594)
+* Raise when SQLAlchemy instrumentation is skipped by @maaz-bin-hassan in [#2602](https://github.com/pydantic/logfire/pull/2602)
+* Add `pending_spans` option by @adriangb in [#2580](https://github.com/pydantic/logfire/pull/2580)
+* Honor exception callback levels when setting span status by @alexmojaki in [#2592](https://github.com/pydantic/logfire/pull/2592)
+* Scrub passphrase, signing_key and hmac_key by default by @sridhar-3009 in [#2593](https://github.com/pydantic/logfire/pull/2593)
+* Scrub OAuth-style token names (access_token, refresh_token, id_token, bearer_token) by default by @sridhar-3009 in [#2551](https://github.com/pydantic/logfire/pull/2551)
+* Treat `logfire.tags` passed through structlog as log tags by @Thanatos9404 in [#2598](https://github.com/pydantic/logfire/pull/2598)
+* Treat `logfire.tags` passed through logging and loguru as log tags by @Thanatos9404 in [#2550](https://github.com/pydantic/logfire/pull/2550)
+* Suppress native FastAPI telemetry by @alexmojaki in [#2629](https://github.com/pydantic/logfire/pull/2629)
+* Require certifi 2026.10.19 to distrust compromised eMudhra chains by @alexmojaki in [#2640](https://github.com/pydantic/logfire/pull/2640)
+* Format range attributes in the console exporter by @fhgffy in [#2534](https://github.com/pydantic/logfire/pull/2534)
+* Format bytearray attributes in the console exporter by @sebxt in [#2591](https://github.com/pydantic/logfire/pull/2591)
+* Fix DataFrame labels below pandas display limits by @fallintoplace in [#2509](https://github.com/pydantic/logfire/pull/2509)
+* Handle zero-dimensional NumPy arrays in console formatting by @dailyun in [#2621](https://github.com/pydantic/logfire/pull/2621)
+* Clarify CLI account switching and logout scope by @alexmojaki in [#2552](https://github.com/pydantic/logfire/pull/2552)
+* Include the dataset in `url_from_eval` links when the report has one by @jirikuncar in [#2566](https://github.com/pydantic/logfire/pull/2566)
+* Keep the parent context for spans started while instrumentation is suppressed by @adtyavrdhn in [#2570](https://github.com/pydantic/logfire/pull/2570)
+* Record response id and finish reasons for streamed OpenAI and Anthropic calls by @flcrom in [#2545](https://github.com/pydantic/logfire/pull/2545)
+* Record the response model for streamed OpenAI and Anthropic calls by @darshjoshi in [#2558](https://github.com/pydantic/logfire/pull/2558)
+* Record OpenAI refusals in gen_ai.output.messages by @pcbeingused333 in [#2582](https://github.com/pydantic/logfire/pull/2582)
+* Record streamed OpenAI Responses that end as incomplete or failed by @SergeevDmitry in [#2565](https://github.com/pydantic/logfire/pull/2565)
+* Record response id and finish reason on Claude Agent SDK chat spans by @pcbeingused333 in [#2620](https://github.com/pydantic/logfire/pull/2620)
+* Record cache token usage on Anthropic spans by @pcbeingused333 in [#2616](https://github.com/pydantic/logfire/pull/2616)
+* Record cached prompt tokens on OpenAI spans by @pcbeingused333 in [#2617](https://github.com/pydantic/logfire/pull/2617)
+* Record why a Claude Agent SDK run ended in error by @pcbeingused333 in [#2622](https://github.com/pydantic/logfire/pull/2622)
+* Record finish reasons for OpenAI Responses API calls by @pcbeingused333 in [#2619](https://github.com/pydantic/logfire/pull/2619)
+* Record response id and finish reasons on OpenAI Agents Responses spans by @pcbeingused333 in [#2632](https://github.com/pydantic/logfire/pull/2632)
+* Record Responses API refusals as text in gen_ai.output.messages by @pcbeingused333 in [#2618](https://github.com/pydantic/logfire/pull/2618)
+* Return the provider response when recording it fails by @devjoinedthechat in [#2559](https://github.com/pydantic/logfire/pull/2559)
+* Preserve all Anthropic tool result content parts by @alexmojaki in [#2634](https://github.com/pydantic/logfire/pull/2634)
+* Don't let Litestar routing errors escape span naming by @devjoinedthechat in [#2560](https://github.com/pydantic/logfire/pull/2560)
+* Read stable database semconv attributes when building DB span messages by @devjoinedthechat in [#2561](https://github.com/pydantic/logfire/pull/2561)
+* Don't send empty schemas when pushing a dataset typed with `Any` by @digit50 in [#2578](https://github.com/pydantic/logfire/pull/2578)
+* Exclude the working directory from `sys.path` while `logfire run` instruments packages by @Kludex in [#2623](https://github.com/pydantic/logfire/pull/2623)
+* Keep CLI tracing from replacing the global provider by @widechaos in [#2611](https://github.com/pydantic/logfire/pull/2611)
+* Isolate CLI diagnostic logging from application logging by @alexmojaki in [#2625](https://github.com/pydantic/logfire/pull/2625)
+
+## [v6.0.0b8] (2026-10-09)
+
+* Support OpenTelemetry 1.45 by @alexmojaki in [#2536](https://github.com/pydantic/logfire/pull/2536)
+* Allow console attributes without verbose output by @rudrakshkarpe in [#2488](https://github.com/pydantic/logfire/pull/2488)
+* Add `compression` option and zstd experimental support by @Viicos in [#2535](https://github.com/pydantic/logfire/pull/2535)
+* Update FastAPI instrumentation to prevent duplicate telemetry by @alexmojaki in [#2524](https://github.com/pydantic/logfire/pull/2524)
+* Update Anthropic instrumentation by @alexmojaki in [#2521](https://github.com/pydantic/logfire/pull/2521)
+* Keep span message in sync with the name after `update_name` by @darshjoshi in [#2514](https://github.com/pydantic/logfire/pull/2514)
+* Expose RFC 9457 problem details on query client errors by @adriangb in [#2511](https://github.com/pydantic/logfire/pull/2511)
+* Read stable HTTP semconv attributes when building HTTP span messages by @samuelcolvin in [#2516](https://github.com/pydantic/logfire/pull/2516)
+* Update Google GenAI instrumentation by @alexmojaki in [#2523](https://github.com/pydantic/logfire/pull/2523)
+* Convert span attribute ints below the int64 minimum to strings by @JoeyTan21 in [#2502](https://github.com/pydantic/logfire/pull/2502)
+* Respect repr=False when logging attrs fields by @harbinresearcher in [#2518](https://github.com/pydantic/logfire/pull/2518)
+* Default the CLI base URL to LOGFIRE_BASE_URL by @jgjoe in [#2260](https://github.com/pydantic/logfire/pull/2260)
+* Create subprocess with no console windows on windows by @marcelotrevisani in [#2507](https://github.com/pydantic/logfire/pull/2507)
+* Fix when logfire tries to access a file that has no permission by @marcelotrevisani in [#2464](https://github.com/pydantic/logfire/pull/2464)
+* fix: do not treat non-retryable DiskRetryer responses as success by @alexmojaki in [#2529](https://github.com/pydantic/logfire/pull/2529)
+* fix explicit context for logfire metrics by @alexmojaki in [#2532](https://github.com/pydantic/logfire/pull/2532)
+* Fix OTLP byte POST retries through Session.request by @SAY-5 in [#2503](https://github.com/pydantic/logfire/pull/2503)
+* Handle project setup for accounts without organizations by @strawgate in [#2469](https://github.com/pydantic/logfire/pull/2469)
+
+## [v6.0.0b7] (2026-09-25)
+
+* Configure proxy managers before other threads can use them by @adriangb in [#2479](https://github.com/pydantic/logfire/pull/2479)
+
+## [v6.0.0b6] (2026-09-25)
+
+* Make the `logfire` package own the `logfire` command and require `logfire-cli` 0.1.8 or later by @adriangb in [#2480](https://github.com/pydantic/logfire/pull/2480)
+
+## [v6.0.0b5] (2026-09-24)
+
+* Enable TCP keepalive and recycle idle connections in Logfire's HTTP sessions by @adriangb in [#2309](https://github.com/pydantic/logfire/pull/2309)
+
+## [v6.0.0b4] (2026-09-21)
+
+* Make `instrument_mcp()` work with mcp 2 / fastmcp 4 by @samuelcolvin in [#2439](https://github.com/pydantic/logfire/pull/2439)
+* Add `logfire.instrument_monty()` by @davidhewitt in [#2371](https://github.com/pydantic/logfire/pull/2371)
+* Require `logfire-cli` 0.1.7 or later in the `logfire` compatibility package.
+
 ## [v6.0.0b3] (2026-09-18)
 
 * Require `logfire-cli` 0.1.5 or later in the `logfire` compatibility package.
@@ -12,6 +112,33 @@
 ## [v6.0.0b1] (2026-09-15)
 
 * **Breaking Change:** Split the `logfire` distribution into the `logfire-sdk` Python SDK and the standalone `logfire-cli`. The `logfire` package now installs both while preserving upgrades from Logfire 5, the existing `import logfire` API, and optional extras. Install `logfire-sdk` directly when the CLI is not needed.
+
+## [v5.2.0] (2026-10-13)
+
+* Support OpenTelemetry 1.45 by @alexmojaki in [#2536](https://github.com/pydantic/logfire/pull/2536)
+* Allow console attributes without verbose output by @rudrakshkarpe in [#2488](https://github.com/pydantic/logfire/pull/2488)
+* Add `compression` option and zstd experimental support by @Viicos in [#2535](https://github.com/pydantic/logfire/pull/2535)
+* Update FastAPI instrumentation to prevent duplicate telemetry by @alexmojaki in [#2524](https://github.com/pydantic/logfire/pull/2524)
+* Update Anthropic instrumentation by @alexmojaki in [#2521](https://github.com/pydantic/logfire/pull/2521)
+* Keep span message in sync with the name after `update_name` by @darshjoshi in [#2514](https://github.com/pydantic/logfire/pull/2514)
+* Expose RFC 9457 problem details on query client errors by @adriangb in [#2511](https://github.com/pydantic/logfire/pull/2511)
+* Read stable HTTP semconv attributes when building HTTP span messages by @samuelcolvin in [#2516](https://github.com/pydantic/logfire/pull/2516)
+* Update Google GenAI instrumentation by @alexmojaki in [#2523](https://github.com/pydantic/logfire/pull/2523)
+* Convert span attribute ints below the int64 minimum to strings by @JoeyTan21 in [#2502](https://github.com/pydantic/logfire/pull/2502)
+* Respect repr=False when logging attrs fields by @harbinresearcher in [#2518](https://github.com/pydantic/logfire/pull/2518)
+* Default the CLI base URL to LOGFIRE_BASE_URL by @jgjoe in [#2260](https://github.com/pydantic/logfire/pull/2260)
+* Create subprocess with no console windows on windows by @marcelotrevisani in [#2507](https://github.com/pydantic/logfire/pull/2507)
+* Fix when logfire tries to access a file that has no permission by @marcelotrevisani in [#2464](https://github.com/pydantic/logfire/pull/2464)
+* fix: do not treat non-retryable DiskRetryer responses as success by @alexmojaki in [#2529](https://github.com/pydantic/logfire/pull/2529)
+* fix explicit context for logfire metrics by @alexmojaki in [#2532](https://github.com/pydantic/logfire/pull/2532)
+* Fix OTLP byte POST retries through Session.request by @SAY-5 in [#2503](https://github.com/pydantic/logfire/pull/2503)
+
+(These are the same changes as in v6.0.0b8, but backported to the v5 line.)
+
+## [v5.1.1] (2026-09-25)
+
+* Handle project setup for accounts without organizations by @strawgate in [#2470](https://github.com/pydantic/logfire/pull/2470)
+* Enable TCP keepalive and recycle idle connections in Logfire's HTTP sessions by @adriangb in [#2476](https://github.com/pydantic/logfire/pull/2476)
 
 ## [v5.1.0] (2026-09-11)
 
@@ -1315,6 +1442,15 @@ First release from new repo!
 [v4.41.0]: https://github.com/pydantic/logfire/compare/v4.40.0...v4.41.0
 [v5.0.0]: https://github.com/pydantic/logfire/compare/v4.41.0...v5.0.0
 [v5.1.0]: https://github.com/pydantic/logfire/compare/v5.0.0...v5.1.0
+[v5.1.1]: https://github.com/pydantic/logfire/compare/v5.1.0...v5.1.1
+[v5.2.0]: https://github.com/pydantic/logfire/compare/v5.1.1...v5.2.0
 [v6.0.0b1]: https://github.com/pydantic/logfire/compare/v5.1.0...v6.0.0b1
 [v6.0.0b2]: https://github.com/pydantic/logfire/compare/v6.0.0b1...v6.0.0b2
 [v6.0.0b3]: https://github.com/pydantic/logfire/compare/v6.0.0b2...v6.0.0b3
+[v6.0.0b4]: https://github.com/pydantic/logfire/compare/v6.0.0b3...v6.0.0b4
+[v6.0.0b5]: https://github.com/pydantic/logfire/compare/v6.0.0b4...v6.0.0b5
+[v6.0.0b6]: https://github.com/pydantic/logfire/compare/v6.0.0b5...v6.0.0b6
+[v6.0.0b7]: https://github.com/pydantic/logfire/compare/v6.0.0b6...v6.0.0b7
+[v6.0.0b8]: https://github.com/pydantic/logfire/compare/v6.0.0b7...v6.0.0b8
+[v5.3.0]: https://github.com/pydantic/logfire/compare/v6.0.0b8...v5.3.0
+[v5.4.0]: https://github.com/pydantic/logfire/compare/v5.3.0...v5.4.0

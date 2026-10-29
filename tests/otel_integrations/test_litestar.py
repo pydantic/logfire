@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from decimal import Decimal
 from typing import Annotated, Any, cast
 from unittest import mock
 
@@ -20,6 +21,7 @@ from litestar.params import Parameter
 from opentelemetry.trace import Span
 from starlette.testclient import TestClient
 from starlette.types import ASGIApp
+from starlette.websockets import WebSocketDisconnect
 
 import logfire
 from logfire.testing import TestExporter
@@ -51,6 +53,11 @@ async def mounted(scope: Any, receive: Any, send: Any) -> None:
     await send({'type': 'http.response.body', 'body': b'ok'})
 
 
+@get('/prices/{price:decimal}')
+async def price(price: Annotated[Decimal, Parameter()]) -> str:
+    return str(price)
+
+
 @websocket('/chat')
 async def chat(socket: WebSocket[Any, Any, Any]) -> None:
     await socket.accept()
@@ -63,8 +70,13 @@ def make_app(**instrument_kwargs: Any) -> ASGIApp:
 
 @pytest.fixture(autouse=True)
 def restore_header_capture_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv('OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST', raising=False)
-    monkeypatch.delenv('OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE', raising=False)
+    # Register initially absent variables too, so capture_headers=True cannot leak into later tests.
+    for name in (
+        'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST',
+        'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE',
+    ):
+        monkeypatch.setenv(name, '')
+        monkeypatch.delenv(name)
 
 
 def test_routes(exporter: TestExporter) -> None:
@@ -308,6 +320,39 @@ def test_websocket_route_has_no_leading_space(exporter: TestExporter) -> None:
     [span] = exporter.exported_spans_as_dict()
     assert span['name'] == '/chat'
     assert span['attributes']['http.route'] == '/chat'
+
+
+def test_websocket_to_http_route_is_rejected_by_litestar(exporter: TestExporter) -> None:
+    """Routing a WebSocket request to an HTTP-only route raises `KeyError` on Litestar 2.18 to 2.24.
+
+    That happens while naming the span, before the app runs, so it must not escape the middleware.
+    """
+    close_codes: list[int] = []
+    for app in (Litestar(route_handlers=[health]), logfire.instrument_litestar(Litestar(route_handlers=[health]))):
+        with TestClient(cast(ASGIApp, app)) as client:
+            with pytest.raises(WebSocketDisconnect) as exc_info:
+                with client.websocket_connect('/health'):
+                    pass  # pragma: no cover
+        close_codes.append(exc_info.value.code)
+
+    assert close_codes[0] == close_codes[1]
+    assert len(exporter.exported_spans_as_dict()) == 1
+
+
+def test_routing_error_is_handled_by_the_app(exporter: TestExporter) -> None:
+    """`Decimal('abc')` raises `decimal.InvalidOperation`, which Litestar's router doesn't turn into a 404."""
+    responses: list[tuple[int, str]] = []
+    for app in (Litestar(route_handlers=[price]), logfire.instrument_litestar(Litestar(route_handlers=[price]))):
+        with TestClient(cast(ASGIApp, app), raise_server_exceptions=False) as client:
+            response = client.get('/prices/abc')
+        responses.append((response.status_code, response.text))
+
+    # Litestar's own exception handling builds the response either way.
+    assert responses[0] == responses[1] == (500, '{"status_code":500,"detail":"Internal Server Error"}')
+    [span] = exporter.exported_spans_as_dict()
+    assert span['name'] == 'GET'
+    assert span['attributes']['http.status_code'] == 500
+    assert span['attributes']['logfire.level_num'] == 17
 
 
 @pytest.mark.parametrize('root_path', ['', '/api'])

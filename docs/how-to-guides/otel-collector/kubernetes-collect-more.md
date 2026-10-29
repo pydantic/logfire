@@ -6,7 +6,7 @@ description: "Extend Logfire Kubernetes monitoring with application traces, opti
 
 Add application traces, automatic runtime instrumentation, failure reasons, service endpoint health, per-interface network metrics, or extra Kubernetes object state after standard cluster monitoring works.
 
-A trace is the full journey of one request, made of nested spans. A span is one operation with a name, a start, and a duration. Complete the [standard Kubernetes monitoring setup](kubernetes-monitoring.md) first; it gives Logfire the cluster, node, pod, container, host, log, and event data required by the Kubernetes page.
+A trace is the full journey of one request, made of nested spans. A span is one operation with a name, a start, and a duration. Complete the [standard Kubernetes monitoring setup](kubernetes-monitoring.md) first; it gives Logfire the cluster, node, pod, container, log, and event data required by the Kubernetes page.
 
 OpenTelemetry Protocol (OTLP) is the standard wire format Logfire uses to receive telemetry.
 
@@ -14,9 +14,10 @@ OpenTelemetry Protocol (OTLP) is the standard wire format Logfire uses to receiv
 
 | Data | Standard setup |
 |------|----------------|
-| Cluster, workload, node, pod, container, and volume metrics | Yes |
-| Host CPU, memory, disk, filesystem, network, and paging metrics | Yes |
-| Kubelet cAdvisor and annotated-pod Prometheus metrics | Yes, through the daemon's default scrape configuration |
+| Cluster, workload, node, pod, and container metrics | Yes, once per minute |
+| Persistent-volume metrics | No |
+| Host CPU, memory, disk, filesystem, network, and paging metrics | No; [enable them when you use the Hosts view](kubernetes-monitoring.md#monitor-hosts-too) |
+| Kubelet cAdvisor and annotated-pod Prometheus metrics | No |
 | Pod stdout and stderr | Yes, through the chart's `logsCollection` preset |
 | Kubernetes Events | Yes, through the `kubernetesEvents` preset |
 | Kubernetes identity on telemetry | Yes, through `k8sattributesprocessor` |
@@ -153,7 +154,19 @@ Enable only the object groups you intend to query. Object snapshots can be large
 
 ## Add application and Prometheus metrics
 
-The chart's daemon scrape configuration collects pods with Prometheus-style annotations. For an application endpoint, add `prometheus.io/scrape: "true"`, its port, and its path to the pod template. Avoid scraping the same endpoint from another Prometheus or Collector path unless duplicate metrics are intentional.
+The standard setup disables the chart's broad Prometheus configuration. To collect only application pods with Prometheus-style annotations, enable the chart's targeted pod-annotation preset at a one-minute interval:
+
+```yaml title="values-prometheus-pods.yaml"
+collectors:
+  daemon:
+    presets:
+      prometheus:
+        podAnnotations:
+          enabled: true
+          scrapeInterval: 60s
+```
+
+Apply this file alongside the standard `values.yaml`, then add `prometheus.io/scrape: "true"`, its port, and its path to the application pod template. To collect kubelet cAdvisor or node-exporter metrics instead, enable the sibling `presets.prometheus.cadvisor` or `presets.prometheus.nodeExporter` setting at a one-minute interval. Avoid scraping the same endpoint from another Prometheus or Collector path unless duplicate metrics are intentional.
 
 You can also send application metrics over the daemon Collector's existing OTLP receiver. Metrics, traces, and logs sent that way receive the same Kubernetes resource attributes before they reach Logfire.
 
@@ -180,4 +193,4 @@ You can also send application metrics over the daemon Collector's existing OTLP 
 ## Next steps
 
 - Return to the [standard setup](kubernetes-monitoring.md) to verify the required Kubernetes data first.
-- Use the [lower-volume configuration](kubernetes-reduce-volume.md) when the additional signals cost more than the questions they answer.
+- Use the [volume-control guide](kubernetes-reduce-volume.md) when the additional signals cost more than the questions they answer.

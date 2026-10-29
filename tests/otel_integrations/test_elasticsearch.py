@@ -84,10 +84,24 @@ def test_native_elasticsearch_instrumentation(exporter: TestExporter) -> None:
                     'server.address': 'localhost',
                     'server.port': 9200,
                     'db.response.status_code': '200',
+                    'url.path': '/products/_search',
                 },
             }
         ]
     )
+
+
+def test_native_elasticsearch_query_not_used_as_message(exporter: TestExporter) -> None:
+    """The query body isn't SQL, so it isn't summarized into the message even when it contains the operation name."""
+    client = Elasticsearch('http://localhost:9200', node_class=OfflineNode)
+
+    client.search(index='products', query={'match_all': {}}, sort=['_doc'], search_after=[1])
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['db.query.text'] == snapshot(
+        {'query': {'match_all': {}}, 'sort': ['_doc'], 'search_after': [1]}
+    )
+    assert span['attributes']['logfire.msg'] == 'search'
 
 
 def test_native_elasticsearch_instrumentation_can_be_disabled(

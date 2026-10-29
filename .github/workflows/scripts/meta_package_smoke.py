@@ -5,16 +5,22 @@ from pathlib import Path
 
 
 def main() -> None:
-    """Verify the meta-package installs the matching SDK and standalone CLI."""
+    """Verify the meta-package installs the matching SDK and its Python CLI."""
     import logfire
 
     assert logfire.VERSION == metadata.version('logfire')
-    assert metadata.version('logfire-cli')
+    try:
+        metadata.version('logfire-cli')
+    except metadata.PackageNotFoundError:
+        pass
+    else:
+        raise AssertionError('The meta-package should not install logfire-cli')
 
     console_scripts = {
         entry_point.name: entry_point.value for entry_point in metadata.entry_points(group='console_scripts')
     }
-    assert console_scripts['logfire'] == 'logfire_cli:main'
+    assert console_scripts['logfire'] == 'logfire.cli:main'
+    assert 'logfire-cli' not in console_scripts
 
     meta_files = metadata.files('logfire')
     assert meta_files is not None
