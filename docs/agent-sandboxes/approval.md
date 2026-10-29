@@ -112,7 +112,7 @@ async def request_approval(plan: dict) -> bool:
 ```
 
 !!! warning "This example handles one approval at a time"
-    The JSON files below demonstrate one workflow on one machine. A lock serializes tool calls within this process. Do not share them across users or
+    The JSON files below demonstrate one workflow on one machine. `RUN_LOCK` serializes `run_code` calls within this process. Do not share them across users or
     concurrent jobs. In production, store each request under its own ID. Authenticate the approver and claim the
     decision atomically before running it. Keep the approved plan separate from model-editable state.
 
@@ -288,6 +288,10 @@ Review `pending-approval.json`, then run `python approve.py approve`. The script
 not called. Run `python approve.py deny` instead to decline, and `request_approval` raises `PermissionError` inside the
 script. If the script does not catch it, `approve.py` raises `MontyRuntimeError`.
 
+If a declined plan stops with `MontyRuntimeError`, the in-progress file remains.
+Check that no refunds or emails ran, then move `in-progress-approval.json` to a separate archive filename.
+Start a new agent run for a revised plan. Do not restore or retry the declined checkpoint.
+
 If the script asks for approval again, `save_pending()` writes the new checkpoint and its plan. Review that new plan
 before you repeat the decision. A completed run removes the request. Running the command again cannot silently
 reload the original checkpoint.
@@ -300,8 +304,8 @@ can replay host calls when you load it again. Idempotency checks in the host ser
 Your application does not keep a process, a connection, or a container open while it waits. The paused script is a
 stored value, so it can wait for days, survive a deploy of your application, and resume on a different machine.
 
-Give the result to the model only if it needs to react, for example to tell the customer what happened. A denial can
-also go back to the model, so that it can write a different plan.
+This example does not restart the model after a decision.
+Your application can start a new agent run if it needs a revised plan or a message for the customer.
 
 ## Verify it worked
 

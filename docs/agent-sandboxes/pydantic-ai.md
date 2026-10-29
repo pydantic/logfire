@@ -17,7 +17,7 @@ records every run in Logfire. You add one argument.
 
 !!! warning "This integration requires an unreleased Pydantic AI change"
     The `monty_pool_factory` support shown here depends on
-    [Pydantic AI PR #11179](https://github.com/pydantic/pydantic-ai/pull/11179). It is not in a released Harness version.
+    [Pydantic AI pull request #11179](https://github.com/pydantic/pydantic-ai/pull/11179). It is not in a released Harness version.
     The example below requires a development build that includes that change.
     Use [Add a code tool to any agent](any-framework.md) with released Pydantic AI versions.
 
@@ -82,13 +82,19 @@ pool connects only when the model first calls `run_code`.
 The model sees one tool, `run_code`, with your three tools listed as Python functions. For the question above it writes
 short scripts like the ones on [Answer questions that need dozens of tool
 calls](many-tool-calls.md#see-the-code-the-agent-writes). They fetch the enterprise customers, fetch each customer's
-request counts in parallel with `asyncio.gather`, compute availability in Python, and return only the customers that
+request counts, compute availability in Python, and return only the customers that
 missed their target. Each script continues from the variables of the one before it. The exact code changes from run
 to run.
 
+An agent can also request several calls with `asyncio.gather`.
+The hosted service can serialize those calls.
+Use the [sequential alternative](many-tool-calls.md#see-the-code-the-agent-writes) when you need one call at a time.
 Your tools run in your process, as they would without Code Mode. Only the script runs in the sandbox.
 
 ## Keep the sandbox's variables across conversation turns
+
+This option also requires the unreleased Harness change described above.
+Use the [framework-neutral session pattern](conversations.md) with released versions.
 
 Each agent run starts a new session. To let a later turn use the variables an earlier turn defined, pass a `repl_store`
 to `CodeMode`. Code Mode saves the session at the end of each run and loads it at the start of the next run in the same

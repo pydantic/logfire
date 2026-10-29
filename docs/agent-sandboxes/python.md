@@ -10,7 +10,7 @@ description: "Install the Logfire SDK, create an API key, and run code in Logfir
     [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 Run Python in a remote [Agent Sandbox](index.md) from your application, with one call to
-[`logfire.agent_sandboxes()`][logfire.Logfire.agent_sandboxes].
+`logfire.agent_sandboxes()`.
 You check out a session, send it code, and get the result back.
 
 ## Before you start
@@ -37,8 +37,8 @@ The organization's enabled-project limit also applies.
 
 ### Get an execution key
 
-You also need a Logfire API key with permission to run code in your project's agent sandboxes
-(`project:execute_agent_sandboxes`):
+You also need a non-personal project API key with permission to run code in your project's agent sandboxes
+(`project:execute_agent_sandboxes`). The setup page creates the required key type:
 
 1. Open **AI Optimization** > **Agent Sandboxes** and select **Setup**.
 2. Under **Choose an execution key**, select **Create execution key**.
@@ -51,6 +51,9 @@ You also need a Logfire API key with permission to run code in your project's ag
 
 You can also create the key in **Project settings → Security & access → API keys → New API key**. Open **Advanced** and
 select **Run code in this project's agent sandboxes**.
+Create a non-personal key. Ordinary personal keys cannot execute sandbox code.
+Ask a project administrator to create it if your role only permits personal keys.
+See [Project API keys](../reference/advanced/use-api-keys.md#project-api-key).
 
 Set it as the `LOGFIRE_API_KEY` environment variable where your application runs:
 
@@ -97,7 +100,7 @@ It prints:
 
 `logfire.agent_sandboxes()` returns a pool of sandboxes.
 The pool opens a connection when you call `pool.checkout()`, which gives you a session with its own sandbox.
-`session.feed_run()` executes the submitted snippet. The pool also supports step-by-step execution with `feed_start()`.
+`session.feed_run()` executes the submitted snippet. The session also supports step-by-step execution with `feed_start()`.
 
 ## Keep state across runs
 
@@ -129,7 +132,8 @@ asyncio.run(main())
 
 Pass your own functions in `external_lookup`.
 Sandbox code can call them by name, and each call runs in your application, not in the sandbox.
-This is the only way sandbox code can reach anything outside the sandbox, so expose only the functions the code needs.
+Expose only the functions the code needs.
+Mounted [volume files](volumes.md) are another source of data when volume access is enabled.
 
 ```python skip-run="true" skip-reason="external-connection" hl_lines="19"
 import asyncio
@@ -192,8 +196,6 @@ The most common ones:
   Raise it for long-running code, or pass `None` to wait indefinitely.
 - `api_key`: use a key other than `LOGFIRE_API_KEY`, or the `api_key` passed to
   [`logfire.configure()`][logfire.configure].
-
-See [`logfire.agent_sandboxes()`][logfire.Logfire.agent_sandboxes] for every option.
 
 ## Verify it worked
 

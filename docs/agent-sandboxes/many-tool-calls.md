@@ -1,6 +1,6 @@
 ---
 title: "Answer questions that need dozens of tool calls"
-description: "Let your agent write one short script that calls your tools in parallel and does the math in Python, so the model reads only the answer."
+description: "Let your agent write one short script that calls your tools and does the math in Python, so the model reads only the answer."
 ---
 
 # Answer questions that need dozens of tool calls
@@ -14,9 +14,9 @@ every row of every result goes into the model's **context window** (the text the
 pay for in **tokens**, the units models read and bill by). Then the model must add up thousands of numbers by reading
 them.
 
-With Agent Sandboxes, the model writes a short Python script instead. The script calls your tools as functions, in
-parallel, and computes the answer in Python. Your tools run in your application. The script runs in a
-[sandbox](index.md). The model reads only what the script returns.
+With Agent Sandboxes, the model writes a short Python script instead.
+The script calls your tools as functions and computes the answer in Python.
+Your tools run in your application. The script runs in a [sandbox](index.md). The model reads only what the script returns.
 
 ## What this changes
 
@@ -114,6 +114,10 @@ variables. The following example adapts that workflow to return compact results:
 2. Fetch each customer's request counts and return the names below their availability target.
 3. Look up tickets for those customers and return the names with open tickets.
 
+The scripts request one tool call at a time.
+An agent can also use `asyncio.gather` to request several calls together.
+The hosted service can serialize those calls. Do not assume that they finish in parallel or reduce latency.
+
 You can run these scripts without a model. Save the code below as `main.py` beside `tools.py`:
 
 ```python title="main.py" skip-run="true" skip-reason="external-connection"
@@ -131,8 +135,7 @@ customers = await list_customers(plan='enterprise')
 len(customers)
 """,
     """
-import asyncio
-stats_lists = await asyncio.gather(*[get_request_stats(customer_id=c['id'], days=7) for c in customers])
+stats_lists = [await get_request_stats(customer_id=c['id'], days=7) for c in customers]
 missed = []
 for c, rows in zip(customers, stats_lists):
     total = sum(r['requests'] for r in rows)
@@ -143,7 +146,7 @@ for c, rows in zip(customers, stats_lists):
 [c['name'] for c in missed]
 """,
     """
-tickets_lists = await asyncio.gather(*[list_open_tickets(customer_id=c['id']) for c in missed])
+tickets_lists = [await list_open_tickets(customer_id=c['id']) for c in missed]
 [c['name'] for c, tickets in zip(missed, tickets_lists) if tickets]
 """,
 ]

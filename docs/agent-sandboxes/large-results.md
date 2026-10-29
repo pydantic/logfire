@@ -179,6 +179,6 @@ row the script used, even though the model never read them.
 
 ## Next steps
 
-- [Answer questions that need dozens of tool calls](many-tool-calls.md): call tools in parallel from one script.
+- [Answer questions that need dozens of tool calls](many-tool-calls.md): call tools from one script.
 - [Keep an agent's work across conversation turns](conversations.md): keep the rows for follow-up questions.
 - [Give an agent a whole API](typed-api.md): check the agent's code against your types before it runs.

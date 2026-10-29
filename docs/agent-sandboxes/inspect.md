@@ -26,8 +26,9 @@ You need [access to Agent Sandboxes](index.md) and permission to read the projec
 The cards count **Sessions**, **Code runs**, **Host calls**, **OS calls**, and **Failures** in the selected window.
 Host calls are calls from sandbox code back to functions supplied by the client.
 OS calls are operating-system operations reported by the runtime.
-The overview shows hosted sandbox activity from the `monty-worker` service.
-It does not include every locally instrumented Monty client or show the sandbox's current capacity.
+The overview shows activity from Logfire's hosted sandboxes.
+It excludes activity from sandboxes that run in your own application.
+It does not show the sandbox's current capacity.
 
 ## Read recorded Python source
 
@@ -69,7 +70,7 @@ You can also choose a call with the **Run timeline** slider or a source gutter m
 
 Scroll below the call inspector to read **Result** for the whole run and **Arguments** for its inputs.
 These differ from the selected function call's arguments and return value.
-Printed text appears in related **print stdout** records in the trace list.
+The **print stdout** records in the trace list contain standard output, the text the program prints.
 
 ## Verify
 
@@ -79,7 +80,7 @@ For a run with several function calls, step between them and check that their ar
 
 ## Troubleshooting
 
-- **The overview is empty.** Widen the time range, check the project and filters, then refresh. Locally instrumented Monty activity appears in Live view but is outside this hosted overview.
+- **The overview is empty.** Widen the time range, check the project and filters, then refresh. Activity from sandboxes that run in your own application appears in Live view but is outside this hosted overview.
 - **View code is unavailable or source is missing.** The selected window may lack a session record or source-bearing code runs. Widen it and inspect the related activity in Live view.
 - **A row says Activity without session details.** The project received activity without matching session details in this window. Open Live view to inspect the records that are available.
 - **A call is missing from the timeline.** Load more spans in the trace list. The inspector uses the calls that the list has loaded. A `+` after the call count means more calls may exist.

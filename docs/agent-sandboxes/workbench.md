@@ -53,7 +53,7 @@ The transcript shows the newest run first, with its execution time, result, prin
 
 <img src="/logfire/images/guide/agent-sandboxes/workbench-history.webp" alt="Workbench with Type check, Load session, Save session, a Saved here marker, and total returning 42" width="1160" height="485" loading="lazy" />
 
-*A saved checkpoint includes the variables from the completed run.*
+*A checkpoint is a [saved copy of Python state](snapshots.md). It includes the variables from the completed run.*
 
 Select **History** to find an earlier command and load it into the editor.
 Loading a command does not run it. Review it before you select **Run code**.
@@ -71,6 +71,7 @@ The setting stays selected for later runs. Changing it does not reset the sessio
 ## Continue after a reload
 
 The Workbench automatically saves Python state after completed runs.
+Logfire keeps this saved state for 7 days. It counts toward the project's [snapshot storage limits](snapshots.md#delete-snapshots-and-check-storage).
 You can also select **Save session** before you leave.
 Wait for **Saved at** and the **Saved here** marker before you rely on that checkpoint.
 

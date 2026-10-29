@@ -27,12 +27,13 @@ Code in a sandbox can only reach the outside world through functions you choose 
 
 With Agent Sandboxes, Logfire runs the sandboxes for you:
 
-- **Managed sandboxes**: Logfire deploys, scales, and patches the sandbox service.
+- **Managed sandboxes**: Logfire runs the sandbox service for you.
 - **Isolation from your application**: agent code runs on Logfire's servers, not in your process.
 - **Sessions that keep state**: variables and functions defined in one run are available in the next run of the same
   session, so an agent can build up work step by step.
-- **Persistent sessions, snapshots, and forks**: unless you choose an ephemeral session, Logfire saves its state under a session ID. You can resume it
-  from a new connection, take a snapshot as a checkpoint, or fork it into independent branches.
+- **Persistent Python client sessions**: unless you choose an ephemeral session, Logfire saves its state under a session ID.
+  Resume it from a new connection, take a snapshot as a checkpoint, or fork it into independent branches.
+  The [Workbench](workbench.md#continue-after-a-reload) uses saved checkpoints to continue after a reload.
 - **Host functions**: you pass your own Python functions to a run, and the sandbox calls back to your application to run
   them.
   Your application stays in control of what the code can touch.
@@ -59,7 +60,7 @@ host function   ◀──── function call ─────    calls get_weath
 result          ◀──────── result ────────    returns the final value
 ```
 
-You authenticate with a Logfire API key that has permission to run code in your project's agent sandboxes
+You authenticate with a non-personal project API key that has permission to run code in your project's agent sandboxes
 (`project:execute_agent_sandboxes`).
 
 !!! warning "Code and data are sent to Logfire"

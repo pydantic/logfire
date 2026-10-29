@@ -47,6 +47,7 @@ def list_invoices(customer_id: str, status: Literal['paid', 'open', 'void'] | No
 
 
 def list_invoices(customer_id: str, status: str | None = None) -> list[dict]:
+    # Check the caller's access to customer_id here before querying real billing data.
     invoices = [  # replace with a call to your billing service
         {'id': 'in_1', 'customer_id': customer_id, 'amount_cents': 5000, 'status': 'open'},
         {'id': 'in_2', 'customer_id': customer_id, 'amount_cents': 900, 'status': 'paid'},
@@ -163,4 +164,4 @@ code ran.
 
 - [Pause agent code for human approval](approval.md): require a person's decision before the host executes a sensitive operation.
 - [Use Agent Sandboxes with Pydantic AI](pydantic-ai.md): Pydantic AI writes the stub from your tools for you.
-- [Answer questions that need dozens of tool calls](many-tool-calls.md): call the API in parallel from one script.
+- [Answer questions that need dozens of tool calls](many-tool-calls.md): call the API from one script.

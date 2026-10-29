@@ -44,9 +44,9 @@ function in your application that uses the package, and pass that function to th
 
 ## Files, network, and the environment
 
-Sandbox code cannot open network connections, read environment variables, or read files on Logfire's servers. It can
-reach the outside world only through the functions, modules, and directories that you pass in. Each of those runs or
-lives in your application.
+Sandbox code cannot open network connections, read environment variables, or read arbitrary server files.
+It can call functions and modules supplied by your application, and access directories that you explicitly expose.
+Hosted [volume mounts](volumes.md) can also expose files stored by Logfire when volume access is enabled.
 
 ## Resource limits
 
@@ -65,7 +65,7 @@ In practice, a script can hold a few thousand rows of tool results at a time. A 
 fields stayed inside the limit. 20,000 rows did not.
 
 Saved sessions and snapshots are kept for 7 days. They count toward your project's snapshot storage limit.
-Open [Snapshots](snapshots.md) to see the plan allowance, the enforced limit if it differs, and the stored object count.
+Open [Snapshots](snapshots.md) to see the plan allowance, the enforced limit if it differs, and the snapshot count.
 The byte and snapshot-count limits apply separately to each project.
 Pending uploads and objects awaiting cleanup also count until cleanup finishes.
 Use `checkout(ephemeral=True)` for sessions that nothing will load again. See [Persist, resume, and fork sessions](sessions.md).

@@ -6,9 +6,10 @@ description: "Create a hosted volume and mount it in a profile so sandbox sessio
 # Share files between sessions
 
 !!! info "Experimental"
-    Hosted volumes require separate enablement for your organization. If you do not see **Volumes** or **Mounts**, this feature is not enabled.
+    Hosted volumes require separate enablement for your organization.
+    Missing **Volumes** or **Mounts** can also mean your account lacks project access.
 
-Keep files between sandbox sessions and share them with sessions that use the same profile.
+Keep files between sandbox sessions and share them with sessions that use the same profile, a named session configuration.
 A **volume** stores files separately from Python memory.
 A **mount** gives a profile access to a volume at a path such as `/data`.
 
@@ -33,6 +34,12 @@ Use **Search volumes** and the sort control to find a volume by name in a longer
 ## Write and read a shared file
 
 Close the mount dialog and select **Use profile** beside `Analysis`.
+The [Workbench](workbench.md) is the browser editor for sandbox code.
+
+!!! warning "Volume files are stored by Logfire"
+    File contents written to a hosted volume leave your machine and remain available to sessions with that volume mounted.
+    Keep secrets and sensitive data out of hosted volumes.
+
 In the Workbench, run:
 
 ```python skip-run="true" skip-reason="sandbox-code"

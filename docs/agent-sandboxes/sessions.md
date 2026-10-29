@@ -67,14 +67,14 @@ They count toward your project's snapshot storage quota.
 ## Resume a session from a new connection
 
 Read `session.session_id` while the session is open.
-It is a 16-byte universally unique identifier (UUID).
+Treat it as opaque bytes. Use hexadecimal encoding if your storage requires text.
+Decode that text back to bytes before calling `load_session()`.
 Store it wherever your application keeps the agent's conversation state, such as a database row.
 
 To resume, check out a new session and pass the ID to `load_session()`:
 
 ```python skip-run="true" skip-reason="external-connection"
 import asyncio
-import uuid
 
 import logfire
 
@@ -85,13 +85,13 @@ async def first_turn() -> str:
     async with logfire.agent_sandboxes() as pool:
         async with pool.checkout() as session:
             await session.feed_run('total = 40')
-            return str(uuid.UUID(bytes=session.session_id))
+            return (await session.dump()).hex()
 
 
 async def later_turn(session_id: str) -> None:
     async with logfire.agent_sandboxes() as pool:
         async with pool.checkout() as session:
-            await session.load_session(uuid.UUID(session_id).bytes)
+            await session.load_session(bytes.fromhex(session_id))
             print(await session.feed_run('total + 2'))  # 42
 
 
@@ -102,6 +102,9 @@ async def main():
 
 asyncio.run(main())
 ```
+
+This example takes an explicit checkpoint with `dump()` before closing.
+So the immediate load does not race with the server's save on connection close.
 
 The resumed session gets a **new** session ID.
 `load_session()` copies the saved state into the new session and never reattaches to the old one, so the record you
@@ -209,7 +212,7 @@ asyncio.run(main())
 ```
 
 An ephemeral session has no session ID (`session.session_id` is `None`).
-`dump()` raises `MontyRuntimeError: this session is ephemeral, so it cannot be dumped`.
+The hosted Agent Sandboxes service rejects `dump()` with `MontyRuntimeError: this session is ephemeral, so it cannot be dumped`.
 The server discards the interpreter state when the connection closes or the server is redeployed.
 Ephemeral sessions still send code and data to Logfire for execution. They can also produce recorded telemetry.
 See [tracing and storage](limits.md#understand-tracing-and-storage).
@@ -260,7 +263,9 @@ This is how they apply to Agent Sandboxes:
 - **`MontyRuntimeError` from `dump()` on an ephemeral session**: ephemeral sessions can't be saved.
   Check out the session without `ephemeral=True`.
 - **`MontyShutdown` raised during a call**: the server was redeployed and resuming the session on another server failed.
-  Load `session.session_id` in a new session to continue from the last saved state.
+  If the exception's `dump` is not `None`, restore it in a new session.
+  Use `load_session()` for state saved between runs, or `load_snapshot()` for state suspended at a host call.
+  Without a dump, use an earlier saved session or snapshot. Host calls can repeat during recovery, so make side effects idempotent.
 
 ## Next steps
 

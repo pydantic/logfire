@@ -35,7 +35,7 @@ The list shows each snapshot's size, creation time, and expiry time.
 
 1. Find a snapshot with **Saved** status.
 2. Select **Open in Workbench** on its row or card.
-3. Check the selected snapshot in the **Load session** dialog, then select **Load session**.
+3. Check the selected snapshot and profile in the **Load session** dialog, then select **Load session**.
 
 Opening the Workbench does not restore the snapshot until you confirm the load.
 If you already have an open session, choose **Save current and load** to keep its current state first.
@@ -55,7 +55,7 @@ Review the confirmation before you delete them.
 
 Deletion can show **Cleanup pending** until Logfire removes the stored objects.
 The project's snapshot count and stored bytes decrease after cleanup finishes.
-Pending uploads also count toward storage.
+Pending uploads and objects awaiting cleanup count toward both the byte and snapshot-count limits.
 If a bulk deletion partly fails, retry only the snapshots that still show a failure.
 
 The **Project storage** summary shows this project's plan allowance and snapshot count.
@@ -65,8 +65,9 @@ Snapshots in another project do not use this project's allowance.
 
 ## Verify
 
-Find a snapshot from your example run and select **Open in Workbench**.
-Confirm the load, then read a variable you saved to check that the expected state returns.
+Save the [Workbench reuse example](workbench.md#reuse-a-variable-and-review-history), where `total` is `42`.
+Find its snapshot and select **Open in Workbench**.
+Load it and run `total`. It should return `42`.
 
 ## Troubleshooting
 

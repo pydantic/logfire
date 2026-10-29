@@ -57,9 +57,10 @@ async def list_open_tickets(customer_id: str) -> list[dict]:
 
 ## Store a session ID for each conversation
 
-When a session closes, Logfire saves its state under `session.session_id`. Store that ID with the conversation. On the
-next turn, check out a new session and load the stored ID into it. Loading gives the new session a new ID, so store the
-new one after the session closes successfully.
+Store a saved session or checkpoint ID with the conversation.
+On the next turn, check out a new session and load that ID into it.
+Save a new checkpoint after each turn, then replace the stored ID.
+The example uses `dump()` so the next turn does not race with connection cleanup.
 
 Process only one tool call at a time for each conversation. Concurrent calls can load the same old state and overwrite
 each other's saved ID. If several servers handle the conversation, serialize those calls in your application and
@@ -94,7 +95,7 @@ async def run_code(conversation_id: str, code: str) -> str:
             response = f'The script failed: {e}'
         else:
             response = repr(result)
-        session_id = session.session_id
+        session_id = await session.dump()
     session_ids[conversation_id] = session_id
     return response
 ```
@@ -158,8 +159,11 @@ span has `list_open_tickets` calls, but no `list_customers` call.
   moment. A turn that starts immediately after the previous one can try to load it too early. Retry the load after a
   short wait.
 - **`NameError` for a variable from an earlier turn**: the stored ID is from an older turn. Check that you store
-  `session.session_id` after the session closes, including turns where the script failed. A failed load preserves the
+  the checkpoint ID returned by `dump()`, including turns where the script failed. A failed load preserves the
   previous ID so a transient error does not silently discard the conversation state.
+- **An unexpected host-function or connection error escapes `run_code`**: this example propagates errors outside `MontyError` and `MontyTypingError`.
+  Its stored ID does not advance. Stop further turns for this conversation and inspect the failed run before recovery.
+  Do not retry against the old ID as if it included the failed turn's changes.
 - **The saved state is older than 7 days**: it has expired. Explicitly remove its ID from your application's mapping,
   then start a new session and let the agent fetch the data again. Do not reset the ID for every load failure.
 
