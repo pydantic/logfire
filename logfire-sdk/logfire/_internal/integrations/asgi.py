@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     Send = Callable[[MutableMapping[str, Any]], Awaitable[None]]
 
     class ASGIApp(Protocol):
-        def __call__(self, scope: Scope, receive: Receive, send: Send) -> Awaitable[None]: ...
+        def __call__(self, scope: Scope, receive: Receive, send: Send, /) -> Awaitable[None]: ...
 
     Hook = Callable[[Span, dict[str, Any]], None]
 
