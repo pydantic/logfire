@@ -241,7 +241,7 @@ class ParamManager:
         if tp is float:
             try:
                 return float(value)  # pyright: ignore[reportReturnType]
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):
                 raise LogfireConfigError(f'Expected {name} to be a number, got {value!r}') from None
         if tp is Path:
             return Path(value)  # pyright: ignore[reportReturnType]

@@ -548,6 +548,12 @@ def test_invalid_trace_sample_rate_names_the_setting() -> None:
             configure(send_to_logfire=False)
 
 
+def test_trace_sample_rate_too_large_for_float_names_the_setting(tmp_path: Path) -> None:
+    (tmp_path / 'pyproject.toml').write_text(f'[tool.logfire]\ntrace_sample_rate = 1{"0" * 400}\n')
+    with pytest.raises(LogfireConfigError, match='Expected trace_sample_rate to be a number, got 1000'):
+        configure(send_to_logfire=False, config_dir=tmp_path)
+
+
 def test_logfire_invalid_config_dir(tmp_path: Path):
     (tmp_path / 'pyproject.toml').write_text('invalid-data')
     with pytest.raises(
