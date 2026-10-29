@@ -256,3 +256,97 @@ async def test_await_in_fstring(exporter: TestExporter):
             }
         ]
     )
+
+
+shadowed = 'global'
+
+
+def test_nested_scope_in_fstring(exporter: TestExporter):
+    """Generator expressions and lambdas in f-strings can use local variables."""
+    items = [1, 2, 3]
+    n = 10
+    precision = 2
+    shadowed = 'local'
+
+    logfire.info(f'total {sum(y * n for y in items)}')
+    logfire.info(f'lambda {(lambda: n)()}')
+    logfire.info(f'spec {n:.{(lambda: precision)()}f}')
+    # The local must win over the module global with the same name.
+    logfire.info(f'shadow {next(shadowed for _ in items)}')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'total {sum(y * n for y in items)}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'total {sum(y * n for y in items)}',
+                    'logfire.msg': 'total 60',
+                    'code.filepath': 'test_formatter.py',
+                    'code.function': 'test_nested_scope_in_fstring',
+                    'code.lineno': 123,
+                    'sum(y * n for y in items)': 60,
+                    'logfire.json_schema': '{"type":"object","properties":{"sum(y * n for y in items)":{}}}',
+                },
+            },
+            {
+                'name': 'lambda {(lambda: n)()}',
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'parent': None,
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'lambda {(lambda: n)()}',
+                    'logfire.msg': 'lambda 10',
+                    'code.filepath': 'test_formatter.py',
+                    'code.function': 'test_nested_scope_in_fstring',
+                    'code.lineno': 123,
+                    '(lambda: n)()': 10,
+                    'logfire.json_schema': '{"type":"object","properties":{"(lambda: n)()":{}}}',
+                },
+            },
+            {
+                'name': 'spec {n}',
+                'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'spec {n}',
+                    'logfire.msg': 'spec 10.00',
+                    'code.filepath': 'test_formatter.py',
+                    'code.function': 'test_nested_scope_in_fstring',
+                    'code.lineno': 123,
+                    'n': 10,
+                    'logfire.json_schema': '{"type":"object","properties":{"n":{}}}',
+                },
+            },
+            {
+                'name': 'shadow {next(shadowed for _ in items)}',
+                'context': {'trace_id': 4, 'span_id': 4, 'is_remote': False},
+                'parent': None,
+                'start_time': 4000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'shadow {next(shadowed for _ in items)}',
+                    'logfire.msg': 'shadow local',
+                    'code.filepath': 'test_formatter.py',
+                    'code.function': 'test_nested_scope_in_fstring',
+                    'code.lineno': 123,
+                    'next(shadowed for _ in items)': 'local',
+                    'logfire.json_schema': '{"type":"object","properties":{"next(shadowed for _ in items)":{}}}',
+                },
+            },
+        ]
+    )

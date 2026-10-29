@@ -138,11 +138,11 @@ class ChunksFormatter(Formatter):
                 new_template += '{' + source + '}'
 
                 # The actual value of the expression.
-                value = eval(value_code, global_vars, local_vars)
+                value = eval_fstring_code(value_code, global_vars, local_vars)
                 extra_attrs[source] = value
 
                 # Format the value according to the format spec, converting to a string.
-                formatted = eval(formatted_code, global_vars, {**local_vars, '@fvalue': value})
+                formatted = eval_fstring_code(formatted_code, global_vars, {**local_vars, '@fvalue': value})
                 formatted = value_cleaner.clean_value(source, formatted)
                 result.append({'v': formatted, 't': 'arg'})
 
@@ -325,6 +325,15 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     ast.fix_missing_locations(expr)
     formatted_code = compile(expr, '<fvalue2>', 'eval')
     return source, value_code, formatted_code
+
+
+def eval_fstring_code(code: CodeType, global_vars: dict[str, Any], local_vars: dict[str, Any]) -> Any:
+    if any(isinstance(const, CodeType) for const in code.co_consts):
+        # The expression creates a nested scope, e.g. a generator expression or a lambda.
+        # Code in a nested scope can't see names that are only in the separate `locals` dict passed to `eval`,
+        # so use a single namespace instead.
+        return eval(code, {**global_vars, **local_vars})
+    return eval(code, global_vars, local_vars)
 
 
 class KnownFormattingError(Exception):
