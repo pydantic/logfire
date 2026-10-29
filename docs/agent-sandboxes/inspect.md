@@ -50,17 +50,39 @@ Select **Open in Live view** in the code dialog, or **Open session in Live view*
 A span is one unit of work: a single operation, with a name, a start, and a duration.
 Expand the session to inspect its code runs and related calls.
 
+## Step through function calls
+
+Select a **run code** span in Live view, then open its **Code** tab.
+For a run with recorded function calls, **Source** shows the Python code and a timeline of those calls.
+
+1. Select **Step over** to move to the next recorded call, or **Step back** to return to the previous one.
+2. Read **Call attributes** for the function, arguments, duration, and source location under **Called from**.
+3. Read **Return value** for the selected call's result.
+
+The source highlights the selected call and shows its return value beside the expression.
+The trace list highlights the same call while the **run code** span stays selected.
+You can also choose a call with the **Run timeline** slider or a source gutter marker.
+
+<img src="/logfire/images/guide/agent-sandboxes/call-stepper.webp" alt="Code tab on the second get_weather call, with New York as the argument, its source highlighted, and a return value of 24 degrees Celsius" width="838" height="560" loading="lazy" />
+
+*Two calls on the same source line have separate arguments, return values, and timings.*
+
+Scroll below the call inspector to read **Result** for the whole run and **Arguments** for its inputs.
+These differ from the selected function call's arguments and return value.
+Printed text appears in related **print stdout** records in the trace list.
+
 ## Verify
 
 Check that the session and recorded source match the example you ran.
 Open it in Live view. Confirm that its code runs and related calls match the source shown in the code dialog.
+For a run with several function calls, step between them and check that their arguments and return values change.
 
 ## Troubleshooting
 
 - **The overview is empty.** Widen the time range, check the project and filters, then refresh. Locally instrumented Monty activity appears in Live view but is outside this hosted overview.
 - **View code is unavailable or source is missing.** The selected window may lack a session record or source-bearing code runs. Widen it and inspect the related activity in Live view.
 - **A row says Activity without session details.** The project received activity without matching session details in this window. Open Live view to inspect the records that are available.
-- **A refresh fails.** Use **Retry** and check any warning about stale results before you rely on the displayed counts.
+- **A call is missing from the timeline.** Load more spans in the trace list. The inspector uses the calls that the list has loaded. A `+` after the call count means more calls may exist.
 
 ## Next steps
 

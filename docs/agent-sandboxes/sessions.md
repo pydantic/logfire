@@ -57,7 +57,7 @@ The server saves a session's state, which Monty calls **parking** the session, i
   call.
 
 Saved sessions and snapshots are kept for 7 days after they're saved, then deleted.
-They count toward your organization's snapshot storage quota.
+They count toward your project's snapshot storage quota.
 
 !!! warning "Session state is stored by Logfire"
     The values your sandbox code creates, including anything computed from

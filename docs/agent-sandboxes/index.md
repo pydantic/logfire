@@ -104,6 +104,7 @@ agent](any-framework.md). For what scripts can run, see [What sandbox code can d
 ### Use the web UI
 
 Open **AI Optimization** > **Agent Sandboxes** in your project.
+For a new project, choose **Use Agent Sandboxes** during [product onboarding](python.md#enable-agent-sandboxes).
 If the project shows **Enable Agent Sandboxes**, ask a project manager to enable it.
 Sandboxes start on first use and shut down when idle.
 The project counts toward your organization's enabled-project limit until you disable it.

@@ -29,7 +29,7 @@ Open **AI Optimization** > **Agent Sandboxes** > **Snapshots**.
 Search and sorting apply across the project inventory, including snapshots on other pages.
 The list shows each snapshot's size, creation time, and expiry time.
 
-<img src="/logfire/images/guide/agent-sandboxes/snapshots.webp" alt="Snapshots tab with search, status and sort controls, organization storage, row selection, and Open in Workbench actions" width="1160" height="590" loading="lazy" />
+<img src="/logfire/images/guide/agent-sandboxes/snapshots.webp" alt="Snapshots tab with expanded Project storage, project snapshot counts, search and sort controls, and Open in Workbench actions" width="1160" height="610" loading="lazy" />
 
 ## Open saved state in the Workbench
 
@@ -54,12 +54,14 @@ To delete several, select their checkboxes and choose **Delete selected**.
 Review the confirmation before you delete them.
 
 Deletion can show **Cleanup pending** until Logfire removes the stored objects.
-The organization storage count and bytes decrease after cleanup finishes.
+The project's snapshot count and stored bytes decrease after cleanup finishes.
 Pending uploads also count toward storage.
 If a bulk deletion partly fails, retry only the snapshots that still show a failure.
 
-The **Organization storage** summary shows the plan allowance and object count across the organization.
-Open it to inspect the enforced limit when it differs from the plan allowance.
+The **Project storage** summary shows this project's plan allowance and snapshot count.
+Open it to inspect the current service limit when it differs from the plan allowance.
+Each project has its own byte and snapshot-count limits.
+Snapshots in another project do not use this project's allowance.
 
 ## Verify
 

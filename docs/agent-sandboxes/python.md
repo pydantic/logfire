@@ -15,19 +15,37 @@ You check out a session, send it code, and get the result back.
 
 ## Before you start
 
+You need [access to Agent Sandboxes](index.md) in your organization.
+
+### Enable Agent Sandboxes
+
 First, open **AI Optimization** > **Agent Sandboxes** in your project.
 If you see **Enable Agent Sandboxes**, ask a project manager to select it.
 An execution key does not enable the project by itself.
 
+For a new project, you can also start from product onboarding:
+
+1. Choose **Me** or **My team** under **Who are you setting up Logfire for?**
+2. Select **Use Agent Sandboxes** under **What do you want to do first?**
+
+<img src="/logfire/images/guide/agent-sandboxes/onboarding-sandboxes.webp" alt="Product onboarding with Use Agent Sandboxes among the setup choices" width="672" height="490" loading="lazy" />
+
+Logfire enables Agent Sandboxes for the project, adds a sidebar favorite, and opens **Setup**.
+This choice does not create an execution key or run code.
+Your account still needs permission to enable the project.
+The organization's enabled-project limit also applies.
+
+### Get an execution key
+
 You also need a Logfire API key with permission to run code in your project's agent sandboxes
 (`project:execute_agent_sandboxes`):
 
-1. Open your project in Logfire.
-2. Open **AI Optimization** > **Agent Sandboxes**. Select **Setup**, expand **Connect your application**, and select **Create execution key**.
+1. Open **AI Optimization** > **Agent Sandboxes** and select **Setup**.
+2. Under **Choose an execution key**, select **Create execution key**.
 3. Copy the key.
    It won't be shown again.
 
-<img src="/logfire/images/guide/agent-sandboxes/connect-key.webp" alt="Connect your application expanded in Setup with Create execution key, Use existing key, and View API keys" width="768" height="194" loading="lazy" />
+<img src="/logfire/images/guide/agent-sandboxes/connect-key.webp" alt="Setup with a Workbench link and the Choose an execution key step showing key creation and existing-key options" width="768" height="222" loading="lazy" />
 
 *The setup page offers key creation or use of an existing key.*
 

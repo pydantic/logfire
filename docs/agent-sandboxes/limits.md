@@ -64,8 +64,9 @@ counts toward the processing limit. Do heavy computation in your own functions, 
 In practice, a script can hold a few thousand rows of tool results at a time. A test with 5,000 rows of four short
 fields stayed inside the limit. 20,000 rows did not.
 
-Saved sessions and snapshots are kept for 7 days. They count toward your organization's snapshot storage limit.
+Saved sessions and snapshots are kept for 7 days. They count toward your project's snapshot storage limit.
 Open [Snapshots](snapshots.md) to see the plan allowance, the enforced limit if it differs, and the stored object count.
+The byte and snapshot-count limits apply separately to each project.
 Pending uploads and objects awaiting cleanup also count until cleanup finishes.
 Use `checkout(ephemeral=True)` for sessions that nothing will load again. See [Persist, resume, and fork sessions](sessions.md).
 
