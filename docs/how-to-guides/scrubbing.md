@@ -55,6 +55,7 @@ Here are the default scrubbing patterns:
     'credit[._ -]?card',
     'logfire[._ -]?token',
     '(?:access|refresh|bearer|(?:\\b|_)id)[._ -]?token',
+    'security[._ -]?token',
     'pylf_v\\d+_',
     '(?:\\b|_)csrf(?:\\b|_)',
     '(?:\\b|_)xsrf(?:\\b|_)',

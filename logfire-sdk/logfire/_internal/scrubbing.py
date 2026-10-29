@@ -53,6 +53,7 @@ DEFAULT_PATTERNS = [
     'logfire[._ -]?token',
     # OAuth-style token names. A bare 'token' is left out because it would also match LLM usage fields like input_tokens.
     r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token',
+    'security[._ -]?token',
     r'pylf_v\d+_',
     *[
         # Require these to be surrounded by word boundaries or underscores,
