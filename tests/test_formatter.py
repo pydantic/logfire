@@ -273,6 +273,8 @@ def test_nested_scope_in_fstring(exporter: TestExporter):
     logfire.info(f'spec {n:.{(lambda: precision)()}f}')
     # The local must win over the module global with the same name.
     logfire.info(f'shadow {next(shadowed for _ in items)}')
+    # A keyword argument to the logging call wins over the local, as with plain names.
+    logfire.info(f'kwarg {next(shadowed for _ in items)}', shadowed='kwarg')
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -346,6 +348,25 @@ def test_nested_scope_in_fstring(exporter: TestExporter):
                     'code.lineno': 123,
                     'next(shadowed for _ in items)': 'local',
                     'logfire.json_schema': '{"type":"object","properties":{"next(shadowed for _ in items)":{}}}',
+                },
+            },
+            {
+                'name': 'kwarg {next(shadowed for _ in items)}',
+                'context': {'trace_id': 5, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'kwarg {next(shadowed for _ in items)}',
+                    'logfire.msg': 'kwarg kwarg',
+                    'code.filepath': 'test_formatter.py',
+                    'code.function': 'test_nested_scope_in_fstring',
+                    'code.lineno': 123,
+                    'shadowed': 'kwarg',
+                    'next(shadowed for _ in items)': 'kwarg',
+                    'logfire.json_schema': '{"type":"object","properties":{"shadowed":{},"next(shadowed for _ in items)":{}}}',
                 },
             },
         ]
