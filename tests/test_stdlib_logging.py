@@ -234,18 +234,23 @@ def test_stdlib_logging_tags_merged_with_instance_tags(exporter: TestExporter) -
     assert span['attributes']['logfire.tags'] == ('instance', 'foo')
 
 
-def test_stdlib_logging_console_log_false(exporter: TestExporter) -> None:
+def test_stdlib_logging_console_log_false(
+    capsys: pytest.CaptureFixture[str], exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    config_kwargs['console'] = logfire.ConsoleOptions(colors='never', include_timestamps=False)
+    logfire.configure(**config_kwargs)
     quiet_logger = getLogger(f'{__name__}.quiet')
     quiet_logger.propagate = False
     handler = LogfireLoggingHandler(console_log=False)
     quiet_logger.addHandler(handler)
     try:
-        quiet_logger.error('quiet')
+        quiet_logger.error('From logging')
+        logfire.info('From Logfire')
     finally:
         quiet_logger.removeHandler(handler)
 
-    [span] = exporter.exported_spans_as_dict()
-    assert span['attributes']['logfire.disable_console_log'] is True
+    assert capsys.readouterr().out.splitlines() == ['From Logfire']
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == ['From logging', 'From Logfire']
 
 
 def test_stdlib_logging_single_string_tag(exporter: TestExporter, logger: Logger) -> None:
