@@ -76,7 +76,8 @@ Your terminal shows each message once, in Loguru's format, and every log is stil
 2026-10-29 17:38:20.930 | INFO     | __main__:<module>:8 - Hello, World!
 ```
 
-Logfire still prints everything else it records, such as your traces, to the console.
+Logfire still prints everything else it records, such as your traces, to the console. This option only
+controls whether Logfire prints Loguru's logs. It doesn't change the format of Logfire's own console output.
 
 ### Scrubbing
 
