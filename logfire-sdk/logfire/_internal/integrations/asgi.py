@@ -14,7 +14,7 @@ from logfire._internal.constants import log_level_attributes
 from logfire._internal.utils import is_asgi_send_receive_span_name, maybe_capture_server_headers
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Awaitable, Callable, MutableMapping
     from typing import Any, Protocol, TypedDict
 
     from opentelemetry.trace import Span
@@ -22,9 +22,9 @@ if TYPE_CHECKING:
 
     from logfire import Logfire
 
-    Scope = dict[str, Any]
-    Receive = Callable[[], Awaitable[dict[str, Any]]]
-    Send = Callable[[dict[str, Any]], Awaitable[None]]
+    Scope = MutableMapping[str, Any]
+    Receive = Callable[[], Awaitable[MutableMapping[str, Any]]]
+    Send = Callable[[MutableMapping[str, Any]], Awaitable[None]]
 
     class ASGIApp(Protocol):
         def __call__(self, scope: Scope, receive: Receive, send: Send) -> Awaitable[None]: ...
