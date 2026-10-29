@@ -376,7 +376,9 @@ def convert_responses_inputs_to_semconv(
                             ],
                         )
                     )
-                elif typ == 'function_call_output':
+                elif typ == 'custom_tool_call':
+                    input_messages.append(ChatMessage(role='assistant', parts=[_custom_tool_call_part(inp)]))
+                elif typ in ('function_call_output', 'custom_tool_call_output'):
                     msg: ChatMessage = {
                         'role': 'tool',
                         'parts': [
@@ -467,7 +469,9 @@ def responses_finish_reasons(response: Any) -> list[str]:
     """
     status = getattr(response, 'status', None)
     if status == 'completed':
-        has_tool_call = any(getattr(out, 'type', None) == 'function_call' for out in response.output)
+        has_tool_call = any(
+            getattr(out, 'type', None) in ('function_call', 'custom_tool_call') for out in response.output
+        )
         return ['tool_calls' if has_tool_call else 'stop']
     if status == 'incomplete':
         reason = getattr(getattr(response, 'incomplete_details', None), 'reason', None)
@@ -503,7 +507,22 @@ def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
                     ],
                 )
             )
+        elif typ == 'custom_tool_call':
+            output_messages.append(OutputMessage(role='assistant', parts=[_custom_tool_call_part(out_dict)]))
     return output_messages
+
+
+def _custom_tool_call_part(item: dict[str, Any]) -> ToolCallPart:
+    """Convert a Responses API `custom_tool_call` item to a tool call part.
+
+    A custom tool takes a free-form `input` string instead of JSON `arguments`, so it is not parsed.
+    """
+    return ToolCallPart(
+        type='tool_call',
+        id=item.get('call_id', ''),
+        name=item.get('name', ''),
+        arguments=item.get('input'),
+    )
 
 
 def make_tool_call_part(
