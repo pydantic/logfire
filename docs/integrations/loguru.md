@@ -92,7 +92,7 @@ controls whether Logfire prints Loguru's logs. It doesn't change the format of L
 ## Troubleshooting
 
 Not seeing your logs in Logfire? Check that `logfire.configure()` ran first, your write token is set,
-and the Logfire handler is attached to Loguru via `logger.configure(handlers=[...])`.
+and the Logfire handler is attached to Loguru via `logger.configure(handlers=[...])` or `logger.add()`.
 
 ## Reference
 
