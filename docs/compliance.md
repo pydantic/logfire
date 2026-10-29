@@ -1,6 +1,6 @@
 ---
 title: "Logfire Compliance Standards & Security Protocols"
-description: "Overview of Logfire compliance standards. We are SOC2 Type II certified and HIPAA compliant, offer BAAs, include a GDPR Data Processing Addendum (DPA) on every plan, and provide an EU Data Region."
+description: "Overview of Logfire compliance standards. We are SOC2 Type II certified and HIPAA compliant, offer BAAs, and provide an EU Data Region for GDPR compliance."
 ---
 For more about our security posture, see the <a href="https://pydantic.dev/security" target="_blank" rel="noopener">Pydantic security page</a> and our <a href="https://trust.oneleet.com/pydantic" target="_blank" rel="noopener">trust page</a>.
 
