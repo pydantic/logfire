@@ -198,7 +198,7 @@ def test_loguru_console_log_false(exporter: TestExporter) -> None:
     with loguru_handlers(loguru_handler(console_log=False)):
         logger.info('quiet')
 
-    assert exporter.exported_spans_as_dict(fixed_line_number=None) == snapshot(
+    assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
                 'name': 'quiet',
@@ -213,7 +213,7 @@ def test_loguru_console_log_false(exporter: TestExporter) -> None:
                     'logfire.msg': 'quiet',
                     'code.filepath': 'test_loguru.py',
                     'code.function': 'test_loguru_console_log_false',
-                    'code.lineno': 199,
+                    'code.lineno': 123,
                     'logfire.logger_name': 'tests.test_loguru',
                     'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{}}}',
                     'logfire.disable_console_log': True,
