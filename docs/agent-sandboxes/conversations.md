@@ -61,6 +61,14 @@ Store a saved session or checkpoint ID with the conversation.
 On the next turn, check out a new session and load that ID into it.
 Save a new checkpoint after each turn, then replace the stored ID.
 The example uses `dump()` so the next turn does not race with connection cleanup.
+The IDs are opaque bytes. The dictionary stores bytes directly.
+For a text database field, encode with `.hex()` and decode with `bytes.fromhex()` before `load_session()`.
+See [session ID storage](sessions.md#resume-a-session-from-a-new-connection).
+
+This example relies on Logfire's enforced 7-day retention for saved state.
+Each turn creates a checkpoint. Replacing its ID in the dictionary does not delete the previous checkpoint.
+The closed session also consumes snapshot storage. Check the project's [snapshot quota](snapshots.md#delete-snapshots-and-check-storage) for high-volume conversations.
+Delete superseded snapshots when you need to reclaim space sooner. Keep every checkpoint that a conversation still needs.
 
 Process only one tool call at a time for each conversation. Concurrent calls can load the same old state and overwrite
 each other's saved ID. If several servers handle the conversation, serialize those calls in your application and
@@ -155,9 +163,9 @@ span has `list_open_tickets` calls, but no `list_customers` call.
 
 ## Troubleshooting
 
-- **`MontyRuntimeError: unknown session`** right after a turn: Logfire saves the session as it closes, which takes a
-  moment. A turn that starts immediately after the previous one can try to load it too early. Retry the load after a
-  short wait.
+- **`MontyRuntimeError: unknown session`**: the checkpoint may have expired, been deleted, or belong to another project.
+  Check the stored ID and the API key's project. This example waits for `dump()` before it stores the ID.
+  If you store `session.session_id` instead, wait for the connection to close and its save to finish before loading it.
 - **`NameError` for a variable from an earlier turn**: the stored ID is from an older turn. Check that you store
   the checkpoint ID returned by `dump()`, including turns where the script failed. A failed load preserves the
   previous ID so a transient error does not silently discard the conversation state.
