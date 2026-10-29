@@ -59,6 +59,9 @@ class LogfireLoggingHandler(LoggingHandler):
         level: The threshold level for this handler. Logging messages which are less severe than *level* will be ignored.
         fallback: A fallback handler to use when [instrumentation is suppressed](../../how-to-guides/suppress.md#suppress-instrumentation).
         logfire_instance: The Logfire instance to use when emitting logs. Defaults to the default global instance.
+        console_log: Whether logs from this handler are also printed to the console by Logfire.
+            Set to `False` if another handler already prints them, to avoid duplicates.
+            Defaults to the setting of `logfire_instance`.
     """
 
     custom_scope_suffix: ClassVar[str] = 'stdlib.logging'
@@ -68,11 +71,12 @@ class LogfireLoggingHandler(LoggingHandler):
         level: int | str = NOTSET,
         fallback: LoggingHandler = StreamHandler(),
         logfire_instance: Logfire | None = None,
+        console_log: bool | None = None,
     ) -> None:
         super().__init__(level=level)
         self.fallback = fallback
         self.logfire_instance = (logfire_instance or logfire.DEFAULT_LOGFIRE_INSTANCE).with_settings(
-            custom_scope_suffix=self.custom_scope_suffix
+            custom_scope_suffix=self.custom_scope_suffix, console_log=console_log
         )
 
     def emit(self, record: LogRecord) -> None:
