@@ -292,14 +292,17 @@ def test_local_in_nested_scope_in_fstring(exporter: TestExporter):
             'The problem was: Cannot evaluate the f-string value {next(shadowed for _ in items)} because it uses `shadowed` inside a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
         ]
     )
-    assert [span['attributes']['logfire.msg_template'] for span in exporter.exported_spans_as_dict()] == snapshot(
+    assert [
+        (span['attributes']['logfire.msg_template'], span['attributes']['logfire.msg'])
+        for span in exporter.exported_spans_as_dict()
+    ] == snapshot(
         [
-            'joined {", ".join(str(y) for y in items)}',
-            'doubled {[y * factor for y in items]}',
-            'total 60',
-            'lambda 10',
-            'spec 10.00',
-            'shadow local',
-            'kwarg local',
+            ('joined {", ".join(str(y) for y in items)}', 'joined 1, 2, 3'),
+            ('doubled {[y * factor for y in items]}', 'doubled [2, 4, 6]'),
+            ('total 60', 'total 60'),
+            ('lambda 10', 'lambda 10'),
+            ('spec 10.00', 'spec 10.00'),
+            ('shadow local', 'shadow local'),
+            ('kwarg local', 'kwarg local'),
         ]
     )
