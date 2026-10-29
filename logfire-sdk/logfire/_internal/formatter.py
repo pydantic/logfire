@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import dis
 import types
 from collections.abc import Iterator
 from functools import lru_cache
@@ -128,7 +129,23 @@ class ChunksFormatter(Formatter):
                 assert isinstance(node_value, ast.FormattedValue)
 
                 # This is cached.
-                source, value_code, formatted_code = compile_formatted_value(node_value, node_finder.source)
+                source, value_code, formatted_code, nested_names = compile_formatted_value(
+                    node_value, node_finder.source
+                )
+                # `eval` with a separate locals dict only lets the top level of the expression see those locals.
+                # A lambda, generator expression or (before Python 3.12) comprehension looks them up in globals
+                # instead, and either fails or silently uses a global with the same name.
+                # At module level the locals are the globals, so those names are fine.
+                if nested_local_names := sorted(
+                    name
+                    for name in nested_names.intersection(local_vars)
+                    if name not in global_vars or local_vars[name] is not global_vars[name]
+                ):
+                    names = ', '.join(f'`{name}`' for name in nested_local_names)
+                    raise KnownFormattingError(
+                        f'Cannot evaluate the f-string value {{{source}}} because it uses {names} inside a lambda, '
+                        f'generator expression or comprehension. Assign the value to a variable before logging.'
+                    )
 
                 # Note that this doesn't include:
                 # - The format spec, e.g. `:0.2f`
@@ -138,11 +155,11 @@ class ChunksFormatter(Formatter):
                 new_template += '{' + source + '}'
 
                 # The actual value of the expression.
-                value = eval_fstring_code(value_code, global_vars, local_vars)
+                value = eval(value_code, global_vars, local_vars)
                 extra_attrs[source] = value
 
                 # Format the value according to the format spec, converting to a string.
-                formatted = eval_fstring_code(formatted_code, global_vars, {**local_vars, '@fvalue': value})
+                formatted = eval(formatted_code, global_vars, {**local_vars, '@fvalue': value})
                 formatted = value_cleaner.clean_value(source, formatted)
                 result.append({'v': formatted, 't': 'arg'})
 
@@ -289,12 +306,15 @@ def logfire_format_with_magic(
 
 
 @lru_cache
-def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Source) -> tuple[str, CodeType, CodeType]:
-    """Returns three things that can be expensive to compute.
+def compile_formatted_value(
+    node: ast.FormattedValue, ex_source: executing.Source
+) -> tuple[str, CodeType, CodeType, frozenset[str]]:
+    """Returns four things that can be expensive to compute.
 
     1. Source code corresponding to the node value (excluding the format spec).
     2. A compiled code object which can be evaluated to calculate the value.
     3. Another code object which formats the value.
+    4. The global names looked up inside nested scopes of either code object, see `nested_scope_global_names`.
     """
     source = get_node_source_text(node.value, ex_source)
 
@@ -324,16 +344,20 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     )
     ast.fix_missing_locations(expr)
     formatted_code = compile(expr, '<fvalue2>', 'eval')
-    return source, value_code, formatted_code
+    nested_names = nested_scope_global_names(value_code) | nested_scope_global_names(formatted_code)
+    return source, value_code, formatted_code, nested_names
 
 
-def eval_fstring_code(code: CodeType, global_vars: dict[str, Any], local_vars: dict[str, Any]) -> Any:
-    if any(isinstance(const, CodeType) for const in code.co_consts):
-        # The expression creates a nested scope, e.g. a generator expression or a lambda.
-        # Code in a nested scope can't see names that are only in the separate `locals` dict passed to `eval`,
-        # so use a single namespace instead.
-        return eval(code, {**global_vars, **local_vars})
-    return eval(code, global_vars, local_vars)
+def nested_scope_global_names(code: CodeType) -> frozenset[str]:
+    """Names that nested scopes (lambdas, generator expressions, comprehensions before 3.12) in `code` look up as globals."""
+    names: set[str] = set()
+    for const in code.co_consts:
+        if isinstance(const, CodeType):
+            names.update(
+                instr.argval for instr in dis.get_instructions(const) if instr.opname in ('LOAD_GLOBAL', 'LOAD_NAME')
+            )
+            names.update(nested_scope_global_names(const))
+    return frozenset(names)
 
 
 class KnownFormattingError(Exception):

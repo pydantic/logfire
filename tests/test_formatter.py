@@ -259,115 +259,47 @@ async def test_await_in_fstring(exporter: TestExporter):
 
 
 shadowed = 'global'
+factor = 2
 
 
-def test_nested_scope_in_fstring(exporter: TestExporter):
-    """Generator expressions and lambdas in f-strings can use local variables."""
+def test_local_in_nested_scope_in_fstring(exporter: TestExporter):
+    """A lambda or generator expression in an f-string that reads a local can't be evaluated again, so warn."""
     items = [1, 2, 3]
     n = 10
     precision = 2
     shadowed = 'local'
 
-    logfire.info(f'total {sum(y * n for y in items)}')
-    logfire.info(f'lambda {(lambda: n)()}')
-    logfire.info(f'spec {n:.{(lambda: precision)()}f}')
-    # The local must win over the module global with the same name.
-    logfire.info(f'shadow {next(shadowed for _ in items)}')
-    # A keyword argument to the logging call wins over the local, as with plain names.
-    logfire.info(f'kwarg {next(shadowed for _ in items)}', shadowed='kwarg')
+    # Only the outermost iterable of a generator expression is evaluated in the calling scope, so this is fine.
+    logfire.info(f'joined {", ".join(str(y) for y in items)}')
+    # A local that is the same object as the global, like any name at module level, is fine too.
+    factor = globals()['factor']
+    logfire.info(f'doubled {[y * factor for y in items]}')
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    with pytest.warns(FormattingFailedWarning) as warnings:
+        logfire.info(f'total {sum(y * n for y in items)}')
+        logfire.info(f'lambda {(lambda: n)()}')
+        logfire.info(f'spec {n:.{(lambda: precision)()}f}')
+        # Without the check this would silently log the module global.
+        logfire.info(f'shadow {next(shadowed for _ in items)}')
+        logfire.info(f'kwarg {next(shadowed for _ in items)}', shadowed='kwarg')
+
+    assert [str(w.message).splitlines()[-1].strip() for w in warnings] == snapshot(
         [
-            {
-                'name': 'total {sum(y * n for y in items)}',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 1000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'total {sum(y * n for y in items)}',
-                    'logfire.msg': 'total 60',
-                    'code.filepath': 'test_formatter.py',
-                    'code.function': 'test_nested_scope_in_fstring',
-                    'code.lineno': 123,
-                    'sum(y * n for y in items)': 60,
-                    'logfire.json_schema': '{"type":"object","properties":{"sum(y * n for y in items)":{}}}',
-                },
-            },
-            {
-                'name': 'lambda {(lambda: n)()}',
-                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
-                'parent': None,
-                'start_time': 2000000000,
-                'end_time': 2000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'lambda {(lambda: n)()}',
-                    'logfire.msg': 'lambda 10',
-                    'code.filepath': 'test_formatter.py',
-                    'code.function': 'test_nested_scope_in_fstring',
-                    'code.lineno': 123,
-                    '(lambda: n)()': 10,
-                    'logfire.json_schema': '{"type":"object","properties":{"(lambda: n)()":{}}}',
-                },
-            },
-            {
-                'name': 'spec {n}',
-                'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
-                'parent': None,
-                'start_time': 3000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'spec {n}',
-                    'logfire.msg': 'spec 10.00',
-                    'code.filepath': 'test_formatter.py',
-                    'code.function': 'test_nested_scope_in_fstring',
-                    'code.lineno': 123,
-                    'n': 10,
-                    'logfire.json_schema': '{"type":"object","properties":{"n":{}}}',
-                },
-            },
-            {
-                'name': 'shadow {next(shadowed for _ in items)}',
-                'context': {'trace_id': 4, 'span_id': 4, 'is_remote': False},
-                'parent': None,
-                'start_time': 4000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'shadow {next(shadowed for _ in items)}',
-                    'logfire.msg': 'shadow local',
-                    'code.filepath': 'test_formatter.py',
-                    'code.function': 'test_nested_scope_in_fstring',
-                    'code.lineno': 123,
-                    'next(shadowed for _ in items)': 'local',
-                    'logfire.json_schema': '{"type":"object","properties":{"next(shadowed for _ in items)":{}}}',
-                },
-            },
-            {
-                'name': 'kwarg {next(shadowed for _ in items)}',
-                'context': {'trace_id': 5, 'span_id': 5, 'is_remote': False},
-                'parent': None,
-                'start_time': 5000000000,
-                'end_time': 5000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'kwarg {next(shadowed for _ in items)}',
-                    'logfire.msg': 'kwarg kwarg',
-                    'code.filepath': 'test_formatter.py',
-                    'code.function': 'test_nested_scope_in_fstring',
-                    'code.lineno': 123,
-                    'shadowed': 'kwarg',
-                    'next(shadowed for _ in items)': 'kwarg',
-                    'logfire.json_schema': '{"type":"object","properties":{"shadowed":{},"next(shadowed for _ in items)":{}}}',
-                },
-            },
+            'The problem was: Cannot evaluate the f-string value {sum(y * n for y in items)} because it uses `n` inside a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {(lambda: n)()} because it uses `n` inside a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {n} because it uses `precision` inside a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {next(shadowed for _ in items)} because it uses `shadowed` inside a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {next(shadowed for _ in items)} because it uses `shadowed` inside a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+        ]
+    )
+    assert [span['attributes']['logfire.msg_template'] for span in exporter.exported_spans_as_dict()] == snapshot(
+        [
+            'joined {", ".join(str(y) for y in items)}',
+            'doubled {[y * factor for y in items]}',
+            'total 60',
+            'lambda 10',
+            'spec 10.00',
+            'shadow local',
+            'kwarg local',
         ]
     )
