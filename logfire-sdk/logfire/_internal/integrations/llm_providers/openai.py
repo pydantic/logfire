@@ -414,6 +414,11 @@ def convert_openai_response_to_semconv(
     if refusal := getattr(message, 'refusal', None):
         parts.append(TextPart(type='text', content=refusal))
 
+    # An audio response leaves `content` empty: the audio is a blob part, like `input_audio`.
+    # Its transcript is not a part of the message, so it is not recorded as a text part.
+    if (audio := getattr(message, 'audio', None)) and audio.data:
+        parts.append(BlobPart(type='blob', content=audio.data, modality='audio'))
+
     if message.tool_calls:  # pragma: no cover
         for tc in message.tool_calls:
             if isinstance(tc, ChatCompletionMessageFunctionToolCall):  # pragma: no cover
@@ -434,6 +439,16 @@ def convert_openai_response_to_semconv(
                         arguments=tc.custom.input,
                     )
                 )
+
+    # The legacy `function_call` field has no call id.
+    if function_call := getattr(message, 'function_call', None):
+        parts.append(
+            make_tool_call_part(
+                tool_call_id='',
+                name=function_call.name,
+                arguments=function_call.arguments,
+            )
+        )
 
     result: OutputMessage = {
         'role': message.role,
