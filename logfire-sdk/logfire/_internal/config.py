@@ -1259,7 +1259,19 @@ class LogfireConfig(_LogfireConfigData):
                     # If we don't have tokens or credentials from a file,
                     # try initializing a new project and writing a new creds file.
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
-                    client = LogfireClient.from_url(self.advanced.base_url, self.advanced.server_response_hook)
+                    try:
+                        client = LogfireClient.from_url(self.advanced.base_url, self.advanced.server_response_hook)
+                    except LogfireConfigError:
+                        raise LogfireConfigError(
+                            'No usable project credentials found. Run `uvx logfire-cli auth`, then '
+                            '`uvx logfire-cli init` from your project directory, and rerun your code. '
+                            'Alternatively, run `uvx logfire-cli wizard` for guided setup. '
+                            'CLI sign-in alone does not configure the SDK: OAuth credentials stay in the OS '
+                            'credential store, while `init` saves the project write token locally. '
+                            'Pass the same `--region` or `--base-url` to both commands for a non-default server, '
+                            'and use `init --data-dir` to match a custom SDK data directory. '
+                            'You can also set `LOGFIRE_TOKEN` to a project write token.'
+                        ) from None
                     credentials = LogfireCredentials.initialize_project(client=client)
                     credentials.write_creds_file(self.data_dir)
 

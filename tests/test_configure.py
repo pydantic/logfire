@@ -1681,6 +1681,87 @@ def test_sanitize_project_name():
     assert sanitize_project_name(long_name) == long_name[:41]
 
 
+@pytest.mark.parametrize('legacy_state', ['missing', 'empty', 'expired', 'different-region', 'custom-server'])
+@pytest.mark.parametrize('custom_data_dir', [False, True])
+def test_missing_sdk_credentials_explain_native_cli_setup(
+    tmp_dir_cwd: Path, tmp_path: Path, legacy_state: str, custom_data_dir: bool
+):
+    auth_file = tmp_path / 'default.toml'
+    if legacy_state == 'empty':
+        auth_file.touch()
+    elif legacy_state in ('expired', 'different-region'):
+        expiration = '2000-01-01T00:00:00' if legacy_state == 'expired' else '2099-12-31T23:59:59'
+        auth_file.write_text(
+            f'[tokens."https://logfire-us.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "{expiration}"'
+        )
+    original_auth = auth_file.read_bytes() if auth_file.exists() else None
+    data_dir = tmp_dir_cwd / ('custom data' if custom_data_dir else '.logfire')
+    with mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file):
+        base_url = 'https://logfire-eu.pydantic.dev' if legacy_state == 'different-region' else None
+        if legacy_state == 'custom-server':
+            base_url = 'https://logfire.example.com'
+        with requests_mock.Mocker() as requests, pytest.raises(LogfireConfigError) as error:
+            logfire.configure(
+                send_to_logfire=True, data_dir=data_dir, advanced=logfire.AdvancedOptions(base_url=base_url)
+            )
+        message = str(error.value)
+        assert '`uvx logfire-cli auth`' in message
+        assert '`uvx logfire-cli init`' in message
+        assert '`uvx logfire-cli wizard`' in message
+        assert 'CLI sign-in alone does not configure the SDK' in message
+        assert '`LOGFIRE_TOKEN` to a project write token' in message
+        assert '`--region` or `--base-url`' in message
+        assert '`init --data-dir`' in message
+        assert 'fake_user_token' not in message
+        assert error.value.__suppress_context__
+        assert not requests.called
+        assert not (data_dir / 'logfire_credentials.json').exists()
+        assert (auth_file.read_bytes() if auth_file.exists() else None) == original_auth
+
+
+@pytest.mark.parametrize('credential_source', ['file', 'environment'])
+@pytest.mark.parametrize('custom_data_dir', [False, True])
+def test_project_credentials_do_not_require_legacy_user_auth(
+    tmp_dir_cwd: Path, monkeypatch: pytest.MonkeyPatch, credential_source: str, custom_data_dir: bool
+):
+    data_dir = tmp_dir_cwd / ('custom data' if custom_data_dir else '.logfire')
+    credentials_path = data_dir / 'logfire_credentials.json'
+    token = 'pylf_v1_eu_project_write_token'
+    base_url = 'https://logfire-eu.pydantic.dev'
+    original_credentials = None
+    if credential_source == 'file':
+        data_dir.mkdir()
+        original_credentials = json.dumps(
+            {
+                'token': token,
+                'project_name': 'my-project',
+                'project_url': f'{base_url}/acme/my-project',
+                'logfire_api_url': base_url,
+            }
+        )
+        credentials_path.write_text(original_credentials)
+    else:
+        monkeypatch.setenv('LOGFIRE_TOKEN', token)
+    with (
+        mock.patch(
+            'logfire._internal.client.LogfireClient.from_url', side_effect=AssertionError('legacy auth accessed')
+        ),
+        requests_mock.Mocker() as requests,
+    ):
+        requests.get(
+            f'{base_url}/v1/info',
+            json={'project_name': 'my-project', 'project_url': f'{base_url}/acme/my-project'},
+        )
+        logfire.configure(send_to_logfire=True, data_dir=data_dir, console=False)
+        wait_for_check_token_thread()
+        assert GLOBAL_CONFIG.token == token
+        assert len(requests.request_history) == 1
+        assert requests.last_request is not None
+        assert requests.last_request.url == f'{base_url}/v1/info'
+        assert requests.last_request.headers['Authorization'] == token
+        assert (credentials_path.read_text() if credentials_path.exists() else None) == original_credentials
+
+
 def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, tmp_path: Path):
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
