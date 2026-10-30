@@ -81,6 +81,22 @@ def _clear_state() -> None:
 # ---------------------------------------------------------------------------
 
 
+# Server-side tools (web search, web fetch, advisor) arrive as their own block types, which older
+# versions of the SDK don't have; an empty tuple never matches in `isinstance`.
+_ServerToolUseBlock: Any = getattr(claude_agent_sdk, 'ServerToolUseBlock', ())
+_ServerToolResultBlock: Any = getattr(claude_agent_sdk, 'ServerToolResultBlock', ())
+
+
+def _tool_call_part(block: Any) -> ToolCallPart:
+    part = ToolCallPart(type='tool_call', id=block.id or '', name=block.name or '')
+    part['arguments'] = block.input
+    return part
+
+
+def _tool_call_response_part(block: Any) -> ToolCallResponsePart:
+    return ToolCallResponsePart(type='tool_call_response', id=block.tool_use_id or '', response=block.content)
+
+
 def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
     """Convert SDK content block objects into semconv OutputMessages."""
     parts: list[MessagePart] = []
@@ -92,24 +108,12 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
             parts.append(TextPart(type='text', content=block.text))
         elif isinstance(block, ThinkingBlock):
             parts.append(ReasoningPart(type='reasoning', content=block.thinking))
-        elif isinstance(block, ToolUseBlock):
-            part = ToolCallPart(
-                type='tool_call',
-                id=block.id or '',
-                name=block.name or '',
-            )
-            part['arguments'] = block.input
-            parts.append(part)
-        elif isinstance(block, ToolResultBlock):
-            parts.append(
-                ToolCallResponsePart(
-                    type='tool_call_response',
-                    id=block.tool_use_id or '',
-                    response=block.content,
-                )
-            )
+        elif isinstance(block, (ToolUseBlock, _ServerToolUseBlock)):
+            parts.append(_tool_call_part(block))
+        elif isinstance(block, (ToolResultBlock, _ServerToolResultBlock)):
+            parts.append(_tool_call_response_part(block))
         else:
-            parts.append(block)
+            parts.append(cast('Any', block))
 
     msg = OutputMessage(role='assistant', parts=parts)
     return [msg]
