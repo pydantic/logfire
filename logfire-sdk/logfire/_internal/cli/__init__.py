@@ -399,7 +399,11 @@ def _save_read_token(
         # BEFORE any bytes are written. The mode passed to `os.open` applies only when it
         # creates the file, so an existing file keeps whatever permissions it had and the
         # token would land in a world-readable one, restricted only afterwards.
-        os.fchmod(fd, 0o600)
+        # Windows has no `os.fchmod`, and no POSIX mode bits to narrow if it had it: the
+        # file there inherits the ACL of the data directory, which is the user's own.
+        fchmod = getattr(os, 'fchmod', None)
+        if fchmod is not None:
+            fchmod(fd, 0o600)
         handle = os.fdopen(fd, 'w')
     except BaseException:  # pragma: no cover
         # Only while the descriptor is still ours; once `fdopen` succeeds the file object
