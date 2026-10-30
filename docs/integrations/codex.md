@@ -1,81 +1,95 @@
 ---
-title: "Send Codex logs and metrics to Logfire"
-description: "Configure Codex's built-in OpenTelemetry support to send session events, tool activity, and timing metrics to Logfire."
+title: "Send Codex sessions to Logfire"
+description: "Configure Codex's built-in OpenTelemetry support to see each Codex turn in Logfire: the prompt, the model, token usage, tool calls, and the final answer."
 integration: otel
 ---
 
-# Send Codex logs and metrics to Logfire
+# Send Codex sessions to Logfire
 
-See Codex session events, tool results, and request timings in Logfire. Codex has built-in OpenTelemetry support for sending logs and metrics. A log is a timestamped record of a single event. A metric is a number tracked over time, such as a request count or duration.
+See what Codex did in each turn: your prompt, the model it used, how many tokens it spent, which tools it called, and its final answer. Codex has built-in OpenTelemetry support, so you only change its configuration file. You do not need the Logfire SDK or a plugin.
 
-Codex uses the OpenTelemetry Protocol (OTLP), the standard wire format Logfire uses to receive that data. You do not need the Logfire SDK or a plugin for this setup.
+Codex sends three kinds of data, called signals, over the OpenTelemetry Protocol (OTLP), the standard wire format Logfire receives:
 
-This guide covers Codex's native telemetry. For completed turns with tool calls grouped beneath them and conversation content in Logfire's LLM panel, use the [Logfire Exporter plugin](../how-to-guides/codex-logfire-exporter.md).
+| Signal | What Codex sends | Where you see it in Logfire |
+| --- | --- | --- |
+| Traces | A span (one operation, with a start and a duration) for each turn, with the model and token usage, plus a span for each tool call | Each turn appears as a **Codex** run in the [Agents view](../guides/web-ui/agents.md) |
+| Logs | Events such as the prompt, each tool's arguments and output, and the final answer | [Live view](../guides/web-ui/live.md) and [SQL Workbench](../guides/web-ui/explore.md) |
+| Metrics | Counts and timings, such as token usage, tool calls, and request durations | [Dashboards](../guides/web-ui/dashboards.md) and SQL Workbench |
+
+For a single span per turn that renders as a conversation in Logfire's LLM panel, you can also add the [Logfire Exporter plugin](../how-to-guides/codex-logfire-exporter.md).
 
 ## Configure Codex
 
-Install [Codex CLI](https://developers.openai.com/codex/cli) and create a [write token](../how-to-guides/create-write-tokens.md) in your Logfire project's **Settings → Write tokens**. The configuration below was checked with Codex CLI 0.153.2.
+You need [Codex CLI](https://developers.openai.com/codex/cli) and a [write token](../how-to-guides/create-write-tokens.md). Create the token in your Logfire project under **Settings → Write tokens**. This configuration was checked with Codex CLI 0.163.
 
 !!! warning "Review the data Codex sends"
-    Enabling this configuration sends Codex activity to Logfire. `log_user_prompt = false` redacts user prompts, but other event fields can include tool output and identifying metadata. The Logfire SDK's scrubbing, which hides sensitive values before sending them, does not process data sent directly by Codex.
+    This configuration sends your prompts, Codex's answers, and each tool call's arguments and output preview to Logfire. Every log event also includes your OpenAI account email and account ID. The Logfire SDK's scrubbing, which hides sensitive values before sending them, does not process data that Codex sends directly. To send less, see [Choose what Codex sends](#choose-what-codex-sends).
 
 Add these settings to `~/.codex/config.toml`, or `$CODEX_HOME/config.toml` if you use a custom Codex home. Merge them into any existing `[otel]` configuration:
 
 ```toml title="~/.codex/config.toml"
 [otel]
+# Shown as the deployment environment in Logfire.
 environment = "codex-dev"
-log_user_prompt = false
+# Send the prompt text. Set to false to send "[REDACTED]" in its place.
+log_user_prompt = true
+# Send Codex's final answer, up to 64 KiB. Requires the log exporter below.
+log_agent_responses = true
 
+# Logs: prompts, final answers, tool arguments and output previews, request timings.
 [otel.exporter.otlp-http]
 endpoint = "https://logfire-us.pydantic.dev/v1/logs"
 protocol = "binary"
 
+# Traces: one span per turn with the model and token usage, and a span per tool call.
+# Required for the Agents view.
+[otel.trace_exporter.otlp-http]
+endpoint = "https://logfire-us.pydantic.dev/v1/traces"
+protocol = "binary"
+
+# Metrics: token usage, tool calls, and latency.
 [otel.metrics_exporter.otlp-http]
 endpoint = "https://logfire-us.pydantic.dev/v1/metrics"
 protocol = "binary"
 ```
 
-For an EU project, replace `logfire-us.pydantic.dev` with `logfire-eu.pydantic.dev` in each endpoint. Keep the `/v1/logs` and `/v1/metrics` paths: Codex sends to the configured URL without appending a signal path.
+For an EU project, replace `logfire-us.pydantic.dev` with `logfire-eu.pydantic.dev` in each endpoint. Keep the `/v1/logs`, `/v1/traces`, and `/v1/metrics` paths: Codex sends to the configured URL without appending a path. `protocol = "binary"` means Protocol Buffers over HTTP, which standard OpenTelemetry configuration calls `http/protobuf`.
 
-Start Codex from a shell with the authorization header set:
+Set the authorization header in your shell, then restart Codex's background process from that same shell:
 
 ```bash
 export OTEL_EXPORTER_OTLP_HEADERS='Authorization=<your-write-token>'
+codex app-server daemon restart
 codex
 ```
 
-Replace `<your-write-token>` with your token. Logfire expects the token directly, without a `Bearer` prefix. The environment variable supplies the header to both HTTP configurations and keeps the token out of `config.toml`. For a desktop or IDE client, the variable must be available to the process that starts Codex; restart that client after changing its environment.
+Replace `<your-write-token>` with your token. Logfire expects the token directly, without a `Bearer` prefix. Add the `export` line to your shell profile so that new shells have it.
+
+!!! note "Restart after every change"
+    The terminal `codex` command does not run your turns itself. It starts a background process, the Codex app server, and reuses it for later sessions. That process reads `config.toml` and your environment variables only when it starts. If it was already running, it keeps sending with the old settings, or without the authorization header, and Logfire rejects the data. Run `codex app-server daemon restart` after you change `config.toml` or the token.
 
 !!! note "TOML headers are literal strings"
     Codex also accepts `headers = { "Authorization" = "<your-write-token>" }` inside each `otlp-http` table. It does not expand `${CODEX_LOGFIRE_WRITE_TOKEN}` there. Use the environment variable above to avoid sending that placeholder as your credential.
 
-### Understand the signal settings
+### Which Codex process sends the data
 
-| Setting | Sends | Logfire HTTP path |
+| How you run Codex | Process that runs your turns | `service_name` in Logfire |
 | --- | --- | --- |
-| `otel.exporter` | Log events, such as conversation starts and tool results | `/v1/logs` |
-| `otel.metrics_exporter` | Counts and timing measurements | `/v1/metrics` |
-| `otel.trace_exporter` | Spans: individual operations with a name, start, and duration | `/v1/traces` |
+| `codex` in a terminal | The background app server | `codex-app-server` for turns, tools, and logs. The terminal process also sends a few `fs.*` spans as `codex_cli_rs`. |
+| `codex --no-daemon` | The terminal process | `codex_cli_rs` |
+| `codex exec` | The `exec` process | `codex_exec` |
+| Codex desktop app or IDE extension | The app server | `codex-app-server` |
 
-Each setting is independent. Configuring `otel.exporter` does not enable metrics export to Logfire. Codex's `protocol = "binary"` means protobuf over HTTP, equivalent to `http/protobuf` in standard OpenTelemetry environment configuration.
-
-### Include native traces
-
-To also send Codex's native spans, add this table to the same file:
-
-```toml
-[otel.trace_exporter.otlp-http]
-endpoint = "https://logfire-us.pydantic.dev/v1/traces"
-protocol = "binary"
-```
-
-Use the matching regional host. The same `OTEL_EXPORTER_OTLP_HEADERS` variable authenticates these requests.
+The desktop app and the IDE extension do not read your shell profile. If you start them from the Dock or an application launcher, they do not have `OTEL_EXPORTER_OTLP_HEADERS`, and Logfire rejects their data.
 
 ## Verify
 
-Start a new Codex session, complete a turn, then exit normally so Codex flushes pending data. In the [Live view](../guides/web-ui/live.md), look for events such as `codex.conversation_starts`, `codex.user_prompt`, or `codex.tool_result`. Inspect `conversation.id` to identify events from the same session. User prompt text should appear as `[REDACTED]`.
+Start a new Codex session in a terminal, ask it to run a command, and wait for the answer. Then:
 
-In [SQL Workbench](../guides/web-ui/explore.md), run:
+1. Open the [Agents view](../guides/web-ui/agents.md). A **Codex** agent appears with one run per turn. Each run shows the model and token usage.
+2. In the [Live view](../guides/web-ui/live.md), search for `codex.user_prompt`, `codex.tool_result`, or `codex.agent_response` events. Inspect `conversation.id` to group events from the same session.
+
+To check metrics, run this in [SQL Workbench](../guides/web-ui/explore.md) with a time range that includes your session:
 
 ```sql
 SELECT DISTINCT service_name, metric_name
@@ -84,15 +98,34 @@ WHERE metric_name LIKE 'codex.%'
 ORDER BY service_name, metric_name
 ```
 
-Select a time range that includes your session. You should see metrics such as `codex.api_request`, `codex.api_request.duration_ms`, and `codex.turn.e2e_duration_ms`. A `codex exec` run reports `service_name = 'codex_exec'`; other Codex clients can use different service names.
+You should see metrics such as `codex.api_request`, `codex.turn.token_usage`, and `codex.tool.call`. Codex sends metrics every 60 seconds and when it exits.
+
+## Choose what Codex sends
+
+Each signal is configured independently. Remove or comment out an exporter table to stop sending that signal.
+
+| Setting | Effect |
+| --- | --- |
+| `log_user_prompt = false` | Codex sends `[REDACTED]` in place of the prompt text. |
+| `log_agent_responses = false` (the default) | Codex does not send its final answer. |
+| `[otel.tool_result] max_bytes = <n>` | Sets the size of the tool output preview in `codex.tool_result` events. The default is 2048 bytes. Tool arguments are always sent. |
+| `span_attributes = { "team" = "platform" }` | Adds these attributes to every span, for example to filter by team. |
+| Remove `[otel.trace_exporter.otlp-http]` | Stops sending traces. Logs and metrics still arrive, but Codex turns no longer appear in the Agents view. |
+
+!!! note "Data volume"
+    Codex can produce hundreds of records per turn, and they count toward your Logfire usage. To send less, remove an exporter or turn off prompt logging.
+
+`[analytics] enabled = false` does not affect the exporters on this page. It only turns off Codex's own analytics.
 
 ## Troubleshooting
 
 | Symptom | Cause and fix |
 | --- | --- |
-| Requests fail or no data arrives | Use the full signal-specific path and the regional host that matches your project. Restart Codex after editing its configuration. |
-| Authentication fails | Check that `OTEL_EXPORTER_OTLP_HEADERS` reaches the Codex process. Use a valid write token without `Bearer`, and remove any literal `${...}` header from the TOML configuration. |
-| Logs arrive but metrics do not | Configure `otel.metrics_exporter` separately. `[analytics] enabled = false` disables metrics collection, including this export; remove that override or set it to `true` if you want metrics. This flag also controls Codex's built-in analytics. |
-| A recent event or measurement is missing | Sending happens in batches. Complete a turn and exit normally to flush pending data. Tool metrics require a turn that actually calls a tool. |
+| Only `fs.read_file` and `fs.get_metadata` spans from `codex_cli_rs` arrive | The background app server started before you configured telemetry or set the token. Run `codex app-server daemon restart` from a shell where `OTEL_EXPORTER_OTLP_HEADERS` is set, then start a new session. |
+| Authentication fails or no data arrives | Use the full signal-specific path and the regional host that matches your project. Check that `OTEL_EXPORTER_OTLP_HEADERS` was set when the app server started, uses a valid write token without `Bearer`, and that no literal `${...}` header is in `config.toml`. |
+| No Codex runs in the Agents view | Check that `[otel.trace_exporter.otlp-http]` is configured. Turns from `codex exec` and `codex --no-daemon` do not appear in the Agents view yet; their logs and metrics still arrive. |
+| Prompt shows `[REDACTED]` or answers are missing | Set `log_user_prompt = true` and `log_agent_responses = true`, then restart the app server. |
+| A recent event or measurement is missing | Codex sends data in batches. Complete a turn and wait a minute, or exit Codex normally to flush pending data. |
+| A "Hooks need review" prompt appears when Codex starts | This prompt comes from an installed plugin with hooks, such as the Logfire Exporter plugin. It does not affect the configuration on this page. |
 
-See [Codex's telemetry documentation](https://developers.openai.com/codex/config-advanced#observability-and-telemetry) for its event catalog and [configuration reference](https://developers.openai.com/codex/config-reference) for supported settings. Use [dashboard queries](../how-to-guides/write-dashboard-queries.md#working-with-metrics) to chart the metrics you receive.
+See [Codex's telemetry documentation](https://developers.openai.com/codex/config-advanced#observability-and-telemetry) for its event catalog and [configuration reference](https://developers.openai.com/codex/config-reference) for all settings. Use [dashboard queries](../how-to-guides/write-dashboard-queries.md#working-with-metrics) to chart the metrics you receive.
