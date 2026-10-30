@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, cast
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import ParseResult, parse_qs, urlparse
 
 from opentelemetry import context
 from opentelemetry.sdk.trace import Event, ReadableSpan, Span
@@ -211,6 +211,7 @@ def _tweak_http_spans(span: ReadableSpanDict):
     if not (method or route or target or url):
         return
 
+    parsed_url: ParseResult | None = None
     # The query string, without the leading '?'. Shown at the end of the message in a readable form below.
     query_string: Any = attributes.get('url.query')
     if not (target and query_string) and url and isinstance(url, str):
@@ -242,14 +243,7 @@ def _tweak_http_spans(span: ReadableSpanDict):
         message_target = target
         if span['kind'] == SpanKind.CLIENT:
             # For outgoing requests, we also want the domain, not just the path.
-            server_name: Any = (
-                attributes.get('server.address') or attributes.get('http.server_name') or attributes.get('http.host')
-            )
-            if not server_name:
-                try:
-                    server_name = urlparse(url).hostname
-                except Exception:  # pragma: no cover
-                    pass
+            server_name = _get_http_server_name(attributes, url, parsed_url)
             server_name = server_name or url
             if server_name and isinstance(server_name, str):  # pragma: no branch
                 message_target = server_name + message_target
@@ -304,6 +298,40 @@ def _tweak_http_spans(span: ReadableSpanDict):
 
     if message != name:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: message}
+
+
+def _get_http_server_name(attributes: Mapping[str, Any], url: Any, parsed_url: ParseResult | None) -> Any:
+    """Resolve the client authority without adding userinfo or duplicating an existing port."""
+    server_name = attributes.get('server.address') or attributes.get('http.server_name') or attributes.get('http.host')
+    port = attributes.get('server.port')
+    if port is None:
+        port = attributes.get('net.peer.port')
+    scheme = attributes.get('url.scheme') or attributes.get('http.scheme')
+
+    if parsed_url is None and isinstance(url, str) and (not server_name or port is None or not scheme):
+        try:
+            parsed_url = urlparse(url)
+        except Exception:  # pragma: no cover
+            pass
+    if parsed_url is not None:
+        server_name = server_name or parsed_url.hostname
+        scheme = scheme or parsed_url.scheme
+        if port is None:
+            with suppress(ValueError):
+                port = parsed_url.port
+
+    if not isinstance(server_name, str):
+        return server_name
+    if port is None or (port == 80 and scheme == 'http') or (port == 443 and scheme == 'https'):
+        return server_name
+    if server_name.startswith('['):
+        if not server_name.endswith(']'):
+            return server_name
+    elif ':' in server_name:
+        if server_name.count(':') == 1:
+            return server_name
+        server_name = f'[{server_name}]'
+    return f'{server_name}:{port}'
 
 
 def _summarize_db_statement(span: ReadableSpanDict):
