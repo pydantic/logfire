@@ -136,7 +136,7 @@ The upstream `opentelemetry-collector` chart presets are `kubernetesAttributes`,
 
 Use one of these methods. Use both if you can. The UID is stable, and the name is readable.
 
-- **Set the cluster name.** Add `k8s.cluster.name` to every metric with a `resource` processor. Use the same value in every Collector of that cluster.
+- **Set the cluster name.** Add `k8s.cluster.name` to every pipeline with a `resource` processor. Use the same value in every Collector of that cluster.
 
     ```yaml
     processors:
@@ -147,7 +147,7 @@ Use one of these methods. Use both if you can. The UID is stable, and the name i
             action: upsert
     ```
 
-- **Detect the cluster UID.** Turn on the `k8s_api` detector of the [`resourcedetection`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor) processor. Enable only `k8s.cluster.uid`. The detector reads the UID of the `kube-system` namespace, so the Collector's ClusterRole needs `get` on `namespaces`.
+- **Detect the cluster UID.** Turn on the `k8s_api` detector of the [`resourcedetection`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor) processor. Enable only `k8s.cluster.uid`. The detector reads the UID of the `kube-system` namespace, so the Collector's ClusterRole needs `get` on `namespaces`. The detector also reads the Collector's node, so the ClusterRole needs `get` and `list` on `nodes`. Set the `K8S_NODE_NAME` environment variable from `spec.nodeName` with the downward API. The detector needs this variable even when its node attributes are disabled.
 
     ```yaml
     processors:
