@@ -124,12 +124,54 @@ The Kubernetes page gets node CPU and memory from kubelet metrics. To populate t
     - The quickstart generates the Operator webhook certificate so cert-manager is not required. The certificate is valid for 365 days and renewed by `helm upgrade`. If your cluster already uses cert-manager, enable `opentelemetry-operator.admissionWebhooks.certManager` and remove `autoGenerateCert`.
     - The chart disables kubelet certificate verification for compatibility across Kubernetes distributions. When the kubelet certificate chains to your cluster certificate authority, set `collectors.daemon.config.receivers.kubelet_stats.insecure_skip_verify` to `false`. Otherwise, mount its issuer certificate and configure `ca_file`.
 
+## Identify clusters and nodes
+
+Logfire groups Kubernetes data by `k8s.cluster.uid` and `k8s.cluster.name`. The `clusterName` value above stamps `k8s.cluster.name` on every signal. If you run your own Collectors, for example with the upstream [`opentelemetry-collector`](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-collector) chart, you must add a cluster identity yourself.
+
+### Why it matters
+
+The upstream `opentelemetry-collector` chart presets are `kubernetesAttributes`, `kubeletMetrics`, and `clusterMetrics`. With only these presets, only pod and container metrics get `k8s.cluster.uid`. Node metrics get no cluster attribute. Workload and namespace metrics (deployment, daemonset, replicaset, job, and namespace) also get no cluster attribute. Logfire then shows these metrics under **Unknown cluster**, and the cluster's **Nodes** tab is empty.
+
+### Put a cluster identity on every pipeline
+
+Use one of these methods. Use both if you can. The UID is stable, and the name is readable.
+
+- **Set the cluster name.** Add `k8s.cluster.name` to every pipeline with a `resource` processor. Use the same value in every Collector of that cluster.
+
+    ```yaml
+    processors:
+      resource/cluster:
+        attributes:
+          - key: k8s.cluster.name
+            value: my-cluster
+            action: upsert
+    ```
+
+- **Detect the cluster UID.** Turn on the `k8s_api` detector of the [`resourcedetection`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor) processor. Enable only `k8s.cluster.uid`. The detector reads the UID of the `kube-system` namespace, so the Collector's ClusterRole needs `get` on `namespaces`. The detector also reads the Collector's node, so the ClusterRole needs `get` and `list` on `nodes`. Set the `K8S_NODE_NAME` environment variable from `spec.nodeName` with the downward API. The detector needs this variable even when its node attributes are disabled.
+
+    ```yaml
+    processors:
+      resourcedetection:
+        detectors: [k8s_api]
+        k8s_api:
+          resource_attributes:
+            k8s.cluster.uid: {enabled: true}
+            k8s.node.name: {enabled: false}
+            k8s.node.uid: {enabled: false}
+    ```
+
+Add the processor to the metrics pipeline after `k8sattributes`, for example `processors: [k8sattributes, resourcedetection, resource/cluster, batch]`. Do the same in the logs and traces pipelines.
+
+!!! warning "Disable the node attributes of the `k8s_api` detector"
+    With its default settings, the `k8s_api` detector writes the Collector's own node into `k8s.node.name` and `k8s.node.uid` on every record. It overwrites the values that are already there. Then all node metrics from the `k8s_cluster` receiver move onto one node, and the other nodes disappear from Logfire. Always set `k8s.node.name` and `k8s.node.uid` to `enabled: false`, as the example above shows.
+
 ## Troubleshoot setup
 
 | Symptom | What to check |
 |---------|---------------|
 | No Collector pods | Run `kubectl -n observability logs deployment/otel-stack-opentelemetry-operator --container manager`. Admission or custom-resource errors appear there. |
 | Collector logs show `401` or `403` | Confirm that the endpoint uses the same region as the Logfire project and recreate the Secret with a current write token. |
+| Data shows under **Unknown cluster**, or the **Nodes** tab is empty | Make sure every pipeline adds `k8s.cluster.name` or `k8s.cluster.uid`. See [Identify clusters and nodes](#identify-clusters-and-nodes). |
 | Collector runs but the Kubernetes page is empty | Run `kubectl -n observability logs -l app.kubernetes.io/name=opentelemetry-collector --tail=200` and look for Kubernetes API or RBAC errors. |
 | Application traces do not appear | The standard setup does not modify application pods. Follow [Collect more data from Kubernetes](kubernetes-collect-more.md) to instrument them. |
 
