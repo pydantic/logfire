@@ -727,6 +727,271 @@ def test_messages_stream_text_block_none() -> None:
     )
 
 
+def test_server_tool_blocks_in_response() -> None:
+    """Server-side tools (web search) become tool call parts instead of raw dumped blocks."""
+    from anthropic.types import ServerToolUseBlock, WebSearchResultBlock, WebSearchToolResultBlock
+
+    from logfire._internal.integrations.llm_providers.anthropic import convert_response_to_semconv
+
+    message = Message(
+        id='msg_1',
+        content=[
+            ServerToolUseBlock(id='srvtoolu_1', name='web_search', input={'query': 'logfire'}, type='server_tool_use'),
+            WebSearchToolResultBlock(
+                tool_use_id='srvtoolu_1',
+                type='web_search_tool_result',
+                content=[
+                    WebSearchResultBlock(
+                        encrypted_content='enc',
+                        page_age=None,
+                        title='Logfire',
+                        type='web_search_result',
+                        url='https://pydantic.dev/logfire',
+                    )
+                ],
+            ),
+            TextBlock(text='Found it.', type='text'),
+        ],
+        model='claude-sonnet-4-5',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=25, output_tokens=55),
+    )
+    assert convert_response_to_semconv(message) == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'tool_call', 'id': 'srvtoolu_1', 'name': 'web_search', 'arguments': {'query': 'logfire'}},
+                {
+                    'type': 'tool_call_response',
+                    'id': 'srvtoolu_1',
+                    'response': [
+                        {
+                            'encrypted_content': 'enc',
+                            'page_age': None,
+                            'title': 'Logfire',
+                            'type': 'web_search_result',
+                            'url': 'https://pydantic.dev/logfire',
+                        }
+                    ],
+                },
+                {'type': 'text', 'content': 'Found it.'},
+            ],
+            'finish_reason': 'end_turn',
+        }
+    )
+
+
+def test_server_tool_result_content_that_is_not_a_model() -> None:
+    """A server tool result whose content is already plain data is recorded as it is."""
+    from types import SimpleNamespace
+
+    from logfire._internal.integrations.llm_providers.anthropic import convert_response_to_semconv
+
+    message = SimpleNamespace(
+        role='assistant',
+        stop_reason=None,
+        content=[SimpleNamespace(type='code_execution_tool_result', tool_use_id='srvtoolu_2', content='done')],
+    )
+    assert convert_response_to_semconv(message) == snapshot(  # type: ignore[arg-type]
+        {'role': 'assistant', 'parts': [{'type': 'tool_call_response', 'id': 'srvtoolu_2', 'response': 'done'}]}
+    )
+
+
+def test_server_tool_blocks_in_input_messages() -> None:
+    """Server tool blocks sent back in an assistant turn are converted the same way."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    input_messages, _ = convert_messages_to_semconv(
+        [
+            {
+                'role': 'assistant',
+                'content': [
+                    {
+                        'type': 'server_tool_use',
+                        'id': 'srvtoolu_1',
+                        'name': 'web_fetch',
+                        'input': {'url': 'https://x.dev'},
+                    },
+                    {
+                        'type': 'web_fetch_tool_result',
+                        'tool_use_id': 'srvtoolu_1',
+                        'content': {'type': 'web_fetch_result'},
+                    },
+                ],
+            }
+        ]
+    )
+    assert input_messages == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [
+                    {
+                        'type': 'tool_call',
+                        'id': 'srvtoolu_1',
+                        'name': 'web_fetch',
+                        'arguments': {'url': 'https://x.dev'},
+                    },
+                    {'type': 'tool_call_response', 'id': 'srvtoolu_1', 'response': {'type': 'web_fetch_result'}},
+                ],
+            }
+        ]
+    )
+
+
+def test_mcp_tool_blocks_in_response() -> None:
+    """An MCP tool call is recorded as a tool call part that its result points back to."""
+    from anthropic.types.beta import BetaMCPToolResultBlock, BetaMCPToolUseBlock, BetaMessage, BetaUsage
+
+    from logfire._internal.integrations.llm_providers.anthropic import convert_response_to_semconv
+
+    message = BetaMessage(
+        id='msg_1',
+        content=[
+            BetaMCPToolUseBlock(
+                id='mcptoolu_1', name='get_weather', server_name='weather', input={'city': 'Oslo'}, type='mcp_tool_use'
+            ),
+            BetaMCPToolResultBlock(tool_use_id='mcptoolu_1', content='sunny', is_error=False, type='mcp_tool_result'),
+        ],
+        model='claude-sonnet-4-5',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=BetaUsage(input_tokens=25, output_tokens=55),
+    )
+    assert convert_response_to_semconv(message) == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'tool_call', 'id': 'mcptoolu_1', 'name': 'get_weather', 'arguments': {'city': 'Oslo'}},
+                {'type': 'tool_call_response', 'id': 'mcptoolu_1', 'response': 'sunny'},
+            ],
+            'finish_reason': 'end_turn',
+        }
+    )
+
+
+def test_mcp_tool_blocks_in_input_messages() -> None:
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    input_messages, _ = convert_messages_to_semconv(
+        [
+            {
+                'role': 'assistant',
+                'content': [
+                    {
+                        'type': 'mcp_tool_use',
+                        'id': 'mcptoolu_1',
+                        'name': 'get_weather',
+                        'server_name': 'weather',
+                        'input': {'city': 'Oslo'},
+                    },
+                    {'type': 'mcp_tool_result', 'tool_use_id': 'mcptoolu_1', 'content': 'sunny'},
+                ],
+            }
+        ]
+    )
+    assert input_messages == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [
+                    {'type': 'tool_call', 'id': 'mcptoolu_1', 'name': 'get_weather', 'arguments': {'city': 'Oslo'}},
+                    {'type': 'tool_call_response', 'id': 'mcptoolu_1', 'response': 'sunny'},
+                ],
+            }
+        ]
+    )
+
+
+def test_streamed_server_tool_blocks() -> None:
+    from anthropic.types import RawMessageStreamEvent
+
+    from logfire._internal.integrations.llm_providers.anthropic import AnthropicMessageStreamState
+
+    adapter = pydantic.TypeAdapter(RawMessageStreamEvent)
+    events: list[dict[str, Any]] = [
+        {
+            'type': 'message_start',
+            'message': {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'model': 'claude-haiku-4-5',
+                'content': [],
+                'stop_reason': None,
+                'stop_sequence': None,
+                'usage': {'input_tokens': 10, 'output_tokens': 1},
+            },
+        },
+        {
+            'type': 'content_block_start',
+            'index': 0,
+            'content_block': {'type': 'server_tool_use', 'id': 'srvtoolu_1', 'name': 'web_search', 'input': {}},
+        },
+        {
+            'type': 'content_block_delta',
+            'index': 0,
+            'delta': {'type': 'input_json_delta', 'partial_json': '{"query":"logfire"}'},
+        },
+        {'type': 'content_block_stop', 'index': 0},
+        {
+            'type': 'content_block_start',
+            'index': 1,
+            'content_block': {
+                'type': 'web_search_tool_result',
+                'tool_use_id': 'srvtoolu_1',
+                'content': [
+                    {
+                        'type': 'web_search_result',
+                        'encrypted_content': 'enc',
+                        'page_age': None,
+                        'title': 'Logfire',
+                        'url': 'https://pydantic.dev/logfire',
+                    }
+                ],
+            },
+        },
+        {'type': 'content_block_stop', 'index': 1},
+        {
+            'type': 'message_delta',
+            'delta': {'stop_reason': 'end_turn', 'stop_sequence': None},
+            'usage': {'output_tokens': 3},
+        },
+        {'type': 'message_stop'},
+    ]
+    state = AnthropicMessageStreamState()
+    for event in events:
+        state.record_chunk(adapter.validate_python(event))
+
+    assert state.get_attributes({})['gen_ai.output.messages'] == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [
+                    {'type': 'tool_call', 'id': 'srvtoolu_1', 'name': 'web_search', 'arguments': {'query': 'logfire'}},
+                    {
+                        'type': 'tool_call_response',
+                        'id': 'srvtoolu_1',
+                        'response': [
+                            {
+                                'encrypted_content': 'enc',
+                                'page_age': None,
+                                'title': 'Logfire',
+                                'type': 'web_search_result',
+                                'url': 'https://pydantic.dev/logfire',
+                            }
+                        ],
+                    },
+                ],
+                'finish_reason': 'end_turn',
+            }
+        ]
+    )
+
+
 @pytest.mark.parametrize('beta', [False, True])
 def test_streamed_tool_arguments(beta: bool, exporter: TestExporter) -> None:
     events: list[dict[str, Any]] = [
