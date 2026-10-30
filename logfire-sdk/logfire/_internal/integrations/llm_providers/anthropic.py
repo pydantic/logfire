@@ -353,6 +353,72 @@ def get_anthropic_usage_attributes(response: Any, base_url: str | None = None) -
     )
 
 
+def _record_message(
+    message: Message | BetaMessage,
+    span: LogfireSpan,
+    versions: frozenset[NormalizedSemconvVersion],
+    base_url: str | None,
+) -> None:
+    """Record a decoded assistant message on the response span."""
+    if 1 in versions:
+        message_dict: dict[str, Any] = {'role': 'assistant'}
+        for block in message.content:
+            if block.type == 'text':
+                message_dict['content'] = block.text
+            elif block.type == 'tool_use':
+                message_dict.setdefault('tool_calls', []).append(
+                    {
+                        'id': block.id,
+                        'function': {
+                            'arguments': block.model_dump_json(include={'input'}),
+                            'name': block.name,
+                        },
+                    }
+                )
+        span.set_attribute('response_data', {'message': message_dict, 'usage': message.usage})
+
+    if 2 in versions:
+        output_message = convert_response_to_semconv(message)
+        span.set_attribute(OUTPUT_MESSAGES, [output_message])
+
+    # Always set scalar semconv attributes
+    span.set_attribute(RESPONSE_MODEL, message.model)
+    span.set_attribute(RESPONSE_ID, message.id)
+
+    span.set_attributes(get_anthropic_usage_attributes(message, base_url))
+
+    if message.stop_reason:
+        span.set_attribute(RESPONSE_FINISH_REASONS, [message.stop_reason])
+
+
+def _unwrap_raw_message(response: Any) -> Message | None:
+    """Recover the Message from a raw SDK response from the buffered body.
+
+    ``with_raw_response`` returns ``APIResponse``/``AsyncAPIResponse`` (and
+    ``LegacyAPIResponse`` on anthropic 0.x) rather than a ``Message``. All three
+    carry ``http_response`` with the already-read raw body; read its buffered
+    JSON directly. Calling ``.json()`` on the async variant returns a coroutine
+    this synchronous callback cannot await, and ``LegacyAPIResponse`` has no
+    ``.json()`` at all, so neither path works here.
+    """
+    http_response = getattr(response, 'http_response', None)
+    if http_response is None or not callable(getattr(response, 'parse', None)):
+        return None
+    try:
+        payload = http_response.json()
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    payload = cast(dict[str, Any], payload)
+    if payload.get('type') != 'message':
+        return None
+    try:
+        return Message.model_validate(payload)
+    except Exception:
+        return None
+
+
 @handle_internal_errors
 def on_response(
     response: Any,
@@ -365,35 +431,11 @@ def on_response(
     versions: frozenset[NormalizedSemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
     if isinstance(response, (Message, BetaMessage)):
-        if 1 in versions:
-            message: dict[str, Any] = {'role': 'assistant'}
-            for block in response.content:
-                if block.type == 'text':
-                    message['content'] = block.text
-                elif block.type == 'tool_use':
-                    message.setdefault('tool_calls', []).append(
-                        {
-                            'id': block.id,
-                            'function': {
-                                'arguments': block.model_dump_json(include={'input'}),
-                                'name': block.name,
-                            },
-                        }
-                    )
-            span.set_attribute('response_data', {'message': message, 'usage': response.usage})
-
-        if 2 in versions:
-            output_message = convert_response_to_semconv(response)
-            span.set_attribute(OUTPUT_MESSAGES, [output_message])
-
-        # Always set scalar semconv attributes
-        span.set_attribute(RESPONSE_MODEL, response.model)
-        span.set_attribute(RESPONSE_ID, response.id)
-
-        span.set_attributes(get_anthropic_usage_attributes(response, base_url))
-
-        if response.stop_reason:
-            span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])
+        _record_message(response, span, versions, base_url)
+    else:
+        message = _unwrap_raw_message(response)
+        if message is not None:
+            _record_message(message, span, versions, base_url)
 
 
 def is_async_client(
