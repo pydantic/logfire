@@ -709,6 +709,8 @@ class Logfire:
             span_name: The span name. If not provided, the `msg_template` will be used.
             extract_args: By default, all function call arguments are logged as span attributes.
                 Set to `False` to disable this, or pass an iterable of argument names to include.
+                Prefix a name with `-` to exclude it, e.g. `['-self']` captures all other parameters.
+                Mixed lists include the positive names, then remove the negative names.
             record_return: Set to `True` to record the return value of the function as an attribute.
                 Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
