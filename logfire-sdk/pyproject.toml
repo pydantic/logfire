@@ -58,6 +58,7 @@ dependencies = [
     "typing-extensions >= 4.13.0",
     "tomli >= 2.0.1; python_version < '3.11'",
     "executing >= 2.0.1",
+    "packaging",
 ]
 
 [project.optional-dependencies]
@@ -78,8 +79,8 @@ starlette = ["opentelemetry-instrumentation-starlette >= 0.42b0"]
 litestar = ["litestar>=2.11.0", "pydantic>=2.5", "opentelemetry-instrumentation-asgi >= 0.42b0"]
 sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy >= 0.42b0"]
 asyncpg = ["opentelemetry-instrumentation-asyncpg >= 0.42b0"]
-psycopg = ["opentelemetry-instrumentation-psycopg >= 0.42b0", "packaging"]
-psycopg2 = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0", "packaging"]
+psycopg = ["opentelemetry-instrumentation-psycopg >= 0.42b0"]
+psycopg2 = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0"]
 pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
 redis = ["opentelemetry-instrumentation-redis >= 0.42b0"]
 requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
