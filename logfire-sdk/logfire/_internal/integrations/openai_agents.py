@@ -4,7 +4,7 @@ import contextvars
 import inspect
 import sys
 from abc import abstractmethod
-from contextlib import nullcontext
+from contextlib import nullcontext, suppress
 from dataclasses import dataclass
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
@@ -232,7 +232,12 @@ class LogfireWrapperBase(Generic[T]):
         self.on_ending()
         self.span_helper.__exit__(exc_type, exc_val, exc_tb)
         self.wrapped.finish()
-        if exc_type is not GeneratorExit:  # pragma: no branch
+        if exc_type is GeneratorExit:
+            # A generator closed from the context that advanced it must still reset the current trace/span.
+            # One finalized from another context can't: a token can only be reset in the context that created it.
+            with suppress(ValueError):
+                self.detach()
+        else:
             self.detach()
 
     @abstractmethod
