@@ -326,3 +326,66 @@ def test_non_embedding_flavors_use_plain_model_dump() -> None:
         if GENAI_PRICES_AVAILABLE:
             assert len(dump_calls) == 1, f'expected exactly one model_dump call for {provider_id}/{flavor}'
             assert dump_calls[0] == {}, f'expected no kwargs for {provider_id}/{flavor}'
+
+
+class FakeGatewayResponse(pydantic.BaseModel):
+    model: str
+    usage: dict[str, Any]
+
+
+def test_gateway_cost_used_instead_of_estimate() -> None:
+    """A cost reported by the Logfire AI Gateway wins over the genai-prices estimate."""
+    usage = FakeUsage(prompt_tokens=10, completion_tokens=5)
+    response = FakeGatewayResponse(
+        model='gpt-4',
+        usage={'prompt_tokens': 10, 'completion_tokens': 5, 'logfire_ai_gateway': {'cost': '0.0038'}},
+    )
+    result = get_usage_attributes(response, usage, 10, 5, provider_id='openai', api_flavor='chat')
+    assert result['operation.cost'] == snapshot(0.0038)
+
+
+def test_gateway_cost_zero_is_a_real_cost() -> None:
+    """A reported 0 (e.g. a gateway response-cache hit) is used, not treated as missing."""
+    usage = FakeUsage(prompt_tokens=10, completion_tokens=5)
+    response = FakeGatewayResponse(
+        model='gpt-4',
+        usage={'prompt_tokens': 10, 'completion_tokens': 5, 'logfire_ai_gateway': {'cost': '0'}},
+    )
+    result = get_usage_attributes(response, usage, 10, 5, provider_id='openai', api_flavor='chat')
+    assert result['operation.cost'] == snapshot(0.0)
+
+
+def test_gateway_cost_accepts_json_number() -> None:
+    usage = FakeUsage(input_tokens=10, output_tokens=5)
+    response = FakeGatewayResponse(
+        model='claude-3-haiku-20240307',
+        usage={'input_tokens': 10, 'output_tokens': 5, 'logfire_ai_gateway': {'cost': 0.0038}},
+    )
+    result = get_usage_attributes(response, usage, 10, 5, provider_id='anthropic')
+    assert result['operation.cost'] == snapshot(0.0038)
+
+
+def test_gateway_deprecated_cost_estimate_block() -> None:
+    """Older gateways send usage.pydantic_ai_gateway.cost_estimate."""
+    usage = FakeUsage(prompt_tokens=10, completion_tokens=5)
+    response = FakeGatewayResponse(
+        model='gpt-4',
+        usage={'prompt_tokens': 10, 'completion_tokens': 5, 'pydantic_ai_gateway': {'cost_estimate': '0.0038'}},
+    )
+    result = get_usage_attributes(response, usage, 10, 5, provider_id='openai', api_flavor='chat')
+    assert result['operation.cost'] == snapshot(0.0038)
+
+
+def test_gateway_invalid_cost_falls_back_to_estimate() -> None:
+    """Unusable reported costs (negative, non-numeric, boolean) fall back to the estimate."""
+    for bad_cost in ('-1', 'not-a-number', True):
+        usage = FakeUsage(prompt_tokens=10, completion_tokens=5)
+        response = FakeGatewayResponse(
+            model='gpt-4',
+            usage={'prompt_tokens': 10, 'completion_tokens': 5, 'logfire_ai_gateway': {'cost': bad_cost}},
+        )
+        result = get_usage_attributes(response, usage, 10, 5, provider_id='openai', api_flavor='chat')
+        if GENAI_PRICES_AVAILABLE:
+            assert result['operation.cost'] == snapshot(0.0006)
+        else:
+            assert 'operation.cost' not in result
