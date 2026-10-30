@@ -3310,6 +3310,7 @@ dev = [
     { name = "opentelemetry-instrumentation-asgi" },
     { name = "opentelemetry-instrumentation-asyncpg" },
     { name = "opentelemetry-instrumentation-aws-lambda" },
+    { name = "opentelemetry-instrumentation-botocore" },
     { name = "opentelemetry-instrumentation-celery" },
     { name = "opentelemetry-instrumentation-django" },
     { name = "opentelemetry-instrumentation-fastapi" },
@@ -3426,6 +3427,7 @@ dev = [
     { name = "opentelemetry-instrumentation-asgi", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-aws-lambda", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-botocore", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-celery", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-django", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.42b0" },
@@ -4806,6 +4808,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/98/07/b23843a3a70dd7733fb05ccf62a2e0e7eeb914f3e76366144bc98e721010/opentelemetry_instrumentation_aws_lambda-0.66b0.tar.gz", hash = "sha256:5f3207b8d741d31e7a02f9687e9d5de95b4429f688d76d577cc72211a466ae35", size = 22730, upload-time = "2026-09-25T12:35:52.983Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/65/2b/ff9eab91d64118e9fe83e844b94ad00c91cb17ea153655870323132cc67a/opentelemetry_instrumentation_aws_lambda-0.66b0-py3-none-any.whl", hash = "sha256:bbe7cec7fd15fe96dae4eb9c8f3c0f225342b766dbce727e85a91cf5ed2fd8d3", size = 13924, upload-time = "2026-09-25T12:34:59.631Z" },
+]
+
+[[package]]
+name = "opentelemetry-instrumentation-botocore"
+version = "0.66b0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-propagator-aws-xray" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/de/7e/8aeb4b9d59c71bca78d06de5888a94e05975f51a18c7b56b8e3bc809af74/opentelemetry_instrumentation_botocore-0.66b0.tar.gz", hash = "sha256:b15932b2fc8662661ee79c3bbd9b583aceb64d47acaebf417d28d7da69b04312", size = 129126, upload-time = "2026-09-25T12:35:54.181Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/74/63/8f1d4a8a608f9fae473af53957577cf9a0ef6b0cc2faa7fda2eb316b1469/opentelemetry_instrumentation_botocore-0.66b0-py3-none-any.whl", hash = "sha256:dbe36964861c58cc345dc3d518cd0b312e2f41ad38b05a2a3a60c6f4a5c89e2b", size = 36198, upload-time = "2026-09-25T12:35:02.227Z" },
 ]
 
 [[package]]
