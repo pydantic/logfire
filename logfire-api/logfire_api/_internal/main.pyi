@@ -1345,14 +1345,14 @@ class Logfire:
     def variables_clear(self) -> None:
         """Clear all variables registered with this Logfire instance's config.
 
-        This removes all variables previously registered via [`var()`][logfire.Logfire.var]
-        or [`template_var()`][logfire.Logfire.template_var] on this instance or any
+        This removes all variables previously registered via the experimental feature-flag API,
+        [`var()`][logfire.Logfire.var], or [`template_var()`][logfire.Logfire.template_var] on this instance or any
         [`with_settings()`][logfire.Logfire.with_settings] sibling that shares its config,
         allowing them to be re-registered. This is primarily intended for use in tests to
         ensure a clean state between test cases.
         """
     def variables_get(self) -> list[Variable[Any] | TemplateVariable[Any, Any]]:
-        """Get all variables registered with this Logfire instance's config."""
+        """Get all managed variables and feature flags registered with this Logfire instance's config."""
     def variables_push(self, variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None, *, dry_run: bool = False, yes: bool = False, strict: bool = True) -> bool:
         """Push variable definitions (metadata only) to the configured variable provider.
 
