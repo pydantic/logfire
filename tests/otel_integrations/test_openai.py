@@ -5722,6 +5722,22 @@ def test_uncached_prompt_tokens_omit_cache_attribute(exporter: TestExporter) -> 
             },
             ['tool_calls'],
         ),
+        (
+            {
+                'status': 'completed',
+                'output': [
+                    {
+                        'id': 'ctc_1',
+                        'type': 'custom_tool_call',
+                        'call_id': 'call_1',
+                        'name': 'apply_patch',
+                        'input': '*** Begin Patch',
+                        'status': 'completed',
+                    }
+                ],
+            },
+            ['tool_calls'],
+        ),
     ],
 )
 def test_responses_finish_reasons(fields: dict[str, Any], expected: list[str] | None, exporter: TestExporter) -> None:
@@ -5745,6 +5761,65 @@ def test_responses_finish_reasons(fields: dict[str, Any], expected: list[str] | 
 
     attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
     assert attributes.get('gen_ai.response.finish_reasons') == expected
+
+
+def test_responses_custom_tool_calls(exporter: TestExporter) -> None:
+    """Responses API custom tool calls and their outputs are recorded, like chat completions custom tool calls."""
+    body = {
+        'id': 'resp_1',
+        'object': 'response',
+        'created_at': 0,
+        'model': 'gpt-4o-mini',
+        'status': 'completed',
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+        'output': [
+            {
+                'id': 'ctc_2',
+                'type': 'custom_tool_call',
+                'call_id': 'call_2',
+                'name': 'run_query',
+                'input': '{"a": 1}',
+                'status': 'completed',
+            }
+        ],
+    }
+    client = openai.Client(
+        api_key='fake_api_key',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_openai(client):
+        client.responses.create(
+            model='gpt-4o-mini',
+            input=[
+                {'role': 'user', 'content': 'Patch the file'},
+                {'type': 'custom_tool_call', 'call_id': 'call_1', 'name': 'apply_patch', 'input': '*** Begin Patch'},
+                {'type': 'custom_tool_call_output', 'call_id': 'call_1', 'output': 'Applied'},
+            ],
+        )
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['gen_ai.input.messages'] == snapshot(
+        [
+            {'role': 'user', 'parts': [{'type': 'text', 'content': 'Patch the file'}]},
+            {
+                'role': 'assistant',
+                'parts': [{'type': 'tool_call', 'id': 'call_1', 'name': 'apply_patch', 'arguments': '*** Begin Patch'}],
+            },
+            {'role': 'tool', 'parts': [{'type': 'tool_call_response', 'id': 'call_1', 'response': 'Applied'}]},
+        ]
+    )
+    # The input of a custom tool is free text, so JSON-looking input stays a string.
+    assert attributes['gen_ai.output.messages'] == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [{'type': 'tool_call', 'id': 'call_2', 'name': 'run_query', 'arguments': '{"a": 1}'}],
+            }
+        ]
+    )
+    assert attributes['gen_ai.response.finish_reasons'] == ['tool_calls']
 
 
 def test_responses_refusal_recorded_as_text(exporter: TestExporter) -> None:
