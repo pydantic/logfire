@@ -392,6 +392,24 @@ async def instrumented_async_client() -> AsyncIterator[openai.AsyncClient]:
             yield openai_client
 
 
+def test_sync_chat_completions_max_completion_tokens(
+    instrumented_client: openai.Client, exporter: TestExporter
+) -> None:
+    """Reasoning models take `max_completion_tokens`, which is recorded as the requested max tokens."""
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[
+            {'role': 'system', 'content': 'You are a helpful assistant.'},
+            {'role': 'user', 'content': 'What is four plus five?'},
+        ],
+        max_completion_tokens=300,
+    )
+    assert response.choices[0].message.content == 'Nine'
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['gen_ai.request.max_tokens'] == 300
+
+
 def test_sync_chat_completions(instrumented_client: openai.Client, exporter: TestExporter) -> None:
     response = instrumented_client.chat.completions.create(
         model='gpt-4',
@@ -807,6 +825,25 @@ def test_convert_chat_completions_file_parts_and_tool_content_list() -> None:
         },
         {'role': 'tool', 'parts': [{'type': 'tool_call_response', 'id': 'call_2', 'response': 'plain'}]},
     ]
+
+
+def test_extract_request_parameters_max_completion_tokens() -> None:
+    """Test that max_completion_tokens is extracted when max_tokens is absent.
+
+    Chat completions use max_completion_tokens for reasoning models, which reject max_tokens.
+    """
+    from logfire._internal.integrations.llm_providers.openai import (
+        _extract_request_parameters,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    span_data: dict[str, Any] = {}
+    _extract_request_parameters({'max_completion_tokens': 300}, span_data)
+    assert span_data['gen_ai.request.max_tokens'] == 300
+
+    # max_tokens still wins when both are given.
+    span_data = {}
+    _extract_request_parameters({'max_tokens': 100, 'max_completion_tokens': 300}, span_data)
+    assert span_data['gen_ai.request.max_tokens'] == 100
 
 
 def test_normalize_versions_validation() -> None:
@@ -4559,6 +4596,79 @@ def test_convert_responses_inputs_no_instructions() -> None:
     )
 
 
+def test_convert_openai_response_custom_tool_call() -> None:
+    """A custom tool call carries a free-form `input` string, which is kept as the arguments."""
+    from openai.types.chat import ChatCompletionMessage
+    from openai.types.chat.chat_completion_message_custom_tool_call import (
+        ChatCompletionMessageCustomToolCall,
+        Custom,
+    )
+    from openai.types.chat.chat_completion_message_function_tool_call import (
+        ChatCompletionMessageFunctionToolCall,
+        Function,
+    )
+
+    from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
+
+    message = ChatCompletionMessage(
+        role='assistant',
+        content=None,
+        tool_calls=[
+            ChatCompletionMessageFunctionToolCall(
+                id='call_1', type='function', function=Function(name='weather', arguments='{"city": "Paris"}')
+            ),
+            ChatCompletionMessageCustomToolCall(
+                id='call_2', type='custom', custom=Custom(name='apply_patch', input='*** Begin Patch')
+            ),
+            ChatCompletionMessageCustomToolCall(
+                id='call_3', type='custom', custom=Custom(name='run_query', input='{"a": 1}')
+            ),
+        ],
+    )
+
+    assert convert_openai_response_to_semconv(message, 'tool_calls') == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'tool_call', 'id': 'call_1', 'name': 'weather', 'arguments': {'city': 'Paris'}},
+                {'type': 'tool_call', 'id': 'call_2', 'name': 'apply_patch', 'arguments': '*** Begin Patch'},
+                # The input of a custom tool is free text, so JSON-looking input stays a string.
+                {'type': 'tool_call', 'id': 'call_3', 'name': 'run_query', 'arguments': '{"a": 1}'},
+            ],
+            'finish_reason': 'tool_calls',
+        }
+    )
+
+
+def test_convert_chat_completions_custom_tool_call_input() -> None:
+    """A custom tool call replayed in the history keeps its name and input."""
+    from logfire._internal.integrations.llm_providers.openai import convert_chat_completions_to_semconv
+
+    messages: list[dict[str, Any]] = [
+        {
+            'role': 'assistant',
+            'tool_calls': [
+                {'id': 'call_2', 'type': 'custom', 'custom': {'name': 'apply_patch', 'input': '*** Begin Patch'}},
+                {'id': 'call_3', 'type': 'custom', 'custom': {'name': 'run_query', 'input': '{"a": 1}'}},
+            ],
+        },
+        {'role': 'tool', 'tool_call_id': 'call_2', 'content': 'Applied'},
+    ]
+
+    assert convert_chat_completions_to_semconv(messages) == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [
+                    {'type': 'tool_call', 'id': 'call_2', 'name': 'apply_patch', 'arguments': '*** Begin Patch'},
+                    {'type': 'tool_call', 'id': 'call_3', 'name': 'run_query', 'arguments': '{"a": 1}'},
+                ],
+            },
+            {'role': 'tool', 'parts': [{'type': 'tool_call_response', 'id': 'call_2', 'response': 'Applied'}]},
+        ]
+    )
+
+
 def test_convert_openai_response_refusal() -> None:
     """A refusal is recorded as a text part, since the message has no content."""
     from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
@@ -4571,6 +4681,46 @@ def test_convert_openai_response_refusal() -> None:
             'role': 'assistant',
             'parts': [{'type': 'text', 'content': "I can't help with that."}],
             'finish_reason': 'stop',
+        }
+    )
+
+
+def test_convert_openai_response_audio() -> None:
+    """An audio response has no content: the audio is recorded as a blob part, with no text part made up from its transcript."""
+    from openai.types.chat.chat_completion_audio import ChatCompletionAudio
+
+    from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
+
+    message = chat_completion_message.ChatCompletionMessage(
+        role='assistant',
+        content=None,
+        audio=ChatCompletionAudio(id='audio_1', data='UklGRg==', expires_at=1, transcript='Hello there.'),
+    )
+    assert convert_openai_response_to_semconv(message, 'stop') == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [{'type': 'blob', 'content': 'UklGRg==', 'modality': 'audio'}],
+            'finish_reason': 'stop',
+        }
+    )
+
+
+def test_convert_openai_response_legacy_function_call() -> None:
+    """The legacy `function_call` field is recorded as a tool call."""
+    from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
+
+    message = chat_completion_message.ChatCompletionMessage(
+        role='assistant',
+        content=None,
+        function_call=chat_completion_message.FunctionCall(name='get_weather', arguments='{"city": "Lima"}'),
+    )
+    assert convert_openai_response_to_semconv(message, 'function_call') == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'tool_call', 'id': '', 'name': 'get_weather', 'arguments': {'city': 'Lima'}},
+            ],
+            'finish_reason': 'function_call',
         }
     )
 
@@ -4603,6 +4753,63 @@ def test_chat_completion_stream_state_refusal() -> None:
                 'role': 'assistant',
                 'parts': [{'type': 'text', 'content': "I'm sorry, I can't help with that."}],
                 'finish_reason': 'stop',
+            }
+        ]
+    )
+
+
+def _stream_output_messages(deltas: list[tuple[dict[str, Any], str | None]]) -> Any:
+    from logfire._internal.integrations.llm_providers.openai import OpenaiChatCompletionStreamState
+
+    state = OpenaiChatCompletionStreamState()
+    for delta, finish_reason in deltas:
+        state.record_chunk(
+            cc_chunk.ChatCompletionChunk.model_validate(
+                {
+                    'id': 'chatcmpl-1',
+                    'object': 'chat.completion.chunk',
+                    'created': 0,
+                    'model': 'gpt-4o-mini',
+                    'choices': [{'index': 0, 'delta': delta, 'finish_reason': finish_reason}],
+                }
+            )
+        )
+    return state.get_attributes({})['gen_ai.output.messages']
+
+
+def test_chat_completion_stream_state_audio() -> None:
+    """A streamed audio response ends up in the output messages as its audio only."""
+    assert _stream_output_messages(
+        [
+            ({'role': 'assistant', 'audio': {'id': 'audio_1', 'transcript': 'Hel'}}, None),
+            ({'audio': {'transcript': 'lo.', 'data': 'UklGRg==', 'expires_at': 1}}, None),
+            ({}, 'stop'),
+        ]
+    ) == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [{'type': 'blob', 'content': 'UklGRg==', 'modality': 'audio'}],
+                'finish_reason': 'stop',
+            }
+        ]
+    )
+
+
+def test_chat_completion_stream_state_legacy_function_call() -> None:
+    """A streamed legacy `function_call` ends up in the output messages as a tool call."""
+    assert _stream_output_messages(
+        [
+            ({'role': 'assistant', 'function_call': {'name': 'get_weather', 'arguments': '{"ci'}}, None),
+            ({'function_call': {'arguments': 'ty": "Lima"}'}}, None),
+            ({}, 'function_call'),
+        ]
+    ) == snapshot(
+        [
+            {
+                'role': 'assistant',
+                'parts': [{'type': 'tool_call', 'id': '', 'name': 'get_weather', 'arguments': {'city': 'Lima'}}],
+                'finish_reason': 'function_call',
             }
         ]
     )
@@ -5355,6 +5562,159 @@ def test_cached_prompt_tokens_recorded(exporter: TestExporter) -> None:
     assert responses_span['attributes']['gen_ai.usage.input_tokens'] == 100
     assert responses_span['attributes']['gen_ai.usage.cache_read.input_tokens'] == 60
     assert 'gen_ai.usage.cache_creation.input_tokens' not in chat_span['attributes']
+
+
+def test_cache_write_tokens_recorded(exporter: TestExporter) -> None:
+    chat_body = {
+        'id': 'chatcmpl-1',
+        'object': 'chat.completion',
+        'created': 0,
+        'model': 'gpt-4o-mini',
+        'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'Nine'}, 'finish_reason': 'stop'}],
+        'usage': {
+            'prompt_tokens': 100,
+            'completion_tokens': 3,
+            'total_tokens': 103,
+            'prompt_tokens_details': {'cached_tokens': 20, 'cache_write_tokens': 30},
+        },
+    }
+    responses_body: dict[str, Any] = {
+        'id': 'resp_1',
+        'object': 'response',
+        'created_at': 0,
+        'model': 'gpt-4o-mini',
+        'status': 'completed',
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+        'output': [
+            {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'status': 'completed',
+                'content': [{'type': 'output_text', 'text': 'Nine', 'annotations': []}],
+            }
+        ],
+        'usage': {
+            'input_tokens': 100,
+            'output_tokens': 3,
+            'total_tokens': 103,
+            'input_tokens_details': {'cached_tokens': 0, 'cache_write_tokens': 40},
+            'output_tokens_details': {'reasoning_tokens': 0},
+        },
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=responses_body if request.url.path.endswith('/responses') else chat_body)
+
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    with logfire.instrument_openai(client):
+        client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
+        client.responses.create(model='gpt-4o-mini', input='hi')
+
+    chat_span, responses_span = exporter.exported_spans_as_dict()
+    assert chat_span['attributes']['gen_ai.usage.cache_creation.input_tokens'] == 30
+    assert chat_span['attributes']['gen_ai.usage.cache_read.input_tokens'] == 20
+    assert responses_span['attributes']['gen_ai.usage.cache_creation.input_tokens'] == 40
+    assert 'gen_ai.usage.cache_read.input_tokens' not in responses_span['attributes']
+
+
+def test_cache_write_tokens_recorded_from_streams(exporter: TestExporter) -> None:
+    chat_chunks: list[dict[str, Any]] = [
+        {
+            'id': 'chatcmpl-1',
+            'object': 'chat.completion.chunk',
+            'created': 0,
+            'model': 'gpt-4o-mini',
+            'choices': [{'index': 0, 'delta': {'role': 'assistant', 'content': 'Nine'}, 'finish_reason': None}],
+        },
+        {
+            'id': 'chatcmpl-1',
+            'object': 'chat.completion.chunk',
+            'created': 0,
+            'model': 'gpt-4o-mini',
+            'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'stop'}],
+        },
+        {
+            'id': 'chatcmpl-1',
+            'object': 'chat.completion.chunk',
+            'created': 0,
+            'model': 'gpt-4o-mini',
+            'choices': [],
+            'usage': {
+                'prompt_tokens': 100,
+                'completion_tokens': 3,
+                'total_tokens': 103,
+                'prompt_tokens_details': {'cached_tokens': 20, 'cache_write_tokens': 30},
+            },
+        },
+    ]
+    response: dict[str, Any] = {
+        'id': 'resp_1',
+        'object': 'response',
+        'created_at': 1,
+        'model': 'gpt-4o-mini',
+        'output': [],
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+    }
+    responses_events: list[dict[str, Any]] = [
+        {'type': 'response.created', 'sequence_number': 0, 'response': {**response, 'status': 'in_progress'}},
+        {
+            'type': 'response.completed',
+            'sequence_number': 1,
+            'response': {
+                **response,
+                'status': 'completed',
+                'output': [
+                    {
+                        'id': 'msg_1',
+                        'type': 'message',
+                        'status': 'completed',
+                        'role': 'assistant',
+                        'content': [{'type': 'output_text', 'text': 'Nine', 'annotations': []}],
+                    }
+                ],
+                'usage': {
+                    'input_tokens': 100,
+                    'input_tokens_details': {'cached_tokens': 0, 'cache_write_tokens': 40},
+                    'output_tokens': 3,
+                    'output_tokens_details': {'reasoning_tokens': 0},
+                    'total_tokens': 103,
+                },
+            },
+        },
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/responses'):
+            body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in responses_events)
+        else:
+            body = ''.join(f'data: {json.dumps(chunk)}\n\n' for chunk in chat_chunks) + 'data: [DONE]\n\n'
+        return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream'})
+
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    with logfire.instrument_openai(client):
+        list(
+            client.chat.completions.create(
+                model='gpt-4o-mini',
+                messages=[{'role': 'user', 'content': 'hi'}],
+                stream=True,
+                stream_options={'include_usage': True},
+            )
+        )
+        list(client.responses.create(model='gpt-4o-mini', input='hi', stream=True))
+
+    chat_span, responses_span = (
+        span for span in exporter.exported_spans_as_dict() if span['name'].startswith('streaming response')
+    )
+    assert chat_span['attributes']['gen_ai.usage.cache_creation.input_tokens'] == 30
+    assert chat_span['attributes']['gen_ai.usage.cache_read.input_tokens'] == 20
+    assert responses_span['attributes']['gen_ai.usage.cache_creation.input_tokens'] == 40
+    assert 'gen_ai.usage.cache_read.input_tokens' not in responses_span['attributes']
+    client.close()
 
 
 def test_uncached_prompt_tokens_omit_cache_attribute(exporter: TestExporter) -> None:

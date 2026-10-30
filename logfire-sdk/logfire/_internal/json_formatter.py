@@ -29,10 +29,10 @@ class JsonArgsValueFormatter:
             'tuple': partial(self._format_list_like, '(', ')'),
             'Sequence': partial(self._format_sequence, '([', '])'),
             'range': self._format_range,
-            'set': partial(self._format_list_like, '{', '}'),
-            'frozenset': partial(self._format_list_like, 'frozenset({', '})'),
+            'set': partial(self._format_set_like, 'set()', '{', '}'),
+            'frozenset': partial(self._format_set_like, 'frozenset()', 'frozenset({', '})'),
             'deque': partial(self._format_list_like, 'deque([', '])'),
-            'generator': partial(self._format_list_like, 'generator((', '))'),
+            'generator': self._format_generator,
             'bytes': self._format_bytes,
             'bytearray': self._format_bytearray,
             'Decimal': partial(self._write, 'Decimal(', ')', True),
@@ -49,7 +49,7 @@ class JsonArgsValueFormatter:
             'IPv6Address': partial(self._write, 'IPv6Address(', ')', True),
             'IPv6Interface': partial(self._write, 'IPv6Interface(', ')', True),
             'IPv6Network': partial(self._write, 'IPv6Network(', ')', True),
-            'PosixPath': partial(self._write, 'PosixPath(', ')', True),
+            'Path': partial(self._write, 'Path(', ')', True),
             'Pattern': partial(self._write, 're.compile(', ')', True),
             'SecretBytes': partial(self._write, 'SecretBytes(', ')', False),
             'SecretStr': partial(self._write, 'SecretStr(', ')', True),
@@ -133,6 +133,13 @@ class JsonArgsValueFormatter:
             args = '0, 0'
         self._write('range(', ')', False, 0, args, None)
 
+    def _format_generator(self, indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        if isinstance(value, str):
+            # The JSON encoder stores a generator as its repr() rather than consuming it.
+            self._write('', '', False, 0, value, None)
+        else:
+            self._format_list_like('generator((', '))', indent_current, value, schema)
+
     def _format_ndarray(self, indent_current: int, value: Any, schema: JSONSchema | None) -> None:
         if schema is not None and schema.get('x-shape') == []:
             # A zero-dimensional ndarray is encoded by tolist() as its scalar value.
@@ -174,6 +181,15 @@ class JsonArgsValueFormatter:
         if self._newlines and not first:
             self._stream.write(comma)
         self._stream.write(indent_current * ' ' + close_)
+
+    def _format_set_like(
+        self, empty: str, open_: str, close_: str, indent_current: int, value: Any, schema: JSONSchema | None
+    ) -> None:
+        if value:
+            self._format_list_like(open_, close_, indent_current, value, schema)
+        else:
+            # `{}` would read as an empty dict, so match repr() instead.
+            self._stream.write(empty)
 
     def _format_items(
         self,

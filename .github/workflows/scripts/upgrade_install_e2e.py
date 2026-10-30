@@ -65,9 +65,16 @@ class Installer:
             raise AssertionError('uv is required to run the upgrade test')
         self.uv = uv
 
-    def install(self, *requirements: str, upgrade: bool = False, force: bool = False, no_deps: bool = False) -> None:
+    def install(
+        self,
+        *requirements: str,
+        upgrade: bool = False,
+        force: bool = False,
+        no_deps: bool = False,
+        local_wheels: bool = True,
+    ) -> None:
         """Install requirements with the selected installer."""
-        options = ['--find-links', str(self.find_links)]
+        options = ['--find-links', str(self.find_links)] if local_wheels else []
         if upgrade:
             options.append('--upgrade')
         if force:
@@ -103,6 +110,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument('--installer', choices=('pip', 'uv'), required=True)
     parser.add_argument('--from-version', required=True)
+    parser.add_argument('--from-state', choices=('legacy', 'beta'), default='legacy')
     parser.add_argument('--dist', type=Path, required=True)
     return parser.parse_args()
 
@@ -139,20 +147,39 @@ def main() -> None:
             run([str(python), str(smoke_test), state, version], cwd=work_dir, env=env)
             installer.check()
 
-        installer.install(f'logfire=={args.from_version}')
-        assert_state('legacy', args.from_version)
+        # Bootstrap from PyPI, even if its version matches a local wheel.
+        source_packages = [f'logfire=={args.from_version}']
+        if args.from_state == 'beta':
+            # Older uv versions need an explicit prerelease request for the SDK,
+            # even when the meta-package already pins that exact beta.
+            source_packages = [f'logfire[sqlite3]=={args.from_version}', f'logfire-sdk=={args.from_version}']
+        installer.install(*source_packages, local_wheels=False)
+        assert_state(args.from_state, args.from_version)
         run([str(cli), '--version'], cwd=work_dir, env=env)
 
         # Installing through an extra-bearing direct URL exercises both local
         # wheel resolution and the meta-package's forwarding of SDK extras.
-        installer.install(f'logfire[sqlite3] @ {meta_wheel.as_uri()}', upgrade=True)
-        assert_state('split', target_version)
+        # A reused development version needs an explicit reinstall to replace
+        # the published monolith with the local split package.
+        installer.install(
+            f'logfire[sqlite3] @ {meta_wheel.as_uri()}',
+            upgrade=True,
+            force=args.from_version == target_version,
+        )
+        upgraded_state = 'split-with-cli' if args.from_state == 'beta' else 'split'
+        assert_state(upgraded_state, target_version)
         run([str(cli), '--version'], cwd=work_dir, env=env)
 
         # Reinstalling both wheels catches RECORD/file-ownership regressions that
         # are hidden by a one-way upgrade test.
         installer.install(str(sdk_wheel), str(meta_wheel), force=True, no_deps=True)
-        assert_state('split', target_version)
+        assert_state(upgraded_state, target_version)
+        run([str(cli), '--version'], cwd=work_dir, env=env)
+
+        # The standalone CLI remains available when explicitly installed, without
+        # taking ownership of the meta-package's Python CLI.
+        installer.install('logfire-cli>=0.1.8')
+        assert_state('split-with-cli', target_version)
         run([str(cli), '--version'], cwd=work_dir, env=env)
         run([str(standalone_cli), '--version'], cwd=work_dir, env=env)
 

@@ -45,6 +45,7 @@ from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
 from opentelemetry.sdk.metrics.view import View
 from opentelemetry.sdk.resources import ResourceDetector
 from opentelemetry.sdk.trace import SpanProcessor
+from opentelemetry.sdk.trace.export import SpanExporter as SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
 from typing import Any, ClassVar, Literal, TextIO
@@ -80,6 +81,7 @@ class AdvancedOptions:
     server_response_hook: ServerResponseCallback | None = ...
     resource_detectors: Sequence[ResourceDetector | str] | None = ...
     compression: CompressionValues | None = ...
+    pending_spans: bool | None = ...
     def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
         """Resolve the base API URL for `token`, honouring an explicitly configured `base_url`.
 
@@ -219,9 +221,9 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
         variables: Options related to managed variables.
-        distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
+        distributed_tracing: By default, incoming context is extracted, but generates a warning.
             Set to `True` to disable the warning.
-            Set to `False` to suppress extraction of incoming trace context.
+            Set to `False` to suppress extraction of all incoming context, preserving local context.
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.

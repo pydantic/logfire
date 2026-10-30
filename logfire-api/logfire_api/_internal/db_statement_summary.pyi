@@ -26,6 +26,11 @@ def summarize_query(db_statement: str) -> str | None:
 
     """
 def select(expr: str, table: str, *, match_end: int, db_statement: str, ctes: str | None = None, sub_query: str | None = None) -> str: ...
+def outside_parentheses(s: str) -> str:
+    """Remove everything inside parentheses, including the parentheses themselves.
+
+    Parentheses inside quoted strings or identifiers don't change the nesting depth.
+    """
 def truncate(s: str, length: int) -> str: ...
 
 FALLBACK_HALF: Incomplete
