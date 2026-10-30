@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import dis
 import types
 from collections.abc import Iterator
 from functools import lru_cache
@@ -129,23 +128,7 @@ class ChunksFormatter(Formatter):
                 assert isinstance(node_value, ast.FormattedValue)
 
                 # This is cached.
-                source, value_code, formatted_code, nested_names = compile_formatted_value(
-                    node_value, node_finder.source
-                )
-                # `eval` with a separate locals dict only lets the top level of the expression see those locals.
-                # A lambda, generator expression or (before Python 3.12) comprehension looks them up in globals
-                # instead, and either fails or silently uses a global with the same name.
-                # At module level the locals are the globals, so those names are fine.
-                if nested_local_names := sorted(
-                    name
-                    for name in nested_names.intersection(local_vars)
-                    if name not in global_vars or local_vars[name] is not global_vars[name]
-                ):
-                    names = ', '.join(f'`{name}`' for name in nested_local_names)
-                    raise KnownFormattingError(
-                        f'Cannot evaluate the f-string value {{{source}}} because it uses {names} inside a lambda, '
-                        f'generator expression or comprehension. Assign the value to a variable before logging.'
-                    )
+                source, value_code, formatted_code = compile_formatted_value(node_value, node_finder.source)
 
                 # Note that this doesn't include:
                 # - The format spec, e.g. `:0.2f`
@@ -306,15 +289,12 @@ def logfire_format_with_magic(
 
 
 @lru_cache
-def compile_formatted_value(
-    node: ast.FormattedValue, ex_source: executing.Source
-) -> tuple[str, CodeType, CodeType, frozenset[str]]:
-    """Returns four things that can be expensive to compute.
+def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Source) -> tuple[str, CodeType, CodeType]:
+    """Returns three things that can be expensive to compute.
 
     1. Source code corresponding to the node value (excluding the format spec).
     2. A compiled code object which can be evaluated to calculate the value.
     3. Another code object which formats the value.
-    4. The global names looked up inside nested scopes of either code object, see `nested_scope_global_names`.
     """
     source = get_node_source_text(node.value, ex_source)
 
@@ -322,6 +302,18 @@ def compile_formatted_value(
     for sub_node in ast.walk(node.value):
         if isinstance(sub_node, ast.Await):
             raise FStringAwaitError(source)
+
+    # `eval` with a separate locals dict only lets the top level of the expression see those locals.
+    # A lambda or generator expression (and a comprehension before Python 3.12) looks them up in globals instead.
+    # Rather than evaluating such an expression again, ask the user to extract it.
+    if any(
+        isinstance(sub_node, (ast.Lambda, ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp))
+        for sub_node in ast.walk(node)
+    ):
+        raise KnownFormattingError(
+            f'Cannot evaluate the f-string value {{{source}}} because it contains a lambda, generator expression '
+            f'or comprehension. Assign the value to a variable before logging.'
+        )
 
     value_code = compile(source, '<fvalue1>', 'eval')
     expr = ast.Expression(
@@ -344,20 +336,7 @@ def compile_formatted_value(
     )
     ast.fix_missing_locations(expr)
     formatted_code = compile(expr, '<fvalue2>', 'eval')
-    nested_names = nested_scope_global_names(value_code) | nested_scope_global_names(formatted_code)
-    return source, value_code, formatted_code, nested_names
-
-
-def nested_scope_global_names(code: CodeType) -> frozenset[str]:
-    """Names that nested scopes (lambdas, generator expressions, comprehensions before 3.12) in `code` look up as globals."""
-    names: set[str] = set()
-    for const in code.co_consts:
-        if isinstance(const, CodeType):
-            names.update(
-                instr.argval for instr in dis.get_instructions(const) if instr.opname in ('LOAD_GLOBAL', 'LOAD_NAME')
-            )
-            names.update(nested_scope_global_names(const))
-    return frozenset(names)
+    return source, value_code, formatted_code
 
 
 class KnownFormattingError(Exception):

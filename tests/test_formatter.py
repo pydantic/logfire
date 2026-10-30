@@ -258,38 +258,28 @@ async def test_await_in_fstring(exporter: TestExporter):
     )
 
 
-shadowed = 'global'
-factor = 2
-
-
-def test_local_in_nested_scope_in_fstring(exporter: TestExporter):
-    """A lambda or generator expression in an f-string that reads a local can't be evaluated again, so warn."""
+def test_nested_scope_in_fstring(exporter: TestExporter):
+    """A lambda, generator expression or comprehension in an f-string isn't evaluated again, so warn."""
     items = [1, 2, 3]
     n = 10
     precision = 2
-    shadowed = 'local'
-
-    # Only the outermost iterable of a generator expression is evaluated in the calling scope, so this is fine.
-    logfire.info(f'joined {", ".join(str(y) for y in items)}')
-    # A local that is the same object as the global, like any name at module level, is fine too.
-    factor = globals()['factor']
-    logfire.info(f'doubled {[y * factor for y in items]}')
+    name = 'local'
 
     with pytest.warns(FormattingFailedWarning) as warnings:
-        logfire.info(f'total {sum(y * n for y in items)}')
+        logfire.info(f'joined {", ".join(str(y) for y in items)}')
+        logfire.info(f'doubled {[y * 2 for y in items]}')
         logfire.info(f'lambda {(lambda: n)()}')
         logfire.info(f'spec {n:.{(lambda: precision)()}f}')
-        # Without the check this would silently log the module global.
-        logfire.info(f'shadow {next(shadowed for _ in items)}')
-        logfire.info(f'kwarg {next(shadowed for _ in items)}', shadowed='kwarg')
+        # Evaluated again, the generator expression would look up `name` in the module globals
+        logfire.info(f'name {next(name for _ in items)}', name='kwarg')
 
     assert [str(w.message).splitlines()[-1].strip() for w in warnings] == snapshot(
         [
-            'The problem was: Cannot evaluate the f-string value {sum(y * n for y in items)} because it uses `n` inside a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
-            'The problem was: Cannot evaluate the f-string value {(lambda: n)()} because it uses `n` inside a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
-            'The problem was: Cannot evaluate the f-string value {n} because it uses `precision` inside a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
-            'The problem was: Cannot evaluate the f-string value {next(shadowed for _ in items)} because it uses `shadowed` inside a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
-            'The problem was: Cannot evaluate the f-string value {next(shadowed for _ in items)} because it uses `shadowed` inside a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {", ".join(str(y) for y in items)} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {[y * 2 for y in items]} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {(lambda: n)()} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {n} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {next(name for _ in items)} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
         ]
     )
     assert [
@@ -297,12 +287,10 @@ def test_local_in_nested_scope_in_fstring(exporter: TestExporter):
         for span in exporter.exported_spans_as_dict()
     ] == snapshot(
         [
-            ('joined {", ".join(str(y) for y in items)}', 'joined 1, 2, 3'),
-            ('doubled {[y * factor for y in items]}', 'doubled [2, 4, 6]'),
-            ('total 60', 'total 60'),
+            ('joined 1, 2, 3', 'joined 1, 2, 3'),
+            ('doubled [2, 4, 6]', 'doubled [2, 4, 6]'),
             ('lambda 10', 'lambda 10'),
             ('spec 10.00', 'spec 10.00'),
-            ('shadow local', 'shadow local'),
-            ('kwarg local', 'kwarg local'),
+            ('name local', 'name local'),
         ]
     )
