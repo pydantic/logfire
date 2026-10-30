@@ -127,6 +127,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.configure(send_to_logfire=False, console=False, inspect_arguments=False)
     logfire__all__.remove('configure')
 
+    assert hasattr(logfire_api, 'get_project_url')
+    assert logfire_api.get_project_url() is None
+    logfire__all__.remove('get_project_url')
+
     assert hasattr(logfire_api, 'VERSION')
     logfire__all__.remove('VERSION')
 

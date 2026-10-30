@@ -3,6 +3,7 @@ from __future__ import annotations as _annotations
 import atexit
 import dataclasses
 import functools
+import itertools
 import json
 import os
 import platform
@@ -18,7 +19,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from importlib.metadata import entry_points
 from pathlib import Path
-from threading import RLock, Thread
+from threading import RLock, Thread, current_thread
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 from urllib.parse import urljoin
 from uuid import uuid4
@@ -688,6 +689,10 @@ def configure(
     return logfire_instance
 
 
+_token_check_generation_counter = itertools.count()
+"""Distinguishes token checks started by different `configure()` calls, including across config objects."""
+
+
 @dataclasses.dataclass
 class _LogfireConfigData:
     """Data-only parent class for LogfireConfig.
@@ -895,6 +900,10 @@ class _LogfireConfigData:
 
         self.additional_span_processors = additional_span_processors
         self._project_url: str | None = None
+        self._token_check_thread: Thread | None = None
+        # A token check started by an earlier `configure()` call must not publish its result,
+        # which may describe a different project, after this configuration has replaced it.
+        self._token_check_generation = next(_token_check_generation_counter)
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -1022,6 +1031,18 @@ class LogfireConfig(_LogfireConfigData):
         self._has_set_providers = False
         self._initialized = False
         self._lock = RLock()
+
+    def get_project_url(self) -> str | None:
+        """Get the URL of the Logfire project, or `None` if it isn't known.
+
+        `logfire.configure()` may validate the token in a background thread, which is what
+        discovers the project URL when it isn't already available from a credentials file.
+        Calling this method waits for that thread to finish so the value is deterministic.
+        """
+        token_check_thread = self._token_check_thread
+        if token_check_thread is not None and token_check_thread is not current_thread():
+            token_check_thread.join()
+        return self._project_url
 
     def configure(
         self,
@@ -1268,11 +1289,16 @@ class LogfireConfig(_LogfireConfigData):
                     # This means that e.g. a token in an env var takes priority over a token in a creds file.
                     self.token = self.token or credentials.token
                     self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
-                    self._project_url = self._project_url or credentials.project_url
 
                 if self.token:
                     # Convert to list for iteration (handles both str and list[str])
                     token_list = [self.token] if isinstance(self.token, str) else self.token
+
+                    # The creds file's project URL belongs to its own token, which may not be the
+                    # token in use: an explicitly configured token can belong to another project.
+                    # In that case the check below validates the token and provides the URL.
+                    if credentials is not None and credentials.token in token_list:
+                        self._project_url = self._project_url or credentials.project_url
 
                     # Track tokens we've already printed info for (to avoid duplicates)
                     printed_tokens: set[str] = set()
@@ -1290,14 +1316,28 @@ class LogfireConfig(_LogfireConfigData):
                     # This may happen some time later in a background thread which can be annoying,
                     # hence we try to print it eagerly above.
                     # But we only have the link if we have a creds file, otherwise we only know the token at this point.
+                    token_check_generation = self._token_check_generation
+                    # Bind the check to the options it was scheduled with. A later `configure()`
+                    # replaces `self.advanced`, and this thread may not start until after that
+                    # happens; without a snapshot it would send its token to the new `base_url`
+                    # and use the new response hook.
+                    token_check_advanced = dataclasses.replace(self.advanced)
+
                     def check_tokens():
                         with suppress_instrumentation():
                             for token in token_list:
-                                validated_credentials = self._initialize_credentials_from_token(token)
-                                if validated_credentials is not None:
-                                    self._project_url = self._project_url or validated_credentials.project_url
-                                    if show_project_link and token not in printed_tokens:
-                                        validated_credentials.print_token_summary()
+                                validated_credentials = self._initialize_credentials_from_token(
+                                    token, token_check_advanced
+                                )
+                                if validated_credentials is None:
+                                    continue
+                                if token_check_generation != self._token_check_generation:
+                                    # `configure()` has run again with a different project
+                                    # while this check was in flight, so the result is outdated.
+                                    return
+                                self._project_url = self._project_url or validated_credentials.project_url
+                                if show_project_link and token not in printed_tokens:
+                                    validated_credentials.print_token_summary()
 
                     if emscripten:  # pragma: no cover
                         check_tokens()
@@ -1312,6 +1352,9 @@ class LogfireConfig(_LogfireConfigData):
                         pass
                     else:
                         thread = Thread(target=check_tokens, name='check_logfire_token')
+                        # Store the thread before starting it so that `project_url` can wait for it
+                        # even if the property is read immediately after `configure()` returns.
+                        self._token_check_thread = thread
                         thread.start()
 
                     use_zstd = self.advanced.compression == 'zstd'
@@ -1697,16 +1740,21 @@ class LogfireConfig(_LogfireConfigData):
                 category=LogfireNotConfiguredWarning,
             )
 
-    def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
+    def _initialize_credentials_from_token(
+        self, token: str, advanced: AdvancedOptions | None = None
+    ) -> LogfireCredentials | None:
+        # `advanced` is the snapshot captured when a background check was scheduled; direct
+        # callers can omit it and use the current configuration.
+        advanced = advanced or self.advanced
         session = requests.Session()
         install_connection_policy(session)
-        install_logfire_response_hook(session, self.advanced.server_response_hook)
+        install_logfire_response_hook(session, advanced.server_response_hook)
         # This runs in the background `check_logfire_token` thread, where a warning would be
         # attributed to the thread rather than to the user's `configure()` call and so wouldn't
         # be deduplicated against it. The synchronous exporter setup already warns for every
         # token in the same list, so stay silent here.
         return LogfireCredentials.from_token(
-            token, session, self.advanced.generate_base_url(token, warn_unknown_region=False)
+            token, session, advanced.generate_base_url(token, warn_unknown_region=False)
         )
 
     def _ensure_flush_after_aws_lambda(self):
