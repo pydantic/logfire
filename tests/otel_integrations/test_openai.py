@@ -273,6 +273,15 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     model='gpt-3.5-turbo-instruct',
                     object='text_completion',
                 ),
+                # With `stream_options={'include_usage': True}` the usage arrives in a final chunk without choices.
+                completion.Completion(
+                    id='3',
+                    choices=[],
+                    created=3,
+                    model='gpt-3.5-turbo-instruct',
+                    object='text_completion',
+                    usage=completion_usage.CompletionUsage(completion_tokens=3, prompt_tokens=6, total_tokens=9),
+                ),
             ]
             return httpx.Response(
                 200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in completion_chunks)
@@ -2992,7 +3001,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
         prompt='What is four plus five?',
         stream=True,
     )
-    combined = ''.join(chunk.choices[0].text for chunk in response if chunk.choices[0].text)
+    combined = ''.join(chunk.choices[0].text for chunk in response if chunk.choices and chunk.choices[0].text)
     assert combined == 'The answer is Nine'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
@@ -3064,6 +3073,12 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'The answer is Nine'}]}
                     ],
                     'response_data': {'combined_chunk_content': 'The answer is Nine', 'chunk_count': 2},
+                    'gen_ai.response.id': '3',
+                    'gen_ai.response.finish_reasons': ['stop', 'stop', 'stop'],
+                    'gen_ai.usage.input_tokens': 6,
+                    'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.usage.raw': {'completion_tokens': 3, 'prompt_tokens': 6, 'total_tokens': 9},
+                    'operation.cost': 1.5e-05,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -3076,6 +3091,13 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                             'duration': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
@@ -4946,6 +4968,33 @@ def test_completion_stream_state_version_v2_empty_content() -> None:
     result = state.get_attributes({})
     assert 'response_data' not in result
     assert 'gen_ai.output.messages' not in result
+
+
+def test_completion_stream_state_response_metadata() -> None:
+    """Chunks without an id, model or finish reason (as in mid-stream chunks) leave the response attributes unset."""
+    from openai.types import completion, completion_choice
+
+    from logfire._internal.integrations.llm_providers.openai import (
+        OpenaiCompletionStreamState,
+        _versioned_stream_cls,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    stream_cls = _versioned_stream_cls(OpenaiCompletionStreamState, frozenset({2}))
+    state = stream_cls()
+    state.record_chunk(
+        completion.Completion(
+            id='',
+            choices=[completion_choice.CompletionChoice.model_construct(finish_reason=None, index=0, text='Hello')],
+            created=1,
+            model='',
+            object='text_completion',
+        )
+    )
+
+    result = state.get_attributes({})
+    assert result == snapshot(
+        {'gen_ai.output.messages': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello'}]}]}
+    )
 
 
 def test_completion_stream_state_v1_only() -> None:
