@@ -236,7 +236,9 @@ def convert_chat_completions_to_semconv(
                 ToolCallResponsePart(
                     type='tool_call_response',
                     id=tool_call_id,
-                    response=content,
+                    response=_convert_content_part_or_parts(cast('list[Any]', content))
+                    if isinstance(content, list)
+                    else content,
                 )
             )
         else:
@@ -323,6 +325,13 @@ def _convert_content_part(part: object) -> MessagePart:
         if data := part.get('file_data'):
             return BlobPart(type='blob', content=data, modality='document')
         if file_id := _media_part_file_id(part):
+            return FilePart(type='file', file_id=file_id, modality='document')
+    elif part_type == 'file':
+        # A Chat Completions file part nests its fields under `file`.
+        file = cast('dict[str, Any]', part.get('file') or {})
+        if data := file.get('file_data'):
+            return BlobPart(type='blob', content=data, modality='document')
+        if file_id := _media_part_file_id(file):
             return FilePart(type='file', file_id=file_id, modality='document')
     else:  # pragma: no cover
         # Return as generic dict for unknown types
