@@ -37,7 +37,13 @@ from .constants import (
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     log_level_attributes,
 )
-from .utils import handle_internal_errors, is_instrumentation_suppressed, sha256_string
+from .utils import (
+    handle_internal_errors,
+    is_instrumentation_suppressed,
+    safe_str,
+    safe_type_name,
+    sha256_string,
+)
 
 if TYPE_CHECKING:
     from ..types import ExceptionCallback
@@ -512,7 +518,24 @@ def record_exception(
         else:
             span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, fingerprint)
 
-    span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+    try:
+        span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+    except Exception:
+        # `str(exception)` can raise (e.g. an exception that was never fully initialised)
+        # and the OTEL SDK calls it without guarding, which would lose the whole event.
+        span.add_event(
+            name='exception',
+            attributes={
+                'exception.type': f'{type(exception).__module__}.{type(exception).__qualname__}',
+                'exception.message': safe_str(exception),
+                'exception.stacktrace': ''.join(
+                    _patched_format_exception(type(exception), exception, exception.__traceback__)
+                ),
+                'exception.escaped': str(escaped),
+                **(attributes or {}),
+            },
+            timestamp=timestamp,
+        )
 
 
 original_format_exception = traceback.format_exception
@@ -533,6 +556,6 @@ def set_exception_status(span: trace_api.Span, exception: BaseException):
     span.set_status(
         trace_api.Status(
             status_code=StatusCode.ERROR,
-            description=f'{exception.__class__.__name__}: {exception}',
+            description=f'{safe_type_name(exception)}: {safe_str(exception)}',
         )
     )

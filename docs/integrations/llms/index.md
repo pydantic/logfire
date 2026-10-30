@@ -66,6 +66,10 @@ Trace the model calls, agent steps, and tool calls in your AI application. Instr
     <span class="integration-logo integration-logo--plainmark">Ma</span>
     <span class="integration-name">Magentic</span>
   </a>
+  <a class="integration-card" href="pixeltable.md">
+    <span class="integration-logo integration-logo--plainmark">Px</span>
+    <span class="integration-name">Pixeltable</span>
+  </a>
 </div>
 
 ## Not listed?

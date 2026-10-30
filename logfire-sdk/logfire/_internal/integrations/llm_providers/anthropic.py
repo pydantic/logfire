@@ -4,7 +4,7 @@ import contextlib
 import json
 from collections.abc import Callable
 from inspect import signature
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import anthropic
 from anthropic._utils import is_given
@@ -31,6 +31,7 @@ from .semconv import (
     TOOL_DEFINITIONS,
     BlobPart,
     ChatMessage,
+    FilePart,
     InputMessages,
     MessagePart,
     NormalizedSemconvVersion,
@@ -155,21 +156,25 @@ def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
     part_type = part.get('type', 'text')
     if part_type == 'text':
         return TextPart(type='text', content=part.get('text', ''))
-    elif part_type == 'image':  # pragma: no cover
+    elif part_type in ('image', 'document'):
+        modality: Literal['image', 'document'] = 'image' if part_type == 'image' else 'document'
         source = part.get('source', {})
-        if source.get('type') == 'base64':
+        source_type = source.get('type')
+        if source_type == 'base64':
             blob_part = BlobPart(
                 type='blob',
-                modality='image',
+                modality=modality,
                 content=source.get('data', ''),
             )
             if (media_type := source.get('media_type')) is not None:
                 blob_part['media_type'] = media_type
             return blob_part
-        elif source.get('type') == 'url':
-            return UriPart(type='uri', uri=source.get('url', ''), modality='image')
+        elif source_type == 'url':
+            return UriPart(type='uri', uri=source.get('url', ''), modality=modality)
+        elif source_type == 'file':
+            return FilePart(type='file', file_id=source.get('file_id', ''), modality=modality)
         else:
-            return {'type': 'image', **part}
+            return {'type': part_type, **part}
     elif part_type == 'tool_use':
         return make_tool_call_part(
             tool_call_id=part.get('id', ''),

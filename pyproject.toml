@@ -2,7 +2,7 @@
 name = "logfire-python"
 version = "0.0.0"
 requires-python = ">=3.10"
-dependencies = ["logfire-sdk"]
+dependencies = ["logfire"]
 
 [dependency-groups]
 editor-tests = [
@@ -137,6 +137,7 @@ default-flags = ["disable"]
 format-command = "ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
+logfire = { workspace = true }
 logfire-api = { workspace = true }
 logfire-sdk = { workspace = true }
 
@@ -146,6 +147,9 @@ default-groups = ["dev"]
 exclude-newer = "4 days"
 
 [tool.uv.exclude-newer-package]
+# Allow the security update that removes trust in compromised eMudhra certificate chains.
+certifi = false
+pip = false
 # These are our own packages, not worth defending from supply chain attacks on them.
 pydantic_ai_slim = false
 pydantic-graph = false

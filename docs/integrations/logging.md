@@ -92,6 +92,29 @@ Within a few seconds you'll see your message as a record.
 
 ## Advanced
 
+### Avoid printing logs twice
+
+If another handler, such as a [`StreamHandler`][logging.StreamHandler], already prints your logs, Logfire's
+console output repeats each message. Pass `console_log=False` so Logfire doesn't print logs from this handler.
+They are still sent to Logfire:
+
+```py title="main.py" hl_lines="7"
+from logging import StreamHandler, basicConfig, getLogger
+
+import logfire
+
+logfire.configure()
+
+basicConfig(handlers=[StreamHandler(), logfire.LogfireLoggingHandler(console_log=False)])
+getLogger(__name__).warning('Hello, %s!', 'World')
+```
+
+Your terminal shows the message once, printed by the `StreamHandler`, and the log is still sent to Logfire:
+
+```
+WARNING:__main__:Hello, World!
+```
+
 ### Quiet a noisy logger
 
 Logging can be too verbose, especially from third-party libraries.

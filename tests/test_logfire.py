@@ -18,6 +18,7 @@ import cloudpickle
 import pytest
 from dirty_equals import IsInt, IsJson, IsStr
 from inline_snapshot import Is, snapshot
+from opentelemetry.exporter.otlp.proto.common.trace_encoder import encode_spans
 from opentelemetry.metrics import get_meter
 from opentelemetry.propagate import inject
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
@@ -27,6 +28,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.trace import INVALID_SPAN, SpanKind, StatusCode, get_current_span, get_tracer
 from pydantic import BaseModel, __version__ as pydantic_version
 from pydantic_core import ValidationError
+from wrapt import ObjectProxy
 
 import logfire
 from logfire import Logfire, suppress_instrumentation
@@ -485,6 +487,22 @@ def test_span_missing_template_field() -> None:
 
     warning = warnings.pop()
     assert warning.filename.endswith('test_logfire.py')
+
+
+def test_non_string_message_is_literal_and_otlp_encodable(exporter: TestExporter) -> None:
+    message: Any = ObjectProxy('literal {value}')
+    with pytest.warns(FormattingFailedWarning):
+        logfire.info(message, value='must not interpolate')
+
+    encoded = encode_spans(exporter.exported_spans)
+    encoded.SerializeToString()
+    [resource] = encoded.resource_spans
+    [scope] = resource.scope_spans
+    [span] = scope.spans
+    assert span.name == 'literal {value}'
+    attributes = {attribute.key: attribute.value for attribute in span.attributes}
+    assert attributes[ATTRIBUTES_MESSAGE_KEY].string_value == 'literal {value}'
+    assert attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY].string_value == 'literal {value}'
 
 
 def test_span_with_kwargs(exporter: TestExporter) -> None:

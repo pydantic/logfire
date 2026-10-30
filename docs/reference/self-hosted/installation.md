@@ -13,6 +13,7 @@ Before installing the chart, decide how you will configure:
 * Image pull credentials.
 * PostgreSQL databases and credentials.
 * Object storage bucket/container and credentials.
+* Managed Redis endpoint and credentials.
 * Dex identity provider connector.
 * Production sizing preset: `standard`, `small`, or `tiny`.
 * Storage classes if your cluster does not have a default `StorageClass`.
@@ -42,6 +43,10 @@ objectStore:
 
 postgresDsn: postgresql://logfire_crud:PASSWORD@postgres.example.com:5432/crud
 postgresFFDsn: postgresql://logfire_ff:PASSWORD@postgres.example.com:5432/ff
+
+logfire-redis:
+  enabled: false
+redisDsn: rediss://USER:PASSWORD@redis.example.com:6379
 
 logfire-dex:
   config:
@@ -100,6 +105,10 @@ Create three databases. They can live on the same PostgreSQL instance:
 
 Telemetry payloads are stored in object storage, not PostgreSQL.
 Each database user needs owner permissions so chart migrations can create and update schemas.
+
+An instance with 2 vCPU and 16 GB of memory is a good starting size. Resize it from the CPU and connection use that you see. FusionFire migrations set autovacuum settings on the `ff` tables that change most often, so do not override them.
+
+Connect the Logfire services directly to PostgreSQL, or through a connection pooler in transaction mode. With a pooler, the migration jobs, the FusionFire maintenance scheduler, and Dex need a separate session-mode pool or direct connection. The [chart README](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#connection-poolers) lists what the pooler must support, the session DSN values, and the connections that each workload opens.
 
 You can provide the two Logfire database DSNs directly:
 
@@ -165,7 +174,14 @@ objectStore:
   uri: s3://logfire-prod
 ```
 
-Do not enable bucket versioning. Logfire manages its own data lifecycle, and bucket versioning can increase cost and interfere with lifecycle behavior.
+Logfire deletes the objects it no longer needs. Compaction replaces small files with larger ones and deletes the old files a few minutes later. Retention deletes data older than each project's retention period. Configure the bucket so that it does not keep or move these objects:
+
+* Turn off object versioning.
+* Turn off soft delete. Google Cloud Storage turns on a 7-day soft delete for new buckets, and Azure Storage can keep deleted blobs for a period. Compaction deletes objects all the time, so soft-deleted objects can become a large part of the storage bill.
+* On Amazon S3 and Google Cloud Storage, add a lifecycle rule that aborts incomplete multipart uploads after 1 day. A worker that stops during an upload leaves parts behind. These parts are billed, but they do not appear in object listings.
+* Do not add lifecycle rules that delete objects or change their storage class by age. An age-based delete removes files that the `ff` database still references, and queries over those files then fail.
+
+On Google Cloud Storage, you can turn on Autoclass to lower the cost of data that is read less often.
 
 For Amazon S3, prefer workload identity such as IRSA, EKS Pod Identity, or your platform's equivalent. If you need static credentials, load them from a Secret:
 
@@ -211,6 +227,35 @@ objectStore:
         secretKeyRef:
           name: logfire-object-storage
           key: account-key
+```
+
+## Redis
+
+The chart's bundled Redis is for evaluation. For production, turn it off and connect a managed Redis:
+
+* Use one Redis endpoint. It can be a standalone instance, or a primary with replicas behind one write endpoint. Logfire does not support Redis Cluster mode.
+* Redis 7.2 is the tested version.
+* Logfire accepts `redis://` and `rediss://` DSNs. Put the password, or the ACL user and password, in the DSN.
+* With `rediss://`, Logfire verifies the Redis server certificate. Memorystore with in-transit encryption, for example, signs it with a private CA for each instance. For a private CA, set `trustedCaBundle` as the [chart README](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#private-ca-certificates) describes.
+
+You can provide the DSN directly:
+
+```yaml
+logfire-redis:
+  enabled: false
+
+redisDsn: rediss://USER:PASSWORD@redis.example.com:6379
+```
+
+Or reference an existing Kubernetes Secret with the `sharedDsn`, `tailDsn`, `tokenDsn`, and `usageDsn` keys. All four keys can hold the same DSN:
+
+```yaml
+logfire-redis:
+  enabled: false
+
+redisSecret:
+  enabled: true
+  name: logfire-redis-dsn
 ```
 
 ## Hostnames and Exposure

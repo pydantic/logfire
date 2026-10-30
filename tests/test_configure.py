@@ -28,6 +28,7 @@ import requests.exceptions
 import requests_mock
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
+from opentelemetry import context as otel_context, trace
 from opentelemetry._logs import LogRecord, get_logger, get_logger_provider
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -540,6 +541,18 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert fresh_pydantic_plugin().include == {'test1', 'test2'}
     assert fresh_pydantic_plugin().exclude == {'test3', 'test4'}
     assert GLOBAL_CONFIG.sampling.head == 0.123
+
+
+def test_invalid_trace_sample_rate_names_the_setting() -> None:
+    with patch.dict(os.environ, {'LOGFIRE_TRACE_SAMPLE_RATE': 'abc'}):
+        with pytest.raises(LogfireConfigError, match="Expected trace_sample_rate to be a number, got 'abc'"):
+            configure(send_to_logfire=False)
+
+
+def test_trace_sample_rate_too_large_for_float_names_the_setting(tmp_path: Path) -> None:
+    (tmp_path / 'pyproject.toml').write_text(f'[tool.logfire]\ntrace_sample_rate = 1{"0" * 400}\n')
+    with pytest.raises(LogfireConfigError, match='Expected trace_sample_rate to be a number, got 1000'):
+        configure(send_to_logfire=False, config_dir=tmp_path)
 
 
 def test_logfire_invalid_config_dir(tmp_path: Path):
@@ -3229,7 +3242,7 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
     with inline_snapshot.extra.warns(
         snapshot(
             [
-                'RuntimeWarning: Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.'
+                'RuntimeWarning: Found propagated context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.'
             ]
         )
     ):
@@ -3274,7 +3287,7 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
                 },
             },
             {
-                'name': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
+                'name': 'Found propagated context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
                 'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
                 'parent': None,
                 'start_time': 4000000000,
@@ -3282,8 +3295,8 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
-                    'logfire.msg_template': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
-                    'logfire.msg': 'Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
+                    'logfire.msg_template': 'Found propagated context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
+                    'logfire.msg': 'Found propagated context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.',
                     'code.filepath': 'test_configure.py',
                     'code.function': 'test_distributed_tracing_default',
                     'code.lineno': 123,
@@ -3323,6 +3336,29 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
             },
         ]
     )
+
+
+@pytest.mark.parametrize('context', [None, otel_context.Context(), otel_context.Context({'local': 'value'})])
+def test_distributed_tracing_default_no_incoming_context(
+    config_kwargs: dict[str, Any], context: otel_context.Context | None
+):
+    config_kwargs['distributed_tracing'] = None
+    logfire.configure(**config_kwargs)
+
+    assert get_global_textmap().extract({}, context=context) == (context or {})
+
+
+def test_distributed_tracing_default_warns_on_incoming_baggage(config_kwargs: dict[str, Any]):
+    config_kwargs['distributed_tracing'] = None
+    logfire.configure(**config_kwargs)
+
+    with pytest.warns(RuntimeWarning, match='Found propagated context') as warning_records:
+        with propagate.attach_context({'baggage': 'plan=enterprise'}, third_party=True):
+            assert logfire.get_baggage() == {'plan': 'enterprise'}
+    assert len(warning_records) == 1
+    # Only warn once, even when more baggage is extracted.
+    with propagate.attach_context({'baggage': 'plan=enterprise'}, third_party=True):
+        assert logfire.get_baggage() == {'plan': 'enterprise'}
 
 
 def test_distributed_tracing_enabled(exporter: TestExporter):
@@ -3458,6 +3494,64 @@ def test_distributed_tracing_disabled(exporter: TestExporter, config_kwargs: dic
             },
         ]
     )
+
+
+def test_distributed_tracing_disabled_drops_incoming_baggage(config_kwargs: dict[str, Any]):
+    config_kwargs['distributed_tracing'] = False
+    logfire.configure(**config_kwargs)
+    carrier = {'baggage': 'plan=enterprise'}
+
+    with logfire.set_baggage(region='us'):
+        # A third-party integration extracts an incoming request: its baggage is dropped, and the
+        # baggage this process set is kept.
+        with propagate.attach_context(carrier, third_party=True):
+            assert logfire.get_baggage() == {'region': 'us'}
+        # Propagation that Logfire itself controls, such as between threads, keeps baggage.
+        with propagate.attach_context(carrier):
+            assert logfire.get_baggage() == {'plan': 'enterprise'}
+
+
+@pytest.mark.parametrize('context_kind', ['current', 'empty', 'explicit'])
+def test_distributed_tracing_disabled_preserves_local_context(config_kwargs: dict[str, Any], context_kind: str):
+    config_kwargs['distributed_tracing'] = False
+    logfire.configure(**config_kwargs)
+    propagator = get_global_textmap()
+    assert isinstance(propagator, NoExtractTraceContextPropagator)
+
+    with logfire.span('local span'), logfire.set_baggage(region='us'):
+        local_context = otel_context.set_value('custom-local', 'local')
+        token = otel_context.attach(local_context)
+        try:
+            if context_kind == 'current':
+                supplied_context = None
+                expected_context = local_context
+            elif context_kind == 'empty':
+                supplied_context = expected_context = otel_context.Context()
+            else:
+                supplied_context = expected_context = otel_context.set_value(
+                    'custom-explicit', 'explicit', otel_context.Context()
+                )
+            incoming_context = otel_context.set_value('custom-incoming', 'incoming', expected_context)
+            # Custom propagators must not run either, regardless of the context they would extract.
+            with patch.object(propagator.wrapped, 'extract', return_value=incoming_context) as extract:
+                result = propagator.extract({'baggage': 'region=remote'}, context=supplied_context)
+            extract.assert_not_called()
+            assert result is expected_context
+            if context_kind == 'current':
+                assert trace.get_current_span(result) is trace.get_current_span(local_context)
+                assert logfire.get_baggage(result) == {'region': 'us'}
+                assert otel_context.get_value('custom-local', result) == 'local'
+            assert otel_context.get_current() is local_context
+        finally:
+            otel_context.detach(token)
+
+
+def test_distributed_tracing_enabled_keeps_incoming_baggage(config_kwargs: dict[str, Any]):
+    config_kwargs['distributed_tracing'] = True
+    logfire.configure(**config_kwargs)
+
+    with propagate.attach_context({'baggage': 'plan=enterprise'}, third_party=True):
+        assert logfire.get_baggage() == {'plan': 'enterprise'}
 
 
 def test_quiet_span_exporter(caplog: LogCaptureFixture):

@@ -10,4 +10,8 @@ def parse_auth(args: argparse.Namespace) -> None:
     This will authenticate your machine with Logfire and store the credentials.
     """
 def parse_logout(args: argparse.Namespace) -> None:
-    """Log out from Logfire."""
+    """Log out from Logfire.
+
+    Remove stored user tokens for --region, --base-url, or a non-empty LOGFIRE_BASE_URL.
+    With no target configured, remove all stored user tokens.
+    """

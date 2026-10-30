@@ -26,7 +26,7 @@ from decimal import Decimal
 from enum import Enum
 from functools import lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
-from pathlib import PosixPath
+from pathlib import PurePath
 from types import GeneratorType
 from typing import Any, NewType, cast
 
@@ -59,7 +59,7 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
         re.Pattern: {'type': 'string', 'format': 'regex'},
         uuid.UUID: {'type': 'string', 'format': 'uuid'},
         range: {'type': 'array', 'x-python-datatype': 'range'},
-        PosixPath: {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+        PurePath: {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
         Exception: _exception_schema,
     }
     with contextlib.suppress(ModuleNotFoundError):

@@ -460,3 +460,85 @@ def test_nonrecording_span(exporter: TestExporter, config_kwargs: dict[str, Any]
                 raise
 
     assert exporter.exported_spans_as_dict() == snapshot([])
+
+
+def test_span_records_exception_whose_str_raises(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    """An exception whose `__str__` raises must still be recorded on the span, not abort the recording."""
+
+    class BadStr(Exception):
+        def __str__(self) -> str:
+            raise RuntimeError('str boom')
+
+    logfire.configure(**config_kwargs)
+
+    with pytest.raises(BadStr), logfire.span('foo'):
+        raise BadStr('details')
+
+    (_pending, span) = exporter.exported_spans
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.status.description == 'BadStr: <exception str() failed>'
+    assert span.attributes is not None
+    assert ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY in span.attributes
+    [event] = span.events
+    assert event.name == 'exception'
+    assert event.attributes is not None
+    assert event.attributes['exception.type'] == f'{BadStr.__module__}.{BadStr.__qualname__}'
+    assert event.attributes['exception.message'] == '<exception str() failed>'
+    assert event.attributes['exception.escaped'] == 'True'
+    stacktrace = event.attributes['exception.stacktrace']
+    assert isinstance(stacktrace, str)
+    assert '<exception str() failed>' in stacktrace
+
+
+def test_log_with_exception_whose_str_raises(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    """`logfire.exception()` must still export the log record when `str(exception)` raises.
+
+    The status description used to be built with an f-string calling `str(exception)`,
+    which aborted `Logfire.log` before the span was ended, so the whole record was lost.
+    """
+
+    class BadStr(Exception):
+        def __str__(self) -> str:
+            raise RuntimeError('str boom')
+
+    logfire.configure(**config_kwargs)
+
+    try:
+        raise BadStr('details')
+    except BadStr:
+        logfire.exception('caught it')
+
+    (span,) = exporter.exported_spans
+    assert span.name == 'caught it'
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.status.description == 'BadStr: <exception str() failed>'
+    [event] = span.events
+    assert event.attributes is not None
+    assert event.attributes['exception.message'] == '<exception str() failed>'
+
+
+def test_exception_with_metaclass_that_rejects_name(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    """Reading the class name can raise as well, so the recorder must not depend on it."""
+
+    class NoNameMeta(type):
+        @property
+        def __name__(cls) -> str:  # pyright: ignore[reportIncompatibleVariableOverride]
+            raise RuntimeError('no name')
+
+    class NoName(Exception, metaclass=NoNameMeta):
+        def __str__(self) -> str:
+            raise RuntimeError('str boom')
+
+    logfire.configure(**config_kwargs)
+
+    try:
+        raise NoName('details')
+    except NoName:
+        logfire.exception('caught it')
+
+    (span,) = exporter.exported_spans
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.status.description == 'exception: <exception str() failed>'
+    [event] = span.events
+    assert event.attributes is not None
+    assert event.attributes['exception.type'] == f'{NoName.__module__}.{NoName.__qualname__}'

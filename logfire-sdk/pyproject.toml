@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire-sdk"
-version = "6.0.0b8"
+version = "5.4.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.10"
 authors = [
@@ -53,6 +53,7 @@ dependencies = [
     "opentelemetry-semantic-conventions >= 0.60b0, < 0.67b0",
     "rich >= 13.4.2",
     "requests >= 2.31.0",
+    "certifi >= 2026.10.19",
     "protobuf >= 4.23.4",
     "typing-extensions >= 4.13.0",
     "tomli >= 2.0.1; python_version < '3.11'",
@@ -61,6 +62,7 @@ dependencies = [
 
 [project.optional-dependencies]
 gateway = ["httpx>=0.27.0", "starlette>=0.37.0", "uvicorn>=0.30.0"]
+agent-sandboxes = ["pydantic-monty-client>=1.0.0"]
 system-metrics = ["opentelemetry-instrumentation-system-metrics >= 0.42b0"]
 asgi = ["opentelemetry-instrumentation-asgi >= 0.42b0"]
 wsgi = ["opentelemetry-instrumentation-wsgi >= 0.42b0"]
@@ -115,7 +117,7 @@ dev-mode-dirs = ["."]
 [tool.hatch.build.targets.wheel]
 packages = ["logfire"]
 
-# Pip installs dependencies before their dependants. During a v5 -> v6 upgrade,
+# Pip installs dependencies before their dependants. During a monolithic -> split upgrade,
 # uninstalling the old `logfire` distribution therefore deletes the top-level
 # files already installed by `logfire-sdk`. Keep a private fallback copy on the
 # import path so the SDK survives that uninstall; the normal copy remains for
