@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, TypeGuard
 
 from .semconv import CACHE_CREATION_INPUT_TOKENS, CACHE_READ_INPUT_TOKENS, INPUT_TOKENS, OUTPUT_TOKENS, USAGE_RAW
 
@@ -118,18 +118,22 @@ def _gateway_reported_cost(response_data: Any) -> Decimal | None:
     hit) is a real cost, not a missing one. Mirrors pydantic-ai's `_gateway_cost.py`:
     https://github.com/pydantic/pydantic-ai/blob/main/pydantic_ai_slim/pydantic_ai/_gateway_cost.py
     """
-    if not isinstance(response_data, dict):
+    if not _is_str_dict(response_data):
         return None
     usage_data = response_data.get('usage')
-    if not isinstance(usage_data, dict):
+    if not _is_str_dict(usage_data):
         return None
     for block_name, field_name in (('logfire_ai_gateway', 'cost'), ('pydantic_ai_gateway', 'cost_estimate')):
         block = usage_data.get(block_name)
-        if isinstance(block, dict):
+        if _is_str_dict(block):
             cost = _parse_cost(block.get(field_name))
             if cost is not None:
                 return cost
     return None
+
+
+def _is_str_dict(value: Any) -> TypeGuard[dict[str, Any]]:
+    return isinstance(value, dict)
 
 
 def _parse_cost(value: Any) -> Decimal | None:
