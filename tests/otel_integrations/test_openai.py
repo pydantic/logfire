@@ -6103,15 +6103,23 @@ def test_responses_gateway_cost(exporter: TestExporter) -> None:
     )
 
 
-@pytest.mark.parametrize('terminal_event', ['response.completed', 'response.incomplete'])
-def test_responses_stream_gateway_cost(terminal_event: str, exporter: TestExporter) -> None:
+@pytest.mark.parametrize(
+    'status, incomplete_details', [('completed', None), ('incomplete', {'reason': 'max_output_tokens'})]
+)
+def test_responses_stream_gateway_cost(
+    status: str, incomplete_details: dict[str, str] | None, exporter: TestExporter
+) -> None:
     events: list[dict[str, Any]] = [
         {
             'type': 'response.created',
             'sequence_number': 0,
             'response': {**GATEWAY_RESPONSE, 'status': 'in_progress', 'usage': None},
         },
-        {'type': terminal_event, 'sequence_number': 1, 'response': GATEWAY_RESPONSE},
+        {
+            'type': f'response.{status}',
+            'sequence_number': 1,
+            'response': {**GATEWAY_RESPONSE, 'status': status, 'incomplete_details': incomplete_details},
+        },
     ]
     client = gateway_client(lambda _: sse_response(events))
     with logfire.instrument_openai(client):
