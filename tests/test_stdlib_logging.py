@@ -433,3 +433,29 @@ def test_logging_non_string(exporter: TestExporter, logger: Logger):
             }
         ]
     )
+
+
+class UnprintableArg:
+    def __str__(self) -> str:
+        raise RuntimeError('cannot be printed')
+
+
+def test_logging_with_bad_arguments_does_not_raise(exporter: TestExporter, capsys: pytest.CaptureFixture[str]) -> None:
+    # Like other handlers, `LogfireLoggingHandler` must report a log call that can't be formatted
+    # with `Handler.handleError` rather than raising from the application's `logger.info(...)` line.
+    bad_logger = getLogger('tests.test_stdlib_logging.bad_arguments')
+    bad_logger.propagate = False  # pytest's own handlers deliberately raise on badly formatted records
+    handler = LogfireLoggingHandler()
+    bad_logger.addHandler(handler)
+    try:
+        bad_logger.error('%d items', 'many')
+        bad_logger.error('value: %s', UnprintableArg())
+        bad_logger.error('fine: %s', 'ok')
+    finally:
+        bad_logger.removeHandler(handler)
+
+    errors = capsys.readouterr().err
+    assert errors.count('--- Logging error ---') == 2
+    assert 'TypeError: %d format' in errors
+    assert 'RuntimeError: cannot be printed' in errors
+    assert [span.attributes['logfire.msg'] for span in exporter.exported_spans] == ['fine: ok']  # type: ignore

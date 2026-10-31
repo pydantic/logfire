@@ -89,18 +89,23 @@ class LogfireLoggingHandler(LoggingHandler):
             self.fallback.handle(record)
             return
 
-        attributes = self.fill_attributes(record)
-        tags = attributes.pop(ATTRIBUTES_TAGS_KEY, None)
-        if isinstance(tags, str):
-            tags = (tags,)
+        # Like the handlers in the standard library, report a failure (e.g. a message that can't be formatted
+        # with its arguments) through `handleError` instead of raising from the application's logging call.
+        try:
+            attributes = self.fill_attributes(record)
+            tags = attributes.pop(ATTRIBUTES_TAGS_KEY, None)
+            if isinstance(tags, str):
+                tags = (tags,)
 
-        self.logfire_instance.log(
-            msg_template=attributes.pop(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, record.msg),
-            level=LOGGING_TO_OTEL_LEVEL_NUMBERS.get(record.levelno, record.levelno),
-            attributes=attributes,
-            tags=tags,
-            exc_info=record.exc_info,
-        )
+            self.logfire_instance.log(
+                msg_template=attributes.pop(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, record.msg),
+                level=LOGGING_TO_OTEL_LEVEL_NUMBERS.get(record.levelno, record.levelno),
+                attributes=attributes,
+                tags=tags,
+                exc_info=record.exc_info,
+            )
+        except Exception:
+            self.handleError(record)
 
     def fill_attributes(self, record: LogRecord) -> dict[str, Any]:
         """Fill the attributes to send to Logfire.
