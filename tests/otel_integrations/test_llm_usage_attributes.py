@@ -389,3 +389,28 @@ def test_gateway_invalid_cost_falls_back_to_estimate() -> None:
             assert result['operation.cost'] == snapshot(0.0006)
         else:
             assert 'operation.cost' not in result
+
+
+def test_gateway_check_tolerates_unusual_response_data() -> None:
+    """The gateway-cost check never breaks the estimate path for unusual responses."""
+    usage = FakeUsage(prompt_tokens=10, completion_tokens=5)
+
+    class RaisingResponse:
+        def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+            raise ValueError('cannot serialize')
+
+    result = get_usage_attributes(RaisingResponse(), usage, 10, 5, provider_id='openai', api_flavor='chat')
+    assert result['gen_ai.usage.input_tokens'] == 10
+    assert 'operation.cost' not in result
+
+    class NonDictUsageResponse:
+        def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+            return {'usage': 'not-a-dict'}
+
+    result = get_usage_attributes(NonDictUsageResponse(), usage, 10, 5, provider_id='openai', api_flavor='chat')
+    assert result['gen_ai.usage.input_tokens'] == 10
+    assert 'operation.cost' not in result
+
+    result = get_usage_attributes(object(), usage, 10, 5, provider_id='openai', api_flavor='chat')
+    assert result['gen_ai.usage.input_tokens'] == 10
+    assert 'operation.cost' not in result
