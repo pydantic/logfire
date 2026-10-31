@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from decimal import Decimal, InvalidOperation
 from typing import Any, TypeGuard
 
@@ -144,4 +145,7 @@ def _parse_cost(value: Any) -> Decimal | None:
     except InvalidOperation:
         return None
     # NaN/inf would break comparisons and a negative cost would reduce the run total.
-    return cost if cost.is_finite() and cost >= 0 else None
+    if not cost.is_finite() or cost < 0:
+        return None
+    # operation.cost is a float: a finite decimal outside the float range would become inf.
+    return cost if math.isfinite(float(cost)) else None
