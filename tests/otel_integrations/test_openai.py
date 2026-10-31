@@ -1,7 +1,7 @@
 from __future__ import annotations as _annotations
 
 import json
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from inspect import signature
 from io import BytesIO
 from typing import Any
@@ -5853,4 +5853,332 @@ def test_responses_refusal_recorded_as_text(exporter: TestExporter) -> None:
     attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
     assert attributes['gen_ai.output.messages'] == snapshot(
         [{'role': 'assistant', 'parts': [{'type': 'text', 'content': "I can't help with that."}]}]
+    )
+
+
+def gateway_client(handler: Callable[[httpx.Request], httpx.Response]) -> openai.Client:
+    return openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+
+
+def sse_response(events: list[dict[str, Any]]) -> httpx.Response:
+    body = ''.join(f'data: {json.dumps(event)}\n\n' for event in events) + 'data: [DONE]\n\n'
+    return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream'})
+
+
+GATEWAY_USAGE = {'logfire_ai_gateway': {'cost': '0.5'}, 'pydantic_ai_gateway': {'cost_estimate': '0.5'}}
+
+
+@pytest.mark.parametrize('cost, expected', [('0.5', 0.5), ('0', 0.0)])
+def test_chat_completion_gateway_cost(cost: str, expected: float, exporter: TestExporter) -> None:
+    body: dict[str, Any] = {
+        'id': 'chatcmpl_1',
+        'object': 'chat.completion',
+        'created': 0,
+        'model': 'gpt-4o-mini',
+        'choices': [{'index': 0, 'finish_reason': 'stop', 'message': {'role': 'assistant', 'content': 'hi'}}],
+        'usage': {
+            'prompt_tokens': 10,
+            'completion_tokens': 5,
+            'total_tokens': 15,
+            'logfire_ai_gateway': {'cost': cost},
+        },
+    }
+    client = gateway_client(lambda _: httpx.Response(200, json=body))
+    with logfire.instrument_openai(client):
+        client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['operation.cost'] == expected
+
+
+def test_chat_completion_stream_gateway_cost(exporter: TestExporter) -> None:
+    def chunk(**fields: Any) -> dict[str, Any]:
+        return {'id': 'chatcmpl_1', 'object': 'chat.completion.chunk', 'created': 0, 'model': 'gpt-4o-mini', **fields}
+
+    events = [
+        chunk(choices=[{'index': 0, 'delta': {'role': 'assistant', 'content': 'hi'}, 'finish_reason': None}]),
+        chunk(choices=[{'index': 0, 'delta': {}, 'finish_reason': 'stop'}]),
+        chunk(choices=[], usage={'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15, **GATEWAY_USAGE}),
+    ]
+    client = gateway_client(lambda _: sse_response(events))
+    with logfire.instrument_openai(client):
+        list(
+            client.chat.completions.create(
+                model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}], stream=True
+            )
+        )
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_chat_completion_stream_gateway_cost',
+                    'code.lineno': 123,
+                    'request_data': {'model': 'gpt-4o-mini'},
+                    'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.request.model': 'gpt-4o-mini',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'hi'}]}],
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4o-mini'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'async': {},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'gpt-4o-mini',
+                },
+            },
+            {
+                'name': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'logfire.msg': "streaming response from 'gpt-4o-mini' took 1.00s",
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_chat_completion_stream_gateway_cost',
+                    'code.lineno': 123,
+                    'duration': 1.0,
+                    'request_data': {'model': 'gpt-4o-mini'},
+                    'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.request.model': 'gpt-4o-mini',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'hi'}]}],
+                    'async': False,
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'hi'}], 'finish_reason': 'stop'}
+                    ],
+                    'gen_ai.response.id': 'chatcmpl_1',
+                    'gen_ai.response.model': 'gpt-4o-mini',
+                    'gen_ai.response.finish_reasons': ['stop'],
+                    'gen_ai.usage.input_tokens': 10,
+                    'gen_ai.usage.output_tokens': 5,
+                    'gen_ai.usage.raw': {
+                        'completion_tokens': 5,
+                        'prompt_tokens': 10,
+                        'total_tokens': 15,
+                        'logfire_ai_gateway': {'cost': '0.5'},
+                        'pydantic_ai_gateway': {'cost_estimate': '0.5'},
+                    },
+                    'operation.cost': 0.5,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'duration': {},
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                },
+            },
+        ]
+    )
+
+
+GATEWAY_RESPONSE: dict[str, Any] = {
+    'id': 'resp_1',
+    'object': 'response',
+    'created_at': 0,
+    'model': 'gpt-4o-mini',
+    'status': 'completed',
+    'parallel_tool_calls': True,
+    'tool_choice': 'auto',
+    'tools': [],
+    'output': [],
+    'usage': {
+        'input_tokens': 10,
+        'input_tokens_details': {'cached_tokens': 0},
+        'output_tokens': 5,
+        'output_tokens_details': {'reasoning_tokens': 0},
+        'total_tokens': 15,
+        **GATEWAY_USAGE,
+    },
+}
+
+
+def test_responses_gateway_cost(exporter: TestExporter) -> None:
+    client = gateway_client(lambda _: httpx.Response(200, json=GATEWAY_RESPONSE))
+    with logfire.instrument_openai(client):
+        client.responses.create(model='gpt-4o-mini', input='hi')
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Responses API with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_responses_gateway_cost',
+                    'code.lineno': 123,
+                    'request_data': {'model': 'gpt-4o-mini', 'stream': False},
+                    'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.request.model': 'gpt-4o-mini',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'hi'}]}],
+                    'async': False,
+                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.msg': "Responses API with 'gpt-4o-mini'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'gpt-4o-mini',
+                    'gen_ai.response.id': 'resp_1',
+                    'gen_ai.usage.input_tokens': 10,
+                    'gen_ai.usage.output_tokens': 5,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 10,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 5,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 15,
+                        'logfire_ai_gateway': {'cost': '0.5'},
+                        'pydantic_ai_gateway': {'cost_estimate': '0.5'},
+                    },
+                    'operation.cost': 0.5,
+                    'gen_ai.response.finish_reasons': ['stop'],
+                    'gen_ai.output.messages': [],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.parametrize('terminal_event', ['response.completed', 'response.incomplete'])
+def test_responses_stream_gateway_cost(terminal_event: str, exporter: TestExporter) -> None:
+    events: list[dict[str, Any]] = [
+        {
+            'type': 'response.created',
+            'sequence_number': 0,
+            'response': {**GATEWAY_RESPONSE, 'status': 'in_progress', 'usage': None},
+        },
+        {'type': terminal_event, 'sequence_number': 1, 'response': GATEWAY_RESPONSE},
+    ]
+    client = gateway_client(lambda _: sse_response(events))
+    with logfire.instrument_openai(client):
+        list(client.responses.create(model='gpt-4o-mini', input='hi', stream=True))
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
+    assert attributes['operation.cost'] == 0.5
+
+
+def test_embeddings_gateway_cost(exporter: TestExporter) -> None:
+    body: dict[str, Any] = {
+        'object': 'list',
+        'model': 'text-embedding-3-small',
+        'data': [{'object': 'embedding', 'index': 0, 'embedding': [0.1]}],
+        'usage': {'prompt_tokens': 10, 'total_tokens': 10, **GATEWAY_USAGE},
+    }
+    client = gateway_client(lambda _: httpx.Response(200, json=body))
+    with logfire.instrument_openai(client):
+        client.embeddings.create(model='text-embedding-3-small', input='hi')
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Embedding Creation with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_embeddings_gateway_cost',
+                    'code.lineno': 123,
+                    'request_data': {'model': 'text-embedding-3-small'},
+                    'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.request.model': 'text-embedding-3-small',
+                    'gen_ai.operation.name': 'embeddings',
+                    'async': False,
+                    'logfire.msg_template': 'Embedding Creation with {request_data[model]!r}',
+                    'logfire.msg': "Embedding Creation with 'text-embedding-3-small'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'text-embedding-3-small',
+                    'gen_ai.usage.input_tokens': 10,
+                    'gen_ai.usage.raw': {
+                        'prompt_tokens': 10,
+                        'total_tokens': 10,
+                        'logfire_ai_gateway': {'cost': '0.5'},
+                        'pydantic_ai_gateway': {'cost_estimate': '0.5'},
+                    },
+                    'operation.cost': 0.5,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
+                            'async': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
+                        },
+                    },
+                },
+            }
+        ]
     )
