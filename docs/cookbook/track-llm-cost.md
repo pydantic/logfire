@@ -75,7 +75,7 @@ The [Explore](../guides/web-ui/explore.md) page lets you ask any question of you
 - `attributes->'gen_ai.request.model'`: the model name (e.g. `gpt-4o-mini`).
 - `attributes->'gen_ai.system'`: the provider (e.g. `openai`). Some newer SDKs emit `attributes->'gen_ai.provider.name'` instead.
 - `attributes->'gen_ai.usage.input_tokens'` and `attributes->'gen_ai.usage.output_tokens'`: token counts.
-- `attributes->'operation.cost'`: the cost in US dollars, attached by the instrumentation for supported providers (OpenAI, Anthropic, and Pydantic AI), priced with the [`genai-prices`](https://github.com/pydantic/genai-prices) dataset (installed alongside Logfire, as above).
+- `attributes->'operation.cost'`: the cost in US dollars, attached by the instrumentation for supported providers (OpenAI, Anthropic, and Pydantic AI), priced with the [`genai-prices`](https://github.com/pydantic/genai-prices) dataset (installed alongside Logfire, as above). When a call goes through the [AI Gateway](../reference/advanced/gateway/index.md) (one endpoint in front of every model provider) and the response reports a cost, that cost is recorded instead, including any [custom prices](../reference/advanced/gateway/model-access.md#set-custom-prices-on-a-byok-provider) you set.
 
 This query sums cost and tokens per model per day. Paste it into the query editor, pick a **Time window** (say *Last 7 days*), raise the **Limit** if you have many models, and click **Run** (or press ⌘↵):
 

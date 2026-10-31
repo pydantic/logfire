@@ -2722,3 +2722,30 @@ def test_response_id_and_finish_reasons(fields: dict[str, Any], expected: list[s
 
     assert attributes['gen_ai.response.id'] == 'resp_1'
     assert attributes.get('gen_ai.response.finish_reasons') == expected
+
+
+def test_response_span_gateway_cost() -> None:
+    """The deduplicated Agents span reports the same gateway cost as the OpenAI span it replaces."""
+    response = Response.model_validate(
+        {
+            'id': 'resp_1',
+            'object': 'response',
+            'created_at': 0,
+            'model': 'gpt-4o-mini',
+            'status': 'completed',
+            'parallel_tool_calls': True,
+            'tool_choice': 'auto',
+            'tools': [],
+            'output': [],
+            'usage': {
+                'input_tokens': 10,
+                'input_tokens_details': {'cached_tokens': 0, 'cache_write_tokens': 0},
+                'output_tokens': 5,
+                'output_tokens_details': {'reasoning_tokens': 0},
+                'total_tokens': 15,
+                'logfire_ai_gateway': {'cost': '0.5'},
+            },
+        }
+    )
+    attributes = openai_agents.attributes_from_span_data(ResponseSpanData(response=response), 'Responses API')
+    assert attributes['operation.cost'] == 0.5
