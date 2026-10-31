@@ -378,7 +378,7 @@ def test_gateway_deprecated_cost_estimate_block() -> None:
 
 def test_gateway_invalid_cost_falls_back_to_estimate() -> None:
     """Unusable reported costs (negative, non-numeric, boolean) fall back to the estimate."""
-    for bad_cost in ('-1', 'not-a-number', True):
+    for bad_cost in ('-1', 'not-a-number', True, '1e400'):
         usage = FakeUsage(prompt_tokens=10, completion_tokens=5)
         response = FakeGatewayResponse(
             model='gpt-4',
@@ -414,3 +414,25 @@ def test_gateway_check_tolerates_unusual_response_data() -> None:
     result = get_usage_attributes(object(), usage, 10, 5, provider_id='openai', api_flavor='chat')
     assert result['gen_ai.usage.input_tokens'] == 10
     assert 'operation.cost' not in result
+
+
+def test_openai_wrapper_uses_gateway_cost() -> None:
+    """End-to-end through the OpenAI integration wrapper with a real SDK response object."""
+    from openai.types.chat.chat_completion import ChatCompletion
+    from openai.types.completion_usage import CompletionUsage
+
+    completion = ChatCompletion.model_construct(
+        id='chatcmpl-1',
+        created=0,
+        model='gpt-4',
+        object='chat.completion',
+        choices=[],
+        usage=CompletionUsage.model_construct(
+            prompt_tokens=10,
+            completion_tokens=5,
+            total_tokens=15,
+            logfire_ai_gateway={'cost': '0.0038'},
+        ),
+    )
+    result = get_openai_usage_attributes(completion)
+    assert result['operation.cost'] == snapshot(0.0038)
