@@ -8,7 +8,7 @@ import warnings
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 from logging import getLogger
 from typing import Any
@@ -28,6 +28,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.trace import INVALID_SPAN, SpanKind, StatusCode, get_current_span, get_tracer
 from pydantic import BaseModel, __version__ as pydantic_version
 from pydantic_core import ValidationError
+from typing_extensions import LiteralString
 from wrapt import ObjectProxy
 
 import logfire
@@ -293,6 +294,82 @@ def test_instrument_func_with_no_params(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+@pytest.mark.parametrize('extract_args', [False, True, ['value']])
+def test_instrument_name_style_reconfiguration(
+    exporter: TestExporter, config_kwargs: dict[str, Any], extract_args: bool | list[str]
+) -> None:
+    @logfire.instrument(extract_args=extract_args)
+    def work(value: int) -> int:
+        return value * 2
+
+    for style, value in [('function', 1), ('default', 2), ('function', 3)]:
+        logfire.configure(
+            **{**config_kwargs, 'advanced': replace(config_kwargs['advanced'], instrument_name_style=style)}
+        )
+        assert work(value) == value * 2
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True, _strip_function_qualname=False)
+    assert [span['name'] for span in spans] == [
+        'work',
+        'Calling tests.test_logfire.test_instrument_name_style_reconfiguration.<locals>.work',
+        'work',
+    ]
+    assert [span['attributes']['logfire.msg'] for span in spans] == [span['name'] for span in spans]
+    assert [span['attributes'].get('value') for span in spans] == ([1, 2, 3] if extract_args else [None] * 3)
+
+
+@pytest.mark.parametrize(
+    'msg_template,span_name,expected_name,expected_message',
+    [
+        (None, 'chosen', 'chosen', 'work'),
+        ('explicit {value}', None, 'explicit {value}', 'explicit 7'),
+        ('explicit {value}', 'chosen', 'chosen', 'explicit 7'),
+    ],
+)
+def test_instrument_name_style_explicit_overrides(
+    exporter: TestExporter,
+    config_kwargs: dict[str, Any],
+    msg_template: LiteralString | None,
+    span_name: str | None,
+    expected_name: str,
+    expected_message: str,
+) -> None:
+    @logfire.instrument(msg_template, span_name=span_name)
+    def work(value: int) -> int:
+        return value + 1
+
+    logfire.configure(
+        **{**config_kwargs, 'advanced': replace(config_kwargs['advanced'], instrument_name_style='function')}
+    )
+    assert work(7) == 8
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert (span['name'], span['attributes']['logfire.msg']) == (expected_name, expected_message)
+    assert span['attributes']['value'] == 7
+
+
+def test_instrument_name_style_is_local(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    local = logfire.configure(
+        local=True,
+        **{**config_kwargs, 'advanced': replace(config_kwargs['advanced'], instrument_name_style='function')},
+    )
+
+    @local.instrument()
+    def local_work() -> int:
+        return 1
+
+    @logfire.instrument()
+    def global_work() -> int:
+        return 2
+
+    assert local_work() == 1
+    assert global_work() == 2
+    spans = exporter.exported_spans_as_dict(_strip_function_qualname=False)
+    assert [span['name'] for span in spans] == [
+        'local_work',
+        'Calling tests.test_logfire.test_instrument_name_style_is_local.<locals>.global_work',
+    ]
 
 
 def test_instrument_extract_args_list(exporter: TestExporter) -> None:

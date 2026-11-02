@@ -70,7 +70,9 @@ def instrument(
             )
 
         attributes = get_attributes(func, msg_template, tags)
-        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_trace, level=level)
+        open_span = get_open_span(
+            logfire, attributes, span_name, extract_args, func, new_trace, not msg_template, level=level
+        )
 
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
@@ -129,6 +131,7 @@ def get_open_span(
     extract_args: bool | Iterable[str],
     func: Callable[P, R],
     new_trace: bool,
+    use_default_template: bool,
     level: LevelName | int | None = None,
 ) -> Callable[P, AbstractContextManager[Any]]:
     from .main import NoopSpan
@@ -155,6 +158,21 @@ def get_open_span(
         def get_logfire():
             return logfire
 
+    default_metadata = (final_span_name, attributes)
+    if use_default_template:
+        function_name = str(attributes['code.function']).rsplit('.', 1)[-1]
+        function_metadata = (
+            span_name or function_name,
+            {**attributes, ATTRIBUTES_MESSAGE_TEMPLATE_KEY: function_name},
+        )
+    else:
+        function_metadata = default_metadata
+
+    def span_metadata(instance: Logfire):
+        if instance.config.advanced.instrument_name_style == 'function':
+            return function_metadata
+        return default_metadata
+
     if new_trace:
 
         def extra_span_kwargs() -> dict[str, Any]:
@@ -172,22 +190,26 @@ def get_open_span(
 
     # This is the fast case for when there are no arguments to extract
     def open_span(*_: P.args, **__: P.kwargs):  # pyright: ignore[reportRedeclaration]
-        if level_num is not None and level_num < get_logfire().config.min_level:
+        instance = get_logfire()
+        if level_num is not None and level_num < instance.config.min_level:
             return NoopSpan()
-        return get_logfire()._fast_span(final_span_name, attributes, **extra_span_kwargs())  # pyright: ignore[reportPrivateUsage]
+        name, span_attributes = span_metadata(instance)
+        return instance._fast_span(name, span_attributes, **extra_span_kwargs())  # pyright: ignore[reportPrivateUsage]
 
     if extract_args is True:
         sig = inspect.signature(func)
         if sig.parameters:  # only extract args if there are any
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
-                if level_num is not None and level_num < get_logfire().config.min_level:
+                instance = get_logfire()
+                if level_num is not None and level_num < instance.config.min_level:
                     return NoopSpan()
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
                 args_dict = bound.arguments
-                return get_logfire()._instrument_span_with_args(  # pyright: ignore[reportPrivateUsage]
-                    final_span_name, attributes, args_dict, **extra_span_kwargs()
+                name, span_attributes = span_metadata(instance)
+                return instance._instrument_span_with_args(  # pyright: ignore[reportPrivateUsage]
+                    name, span_attributes, args_dict, **extra_span_kwargs()
                 )
 
         return open_span
@@ -210,7 +232,8 @@ def get_open_span(
         if extract_args_final:  # check that there are still arguments to extract
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
-                if level_num is not None and level_num < get_logfire().config.min_level:
+                instance = get_logfire()
+                if level_num is not None and level_num < instance.config.min_level:
                     return NoopSpan()
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
@@ -219,8 +242,9 @@ def get_open_span(
                 # This line is the only difference from the extract_args=True case
                 args_dict = {k: args_dict[k] for k in extract_args_final}
 
-                return get_logfire()._instrument_span_with_args(  # pyright: ignore[reportPrivateUsage]
-                    final_span_name, attributes, args_dict, **extra_span_kwargs()
+                name, span_attributes = span_metadata(instance)
+                return instance._instrument_span_with_args(  # pyright: ignore[reportPrivateUsage]
+                    name, span_attributes, args_dict, **extra_span_kwargs()
                 )
 
     return open_span

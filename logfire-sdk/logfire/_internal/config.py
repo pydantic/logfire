@@ -312,6 +312,16 @@ class AdvancedOptions:
     Defaults to the `LOGFIRE_PENDING_SPANS` environment variable, or `True`.
     """
 
+    instrument_name_style: Literal['default', 'function'] = 'default'
+    """Default naming style for functions decorated with `logfire.instrument`.
+
+    `'default'` uses `Calling {module}.{qualname}`; `'function'` uses the function's simple name.
+    This sets the default message template and the span name derived from it.
+    Explicit `msg_template` and `span_name` arguments take precedence over their respective defaults.
+
+    The style applies at call time, including to functions decorated before `logfire.configure()`.
+    """
+
     def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
         """Resolve the base API URL for `token`, honouring an explicitly configured `base_url`.
 
