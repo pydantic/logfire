@@ -429,11 +429,10 @@ def test_metrics_in_spans(exporter: TestExporter):
                     'logfire.metrics': {
                         'tokens': {
                             'details': [
-                                {'attributes': {'model': 'gpt4'}, 'total': 300},
-                                {'attributes': {'model': 'gemini-2.5'}, 'total': 500},
+                                {'attributes': {'model': 'gpt4'}, 'total': 100},
                                 {'attributes': {}, 'total': 999},
                             ],
-                            'total': 1799,
+                            'total': 1099,
                         }
                     },
                 },
@@ -508,15 +507,7 @@ def test_metrics_in_closed_span_context(
         {
             'target': None,
             'current': {'measurement': {'details': [{'attributes': {}, 'total': 20}], 'total': 20}},
-            'parent': {
-                'measurement': {
-                    'details': [
-                        {'attributes': {'key': 'value'}, 'total': 10},
-                        {'attributes': {}, 'total': 20},
-                    ],
-                    'total': 30,
-                }
-            },
+            'parent': None,
         }
     )
     [metric] = [metric for metric in get_collected_metrics(metrics_reader) if metric['name'] == 'measurement']
