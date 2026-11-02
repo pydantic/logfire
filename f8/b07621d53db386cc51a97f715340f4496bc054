@@ -1,0 +1,19 @@
+.agents/skills/update-deps/SKILL.md
+  s_01593a0d4bf426::t_08c3b2fc610be9 23-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f8b07621d53db386cc51a97f715340f4496bc054",
+  "prompts": {},
+  "sessions": {
+    "s_01593a0d4bf426": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a19cab-7d00-7eb3-ad52-0da2d282b8ad",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
