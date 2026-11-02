@@ -3810,7 +3810,7 @@ def test_span_started_while_suppressed_propagates_outer_span(exporter: TestExpor
     ] == snapshot(
         [
             ('child', {'operation.cost': {'details': [{'attributes': {}, 'total': 1}], 'total': 1}}),
-            ('outer', None),
+            ('outer', {'operation.cost': {'details': [{'attributes': {}, 'total': 1}], 'total': 1}}),
         ]
     )
 
