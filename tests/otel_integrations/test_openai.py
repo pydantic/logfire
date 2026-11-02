@@ -4625,6 +4625,30 @@ def test_convert_chat_completions_custom_tool_call_input() -> None:
     )
 
 
+def test_convert_chat_completions_legacy_function_call_input() -> None:
+    """A legacy `function_call` replayed in the history is recorded as a tool call."""
+    from logfire._internal.integrations.llm_providers.openai import convert_chat_completions_to_semconv
+
+    messages: list[dict[str, Any]] = [
+        {'role': 'user', 'content': 'Weather in Lima?'},
+        {
+            'role': 'assistant',
+            'content': None,
+            'function_call': {'name': 'get_weather', 'arguments': '{"city": "Lima"}'},
+        },
+    ]
+
+    assert convert_chat_completions_to_semconv(messages) == snapshot(
+        [
+            {'role': 'user', 'parts': [{'type': 'text', 'content': 'Weather in Lima?'}]},
+            {
+                'role': 'assistant',
+                'parts': [{'type': 'tool_call', 'id': '', 'name': 'get_weather', 'arguments': {'city': 'Lima'}}],
+            },
+        ]
+    )
+
+
 def test_convert_openai_response_refusal() -> None:
     """A refusal is recorded as a text part, since the message has no content."""
     from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
