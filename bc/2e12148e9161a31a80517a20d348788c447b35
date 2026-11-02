@@ -1,0 +1,19 @@
+tests/otel_integrations/test_snowflake.py
+  s_49ededa078c536::t_5450d26635ccff 648-649,652-657
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bc2e12148e9161a31a80517a20d348788c447b35",
+  "prompts": {},
+  "sessions": {
+    "s_49ededa078c536": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a19cab-2ede-7ac3-8e83-652f8970f0d7",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
