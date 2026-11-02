@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import warnings
 from decimal import Decimal
 from importlib import import_module
 from typing import Annotated, Any, cast
@@ -18,7 +19,14 @@ pytest.importorskip(
 
 # Litestar's plugin still expects legacy APIs removed from Pydantic main.
 try:
-    import_module('litestar.plugins.pydantic')
+    with warnings.catch_warnings():
+        # The plugin only enumerates legacy types; these tests use Pydantic V2.
+        warnings.filterwarnings(
+            'ignore',
+            message=r"Core Pydantic V1 functionality isn't compatible with Python 3\.14 or greater\.",
+            category=UserWarning,
+        )
+        import_module('litestar.plugins.pydantic')
 except AttributeError as exc:
     if "module 'pydantic' has no attribute 'PyObject'" not in str(exc):
         raise
