@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 from decimal import Decimal
+from importlib import import_module
 from typing import Annotated, Any, cast
 from unittest import mock
 
@@ -14,6 +15,14 @@ pytest.importorskip(
     minversion='2.5',
     reason='Litestar 2.11 and later require Pydantic 2.5 or later.',
 )
+
+# Litestar's plugin still expects legacy APIs removed from Pydantic main.
+try:
+    import_module('litestar.plugins.pydantic')
+except AttributeError as exc:
+    if "module 'pydantic' has no attribute 'PyObject'" not in str(exc):
+        raise
+    pytest.skip('Litestar requires legacy Pydantic APIs unavailable in this build', allow_module_level=True)
 
 from inline_snapshot import snapshot
 from litestar import Litestar, Request, Router, WebSocket, asgi, get, post, websocket
