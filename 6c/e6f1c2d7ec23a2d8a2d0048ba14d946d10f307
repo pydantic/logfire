@@ -1,0 +1,23 @@
+tests/test_logfire.py
+  s_49ededa078c536::t_46b6f901852aef 3813
+tests/otel_integrations/test_google_genai.py
+  s_49ededa078c536::t_46b6f901852aef 119-120
+tests/test_metrics.py
+  s_49ededa078c536::t_46b6f901852aef 432,435,510
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6ce6f1c2d7ec23a2d8a2d0048ba14d946d10f307",
+  "prompts": {},
+  "sessions": {
+    "s_49ededa078c536": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a19cab-2ede-7ac3-8e83-652f8970f0d7",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
