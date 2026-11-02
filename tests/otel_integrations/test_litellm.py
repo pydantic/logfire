@@ -33,7 +33,7 @@ You can install this with:
 def test_litellm_instrumentation(exporter: TestExporter) -> None:
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', category=DeprecationWarning)
-        import litellm
+        litellm = pytest.importorskip('litellm', exc_type=ImportError)
 
     logging.getLogger('LiteLLM').disabled = True
 
