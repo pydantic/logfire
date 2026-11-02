@@ -57,7 +57,7 @@ def _warn_capture_parameters_ignored(existing: bool) -> None:
 
 
 def _patch_connect(logfire_instance: Logfire) -> None:
-    original_connect: Any = sf_connector.connect  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    original_connect: Any = sf_connector.connect
 
     @functools.wraps(original_connect)
     def wrapped_connect(*args: Any, **kwargs: Any) -> SnowflakeConnection:

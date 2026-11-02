@@ -43,8 +43,8 @@ else:  # pragma: no cover
     class IntEnum(int, Enum): ...
 
 
-pandas.set_option('display.max_columns', 10)  # type: ignore
-pandas.set_option('display.max_rows', 20)  # type: ignore
+pandas.set_option('display.max_columns', 10)
+pandas.set_option('display.max_rows', 20)
 
 pydantic_model_config = ConfigDict(plugin_settings={'logfire': {'record': 'off'}}, extra='allow')
 
@@ -972,7 +972,7 @@ def test_log_dataframe_labels_match_data(
         columns=[f'col{column}' for column in range(column_count)],
         index=[f'row{row}' for row in range(row_count)],
     )
-    with pandas.option_context('display.max_rows', 4, 'display.max_columns', 4):  # pyright: ignore[reportUnknownMemberType]
+    with pandas.option_context('display.max_rows', 4, 'display.max_columns', 4):
         logfire.info('frame', frame=frame)
 
     attributes = exporter.exported_spans[0].attributes
@@ -1015,7 +1015,7 @@ def test_log_dataframe_with_unlimited_and_odd_display_limits(
         columns=[f'col{column}' for column in range(5)],
         index=[f'row{row}' for row in range(5)],
     )
-    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):  # pyright: ignore[reportUnknownMemberType]
+    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):
         logfire.info('frame', frame=frame)
 
     attributes = exporter.exported_spans[0].attributes
@@ -1055,7 +1055,7 @@ def test_log_dataframe_odd_display_limits_formatting(
         columns=[f'col{column}' for column in range(7)],
         index=[f'row{row}' for row in range(7)],
     )
-    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):  # pyright: ignore[reportUnknownMemberType]
+    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):
         logfire.info('frame', frame=frame)
 
     attributes = exporter.exported_spans[0].attributes

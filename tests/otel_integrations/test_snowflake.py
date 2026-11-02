@@ -39,10 +39,10 @@ class FakeSnowflakeConnection(SnowflakeConnection):
         self._log_max_query_length = 10000
         self._reuse_results = False
 
-    def cursor(self, cursor_class: type = SnowflakeCursor) -> SnowflakeCursor:
+    def cursor(self, cursor_class: type[Any] | None = None) -> SnowflakeCursor:
         # Override rather than inherit: the real cursor() checks internal connection
         # state that __init__ never set up here.
-        return cursor_class(self)
+        return (cursor_class or SnowflakeCursor)(self)
 
 
 @pytest.fixture(autouse=True)
@@ -61,13 +61,13 @@ def fake_snowflake_connect(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(autouse=True)
 def fake_snowflake_execute(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_execute(self: SnowflakeCursor, command: str, params: Any = None, *args: Any, **kwargs: Any):
-        self._sfqid = 'fake-sfqid-1'  # pyright: ignore[reportPrivateUsage]
-        self._total_rowcount = 3  # pyright: ignore[reportPrivateUsage]
+        monkeypatch.setattr(SnowflakeCursor, 'sfqid', property(lambda self: 'fake-sfqid-1'))
+        monkeypatch.setattr(SnowflakeCursor, 'rowcount', property(lambda self: 3))
         return self
 
     def fake_executemany(self: SnowflakeCursor, command: str, seqparams: Any, **kwargs: Any):
-        self._sfqid = 'fake-sfqid-2'  # pyright: ignore[reportPrivateUsage]
-        self._total_rowcount = len(seqparams)  # pyright: ignore[reportPrivateUsage]
+        monkeypatch.setattr(SnowflakeCursor, 'sfqid', property(lambda self: 'fake-sfqid-2'))
+        monkeypatch.setattr(SnowflakeCursor, 'rowcount', property(lambda self: len(seqparams)))
         return self
 
     monkeypatch.setattr(SnowflakeCursor, 'execute', fake_execute)
@@ -79,7 +79,7 @@ def test_instrument_connect(exporter: TestExporter) -> None:
 
     import snowflake.connector
 
-    conn = snowflake.connector.connect(  # pyright: ignore[reportUnknownMemberType]
+    conn = snowflake.connector.connect(
         account='my_account',
         warehouse='my_wh',
         database='my_db',
@@ -131,7 +131,7 @@ def test_instrument_connect_positional_connection_name(exporter: TestExporter, m
 
     import snowflake.connector
 
-    conn = snowflake.connector.connect('my_named_connection')  # pyright: ignore[reportUnknownMemberType, reportCallIssue, reportUnknownVariableType]
+    conn = snowflake.connector.connect('my_named_connection')  # pyright: ignore[reportCallIssue, reportUnknownVariableType]
     assert conn.account == 'my_named_connection'  # pyright: ignore[reportUnknownMemberType]
     assert [span['name'] for span in exporter.exported_spans_as_dict()] == ['snowflake connect']
     assert exporter.exported_spans_as_dict()[0]['attributes']['account'] == 'my_named_connection'
@@ -331,7 +331,7 @@ def test_instrument_single_connection_custom_cursor_class(exporter: TestExporter
     class CustomCursor(SnowflakeCursor):
         def execute(self, command: str, params: Any = None, *args: Any, **kwargs: Any) -> Any:
             calls.append(command)
-            return super().execute(command, params, *args, **kwargs)  # pyright: ignore[reportUnknownVariableType]
+            return super().execute(command, params, *args, **kwargs)
 
     conn = FakeSnowflakeConnection(account='my_account')
     logfire.instrument_snowflake(conn)
@@ -345,10 +345,10 @@ def test_instrument_single_connection_custom_cursor_class(exporter: TestExporter
 def test_custom_cursor_super_call_with_module_and_connection_instrumented(exporter: TestExporter) -> None:
     class CustomCursor(SnowflakeCursor):
         def execute(self, command: str, params: Any = None, *args: Any, **kwargs: Any) -> Any:
-            return super().execute(command, params, *args, **kwargs)  # pyright: ignore[reportUnknownVariableType]
+            return super().execute(command, params, *args, **kwargs)
 
-        def executemany(self, command: str, seqparams: Any, **kwargs: Any) -> Any:
-            return super().executemany(command, seqparams, **kwargs)
+        def executemany(self, operation: str, seq_of_parameters: Any = None, *args: Any, **kwargs: Any) -> Any:
+            return super().executemany(operation, seq_of_parameters, *args, **kwargs)
 
     logfire.instrument_snowflake()
     conn = FakeSnowflakeConnection(account='my_account')
@@ -409,7 +409,7 @@ def test_instrument_snowflake_connector_module(exporter: TestExporter) -> None:
 
     logfire.instrument_snowflake(snowflake.connector)
 
-    conn = snowflake.connector.connect(account='my_account')  # pyright: ignore[reportUnknownMemberType]
+    conn = snowflake.connector.connect(account='my_account')
     conn.cursor().execute('select 1')
 
     assert [span['name'] for span in exporter.exported_spans_as_dict()] == [
@@ -464,7 +464,7 @@ def test_instrument_snowflake_idempotent(exporter: TestExporter) -> None:
 
     import snowflake.connector
 
-    conn = snowflake.connector.connect(account='my_account')  # pyright: ignore[reportUnknownMemberType]
+    conn = snowflake.connector.connect(account='my_account')
     cursor = conn.cursor()
     cursor.execute('select 1')
 
