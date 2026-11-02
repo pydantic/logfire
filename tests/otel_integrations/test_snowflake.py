@@ -645,11 +645,16 @@ def test_connector_5_query_keywords(
 ) -> None:
     calls: list[dict[str, Any]] = []
 
-    def execute(self: SnowflakeCursor, **kwargs: Any) -> SnowflakeCursor:
-        calls.append(kwargs)
+    def execute(self: SnowflakeCursor, operation: str, parameters: tuple[int, ...]) -> SnowflakeCursor:
+        calls.append({'operation': operation, 'parameters': parameters})
         return self
 
-    monkeypatch.setattr(SnowflakeCursor, method, execute)
+    def executemany(self: SnowflakeCursor, operation: str, seq_of_parameters: list[tuple[int, ...]]) -> SnowflakeCursor:
+        calls.append({'operation': operation, 'seq_of_parameters': seq_of_parameters})
+        return self
+
+    monkeypatch.setattr(sf_connector, '__version__', '5.1.0')
+    monkeypatch.setattr(SnowflakeCursor, method, execute if method == 'execute' else executemany)
     logfire.instrument_snowflake(capture_parameters=True)
     getattr(FakeConnection().cursor(), method)(**query_kwargs)
 
