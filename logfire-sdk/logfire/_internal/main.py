@@ -841,8 +841,13 @@ class Logfire:
                 if isinstance(exc_info, tuple):
                     exc_info = exc_info[1]
                 if isinstance(exc_info, BaseException):
+                    status_before_callback = getattr(span, 'status', None)
                     span.record_exception(exc_info)
-                    if otlp_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY] >= LEVEL_NUMBERS['error']:  # pyright: ignore[reportOperatorIssue]
+                    if (
+                        otlp_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY] >= LEVEL_NUMBERS['error']  # pyright: ignore[reportOperatorIssue]
+                        # A status set by the exception callback wins.
+                        and getattr(span, 'status', None) is status_before_callback
+                    ):
                         # Set the status description to the exception message.
                         # OTEL only lets us set the description when the status code is ERROR,
                         # which we only want to do when the log level is error.
