@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+import snowflake.connector as sf_connector
 from inline_snapshot import snapshot
 from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
@@ -10,6 +11,7 @@ from snowflake.connector.cursor import SnowflakeCursor
 import logfire
 import logfire._internal.integrations.snowflake as snowflake_integration
 from logfire._internal.exporters.test import TestExporter
+from logfire._internal.utils import get_version
 
 
 class FakeConnection:
@@ -30,7 +32,13 @@ class FakeSnowflakeConnection(SnowflakeConnection):
     def __init__(self, **kwargs: Any) -> None:
         # Deliberately skip SnowflakeConnection.__init__, which opens a real network
         # connection. Set only the private attributes its account/warehouse/database/
-        # schema/role properties read (confirmed to be plain `self._account`-style reads).
+        # schema/role properties read.
+        # Connector 4 reads individual fields; connector 5 reads connection info.
+        object.__setattr__(
+            self,
+            '_connection_info',
+            {key: kwargs.get(key) for key in ('account', 'warehouse', 'database', 'schema', 'role')},
+        )
         self._account = kwargs.get('account')
         self._warehouse = kwargs.get('warehouse')
         self._database = kwargs.get('database')
@@ -69,6 +77,14 @@ def fake_snowflake_execute(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(SnowflakeCursor, 'sfqid', property(lambda self: 'fake-sfqid-2'))
         monkeypatch.setattr(SnowflakeCursor, 'rowcount', property(lambda self: len(seqparams)))
         return self
+
+    if get_version(sf_connector.__version__) >= get_version('5'):
+
+        def fake_execute_async(self: SnowflakeCursor, command: str, params: Any = None, **kwargs: Any):
+            fake_execute(self, command, params, **kwargs)
+            return {'queryId': self.sfqid}
+
+        monkeypatch.setattr(SnowflakeCursor, 'execute_async', fake_execute_async)
 
     monkeypatch.setattr(SnowflakeCursor, 'execute', fake_execute)
     monkeypatch.setattr(SnowflakeCursor, 'executemany', fake_executemany)
@@ -600,3 +616,33 @@ def test_instrument_snowflake_preserves_transitive_import_error(monkeypatch: pyt
     with pytest.raises(ModuleNotFoundError, match='missing_transitive') as exc_info:
         logfire.instrument_snowflake()
     assert exc_info.value.name == 'missing_transitive'
+
+
+@pytest.mark.parametrize(
+    'method,query_kwargs,parameter_attribute',
+    [
+        ('execute', {'operation': 'select %s', 'parameters': (1,)}, 'params'),
+        ('executemany', {'operation': 'select %s', 'seq_of_parameters': [(1,)]}, 'seqparams'),
+    ],
+)
+def test_connector_5_query_keywords(
+    exporter: TestExporter,
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+    query_kwargs: dict[str, Any],
+    parameter_attribute: str,
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def execute(self: SnowflakeCursor, **kwargs: Any) -> SnowflakeCursor:
+        calls.append(kwargs)
+        return self
+
+    monkeypatch.setattr(SnowflakeCursor, method, execute)
+    logfire.instrument_snowflake(capture_parameters=True)
+    getattr(FakeConnection().cursor(), method)(**query_kwargs)
+
+    assert calls == [query_kwargs]
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['command'] == 'select %s'
+    assert span['attributes'][parameter_attribute] == ([1] if method == 'execute' else [[1]])
