@@ -78,14 +78,6 @@ def fake_snowflake_execute(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(SnowflakeCursor, 'rowcount', property(lambda self: len(seqparams)))
         return self
 
-    if get_version(sf_connector.__version__) >= get_version('5'):
-
-        def fake_execute_async(self: SnowflakeCursor, command: str, params: Any = None, **kwargs: Any):
-            fake_execute(self, command, params, **kwargs)
-            return {'queryId': self.sfqid}
-
-        monkeypatch.setattr(SnowflakeCursor, 'execute_async', fake_execute_async)
-
     monkeypatch.setattr(SnowflakeCursor, 'execute', fake_execute)
     monkeypatch.setattr(SnowflakeCursor, 'executemany', fake_executemany)
 
@@ -202,12 +194,26 @@ def test_instrument_execute_scrubs_statement(exporter: TestExporter) -> None:
     assert attributes['db.statement'] == "[Scrubbed due to 'password']"
 
 
-def test_instrument_execute_async(exporter: TestExporter) -> None:
+@pytest.mark.parametrize('connector_version', ['4.7.3', '5.1.0'])
+def test_instrument_execute_async(
+    exporter: TestExporter, monkeypatch: pytest.MonkeyPatch, connector_version: str
+) -> None:
+    original_execute = SnowflakeCursor.execute
+
+    def execute_async(self: SnowflakeCursor, command: str, params: Any = None) -> Any:
+        if get_version(connector_version) < get_version('5'):
+            return self.execute(command, params, _exec_async=True)
+        original_execute(self, command, params)
+        return {'queryId': self.sfqid}
+
+    monkeypatch.setattr(sf_connector, '__version__', connector_version)
+    monkeypatch.setattr(SnowflakeCursor, 'execute_async', execute_async)
+    logfire.instrument_snowflake()
     logfire.instrument_snowflake()
 
     FakeConnection().cursor().execute_async('select 1')
 
-    span = exporter.exported_spans_as_dict()[0]
+    [span] = exporter.exported_spans_as_dict()
     assert span['name'] == 'snowflake execute async'
     assert span['attributes']['logfire.msg_template'] == 'snowflake execute async {command}'
 
