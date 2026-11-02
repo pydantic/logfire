@@ -20,6 +20,8 @@ make format && make lint && make typecheck && make docs
 
 uv run pytest --inline-snapshot=fix
 
+Run snapshot-writing test processes sequentially. Wait for each process to finish before starting another snapshot run or editing files it can update; overlapping runs can apply stale source offsets and corrupt test files.
+
 Running tests the first time will likely update some snapshots. Just commit those changes even if some tests are still failing.
 
 After seeing what tests fail the first time, any future running of tests in this workflow should only be for some small subset. The full test suite will run in CI.
