@@ -3,6 +3,7 @@ from ..db_statement_summary import message_from_db_statement as message_from_db_
 from ..integrations.llm_providers.semconv import PROVIDER_NAME as PROVIDER_NAME
 from ..json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema
 from ..scrubbing import BaseScrubber as BaseScrubber
+from ..trace_scope import enter_trace_scope as enter_trace_scope, exit_trace_scope as exit_trace_scope
 from ..utils import ReadableSpanDict as ReadableSpanDict, handle_internal_errors as handle_internal_errors, is_asgi_send_receive_span_name as is_asgi_send_receive_span_name, is_instrumentation_suppressed as is_instrumentation_suppressed, span_to_dict as span_to_dict, truncate_string as truncate_string
 from .wrapper import WrapperSpanProcessor as WrapperSpanProcessor
 from dataclasses import dataclass

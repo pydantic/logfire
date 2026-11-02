@@ -18,17 +18,17 @@ with agent_config.get() as config:
     ...
 ```
 
-## Setting Targeting Key via Context
+## Setting targeting context
 
-Instead of passing `targeting_key` to every `.get()` call, you can set it once at a higher level using `targeting_context`. This is useful when you want to set the targeting key early in your request lifecycle (e.g., in middleware) and have it apply to all variable resolutions within that context:
+Instead of passing `targeting_key` and `attributes` to every `.get()` call, you can set them once at a higher level using `targeting_context`. This is useful when you know the user or organization near the start of a request and want that context to apply to every variable resolution:
 
 ```python skip="true"
 from logfire.variables import targeting_context
 
-async def handle_request(user_id: str, message: str) -> str:
+async def handle_request(user_id: str, message: str, plan: str) -> str:
     # Set targeting key once for all variables in this context
-    with targeting_context(user_id):
-        # All variable resolutions here use user_id as the targeting key
+    with targeting_context(user_id, attributes={'plan': plan}):
+        # All variable resolutions here use user_id and plan for targeting
         with agent_config.get() as config:
             ...
         with another_variable.get() as other:
@@ -193,7 +193,7 @@ This is useful when you want different configurations based on user plan. For ex
 
 **Example: Environment-based targeting with resource attributes**
 
-Resource attributes like `deployment.environment` are automatically included, allowing you to use different configurations in different environments without code changes:
+Resource attributes like `deployment.environment.name` are automatically included, allowing you to use different configurations in different environments without code changes:
 
 - Use a more experimental prompt on staging to test changes before production
 - Enable verbose logging in development but not in production

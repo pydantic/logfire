@@ -95,7 +95,7 @@ __all__ = [
 ]
 
 
-def ensure_variables_dependencies() -> None:
+def ensure_variables_dependencies(extra: str = 'variables') -> None:
     """Raise a clear `ImportError` if a package required to use managed variables is missing.
 
     Using managed variables — declaring a `var()`/`template_var()`, or touching the public
@@ -104,6 +104,10 @@ def ensure_variables_dependencies() -> None:
     actionable error instead of, e.g., a composition value silently falling back to its code
     default. Plain `import logfire` and the rest of the SDK keep working without the extra, so
     this must only run on *use*, never at module-import time.
+
+    Args:
+        extra: The `logfire` extra named in the error, so feature flags can point at
+            `logfire[feature-flags]` while managed variables keep `logfire[variables]`.
     """
     # Keep this in sync with the `variables` optional-dependency group in pyproject.toml
     try:
@@ -113,7 +117,7 @@ def ensure_variables_dependencies() -> None:
         raise ImportError(
             'Using managed variables requires the `pydantic_handlebars` and `pydantic` packages.\n'
             'You can install this with:\n'
-            "    pip install 'logfire[variables]'"
+            f"    pip install 'logfire[{extra}]'"
         ) from e
 
 

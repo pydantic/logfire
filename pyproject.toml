@@ -131,6 +131,7 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "pydantic-handlebars>=0.2.1",
     "claude-agent-sdk>=0",
+    "hypothesis>=6.0",
 ]
 [tool.inline-snapshot]
 default-flags = ["disable"]

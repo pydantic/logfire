@@ -454,13 +454,20 @@ def test_credentials_check_session_gets_the_policy(
     _assert_connection_policy(session)
 
 
-def test_the_sse_stream_session_gets_the_policy() -> None:
-    """The SSE stream is read with no read timeout, so TCP keepalive matters most there.
+def test_remote_variables_session_keeps_the_policy_after_fork() -> None:
+    provider = LogfireRemoteVariableProvider(base_url='https://x', token='t', options=VariablesOptions())
+    inherited_session = provider._session  # pyright: ignore[reportPrivateUsage]
+    try:
+        provider._at_fork_reinit()  # pyright: ignore[reportPrivateUsage]
+        with provider._session as session:  # pyright: ignore[reportPrivateUsage]
+            assert session is not inherited_session
+            _assert_connection_policy(session)
+    finally:
+        inherited_session.close()
 
-    After a silent drop only a failed keepalive probe unblocks the read. The stream is built by its
-    own session rather than the polling one, so covering the provider's polling session says
-    nothing about it.
-    """
+
+def test_the_sse_stream_session_gets_the_policy() -> None:
+    """The separate SSE session must have the same connection policy as the polling session."""
     provider = LogfireRemoteVariableProvider(base_url='https://x', token='t', options=VariablesOptions())
 
     with provider._new_sse_session() as session:  # pyright: ignore[reportPrivateUsage]

@@ -15,6 +15,7 @@ Managed variables are a way to externalize runtime configuration from your code.
 - **Versions and labels**: Create immutable version snapshots of your variable's value, and assign labels (like `production`, `staging`, `canary`) that point to specific versions
 - **Rollouts and targeting**: Control what percentage of requests receive each labeled version, and route specific users or segments based on attributes
 - **Templates and composition**: Use `{{placeholder}}` Handlebars syntax in values that get rendered with runtime inputs, and compose variables from reusable fragments via `@{other_variable}@` references (see [Templates and Composition](templates-and-composition.md))
+- **Feature flags**: An experimental API declares typed flags on top of managed variables, with OpenFeature-style evaluation details and telemetry (see [Experimental feature flags](feature-flags.md))
 
 ### Versions and Labels
 

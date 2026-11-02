@@ -36,6 +36,18 @@ test:
 test-otel-collector:
 	LOGFIRE_OTEL_COLLECTOR_TESTS=1 uv run --no-sync pytest -n 0 tests/otel_collector
 
+.PHONY: test-feature-flags  # Run the deterministic feature-flag reliability suite
+test-feature-flags:
+	uv run --no-sync pytest tests/test_feature_flags.py tests/test_feature_flag_properties.py tests/test_variables.py tests/test_feature_flags_demo.py
+
+.PHONY: demo-feature-flags  # Run the local-only support service with typed feature flags
+demo-feature-flags:
+	uv run --no-sync python -m examples.python.feature_flags_demo
+
+.PHONY: test-feature-flags-demo  # Exercise the demo against real HTTP and SSE delivery
+test-feature-flags-demo:
+	uv run --no-sync pytest tests/test_feature_flags_demo.py
+
 .PHONY: test-update-examples  # Update the examples in the documentation
 test-update-examples:
 	uv run pytest --update-examples -k test_docs
@@ -45,9 +57,8 @@ generate-stubs:
 	uv run stubgen -p logfire --include-docstrings --no-analysis
 	rsync -a out/logfire/ logfire-api/logfire_api/
 	rm -rf out
-	# || true so that we ignore the test failure on the first pass, it should report as skipped on the second
-	uv run pytest ./tests/test_logfire_api.py::test_override_init_pyi || true
-	uv run pytest ./tests/test_logfire_api.py::test_override_init_pyi
+	uv run python scripts/postprocess_generated_stubs.py
+	uv run pytest ./tests/test_logfire_api.py::test_postprocess_generated_stubs
 
 .PHONY: testcov  # Run tests and generate a coverage report
 testcov:
