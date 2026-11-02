@@ -320,7 +320,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
             warnings.simplefilter('ignore', category=DeprecationWarning)
             try:
                 importlib.import_module('litellm')
-            except AttributeError:  # pragma: no cover  # TODO figure this out
+            except (AttributeError, ImportError):  # Optional LiteLLM dependencies can lag Pydantic development builds.
                 pass
             else:
                 logfire_api.instrument_litellm()
