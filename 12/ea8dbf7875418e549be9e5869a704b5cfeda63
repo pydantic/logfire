@@ -1,0 +1,19 @@
+tests/otel_integrations/test_litellm.py
+  s_49ededa078c536::t_b41f6e95f171a4 36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "12ea8dbf7875418e549be9e5869a704b5cfeda63",
+  "prompts": {},
+  "sessions": {
+    "s_49ededa078c536": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a19cab-2ede-7ac3-8e83-652f8970f0d7",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
