@@ -26,6 +26,8 @@ requires_langgraph = pytest.mark.skipif(
 @requires_langgraph
 @pytest.mark.vcr()
 def test_instrument_langchain(exporter: TestExporter) -> None:
+    pytest.importorskip('langchain.agents', exc_type=ImportError)
+    pytest.importorskip('langchain_openai', exc_type=ImportError)
     from langchain.agents import create_agent  # pyright: ignore[reportUnknownVariableType]
     from langchain_core.tracers.langchain import wait_for_all_tracers
     from langchain_openai import ChatOpenAI
