@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 try:
     from pydantic_evals import Case, Dataset
+    from pydantic_evals.evaluators import Evaluator, EvaluatorContext
 except Exception:
     pytest.skip('pydantic_evals not compatible with this environment', allow_module_level=True)
 
@@ -266,8 +267,9 @@ class TestSerializeCase:
 
     def test_full_case(self):
         @dataclass
-        class MyEval:
-            pass
+        class MyEval(Evaluator[Any, Any, Any]):
+            def evaluate(self, ctx: EvaluatorContext[Any, Any, Any]) -> float:
+                return 1.0
 
         case: Case[MyInput, MyOutput, MyMetadata] = Case(
             name='test',
