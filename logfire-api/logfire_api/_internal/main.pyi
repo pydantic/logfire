@@ -813,6 +813,25 @@ class Logfire:
     def instrument_httpx(self, client: httpx.AsyncClient | httpx2.AsyncClient, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None, response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
     @overload
     def instrument_httpx(self, client: None = None, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, async_request_hook: HttpxAsyncRequestHook | None = None, async_response_hook: HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
+    def instrument_arq(self, **kwargs: Any) -> None:
+        """Instrument ARQ globally so that jobs and enqueueing calls create spans.
+
+        Install `logfire[arq]` to include the community
+        [OpenTelemetry ARQ instrumentation](https://pypi.org/project/opentelemetry-instrumentation-arq/).
+
+        Call this in both the application that enqueues jobs and each worker process,
+        before creating workers:
+
+        ```python
+        import logfire
+
+        logfire.configure(distributed_tracing=True)
+        logfire.instrument_arq()
+        ```
+
+        Args:
+            **kwargs: Additional keyword arguments to pass to `ArqInstrumentor.instrument`.
+        """
     def instrument_celery(self, **kwargs: Any) -> None:
         """Instrument `celery` so that spans are automatically created for each task.
 
