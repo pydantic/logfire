@@ -648,7 +648,9 @@ class Logfire:
         ```
 
         Args:
-            msg_template: The template for the span message. If not provided, the module and function name will be used.
+            msg_template: The template for the span message. If not provided, defaults to `Calling {module}.{qualname}`.
+                To use the function's simple name instead, call
+                `logfire.configure(advanced=logfire.AdvancedOptions(instrument_name_style='function'))`.
             span_name: The span name. If not provided, the `msg_template` will be used.
             extract_args: By default, all function call arguments are logged as span attributes.
                 Set to `False` to disable this, or pass an iterable of argument names to include.
