@@ -58,6 +58,7 @@ dev = [
     "opentelemetry-instrumentation-psycopg2>=0.42b0",
     "opentelemetry-instrumentation-redis>=0.42b0",
     "opentelemetry-instrumentation-pymongo>=0.42b0",
+    "opentelemetry-instrumentation-arq>=0.50b1",
     "opentelemetry-instrumentation-celery>=0.42b0",
     "opentelemetry-instrumentation-mysql>=0.42b0",
     "opentelemetry-instrumentation-sqlite3>=0.42b0",
@@ -79,6 +80,7 @@ dev = [
     "cloudpickle>=3.0.0",
     "anthropic>=0.27.0",
     "sqlmodel>=0.0.15",
+    "arq>=0.26,<1.0.0",
     "celery>=5.4.0",
     "faststream[redis]>=0.5.0",
     # https://github.com/testcontainers/testcontainers-python/issues/874

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-from collections.abc import Iterator
 from typing import Any
 from unittest import mock
 
@@ -15,12 +14,6 @@ from testcontainers.redis import RedisContainer
 import logfire
 import logfire._internal.integrations.redis
 from logfire.testing import TestExporter
-
-
-@pytest.fixture(scope='module', autouse=True)
-def redis_container() -> Iterator[RedisContainer]:
-    with RedisContainer('redis:latest') as redis:
-        yield redis
 
 
 @pytest.fixture

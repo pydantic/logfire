@@ -1784,6 +1784,35 @@ class Logfire:
             **kwargs,
         )
 
+    def instrument_arq(self, **kwargs: Any) -> None:
+        """Instrument ARQ globally so that jobs and enqueueing calls create spans.
+
+        Install `logfire[arq]` to include the community
+        [OpenTelemetry ARQ instrumentation](https://pypi.org/project/opentelemetry-instrumentation-arq/).
+
+        Call this in both the application that enqueues jobs and each worker process,
+        before creating workers:
+
+        ```python
+        import logfire
+
+        logfire.configure(distributed_tracing=True)
+        logfire.instrument_arq()
+        ```
+
+        Args:
+            **kwargs: Additional keyword arguments to pass to `ArqInstrumentor.instrument`.
+        """
+        from .integrations.arq import instrument_arq
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_arq(
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                **kwargs,
+            },
+        )
+
     def instrument_celery(self, **kwargs: Any) -> None:
         """Instrument `celery` so that spans are automatically created for each task.
 
