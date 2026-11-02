@@ -7,7 +7,7 @@ import pytest
 import snowflake.connector as sf_connector
 from inline_snapshot import snapshot
 from snowflake.connector.connection import SnowflakeConnection
-from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 import logfire
 import logfire._internal.integrations.snowflake as snowflake_integration
@@ -69,9 +69,10 @@ def fake_snowflake_connect(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture(autouse=True)
 def fake_snowflake_execute(monkeypatch: pytest.MonkeyPatch) -> None:
-    results: WeakKeyDictionary[SnowflakeCursor, tuple[str, int]] = WeakKeyDictionary()
-    monkeypatch.setattr(SnowflakeCursor, 'sfqid', property(lambda cursor: results.get(cursor, (None, None))[0]))
-    monkeypatch.setattr(SnowflakeCursor, 'rowcount', property(lambda cursor: results.get(cursor, (None, None))[1]))
+    results: WeakKeyDictionary[SnowflakeCursor | DictCursor, tuple[str, int]] = WeakKeyDictionary()
+    for cursor_class in (SnowflakeCursor, DictCursor):
+        monkeypatch.setattr(cursor_class, 'sfqid', property(lambda cursor: results.get(cursor, (None, None))[0]))
+        monkeypatch.setattr(cursor_class, 'rowcount', property(lambda cursor: results.get(cursor, (None, None))[1]))
 
     def fake_execute(self: SnowflakeCursor, command: str, params: Any = None, *args: Any, **kwargs: Any):
         results[self] = ('fake-sfqid-1', 3)
@@ -81,8 +82,9 @@ def fake_snowflake_execute(monkeypatch: pytest.MonkeyPatch) -> None:
         results[self] = ('fake-sfqid-2', len(seqparams))
         return self
 
-    monkeypatch.setattr(SnowflakeCursor, 'execute', fake_execute)
-    monkeypatch.setattr(SnowflakeCursor, 'executemany', fake_executemany)
+    for cursor_class in (SnowflakeCursor, DictCursor):
+        monkeypatch.setattr(cursor_class, 'execute', fake_execute)
+        monkeypatch.setattr(cursor_class, 'executemany', fake_executemany)
 
 
 def test_instrument_connect(exporter: TestExporter) -> None:
@@ -669,3 +671,15 @@ def test_interleaved_cursor_results(exporter: TestExporter) -> None:
     assert (first.sfqid, first.rowcount) == ('fake-sfqid-1', 3)
     assert (second.sfqid, second.rowcount) == ('fake-sfqid-2', 2)
     assert [span['attributes']['rowcount'] for span in exporter.exported_spans_as_dict()] == [3, 2]
+
+
+@pytest.mark.parametrize('instrument_module', [False, True])
+def test_dictionary_cursor(exporter: TestExporter, instrument_module: bool) -> None:
+    connection = FakeSnowflakeConnection(account='my_account')
+    logfire.instrument_snowflake(None if instrument_module else connection)
+    cursor = DictCursor(connection)
+    cursor.execute('select 1')
+    cursor.executemany('select %s', [(1,), (2,)])
+    spans = exporter.exported_spans_as_dict()
+    assert [span['name'] for span in spans] == ['snowflake execute', 'snowflake executemany']
+    assert [span['attributes']['account'] for span in spans] == ['my_account', 'my_account']

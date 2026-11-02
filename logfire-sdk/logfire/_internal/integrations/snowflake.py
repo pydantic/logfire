@@ -12,7 +12,7 @@ from logfire._internal.utils import get_version, handle_internal_errors
 try:
     import snowflake.connector as sf_connector
     from snowflake.connector.connection import SnowflakeConnection
-    from snowflake.connector.cursor import SnowflakeCursor
+    from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 except ModuleNotFoundError as e:
     if e.name not in {'snowflake', 'snowflake.connector'}:
         raise
@@ -46,7 +46,8 @@ def instrument_snowflake(
             _warn_capture_parameters_ignored(existing[1])
     else:
         raise ValueError(f"Don't know how to instrument {conn_or_module!r}")
-    _patch_cursor_class()
+    for cursor_class in (SnowflakeCursor, DictCursor):
+        _patch_cursor_class(cursor_class)
 
 
 def _warn_capture_parameters_ignored(existing: bool) -> None:
@@ -71,23 +72,23 @@ def _patch_connect(logfire_instance: Logfire) -> None:
     sf_connector.connect = wrapped_connect
 
 
-def _patch_cursor_class() -> None:
-    original_execute = SnowflakeCursor.__dict__.get('execute', SnowflakeCursor.execute)
+def _patch_cursor_class(cursor_class: type[SnowflakeCursor] | type[DictCursor]) -> None:
+    original_execute = cursor_class.__dict__.get('execute', cursor_class.execute)
     if not getattr(original_execute, '_logfire_patched', False):
-        SnowflakeCursor.execute = _wrap_execute(original_execute)
+        cursor_class.execute = _wrap_execute(original_execute)
 
     # In connector 5, execute_async no longer delegates to execute.
     if get_version(sf_connector.__version__) >= get_version('5'):
-        original_execute_async = SnowflakeCursor.execute_async
+        original_execute_async = cursor_class.execute_async
         if not getattr(original_execute_async, '_logfire_patched', False):
-            SnowflakeCursor.execute_async = _wrap_execute(original_execute_async, is_async=True)
+            cursor_class.execute_async = _wrap_execute(original_execute_async, is_async=True)
 
-    original_executemany = SnowflakeCursor.__dict__.get('executemany', SnowflakeCursor.executemany)
+    original_executemany = cursor_class.__dict__.get('executemany', cursor_class.executemany)
     if not getattr(original_executemany, '_logfire_patched', False):
-        SnowflakeCursor.executemany = _wrap_executemany(original_executemany)
+        cursor_class.executemany = _wrap_executemany(original_executemany)
 
 
-def _settings(cursor: SnowflakeCursor) -> tuple[Logfire, bool] | None:
+def _settings(cursor: SnowflakeCursor | DictCursor) -> tuple[Logfire, bool] | None:
     """Return the settings this cursor was instrumented with, or `None` if it isn't instrumented."""
     settings = None
     with handle_internal_errors:
@@ -97,7 +98,7 @@ def _settings(cursor: SnowflakeCursor) -> tuple[Logfire, bool] | None:
 
 def _wrap_execute(original: Any, *, is_async: bool = False) -> Any:
     @functools.wraps(original)
-    def wrapped(self: SnowflakeCursor, *args: Any, **kwargs: Any) -> Any:
+    def wrapped(self: SnowflakeCursor | DictCursor, *args: Any, **kwargs: Any) -> Any:
         command = args[0] if args else kwargs.get('operation', kwargs.get('command', ''))
         params = args[1] if len(args) > 1 else kwargs.get('parameters', kwargs.get('params'))
         settings = _settings(self)
@@ -126,7 +127,7 @@ def _wrap_execute(original: Any, *, is_async: bool = False) -> Any:
 
 def _wrap_executemany(original: Any) -> Any:
     @functools.wraps(original)
-    def wrapped(self: SnowflakeCursor, *args: Any, **kwargs: Any) -> Any:
+    def wrapped(self: SnowflakeCursor | DictCursor, *args: Any, **kwargs: Any) -> Any:
         command = args[0] if args else kwargs.get('operation', kwargs.get('command', ''))
         seqparams = args[1] if len(args) > 1 else kwargs.get('seq_of_parameters', kwargs.get('seqparams'))
         settings = _settings(self)
@@ -149,7 +150,9 @@ def _wrap_executemany(original: Any) -> Any:
     return wrapped
 
 
-def _query_span_attributes(command: str, cursor: SnowflakeCursor, logfire_instance: Logfire) -> dict[str, Any]:
+def _query_span_attributes(
+    command: str, cursor: SnowflakeCursor | DictCursor, logfire_instance: Logfire
+) -> dict[str, Any]:
     scrubbed_command = '[Scrubbed]'
     with handle_internal_errors:
         scrubbed_command, _ = logfire_instance.config.scrubber.scrub_value(('attributes', 'command'), command)
