@@ -27,6 +27,10 @@ try:
             category=UserWarning,
         )
         import_module('litestar.plugins.pydantic')
+except ModuleNotFoundError as exc:
+    # Litestar 2.11 uses an older plugin layout and is tested in a separate CI step.
+    if exc.name != 'litestar.plugins.pydantic':
+        raise
 except AttributeError as exc:
     if "module 'pydantic' has no attribute 'PyObject'" not in str(exc):
         raise
