@@ -55,6 +55,21 @@ def test_exception_callback_status(
         assert not span.events
 
 
+def test_exception_callback_set_status(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    def exception_callback(helper: ExceptionCallbackHelper) -> None:
+        helper.span.set_status(StatusCode.ERROR, type(helper.exception).__name__)
+
+    config_kwargs['advanced'].exception_callback = exception_callback
+    logfire.configure(**config_kwargs)
+
+    with pytest.raises(ValueError, match='secret'), logfire.span('foo'):
+        raise ValueError('secret')
+
+    (_pending, span) = exporter.exported_spans
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.status.description == 'ValueError'
+
+
 def test_exception_callback_set_level(exporter: TestExporter, config_kwargs: dict[str, Any]):
     def exception_callback(helper: ExceptionCallbackHelper) -> None:
         assert helper.level.name == 'error'
