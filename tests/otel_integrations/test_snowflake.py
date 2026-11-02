@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from weakref import WeakKeyDictionary
 
 import pytest
 import snowflake.connector as sf_connector
@@ -68,14 +69,16 @@ def fake_snowflake_connect(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture(autouse=True)
 def fake_snowflake_execute(monkeypatch: pytest.MonkeyPatch) -> None:
+    results: WeakKeyDictionary[SnowflakeCursor, tuple[str, int]] = WeakKeyDictionary()
+    monkeypatch.setattr(SnowflakeCursor, 'sfqid', property(lambda cursor: results.get(cursor, (None, None))[0]))
+    monkeypatch.setattr(SnowflakeCursor, 'rowcount', property(lambda cursor: results.get(cursor, (None, None))[1]))
+
     def fake_execute(self: SnowflakeCursor, command: str, params: Any = None, *args: Any, **kwargs: Any):
-        monkeypatch.setattr(SnowflakeCursor, 'sfqid', property(lambda self: 'fake-sfqid-1'))
-        monkeypatch.setattr(SnowflakeCursor, 'rowcount', property(lambda self: 3))
+        results[self] = ('fake-sfqid-1', 3)
         return self
 
     def fake_executemany(self: SnowflakeCursor, command: str, seqparams: Any, **kwargs: Any):
-        monkeypatch.setattr(SnowflakeCursor, 'sfqid', property(lambda self: 'fake-sfqid-2'))
-        monkeypatch.setattr(SnowflakeCursor, 'rowcount', property(lambda self: len(seqparams)))
+        results[self] = ('fake-sfqid-2', len(seqparams))
         return self
 
     monkeypatch.setattr(SnowflakeCursor, 'execute', fake_execute)
@@ -652,3 +655,17 @@ def test_connector_5_query_keywords(
     [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
     assert span['attributes']['command'] == 'select %s'
     assert span['attributes'][parameter_attribute] == ([1] if method == 'execute' else [[1]])
+
+
+def test_interleaved_cursor_results(exporter: TestExporter) -> None:
+    logfire.instrument_snowflake()
+    connection = FakeConnection()
+    first = connection.cursor()
+    second = connection.cursor()
+
+    first.execute('select 1')
+    second.executemany('select %s', [(1,), (2,)])
+
+    assert (first.sfqid, first.rowcount) == ('fake-sfqid-1', 3)
+    assert (second.sfqid, second.rowcount) == ('fake-sfqid-2', 2)
+    assert [span['attributes']['rowcount'] for span in exporter.exported_spans_as_dict()] == [3, 2]
