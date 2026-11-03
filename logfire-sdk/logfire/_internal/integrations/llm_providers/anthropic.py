@@ -131,6 +131,7 @@ def get_endpoint_config(
                     # so the SDK serializes the materialized list instead of the now
                     # consumed generator.
                     cast('dict[str, Any]', raw_json_data)['messages'] = messages
+                    json_data['messages'] = messages
                 input_messages, system_instructions = convert_messages_to_semconv(messages, system)
                 span_data[INPUT_MESSAGES] = input_messages
                 if system_instructions:
