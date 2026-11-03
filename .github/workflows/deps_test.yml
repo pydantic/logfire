@@ -34,7 +34,8 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
-        pydantic-version: [ 'main' ]
+        # Test released Pydantic 2; Git main is developing the next major version.
+        pydantic-version: [ '2' ]
         otel-version: [ '1' ]  # i.e. the latest
         include:
           # Pydantic versions
@@ -70,13 +71,13 @@ jobs:
             otel-version: '1'
           # OpenTelemetry versions
           - python-version: '3.14'
-            pydantic-version: 'main'
+            pydantic-version: '2'
             otel-version: '1.39'
           - python-version: '3.14'
-            pydantic-version: 'main'
+            pydantic-version: '2'
             otel-version: '1.40'
           - python-version: '3.14'
-            pydantic-version: 'main'
+            pydantic-version: '2'
             otel-version: '1.41'
     env:
       PYTHON: ${{ matrix.python-version }}
@@ -106,13 +107,8 @@ jobs:
         if: github.event_name != 'pull_request'
         run: uv sync --python ${{ matrix.python-version }} --upgrade
 
-      - name: Install pydantic main
-        if: matrix.pydantic-version == 'main'
-        run: uv pip install git+https://github.com/pydantic/pydantic.git
-
       - name: Install pydantic ${{ matrix.pydantic-version }}
-        if: matrix.pydantic-version != 'main'
-        # installs the most recent patch on the minor version's track, ex 2.6.0 -> 2.6.4
+        # Use the latest released 2.x for '2', or the latest patch of a specified minor.
         run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
 
       - name: Install SQLModel compatible with pydantic ${{ matrix.pydantic-version }}
