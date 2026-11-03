@@ -1,0 +1,19 @@
+tests/test_deps_test_matrix.py
+  s_49ededa078c536::t_8941f8f049d4b8 39-41,43,45,47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5821f9e632ad6dfb5255ada3da72025eccc783b0",
+  "prompts": {},
+  "sessions": {
+    "s_49ededa078c536": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a19cab-2ede-7ac3-8e83-652f8970f0d7",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
