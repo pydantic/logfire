@@ -33,6 +33,7 @@ import requests_mock
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry import trace
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 import logfire._internal.cli
@@ -4044,15 +4045,6 @@ def test_instrument_packages_calls_instrument(monkeypatch: pytest.MonkeyPatch):
     assert called['foo'] is True
 
 
-def test_instrument_packages_handles_missing(monkeypatch: pytest.MonkeyPatch):
-    fake_logfire = types.SimpleNamespace()
-    monkeypatch.setitem(sys.modules, 'logfire', fake_logfire)
-    installed_otel = {'opentelemetry-instrumentation-bar'}
-    instrument_pkg_map = {'opentelemetry-instrumentation-bar': 'bar'}
-    result = instrument_packages(installed_otel, instrument_pkg_map)
-    assert result == []
-
-
 def test_instrument_packages_with_only_httpx2(monkeypatch: pytest.MonkeyPatch) -> None:
     instrument_httpx = Mock()
     monkeypatch.setattr(logfire._internal.cli.run, 'logfire', types.SimpleNamespace(instrument_httpx=instrument_httpx))
@@ -4310,61 +4302,178 @@ def test_instrument_packages_falls_back_to_botocore_instrumentor(exporter: TestE
     )
 
 
-def test_instrument_packages_fallback_skips_conflicting_and_broken_entry_points(
+class _FakeInstrumentor(BaseInstrumentor):
+    """Records the keyword arguments it's instrumented with. Make subclasses with `_fake_instrumentor()`."""
+
+    dependencies: tuple[str, ...] = ()
+    instrument_calls: list[dict[str, Any]]
+
+    def instrumentation_dependencies(self) -> tuple[str, ...]:
+        return self.dependencies
+
+    def _instrument(self, **kwargs: Any) -> None:
+        self.instrument_calls.append(kwargs)
+
+    def _uninstrument(self, **kwargs: Any) -> None:
+        pass
+
+
+def _fake_instrumentor(*dependencies: str) -> type[_FakeInstrumentor]:
+    """Make a new instrumentor class, because instrumentors are singletons per class."""
+
+    class FakeInstrumentor(_FakeInstrumentor):
+        pass
+
+    FakeInstrumentor.dependencies = dependencies
+    FakeInstrumentor.instrument_calls = []
+    return FakeInstrumentor
+
+
+def _install_fake_package(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    package: str,
+    requires: tuple[str, ...] = (),
+    **instrumentors: object,
 ) -> None:
-    from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+    """Install `opentelemetry-instrumentation-<package>` with `instrumentors` as its entry points, in that order.
 
-    class IncompatibleInstrumentor(BaseInstrumentor):
-        # Its package's requirements are met, but its own library isn't, like the aiobotocore one in botocore's package.
-        def instrumentation_dependencies(self) -> tuple[str, ...]:
-            return ('logfire-test-missing-library',)
+    `requires` are the libraries it instruments, i.e. its `instruments` extra.
+    """
+    module_name = f'logfire_test_instrumentors_{package}'
+    monkeypatch.setitem(sys.modules, module_name, types.SimpleNamespace(**instrumentors))
+    dist_info = tmp_path / f'opentelemetry_instrumentation_{package}-1.0.dist-info'
+    dist_info.mkdir()
+    requirements = ''.join(f'Requires-Dist: {requirement}; extra == "instruments"\n' for requirement in requires)
+    (dist_info / 'METADATA').write_text(f'Name: opentelemetry-instrumentation-{package}\nVersion: 1.0\n{requirements}')
+    entry_points = ''.join(f'{name} = {module_name}:{name}\n' for name in instrumentors)
+    (dist_info / 'entry_points.txt').write_text(f'[opentelemetry_instrumentor]\n{entry_points}')
+    monkeypatch.setattr(sys, 'path', [str(tmp_path), *sys.path])
 
-        def _instrument(self, **kwargs: Any) -> None:
-            pass
 
-        def _uninstrument(self, **kwargs: Any) -> None:
-            pass
+def _instrument_fallback_packages(*packages: str) -> list[str]:
+    """Call `instrument_packages()` for packages without a Logfire method, so they use the fallback."""
+    otel_packages = {f'opentelemetry-instrumentation-{package}': package for package in packages}
+    return instrument_packages(set(otel_packages), otel_packages)
 
-    conflicting = types.SimpleNamespace(
-        dist=types.SimpleNamespace(
-            name='opentelemetry-instrumentation-foo',
-            requires=['logfire-test-missing-library; extra == "instruments"'],
-        ),
-        load=Mock(),
+
+def test_instrument_packages_fallback_activates_every_usable_instrumentor_with_logfire_providers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    missing_library = _fake_instrumentor('logfire-test-missing-library')
+    first = _fake_instrumentor()
+    second = _fake_instrumentor()
+    # Like botocore's package, which registers the aiobotocore instrumentor before the botocore one.
+    _install_fake_package(tmp_path, monkeypatch, 'foo', missing_library=missing_library, first=first, second=second)
+
+    assert _instrument_fallback_packages('foo') == ['foo']
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    providers = {
+        'tracer_provider': config.get_tracer_provider(),
+        'meter_provider': config.get_meter_provider(),
+        'logger_provider': config.get_logger_provider(),
+    }
+    assert missing_library.instrument_calls == []
+    assert first.instrument_calls == [providers]
+    assert second.instrument_calls == [providers]
+
+
+def test_instrument_packages_fallback_skips_missing_libraries_quietly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # foo's package requires a library that isn't installed.
+    _install_fake_package(tmp_path, monkeypatch, 'foo', requires=('logfire-test-missing-library',))
+    # bar's package is usable, but these instrumentors need a library and a module that aren't installed.
+    _install_fake_package(
+        tmp_path,
+        monkeypatch,
+        'bar',
+        missing_library=_fake_instrumentor('logfire-test-missing-library'),
+        missing_module=Mock(side_effect=ModuleNotFoundError("No module named 'missing'")),
     )
-    incompatible = types.SimpleNamespace(
-        dist=types.SimpleNamespace(name='opentelemetry-instrumentation-foo', requires=None),
-        load=Mock(return_value=IncompatibleInstrumentor),
-    )
-    broken = types.SimpleNamespace(
-        dist=types.SimpleNamespace(name='opentelemetry-instrumentation-foo', requires=None),
-        load=Mock(side_effect=ImportError('broken instrumentor')),
-    )
-    monkeypatch.setattr(
-        importlib.metadata, 'entry_points', entry_points := Mock(return_value=[conflicting, incompatible, broken])
-    )
 
-    result = instrument_packages({'opentelemetry-instrumentation-foo'}, {'opentelemetry-instrumentation-foo': 'foo'})
+    # The test suite turns warnings into errors, so this also checks that nothing warns.
+    assert _instrument_fallback_packages('foo', 'bar') == []
+
+
+def test_instrument_packages_fallback_warns_on_broken_instrumentor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _install_fake_package(tmp_path, monkeypatch, 'foo', broken=Mock(side_effect=RuntimeError('broken instrumentor')))
+
+    with pytest.warns(UserWarning) as warnings_record:
+        result = _instrument_fallback_packages('foo')
 
     assert result == []
-    entry_points.assert_called_once_with(group='opentelemetry_instrumentor')
-    conflicting.load.assert_not_called()
-    # Instrumentors are singletons, so this is the instance the fallback tried to activate.
-    assert not IncompatibleInstrumentor().is_instrumented_by_opentelemetry
-    broken.load.assert_called_once_with()
+    assert [str(w.message) for w in warnings_record] == snapshot(
+        ["Failed to instrument with logfire_test_instrumentors_foo:broken: RuntimeError('broken instrumentor')"]
+    )
 
 
-def test_instrument_packages_no_fallback_when_logfire_method_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_instrument_packages_fallback_warns_when_package_requirements_cannot_be_checked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # OpenTelemetry can't parse this requirement, like old OpenTelemetry versions can't read any distribution.
+    _install_fake_package(tmp_path, monkeypatch, 'foo', requires=('not valid!',), foo=_fake_instrumentor())
+
+    with pytest.warns(UserWarning) as warnings_record:
+        result = _instrument_fallback_packages('foo')
+
+    assert result == []
+    # The explanation comes from `packaging`.
+    assert [str(w.message) for w in warnings_record] == [
+        IsStr(regex=r'Failed to instrument with opentelemetry-instrumentation-foo: InvalidRequirement\(.*')
+    ]
+
+
+@pytest.mark.parametrize(
+    'requires, dependencies, message',
+    [
+        pytest.param(
+            ('pytest>=999',),
+            (),
+            r'Failed to instrument with opentelemetry-instrumentation-foo: .*pytest>=999.*',
+            id='package',
+        ),
+        pytest.param(
+            (),
+            ('pytest>=999',),
+            r'Failed to instrument with logfire_test_instrumentors_foo:foo: .*pytest>=999.*',
+            id='instrumentor',
+        ),
+    ],
+)
+def test_instrument_packages_fallback_warns_on_unsupported_versions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    requires: tuple[str, ...],
+    dependencies: tuple[str, ...],
+    message: str,
+) -> None:
+    # pytest is installed, but no version of it satisfies `pytest>=999`.
+    _install_fake_package(tmp_path, monkeypatch, 'foo', requires=requires, foo=_fake_instrumentor(*dependencies))
+
+    with pytest.warns(UserWarning) as warnings_record:
+        result = _instrument_fallback_packages('foo')
+
+    assert result == []
+    # OpenTelemetry's explanation includes the installed pytest version.
+    assert [str(w.message) for w in warnings_record] == [IsStr(regex=message)]
+
+
+def test_instrument_packages_no_fallback_when_logfire_method_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    usable = _fake_instrumentor()
+    _install_fake_package(tmp_path, monkeypatch, 'foo', foo=usable)
     fake_logfire = types.SimpleNamespace(instrument_foo=Mock(side_effect=RuntimeError('instrumentation failed')))
     monkeypatch.setattr(logfire._internal.cli.run, 'logfire', fake_logfire)
-    monkeypatch.setattr(logfire._internal.cli.run, 'instrument_with_entry_points', fallback := Mock())
 
     result = instrument_packages({'opentelemetry-instrumentation-foo'}, {'opentelemetry-instrumentation-foo': 'foo'})
 
     assert result == []
     fake_logfire.instrument_foo.assert_called_once_with()
-    fallback.assert_not_called()
+    assert usable.instrument_calls == []
 
 
 def test_split_args_action() -> None:

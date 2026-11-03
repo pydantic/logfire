@@ -12,7 +12,7 @@ import warnings
 from collections.abc import Callable, Collection, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from rich.box import ROUNDED
 from rich.console import Console, Group
@@ -22,6 +22,9 @@ from rich.text import Text
 
 import logfire
 from logfire._internal.utils import get_version
+
+if TYPE_CHECKING:
+    from opentelemetry.instrumentation.dependencies import DependencyConflict
 
 STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
 AMBIGUOUS_RECOMMENDATION_PACKAGES = {'requests', 'sqlite3', 'urllib'}
@@ -262,7 +265,7 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
 
         import_name = instrument_pkg_map[otel_pkg_name]
         if not hasattr(logfire, f'instrument_{import_name}'):
-            # Logfire has no method for this package, so use the package's own OpenTelemetry instrumentor.
+            # Logfire has no method for this package, so use the package's own OpenTelemetry instrumentors.
             if instrument_with_entry_points(otel_pkg_name):
                 instrumented.append(base_pkg)
             continue
@@ -284,38 +287,59 @@ def instrument_package(import_name: str, *args: str) -> None:
         getattr(logfire, instrument_attr)(*args)
 
 
+def warn_on_version_conflict(source: str, conflict: DependencyConflict) -> None:
+    """Warn when an instrumented library is installed at a version its instrumentation doesn't support.
+
+    A library that isn't installed at all is skipped quietly, as `opentelemetry-instrument` does.
+    """
+    if conflict.found or conflict.found_any:
+        warnings.warn(f'Failed to instrument with {source}: {conflict}')
+
+
 def instrument_with_entry_points(otel_pkg_name: str) -> bool:
     """Call the `opentelemetry_instrumentor` entry points registered by an OpenTelemetry instrumentation package.
 
-    This follows `opentelemetry-instrument`, but passes Logfire's providers.
+    This follows `opentelemetry-instrument`, but passes Logfire's providers and warns instead of raising on failure.
     Returns whether at least one instrumentor was activated.
     """
-    from opentelemetry.instrumentation.dependencies import get_dist_dependency_conflicts
-    from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+    try:
+        # Old versions of these need `pkg_resources`, and can't read `importlib.metadata` distributions.
+        from opentelemetry.instrumentation.dependencies import get_dependency_conflicts, get_dist_dependency_conflicts
+        from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+
+        dist = importlib.metadata.distribution(otel_pkg_name)
+        # Check the package's requirements once, before importing any of its instrumentors.
+        conflict = get_dist_dependency_conflicts(dist)
+    except Exception as exc:
+        warnings.warn(f'Failed to instrument with {otel_pkg_name}: {exc!r}')
+        return False
+    if conflict:
+        warn_on_version_conflict(otel_pkg_name, conflict)
+        return False
 
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
     instrumented = False
-    for entry_point in importlib.metadata.entry_points(group='opentelemetry_instrumentor'):
-        # Match the distribution the same way `installed_packages()` names it.
-        if entry_point.dist is None or entry_point.dist.name.lower() != otel_pkg_name:
-            continue
+    for entry_point in dist.entry_points.select(group='opentelemetry_instrumentor'):
         try:
-            # Skip quietly when the instrumented library is missing or incompatible.
-            if get_dist_dependency_conflicts(entry_point.dist):
-                continue
             instrumentor = cast(type[BaseInstrumentor], entry_point.load())()
+            # The package check passes if any of its libraries is usable, e.g. botocore without aiobotocore,
+            # so check this instrumentor's own library too. `instrument()` repeats this check, but would only log.
+            if conflict := get_dependency_conflicts(instrumentor.instrumentation_dependencies()):
+                warn_on_version_conflict(entry_point.value, conflict)
+                continue
             # Pass Logfire's providers explicitly, like the `logfire.instrument_*()` methods, not the global ones.
             instrumentor.instrument(
                 tracer_provider=config.get_tracer_provider(),
                 meter_provider=config.get_meter_provider(),
-                # The check above passes if any library of the package is usable, e.g. botocore without aiobotocore,
-                # so each instrumentor also checks its own library, raising on a conflict instead of logging an error.
-                raise_exception_on_conflict=True,
+                logger_provider=config.get_logger_provider(),
             )
-        except Exception:
+        except ModuleNotFoundError:
+            # Like `opentelemetry-instrument`, skip quietly when a module the instrumentor needs isn't installed.
             continue
-        # `instrument()` doesn't raise on a conflict before 0.53b0, so ask whether it actually instrumented.
-        instrumented = instrumented or instrumentor.is_instrumented_by_opentelemetry
+        except Exception as exc:
+            warnings.warn(f'Failed to instrument with {entry_point.value}: {exc!r}')
+            continue
+        instrumented = True
     return instrumented
 
 
