@@ -1,6 +1,6 @@
 name: 🐛 Bug
 description: Report any issue with Logfire — SDK or the Platform
-labels: [Bug]
+labels: [ Bug ]
 
 body:
   - type: textarea
@@ -23,13 +23,7 @@ body:
         Please run the following command in your terminal:
 
         ```bash
-        python -c 'import logfire; print(logfire.logfire_info())'
-        ```
-
-        Or in python run:
-
-        ```python
-        import logfire; print(logfire.logfire_info())
+        python -c "import logfire; print(logfire.logfire_info())"
         ```
 
       render: TOML
