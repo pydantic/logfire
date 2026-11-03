@@ -113,8 +113,6 @@ You can install this with:
     get_version(pydantic.__version__) < get_version('2.11.0'), reason='LiteLLM requires Pydantic >= 2.11'
 )
 def test_dspy_instrumentation(exporter: TestExporter, isolated_litellm_event_loop: None) -> None:
-    # This test uses LiteLLM, whose dependencies may lag Pydantic development builds.
-    pytest.importorskip('pydantic_settings', exc_type=ImportError)
     # Skip test if dspy can't be imported due to compatibility issues
     dspy = pytest.importorskip('dspy', reason='DSPy import failed due to environment incompatibility')
 
