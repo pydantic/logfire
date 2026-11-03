@@ -3,9 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import warnings
 from decimal import Decimal
-from importlib import import_module
 from typing import Annotated, Any, cast
 from unittest import mock
 
@@ -16,25 +14,6 @@ pytest.importorskip(
     minversion='2.5',
     reason='Litestar 2.11 and later require Pydantic 2.5 or later.',
 )
-
-# Litestar's plugin still expects legacy APIs removed from Pydantic main.
-try:
-    with warnings.catch_warnings():
-        # The plugin only enumerates legacy types; these tests use Pydantic V2.
-        warnings.filterwarnings(
-            'ignore',
-            message=r"Core Pydantic V1 functionality isn't compatible with Python 3\.14 or greater\.",
-            category=UserWarning,
-        )
-        import_module('litestar.plugins.pydantic')
-except ModuleNotFoundError as exc:
-    # Litestar 2.11 uses an older plugin layout and is tested in a separate CI step.
-    if exc.name != 'litestar.plugins.pydantic':
-        raise
-except AttributeError as exc:
-    if "module 'pydantic' has no attribute 'PyObject'" not in str(exc):
-        raise
-    pytest.skip('Litestar requires legacy Pydantic APIs unavailable in this build', allow_module_level=True)
 
 from inline_snapshot import snapshot
 from litestar import Litestar, Request, Router, WebSocket, asgi, get, post, websocket
