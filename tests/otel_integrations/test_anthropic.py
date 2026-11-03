@@ -335,6 +335,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                             'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': None,
+                            'speed': None,
                         },
                     },
                     'gen_ai.output.messages': [
@@ -1095,6 +1096,7 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
                             'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': None,
+                            'speed': None,
                         },
                     },
                     'gen_ai.output.messages': [
@@ -1295,6 +1297,7 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                             'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': None,
+                            'speed': None,
                         },
                     },
                     'gen_ai.output.messages': [
@@ -1608,6 +1611,7 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
                             'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': IsStr(),
+                            'speed': None,
                         },
                     },
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
@@ -1943,7 +1947,8 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
     )
 
 
-@pytest.mark.vcr()
+# Anthropic 2.3 removed the legacy beta=true query parameter.
+@pytest.mark.vcr(match_on=['method', 'scheme', 'host', 'port', 'path'])
 def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
     client = anthropic.Anthropic(api_key='foobar')
     logfire.instrument_anthropic(client, version=['latest', 1])
@@ -2101,7 +2106,8 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
     )
 
 
-@pytest.mark.vcr()
+# Anthropic 2.3 removed the legacy beta=true query parameter.
+@pytest.mark.vcr(match_on=['method', 'scheme', 'host', 'port', 'path'])
 async def test_async_beta_messages(exporter: TestExporter) -> None:
     client = anthropic.AsyncAnthropic()
     logfire.instrument_anthropic(client, version=['latest', 1])

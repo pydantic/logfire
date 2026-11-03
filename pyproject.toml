@@ -36,7 +36,8 @@ dev = [
     # Keep depending on types-requests so its stubs take priority; it previously came
     # in transitively via openai-agents.
     "types-requests",
-    "sqlalchemy >= 1.4.54",
+    # OTel instrumentation currently supports SQLAlchemy <2.1.
+    "sqlalchemy >= 1.4.54, <2.1",
     "pandas>=2.1.2",
     "attrs >= 23.1.0",
     "openai >= 1.108.1",
@@ -224,6 +225,7 @@ venvPath = "."
 venv = ".venv"
 
 [tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
 xfail_strict = true
 pythonpath = ["."]
 markers = [
