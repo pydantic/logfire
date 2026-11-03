@@ -32,4 +32,6 @@ Run failed tests again. If the same snapshots get updated again, use `dirty_equa
 
 For remaining test failures, investigate and explain the problem.
 
+Do not hide compatibility failures with skips or import-error suppression just to make CI pass. If an upstream development build breaks a dependency, report the root cause. Gate unsupported released versions using declared dependency requirements; change the CI matrix only after an explicit decision.
+
 Keep the label on the PR and wait for both regular CI and the full dependency compatibility workflow to pass. The full workflow reruns after each push while the label is present.
