@@ -180,7 +180,7 @@ with logfire.span('This is a span'):
 
 If you click on the span in the Live view, the panel on the right will have an 'Exception Traceback' tab:
 
-<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--exception-traceback" image="../../images/guide/manual-tracing-traceback" alt="Traceback in UI" viewport="480x600" scale="2" selector="#details-container [role=tablist], #details-container [role=tablist] + section" aspect="412:180" padding="4" time="2026-08-01T12:02:00Z" -->
+<!-- ladle-screenshot story="product--live--docs-traces--core-sdk--exception-traceback" image="../../images/guide/manual-tracing-traceback" alt="Traceback in UI" viewport="480x600" scale="2" selector="#details-container [role=tablist], #details-container [role=tablist] + section" click="#details-container [role=tab][title='Exception Traceback']" aspect="412:180" padding="4" time="2026-08-01T12:02:00Z" -->
 <img class="only-light" src="../../images/guide/manual-tracing-traceback-light.png" alt="Traceback in UI" width="430" height="188" loading="lazy" />
 <img class="only-dark" src="../../images/guide/manual-tracing-traceback-dark.png" alt="Traceback in UI" width="430" height="188" loading="lazy" />
 <!-- /ladle-screenshot -->

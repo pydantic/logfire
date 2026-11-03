@@ -71,7 +71,7 @@ With that you get:
 </figure>
 
 <figure markdown="span">
-<!-- ladle-screenshot story="product--live--docs-traces--llm-integrations--anthropic-message" image="../../images/logfire-screenshot-anthropic-arguments" alt="Logfire Anthropic Arguments" viewport="1600x1000" scale="2" selector="#details-container [role=tabpanel]" aspect="870:510" padding="0" time="2026-08-01T12:00:00Z" -->
+<!-- ladle-screenshot story="product--live--docs-traces--llm-integrations--anthropic-message" image="../../images/logfire-screenshot-anthropic-arguments" alt="Logfire Anthropic Arguments" viewport="1600x1000" scale="2" selector="#details-container [role=tabpanel]" click="#details-container [role=tab]:has-text('Details')" aspect="870:510" padding="0" time="2026-08-01T12:00:00Z" -->
 <img class="only-light" src="../../images/logfire-screenshot-anthropic-arguments-light.png" alt="Logfire Anthropic Arguments" width="756" height="443" loading="lazy" />
 <img class="only-dark" src="../../images/logfire-screenshot-anthropic-arguments-dark.png" alt="Logfire Anthropic Arguments" width="756" height="443" loading="lazy" />
 <!-- /ladle-screenshot -->
