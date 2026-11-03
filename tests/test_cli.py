@@ -4383,31 +4383,35 @@ def test_instrument_packages_fallback_skips_missing_libraries_quietly(
 ) -> None:
     # foo's package requires a library that isn't installed.
     _install_fake_package(tmp_path, monkeypatch, 'foo', requires=('logfire-test-missing-library',))
-    # bar's package is usable, but these instrumentors need a library and a module that aren't installed.
+    # bar's package is usable, but this instrumentor needs a library that isn't installed.
     _install_fake_package(
-        tmp_path,
-        monkeypatch,
-        'bar',
-        missing_library=_fake_instrumentor('logfire-test-missing-library'),
-        missing_module=Mock(side_effect=ModuleNotFoundError("No module named 'missing'")),
+        tmp_path, monkeypatch, 'bar', missing_library=_fake_instrumentor('logfire-test-missing-library')
     )
 
     # The test suite turns warnings into errors, so this also checks that nothing warns.
     assert _instrument_fallback_packages('foo', 'bar') == []
 
 
+@pytest.mark.parametrize(
+    'error',
+    [
+        pytest.param(RuntimeError('broken instrumentor'), id='error'),
+        # Only a missing library is skipped quietly; a missing module warns like any other failure.
+        pytest.param(ModuleNotFoundError("No module named 'missing'"), id='missing-module'),
+    ],
+)
 def test_instrument_packages_fallback_warns_on_broken_instrumentor(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: Exception
 ) -> None:
-    _install_fake_package(tmp_path, monkeypatch, 'foo', broken=Mock(side_effect=RuntimeError('broken instrumentor')))
+    _install_fake_package(tmp_path, monkeypatch, 'foo', broken=Mock(side_effect=error))
 
     with pytest.warns(UserWarning) as warnings_record:
         result = _instrument_fallback_packages('foo')
 
     assert result == []
-    assert [str(w.message) for w in warnings_record] == snapshot(
-        ["Failed to instrument with logfire_test_instrumentors_foo:broken: RuntimeError('broken instrumentor')"]
-    )
+    assert [str(w.message) for w in warnings_record] == [
+        f'Failed to instrument with logfire_test_instrumentors_foo:broken: {error!r}'
+    ]
 
 
 def test_instrument_packages_fallback_warns_when_package_requirements_cannot_be_checked(
@@ -4423,6 +4427,25 @@ def test_instrument_packages_fallback_warns_when_package_requirements_cannot_be_
     # The explanation comes from `packaging`.
     assert [str(w.message) for w in warnings_record] == [
         IsStr(regex=r'Failed to instrument with opentelemetry-instrumentation-foo: InvalidRequirement\(.*')
+    ]
+
+
+def test_instrument_packages_fallback_warns_when_entry_points_cannot_be_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _install_fake_package(tmp_path, monkeypatch, 'foo')
+    # An entry point needs `name = module:attribute`, so a line without `=` is malformed.
+    (tmp_path / 'opentelemetry_instrumentation_foo-1.0.dist-info' / 'entry_points.txt').write_text(
+        '[opentelemetry_instrumentor]\nfoo\n'
+    )
+
+    with pytest.warns(UserWarning) as warnings_record:
+        result = _instrument_fallback_packages('foo')
+
+    assert result == []
+    # The explanation comes from `importlib.metadata`.
+    assert [str(w.message) for w in warnings_record] == [
+        IsStr(regex=r'Failed to instrument with opentelemetry-instrumentation-foo: TypeError\(.*')
     ]
 
 

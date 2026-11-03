@@ -299,7 +299,8 @@ def warn_on_version_conflict(source: str, conflict: DependencyConflict) -> None:
 def instrument_with_entry_points(otel_pkg_name: str) -> bool:
     """Call the `opentelemetry_instrumentor` entry points registered by an OpenTelemetry instrumentation package.
 
-    This follows `opentelemetry-instrument`, but passes Logfire's providers and warns instead of raising on failure.
+    This follows `opentelemetry-instrument`, but passes Logfire's providers and warns on every failure,
+    including a missing module, where `opentelemetry-instrument` raises or only logs.
     Returns whether at least one instrumentor was activated.
     """
     try:
@@ -310,6 +311,8 @@ def instrument_with_entry_points(otel_pkg_name: str) -> bool:
         dist = importlib.metadata.distribution(otel_pkg_name)
         # Check the package's requirements once, before importing any of its instrumentors.
         conflict = get_dist_dependency_conflicts(dist)
+        # A malformed `entry_points.txt` raises here.
+        entry_points = dist.entry_points.select(group='opentelemetry_instrumentor')
     except Exception as exc:
         warnings.warn(f'Failed to instrument with {otel_pkg_name}: {exc!r}')
         return False
@@ -319,7 +322,7 @@ def instrument_with_entry_points(otel_pkg_name: str) -> bool:
 
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
     instrumented = False
-    for entry_point in dist.entry_points.select(group='opentelemetry_instrumentor'):
+    for entry_point in entry_points:
         try:
             instrumentor = cast(type[BaseInstrumentor], entry_point.load())()
             # The package check passes if any of its libraries is usable, e.g. botocore without aiobotocore,
@@ -333,9 +336,6 @@ def instrument_with_entry_points(otel_pkg_name: str) -> bool:
                 meter_provider=config.get_meter_provider(),
                 logger_provider=config.get_logger_provider(),
             )
-        except ModuleNotFoundError:
-            # Like `opentelemetry-instrument`, skip quietly when a module the instrumentor needs isn't installed.
-            continue
         except Exception as exc:
             warnings.warn(f'Failed to instrument with {entry_point.value}: {exc!r}')
             continue
