@@ -1,0 +1,14 @@
+.agents/skills/update-deps/SKILL.md
+  h_d9dd17644dded9 35-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "19d9a4b910ce4a7e5ebf363c27c519ccc659b49f",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
