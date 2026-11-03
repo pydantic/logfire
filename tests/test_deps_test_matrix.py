@@ -36,13 +36,15 @@ def test_deps_test_matrix_covers_every_supported_minor_once() -> None:
     otel_requirement = next(requirement for requirement in requirements if requirement.name == 'opentelemetry-sdk')
     assert latest_otel in otel_requirement.specifier
     first_otel = max(Version(bound.version) for bound in otel_requirement.specifier if bound.operator in {'>=', '>'})
-    assert first_otel.major == 1
+    otel_upper_bound = min(Version(bound.version) for bound in otel_requirement.specifier if bound.operator == '<')
+    assert first_otel.major == otel_upper_bound.major == 1
+    assert otel_upper_bound.micro == 0 and not otel_upper_bound.is_prerelease
 
-    # Pydantic 2.4 is the existing compatibility floor; OTel's floor follows SDK metadata.
+    # Pydantic 2.4 is the existing compatibility floor; both OTel bounds follow SDK metadata.
     pydantic_minors = {f'2.{minor}' for minor in range(4, latest_pydantic.minor + 1)}
-    otel_minors = {f'1.{minor}' for minor in range(first_otel.minor, latest_otel.minor + 1)}
+    otel_minors = {f'1.{minor}' for minor in range(first_otel.minor, otel_upper_bound.minor)}
     latest_pydantic_minor = f'2.{latest_pydantic.minor}'
-    latest_otel_minor = f'1.{latest_otel.minor}'
+    latest_otel_minor = max(otel_minors, key=Version)
     expected_pairs = {(minor, latest_otel_minor) for minor in pydantic_minors} | {
         (latest_pydantic_minor, minor) for minor in otel_minors
     }
