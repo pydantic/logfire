@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import inspect
 import sys
 import warnings
 from collections.abc import Callable
@@ -52,7 +53,15 @@ def uninstrument_global_instrumentors():
                 (ClientSession, '_received_request'),
                 (Server, '_handle_request'),
             ]
-    saved = [(cls, name, getattr(cls, name)) for cls, name in mcp_patched]
+    try:
+        from arq.cron import CronJob
+        from arq.worker import Function
+    except ImportError:
+        arq_patched = []
+    else:
+        arq_patched = [(Function, 'coroutine'), (CronJob, 'coroutine')]
+    missing = object()
+    saved = [(cls, name, inspect.getattr_static(cls, name, missing)) for cls, name in [*mcp_patched, *arq_patched]]
 
     yield
 
@@ -61,8 +70,6 @@ def uninstrument_global_instrumentors():
     # imports during the test add unrelated finders (e.g. six._SixMetaPathImporter)
     # that later imports still need.
     sys.meta_path[:] = [finder for finder in sys.meta_path if not isinstance(finder, LogfireFinder)]
-    for cls, name, value in saved:
-        setattr(cls, name, value)
 
     to_visit = [BaseInstrumentor]
     while to_visit:
@@ -78,6 +85,12 @@ def uninstrument_global_instrumentors():
                 # AwsLambdaInstrumentor given a MagicMock handler is marked instrumented
                 # without the internal state uninstrument expects.
                 pass
+    for cls, name, value in saved:
+        if value is missing:
+            if name in vars(cls):
+                delattr(cls, name)
+        else:
+            setattr(cls, name, value)
 
 
 def logfire_dunder_all() -> set[str]:

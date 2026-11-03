@@ -140,6 +140,8 @@ except ImportError:
                     return decorator(msg_template)
                 return decorator
 
+            def instrument_arq(self, *args, **kwargs) -> None: ...
+
             def instrument_asgi(self, app, *args, **kwargs):
                 return app
 
@@ -262,6 +264,7 @@ except ImportError:
         instrument_dspy = DEFAULT_LOGFIRE_INSTANCE.instrument_dspy
         instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
         instrument_print = DEFAULT_LOGFIRE_INSTANCE.instrument_print
+        instrument_arq = DEFAULT_LOGFIRE_INSTANCE.instrument_arq
         instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery
         instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
         instrument_requests = DEFAULT_LOGFIRE_INSTANCE.instrument_requests

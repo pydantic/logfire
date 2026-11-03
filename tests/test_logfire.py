@@ -16,6 +16,7 @@ from unittest.mock import patch
 
 import cloudpickle
 import pytest
+import wrapt
 from dirty_equals import IsInt, IsJson, IsStr
 from inline_snapshot import Is, snapshot
 from opentelemetry.exporter.otlp.proto.common.trace_encoder import encode_spans
@@ -28,7 +29,6 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.trace import INVALID_SPAN, SpanKind, StatusCode, get_current_span, get_tracer
 from pydantic import BaseModel, __version__ as pydantic_version
 from pydantic_core import ValidationError
-from wrapt import ObjectProxy
 
 import logfire
 from logfire import Logfire, suppress_instrumentation
@@ -490,7 +490,7 @@ def test_span_missing_template_field() -> None:
 
 
 def test_non_string_message_is_literal_and_otlp_encodable(exporter: TestExporter) -> None:
-    message: Any = ObjectProxy('literal {value}')
+    message: Any = getattr(wrapt, 'ObjectProxy')('literal {value}')
     with pytest.warns(FormattingFailedWarning):
         logfire.info(message, value='must not interpolate')
 
