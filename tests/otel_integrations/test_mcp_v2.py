@@ -11,8 +11,7 @@ import logfire
 from logfire.testing import TestExporter
 
 pytest.importorskip('pydantic', minversion='2.12')
-# Pydantic development builds can outpace FastMCP's pydantic-settings dependency.
-pytest.importorskip('fastmcp', minversion='4', exc_type=ImportError)
+pytest.importorskip('fastmcp', minversion='4')
 
 from fastmcp import Client, FastMCP
 
