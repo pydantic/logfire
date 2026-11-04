@@ -86,7 +86,7 @@ def test_instrument_valkey_capture_statement(valkey_behavior: dict[str, Any], ex
     logfire.instrument_valkey(capture_statement=True)
 
     client = Valkey(host='localhost', port=6379, db=0)
-    assert _sync_execute(client, 'SET', 'my-key', 123) == 'OK'
+    assert _sync_execute(client, 'SET', b'my-key', 123) == 'OK'
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
@@ -388,6 +388,31 @@ def test_instrument_valkey_idempotent(valkey_behavior: dict[str, Any], exporter:
     assert _sync_execute(client, 'PING') == 'OK'
 
     assert len(exporter.exported_spans_as_dict()) == 1
+
+
+def test_uninstrument_valkey_preserves_later_wrappers(
+    monkeypatch: pytest.MonkeyPatch, valkey_behavior: dict[str, Any], exporter: TestExporter
+) -> None:
+    from valkey import Valkey
+
+    instrumented = vars(Valkey)['execute_command']
+
+    def later_wrapper(self: Valkey, *args: Any, **kwargs: Any) -> Any:
+        return instrumented(self, *args, **kwargs)
+
+    monkeypatch.setattr(Valkey, 'execute_command', later_wrapper)
+    uninstrument_valkey()
+    assert vars(Valkey)['execute_command'] is later_wrapper
+    client = Valkey()
+    assert _sync_execute(client, 'PING') == 'OK'
+    assert not exporter.exported_spans_as_dict()
+
+    logfire.instrument_valkey()
+    assert _sync_execute(client, 'PING') == 'OK'
+    assert len(exporter.exported_spans_as_dict()) == 1
+    uninstrument_valkey()
+    # Undo this patch before the fixture restores its fake command methods.
+    monkeypatch.undo()
 
 
 def test_uninstrument_valkey_without_instrument():

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from threading import Event, Lock
 from typing import Any, TypeVar
 
 from logfire.integrations.valkey import RequestHook, RequestHookContext, ResponseHook, ResponseHookContext
@@ -21,7 +22,7 @@ except ModuleNotFoundError as exc:
     ) from exc
 
 from opentelemetry.trace import Span, SpanKind, StatusCode, Tracer
-from wrapt import wrap_function_wrapper
+from wrapt import FunctionWrapper
 
 from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.utils import is_instrumentation_suppressed, log_internal_error
@@ -30,8 +31,9 @@ _logger = logging.getLogger(__name__)
 
 _METHOD = 'execute_command'
 
-_originals: list[tuple[Any, str, Any]] = []
-_is_instrumented = False
+_lock = Lock()
+_active_installation: Event | None = None
+_originals: list[tuple[type[Valkey] | type[AsyncValkey], Any, Any]] = []
 
 
 def instrument_valkey(
@@ -45,32 +47,40 @@ def instrument_valkey(
 
     See the `Logfire.instrument_valkey` method for details.
     """
-    global _is_instrumented
-    if _is_instrumented:
-        return
+    global _active_installation
+    with _lock:
+        if _active_installation is not None:
+            return
 
-    sync_wrapper = _traced_sync_wrapper(tracer, capture_statement, request_hook, response_hook)
-    async_wrapper = _traced_async_wrapper(tracer, capture_statement, request_hook, response_hook)
+        installation = Event()
+        patches: list[tuple[type[Valkey] | type[AsyncValkey], Any, Any]] = []
+        for cls, wrapper in (
+            (Valkey, _traced_sync_wrapper(tracer, capture_statement, request_hook, response_hook)),
+            (AsyncValkey, _traced_async_wrapper(tracer, capture_statement, request_hook, response_hook)),
+        ):
+            original = vars(cls)[_METHOD]
+            patched = FunctionWrapper(original, wrapper, enabled=installation.is_set)
+            patches.append((cls, original, patched))
 
-    for cls, wrapper in (
-        (Valkey, sync_wrapper),
-        (AsyncValkey, async_wrapper),
-    ):
-        _originals.append((cls, _METHOD, getattr(cls, _METHOD)))
-        wrap_function_wrapper(cls, _METHOD, wrapper)
-
-    _is_instrumented = True
+        for cls, _, patched in patches:
+            setattr(cls, _METHOD, patched)
+        _originals.extend(patches)
+        installation.set()
+        _active_installation = installation
 
 
 def uninstrument_valkey() -> None:
     """Remove Valkey instrumentation applied by `instrument_valkey`."""
-    global _is_instrumented
-    if not _is_instrumented:
-        return
-    while _originals:
-        cls, method, original = _originals.pop()
-        setattr(cls, method, original)
-    _is_instrumented = False
+    global _active_installation
+    with _lock:
+        if _active_installation is None:
+            return
+        _active_installation.clear()
+        while _originals:
+            cls, original, patched = _originals.pop()
+            if vars(cls).get(_METHOD) is patched:
+                setattr(cls, _METHOD, original)
+        _active_installation = None
 
 
 def _arg_to_str(arg: Any) -> str:
