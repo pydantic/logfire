@@ -1,5 +1,5 @@
 ---
-name: update-deps
+name: review-integration
 description: "Review a PR which adds an integration/instrumentation."
 ---
 
