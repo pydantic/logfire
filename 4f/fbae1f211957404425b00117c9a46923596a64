@@ -1,0 +1,19 @@
+tests/test_cli.py
+  s_3bc6e06f6c34c7::t_f77afc1e17b130 407
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4ffbae1f211957404425b00117c9a46923596a64",
+  "prompts": {},
+  "sessions": {
+    "s_3bc6e06f6c34c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a736-8b01-7eb1-91dc-45c367ff317d",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
