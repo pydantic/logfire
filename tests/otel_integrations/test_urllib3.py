@@ -6,7 +6,8 @@ import pytest
 import urllib3
 from dirty_equals import IsFloat, IsNumeric
 from inline_snapshot import snapshot
-from opentelemetry.instrumentation.urllib3 import URLLib3Instrumentor
+from opentelemetry.instrumentation.urllib3 import RequestInfo, URLLib3Instrumentor
+from opentelemetry.sdk.trace import Span
 
 import logfire
 from logfire.testing import TestExporter
@@ -345,3 +346,54 @@ def test_urllib3_options_forwarded():
         'meter_provider': meter_provider,
         'captured_request_headers': ['content-type'],
     }
+
+
+def test_urllib3_hooks_exclusion_and_repeated_installation(exporter: TestExporter, caplog: pytest.LogCaptureFixture):
+    pool = urllib3.HTTPSConnectionPool('example.com')
+
+    def request_hook(span: Span, pool: urllib3.HTTPConnectionPool, request: RequestInfo) -> None:
+        span.set_attribute('test.request_method', request.method)
+
+    def response_hook(span: Span, pool: urllib3.HTTPConnectionPool, response: urllib3.HTTPResponse) -> None:
+        span.set_attribute('test.response_status', response.status)
+
+    logfire.instrument_urllib3(
+        excluded_urls='/health',
+        request_hook=request_hook,
+        response_hook=response_hook,
+        captured_request_headers=['x-example'],
+        sensitive_headers=['x-example'],
+    )
+    try:
+        logfire.instrument_urllib3(excluded_urls='.*')
+        assert 'Attempting to instrument while already instrumented' in caplog.text
+
+        with mock.patch.object(
+            pool, '_make_request', side_effect=[urllib3.HTTPResponse(status=200), urllib3.HTTPResponse(status=200)]
+        ):
+            pool.urlopen('GET', '/health')
+            response = pool.urlopen('POST', '/example', b'private-body', {'X-Example': 'private-credential'})
+        assert response.status == 200
+        (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert span['attributes']['test.request_method'] == 'POST'
+        assert span['attributes']['test.response_status'] == 200
+        assert span['attributes']['http.request.header.x_example'] == ('[REDACTED]',)
+        assert 'private-body' not in repr(span)
+        assert 'private-credential' not in repr(span)
+    finally:
+        URLLib3Instrumentor().uninstrument()
+
+
+def test_urllib3_request_failure_restores_context(exporter: TestExporter, instrument_urllib3: None):
+    error = urllib3.exceptions.ProtocolError('connection dropped')
+    with logfire.span('parent'):
+        with mock.patch.object(urllib3.HTTPConnectionPool, '_make_request', side_effect=error):
+            with pytest.raises(urllib3.exceptions.ProtocolError) as exc_info:
+                urllib3.PoolManager().request('GET', 'https://example.com/', retries=False)
+        assert exc_info.value is error
+        logfire.info('after request')
+
+    request, after, parent = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert request['parent'] == after['parent'] == parent['context']
+    assert request['events'][0]['name'] == 'exception'
+    assert request['events'][0]['attributes']['exception.message'] == 'connection dropped'
