@@ -93,6 +93,22 @@ def test_signed_url_redaction(exporter: TestExporter, custom_filter: bool, param
         URLLib3Instrumentor().uninstrument()
 
 
+def test_invalid_filtered_url(exporter: TestExporter):
+    logfire.instrument_urllib3(url_filter=lambda _: 'https://[private-credential')
+    try:
+        with mock.patch(
+            'urllib3.connectionpool.HTTPConnectionPool._make_request',
+            return_value=urllib3.HTTPResponse(status=200),
+        ):
+            response = urllib3.PoolManager().request('GET', 'https://example.com/')
+        assert response.status == 200
+        attributes = exporter.exported_spans_as_dict()[0]['attributes']
+        assert attributes['http.url'] == attributes['url.full'] == '[REDACTED]'
+        assert 'private-credential' not in repr(exporter.exported_spans_as_dict())
+    finally:
+        URLLib3Instrumentor().uninstrument()
+
+
 def test_urllib3_options_forwarded():
     request_hook = mock.Mock()
     response_hook = mock.Mock()

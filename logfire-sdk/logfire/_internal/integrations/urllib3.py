@@ -38,8 +38,13 @@ def instrument_urllib3(
     sanitize = SanitizeValue([r'^X-Amz-(Signature|Credential|Security-Token)$'])
 
     def filter_url(url: str) -> str:
-        url = redact_url(url_filter(url) if url_filter is not None else url)
-        parts = urlsplit(url)
+        url = url_filter(url) if url_filter is not None else url
+        try:
+            url = redact_url(url)
+            parts = urlsplit(url)
+        except ValueError:
+            # An invalid telemetry URL should neither abort the request nor expose credentials.
+            return '[REDACTED]'
         query = parse_qsl(parts.query, keep_blank_values=True)
         sanitized = [(key, sanitize.sanitize_header_value(key, value)) for key, value in query]
         if sanitized != query:
