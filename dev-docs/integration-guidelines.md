@@ -1,22 +1,16 @@
 # Integration guidelines
 
+Use this checklist when creating, changing, reviewing, or auditing a Logfire integration (an instrumentation of a library or framework), including integrations without an `instrument_*` method.
+
 ## Using this checklist
 
-- Required: use this checklist when creating, changing, reviewing, or auditing a Logfire integration, including integrations without an `instrument_*` method.
-- Required: read each category and decide which items apply. “Conditional” means required when the stated condition applies; “nice to have” means an improvement rather than a merge requirement.
-- Required: support conclusions with implementation, upstream source, documentation, or test evidence. A checked box or an existing integration doing the same thing is not sufficient evidence.
-- Required: distinguish confirmed defects, missing evidence, intentional limitations, and optional improvements. Explain material exceptions and unsupported cases.
-- Required: assess the changed behavior and relevant interactions; an unrelated pre-existing gap need not block a focused fix. Record larger follow-up work separately.
-- Required: check current repository conventions and upstream APIs rather than assuming examples or review comments are correct.
-
-## Making the checklist available to agents and reviewers
-
-- Required for the eventual checked-in version: keep one authoritative checklist, either within the skill or in a document linked by it, so implementation and review guidance stay aligned.
-- Required for the eventual checked-in version: add guidance in the repository's `AGENTS.md` directing implementation agents and reviewers to consult the checklist for relevant changes, including Cubic, Devin, and CodeRabbit.
-- Conditional: where a review bot requires its own configuration or instruction file, point it to the same checklist using that bot's supported mechanism. An `AGENTS.md` instruction alone is not proof the bot reads it.
-- Required: make the checklist usable as ordinary Markdown by reviewers that cannot invoke a skill.
-- Required: make the skill's scope clear: developing and reviewing Logfire's integrations, rather than adding Logfire instrumentation to a user's application.
-- Nice to have: retain concrete examples and lessons from reviews as supporting references without duplicating the checklist.
+- Read each category and decide which items apply. “Conditional” means required when the stated condition applies; “nice to have” means an improvement rather than a merge requirement.
+- Support conclusions with implementation, upstream source, documentation, or test evidence. A checked box or an existing integration doing the same thing is not sufficient evidence.
+- Distinguish confirmed defects, missing evidence, intentional limitations, and optional improvements. Explain material exceptions and unsupported cases.
+- Assess the changed behavior and relevant interactions; an unrelated pre-existing gap need not block a focused fix. Record larger follow-up work separately.
+- Check current repository conventions and upstream APIs rather than assuming examples or review comments are correct.
+- Stay within the scope of a PR. It's normal that integrations don't satisfy this whole checklist, don't suggest unrelated changes when editing a PR to fix the checklist.
+- If you don't have access to external resources required to verify a checklist item, don't comment "this should be checked but I can't", just leave it be.
 
 ## Public API and typing
 
