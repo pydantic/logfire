@@ -1683,6 +1683,8 @@ def test_missing_sdk_credentials_explain_native_cli_setup(
 ):
     # Ordinary applications default to sending; pytest normally disables that default.
     monkeypatch.delenv('PYTEST_VERSION', raising=False)
+    # Docs tests disable sending during collection, even when their cases are deselected.
+    monkeypatch.delenv('LOGFIRE_SEND_TO_LOGFIRE', raising=False)
     auth_file = tmp_path / 'default.toml'
     if legacy_state == 'empty':
         auth_file.touch()

@@ -7649,7 +7649,6 @@ def test_projects_new_organization_prompt_defaults(
 
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
-        # request_mocker.get('https://logfire-api.pydantic.dev/v1/info', json={'project_name': 'myproject'})
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
             json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_org1'}],
@@ -7661,7 +7660,7 @@ def test_projects_new_organization_prompt_defaults(
 
         create_project_response = {
             'json': {
-                'project_name': 'myproject',
+                'project_name': 'mytestproject1',
                 'token': 'fake_token',
                 'project_url': 'fake_project_url',
             }
@@ -7673,6 +7672,8 @@ def test_projects_new_organization_prompt_defaults(
 
         main(['projects', 'new'])
 
+        assert request_mocker.last_request is not None
+        assert request_mocker.last_request.json() == {'project_name': 'mytestproject1'}
         assert prompt_mock.mock_calls == [
             call(
                 '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
@@ -7713,7 +7714,7 @@ def test_projects_new_selects_organization_with_no_tty(tmp_dir_cwd: Path, tmp_pa
 
         create_project_response = {
             'json': {
-                'project_name': 'myproject',
+                'project_name': 'mytestproject1',
                 'token': 'fake_token',
                 'project_url': 'fake_project_url',
             }
@@ -7728,6 +7729,8 @@ def test_projects_new_selects_organization_with_no_tty(tmp_dir_cwd: Path, tmp_pa
 
         main(['projects', 'new'])
 
+        assert request_mocker.last_request is not None
+        assert request_mocker.last_request.json() == {'project_name': 'mytestproject1'}
         assert prompt_mock.mock_calls == [
             call(
                 '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',

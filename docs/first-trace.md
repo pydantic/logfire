@@ -50,8 +50,9 @@ Pick your language below; the Python, JavaScript/TypeScript, and Rust tabs are c
     uvx logfire-cli init
     ```
 
-    Prefer pip? Use `pip install logfire`, then run the two `uvx logfire-cli` commands above.
-    Prefer conda? Use `conda install -c conda-forge logfire` to install the SDK.
+    Prefer pip? Use `pip install logfire`. Prefer conda? Use `conda install -c conda-forge logfire`.
+    Install [`uv`](https://docs.astral.sh/uv/) if it is not already available, then run
+    the two `uvx logfire-cli` commands above.
     If you do not want to use a CLI, set `LOGFIRE_TOKEN` to a
     [write token](how-to-guides/create-write-tokens.md) from **Project → Settings → Write tokens** instead.
 
@@ -73,6 +74,8 @@ Pick your language below; the Python, JavaScript/TypeScript, and Rust tabs are c
     ```bash
     uv run hello.py
     ```
+
+    With pip or conda, run `python hello.py` from the environment where you installed Logfire instead.
 
     The SDK uses the project credentials saved by `init` and sends your trace without setup prompts.
 

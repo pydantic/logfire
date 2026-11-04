@@ -21,6 +21,8 @@ For more details, please refer to our [API documentation][logfire.configure].
     or credential directory, run `uvx logfire-cli wizard` for guided setup, or run
     `uvx logfire-cli auth` followed by `uvx logfire-cli init` from the project directory.
     Use `init --data-dir` if your application passes a custom `data_dir` to `configure()`.
+    For a non-default [region](data-regions.md) or [self-hosted instance](self-hosted/overview.md),
+    pass the same `--region` or `--base-url` to both `auth` and `init`.
 
     CLI sign-in alone does not configure the SDK. The CLI keeps your account login
     in the OS credential store; `init` saves the project's write token locally.

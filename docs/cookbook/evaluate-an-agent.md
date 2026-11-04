@@ -288,7 +288,7 @@ The insight the journey produces: observability and evaluation aren't separate t
 
 ## Troubleshooting
 
-- **Nothing appears on the Evals page?** Make sure `logfire.configure()` ran and `LOGFIRE_TOKEN` is set. Without it the eval still runs and prints to your terminal, but the results aren't sent to Logfire.
+- **Nothing appears on the Evals page?** Make sure `logfire.configure()` ran with either `LOGFIRE_TOKEN` set or project credentials saved by `uvx logfire-cli init` in your application's directory. If neither is available, `configure()` raises a missing-credentials error before the eval starts; follow its setup instructions.
 - **Model auth or rate-limit errors?** Confirm `GEMINI_API_KEY` is set. Free-tier limits are low, so the example uses a lighter model (`gemini-flash-lite-latest`) to stay under them.
 
 ## What's next
