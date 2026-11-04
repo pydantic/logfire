@@ -1,0 +1,19 @@
+docs/integrations/http-clients/urllib3.md
+  s_bf671b4bf007a4::t_f25eb5aa98aabe 2,8,16-23,29-30,66-68,78-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "40f4351d672050425ade0669491498ee4be98925",
+  "prompts": {},
+  "sessions": {
+    "s_bf671b4bf007a4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a722-f1fe-7b61-a1ad-739e05905b02",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
