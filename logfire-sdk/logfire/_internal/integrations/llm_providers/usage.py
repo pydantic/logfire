@@ -5,6 +5,35 @@ from typing import Any
 from .semconv import CACHE_CREATION_INPUT_TOKENS, CACHE_READ_INPUT_TOKENS, INPUT_TOKENS, OUTPUT_TOKENS, USAGE_RAW
 
 
+def _gateway_reported_cost(response_data: dict[str, Any]) -> float | None:
+    """Return the cost the Logfire AI Gateway reported for a request, if any.
+
+    The gateway injects `usage.logfire_ai_gateway = {'cost': '0.0038'}` (a decimal string;
+    a JSON number is accepted too) into the response body. Older and self-hosted gateways
+    only send the deprecated `usage.pydantic_ai_gateway.cost_estimate`. A reported `0`
+    (e.g. a gateway response-cache hit) is a real cost, not a missing one.
+
+    Mirrors pydantic-ai's `gateway_reported_cost`:
+    https://github.com/pydantic/pydantic-ai/blob/main/pydantic_ai_slim/pydantic_ai/_gateway_cost.py
+    """
+    usage_data = response_data.get('usage')
+    if not isinstance(usage_data, dict):
+        return None
+    for block_name, field_name in (('logfire_ai_gateway', 'cost'), ('pydantic_ai_gateway', 'cost_estimate')):
+        block = usage_data.get(block_name)
+        if isinstance(block, dict) and (value := block.get(field_name)) is not None:
+            if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+                continue
+            try:
+                cost = float(value)
+            except (TypeError, ValueError):
+                continue
+            # NaN would break comparisons and a negative cost would reduce the run total.
+            if cost >= 0 and cost == cost:
+                return cost
+    return None
+
+
 def get_usage_attributes(
     response: Any,
     usage: Any,
@@ -69,6 +98,14 @@ def get_usage_attributes(
                     response_data = response.model_dump(include={'model', 'usage'})
                 else:
                     response_data = response.model_dump()
+                # The gateway reports the actual cost (including custom prices) on the
+                # response. Use it over the genai-prices estimate, which is unaware of
+                # gateway custom pricing. A reported `0` (a cache hit) is a real cost.
+                gateway_cost = _gateway_reported_cost(response_data)
+                if gateway_cost is not None:
+                    result['operation.cost'] = gateway_cost
+                    break
+
                 # `anthropic` is a flavor on the aws provider only, so it is chosen from
                 # the resolved provider rather than assumed.
                 api_flavor = api_flavor or (

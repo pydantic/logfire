@@ -145,6 +145,61 @@ def test_model_none_from_extract_usage() -> None:
     assert result == snapshot({'gen_ai.usage.input_tokens': 10, 'gen_ai.usage.raw': {'prompt_tokens': 10}})
 
 
+class GatewayResponse:
+    """Response whose model_dump carries a gateway-reported cost in `usage`."""
+
+    def __init__(self, gateway_cost: object) -> None:
+        self._gateway_cost = gateway_cost
+
+    def model_dump(self, **kwargs: Any) -> dict[str, object]:
+        usage: dict[str, object] = {'prompt_tokens': 10, 'completion_tokens': 5}
+        if self._gateway_cost is not _NO_GATEWAY_COST:
+            usage['logfire_ai_gateway'] = {'cost': self._gateway_cost}
+        return {'model': 'gpt-4', 'usage': usage}
+
+
+_NO_GATEWAY_COST = object()
+
+
+def test_gateway_reported_cost_overrides_estimate() -> None:
+    """A gateway-reported cost (custom pricing) wins over the genai-prices estimate."""
+    usage = FakeUsage(prompt_tokens=10, completion_tokens=5)
+    response = GatewayResponse('0.123456')
+    result = get_usage_attributes(response, usage, 10, 5, provider_id='openai', api_flavor='chat')
+    assert result['operation.cost'] == 0.123456
+
+
+def test_gateway_zero_cost_is_real() -> None:
+    """A reported `0` (e.g. a gateway response-cache hit) is a real cost, not a missing one."""
+    usage = FakeUsage(prompt_tokens=10, completion_tokens=5)
+    response = GatewayResponse(0)
+    result = get_usage_attributes(response, usage, 10, 5, provider_id='openai', api_flavor='chat')
+    assert result['operation.cost'] == 0.0
+
+
+def test_no_gateway_cost_falls_back_to_estimate() -> None:
+    """Without a gateway cost, the genai-prices estimate is still used."""
+    usage = FakeUsage(prompt_tokens=10, completion_tokens=5)
+    response = GatewayResponse(_NO_GATEWAY_COST)
+    result = get_usage_attributes(response, usage, 10, 5, provider_id='openai', api_flavor='chat')
+    if GENAI_PRICES_AVAILABLE:
+        assert result['operation.cost'] == snapshot(0.0006)
+    else:
+        assert 'operation.cost' not in result
+
+
+def test_gateway_invalid_cost_is_ignored() -> None:
+    """A malformed gateway cost (negative/NaN/non-numeric) falls back to the estimate."""
+    usage = FakeUsage(prompt_tokens=10, completion_tokens=5)
+    for bad in (-1.5, float('nan'), 'not-a-number', True):
+        response = GatewayResponse(bad)
+        result = get_usage_attributes(response, usage, 10, 5, provider_id='openai', api_flavor='chat')
+        assert result.get('operation.cost') != bad
+        # genai-prices estimate should be used (or cost absent if genai_prices unavailable)
+        if GENAI_PRICES_AVAILABLE:
+            assert result['operation.cost'] == snapshot(0.0006)
+
+
 # --- Tests for get_openai_usage_attributes ---
 
 
