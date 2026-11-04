@@ -17,7 +17,10 @@ except ImportError:
         VERSION = '0.0.0'
         METRICS_PREFERRED_TEMPORALITY = {}
 
-        def configure(*args, **kwargs): ...
+        def configure(*args, **kwargs) -> Logfire:
+            if kwargs.get('local'):
+                return Logfire()
+            return DEFAULT_LOGFIRE_INSTANCE
 
         class LogfireSpan:
             def __getattr__(self, attr):

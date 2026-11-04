@@ -124,7 +124,11 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     assert hasattr(logfire_api, 'configure')
     # inspect_arguments=False: f-string introspection has dedicated coverage elsewhere,
     # and `executing` can sporadically fail to match a node under a heavily loaded machine.
-    logfire_api.configure(send_to_logfire=False, console=False, inspect_arguments=False)
+    configured = logfire_api.configure(send_to_logfire=False, console=False, inspect_arguments=False)
+    assert configured is logfire_api.DEFAULT_LOGFIRE_INSTANCE
+    local_configured = logfire_api.configure(local=True, send_to_logfire=False, console=False, inspect_arguments=False)
+    assert isinstance(local_configured, logfire_api.Logfire)
+    assert local_configured is not logfire_api.DEFAULT_LOGFIRE_INSTANCE
     logfire__all__.remove('configure')
 
     assert hasattr(logfire_api, 'VERSION')
