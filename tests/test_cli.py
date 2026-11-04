@@ -4253,6 +4253,22 @@ def test_get_recommendation_texts_formats_two_ambiguous_packages():
     ) in recommended
 
 
+def test_run_discovers_valkey(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr('logfire._internal.cli.run.installed_packages', lambda: {'valkey'})
+    instrument = Mock()
+    monkeypatch.setattr(logfire, 'instrument_valkey', instrument)
+
+    context = collect_instrumentation_context(())
+    assert context.installed_otel_pkgs == {'valkey'}
+    assert all('valkey' not in recommendation.target_packages for recommendation in context.recommendations)
+    assert instrument_packages(context.installed_otel_pkgs, context.instrument_pkg_map) == ['valkey']
+    instrument.assert_called_once_with()
+
+    context = collect_instrumentation_context(('valkey',))
+    assert not context.installed_otel_pkgs
+    assert all('valkey' not in recommendation.target_packages for recommendation in context.recommendations)
+
+
 def test_instrument_packages_openai() -> None:
     instrument_packages({'openai'}, {'openai': 'openai'})
 

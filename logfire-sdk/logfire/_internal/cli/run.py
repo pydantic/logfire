@@ -83,6 +83,7 @@ OTEL_INSTRUMENTATION_MAP = {
     'anthropic': 'anthropic',
     'openai': 'openai',
     'openai-agents': 'openai_agents',
+    'valkey': 'valkey',
 }
 
 INSTRUMENTATION_TO_EXTRA: dict[str, str] = {
