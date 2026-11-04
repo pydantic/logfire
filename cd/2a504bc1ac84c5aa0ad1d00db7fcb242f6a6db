@@ -1,0 +1,19 @@
+docs/integrations/boto3.md
+  s_3bc6e06f6c34c7::t_d58daddba9b14e 49-53,81-83,85,112,122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cd2a504bc1ac84c5aa0ad1d00db7fcb242f6a6db",
+  "prompts": {},
+  "sessions": {
+    "s_3bc6e06f6c34c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a736-8b01-7eb1-91dc-45c367ff317d",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
