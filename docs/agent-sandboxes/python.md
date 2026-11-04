@@ -19,7 +19,10 @@ You need [access to Agent Sandboxes](index.md) in your organization.
 
 ### Enable Agent Sandboxes
 
-First, open **AI Optimization** > **Agent Sandboxes** in your project.
+If you received an invitation link, open it first.
+The link turns on the **Agent Sandboxes** page in your browser.
+
+Then open **AI Optimization** > **Agent Sandboxes** in your project.
 If you see **Enable Agent Sandboxes**, ask a project manager to select it.
 An execution key does not enable the project by itself.
 

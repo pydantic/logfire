@@ -34,10 +34,10 @@ uses an unsupported feature after it sees the error.
 
 ## Standard library
 
-Available: `asyncio`, `base64`, `bisect`, `collections`, `copy`, `csv`, `dataclasses`, `datetime`, `functools`,
+Available: `asyncio`, `base64`, `bisect`, `collections`, `copy`, `csv`, `dataclasses`, `datetime`, `decimal`, `functools`,
 `hashlib`, `itertools`, `json`, `math`, `random`, `re`, `time`, `typing`, and some others.
 
-Not available, among others: `enum`, `logging`, `statistics`, `decimal`, `uuid`, `io`, `sqlite3`, `subprocess`,
+Not available, among others: `enum`, `logging`, `statistics`, `uuid`, `io`, `sqlite3`, `subprocess`,
 `socket`, and `urllib`.
 
 No third-party packages can be installed. To give a script something a package does, such as parsing a PDF, write a
