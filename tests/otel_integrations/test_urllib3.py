@@ -305,6 +305,23 @@ def test_signed_url_redaction(exporter: TestExporter, custom_filter: bool, param
         URLLib3Instrumentor().uninstrument()
 
 
+@pytest.mark.parametrize('scheme', ['https:', ''])
+def test_filtered_url_redacts_user_information(exporter: TestExporter, scheme: str):
+    logfire.instrument_urllib3(url_filter=lambda _: f'{scheme}//private-user:private-password@example.com/')
+    try:
+        with mock.patch(
+            'urllib3.connectionpool.HTTPConnectionPool._make_request',
+            return_value=urllib3.HTTPResponse(status=200),
+        ):
+            urllib3.PoolManager().request('GET', 'https://example.com/')
+        (span,) = exporter.exported_spans_as_dict()
+        for key in ('http.url', 'url.full'):
+            assert span['attributes'][key] == f'{scheme}//REDACTED:REDACTED@example.com/'
+        assert 'private-' not in repr(span)
+    finally:
+        URLLib3Instrumentor().uninstrument()
+
+
 def test_invalid_filtered_url(exporter: TestExporter):
     logfire.instrument_urllib3(url_filter=lambda _: 'https://[private-credential')
     try:

@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from opentelemetry.util.http import SanitizeValue, redact_url
+from opentelemetry.util.http import SanitizeValue, redact_query_parameters
 
 from ..utils import get_version
 
@@ -31,22 +31,27 @@ def instrument_urllib3(url_filter: Callable[[str], str] | None = None, **kwargs:
             + _INSTALL_INSTRUCTIONS
         )
 
-    # OTel's redact_url handles legacy S3, Azure SAS, and Google signed URLs.
+    # OTel handles legacy S3, Azure SAS, and Google signed URLs.
     # Reuse its sanitizer for SigV4 fields not yet covered by redact_url.
     sanitize = SanitizeValue([r'^X-Amz-(Signature|Credential|Security-Token)$'])
 
     def filter_url(url: str) -> str:
         url = url_filter(url) if url_filter is not None else url
         try:
-            url = redact_url(url)
+            url = redact_query_parameters(url)
             parts = urlsplit(url)
         except ValueError:
             # An invalid telemetry URL should neither abort the request nor expose credentials.
             return '[REDACTED]'
+        netloc = parts.netloc
+        if '@' in netloc:
+            netloc = 'REDACTED:REDACTED@' + netloc.rpartition('@')[2]
         query = parse_qsl(parts.query, keep_blank_values=True)
         sanitized = [(key, sanitize.sanitize_header_value(key, value)) for key, value in query]
-        if sanitized != query:
-            return urlunsplit(parts._replace(query=urlencode(sanitized)))
+        if sanitized != query or netloc != parts.netloc:
+            return urlunsplit(
+                parts._replace(netloc=netloc, query=urlencode(sanitized) if sanitized != query else parts.query)
+            )
         return url
 
     URLLib3Instrumentor().instrument(url_filter=filter_url, **kwargs)
