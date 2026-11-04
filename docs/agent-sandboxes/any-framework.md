@@ -6,14 +6,15 @@ description: "Give an agent built with any framework, or none, one run_code tool
 # Add a code tool to any agent
 
 !!! info "Experimental"
-    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 Give your agent one tool, `run_code`, that takes a Python script, runs it in an [Agent Sandbox](index.md), and returns
 the result. The script can call the functions you choose. This works with any agent framework that supports tool
 calls, and with a model API that you call directly.
 
-If you use Pydantic AI, [Code Mode](pydantic-ai.md) can build this tool from your existing tools.
-Its Agent Sandboxes integration currently requires an unreleased change. This guide provides an alternative.
+If you use Pydantic AI, [Code Mode](pydantic-ai.md) builds this tool from your existing tools. Use this guide for other
+frameworks, or when you call a model API directly.
 
 ## Before you start
 
@@ -53,7 +54,7 @@ async def get_order(order_id: str) -> dict:
 """
 
 RUN_CODE_DESCRIPTION = f"""Run a Python script and return the value of its last expression.
-The script can `await` these functions, and run several at once with `asyncio.gather`:
+The script can `await` these functions, and combine several with `asyncio.gather`:
 {STUBS}
 Only a subset of Python is available. There is no network or file access, and no third-party packages."""
 
@@ -74,7 +75,7 @@ async def run_code(code: str) -> str:
 
 `logfire.agent_sandboxes()` does not connect until the first `checkout()`. Enter the pool once when your application
 starts, with `async with pool:` around the code that serves tool calls. The test below shows this lifecycle. Each `run_code` call
-checks out a fresh session, so one agent run cannot see another's variables. `ephemeral=True` tells Logfire not to
+checks out a fresh session, so every script starts with no variables, even within one agent run. `ephemeral=True` tells Logfire not to
 store the session when it closes, because nothing will load it again. Stored sessions count toward your project's
 snapshot storage limit. To keep variables between calls, see [Keep an agent's work across conversation
 turns](conversations.md).
@@ -159,7 +160,7 @@ the agent's trace, under the tool call that ran them.
   separate tools. Remove them, so `run_code` is the only way to reach them.
 - **The model writes code that the sandbox does not support**, such as `import pandas`: add the limits to the
   description in plain words. See [What sandbox code can do](limits.md) for the list.
-- **The model forgets to `await`**: the type check reports it. Keep `type_check=True` so the model gets the error
+- **The model forgets to `await`**: the type check usually reports it. Keep `type_check=True` so the model gets the error
   before the script runs.
 
 ## Next steps

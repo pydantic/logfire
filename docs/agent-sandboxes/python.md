@@ -10,7 +10,7 @@ description: "Install the Logfire SDK, create an API key, and run code in Logfir
     [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 Run Python in a remote [Agent Sandbox](index.md) from your application, with one call to
-`logfire.agent_sandboxes()`.
+[`logfire.agent_sandboxes()`][logfire.Logfire.agent_sandboxes].
 You check out a session, send it code, and get the result back.
 
 ## Before you start
@@ -45,13 +45,16 @@ You also need a non-personal project API key with permission to run code in your
 3. Copy the key.
    It won't be shown again.
 
+Only project administrators can create a key here.
+Keys created on the setup page expire after 30 days, or sooner if your organization limits key lifetime.
+
 <img src="/logfire/images/guide/agent-sandboxes/connect-key.webp" alt="Setup with a Workbench link and the Choose an execution key step showing key creation and existing-key options" width="768" height="222" loading="lazy" />
 
 *The setup page offers key creation or use of an existing key.*
 
 You can also create the key in **Project settings → Security & access → API keys → New API key**. Open **Advanced** and
 select **Run code in this project's agent sandboxes**.
-Create a non-personal key. Ordinary personal keys cannot execute sandbox code.
+Under **Ownership**, choose **Service**. Personal keys cannot run sandbox code.
 Ask a project administrator to create it if your role only permits personal keys.
 See [Project API keys](../reference/advanced/use-api-keys.md#project-api-key).
 
@@ -185,7 +188,7 @@ To record Monty execution on your own machines, see [Trace local Monty sandboxes
 
 ## Configure the pool
 
-`logfire.agent_sandboxes()` accepts the same pool options as Monty's `AsyncMontyWebsocket`.
+`logfire.agent_sandboxes()` accepts the same pool options as Monty's [`AsyncMontyWebsocket`][pydantic_monty.AsyncMontyWebsocket].
 The most common ones:
 
 - `max_processes`: the maximum number of sessions open at once (defaults to the number of CPUs).
@@ -197,6 +200,8 @@ The most common ones:
 - `api_key`: use a key other than `LOGFIRE_API_KEY`, or the `api_key` passed to
   [`logfire.configure()`][logfire.configure].
 
+See [`logfire.agent_sandboxes()`][logfire.Logfire.agent_sandboxes] for every option.
+
 ## Verify it worked
 
 Run the [first snippet](#run-your-first-snippet).
@@ -207,7 +212,8 @@ took.
 
 ## Troubleshooting
 
-- **`LogfireConfigError: Agent sandboxes require a Logfire API key`**: no API key was found.
+- **`LogfireConfigError: Agent sandboxes require a Logfire API key with the project:execute_agent_sandboxes scope`**:
+  no API key was found.
   Set `LOGFIRE_API_KEY`, pass `api_key` to `logfire.configure()`, or pass `api_key` to `logfire.agent_sandboxes()`.
 - **`RuntimeError: failed to spawn monty worker: ...
   HTTP error: 401 Unauthorized`**: the server rejected the API key.

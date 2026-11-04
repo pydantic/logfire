@@ -6,7 +6,8 @@ description: "Pause and resume sandbox sessions, take snapshots as checkpoints, 
 # Persist, resume, and fork sessions
 
 !!! info "Experimental"
-    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 Pick up an agent's sandbox where it left off, from a new connection or a different process.
 Python client sessions are **persistent** by default: Logfire saves each session's state under a session ID, and you can
@@ -47,7 +48,7 @@ The server saves a session's state, which Monty calls **parking** the session, i
   Your next call loads the state into a new sandbox under the same session ID, so your code sees no difference apart
   from a short delay on that call.
   This is the equivalent of an automatic pause and resume after an idle timeout.
-  A parked session doesn't hold a sandbox, so you can keep more sessions open than there are sandboxes running.
+  A parked session uses no sandbox process while it is idle.
 - **Your application closes the connection**, or stops answering keepalive pings for about 10 seconds.
   The state is saved under the session ID, and you can [resume it](#resume-a-session-from-a-new-connection) later.
 - **The server is being redeployed.** With `auto_resume=True` (the default), the client reconnects, loads the session on
@@ -71,7 +72,9 @@ Treat it as opaque bytes. Use hexadecimal encoding if your storage requires text
 Decode that text back to bytes before calling `load_session()`.
 Store it wherever your application keeps the agent's conversation state, such as a database row.
 
-To resume, check out a new session and pass the ID to `load_session()`:
+To resume, check out a new session and pass the ID to `load_session()`.
+The example below stores the ID that `dump()` returns, not `session.session_id`.
+Both IDs work with `load_session()`, but the `dump()` ID is ready as soon as `dump()` returns:
 
 ```python skip-run="true" skip-reason="external-connection"
 import asyncio
@@ -116,7 +119,8 @@ That is the state when the connection closed, unless the server stopped without 
 If you need a guaranteed restore point, take a snapshot.
 
 The server saves the session as the connection closes, which takes a moment.
-`load_session()` raises `MontyRuntimeError: unknown session` if you call it before the save completes.
+If you call `load_session()` with `session.session_id` before the save completes, it raises a `MontyRuntimeError` whose
+message contains `unknown session`.
 
 ## Take a snapshot as a checkpoint
 
@@ -212,7 +216,8 @@ asyncio.run(main())
 ```
 
 An ephemeral session has no session ID (`session.session_id` is `None`).
-The hosted Agent Sandboxes service rejects `dump()` with `MontyRuntimeError: this session is ephemeral, so it cannot be dumped`.
+The hosted Agent Sandboxes service rejects `dump()` with a `MontyRuntimeError` whose message contains
+`this session is ephemeral, so it cannot be dumped`.
 The server discards the interpreter state when the connection closes or the server is redeployed.
 Ephemeral sessions still send code and data to Logfire for execution. They can also produce recorded telemetry.
 See [tracing and storage](limits.md#understand-tracing-and-storage).
@@ -253,13 +258,14 @@ This is how they apply to Agent Sandboxes:
 
 ## Troubleshooting
 
-- **`MontyRuntimeError: unknown session` from `load_session()`**: the ID isn't a saved session or snapshot in this
+- **`MontyRuntimeError` with `unknown session` from `load_session()`**: the ID isn't a saved session or snapshot in this
   project.
   Check that:
     - the API key belongs to the same project that created the session;
     - the session or snapshot was saved less than 7 days ago;
     - the original session's connection has finished closing.
-      Retry after a short delay.
+      Retry after a short delay, on a new checkout.
+      Repeated failed loads on one connection close that connection.
 - **`MontyRuntimeError` from `dump()` on an ephemeral session**: ephemeral sessions can't be saved.
   Check out the session without `ephemeral=True`.
 - **`MontyShutdown` raised during a call**: the server was redeployed and resuming the session on another server failed.

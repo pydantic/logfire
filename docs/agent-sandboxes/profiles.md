@@ -6,7 +6,8 @@ description: "Create, select, rename, and delete project profiles for Agent Sand
 # Manage sandbox profiles
 
 !!! info "Experimental"
-    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 Give sandbox sessions a reusable configuration that you can select when you run code.
 A profile belongs to one project and has its own ID.

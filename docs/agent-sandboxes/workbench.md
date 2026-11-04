@@ -6,7 +6,8 @@ description: "Run Python interactively, check types, and save or restore sandbox
 # Run code in the Workbench
 
 !!! info "Experimental"
-    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 Try Python in your project's sandbox and read the result without installing a client.
 Each submission runs in the same session until you reset it or load another saved session.

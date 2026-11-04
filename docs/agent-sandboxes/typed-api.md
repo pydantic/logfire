@@ -6,7 +6,8 @@ description: "Expose a Python module to agent code with type stubs, and reject c
 # Give an agent a whole API without a tool for every endpoint
 
 !!! info "Experimental"
-    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 An internal API with dozens of operations can require dozens of tool definitions. The model reads those definitions
 on each turn. A script can combine several calls without another model request between them.
@@ -154,7 +155,9 @@ code ran.
 
 ## Troubleshooting
 
-- **`ImportError` for your module**: pass it to `checkout()` in `external_modules`, under the name the script imports.
+- **The script cannot find your module**: with `type_check=True`, the check reports an unresolved import. Without the
+  check, the script raises `ModuleNotFoundError`. Pass the module to `checkout()` in `external_modules`, under the name
+  the script imports.
 - **The check rejects code that is correct**: the stub is wrong or incomplete. Check that every type the stub uses is
   imported in the stub (for example `from typing import Literal`).
 - **The check rejects a standard library feature**: sandboxes support a subset of Python, and the check knows which

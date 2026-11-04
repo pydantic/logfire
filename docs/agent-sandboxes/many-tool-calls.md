@@ -6,7 +6,8 @@ description: "Let your agent write one short script that calls your tools and do
 # Answer questions that need dozens of tool calls
 
 !!! info "Experimental"
-    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 "Which enterprise customers missed their availability target this week, and do they have an open support ticket?" To
 answer, an agent fetches 40 customers, then a week of request counts for each one, then tickets. With plain tool calls,
@@ -115,8 +116,9 @@ variables. The following example adapts that workflow to return compact results:
 3. Look up tickets for those customers and return the names with open tickets.
 
 The scripts request one tool call at a time.
-An agent can also use `asyncio.gather` to request several calls together.
-The hosted service can serialize those calls. Do not assume that they finish in parallel or reduce latency.
+An agent can also combine several calls with `asyncio.gather`.
+Each call, including each call inside `asyncio.gather`, is one network round trip between the sandbox and your
+application. The calls are not batched, so many calls can take seconds in total.
 
 You can run these scripts without a model. Save the code below as `main.py` beside `tools.py`:
 

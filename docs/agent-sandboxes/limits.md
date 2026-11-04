@@ -6,10 +6,11 @@ description: "The Python features, standard library modules, and resource limits
 # What sandbox code can and cannot do
 
 !!! info "Experimental"
-    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 Check here before you give an agent a task, so you know whether its script can do it. Agent Sandboxes run
-[Pydantic Monty](https://github.com/pydantic/monty), a Python interpreter that supports the parts of Python agents use
+[Pydantic Monty](https://pydantic.dev/docs/monty/), a Python interpreter that supports the parts of Python agents use
 to call functions and work with data. It does not support everything that Python does.
 
 Sandbox code is good at calling your functions, looping, branching, and filtering, grouping, and reshaping data. For

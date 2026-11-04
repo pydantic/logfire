@@ -6,7 +6,8 @@ description: "Let a Pydantic AI agent call its tools from Python scripts that ru
 # Use Agent Sandboxes with Pydantic AI
 
 !!! info "Experimental"
-    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 Let a [Pydantic AI](https://pydantic.dev/docs/ai/overview/) agent answer a question with one Python script instead of many tool calls.
 You keep your tools as they are. Pydantic AI's **Code Mode** (a capability that turns an agent's tools into functions
@@ -14,12 +15,6 @@ the model can call from Python) gives the model one `run_code` tool, and Agent S
 
 Code Mode writes the type stubs from your tools, checks each script against them, sends errors back to the model, and
 records every run in Logfire. You add one argument.
-
-!!! warning "This integration requires an unreleased Pydantic AI change"
-    The `monty_pool_factory` support shown here depends on
-    [Pydantic AI pull request #11179](https://github.com/pydantic/pydantic-ai/pull/11179). It is not in a released Harness version.
-    The example below requires a development build that includes that change.
-    Use [Add a code tool to any agent](any-framework.md) with released Pydantic AI versions.
 
 !!! warning "Scripts and tool results leave your application"
     Scripts, tool arguments, and results pass through Logfire for execution. Hosted telemetry can record this content
@@ -31,14 +26,11 @@ records every run in Logfire. You add one argument.
   code in agent sandboxes.
 - Set `OPENAI_API_KEY` to a key from the [OpenAI API keys page](https://platform.openai.com/api-keys).
   The example sends model requests to OpenAI.
-- Install Logfire with the `agent-sandboxes` extra:
+- Install Logfire with the `agent-sandboxes` extra, and Pydantic AI Harness with the `codemode` extra:
 
 ```bash
-pip install 'logfire[agent-sandboxes]'
+pip install 'logfire[agent-sandboxes]>=5.4.0' 'pydantic-ai-harness[codemode]>=0.62.0'
 ```
-
-Install a development build of Pydantic AI Harness with the `codemode` extra that includes the change linked above.
-A regular `pip install pydantic-ai-harness` does not yet provide the required integration.
 
 ## Run the agent's code in Agent Sandboxes
 
@@ -60,7 +52,7 @@ agent = Agent(
     tools=[list_customers, get_request_stats, list_open_tickets],
     capabilities=[
         CodeMode(
-            monty_pool_factory=logfire.agent_sandboxes,
+            monty_sandbox=logfire.agent_sandboxes,
         )
     ],
 )
@@ -74,8 +66,9 @@ print(result.output)
 
 `tools.py` is the file from [Answer questions that need dozens of tool calls](many-tool-calls.md#write-your-tools-as-normal-python-functions).
 
-Code Mode calls `logfire.agent_sandboxes()` once for each agent run, so concurrent runs each get their own pool. The
-pool connects only when the model first calls `run_code`.
+Pass the function itself, not `logfire.agent_sandboxes()`.
+Code Mode calls it on the first `run_code` call of each agent run, so concurrent runs each get their own pool.
+No connection opens until the model first calls `run_code`.
 
 ## What the model writes
 
@@ -86,15 +79,11 @@ request counts, compute availability in Python, and return only the customers th
 missed their target. Each script continues from the variables of the one before it. The exact code changes from run
 to run.
 
-An agent can also request several calls with `asyncio.gather`.
-The hosted service can serialize those calls.
-Use the [sequential alternative](many-tool-calls.md#see-the-code-the-agent-writes) when you need one call at a time.
+A script can also run several calls at once with `asyncio.gather`.
+Each call is still a separate round trip between the sandbox and your process.
 Your tools run in your process, as they would without Code Mode. Only the script runs in the sandbox.
 
 ## Keep the sandbox's variables across conversation turns
-
-This option also requires the unreleased Harness change described above.
-Use the [framework-neutral session pattern](conversations.md) with released versions.
 
 Each agent run starts a new session. To let a later turn use the variables an earlier turn defined, pass a `repl_store`
 to `CodeMode`. Code Mode saves the session at the end of each run and loads it at the start of the next run in the same
@@ -109,7 +98,10 @@ Run `python agent.py`, then open the [Live view](../guides/web-ui/live.md). You 
 
 ## Troubleshooting
 
-- **`UserError` that mentions `monty_sandbox_url`**: set either `monty_pool_factory` or `monty_sandbox_url`, not both.
+- **`UserError: `monty_sandbox` takes a URL or a function that returns the pool, not the pool itself`**: you passed
+  `logfire.agent_sandboxes()`. Pass `logfire.agent_sandboxes` without the parentheses.
+- **`UserError` that mentions `monty_sandbox_url`**: `monty_sandbox_url` is the deprecated form of `monty_sandbox`.
+  Pass only `monty_sandbox`.
 - **`LogfireConfigError: Agent sandboxes require a Logfire API key`**: the run started without an API key. Set
   `LOGFIRE_API_KEY`, or pass `api_key` to `logfire.configure()`.
 - **The model calls a tool directly instead of from `run_code`**: Code Mode keeps some tools outside the sandbox, such as

@@ -21,13 +21,13 @@ But model-generated code can contain mistakes or unsafe operations.
 Running it in your application process would give it access to your files, network, and secrets.
 
 A **sandbox** is an isolated environment that runs code with no access to the machine around it.
-Agent Sandboxes use [Pydantic Monty](https://github.com/pydantic/monty), a Python interpreter written in Rust and
+Agent Sandboxes use [Pydantic Monty](https://pydantic.dev/docs/monty/), a Python interpreter written in Rust and
 designed for sandboxing.
 Code in a sandbox can only reach the outside world through functions you choose to expose to it.
 
 With Agent Sandboxes, Logfire runs the sandboxes for you:
 
-- **Managed sandboxes**: Logfire runs the sandbox service for you.
+- **No sandbox infrastructure to run**: you don't deploy, scale, or patch anything.
 - **Isolation from your application**: agent code runs on Logfire's servers, not in your process.
 - **Sessions that keep state**: variables and functions defined in one run are available in the next run of the same
   session, so an agent can build up work step by step.
@@ -82,7 +82,7 @@ You authenticate with a [non-personal project API key](python.md#get-an-executio
 
 ## When not to use Agent Sandboxes
 
-- **You only need to run trusted application code.** Run it directly when it does not need the sandbox's isolation or session features.
+- **The code is your own.** Code you wrote and reviewed doesn't need a sandbox.
 - **The code needs Python features that Monty doesn't support.** Monty runs a subset of Python.
   Check [what Monty supports](https://pydantic.dev/docs/monty/limitations/) before you rely on a feature.
 - **You need to run code offline or entirely on your own machines.** Run Monty locally with the `pydantic-monty` package

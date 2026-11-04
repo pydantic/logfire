@@ -6,7 +6,8 @@ description: "Find saved Python state, load it in the Workbench, and delete snap
 # Manage saved snapshots
 
 !!! info "Experimental"
-    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 Find a saved sandbox state and continue its work, or remove snapshots you no longer need.
 A **snapshot** is a saved copy of Python variables, functions, and other interpreter state at one moment.
@@ -48,7 +49,8 @@ See [Load a saved session](workbench.md#load-a-saved-session) for the complete f
     A deleted snapshot cannot be restored. Existing sessions keep running, but new loads of the deleted snapshot fail.
     Check that you do not need its Python state before you confirm deletion.
 
-For one snapshot, open its **…** menu and select **Delete**.
+For one snapshot, open its **…** menu and select **Delete snapshot**. A snapshot that cannot be opened has a
+**Delete** button instead.
 To delete several, select their checkboxes and choose **Delete selected**.
 **Select all on this page** selects only the saved snapshots on the current page.
 Review the confirmation before you delete them.

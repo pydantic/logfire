@@ -5,7 +5,7 @@ integration: logfire
 ---
 # Pydantic Monty
 
-See what code does inside a [Pydantic Monty](https://github.com/pydantic/monty) sandbox, including
+See what code does inside a [Pydantic Monty](https://pydantic.dev/docs/monty/) sandbox, including
 its inputs, result, host calls, printed output, errors, and time spent running or waiting on the
 host.
 Each checkout (borrowing a sandbox worker from the pool) creates a session **span** (one unit of work:
@@ -16,7 +16,7 @@ one request, made of nested spans). Otherwise, it starts a new trace.
 !!! tip "Run sandboxes without hosting them"
     To run Monty sandboxes on Logfire's servers instead of your own, use
     [Agent Sandboxes](../agent-sandboxes/index.md). The hosted runtime records sandbox activity in your project.
-    [`logfire.agent_sandboxes()`](../agent-sandboxes/python.md) connects its spans to your application's trace.
+    [`logfire.agent_sandboxes()`][logfire.Logfire.agent_sandboxes] connects its spans to your application's trace.
 
 ## What you'll capture
 

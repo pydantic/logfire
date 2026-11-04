@@ -6,7 +6,8 @@ description: "Let an agent plan a batch of sensitive actions in one script, ask 
 # Pause agent code for human approval, and resume it later
 
 !!! info "Experimental"
-    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 An incident charged 25 customers for 37 orders that then failed. A support agent can find the orders, refund each one,
 and email each customer. But a person must approve the refunds first, and that person may answer in five minutes or
@@ -186,9 +187,10 @@ async def answer(snapshot, outcome: dict):
 
 
 RUN_CODE_DESCRIPTION = f"""Run a Python script and return the value of its last expression.
-The script can `await` these functions, and run several at once with `asyncio.gather`:
+The script can `await` these functions, and combine several with `asyncio.gather`:
 {STUBS}
 In this sandbox, `asyncio.gather` takes no keyword arguments, so do not pass `return_exceptions`.
+Call `request_approval` on its own, not inside `asyncio.gather`.
 If the task needs approval, write the whole task as one script. After `request_approval` returns True, the same
 script must continue and do the rest of the task. You will not be called again after the approval."""
 ```

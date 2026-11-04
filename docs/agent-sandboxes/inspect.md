@@ -6,7 +6,8 @@ description: "Use the overview, recorded source, and Live view to investigate sa
 # Inspect sandbox runs
 
 !!! info "Experimental"
-    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 Find a sandbox session, read the Python it ran, and follow related activity when a result is slow or fails.
 A **session** is a group of related interactions, which can include several code runs and calls.
@@ -20,7 +21,7 @@ You need [access to Agent Sandboxes](index.md) and permission to read the projec
 
 1. Open **AI Optimization** > **Agent Sandboxes** > **Overview**.
 2. Choose a time range that includes your run. Check any active environment filters.
-3. Read the summary cards, then find the session in **Recent invocations**.
+3. Read the summary cards, then find the session under **Sessions**.
 4. Check its code-run count, calls, and failures. A missing duration shows **Not reported**, rather than zero.
 
 The cards count **Sessions**, **Code runs**, **Host calls**, **OS calls**, and **Failures** in the selected window.
@@ -34,6 +35,7 @@ It does not show the sandbox's current capacity.
 
 Select **View code** on the session row.
 The dialog lists the code runs with source recorded in the selected time range.
+If some runs are missing, open Live view to see the rest.
 Use the copy control beside a run to copy its source.
 
 <img src="/logfire/images/guide/agent-sandboxes/session-code.webp" alt="Session code dialog with the recorded print and total commands and an Open in Live view link" width="896" height="317" loading="lazy" />
@@ -46,7 +48,7 @@ Use the copy control beside a run to copy its source.
 
 ## Follow related calls in Live view
 
-Select **Open in Live view** in the code dialog, or **Open session in Live view** on the session row.
+Select **Open in Live view** in the code dialog, or select the session name or its Live view icon on the session row.
 [Live view](../guides/web-ui/live.md) shows a **trace**, the full journey of one request, made of nested **spans**.
 A span is one unit of work: a single operation, with a name, a start, and a duration.
 Expand the session to inspect its code runs and related calls.

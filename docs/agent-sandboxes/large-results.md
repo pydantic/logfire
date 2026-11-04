@@ -6,7 +6,8 @@ description: "Let your agent reduce thousands of rows from several sources to a 
 # Work with large tool results without filling the context window
 
 !!! info "Experimental"
-    Agent Sandboxes is available to selected Logfire organizations. See [access and availability](index.md).
+    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
+    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
 "Which recent deploys coincide with more exceptions?" To answer, an agent needs the error counts for every service over
 several hours, the list of deploys, and a comparison of error rates before and after each deploy. As tool results, that
@@ -55,7 +56,7 @@ async def query_logfire(sql: str) -> list[dict]:
 
 async def list_deploys(since_hours: int) -> list[dict]:
     """List deploys from the last `since_hours` hours, oldest first."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     return [  # replace with a call to your deploy system
         {'service': 'checkout', 'version': 'v412', 'deployed_at': (now - timedelta(hours=4)).isoformat()},
         {'service': 'auth', 'version': 'v88', 'deployed_at': (now - timedelta(hours=3)).isoformat()},
