@@ -277,10 +277,9 @@ def _check_bool(value: Any, name: str) -> bool | None:
 
 
 def _extract_set_of_str(value: str | set[str]) -> set[str]:
-    """Extract a set of strings from a comma-separated string, skipping empty items, or return a set as is."""
-    if isinstance(value, str):
-        return {item.strip() for item in value.split(',') if item.strip()}
-    return value
+    """Extract a set of strings from a comma-separated string or a collection of strings, skipping empty items."""
+    items = value.split(',') if isinstance(value, str) else value
+    return {item.strip() for item in items if item.strip()}
 
 
 def _extract_dict_of_str(value: str | Mapping[str, str] | None) -> dict[str, str] | None:
