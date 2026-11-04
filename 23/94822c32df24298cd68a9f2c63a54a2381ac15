@@ -1,0 +1,22 @@
+tests/otel_integrations/test_urllib3.py
+  s_bf671b4bf007a4::t_af70ba14ed8868 8
+  s_bf671b4bf007a4::t_653a5314a87115 26
+  s_bf671b4bf007a4::t_910b0e5b28b56b 30-31,33-46,139-154,247-249
+  s_bf671b4bf007a4::t_827e13abb35c96 47-138,155-246
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2394822c32df24298cd68a9f2c63a54a2381ac15",
+  "prompts": {},
+  "sessions": {
+    "s_bf671b4bf007a4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a722-f1fe-7b61-a1ad-739e05905b02",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
