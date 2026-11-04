@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 import urllib3
+from dirty_equals import IsFloat, IsNumeric
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.urllib3 import URLLib3Instrumentor
 
@@ -22,32 +23,230 @@ def instrument_urllib3():
 
 @pytest.mark.vcr()
 def test_urllib3_instrumentation(exporter: TestExporter, instrument_urllib3: None):
-    with logfire.span('test span') as span:
-        assert span.context
-        trace_id = span.context.trace_id
+    with logfire.span('test span'):
         response = urllib3.PoolManager().request('GET', 'https://httpbin.org/status/200')
 
     assert response.status == 200
-    exported_spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    assert len(exported_spans) == 2
-
-    request_span, parent_span = exported_spans
-    assert request_span['name'] == 'GET'
-    assert request_span['context']['trace_id'] == trace_id
-    assert request_span['parent'] == parent_span['context']
-    assert (
-        request_span['attributes']
-        | snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
             {
-                'http.method': 'GET',
-                'http.request.method': 'GET',
-                'http.url': 'https://httpbin.org/status/200',
-                'url.full': 'https://httpbin.org/status/200',
-                'http.status_code': 200,
-                'http.response.status_code': 200,
-            }
-        )
-        == request_span['attributes']
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': 'https://httpbin.org/status/200',
+                    'url.full': 'https://httpbin.org/status/200',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET httpbin.org/status/200',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'logfire.metrics': {
+                        'http.client.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.host': 'httpbin.org',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'httpbin.org',
+                                        'net.peer.port': 443,
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
+                        },
+                        'http.client.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'server.address': 'httpbin.org',
+                                        'server.port': 443,
+                                    },
+                                    'total': IsFloat(),
+                                }
+                            ],
+                            'total': IsFloat(),
+                        },
+                        'http.client.request.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.host': 'httpbin.org',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'httpbin.org',
+                                        'net.peer.port': 443,
+                                    },
+                                    'total': 0,
+                                }
+                            ],
+                            'total': 0,
+                        },
+                        'http.client.request.body.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'server.address': 'httpbin.org',
+                                        'server.port': 443,
+                                    },
+                                    'total': 0,
+                                }
+                            ],
+                            'total': 0,
+                        },
+                        'http.client.response.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.host': 'httpbin.org',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'httpbin.org',
+                                        'net.peer.port': 443,
+                                    },
+                                    'total': 0,
+                                }
+                            ],
+                            'total': 0,
+                        },
+                        'http.client.response.body.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'server.address': 'httpbin.org',
+                                        'server.port': 443,
+                                    },
+                                    'total': 0,
+                                }
+                            ],
+                            'total': 0,
+                        },
+                    },
+                    'http.target': '/status/200',
+                },
+            },
+            {
+                'name': 'test span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_urllib3.py',
+                    'code.function': 'test_urllib3_instrumentation',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test span',
+                    'logfire.msg': 'test span',
+                    'logfire.span_type': 'span',
+                    'logfire.metrics': {
+                        'http.client.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.host': 'httpbin.org',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'httpbin.org',
+                                        'net.peer.port': 443,
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
+                        },
+                        'http.client.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'server.address': 'httpbin.org',
+                                        'server.port': 443,
+                                    },
+                                    'total': IsFloat(),
+                                }
+                            ],
+                            'total': IsFloat(),
+                        },
+                        'http.client.request.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.host': 'httpbin.org',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'httpbin.org',
+                                        'net.peer.port': 443,
+                                    },
+                                    'total': 0,
+                                }
+                            ],
+                            'total': 0,
+                        },
+                        'http.client.request.body.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'server.address': 'httpbin.org',
+                                        'server.port': 443,
+                                    },
+                                    'total': 0,
+                                }
+                            ],
+                            'total': 0,
+                        },
+                        'http.client.response.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.host': 'httpbin.org',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'httpbin.org',
+                                        'net.peer.port': 443,
+                                    },
+                                    'total': 0,
+                                }
+                            ],
+                            'total': 0,
+                        },
+                        'http.client.response.body.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'server.address': 'httpbin.org',
+                                        'server.port': 443,
+                                    },
+                                    'total': 0,
+                                }
+                            ],
+                            'total': 0,
+                        },
+                    },
+                },
+            },
+        ]
     )
 
 
