@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, cast
 
 try:
     from litestar import Litestar
-    from litestar.exceptions import HTTPException
     from litestar.handlers import ASGIRouteHandler
     from litestar.routes import ASGIRoute
     from litestar.utils import normalize_path
@@ -44,7 +43,11 @@ def instrument_litestar(
         path = normalize_path(path)
         try:
             routing_result = app.asgi_router.handle_routing(path=path, method=method or None)
-        except HTTPException:  # Litestar uses HTTP exceptions to represent 404s and method mismatches.
+        except Exception:
+            # This runs in the ASGI middleware before the app, outside Litestar's exception handling, so any
+            # error raised here would turn the request into a bare 500 with no span. Routing raises HTTP
+            # exceptions for 404s and method mismatches, but also e.g. `KeyError` for a WebSocket request to an
+            # HTTP-only route. Leave all of them for Litestar to handle when it routes the request itself.
             return method, {}
 
         path_template = routing_result[-1]

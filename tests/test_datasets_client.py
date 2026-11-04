@@ -9,7 +9,7 @@ import json
 import sys
 import warnings
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, cast
 from uuid import UUID
 
@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 try:
     from pydantic_evals import Case, Dataset
+    from pydantic_evals.evaluators import Evaluator, EvaluatorContext
 except Exception:
     pytest.skip('pydantic_evals not compatible with this environment', allow_module_level=True)
 
@@ -266,8 +267,9 @@ class TestSerializeCase:
 
     def test_full_case(self):
         @dataclass
-        class MyEval:
-            pass
+        class MyEval(Evaluator[Any, Any, Any]):
+            def evaluate(self, ctx: EvaluatorContext[Any, Any, Any]) -> float:
+                return 1.0
 
         case: Case[MyInput, MyOutput, MyMetadata] = Case(
             name='test',
@@ -1028,6 +1030,35 @@ class TestLogfireAPIClient:
         assert _get_dataset_type_args(result) == (list[int], Any, Any)
         assert result.cases[0].inputs == [1, 2]
 
+    def test_push_dataset_fetched_with_only_input_type_sends_no_other_schemas(self):
+        requests_seen: list[httpx.Request] = []
+        export = {'name': 'test-dataset', 'cases': [{'name': 'test-case', 'inputs': [1, 2]}]}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            if request.method == 'GET' and request.url.path == '/v1/datasets/test-dataset/export/':
+                return httpx.Response(200, json=export)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/':
+                return httpx.Response(409, json={'detail': 'Dataset already exists'})
+            if request.method == 'POST' and request.url.path == '/v1/datasets/test-dataset/import/':
+                return httpx.Response(200, json=[FAKE_CASE])
+            if request.url.path == '/v1/datasets/test-dataset/':
+                return httpx.Response(200, json=FAKE_DATASET)
+            return httpx.Response(404, json={'detail': 'Not found'})
+
+        client = LogfireAPIClient(
+            client=httpx.Client(transport=httpx.MockTransport(handler), base_url='https://test.logfire.dev')
+        )
+
+        client.push_dataset(client.get_dataset('test-dataset', input_type=list[int]))
+
+        create_request = next(r for r in requests_seen if r.method == 'POST' and r.url.path == '/v1/datasets/')
+        update_request = next(r for r in requests_seen if r.method == 'PATCH')
+        for body in (json.loads(create_request.content), json.loads(update_request.content)):
+            assert body['input_schema'] == {'type': 'array', 'items': {'type': 'integer'}}
+            assert 'output_schema' not in body
+            assert 'metadata_schema' not in body
+
     def test_get_dataset_typed_without_pydantic_evals(self, monkeypatch: pytest.MonkeyPatch):
         client = make_client()
         monkeypatch.setitem(sys.modules, 'pydantic_evals', None)
@@ -1486,6 +1517,36 @@ class TestAsyncLogfireAPIClient:
         assert result.cases[0].inputs == [1, 2]
 
     @pytest.mark.anyio
+    async def test_push_dataset_fetched_with_only_input_type_sends_no_other_schemas(self):
+        requests_seen: list[httpx.Request] = []
+        export = {'name': 'test-dataset', 'cases': [{'name': 'test-case', 'inputs': [1, 2]}]}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            if request.method == 'GET' and request.url.path == '/v1/datasets/test-dataset/export/':
+                return httpx.Response(200, json=export)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/':
+                return httpx.Response(409, json={'detail': 'Dataset already exists'})
+            if request.method == 'POST' and request.url.path == '/v1/datasets/test-dataset/import/':
+                return httpx.Response(200, json=[FAKE_CASE])
+            if request.url.path == '/v1/datasets/test-dataset/':
+                return httpx.Response(200, json=FAKE_DATASET)
+            return httpx.Response(404, json={'detail': 'Not found'})
+
+        client = AsyncLogfireAPIClient(
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url='https://test.logfire.dev')
+        )
+
+        await client.push_dataset(await client.get_dataset('test-dataset', input_type=list[int]))
+
+        create_request = next(r for r in requests_seen if r.method == 'POST' and r.url.path == '/v1/datasets/')
+        update_request = next(r for r in requests_seen if r.method == 'PATCH')
+        for body in (json.loads(create_request.content), json.loads(update_request.content)):
+            assert body['input_schema'] == {'type': 'array', 'items': {'type': 'integer'}}
+            assert 'output_schema' not in body
+            assert 'metadata_schema' not in body
+
+    @pytest.mark.anyio
     async def test_add_cases_with_dicts(self):
         client = make_async_client()
         cases: list[dict[str, Any]] = [{'inputs': {'question': 'q1'}}]
@@ -1556,3 +1617,49 @@ class TestResponseValidation:
         with pytest.warns(UserWarning, match='did not match the expected schema'):
             result = await client.get_dataset('test-dataset', include_cases=False)
         assert result == bad_response
+
+
+class CustomDict(dict[str, Any]):
+    pass
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('mapping_type', [dict, CustomDict])
+@pytest.mark.parametrize('field_name', ['inputs', 'expected_output', 'metadata'])
+@pytest.mark.parametrize('use_async', [False, True], ids=['sync', 'async'])
+async def test_add_cases_serializes_nested_dictionary_values(
+    field_name: str, use_async: bool, mapping_type: type[dict[str, Any]]
+) -> None:
+    value = mapping_type(
+        {'nested': [{'timestamp': datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc), 'id': UUID(FAKE_CASE['id'])}]}
+    )
+    fields: dict[str, Any] = {'inputs': {'question': 'hello'}, field_name: value}
+    case = Case(**fields)
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == 'POST'
+        assert request.url.path == '/v1/datasets/test-dataset/import/'
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=[FAKE_CASE])
+
+    transport = httpx.MockTransport(handler)
+    if use_async:
+        async with AsyncLogfireAPIClient(
+            client=httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
+        ) as async_client:
+            results = await async_client.add_cases('test-dataset', [case])
+    else:
+        with LogfireAPIClient(
+            client=httpx.Client(transport=transport, base_url='https://test.logfire.dev')
+        ) as sync_client:
+            results = sync_client.add_cases('test-dataset', [case])
+
+    assert results == [EXPECTED_CASE]
+    assert len(requests) == 1
+    assert requests[0]['cases'][0][field_name] == {
+        'nested': [{'timestamp': '2026-01-02T03:04:00Z', 'id': FAKE_CASE['id']}]
+    }
+    assert getattr(case, field_name) == value
+    assert isinstance(value['nested'][0]['timestamp'], datetime)
+    assert isinstance(value['nested'][0]['id'], UUID)

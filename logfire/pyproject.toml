@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "6.0.0b7"
+version = "5.4.0"
 description = "Pydantic Logfire Python SDK and command-line interface"
 requires-python = ">=3.10"
 authors = [
@@ -45,46 +45,47 @@ classifiers = [
     "Framework :: OpenTelemetry :: Exporters",
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
-dependencies = ["logfire-sdk==6.0.0b7", "logfire-cli>=0.1.8"]
+dependencies = ["logfire-sdk==5.4.0"]
 
-# This package owns the `logfire` command; logfire-cli 0.1.8+ installs only `logfire-cli`.
+# This package owns the `logfire` command and runs the Python CLI shipped in the SDK.
 # Pip uninstalls monolithic logfire v5, which also owned `logfire`, immediately before
 # installing this package, so the launcher is restored during the upgrade.
 [project.scripts]
-logfire = "logfire_cli:main"
+logfire = "logfire.cli:main"
 
 [project.optional-dependencies]
-gateway = ["logfire-sdk[gateway]==6.0.0b7"]
-system-metrics = ["logfire-sdk[system-metrics]==6.0.0b7"]
-asgi = ["logfire-sdk[asgi]==6.0.0b7"]
-wsgi = ["logfire-sdk[wsgi]==6.0.0b7"]
-aiohttp = ["logfire-sdk[aiohttp]==6.0.0b7"]
-aiohttp-client = ["logfire-sdk[aiohttp-client]==6.0.0b7"]
-aiohttp-server = ["logfire-sdk[aiohttp-server]==6.0.0b7"]
-celery = ["logfire-sdk[celery]==6.0.0b7"]
-django = ["logfire-sdk[django]==6.0.0b7"]
-fastapi = ["logfire-sdk[fastapi]==6.0.0b7"]
-flask = ["logfire-sdk[flask]==6.0.0b7"]
-httpx = ["logfire-sdk[httpx]==6.0.0b7"]
-starlette = ["logfire-sdk[starlette]==6.0.0b7"]
-litestar = ["logfire-sdk[litestar]==6.0.0b7"]
-sqlalchemy = ["logfire-sdk[sqlalchemy]==6.0.0b7"]
-asyncpg = ["logfire-sdk[asyncpg]==6.0.0b7"]
-psycopg = ["logfire-sdk[psycopg]==6.0.0b7"]
-psycopg2 = ["logfire-sdk[psycopg2]==6.0.0b7"]
-pymongo = ["logfire-sdk[pymongo]==6.0.0b7"]
-redis = ["logfire-sdk[redis]==6.0.0b7"]
-valkey = ["logfire-sdk[valkey]==6.0.0b7"]
-requests = ["logfire-sdk[requests]==6.0.0b7"]
-mysql = ["logfire-sdk[mysql]==6.0.0b7"]
-sqlite3 = ["logfire-sdk[sqlite3]==6.0.0b7"]
-urllib = ["logfire-sdk[urllib]==6.0.0b7"]
-aws-lambda = ["logfire-sdk[aws-lambda]==6.0.0b7"]
-google-genai = ["logfire-sdk[google-genai]==6.0.0b7"]
-litellm = ["logfire-sdk[litellm]==6.0.0b7"]
-dspy = ["logfire-sdk[dspy]==6.0.0b7"]
-datasets = ["logfire-sdk[datasets]==6.0.0b7"]
-variables = ["logfire-sdk[variables]==6.0.0b7"]
+gateway = ["logfire-sdk[gateway]==5.4.0"]
+agent-sandboxes = ["logfire-sdk[agent-sandboxes]==5.4.0"]
+system-metrics = ["logfire-sdk[system-metrics]==5.4.0"]
+asgi = ["logfire-sdk[asgi]==5.4.0"]
+wsgi = ["logfire-sdk[wsgi]==5.4.0"]
+aiohttp = ["logfire-sdk[aiohttp]==5.4.0"]
+aiohttp-client = ["logfire-sdk[aiohttp-client]==5.4.0"]
+aiohttp-server = ["logfire-sdk[aiohttp-server]==5.4.0"]
+celery = ["logfire-sdk[celery]==5.4.0"]
+django = ["logfire-sdk[django]==5.4.0"]
+fastapi = ["logfire-sdk[fastapi]==5.4.0"]
+flask = ["logfire-sdk[flask]==5.4.0"]
+httpx = ["logfire-sdk[httpx]==5.4.0"]
+starlette = ["logfire-sdk[starlette]==5.4.0"]
+litestar = ["logfire-sdk[litestar]==5.4.0"]
+sqlalchemy = ["logfire-sdk[sqlalchemy]==5.4.0"]
+asyncpg = ["logfire-sdk[asyncpg]==5.4.0"]
+psycopg = ["logfire-sdk[psycopg]==5.4.0"]
+psycopg2 = ["logfire-sdk[psycopg2]==5.4.0"]
+pymongo = ["logfire-sdk[pymongo]==5.4.0"]
+redis = ["logfire-sdk[redis]==5.4.0"]
+valkey = ["logfire-sdk[valkey]==5.4.0"]
+requests = ["logfire-sdk[requests]==5.4.0"]
+mysql = ["logfire-sdk[mysql]==5.4.0"]
+sqlite3 = ["logfire-sdk[sqlite3]==5.4.0"]
+urllib = ["logfire-sdk[urllib]==5.4.0"]
+aws-lambda = ["logfire-sdk[aws-lambda]==5.4.0"]
+google-genai = ["logfire-sdk[google-genai]==5.4.0"]
+litellm = ["logfire-sdk[litellm]==5.4.0"]
+dspy = ["logfire-sdk[dspy]==5.4.0"]
+datasets = ["logfire-sdk[datasets]==5.4.0"]
+variables = ["logfire-sdk[variables]==5.4.0"]
 
 [project.urls]
 Homepage = "https://pydantic.dev/logfire"

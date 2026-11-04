@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .semconv import INPUT_TOKENS, OUTPUT_TOKENS, USAGE_RAW
+from .semconv import CACHE_CREATION_INPUT_TOKENS, CACHE_READ_INPUT_TOKENS, INPUT_TOKENS, OUTPUT_TOKENS, USAGE_RAW
 
 
 def get_usage_attributes(
@@ -13,10 +13,12 @@ def get_usage_attributes(
     provider_id: str,
     api_flavor: str | None = None,
     provider_url: str | None = None,
+    cache_read_tokens: int | None = None,
+    cache_write_tokens: int | None = None,
 ) -> dict[str, Any]:
     """Build usage attributes: INPUT_TOKENS, OUTPUT_TOKENS, USAGE_RAW, operation.cost.
 
-    Callers extract input/output tokens themselves (API-surface-specific).
+    Callers extract input/output (and optionally cache read/write) tokens themselves (API-surface-specific).
     response is the full API response object, passed to genai_prices for cost calculation
     (genai_prices extracts both model and usage from it). usage is the usage sub-object,
     used for USAGE_RAW. api_flavor is needed for OpenAI ('chat', 'responses', or 'embeddings').
@@ -37,6 +39,11 @@ def get_usage_attributes(
         result[INPUT_TOKENS] = input_tokens
     if isinstance(output_tokens, int):
         result[OUTPUT_TOKENS] = output_tokens
+    # Only recorded when non-zero, so spans without prompt caching are unchanged.
+    if isinstance(cache_read_tokens, int) and cache_read_tokens:
+        result[CACHE_READ_INPUT_TOKENS] = cache_read_tokens
+    if isinstance(cache_write_tokens, int) and cache_write_tokens:
+        result[CACHE_CREATION_INPUT_TOKENS] = cache_write_tokens
     try:
         if hasattr(usage, 'model_dump'):
             result[USAGE_RAW] = usage.model_dump(exclude_none=True)

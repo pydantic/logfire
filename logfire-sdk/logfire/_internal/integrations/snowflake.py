@@ -7,12 +7,12 @@ from weakref import WeakKeyDictionary
 
 from logfire import Logfire
 from logfire._internal.stack_info import warn_at_user_stacklevel
-from logfire._internal.utils import handle_internal_errors
+from logfire._internal.utils import get_version, handle_internal_errors
 
 try:
     import snowflake.connector as sf_connector
     from snowflake.connector.connection import SnowflakeConnection
-    from snowflake.connector.cursor import SnowflakeCursor
+    from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 except ModuleNotFoundError as e:
     if e.name not in {'snowflake', 'snowflake.connector'}:
         raise
@@ -46,7 +46,8 @@ def instrument_snowflake(
             _warn_capture_parameters_ignored(existing[1])
     else:
         raise ValueError(f"Don't know how to instrument {conn_or_module!r}")
-    _patch_cursor_class()
+    for cursor_class in (SnowflakeCursor, DictCursor):
+        _patch_cursor_class(cursor_class)
 
 
 def _warn_capture_parameters_ignored(existing: bool) -> None:
@@ -57,7 +58,7 @@ def _warn_capture_parameters_ignored(existing: bool) -> None:
 
 
 def _patch_connect(logfire_instance: Logfire) -> None:
-    original_connect: Any = sf_connector.connect  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    original_connect: Any = sf_connector.connect
 
     @functools.wraps(original_connect)
     def wrapped_connect(*args: Any, **kwargs: Any) -> SnowflakeConnection:
@@ -71,17 +72,23 @@ def _patch_connect(logfire_instance: Logfire) -> None:
     sf_connector.connect = wrapped_connect
 
 
-def _patch_cursor_class() -> None:
-    original_execute = SnowflakeCursor.__dict__.get('execute', SnowflakeCursor.execute)
+def _patch_cursor_class(cursor_class: type[SnowflakeCursor] | type[DictCursor]) -> None:
+    original_execute = cursor_class.__dict__.get('execute', cursor_class.execute)
     if not getattr(original_execute, '_logfire_patched', False):
-        SnowflakeCursor.execute = _wrap_execute(original_execute)
+        cursor_class.execute = _wrap_execute(original_execute)
 
-    original_executemany = SnowflakeCursor.__dict__.get('executemany', SnowflakeCursor.executemany)
+    # In connector 5, execute_async no longer delegates to execute.
+    if get_version(sf_connector.__version__) >= get_version('5'):
+        original_execute_async = cursor_class.execute_async
+        if not getattr(original_execute_async, '_logfire_patched', False):
+            cursor_class.execute_async = _wrap_execute(original_execute_async, is_async=True)
+
+    original_executemany = cursor_class.__dict__.get('executemany', cursor_class.executemany)
     if not getattr(original_executemany, '_logfire_patched', False):
-        SnowflakeCursor.executemany = _wrap_executemany(original_executemany)
+        cursor_class.executemany = _wrap_executemany(original_executemany)
 
 
-def _settings(cursor: SnowflakeCursor) -> tuple[Logfire, bool] | None:
+def _settings(cursor: SnowflakeCursor | DictCursor) -> tuple[Logfire, bool] | None:
     """Return the settings this cursor was instrumented with, or `None` if it isn't instrumented."""
     settings = None
     with handle_internal_errors:
@@ -89,24 +96,26 @@ def _settings(cursor: SnowflakeCursor) -> tuple[Logfire, bool] | None:
     return _module_settings if settings is None else settings
 
 
-def _wrap_execute(original: Any) -> Any:
+def _wrap_execute(original: Any, *, is_async: bool = False) -> Any:
     @functools.wraps(original)
-    def wrapped(self: SnowflakeCursor, command: str, params: Any = None, *args: Any, **kwargs: Any) -> Any:
+    def wrapped(self: SnowflakeCursor | DictCursor, *args: Any, **kwargs: Any) -> Any:
+        command = args[0] if args else kwargs.get('operation', kwargs.get('command', ''))
+        params = args[1] if len(args) > 1 else kwargs.get('parameters', kwargs.get('params'))
         settings = _settings(self)
         if settings is None:
-            return original(self, command, params, *args, **kwargs)
+            return original(self, *args, **kwargs)
         logfire_instance, capture_parameters = settings
         attributes = _query_span_attributes(command, self, logfire_instance)
         if capture_parameters:
             attributes['params'] = params
-        if kwargs.get('_exec_async'):
+        if is_async or kwargs.get('_exec_async'):
             template = 'snowflake execute async {command}'
             span_name = 'snowflake execute async'
         else:
             template = 'snowflake execute {command}'
             span_name = 'snowflake execute'
         with logfire_instance.span(template, _span_name=span_name, **attributes) as span:
-            result = original(self, command, params, *args, **kwargs)
+            result = original(self, *args, **kwargs)
             with handle_internal_errors:
                 span.set_attribute('sfqid', self.sfqid)
                 span.set_attribute('rowcount', self.rowcount)
@@ -118,10 +127,12 @@ def _wrap_execute(original: Any) -> Any:
 
 def _wrap_executemany(original: Any) -> Any:
     @functools.wraps(original)
-    def wrapped(self: SnowflakeCursor, command: str, seqparams: Any, **kwargs: Any) -> Any:
+    def wrapped(self: SnowflakeCursor | DictCursor, *args: Any, **kwargs: Any) -> Any:
+        command = args[0] if args else kwargs.get('operation', kwargs.get('command', ''))
+        seqparams = args[1] if len(args) > 1 else kwargs.get('seq_of_parameters', kwargs.get('seqparams'))
         settings = _settings(self)
         if settings is None:
-            return original(self, command, seqparams, **kwargs)
+            return original(self, *args, **kwargs)
         logfire_instance, capture_parameters = settings
         attributes = _query_span_attributes(command, self, logfire_instance)
         if capture_parameters:
@@ -129,7 +140,7 @@ def _wrap_executemany(original: Any) -> Any:
         with logfire_instance.span(
             'snowflake executemany {command}', _span_name='snowflake executemany', **attributes
         ) as span:
-            result = original(self, command, seqparams, **kwargs)
+            result = original(self, *args, **kwargs)
             with handle_internal_errors:
                 span.set_attribute('sfqid', self.sfqid)
                 span.set_attribute('rowcount', self.rowcount)
@@ -139,7 +150,9 @@ def _wrap_executemany(original: Any) -> Any:
     return wrapped
 
 
-def _query_span_attributes(command: str, cursor: SnowflakeCursor, logfire_instance: Logfire) -> dict[str, Any]:
+def _query_span_attributes(
+    command: str, cursor: SnowflakeCursor | DictCursor, logfire_instance: Logfire
+) -> dict[str, Any]:
     scrubbed_command = '[Scrubbed]'
     with handle_internal_errors:
         scrubbed_command, _ = logfire_instance.config.scrubber.scrub_value(('attributes', 'command'), command)

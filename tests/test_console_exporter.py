@@ -91,6 +91,64 @@ def test_console_include_attributes(
     assert (' info' in text) is verbose
 
 
+@pytest.mark.parametrize('colors', ['never', 'always'])
+@pytest.mark.parametrize(
+    'value,formatted',
+    [
+        (range(4), 'range(0, 4)'),
+        (range(0), 'range(0, 0)'),
+        (range(3, 4), 'range(3, 4)'),
+        (range(1, 8, 3), 'range(1, 10, 3)'),
+        (range(5, -1, -2), 'range(5, -1, -2)'),
+    ],
+)
+def test_console_range_attributes(
+    config_kwargs: dict[str, Any],
+    colors: Literal['never', 'always'],
+    value: range,
+    formatted: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Exercise the schema emitted by the public API and keep later attributes visible.
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors=colors, include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('loaded', values=value, count=len(value))
+
+    text = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', output.getvalue())
+    assert text == f'loaded\n│ values={formatted}\n│ count={len(value)}\n'
+    assert not caplog.records
+
+
+def test_console_generator_attribute(config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture) -> None:
+    # A generator is encoded as its repr() without being consumed, so the console prints that repr as is.
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    gen = (x for x in [1, 2])
+    logfire.info('loaded', values=gen, count=2)
+
+    assert output.getvalue() == f'loaded\n│ values={gen!r}\n│ count=2\n'
+    assert list(gen) == [1, 2]
+    assert not caplog.records
+
+
+def test_console_bytearray_attribute(config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture) -> None:
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('loaded', data=bytearray(b'a\nb'), count=3)
+
+    assert output.getvalue() == 'loaded\n│ data=bytearray(a\\nb)\n│ count=3\n'
+    assert not caplog.records
+
+
 @pytest.mark.parametrize('source', ['file', 'environment', 'options'])
 @pytest.mark.parametrize('include_attributes', [True, False])
 def test_console_include_attributes_config_sources(
@@ -1275,3 +1333,16 @@ def test_console_exporter_log_pydantic_root_model(capsys: pytest.CaptureFixture[
             '│ with_order_inner=Order(1)',
         ]
     )
+
+
+@pytest.mark.parametrize('value,formatted', [(42, 'array(42)'), ('hello', "array('hello')")])
+def test_console_zero_dimensional_numpy_array(config_kwargs: dict[str, Any], value: Any, formatted: str) -> None:
+    import numpy
+
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('scalar array', value=numpy.array(value))
+    assert output.getvalue() == f'scalar array\n│ value={formatted}\n'

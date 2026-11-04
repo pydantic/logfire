@@ -9,10 +9,10 @@ Gateway **Guardrails** can detect sensitive values before a request reaches a mo
 
 Start with a prebuilt secret or personal-data template. Test it with non-sensitive sample text before enforcing it broadly.
 
-!!! note "Plan availability"
-    To manage Guardrails, enable **AI Gateway guardrails** under [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access). Access to these settings requires membership in a Growth or Enterprise organization, or a self-hosted deployment. The choice applies to your account in this browser, not automatically to every member.
+!!! note "Guardrails are in Beta"
+    Guardrails are available to every organization that can use Gateway, on every plan, and the workflow may change while it is in Beta.
 
-    Prebuilt and custom-pattern protections do not require an additional plan upgrade for **Flag response**, **Redact**, or **Block** during Early Access. Supported actions vary by template. **Presidio protections** separately require **Enterprise Cloud or self-hosted Logfire**.
+    Prebuilt and custom-pattern protections do not require a plan upgrade for **Flag response**, **Redact**, or **Block** during the Beta. Supported actions vary by template. **Presidio protections** separately require **Enterprise Cloud or self-hosted Logfire**.
 
 ## Install a prebuilt protection
 

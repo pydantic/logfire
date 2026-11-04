@@ -26,12 +26,12 @@ from decimal import Decimal
 from enum import Enum
 from functools import lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
-from pathlib import PosixPath
+from pathlib import PurePath
 from types import GeneratorType
 from typing import Any, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
-from .json_encoder import is_attrs, is_sqlalchemy, to_json_value
+from .json_encoder import is_attrs, is_sqlalchemy, pandas_display_slices, to_json_value
 from .stack_info import STACK_INFO_KEYS
 from .utils import JsonDict, dump_json, log_internal_error, safe_repr
 
@@ -59,7 +59,7 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
         re.Pattern: {'type': 'string', 'format': 'regex'},
         uuid.UUID: {'type': 'string', 'format': 'uuid'},
         range: {'type': 'array', 'x-python-datatype': 'range'},
-        PosixPath: {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+        PurePath: {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
         Exception: _exception_schema,
     }
     with contextlib.suppress(ModuleNotFoundError):
@@ -289,10 +289,14 @@ def _array_schema(
     found_non_empty_schema = False
     for item in obj:
         item_schema = create_json_schema(item, seen)
+        if previous_schema is not None:
+            if item_schema == previous_schema:
+                # Share consecutive equal schemas instead of retaining duplicate dictionaries.
+                item_schema = previous_schema
+            else:
+                use_items_key = False
         prefix_items.append(item_schema)
 
-        if previous_schema is not None and item_schema != previous_schema:
-            use_items_key = False
         if item_schema not in PLAIN_SCHEMAS:
             found_non_empty_schema = True
 
@@ -374,13 +378,13 @@ def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:
 
     row_count, column_count = obj.shape
 
-    max_columns = pandas.get_option('display.max_columns')
-    col_middle = min(max_columns, column_count) // 2
-    columns = list(obj.columns[:col_middle]) + list(obj.columns[-col_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+    columns: list[Any] = []
+    for column_slice in pandas_display_slices(column_count, pandas.get_option('display.max_columns')):
+        columns.extend(cast(Iterable[Any], obj.columns[column_slice]))
 
-    max_rows = pandas.get_option('display.max_rows')
-    row_middle = min(max_rows, row_count) // 2
-    indices = list(obj.index[:row_middle]) + list(obj.index[-row_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+    indices: list[Any] = []
+    for row_slice in pandas_display_slices(row_count, pandas.get_option('display.max_rows')):
+        indices.extend(cast(Iterable[Any], obj.index[row_slice]))
 
     return {
         'type': 'array',
@@ -409,7 +413,7 @@ def _attrs_schema(obj: Any, seen: set[int]) -> JsonDict:
     import attrs
 
     obj = cast(attrs.AttrsInstance, obj)
-    return _custom_object_schema(obj, 'attrs', (key.name for key in obj.__attrs_attrs__), seen)
+    return _custom_object_schema(obj, 'attrs', (key.name for key in obj.__attrs_attrs__ if key.repr is not False), seen)
 
 
 def _sqlalchemy_schema(obj: Any, seen: set[int]) -> JsonDict | None:

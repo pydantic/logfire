@@ -2,7 +2,7 @@
 name = "logfire-python"
 version = "0.0.0"
 requires-python = ">=3.10"
-dependencies = ["logfire-sdk"]
+dependencies = ["logfire"]
 
 [dependency-groups]
 editor-tests = [
@@ -37,7 +37,8 @@ dev = [
     # Keep depending on types-requests so its stubs take priority; it previously came
     # in transitively via openai-agents.
     "types-requests",
-    "sqlalchemy >= 1.4.54",
+    # OTel instrumentation currently supports SQLAlchemy <2.1.
+    "sqlalchemy >= 1.4.54, <2.1",
     "pandas>=2.1.2",
     "attrs >= 23.1.0",
     "openai >= 1.108.1",
@@ -91,6 +92,8 @@ dev = [
     "pyarrow-stubs>=20",
     # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
     "numpy>=2.0; python_version < '3.12'",
+    # Backport of `compression.zstd`, to test zstd export compression below Python 3.14.
+    "backports.zstd>=1.7.0; python_version < '3.14'",
     "pytest-recording>=0.13.2",
     # >=8.2.1 includes the aiohttp 3.14 compatibility fix and a fix for arbitrary
     # code execution via unsafe YAML deserialization of cassettes (GHSA-rpj2-4hq8-938g).
@@ -105,6 +108,7 @@ dev = [
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
     "openai-agents[voice]>=0.14.0",
+    "fastmcp-slim[server]>=4",
     "pydantic-ai-slim[mcp]>=2",
     "pydantic-evals>=2",
     "pydantic-monty>=0.0.23",
@@ -135,6 +139,7 @@ default-flags = ["disable"]
 format-command = "ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
+logfire = { workspace = true }
 logfire-api = { workspace = true }
 logfire-sdk = { workspace = true }
 
@@ -144,6 +149,9 @@ default-groups = ["dev"]
 exclude-newer = "4 days"
 
 [tool.uv.exclude-newer-package]
+# Allow the security update that removes trust in compromised eMudhra certificate chains.
+certifi = false
+pip = false
 # These are our own packages, not worth defending from supply chain attacks on them.
 pydantic_ai_slim = false
 pydantic-graph = false
@@ -218,8 +226,12 @@ venvPath = "."
 venv = ".venv"
 
 [tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
 xfail_strict = true
 pythonpath = ["."]
+markers = [
+    "otel_collector: requires Docker and runs against a pinned OpenTelemetry Collector",
+]
 # The langsmith pytest plugin messes with test_langchain.py
 addopts = "-p no:langsmith_plugin"
 filterwarnings = [

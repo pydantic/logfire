@@ -9,11 +9,12 @@ from weakref import WeakSet
 
 from opentelemetry import trace
 from opentelemetry._logs import Logger, LoggerProvider, LogRecord, NoOpLoggerProvider, SeverityNumber
+from opentelemetry.context import Context
 
 from logfire._internal.constants import LEVEL_NUMBERS
 
 if TYPE_CHECKING:
-    from opentelemetry.util.types import _ExtendedAttributes  # pyright: ignore[reportPrivateUsage]
+    from opentelemetry.util.types import Attributes
 
 
 @dataclass
@@ -33,7 +34,7 @@ class ProxyLoggerProvider(LoggerProvider):
         name: str,
         version: str | None = None,
         schema_url: str | None = None,
-        attributes: _ExtendedAttributes | None = None,
+        attributes: Attributes | None = None,
     ) -> Logger:
         with self.lock:
             if name in self.suppressed_scopes:
@@ -92,7 +93,7 @@ class ProxyLogger(Logger):
     name: str
     version: str | None = None
     schema_url: str | None = None
-    attributes: _ExtendedAttributes | None = None
+    attributes: Attributes | None = None
 
     @overload
     def emit(self, record: LogRecord) -> None: ...
@@ -124,6 +125,18 @@ class ProxyLogger(Logger):
 
     def set_logger(self, provider: LoggerProvider) -> None:
         self.logger = provider.get_logger(self.name, self.version, self.schema_url, self.attributes)
+
+    def enabled(
+        self,
+        *,
+        context: Context | None = None,
+        severity_number: SeverityNumber | None = None,
+        event_name: str | None = None,
+    ) -> bool:
+        if severity_number is not None and severity_number.value < self.min_level:
+            return False
+        enabled = getattr(self.logger, 'enabled', None)
+        return enabled(context=context, severity_number=severity_number, event_name=event_name) if enabled else True
 
     def __getattr__(self, item: str):
         return getattr(self.logger, item)

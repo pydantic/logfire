@@ -215,10 +215,11 @@ def test_instrument_valkey_bytes_command(valkey_behavior: dict[str, Any], export
 def test_instrument_valkey_no_connection_attributes(
     monkeypatch: pytest.MonkeyPatch, valkey_behavior: dict[str, Any], exporter: TestExporter
 ):
-    from valkey import Valkey
+    from valkey import ConnectionPool, Valkey
 
-    client = Valkey(host='localhost', port=6379, db=0)
-    monkeypatch.setattr(client.connection_pool, 'connection_kwargs', {})
+    pool = ConnectionPool(host='localhost', port=6379, db=0)
+    client = Valkey(connection_pool=pool)
+    monkeypatch.setattr(pool, 'connection_kwargs', {})
     assert _sync_execute(client, 'GET', 'my-key') == 'OK'
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(

@@ -30,6 +30,8 @@ via the cli instead of interactively, use `logfire --region eu auth` or `logfire
 !!! note
     If you're using a [self-hosted Logfire instance](./self-hosted/overview.md), you can authenticate by specifying your instance's URL using the `--base-url` flag:
     `logfire --base-url="https://<your_logfire_hostname>" auth`
+    Alternatively, set `LOGFIRE_BASE_URL`, which is also read by the SDK, to authenticate against the same instance:
+    `LOGFIRE_BASE_URL="https://<your_logfire_hostname>" logfire auth`
 
 Then you will be given the option to open logfire in your browser:
 ![Terminal screenshot with Logfire auth command](../images/cli/terminal-screenshot-auth-1.png)
@@ -47,9 +49,22 @@ Then, if you go back to the terminal, you'll see that you are authenticated! :ta
 
 To log out and remove the locally stored credentials, run:
 
+!!! warning "Logout scope"
+    Without `--region`, `--base-url`, or a non-empty `LOGFIRE_BASE_URL`, this removes user tokens for **all** stored regions and servers.
+    Otherwise, only the selected region or server's user token is removed.
+
 ```bash
 logfire auth logout
 ```
+
+To switch accounts in one region, log out of that region, then authenticate again:
+
+```bash
+logfire --region us auth logout
+logfire --region us auth
+```
+
+For a self-hosted instance, use the same `--base-url` value in both commands instead of `--region`.
 
 ## Clean (`clean`)
 

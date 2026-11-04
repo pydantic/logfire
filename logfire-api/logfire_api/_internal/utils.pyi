@@ -18,9 +18,6 @@ from types import TracebackType
 from typing import Any, ParamSpec, TypeVar, TypedDict
 
 _ = BaseExceptionGroup
-
-class BaseExceptionGroup(BaseException):
-    """Stub for BaseExceptionGroup for Python < 3.11."""
 SysExcInfo = tuple[type[BaseException], BaseException, TracebackType | None] | tuple[None, None, None]
 P = ParamSpec('P')
 T = TypeVar('T')
@@ -35,6 +32,19 @@ def uniquify_sequence(seq: Sequence[T]) -> tuple[T, ...]:
     """Remove duplicates from a sequence preserving order."""
 def safe_repr(obj: Any) -> str:
     """Return some kind of non-empty string representation of an object, catching exceptions."""
+def safe_str(obj: Any) -> str:
+    """Return `str(obj)`, or a placeholder if calling `str()` itself raises.
+
+    Some objects (notably exceptions that were never fully initialised) raise from `__str__`.
+    Callers on the telemetry path must never let that abort their own work, so the placeholder
+    deliberately avoids looking anything up on the object or its class.
+    """
+def safe_type_name(obj: Any) -> str:
+    """Return the bare class name of `obj`, or a placeholder if that lookup raises.
+
+    A metaclass can turn `__name__` into a property that raises, so even reading the class
+    name is not safe on the telemetry path.
+    """
 Truncatable = TypeVar('Truncatable', str, bytes, 'list[Any]', 'tuple[Any, ...]')
 
 def truncate_string(s: str, *, max_length: int, middle: str = '...') -> str:

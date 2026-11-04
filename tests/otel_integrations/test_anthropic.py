@@ -18,6 +18,7 @@ from anthropic.types import (
     MessageStopEvent,
     TextBlock,
     TextDelta,
+    ToolUseBlock,
     Usage,
 )
 from dirty_equals import IsInt, IsPartialDict, IsStr
@@ -36,7 +37,7 @@ pytestmark = [
 ]
 
 
-ANY_ADAPTER = pydantic.TypeAdapter(Any)  # type: ignore
+ANY_ADAPTER = pydantic.TypeAdapter(Any)
 
 
 def test_semconv_version_defaults() -> None:
@@ -92,13 +93,15 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 dict(delta=TextDelta(text=' is secret', type='text_delta'), index=0, type='content_block_delta'),
                 dict(index=0, type='content_block_stop'),
                 dict(
-                    delta=dict(stop_reason='end_turn', stop_sequence=None),
+                    delta=dict(
+                        stop_reason=None if json_body['system'] == 'no stop reason' else 'end_turn', stop_sequence=None
+                    ),
                     type='message_delta',
                     usage=MessageDeltaUsage(output_tokens=55),
                 ),
                 MessageStopEvent(type='message_stop'),
             ]
-            chunks_dicts = ANY_ADAPTER.dump_python(chunks)  # type: ignore
+            chunks_dicts = ANY_ADAPTER.dump_python(chunks)
             return httpx.Response(
                 200, text=''.join(f'event: {chunk["type"]}\ndata: {json.dumps(chunk)}\n\n' for chunk in chunks_dicts)
             )
@@ -333,6 +336,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                             'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': None,
+                            'speed': None,
                         },
                     },
                     'gen_ai.output.messages': [
@@ -496,6 +500,26 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
     )
 
 
+def test_messages_stream_records_served_model(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    # The request names an alias, and `message_start` reports the model that actually served it.
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-latest',
+        system='You are a helpful assistant.',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        stream=True,
+    )
+    with response as stream:
+        for _ in stream:
+            pass
+
+    [streaming_span] = [
+        span for span in exporter.exported_spans_as_dict() if span['name'].startswith('streaming response from')
+    ]
+    assert streaming_span['attributes']['gen_ai.request.model'] == 'claude-3-haiku-latest'
+    assert streaming_span['attributes']['gen_ai.response.model'] == 'claude-3-haiku-20240307'
+
+
 def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
     response = instrumented_client.messages.create(
         max_tokens=1000,
@@ -601,6 +625,8 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                             'finish_reason': 'end_turn',
                         }
                     ],
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 25,
                     'gen_ai.usage.output_tokens': 55,
                     'gen_ai.usage.raw': {'input_tokens': 25, 'output_tokens': 55},
@@ -621,6 +647,9 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                             'async': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -698,6 +727,66 @@ def test_messages_stream_text_block_none() -> None:
             'finish_reason': 'end_turn',
         }
     )
+
+
+@pytest.mark.parametrize('beta', [False, True])
+def test_streamed_tool_arguments(beta: bool, exporter: TestExporter) -> None:
+    events: list[dict[str, Any]] = [
+        {
+            'type': 'message_start',
+            'message': {
+                'id': 'test_id',
+                'type': 'message',
+                'role': 'assistant',
+                'content': [],
+                'model': 'claude-haiku-4-5',
+                'usage': {'input_tokens': 10, 'output_tokens': 0},
+            },
+        },
+        {
+            'type': 'content_block_start',
+            'index': 0,
+            'content_block': {'type': 'tool_use', 'id': 'tool_id', 'name': 'weather', 'input': {}},
+        },
+        {
+            'type': 'content_block_delta',
+            'index': 0,
+            'delta': {'type': 'input_json_delta', 'partial_json': '{"city":"San'},
+        },
+        {
+            'type': 'content_block_delta',
+            'index': 0,
+            'delta': {'type': 'input_json_delta', 'partial_json': ' Francisco"}'},
+        },
+        {'type': 'content_block_stop', 'index': 0},
+        {'type': 'message_delta', 'delta': {'stop_reason': 'tool_use'}, 'usage': {'output_tokens': 10}},
+        {'type': 'message_stop'},
+    ]
+    body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in events)
+    client = anthropic.Anthropic(
+        api_key='test',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, text=body))),
+    )
+    with logfire.instrument_anthropic(client):
+        messages = client.beta.messages if beta else client.messages
+        with messages.create(
+            model='claude-haiku-4-5',
+            max_tokens=100,
+            messages=[{'role': 'user', 'content': 'What is the weather?'}],
+            stream=True,
+        ) as stream:
+            assert len(list(stream)) == len(events)
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert spans[-1]['attributes']['gen_ai.output.messages'] == [
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'tool_call', 'id': 'tool_id', 'name': 'weather', 'arguments': {'city': 'San Francisco'}}
+            ],
+            'finish_reason': 'tool_use',
+        }
+    ]
 
 
 async def test_async_messages_stream(
@@ -808,6 +897,8 @@ async def test_async_messages_stream(
                             'finish_reason': 'end_turn',
                         }
                     ],
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 25,
                     'gen_ai.usage.output_tokens': 55,
                     'gen_ai.usage.raw': {'input_tokens': 25, 'output_tokens': 55},
@@ -828,6 +919,9 @@ async def test_async_messages_stream(
                             'async': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -1003,6 +1097,7 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
                             'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': None,
+                            'speed': None,
                         },
                     },
                     'gen_ai.output.messages': [
@@ -1203,6 +1298,7 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                             'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': None,
+                            'speed': None,
                         },
                     },
                     'gen_ai.output.messages': [
@@ -1516,6 +1612,7 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
                             'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': IsStr(),
+                            'speed': None,
                         },
                     },
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
@@ -1671,6 +1768,8 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
                             'finish_reason': 'end_turn',
                         }
                     ],
+                    'gen_ai.response.id': 'msg_01CpLvutrn5ZEYqp6J9PqxDN',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 19,
                     'gen_ai.usage.output_tokens': 9,
                     'gen_ai.usage.raw': {
@@ -1697,6 +1796,9 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
                             'gen_ai.system_instructions': {'type': 'array'},
                             'async': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -1803,6 +1905,8 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.request.max_tokens': 1000,
                     'async': False,
                     'response_data': {'combined_chunk_content': 'Four plus five equals nine.', 'chunk_count': IsInt()},
+                    'gen_ai.response.id': 'msg_01Pp3btiCYxbWhMJWewiYg5s',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 19,
                     'gen_ai.usage.output_tokens': 9,
                     'gen_ai.usage.raw': {
@@ -1827,6 +1931,9 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.request.max_tokens': {},
                             'async': {},
                             'response_data': {'type': 'object'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -1841,7 +1948,8 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
     )
 
 
-@pytest.mark.vcr()
+# Anthropic 2.3 removed the legacy beta=true query parameter.
+@pytest.mark.vcr(match_on=['method', 'scheme', 'host', 'port', 'path'])
 def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
     client = anthropic.Anthropic(api_key='foobar')
     logfire.instrument_anthropic(client, version=['latest', 1])
@@ -1953,6 +2061,8 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
                             'finish_reason': 'end_turn',
                         }
                     ],
+                    'gen_ai.response.id': 'msg_015ZdAGWSyZwVr5WxHaN3vaf',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'gen_ai.usage.input_tokens': 19,
                     'gen_ai.usage.output_tokens': 9,
                     'gen_ai.usage.raw': {
@@ -1980,6 +2090,9 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
                             'async': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
@@ -1994,7 +2107,8 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
     )
 
 
-@pytest.mark.vcr()
+# Anthropic 2.3 removed the legacy beta=true query parameter.
+@pytest.mark.vcr(match_on=['method', 'scheme', 'host', 'port', 'path'])
 async def test_async_beta_messages(exporter: TestExporter) -> None:
     client = anthropic.AsyncAnthropic()
     logfire.instrument_anthropic(client, version=['latest', 1])
@@ -2119,3 +2233,446 @@ async def test_async_beta_messages(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+@pytest.mark.parametrize('version', [1, 2, [1, 2]])
+@pytest.mark.parametrize('complete', [False, True])
+def test_stream_response_metadata(version: Any, complete: bool, exporter: TestExporter) -> None:
+    client = anthropic.Anthropic(
+        api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(request_handler))
+    )
+    with logfire.instrument_anthropic(client, version=version):
+        list(
+            client.messages.create(
+                model='claude-3-haiku-20240307',
+                system='system message' if complete else 'no stop reason',
+                max_tokens=10,
+                messages=[{'role': 'user', 'content': 'hello'}],
+                stream=True,
+            )
+        )
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
+    assert attributes['gen_ai.response.id'] == 'test_id'
+    if complete:
+        assert attributes['gen_ai.response.finish_reasons'] == ['end_turn']
+    else:
+        assert 'gen_ai.response.finish_reasons' not in attributes
+    client.close()
+
+
+def test_internal_exception_in_on_response_keeps_the_response(
+    exporter: TestExporter, caplog: pytest.LogCaptureFixture
+) -> None:
+    """If recording a response fails inside Logfire, the caller still gets the response."""
+    # `usage.input_tokens` is missing. The SDK accepts that without validation,
+    # and recording the usage then raises inside the instrumentation.
+    body = {
+        'id': 'msg_1',
+        'type': 'message',
+        'role': 'assistant',
+        'model': 'claude-haiku-4-5',
+        'content': [{'type': 'text', 'text': 'Nine'}],
+        'stop_reason': 'end_turn',
+        'stop_sequence': None,
+        'usage': {'output_tokens': 3},
+    }
+    client = anthropic.Anthropic(
+        api_key='test',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_anthropic(client):
+        response = client.messages.create(
+            max_tokens=1000,
+            model='claude-haiku-4-5',
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        )
+
+    assert isinstance(response, anthropic.types.Message)
+    assert response.id == 'msg_1'
+    assert 'Caught an internal error in Logfire' in caplog.text
+    assert len(exporter.exported_spans_as_dict()) == 1
+
+
+def test_internal_exception_in_stream_attributes_keeps_the_stream(
+    exporter: TestExporter, caplog: pytest.LogCaptureFixture
+) -> None:
+    """If recording a streamed response fails inside Logfire, iterating the stream still works."""
+    # `usage.input_tokens` is missing from `message_start`, as in the non-streaming test above.
+    events: list[dict[str, Any]] = [
+        {
+            'type': 'message_start',
+            'message': {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'model': 'claude-haiku-4-5',
+                'content': [],
+                'stop_reason': None,
+                'stop_sequence': None,
+                'usage': {'output_tokens': 1},
+            },
+        },
+        {'type': 'content_block_start', 'index': 0, 'content_block': {'type': 'text', 'text': ''}},
+        {'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': 'Nine'}},
+        {'type': 'content_block_stop', 'index': 0},
+        {
+            'type': 'message_delta',
+            'delta': {'stop_reason': 'end_turn', 'stop_sequence': None},
+            'usage': {'output_tokens': 3},
+        },
+        {'type': 'message_stop'},
+    ]
+    sse = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in events)
+    client = anthropic.Anthropic(
+        api_key='test',
+        http_client=httpx.Client(
+            transport=MockTransport(
+                lambda _: httpx.Response(200, text=sse, headers={'content-type': 'text/event-stream'})
+            )
+        ),
+    )
+    with logfire.instrument_anthropic(client):
+        stream = client.messages.create(
+            max_tokens=1000,
+            model='claude-haiku-4-5',
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+            stream=True,
+        )
+        chunks = [chunk.type for chunk in stream]
+
+    assert chunks == [event['type'] for event in events]
+    assert 'Caught an internal error in Logfire' in caplog.text
+    spans = exporter.exported_spans_as_dict()
+    assert [span['name'] for span in spans] == [
+        'Message with {request_data[model]!r}',
+        'streaming response from {request_data[model]!r} took {duration:.2f}s',
+    ]
+
+
+def test_messages_records_cache_token_attributes(exporter: TestExporter) -> None:
+    body = {
+        'id': 'msg_1',
+        'type': 'message',
+        'role': 'assistant',
+        'model': 'claude-haiku-4-5',
+        'content': [{'type': 'text', 'text': 'Nine'}],
+        'stop_reason': 'end_turn',
+        'stop_sequence': None,
+        'usage': {
+            'input_tokens': 10,
+            'output_tokens': 3,
+            'cache_read_input_tokens': 90,
+            'cache_creation_input_tokens': 5,
+        },
+    }
+    client = anthropic.Anthropic(
+        api_key='test',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_anthropic(client):
+        client.messages.create(
+            max_tokens=1000,
+            model='claude-haiku-4-5',
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        )
+
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert attributes['gen_ai.usage.input_tokens'] == 105
+    assert attributes['gen_ai.usage.cache_read.input_tokens'] == 90
+    assert attributes['gen_ai.usage.cache_creation.input_tokens'] == 5
+
+
+def test_messages_without_cache_tokens_omits_cache_attributes(exporter: TestExporter) -> None:
+    body = {
+        'id': 'msg_1',
+        'type': 'message',
+        'role': 'assistant',
+        'model': 'claude-haiku-4-5',
+        'content': [{'type': 'text', 'text': 'Nine'}],
+        'stop_reason': 'end_turn',
+        'stop_sequence': None,
+        'usage': {'input_tokens': 10, 'output_tokens': 3, 'cache_read_input_tokens': 0},
+    }
+    client = anthropic.Anthropic(
+        api_key='test',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_anthropic(client):
+        client.messages.create(
+            max_tokens=1000,
+            model='claude-haiku-4-5',
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        )
+
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert 'gen_ai.usage.cache_read.input_tokens' not in attributes
+    assert 'gen_ai.usage.cache_creation.input_tokens' not in attributes
+
+
+def test_messages_stream_records_cache_token_attributes() -> None:
+    from anthropic.types import RawMessageStreamEvent
+
+    from logfire._internal.integrations.llm_providers.anthropic import AnthropicMessageStreamState
+
+    adapter = pydantic.TypeAdapter(RawMessageStreamEvent)
+    events: list[dict[str, Any]] = [
+        {
+            'type': 'message_start',
+            'message': {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'model': 'claude-haiku-4-5',
+                'content': [],
+                'stop_reason': None,
+                'stop_sequence': None,
+                'usage': {
+                    'input_tokens': 10,
+                    'output_tokens': 1,
+                    'cache_read_input_tokens': 90,
+                    'cache_creation_input_tokens': 5,
+                },
+            },
+        },
+        {
+            'type': 'message_delta',
+            'delta': {'stop_reason': 'end_turn', 'stop_sequence': None},
+            'usage': {'output_tokens': 3},
+        },
+        {'type': 'message_stop'},
+    ]
+    state = AnthropicMessageStreamState()
+    for event in events:
+        state.record_chunk(adapter.validate_python(event))
+
+    attributes = state.get_attributes({})
+    assert attributes['gen_ai.usage.input_tokens'] == 105
+    assert attributes['gen_ai.usage.cache_read.input_tokens'] == 90
+    assert attributes['gen_ai.usage.cache_creation.input_tokens'] == 5
+
+
+_REFUSAL_MESSAGE: dict[str, Any] = {
+    'id': 'msg_refusal',
+    'type': 'message',
+    'role': 'assistant',
+    'model': 'claude-haiku-4-5',
+    'content': [],
+    'stop_reason': 'refusal',
+    'stop_sequence': None,
+    'stop_details': {'type': 'refusal', 'category': None, 'explanation': 'I cannot help with that.'},
+    'usage': {'input_tokens': 10, 'output_tokens': 5},
+}
+
+
+@pytest.mark.parametrize('beta', [False, True])
+def test_refusal_explanation_is_recorded_as_output_text(beta: bool) -> None:
+    from anthropic.types import Message
+    from anthropic.types.beta import BetaMessage
+
+    from logfire._internal.integrations.llm_providers.anthropic import convert_response_to_semconv
+
+    message = (BetaMessage if beta else Message).model_validate(_REFUSAL_MESSAGE)
+
+    assert convert_response_to_semconv(message) == {
+        'role': 'assistant',
+        'parts': [{'type': 'text', 'content': 'I cannot help with that.'}],
+        'finish_reason': 'refusal',
+    }
+
+
+def test_refusal_without_explanation_keeps_empty_parts() -> None:
+    from anthropic.types import Message
+
+    from logfire._internal.integrations.llm_providers.anthropic import convert_response_to_semconv
+
+    message = Message.model_validate({**_REFUSAL_MESSAGE, 'stop_details': None})
+
+    assert convert_response_to_semconv(message)['parts'] == []
+
+
+@pytest.mark.parametrize('beta', [False, True])
+def test_streamed_refusal_explanation_is_recorded_as_output_text(beta: bool) -> None:
+    from anthropic.types import MessageStreamEvent, RawMessageStreamEvent
+    from anthropic.types.beta import BetaRawMessageStreamEvent
+
+    from logfire._internal.integrations.llm_providers.anthropic import AnthropicMessageStreamState
+
+    adapter = pydantic.TypeAdapter(BetaRawMessageStreamEvent if beta else RawMessageStreamEvent)
+    events: list[dict[str, Any]] = [
+        {'type': 'message_start', 'message': {**_REFUSAL_MESSAGE, 'stop_reason': None, 'stop_details': None}},
+        {
+            'type': 'message_delta',
+            'delta': {
+                'stop_reason': 'refusal',
+                'stop_sequence': None,
+                'stop_details': _REFUSAL_MESSAGE['stop_details'],
+            },
+            'usage': {'output_tokens': 5},
+        },
+        {'type': 'message_stop'},
+    ]
+    state = AnthropicMessageStreamState()
+    for event in events:
+        state.record_chunk(cast('MessageStreamEvent', adapter.validate_python(event)))
+
+    attributes = state.get_attributes({})
+    assert attributes['gen_ai.output.messages'] == [
+        {
+            'role': 'assistant',
+            'parts': [{'type': 'text', 'content': 'I cannot help with that.'}],
+            'finish_reason': 'refusal',
+        }
+    ]
+    assert attributes['gen_ai.response.finish_reasons'] == ['refusal']
+
+
+def test_convert_messages_document_and_file_image_parts() -> None:
+    """Documents and file-backed images sent as input are converted, not recorded as raw blocks."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    messages: list[dict[str, Any]] = [
+        {
+            'role': 'user',
+            'content': [
+                {'type': 'document', 'source': {'type': 'base64', 'media_type': 'application/pdf', 'data': 'JVBER'}},
+                {'type': 'document', 'source': {'type': 'url', 'url': 'https://example.com/report.pdf'}},
+                {'type': 'document', 'source': {'type': 'file', 'file_id': 'file_doc_1'}},
+                {'type': 'image', 'source': {'type': 'file', 'file_id': 'file_img_1'}},
+                {'type': 'text', 'text': 'Summarize these.'},
+            ],
+        }
+    ]
+
+    input_messages, _ = convert_messages_to_semconv(messages)
+
+    assert input_messages == [
+        {
+            'role': 'user',
+            'parts': [
+                {'type': 'blob', 'modality': 'document', 'content': 'JVBER', 'media_type': 'application/pdf'},
+                {'type': 'uri', 'uri': 'https://example.com/report.pdf', 'modality': 'document'},
+                {'type': 'file', 'file_id': 'file_doc_1', 'modality': 'document'},
+                {'type': 'file', 'file_id': 'file_img_1', 'modality': 'image'},
+                {'type': 'text', 'content': 'Summarize these.'},
+            ],
+        }
+    ]
+
+
+def test_convert_messages_response_content_blocks_sent_back() -> None:
+    """An assistant turn given as the content blocks of an earlier response is converted like the dict form."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    messages: list[dict[str, Any]] = [
+        {
+            'role': 'assistant',
+            'content': [
+                TextBlock(text='Checking the weather.', type='text'),
+                ToolUseBlock(id='toolu_1', name='get_weather', input={'city': 'Paris'}, type='tool_use'),
+            ],
+        },
+        {'role': 'user', 'content': [{'type': 'tool_result', 'tool_use_id': 'toolu_1', 'content': 'Sunny'}]},
+    ]
+
+    input_messages, _ = convert_messages_to_semconv(messages)
+
+    assert input_messages == [
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'text', 'content': 'Checking the weather.'},
+                {'type': 'tool_call', 'id': 'toolu_1', 'name': 'get_weather', 'arguments': {'city': 'Paris'}},
+            ],
+        },
+        {'role': 'user', 'parts': [{'type': 'tool_call_response', 'id': 'toolu_1', 'response': 'Sunny'}]},
+    ]
+
+
+def test_convert_messages_unknown_document_and_image_sources_stay_unchanged() -> None:
+    """A source type that has no semconv part is recorded as the original block, without changes."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    blocks: list[dict[str, Any]] = [
+        {
+            'type': 'document',
+            'source': {'type': 'text', 'media_type': 'text/plain', 'data': 'Plain text document.'},
+            'title': 'Notes',
+            'cache_control': {'type': 'ephemeral'},
+        },
+        {'type': 'document', 'source': {'type': 'content', 'content': [{'type': 'text', 'text': 'Inline.'}]}},
+        {'type': 'document', 'source': {'type': 'something-new', 'value': 'x'}},
+        {'type': 'document'},
+        {'type': 'image', 'source': {'type': 'something-new', 'value': 'y'}},
+    ]
+    expected = [dict(block) for block in blocks]
+
+    input_messages, _ = convert_messages_to_semconv([{'role': 'user', 'content': blocks}])
+
+    # `{'type': part_type, **part}` sets `type` to the value the block already has.
+    assert input_messages == [{'role': 'user', 'parts': expected}]
+    assert blocks == expected
+
+
+@pytest.mark.parametrize(
+    'content, expected_response',
+    [
+        pytest.param('plain text', 'plain text', id='string'),
+        pytest.param('', '', id='empty-string'),
+        pytest.param(None, '', id='missing-content'),
+        pytest.param([], [], id='empty-list'),
+        pytest.param(
+            [{'type': 'text', 'text': 'one block'}],
+            [{'type': 'text', 'content': 'one block'}],
+            id='single-text-block',
+        ),
+        pytest.param(
+            [{'type': 'text', 'text': 'a'}, {'type': 'text', 'text': 'b'}],
+            [{'type': 'text', 'content': 'a'}, {'type': 'text', 'content': 'b'}],
+            id='multiple-text-blocks',
+        ),
+        pytest.param(
+            [{'type': 'text', 'text': 'a '}, {'type': 'text', 'text': '\nb'}, {'type': 'text', 'text': ''}],
+            [{'type': 'text', 'content': 'a '}, {'type': 'text', 'content': '\nb'}, {'type': 'text', 'content': ''}],
+            id='text-whitespace',
+        ),
+        pytest.param(
+            [
+                {'type': 'text', 'text': 'Screenshot taken'},
+                {'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/png', 'data': 'iVBOR'}},
+                {'type': 'text', 'text': 'See attachment'},
+                {'type': 'image', 'source': {'type': 'url', 'url': 'https://example.com/image.png'}},
+                {'type': 'document', 'source': {'type': 'base64', 'media_type': 'application/pdf', 'data': 'JVBER'}},
+            ],
+            [
+                {'type': 'text', 'content': 'Screenshot taken'},
+                {'type': 'blob', 'modality': 'image', 'content': 'iVBOR', 'media_type': 'image/png'},
+                {'type': 'text', 'content': 'See attachment'},
+                {'type': 'uri', 'uri': 'https://example.com/image.png', 'modality': 'image'},
+                {'type': 'blob', 'modality': 'document', 'content': 'JVBER', 'media_type': 'application/pdf'},
+            ],
+            id='mixed-content',
+        ),
+    ],
+)
+def test_tool_result_content_parts(
+    instrumented_client: anthropic.Anthropic,
+    exporter: TestExporter,
+    content: str
+    | list[anthropic.types.TextBlockParam | anthropic.types.ImageBlockParam | anthropic.types.DocumentBlockParam]
+    | None,
+    expected_response: str | list[dict[str, Any]],
+) -> None:
+    tool_result: anthropic.types.ToolResultBlockParam = {'type': 'tool_result', 'tool_use_id': 'toolu_1'}
+    if content is not None:
+        tool_result['content'] = content
+    instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-haiku-4-5',
+        messages=[{'role': 'user', 'content': [tool_result]}],
+        system='You are a helpful assistant.',
+    )
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['gen_ai.input.messages'] == [
+        {'role': 'user', 'parts': [{'type': 'tool_call_response', 'id': 'toolu_1', 'response': expected_response}]}
+    ]

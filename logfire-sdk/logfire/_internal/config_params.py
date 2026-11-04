@@ -3,6 +3,7 @@ from __future__ import annotations as _annotations
 import os
 import sys
 import typing
+import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
@@ -22,6 +23,7 @@ from .utils import read_toml_file
 T = TypeVar('T')
 
 PydanticPluginRecordValues = Literal['off', 'all', 'failure', 'metrics']
+CompressionValues = Literal['gzip', 'zstd']
 """Possible values for the `pydantic_plugin_record` parameter."""
 
 
@@ -114,6 +116,12 @@ DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allo
 """Whether to extract incoming trace context. By default, will extract but warn about it."""
 EMIT_CONFIGURATION_SPAN = ConfigParam(env_vars=['LOGFIRE_EMIT_CONFIGURATION_SPAN'], allow_file_config=True, default=False, tp=bool)
 """Whether to emit a `Logfire configured` log span after `logfire.configure()`."""
+PENDING_SPANS = ConfigParam(
+    env_vars=['LOGFIRE_PENDING_SPANS'], allow_file_config=True, default=True, tp=bool
+)
+"""Whether to send pending spans (placeholders for spans that are still running) to Logfire."""
+COMPRESSION = ConfigParam(env_vars=['LOGFIRE_COMPRESSION'], allow_file_config=True, default='gzip', tp=CompressionValues)
+"""Compression for data sent to Logfire: `gzip` (default) or `zstd`."""
 
 # Instrumentation packages parameters
 HTTPX_CAPTURE_ALL = ConfigParam(env_vars=['LOGFIRE_HTTPX_CAPTURE_ALL'], allow_file_config=True, default=False, tp=bool)
@@ -151,6 +159,8 @@ CONFIG_PARAMS = {
     'ignore_no_config': IGNORE_NO_CONFIG,
     'distributed_tracing': DISTRIBUTED_TRACING,
     'emit_configuration_span': EMIT_CONFIGURATION_SPAN,
+    'pending_spans': PENDING_SPANS,
+    'compression': COMPRESSION,
     # Instrumentation packages parameters
     'httpx_capture_all': HTTPX_CAPTURE_ALL,
     'aiohttp_client_capture_all': AIOHTTP_CLIENT_CAPTURE_ALL,
@@ -229,7 +239,10 @@ class ParamManager:
         if tp is bool:
             return _check_bool(value, name)  # pyright: ignore[reportReturnType]
         if tp is float:
-            return float(value)  # pyright: ignore[reportReturnType]
+            try:
+                return float(value)  # pyright: ignore[reportReturnType]
+            except (TypeError, ValueError, OverflowError):
+                raise LogfireConfigError(f'Expected {name} to be a number, got {value!r}') from None
         if tp is Path:
             return Path(value)  # pyright: ignore[reportReturnType]
         if get_origin(tp) is set and get_args(tp) == (str,):  # pragma: no branch
@@ -319,7 +332,12 @@ def normalize_token(value: str | Sequence[str] | None) -> str | list[str] | None
 
 def _load_config_from_file(config_dir: Path) -> dict[str, Any]:
     config_file = config_dir / 'pyproject.toml'
-    if not config_file.exists():
+    try:
+        if not config_file.exists():
+            return {}
+    except OSError as exc:
+        # PermissionError when the directory can't be accessed; treat it like a missing file
+        warnings.warn(f'Unable to access config file {config_file}: {exc}', stacklevel=2)
         return {}
     try:
         data = read_toml_file(config_file)

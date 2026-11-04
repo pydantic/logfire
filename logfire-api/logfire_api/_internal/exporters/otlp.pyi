@@ -1,4 +1,5 @@
 import atexit
+import logging
 import requests
 from ..constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, HTTP_CONNECT_TIMEOUT as HTTP_CONNECT_TIMEOUT, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from ..http_transport import install_connection_policy as install_connection_policy
@@ -17,19 +18,46 @@ from opentelemetry.sdk.trace.export import SpanExportResult
 from pathlib import Path
 from requests import Session
 from threading import Thread
-from typing import Any
+from typing import Any, Protocol
+from typing_extensions import Buffer
+
+class _OTLPExportResult(Protocol):
+    success: bool
+    status_code: int | None
+    error: Exception | None
+
+class _OTLPClient(Protocol):
+    def export(self, data: bytes) -> _OTLPExportResult: ...
+    def shutdown(self) -> None: ...
+
+class _QuietConnectionErrorLogger(logging.LoggerAdapter):
+    def error(self, msg: object, *args: Any, **kwargs: Any) -> None: ...
+
+class _BodySizeCheckingOTLPClient:
+    client: Incomplete
+    exporter: Incomplete
+    def __init__(self, client: _OTLPClient, exporter: BodySizeCheckingOTLPSpanExporter) -> None: ...
+    def export(self, data: bytes) -> _OTLPExportResult: ...
+    def shutdown(self) -> None: ...
+
+class ZstdCompressFn(Protocol):
+    """Signature of `compression.zstd.compress` and `backports.zstd.compress`."""
+    def __call__(self, data: Buffer, level: int | None = None, options: Mapping[int, int] | None = None, zstd_dict: Any = None) -> bytes: ...
+
+zstd_compress: ZstdCompressFn | None
 
 @atexit.register
 def cleanup_disk_retryers() -> None: ...
 
 class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
     max_body_size: Incomplete
+    current_num_spans: int
     def __init__(self, *args: Any, **kwargs: Any) -> None: ...
     def export(self, spans: Sequence[ReadableSpan]): ...
 
 class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
-    def __init__(self) -> None: ...
+    def __init__(self, *, _use_zstd: bool = False) -> None: ...
     def request(self, method: str, url: str, **kwargs: Any): ...
     def post(self, url: str, data: bytes, **kwargs: Any): ...
     @cached_property

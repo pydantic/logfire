@@ -268,6 +268,8 @@ def test_anthropic_usage_with_cache_tokens() -> None:
         {
             'gen_ai.usage.input_tokens': 15,
             'gen_ai.usage.output_tokens': 5,
+            'gen_ai.usage.cache_read.input_tokens': 3,
+            'gen_ai.usage.cache_creation.input_tokens': 2,
             'gen_ai.usage.raw': {
                 'input_tokens': 10,
                 'output_tokens': 5,

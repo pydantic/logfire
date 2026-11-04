@@ -12,7 +12,9 @@ def message_from_db_statement(attributes: Mapping[str, Any], message: str | None
 
     Returns: A new string to use as span message or None to keep the original message.
     """
-    db_statement = attributes.get('db.statement')
+    # `db.query.text` and `db.namespace` are the stable semantic convention names
+    # for `db.statement` and `db.name`, e.g. with `OTEL_SEMCONV_STABILITY_OPT_IN=database`.
+    db_statement = attributes.get('db.statement', attributes.get('db.query.text'))
     if not isinstance(db_statement, str):
         # covers `None` and anything any other unexpected type
         return None
@@ -23,8 +25,11 @@ def message_from_db_statement(attributes: Mapping[str, Any], message: str | None
         return None
 
     db_statement = db_statement.strip()
+    if db_statement.startswith(('{', '[')):
+        # A JSON query body, e.g. from Elasticsearch's native instrumentation, not SQL.
+        return None
     if isinstance(message, str):
-        db_name = attributes.get('db.name')
+        db_name = attributes.get('db.name', attributes.get('db.namespace'))
         if db_name and isinstance(db_name, str) and message.endswith(db_name):
             operation = message[: -len(db_name) - 1]
         else:
@@ -99,7 +104,9 @@ def select(
         summary = f'SELECT {expr} FROM {truncate(table, 25)}'
 
     if ctes:
-        cte_as = re.findall(rf'({TABLE_RE}) AS', ctes, flags=re.I)
+        # Only search outside parentheses so that aliases in CTE bodies aren't counted as CTEs,
+        # and long literals in the bodies don't make the regex slow.
+        cte_as = re.findall(rf'({TABLE_RE}) AS', outside_parentheses(ctes), flags=re.I)
         if len(cte_as) == 1:
             summary = f'WITH {truncate(cte_as[0], 10)} AS (…) {summary}'
         else:
@@ -118,6 +125,31 @@ def select(
         summary = f'{summary} LIMIT {limit.group(1)}'
 
     return truncate(summary, MAX_QUERY_MESSAGE_LENGTH)
+
+
+def outside_parentheses(s: str) -> str:
+    """Remove everything inside parentheses, including the parentheses themselves.
+
+    Parentheses inside quoted strings or identifiers don't change the nesting depth.
+    """
+    result: list[str] = []
+    depth = 0
+    quote: str | None = None
+    for char in s:
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in '\'"`':
+            quote = char
+        elif char == '(':
+            depth += 1
+            continue
+        elif char == ')':
+            depth = max(depth - 1, 0)
+            continue
+        if depth == 0:
+            result.append(char)
+    return ''.join(result)
 
 
 def truncate(s: str, length: int) -> str:

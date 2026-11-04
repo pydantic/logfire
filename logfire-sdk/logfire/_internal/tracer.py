@@ -37,7 +37,13 @@ from .constants import (
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     log_level_attributes,
 )
-from .utils import handle_internal_errors, sha256_string
+from .utils import (
+    handle_internal_errors,
+    is_instrumentation_suppressed,
+    safe_str,
+    safe_type_name,
+    sha256_string,
+)
 
 if TYPE_CHECKING:
     from ..types import ExceptionCallback
@@ -154,11 +160,14 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     exception_callback: ExceptionCallback | None = None
 
     def __post_init__(self):
-        OPEN_SPANS[self._open_spans_key()] = self
+        # A suppressed span shares the current span's context, so it mustn't replace that span's entry.
+        OPEN_SPANS.setdefault(self._open_spans_key(), self)
 
     def end(self, end_time: int | None = None) -> None:
         with handle_internal_errors:
-            OPEN_SPANS.pop(self._open_spans_key(), None)
+            key = self._open_spans_key()
+            if OPEN_SPANS.get(key) is self:
+                del OPEN_SPANS[key]
             if self.metrics:
                 self.span.set_attribute(
                     'logfire.metrics', json.dumps({name: metric.dump() for name, metric in self.metrics.items()})
@@ -228,8 +237,10 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         )
 
     def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None:
+        is_recording = self.is_recording()
         if not (
-            self.is_recording()
+            # Ended SDK spans retain their parent, allowing updates to open ancestors.
+            (is_recording or isinstance(self.span, SDKSpan))
             and (
                 (
                     self.record_metrics
@@ -241,7 +252,8 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         ):
             return
 
-        self.metrics[name].increment(attributes, value)
+        if is_recording:
+            self.metrics[name].increment(attributes, value)
         if parent := get_parent_span(self):
             parent.increment_metric(name, attributes, value)
 
@@ -298,6 +310,17 @@ class _ProxyTracer(Tracer):
         ns_timestamp_generator = config.advanced.ns_timestamp_generator
         record_metrics: bool = not isinstance(config.metrics, (bool, type(None))) and config.metrics.collect_in_spans
         exception_callback = config.advanced.exception_callback
+
+        if is_instrumentation_suppressed():
+            # Suppressed spans are never exported, so don't give them span IDs of their own.
+            # Code that sends the current span's context onward (e.g. a `traceparent` header)
+            # then sends the nearest exported span instead of one that never arrives.
+            return _LogfireWrappedSpan(
+                NonRecordingSpan(get_current_span(context).get_span_context()),
+                ns_timestamp_generator=ns_timestamp_generator,
+                record_metrics=record_metrics,
+                exception_callback=exception_callback,
+            )
 
         start_time = start_time or ns_timestamp_generator()
 
@@ -450,7 +473,6 @@ def record_exception(
     # This means we know that the exception hasn't been handled,
     # so we can set the OTEL status and the log level to error.
     if escaped:
-        set_exception_status(span, exception)
         span.set_attributes(log_level_attributes('error'))
 
     helper = ExceptionCallbackHelper(
@@ -459,9 +481,14 @@ def record_exception(
         event_attributes={**(attributes or {})},
     )
 
+    status_before_callback = getattr(span, 'status', None)
     if callback is not None:
         with handle_internal_errors:
             callback(helper)
+
+    # A status set by the callback (e.g. to keep the exception message out of the description) wins.
+    if helper.level >= 'error' and getattr(span, 'status', None) is status_before_callback:
+        set_exception_status(span, exception)
 
     if not helper._record_exception:  # pyright: ignore[reportPrivateUsage]
         return
@@ -493,7 +520,24 @@ def record_exception(
         else:
             span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, fingerprint)
 
-    span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+    try:
+        span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+    except Exception:
+        # `str(exception)` can raise (e.g. an exception that was never fully initialised)
+        # and the OTEL SDK calls it without guarding, which would lose the whole event.
+        span.add_event(
+            name='exception',
+            attributes={
+                'exception.type': f'{type(exception).__module__}.{type(exception).__qualname__}',
+                'exception.message': safe_str(exception),
+                'exception.stacktrace': ''.join(
+                    _patched_format_exception(type(exception), exception, exception.__traceback__)
+                ),
+                'exception.escaped': str(escaped),
+                **(attributes or {}),
+            },
+            timestamp=timestamp,
+        )
 
 
 original_format_exception = traceback.format_exception
@@ -514,6 +558,6 @@ def set_exception_status(span: trace_api.Span, exception: BaseException):
     span.set_status(
         trace_api.Status(
             status_code=StatusCode.ERROR,
-            description=f'{exception.__class__.__name__}: {exception}',
+            description=f'{safe_type_name(exception)}: {safe_str(exception)}',
         )
     )

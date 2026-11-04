@@ -28,7 +28,7 @@ You can install this with:
 
 @pytest.mark.vcr()
 @pytest.mark.skipif(
-    get_version(pydantic.__version__) < get_version('2.10.0'), reason='LiteLLM requires Pydantic >= 2.10'
+    get_version(pydantic.__version__) < get_version('2.11.0'), reason='LiteLLM requires Pydantic >= 2.11'
 )
 def test_litellm_instrumentation(exporter: TestExporter) -> None:
     with warnings.catch_warnings():
@@ -69,7 +69,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
         model = 'gpt-4o-mini'
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=UserWarning)
-            return litellm.completion(model=model, messages=messages, tools=tools)  # type: ignore
+            return litellm.completion(model=model, messages=messages, tools=tools)
 
     response = completion()
     response_message = response.choices[0].message

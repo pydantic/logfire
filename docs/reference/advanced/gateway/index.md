@@ -29,6 +29,7 @@ For the shortest path to a working call, follow [Send your first Gateway request
 - [Protect request data](protect-data.md) with prebuilt or custom Guardrails.
 - [Optimize requests](optimizations.md) with endpoint-scoped instructions.
 - [Control spending](spending-policies.md) with included key and organization limits, or advanced spending policies.
+- [Control model access and pricing](model-access.md) to choose which models each provider serves and set custom prices for BYOK providers.
 
 ### Plan availability
 
@@ -39,8 +40,9 @@ You do not need a paid plan to send Gateway requests or set basic spending limit
 | Connect, endpoint priorities and weights, and key, organization, project, and member spending limits | All Gateway plans, including Personal. |
 | BYOK providers | Up to 3 on Personal and Team; unlimited on Growth, Enterprise, and self-hosted Logfire. |
 | Custom provider base URLs and custom OpenAI- or Anthropic-compatible providers | Team, Growth, Enterprise, or self-hosted Logfire. |
-| Prebuilt and custom-pattern Guardrails; Optimizations | Via Early Access on Growth, Enterprise, or self-hosted Logfire. |
-| Spending policies | Experimental, enabled through the same Early Access settings. Not required for the included spending limits. |
+| Prebuilt and custom-pattern Guardrails | All Gateway plans, in Beta. |
+| Optimizations | Via Early Access on Growth, Enterprise, or self-hosted Logfire. |
+| Spending policies | Experimental, enabled through the same Early Access settings. Creating or changing a policy requires Enterprise or self-hosted Logfire. Not required for the included spending limits. |
 | Presidio protections | Enterprise Cloud or self-hosted Logfire, with Guardrails enabled. |
 
 [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access) is available when your account belongs to an eligible organization. Its feature choices apply to your account in this browser, not automatically to every member. Individual guides explain which option to enable. For pricing and Enterprise contract details, see [Logfire plans](https://pydantic.dev/pricing).
@@ -174,17 +176,22 @@ A gateway endpoint routes requests across one or more providers under a single s
 The **Spending** tab shows usage analytics for the organization, broken down by project, member, and API key. Every Gateway plan includes these limits:
 
 - **Per-key limits**: daily, weekly, monthly, and total caps set on each API key.
-- **Organization-wide limits**: a shared daily, weekly, or monthly budget across the organization, set in **Gateway → Settings**.
-- **Per-project limits**: daily, weekly, and monthly caps for a selected project, also in **Gateway → Settings**.
-- **Per-member limits**: daily, weekly, and monthly caps that admins can set for individual organization members.
+- **Organization-wide limits**: a shared daily, weekly, or monthly budget across the organization, set in **Gateway → Spending → Overview**.
+- **Per-project limits**: daily, weekly, and monthly caps for each project, set in **Gateway → Spending → Projects**.
+- **Per-member limits**: daily, weekly, and monthly caps for individual organization members, set in **Gateway → Spending → Members**.
 
-**Spending policies** add reusable provider- and model-scoped budgets attached to an organization, project, member, or API key. They are experimental and available through Growth and Enterprise Early Access, or on self-hosted Logfire. They are not required to limit spending. See [Control Gateway spending](spending-policies.md) for both included limits and advanced policy setup.
+**Spending policies** add reusable provider- and model-scoped budgets attached to an organization, project, member, or API key. They are experimental, enabled through Early Access, and creating or changing a policy requires Enterprise or self-hosted Logfire. They are not required to limit spending. See [Control Gateway spending](spending-policies.md) for both included limits and advanced policy setup.
 
 Separately, built-in provider usage draws from a **prepaid balance**. You can enable auto-recharge with a threshold and a top-up target. Auto-recharge adds funds; it does not increase your configured spending limits.
 
 ### Telemetry
 
-The gateway can record every request as traces in a Logfire project, so you get full observability of your LLM traffic (models, latency, token usage, and conversation content) alongside the rest of your telemetry. The recommended setup turns this on for your chosen project; you can manage it later from the gateway **Settings** tab.
+The gateway can record every request as a span (one unit of work, with a start and a duration) in a Logfire project, so you can see your LLM traffic next to the rest of your telemetry: models, latency, token usage, cost, and conversation content. The recommended setup turns this on for your chosen project. You can change the project, and whether traces include prompts and responses, later in **Gateway → Settings**, under **Telemetry**.
+
+!!! note
+    Turning on **Include messages** stores prompts, responses, and system instructions in your project. With it off, traces still show usage, cost, model, status, and timing. Existing traces are kept.
+
+To make a Gateway span part of the trace that your app already records, and to copy your own attributes onto it, see [Gateway requests in your app's trace](telemetry.md).
 
 ## Using the gateway with AI coding tools
 

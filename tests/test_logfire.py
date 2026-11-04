@@ -18,7 +18,9 @@ import cloudpickle
 import pytest
 from dirty_equals import IsInt, IsJson, IsStr
 from inline_snapshot import Is, snapshot
+from opentelemetry.exporter.otlp.proto.common.trace_encoder import encode_spans
 from opentelemetry.metrics import get_meter
+from opentelemetry.propagate import inject
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
@@ -26,6 +28,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.trace import INVALID_SPAN, SpanKind, StatusCode, get_current_span, get_tracer
 from pydantic import BaseModel, __version__ as pydantic_version
 from pydantic_core import ValidationError
+from wrapt import ObjectProxy
 
 import logfire
 from logfire import Logfire, suppress_instrumentation
@@ -484,6 +487,22 @@ def test_span_missing_template_field() -> None:
 
     warning = warnings.pop()
     assert warning.filename.endswith('test_logfire.py')
+
+
+def test_non_string_message_is_literal_and_otlp_encodable(exporter: TestExporter) -> None:
+    message: Any = ObjectProxy('literal {value}')
+    with pytest.warns(FormattingFailedWarning):
+        logfire.info(message, value='must not interpolate')
+
+    encoded = encode_spans(exporter.exported_spans)
+    encoded.SerializeToString()
+    [resource] = encoded.resource_spans
+    [scope] = resource.scope_spans
+    [span] = scope.spans
+    assert span.name == 'literal {value}'
+    attributes = {attribute.key: attribute.value for attribute in span.attributes}
+    assert attributes[ATTRIBUTES_MESSAGE_KEY].string_value == 'literal {value}'
+    assert attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY].string_value == 'literal {value}'
 
 
 def test_span_with_kwargs(exporter: TestExporter) -> None:
@@ -2575,7 +2594,7 @@ def test_log_with_leading_underscore_on_attributes(exporter: TestExporter) -> No
 
 
 def test_large_int(exporter: TestExporter) -> None:
-    with pytest.warns(UserWarning, match='larger than the maximum OTLP integer size'):
+    with pytest.warns(UserWarning, match='outside the range of OTLP integers'):
         with logfire.span('test {value=}', value=2**63 + 1):
             pass
 
@@ -2620,7 +2639,7 @@ def test_large_int(exporter: TestExporter) -> None:
     )
     exporter.exported_spans.clear()
 
-    with pytest.warns(UserWarning, match='larger than the maximum OTLP integer size'):
+    with pytest.warns(UserWarning, match='outside the range of OTLP integers'):
         with logfire.span('test {value=}', value=2**63):
             pass
 
@@ -2706,6 +2725,16 @@ def test_large_int(exporter: TestExporter) -> None:
                 },
             },
         ]
+    )
+
+
+def test_large_negative_int(exporter: TestExporter) -> None:
+    with pytest.warns(UserWarning, match='outside the range of OTLP integers'):
+        logfire.info('test {value=}', value=-(2**63) - 1)
+    logfire.info('test {value=}', value=-(2**63))
+
+    assert [span['attributes']['value'] for span in exporter.exported_spans_as_dict()] == snapshot(
+        ['-9223372036854775809', -9223372036854775808]
     )
 
 
@@ -3738,7 +3767,7 @@ def test_suppress_instrumentation(exporter: TestExporter):
             },
             {
                 'name': 'log3',
-                'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
                 'end_time': 3000000000,
@@ -3754,6 +3783,45 @@ def test_suppress_instrumentation(exporter: TestExporter):
             },
         ]
     )
+
+
+def test_span_started_while_suppressed_propagates_outer_span(exporter: TestExporter):
+    # Like an SDK that traces its own requests, called by a Logfire integration inside `suppress_instrumentation()`:
+    # the `traceparent` it sends must point at the exported outer span, not at its own span that's never exported.
+    headers: dict[str, str] = {}
+    with logfire.span('outer') as outer:
+        with suppress_instrumentation():
+            with get_tracer('sdk').start_as_current_span('sdk request') as sdk_span:
+                inject(headers)
+                assert not sdk_span.is_recording()
+            # Like a streamed response, which ends after the integration's suppressed call returns.
+            stream_span = get_tracer('sdk').start_span('sdk stream')
+        stream_span.end()
+        # The outer span still collects metrics from its children.
+        with logfire.span('child'):
+            logfire.metric_counter('operation.cost').add(1)
+
+    outer_context = outer.get_span_context()
+    assert outer_context is not None
+    assert headers == {'traceparent': f'00-{outer_context.trace_id:032x}-{outer_context.span_id:016x}-01'}
+    assert [
+        (span['name'], span['attributes'].get('logfire.metrics'))
+        for span in exporter.exported_spans_as_dict(parse_json_attributes=True)
+    ] == snapshot(
+        [
+            ('child', {'operation.cost': {'details': [{'attributes': {}, 'total': 1}], 'total': 1}}),
+            ('outer', {'operation.cost': {'details': [{'attributes': {}, 'total': 1}], 'total': 1}}),
+        ]
+    )
+
+
+def test_suppressed_span_from_underlying_provider_is_not_exported(exporter: TestExporter):
+    # A tracer taken from the SDK provider behind Logfire's proxy bypasses the proxy's suppression check.
+    tracer = GLOBAL_CONFIG.get_tracer_provider().provider.get_tracer('sdk')
+    with suppress_instrumentation():
+        tracer.start_span('suppressed').end()
+
+    assert exporter.exported_spans_as_dict() == []
 
 
 def test_internal_exception_span(caplog: pytest.LogCaptureFixture, exporter: TestExporter):

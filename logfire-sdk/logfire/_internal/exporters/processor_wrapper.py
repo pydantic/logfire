@@ -121,9 +121,12 @@ def _tweak_sqlalchemy_connect_spans(span: ReadableSpanDict) -> None:
     if scope is None or scope.name != 'opentelemetry.instrumentation.sqlalchemy':  # pragma: no cover
         return
     attributes = span['attributes']
-    # We never expect db.statement to be in the attributes here.
+    # `db.system.name` and `db.query.text` are the stable semantic convention names for `db.system` and `db.statement`.
+    has_system = 'db.system' in attributes or 'db.system.name' in attributes
+    # We never expect a statement to be in the attributes here.
     # This is just to be extra sure that we're not accidentally hiding an actual query span.
-    if 'db.system' not in attributes or 'db.statement' in attributes:  # pragma: no cover
+    has_statement = 'db.statement' in attributes or 'db.query.text' in attributes
+    if not has_system or has_statement:  # pragma: no cover
         return
     span['attributes'] = {**attributes, **log_level_attributes('debug')}
 
@@ -293,7 +296,11 @@ def _tweak_http_spans(span: ReadableSpanDict):
             #   /path ? foo='1' & bar='2 3'
             # to make things nice and readable.
             # Note that we show decoded values, e.g. %20 -> ' '.
-            message += ' ? ' + ' & '.join(f'{k}={v!r}' for k, v in truncated_pairs)
+            rendered_pairs: list[str] = []
+            for key, value in truncated_pairs:
+                key = ''.join(character if character.isprintable() else repr(character)[1:-1] for character in key)
+                rendered_pairs.append(f'{key}={value!r}')
+            message += ' ? ' + ' & '.join(rendered_pairs)
 
     if message != name:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: message}
@@ -514,8 +521,9 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
                         )
                     continue
             new_content.append(item)
-        if new_content:  # pragma: no branch
-            result['content'] = new_content
+        # Assigned even when empty: a message whose only content was a tool call already
+        # listed in `tool_calls` would otherwise keep it and show the call twice.
+        result['content'] = new_content
 
     if 'tool_call_id' in result:
         result['id'] = result.pop('tool_call_id')
@@ -554,10 +562,10 @@ def _default_gen_ai_response_model(span: ReadableSpanDict):
 
 def _transform_google_genai_span(span: ReadableSpanDict):
     scope = span['instrumentation_scope']
-    # opentelemetry-instrumentation-google-genai >= 1.0b0 is built on opentelemetry.util.genai and emits
-    # spans under this shared scope. util.genai is generic infrastructure, so also check the provider name
-    # to avoid rewriting spans from other (future) util.genai-based integrations.
-    if not (scope and scope.name == 'opentelemetry.util.genai.handler'):
+    # Versions 1.0b0 and 1.1b0 emit spans under the shared util.genai scope; 1.2b0 restores the
+    # specific instrumentation scope. Also check the provider below to avoid rewriting spans
+    # from other integrations using the shared scope.
+    if not (scope and scope.name in ('opentelemetry.util.genai.handler', 'opentelemetry.instrumentation.google_genai')):
         return
 
     attributes = span['attributes']

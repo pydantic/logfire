@@ -6,16 +6,12 @@ from httpx._client import BaseClient
 from logfire._internal.config import get_base_url_from_token as get_base_url_from_token
 from logfire._internal.stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from pydantic_evals import Case, Dataset
-from pydantic_evals.evaluators import Evaluator, ReportEvaluator
+from pydantic_evals.evaluators import Evaluator as Evaluator, ReportEvaluator as ReportEvaluator
 from types import TracebackType
 from typing import Any, Generic, Literal, overload
 from typing_extensions import NotRequired, Self, TypeForm, TypeVar, TypedDict
 from uuid import UUID
 
-Case = Any
-Dataset = Any
-Evaluator = Any
-ReportEvaluator = Any
 DEFAULT_TIMEOUT: Incomplete
 T = TypeVar('T', bound=BaseClient)
 InputsT = TypeVar('InputsT')

@@ -18,6 +18,7 @@ description: "Introduction to basic Logfire configuration, trace configuration a
             - "!instrument_pymongo"
             - "!instrument_psycopg"
             - "!^with_trace_sample_rate$"
+            - "!^agent_sandboxes$"
             - "!^_[^_]"
 
 
@@ -25,4 +26,4 @@ description: "Introduction to basic Logfire configuration, trace configuration a
     options:
         show_root_toc_entry: false
         show_docstring_description: true
-        filters: ["!^Logfire$", "!^_[^_]"]
+        filters: ["!^Logfire$", "!^agent_sandboxes$", "!^_[^_]"]

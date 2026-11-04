@@ -4,6 +4,10 @@ from functools import cache, lru_cache
 from typing import Any
 
 NUMPY_DIMENSION_MAX_SIZE: int
+
+def pandas_display_slices(count: int, limit: int | None) -> tuple[slice, ...]:
+    """Return the first and last positions selected by a pandas display limit."""
+
 EncoderFunction: Incomplete
 
 @cache

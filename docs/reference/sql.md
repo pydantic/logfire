@@ -62,7 +62,7 @@ In HTTP server request spans, this is usually the HTTP method and route with the
 
 In database query spans from the Python **Logfire** SDK, this is usually a _summary_ of the SQL query. This can be useful for finding and grouping records with similar but slightly different queries.
 
-It's usually faster and more correct to use `span_name` in queries. `message` is primarily for human readability and is more likely to change over time. But if you want to query it, you probably want to use the `LIKE` (or `ILIKE` for case-insensitive) SQL operator, e.g. `WHERE message LIKE '%bad%'` to find all records where `message` contains the substring `bad`.
+It's usually faster and more correct to use `span_name` in queries. `message` is primarily for human readability and is more likely to change over time. But if you want to query it, you probably want to use the `LIKE` (or `ILIKE` for case-insensitive) SQL operator, e.g. `WHERE message LIKE '%bad%'` to find all records where `message` contains the substring `bad`. Text search skips very long words, such as hashes. See [Query accuracy](query-accuracy.md).
 
 OpenTelemetry doesn't have a native 'message' concept. To set a value for the `message` column when using other OpenTelemetry SDKs, set the attribute `logfire.msg`. This will not be kept in the `attributes` column.
 

@@ -334,7 +334,7 @@ def _serialize_value(value: Any) -> Any:
     """Serialize a value to JSON-compatible format."""
     if value is None:
         return None
-    value_type: type[Any] = type(value)  # pyright: ignore[reportUnknownVariableType]
+    value_type: type[Any] = dict if isinstance(value, dict) else type(value)  # pyright: ignore[reportUnknownVariableType]
     adapter: TypeAdapter[Any] = TypeAdapter(value_type)
     return adapter.dump_python(value, mode='json')
 
@@ -375,21 +375,17 @@ def _serialize_evaluators(evaluators: Sequence[Any]) -> list[dict[str, Any]]:
 def _serialize_case(case: Case[Any, Any, Any]) -> dict[str, Any]:
     """Serialize a pydantic-evals Case to dict format for the API."""
     data: dict[str, Any] = {
-        'inputs': _serialize_value(case.inputs) if not isinstance(case.inputs, dict) else case.inputs,  # pyright: ignore[reportUnknownMemberType]
+        'inputs': _serialize_value(case.inputs),
     }
 
     if case.name is not None:
         data['name'] = case.name
 
     if case.expected_output is not None:
-        data['expected_output'] = (
-            _serialize_value(case.expected_output)
-            if not isinstance(case.expected_output, dict)
-            else case.expected_output  # pyright: ignore[reportUnknownMemberType]
-        )
+        data['expected_output'] = _serialize_value(case.expected_output)
 
     if case.metadata is not None:
-        data['metadata'] = _serialize_value(case.metadata) if not isinstance(case.metadata, dict) else case.metadata  # pyright: ignore[reportUnknownMemberType]
+        data['metadata'] = _serialize_value(case.metadata)
 
     if case.evaluators is not None:  # pyright: ignore[reportUnnecessaryComparison]
         data['evaluators'] = _serialize_evaluators(case.evaluators)
@@ -453,13 +449,15 @@ def _build_push_dataset_kwargs(
     create_kwargs: dict[str, Any] = {'name': target_name}
     update_kwargs: dict[str, Any] = {}
 
-    if input_type is not None:
+    # `get_dataset()` fills in `Any` for types it wasn't given. Its schema is `{}`, which would
+    # overwrite the hosted schema, so `Any` is treated as "no schema" like `None`.
+    if input_type is not None and input_type is not Any:
         create_kwargs['input_type'] = input_type
         update_kwargs['input_type'] = input_type
-    if output_type is not None:
+    if output_type is not None and output_type is not Any:
         create_kwargs['output_type'] = output_type
         update_kwargs['output_type'] = output_type
-    if metadata_type is not None:
+    if metadata_type is not None and metadata_type is not Any:
         create_kwargs['metadata_type'] = metadata_type
         update_kwargs['metadata_type'] = metadata_type
     if description is not _UNSET:

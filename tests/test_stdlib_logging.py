@@ -192,6 +192,74 @@ def test_stdlib_logging_warning(exporter: TestExporter, logger: Logger) -> None:
     )
 
 
+def test_stdlib_logging_tags(exporter: TestExporter, logger: Logger) -> None:
+    logger.error('tagged', extra={'logfire.tags': ['foo', 'bar']})
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'tagged',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': 'tagged',
+                    'logfire.msg': 'tagged',
+                    'code.filepath': 'test_stdlib_logging.py',
+                    'code.function': 'test_stdlib_logging_tags',
+                    'code.lineno': 123,
+                    'logfire.logger_name': 'tests.test_stdlib_logging',
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{}}}',
+                    'logfire.tags': ('foo', 'bar'),
+                },
+            }
+        ]
+    )
+
+
+def test_stdlib_logging_tags_merged_with_instance_tags(exporter: TestExporter) -> None:
+    tagged_logger = getLogger(f'{__name__}.tagged')
+    tagged_logger.propagate = False
+    handler = LogfireLoggingHandler(logfire_instance=logfire.with_tags('instance'))
+    tagged_logger.addHandler(handler)
+    try:
+        tagged_logger.error('tagged', extra={'logfire.tags': ['foo']})
+    finally:
+        tagged_logger.removeHandler(handler)
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.tags'] == ('instance', 'foo')
+
+
+def test_stdlib_logging_console_log_false(
+    capsys: pytest.CaptureFixture[str], exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    config_kwargs['console'] = logfire.ConsoleOptions(colors='never', include_timestamps=False)
+    logfire.configure(**config_kwargs)
+    quiet_logger = getLogger(f'{__name__}.quiet')
+    quiet_logger.propagate = False
+    handler = LogfireLoggingHandler(console_log=False)
+    quiet_logger.addHandler(handler)
+    try:
+        quiet_logger.error('From logging')
+        logfire.info('From Logfire')
+    finally:
+        quiet_logger.removeHandler(handler)
+
+    assert capsys.readouterr().out.splitlines() == ['From Logfire']
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == ['From logging', 'From Logfire']
+
+
+def test_stdlib_logging_single_string_tag(exporter: TestExporter, logger: Logger) -> None:
+    logger.error('tagged', extra={'logfire.tags': 'production'})
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.tags'] == ('production',)
+
+
 class MockLoggingHandler(logging.Handler):
     def __init__(self):
         super().__init__()
