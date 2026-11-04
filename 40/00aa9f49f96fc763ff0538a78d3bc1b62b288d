@@ -1,0 +1,29 @@
+dev-docs/integration-guidelines.md
+  h_d9dd17644dded9 1-144
+logfire-sdk/logfire/_internal/main.py
+  h_d9dd17644dded9 1247
+  s_15f06c2b5ed0d0::t_61c4b0ce5bdea5 1242-1246
+  s_15f06c2b5ed0d0::t_05bcbac74c2d05 1241
+  h_d9dd17644dded9 158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4000aa9f49f96fc763ff0538a78d3bc1b62b288d",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_15f06c2b5ed0d0": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1793704098901",
+        "model": "unknown"
+      },
+      "human_author": null
+    }
+  }
+}
