@@ -46,7 +46,11 @@ Call [`logfire.instrument_botocore()`][logfire.Logfire.instrument_botocore] once
 `logfire.configure()` and before making AWS API calls. Botocore is the library Boto3 uses to make
 those calls, so the same integration covers both libraries.
 
-```py title="main.py" hl_lines="8" skip-run="true" skip-reason="external-connection"
+Instrumentation applies across the process, including to clients created before the call. If
+Botocore instrumentation is already active, a second call logs a warning and keeps the providers
+and hooks from the first installation.
+
+```py title="main.py" hl_lines="7-8" skip-run="true" skip-reason="external-connection"
 from contextlib import closing
 
 import boto3
@@ -74,11 +78,11 @@ an error on its span and still raises the original exception in your application
 
 ## Amazon Bedrock
 
-For supported Bedrock models, the upstream instrumentor adds `gen_ai.*` attributes to `Converse` and
-`InvokeModel` spans, including the model and input/output token counts. Enable the same
-`instrument_botocore()` integration before using your `bedrock-runtime` client.
+For supported Bedrock models and instrumentor versions, OpenTelemetry adds `gen_ai.*` attributes
+to `Converse` and `InvokeModel` spans, including the model and input/output token counts. Enable
+`instrument_botocore()` before using your `bedrock-runtime` client.
 
-If you enable message-content capture with
+Bedrock message content is off by default. If you enable it with
 `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`, prompts and responses are recorded as log
 events through this Logfire instance. They can contain sensitive data; review your scrubbing policy
 before sending them to a Logfire project.
@@ -105,7 +109,7 @@ before sending them to a Logfire project.
   logfire.instrument_botocore()
   ```
 - **Async clients aren't traced:** this integration covers synchronous Botocore clients. Aiobotocore
-  has a [separate OpenTelemetry instrumentor][aiobotocore].
+  has a separate instrumentor in the [same OpenTelemetry package][otel].
 
 ## Next steps
 
@@ -115,9 +119,9 @@ before sending them to a Logfire project.
 
 [`instrument_botocore()`][logfire.Logfire.instrument_botocore] accepts keyword arguments supported by
 [the OpenTelemetry Botocore instrumentor][otel], including `request_hook` and `response_hook`.
+Exceptions raised by these hooks propagate to the caller.
 
 [boto3]: https://docs.aws.amazon.com/boto3/latest/index.html
 [credentials]: https://docs.aws.amazon.com/boto3/latest/guide/credentials.html
 [otel]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/botocore/botocore.html
 [threading]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/threading/threading.html
-[aiobotocore]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiobotocore/aiobotocore.html
