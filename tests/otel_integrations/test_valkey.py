@@ -213,6 +213,24 @@ def test_instrument_valkey_bytes_command(valkey_behavior: dict[str, Any], export
     assert spans[0]['attributes']['db.valkey.args_length'] == 3
 
 
+def test_valkey_tokenizes_binary_commands_without_calling_user_code(
+    valkey_behavior: dict[str, Any], exporter: TestExporter
+) -> None:
+    from valkey import Valkey
+
+    class Command(bytes):
+        def __bytes__(self) -> bytes:
+            raise ValueError('do not convert the command')
+
+    client = Valkey()
+    assert _sync_execute(client, Command(b'GET'), 'key') == 'OK'
+    assert _sync_execute(client, bytearray(b'SET'), 'key', 'value') == 'OK'
+    assert [span['attributes']['db.statement'] for span in exporter.exported_spans_as_dict()] == [
+        'GET ?',
+        'SET ? ?',
+    ]
+
+
 def test_instrument_valkey_no_connection_attributes(
     monkeypatch: pytest.MonkeyPatch, valkey_behavior: dict[str, Any], exporter: TestExporter
 ):

@@ -83,9 +83,11 @@ def _command_tokens(args: tuple[Any, ...]) -> list[str]:
     if not args:
         return []
     first = args[0]
-    if not isinstance(first, (str, bytes, bytearray)):
-        return []
-    return _arg_to_str(first).split()
+    if isinstance(first, bytes):
+        first = bytes.decode(first, errors='replace')
+    elif isinstance(first, bytearray):
+        first = bytearray.decode(first, errors='replace')
+    return str.split(first) if isinstance(first, str) else []
 
 
 def _span_name(tokens: list[str]) -> str:
