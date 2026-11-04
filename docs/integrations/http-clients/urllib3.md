@@ -27,7 +27,7 @@ reading the body later are outside that span.
 ## Installation
 
 Install Logfire with the `urllib3` extra. The integration supports urllib3 1.x and 2.x and
-requires OpenTelemetry's urllib3 instrumentor version `0.65b0` or later.
+requires OpenTelemetry's urllib3 instrumentor version `0.61b0` or later.
 
 {{ install_logfire(extras=['urllib3']) }}
 

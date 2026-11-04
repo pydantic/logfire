@@ -39,7 +39,7 @@ INSTRUMENTATION_CALL_ARGUMENTS = {
 }
 MINIMUM_INSTRUMENTATION_VERSIONS = {
     ('opentelemetry-instrumentation-httpx', 'httpx2'): '0.65b0',
-    ('opentelemetry-instrumentation-urllib3', 'urllib3'): '0.65b0',
+    ('opentelemetry-instrumentation-urllib3', 'urllib3'): '0.61b0',
 }
 
 # Map of instrumentation packages to the packages they instrument

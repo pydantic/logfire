@@ -8,7 +8,7 @@ from opentelemetry.util.http import SanitizeValue, redact_url
 
 from ..utils import get_version
 
-_MINIMUM_VERSION = '0.65b0'
+_MINIMUM_VERSION = '0.61b0'
 _INSTALL_INSTRUCTIONS = "\nYou can install a compatible version with:\n    pip install -U 'logfire[urllib3]'"
 
 

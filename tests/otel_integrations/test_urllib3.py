@@ -269,8 +269,8 @@ def test_internal_opentelemetry_import_error() -> None:
 
 
 def test_unsupported_opentelemetry_version() -> None:
-    with mock.patch('opentelemetry.instrumentation.urllib3.version.__version__', '0.64b0'):
-        with pytest.raises(RuntimeError, match='opentelemetry-instrumentation-urllib3 >= 0.65b0'):
+    with mock.patch('opentelemetry.instrumentation.urllib3.version.__version__', '0.60b0'):
+        with pytest.raises(RuntimeError, match='opentelemetry-instrumentation-urllib3 >= 0.61b0'):
             logfire.instrument_urllib3()
 
 

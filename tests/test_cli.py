@@ -563,7 +563,7 @@ def test_inspect(
     ('installed', 'requirements'),
     [
         (['requests'], ["'logfire[requests]'"]),
-        (['urllib3'], ["'logfire[urllib3]'", "'opentelemetry-instrumentation-urllib3>=0.65b0'"]),
+        (['urllib3'], ["'logfire[urllib3]'", "'opentelemetry-instrumentation-urllib3>=0.61b0'"]),
         (['pymysql'], ['opentelemetry-instrumentation-pymysql']),
         (['requests', 'pymysql'], ["'logfire[requests]'", 'opentelemetry-instrumentation-pymysql']),
         (['psycopg', 'psycopg2'], ["'logfire[psycopg,psycopg2]'"]),
