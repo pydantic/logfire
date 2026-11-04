@@ -1,11 +1,11 @@
 ---
-title: "Instrument Valkey: see every command your app runs"
-description: "Add a few lines to your Valkey code and see every command in Logfire: which command ran, how long it took, and which ones failed."
+title: "Trace Valkey commands with Logfire"
+description: "See which commands your Python Valkey clients ran, how long they took, and which ones failed."
 integration: otel
 ---
 # Valkey
 
-See every command your app sends to [Valkey][valkey] (which command ran, how long it took, and which
+See commands your Python clients send to [Valkey][valkey] (which command ran, how long it took, and which
 ones failed) as a **span** (one unit of work with a name, a start, and a duration) in Logfire.
 Related spans link together into a **trace** (the full journey of one request), so a slow lookup shows
 up right next to the code that triggered it.
@@ -13,26 +13,31 @@ up right next to the code that triggered it.
 [Valkey](https://valkey.io/) is an open source fork of Redis. Its Python client
 ([`valkey-py`](https://valkey-py.readthedocs.io/en/stable/)) is API-compatible with `redis-py`,
 but the OpenTelemetry Redis instrumentation only patches the `redis` package, so Valkey commands
-produce no spans unless you use `logfire.instrument_valkey()`.
+need their own instrumentation.
 
 ## What you'll capture
 
-- Each command as a span, with its duration and any errors
-- Which Valkey server the command went to
-- Optionally, the command itself (off by default; see below)
+- Each command executed by a synchronous or asynchronous Valkey client, with its duration and any errors
+- The server address and port when the client provides them
+- The command name by default, with its arguments hidden
+
+When Valkey returns an error, the span records its type. Server error messages can contain command
+arguments, so the span omits those messages.
 
 {{ before_you_start() }}
 
 ## Installation
 
-Install `logfire` with the `valkey` extra:
+Install Logfire with the `valkey` extra. The integration requires `valkey` 6.0 or later.
 
 {{ install_logfire(extras=['valkey']) }}
 
 ## Usage
 
 Add two lines to your app: `logfire.configure()` to connect to your project, and
-[`logfire.instrument_valkey()`][logfire.Logfire.instrument_valkey] to record every command.
+[`logfire.instrument_valkey()`][logfire.Logfire.instrument_valkey] to record commands. The first call sets the options for the whole process and applies to
+clients you already created. Pipelines, cluster clients, and publish/subscribe commands are outside
+the scope of this integration.
 
 The example below connects to a local Valkey server. If you don't have one running, you can start one
 with Docker:
@@ -41,27 +46,16 @@ with Docker:
 docker run --name valkey -p 127.0.0.1:6379:6379 -d valkey/valkey:latest
 ```
 
-```py title="main.py" hl_lines="6" skip-run="true" skip-reason="external-connection"
-import valkey
-
+```py title="main.py" hl_lines="4 5" skip-run="true" skip-reason="external-connection"
 import logfire
+import valkey
 
 logfire.configure()
 logfire.instrument_valkey()
 
-client = valkey.Valkey(host='localhost', port=6379)
-client.set('my-key', 'my-value')
-
-
-async def main():
-    client = valkey.asyncio.Valkey(host='localhost', port=6379)
-    await client.get('my-key')
-
-
-if __name__ == '__main__':
-    import asyncio
-
-    asyncio.run(main())
+with valkey.Valkey(host='localhost', port=6379) as client:
+    client.set('my-key', 'my-value')
+    client.get('my-key')
 ```
 
 Run it with `python main.py`.
@@ -70,7 +64,8 @@ Run it with `python main.py`.
 
 Run your program, then open your project in the
 [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
-should see a span for each command the script ran. Click one to see how long it took.
+should see a `SET` span and a `GET` span. The `SET` span displays `SET ? ?`. Click it to see
+how long the command took.
 
 ## Troubleshooting
 
@@ -78,7 +73,6 @@ Not seeing your commands in Logfire? Check these first:
 
 - **`logfire.configure()` runs before `logfire.instrument_valkey()`.** Configure the connection first,
   then instrument.
-- **You call `instrument_valkey()` exactly once.**
 - **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **You actually ran a command.** Spans appear only after a command executes.
@@ -87,11 +81,14 @@ Not seeing your commands in Logfire? Check these first:
 
 ## Advanced
 
+`logfire run` instruments Valkey with the default settings when it finds the `valkey` package.
+If your application sets custom options, run it with `logfire run --exclude valkey` and let the
+application call `logfire.instrument_valkey()`.
+
 ### Capturing the command
 
-By default, only the command name is recorded with argument values redacted as `?`
-(e.g. `db.statement` = `SET ? ?`), since commands can contain sensitive data. To include
-the full command with values, pass `capture_statement=True`:
+Logfire replaces each argument with `?` in the span message and `db.statement` attribute. To
+include arguments in a separate `db.valkey.command` attribute, pass `capture_statement=True`.
 
 ```py skip-run="true" skip-reason="external-connection"
 import logfire
@@ -100,8 +97,9 @@ logfire.configure()
 logfire.instrument_valkey(capture_statement=True)
 ```
 
-Turning this on sends the command (including any values in it) to Logfire, so avoid it if your
-commands carry secrets or personally identifiable information (PII).
+Logfire applies its [scrubbing rules](../../how-to-guides/scrubbing.md) to that attribute and
+always omits it for `ACL`, `AUTH`, `CONFIG`, `HELLO`, and `MIGRATE`. Enable capture only when
+your command arguments are suitable to send to Logfire.
 
 ## Reference
 
@@ -113,7 +111,7 @@ commands carry secrets or personally identifiable information (PII).
         show_root_heading: true
         show_root_full_path: false
 
-::: logfire.integrations.valkey.RequestHook
+::: logfire.integrations.valkey.RequestHookContext
     options:
         heading_level: 4
         show_root_heading: true
@@ -121,7 +119,7 @@ commands carry secrets or personally identifiable information (PII).
         show_source: false
         filters: []
 
-::: logfire.integrations.valkey.ResponseHook
+::: logfire.integrations.valkey.ResponseHookContext
     options:
         heading_level: 4
         show_root_heading: true
