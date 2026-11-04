@@ -1,0 +1,21 @@
+logfire-sdk/logfire/_internal/integrations/valkey.py
+  s_a80e5890292089::t_cd526e9d03bcf1 86-90
+tests/otel_integrations/test_valkey.py
+  s_a80e5890292089::t_8c98d49b8ca269 216-233
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eb593966a15f7301b0a90f288df05c0ce18b5ecd",
+  "prompts": {},
+  "sessions": {
+    "s_a80e5890292089": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a739-3a15-7902-8383-000bef9edd54",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
