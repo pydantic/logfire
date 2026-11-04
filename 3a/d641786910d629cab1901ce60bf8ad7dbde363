@@ -1,0 +1,14 @@
+.agents/skills/review-integration/SKILL.md
+  h_d9dd17644dded9 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3ad641786910d629cab1901ce60bf8ad7dbde363",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
