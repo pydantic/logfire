@@ -1,0 +1,21 @@
+logfire-sdk/logfire/_internal/integrations/urllib3.py
+  s_bf671b4bf007a4::t_e9d4f03dc27a8e 41-47
+tests/otel_integrations/test_urllib3.py
+  s_bf671b4bf007a4::t_e9d4f03dc27a8e 96-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4f70f9ebad4def0cd8bd8028f7dc5944a916db11",
+  "prompts": {},
+  "sessions": {
+    "s_bf671b4bf007a4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a722-f1fe-7b61-a1ad-739e05905b02",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
