@@ -404,6 +404,7 @@ def test_clean_default_dir_is_not_a_directory(
     [
         (['requests'], ["'logfire[requests]'"]),
         (['pymysql'], ['opentelemetry-instrumentation-pymysql']),
+        (['boto3', 'botocore'], ["'logfire[botocore]'"]),
         (['requests', 'pymysql'], ["'logfire[requests]'", 'opentelemetry-instrumentation-pymysql']),
         (['psycopg', 'psycopg2'], ["'logfire[psycopg,psycopg2]'"]),
         (['psycopg', 'psycopg2', 'opentelemetry-instrumentation-psycopg'], ["'logfire[psycopg2]'"]),
