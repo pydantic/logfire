@@ -442,7 +442,19 @@ async def test_valkey_context_and_suppression(valkey_behavior: dict[str, Any], e
     from opentelemetry.trace import get_current_span
     from valkey.asyncio import Valkey
 
+    def request_hook(context: RequestHookContext) -> None:
+        assert context.instance is client
+        assert context.args == ('PING',)
+        context.span.set_attribute('request_hook_called', True)
+
+    def response_hook(context: ResponseHookContext) -> None:
+        assert context.instance is client
+        assert context.response == 'OK'
+        context.span.set_attribute('response_hook_called', True)
+
     client = Valkey()
+    uninstrument_valkey()
+    logfire.instrument_valkey(request_hook=request_hook, response_hook=response_hook)
     with logfire.span('parent') as parent:
         assert await _async_execute(client, 'PING') == 'OK'
         assert get_current_span().get_span_context() == parent.context
@@ -451,6 +463,30 @@ async def test_valkey_context_and_suppression(valkey_behavior: dict[str, Any], e
     command, parent_span = exporter.exported_spans_as_dict(include_instrumentation_scope=True)
     assert command['parent'] == parent_span['context']
     assert command['instrumentation_scope'] == 'logfire.valkey'
+    assert command['attributes']['request_hook_called'] is True
+    assert command['attributes']['response_hook_called'] is True
+
+
+def test_valkey_non_recording_command_keeps_client_behavior(
+    valkey_behavior: dict[str, Any], config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    from valkey import Valkey
+
+    logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions(head=0))
+    assert _sync_execute(Valkey(), 'PING') == 'OK'
+    assert not exporter.exported_spans_as_dict()
+
+
+def test_valkey_suppressed_and_malformed_commands(valkey_behavior: dict[str, Any], exporter: TestExporter) -> None:
+    from valkey import Valkey
+
+    client = Valkey()
+    with logfire.suppress_instrumentation():
+        assert _sync_execute(client, 'PING') == 'OK'
+    assert _sync_execute(client, 123) == 'OK'
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['name'] == 'valkey'
+    assert span['attributes']['db.statement'] == '?'
 
 
 def test_valkey_instruments_existing_client_at_transport_boundary(
