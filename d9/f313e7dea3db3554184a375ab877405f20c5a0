@@ -1,0 +1,21 @@
+tests/otel_integrations/test_botocore.py
+  s_3bc6e06f6c34c7::t_f6e7b2aa7e29eb 17,45,73
+  s_3bc6e06f6c34c7::t_7dda4435b98677 68-71
+  s_3bc6e06f6c34c7::t_0414c6b2726b50 74-144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d9f313e7dea3db3554184a375ab877405f20c5a0",
+  "prompts": {},
+  "sessions": {
+    "s_3bc6e06f6c34c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a736-8b01-7eb1-91dc-45c367ff317d",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
