@@ -1,0 +1,25 @@
+tests/otel_integrations/test_urllib3.py
+  s_bf671b4bf007a4::t_cfd933bc8bab68 254,262-269,273
+  s_bf671b4bf007a4::t_8e4413b044f12e 257-258,270-272,274-275
+logfire-sdk/logfire/_internal/main.py
+  s_bf671b4bf007a4::t_cfd933bc8bab68 1952-1954
+  s_bf671b4bf007a4::t_81e83d52b1ca75 1908-1915,1918-1921,1924-1936,1941-1951
+logfire-sdk/logfire/_internal/integrations/urllib3.py
+  s_bf671b4bf007a4::t_6f551710e2fb89 4,9-33,52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f27241c08b04c3cf31dc190d8604e4ef3939a43d",
+  "prompts": {},
+  "sessions": {
+    "s_bf671b4bf007a4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a722-f1fe-7b61-a1ad-739e05905b02",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
