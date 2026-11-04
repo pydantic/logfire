@@ -6,6 +6,7 @@ import importlib
 import inspect
 import sys
 from collections.abc import Iterator
+from datetime import datetime, timezone
 from typing import Any
 from unittest import mock
 
@@ -13,6 +14,7 @@ import pytest
 from arq.connections import RedisSettings, create_pool
 from arq.cron import CronJob
 from arq.worker import Function, Worker, func
+from inline_snapshot import snapshot
 from opentelemetry import trace
 from opentelemetry.instrumentation.arq import ArqInstrumentor
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -76,8 +78,22 @@ async def test_arq_jobs_keep_results_errors_and_distributed_parents(
     try:
         with local_logfire.span('enqueue jobs'):
             root_context = trace.get_current_span().get_span_context()
-            success = await redis.enqueue_job('succeeds', value=7, _job_id='success', _queue_name=queue)
-            failure = await redis.enqueue_job('fails', _job_id='failure', _queue_name=queue)
+            # Use different queue scores so worker order is deterministic even if both enqueues share a millisecond.
+            success = await redis.enqueue_job(
+                'succeeds',
+                value=7,
+                _job_id='success',
+                _queue_name=queue,
+                _defer_until=datetime(2020, 1, 1, tzinfo=timezone.utc),
+                _expires=60,
+            )
+            failure = await redis.enqueue_job(
+                'fails',
+                _job_id='failure',
+                _queue_name=queue,
+                _defer_until=datetime(2020, 1, 2, tzinfo=timezone.utc),
+                _expires=60,
+            )
         assert success is not None and failure is not None
 
         # A worker in another process cannot inherit the producer's ambient context.
@@ -133,6 +149,118 @@ async def test_arq_jobs_keep_results_errors_and_distributed_parents(
     assert isinstance(stacktrace, str)
     assert 'ValueError: job failed' in stacktrace
     assert 'in fails' in stacktrace
+    assert local_exporter.exported_spans_as_dict(include_instrumentation_scope=True) == snapshot(
+        [
+            {
+                'name': 'succeeds',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.arq',
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'succeeds',
+                    'arq.job.name': 'succeeds',
+                    'arq.job.id': 'success',
+                    'arq.job.queue': 'arq:queue:logfire-test',
+                },
+            },
+            {
+                'name': 'fails',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.arq',
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'fails',
+                    'arq.job.name': 'fails',
+                    'arq.job.id': 'failure',
+                    'arq.job.queue': 'arq:queue:logfire-test',
+                },
+            },
+            {
+                'name': 'enqueue jobs',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 6000000000,
+                'instrumentation_scope': 'logfire',
+                'attributes': {
+                    'code.filepath': 'test_arq.py',
+                    'code.function': 'test_arq_jobs_keep_results_errors_and_distributed_parents',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'enqueue jobs',
+                    'logfire.msg': 'enqueue jobs',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'inside job',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'start_time': 8000000000,
+                'end_time': 9000000000,
+                'instrumentation_scope': 'logfire',
+                'attributes': {
+                    'code.filepath': 'test_arq.py',
+                    'code.function': 'succeeds',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'inside job',
+                    'logfire.msg': 'inside job',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'succeeds',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': True},
+                'start_time': 7000000000,
+                'end_time': 10000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.arq',
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'succeeds',
+                    'arq.job.name': 'succeeds',
+                    'arq.job.id': 'success',
+                    'arq.job.try': 1,
+                    'arq.job.score': 1577836800000,
+                },
+            },
+            {
+                'name': 'fails',
+                'context': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': True},
+                'start_time': 11000000000,
+                'end_time': 13000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.arq',
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'fails',
+                    'arq.job.name': 'fails',
+                    'arq.job.id': 'failure',
+                    'arq.job.try': 1,
+                    'arq.job.score': 1577923200000,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
+                    'logfire.level_num': 17,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 12000000000,
+                        'attributes': {
+                            'exception.type': 'ValueError',
+                            'exception.message': 'job failed',
+                            'exception.stacktrace': 'ValueError: job failed',
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
+            },
+        ]
+    )
     assert exporter.exported_spans == []
 
 
