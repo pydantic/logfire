@@ -1,0 +1,30 @@
+CLAUDE.md
+  h_d9dd17644dded9 107
+  h_d9dd17644dded9 105-106,108
+dev-docs/integration-guidelines.md
+  s_15f06c2b5ed0d0::t_c2ffbc1b0e5066 13
+  s_15f06c2b5ed0d0::t_0ce37a058a9318 9-12
+  s_15f06c2b5ed0d0::t_7d898685590f5c 7-8
+  h_d9dd17644dded9 3,5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aefe742e29c07c4f0957c4ac8ebab8a0e094685d",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_15f06c2b5ed0d0": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1793704098901",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
