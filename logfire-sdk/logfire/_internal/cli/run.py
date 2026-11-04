@@ -37,7 +37,10 @@ INSTRUMENTATION_CALL_ARGUMENTS = {
     'opentelemetry-instrumentation-psycopg': ('psycopg',),
     'opentelemetry-instrumentation-psycopg2': ('psycopg2',),
 }
-MINIMUM_INSTRUMENTATION_VERSIONS = {('opentelemetry-instrumentation-httpx', 'httpx2'): '0.65b0'}
+MINIMUM_INSTRUMENTATION_VERSIONS = {
+    ('opentelemetry-instrumentation-httpx', 'httpx2'): '0.65b0',
+    ('opentelemetry-instrumentation-urllib3', 'urllib3'): '0.65b0',
+}
 
 # Map of instrumentation packages to the packages they instrument
 OTEL_INSTRUMENTATION_MAP = {
@@ -103,6 +106,7 @@ INSTRUMENTATION_TO_EXTRA: dict[str, str] = {
     'opentelemetry-instrumentation-sqlite3': 'sqlite3',
     'opentelemetry-instrumentation-starlette': 'starlette',
     'opentelemetry-instrumentation-urllib': 'urllib',
+    'opentelemetry-instrumentation-urllib3': 'urllib3',
 }
 
 
