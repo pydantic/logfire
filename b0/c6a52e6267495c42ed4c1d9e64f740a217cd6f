@@ -1,0 +1,19 @@
+tests/otel_integrations/test_valkey.py
+  s_bf671b4bf007a4::t_9a2c89d51a3039 445-454,456-457,466-489
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b0c6a52e6267495c42ed4c1d9e64f740a217cd6f",
+  "prompts": {},
+  "sessions": {
+    "s_bf671b4bf007a4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a722-f1fe-7b61-a1ad-739e05905b02",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
