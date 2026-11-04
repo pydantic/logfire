@@ -1,0 +1,19 @@
+docs/integrations/http-clients/urllib3.md
+  s_8895d3223e2377::t_0a9a8929af545b 72-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "98c9039345136ab0aaa96022ded7406c1e047eab",
+  "prompts": {},
+  "sessions": {
+    "s_8895d3223e2377": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a723-e93a-7c02-a57c-70bf4acf220a",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
