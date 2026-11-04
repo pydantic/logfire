@@ -161,5 +161,7 @@ curl "https://api-us.pydantic.dev/api/v1/audit-logs/c1cc14dc-a124-405f-aab4-603d
 ## Notes
 
 - Querying more than 90 days of logs at once is not supported.
-- Audit log entries are immutable and represent a reliable source of truth.
+- Audit log entries preserve their ID, timestamp, action, and actor attribution. Deleting a user may
+  redact `metadata` and `downgrade_patches` on entries whose `record_id` identifies that user or the
+  Free organization deleted with the account. This redaction can update entries that already exist.
 - Use the single-record endpoint for forensic or targeted investigations.
