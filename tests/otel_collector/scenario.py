@@ -5,11 +5,11 @@ import argparse
 from opentelemetry._logs import SeverityNumber, get_logger
 
 import logfire
-from logfire._internal.config import LogfireConfig
+from logfire._internal.config import AdvancedOptions, LogfireConfig
 
 
-def _skip_credentials_check(self: LogfireConfig, token: str) -> None:
-    del self, token
+def _skip_credentials_check(self: LogfireConfig, token: str, advanced: AdvancedOptions | None = None) -> None:
+    del self, token, advanced
 
 
 def main() -> None:

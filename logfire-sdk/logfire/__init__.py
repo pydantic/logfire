@@ -79,6 +79,7 @@ with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
 # with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
 with_settings = DEFAULT_LOGFIRE_INSTANCE.with_settings
 url_from_eval = DEFAULT_LOGFIRE_INSTANCE.url_from_eval
+get_project_url = DEFAULT_LOGFIRE_INSTANCE.get_project_url
 forward_export_request = DEFAULT_LOGFIRE_INSTANCE.forward_export_request
 forward_export_request_starlette = DEFAULT_LOGFIRE_INSTANCE.forward_export_request_starlette
 
@@ -132,6 +133,7 @@ def loguru_handler(*, console_log: bool = True) -> Any:
 
 __version__ = VERSION
 
+
 __all__ = (
     'Logfire',
     'LogfireSpan',
@@ -141,6 +143,7 @@ __all__ = (
     'CodeSource',
     'PydanticPlugin',
     'configure',
+    'get_project_url',
     'span',
     'instrument',
     'log',
