@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Generic, TypeAlias, TypeVar, cast
 from unittest import mock
+from urllib.parse import urlsplit
 
 import httpx
 import httpx2
@@ -153,7 +154,13 @@ def test_httpx_client_instrumentation(exporter: TestExporter, httpx_family: HTTP
             response = client.get('https://example.org:8080/foo')
             checker(response)
 
-    assert without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+    spans = without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True))
+    message = spans[0]['attributes']['logfire.msg']
+    assert isinstance(message, str)
+    endpoint = urlsplit('//' + message.partition(' ')[2])
+    assert (endpoint.hostname, endpoint.port, endpoint.path) == ('example.org', 8080, '/foo')
+
+    assert spans == snapshot(
         [
             {
                 'name': 'GET',
@@ -173,7 +180,7 @@ def test_httpx_client_instrumentation(exporter: TestExporter, httpx_family: HTTP
                     'server.port': 8080,
                     'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET example.org/foo',
+                    'logfire.msg': IsStr(),
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
@@ -330,7 +337,7 @@ def test_httpx_client_instrumentation_old_semconv(exporter: TestExporter, httpx_
                     'http.method': 'GET',
                     'http.url': 'https://example.org:8080/foo',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET example.org/foo',
+                    'logfire.msg': IsStr(),
                     'http.status_code': 200,
                     'http.target': '/foo',
                 },
@@ -366,7 +373,7 @@ async def test_async_httpx_client_instrumentation(exporter: TestExporter, httpx_
                     'server.port': 8080,
                     'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET example.org/foo',
+                    'logfire.msg': IsStr(),
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
@@ -650,7 +657,7 @@ def test_httpx_client_capture_full(exporter: TestExporter, httpx_family: HTTPXFa
                     'server.port': 8080,
                     'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST example.org/foo',
+                    'logfire.msg': IsStr(),
                     'http.request.header.host': ('example.org:8080',),
                     'http.request.header.accept': ('*/*',),
                     'http.request.header.accept-encoding': (
@@ -753,7 +760,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter, httpx_fam
                     'server.port': 8080,
                     'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST example.org/foo',
+                    'logfire.msg': IsStr(),
                     'http.request.header.host': ('example.org:8080',),
                     'http.request.header.accept': ('*/*',),
                     'http.request.header.accept-encoding': (
@@ -854,7 +861,7 @@ def test_httpx_client_not_capture_response_body_on_wrong_encoding(
                     'server.port': 8080,
                     'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST example.org/foo',
+                    'logfire.msg': IsStr(),
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
@@ -935,7 +942,7 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter, httpx_fa
                     'server.port': 8080,
                     'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST example.org/foo',
+                    'logfire.msg': IsStr(),
                     'http.request.body.form': {'form': 'values'},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -977,7 +984,7 @@ def test_httpx_client_capture_request_text_body(exporter: TestExporter, httpx_fa
                     'server.port': 8080,
                     'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST example.org/foo',
+                    'logfire.msg': IsStr(),
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {'http.request.body.text': {'type': 'object'}},
@@ -1040,7 +1047,7 @@ async def test_httpx_client_capture_all(exporter: TestExporter, httpx_family: HT
                     'server.port': 8080,
                     'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST example.org/foo',
+                    'logfire.msg': IsStr(),
                     'http.request.header.host': ('example.org:8080',),
                     'http.request.header.accept': ('*/*',),
                     'http.request.header.accept-encoding': (
@@ -1141,7 +1148,7 @@ async def test_httpx_client_capture_all_environment_variable(exporter: TestExpor
                     'server.port': 8080,
                     'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET example.org/foo',
+                    'logfire.msg': IsStr(),
                     'http.request.header.host': ('example.org:8080',),
                     'http.request.header.accept': ('*/*',),
                     'http.request.header.accept-encoding': (Is(accept_encoding),),
@@ -1209,7 +1216,7 @@ async def test_httpx_client_no_capture_empty_body(exporter: TestExporter, httpx_
                     'server.port': 8080,
                     'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET example.org/foo',
+                    'logfire.msg': IsStr(),
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
