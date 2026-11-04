@@ -1,0 +1,20 @@
+tests/otel_integrations/test_arq.py
+  s_4eaaff465eb0c1::t_7659d14c7ad9a1 88-95
+  s_4eaaff465eb0c1::t_d1523a092eedc2 9,17,81-87,96,152-263
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1ed9e513f3ed38ef1ddbc3c2a59e6b55e86730ee",
+  "prompts": {},
+  "sessions": {
+    "s_4eaaff465eb0c1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a738-76fb-7b43-86c6-f8ea6ad472c0",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
