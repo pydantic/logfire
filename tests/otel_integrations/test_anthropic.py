@@ -2293,6 +2293,62 @@ def test_internal_exception_in_on_response_keeps_the_response(
     assert len(exporter.exported_spans_as_dict()) == 1
 
 
+def test_internal_exception_in_stream_attributes_keeps_the_stream(
+    exporter: TestExporter, caplog: pytest.LogCaptureFixture
+) -> None:
+    """If recording a streamed response fails inside Logfire, iterating the stream still works."""
+    # `usage.input_tokens` is missing from `message_start`, as in the non-streaming test above.
+    events: list[dict[str, Any]] = [
+        {
+            'type': 'message_start',
+            'message': {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'model': 'claude-haiku-4-5',
+                'content': [],
+                'stop_reason': None,
+                'stop_sequence': None,
+                'usage': {'output_tokens': 1},
+            },
+        },
+        {'type': 'content_block_start', 'index': 0, 'content_block': {'type': 'text', 'text': ''}},
+        {'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': 'Nine'}},
+        {'type': 'content_block_stop', 'index': 0},
+        {
+            'type': 'message_delta',
+            'delta': {'stop_reason': 'end_turn', 'stop_sequence': None},
+            'usage': {'output_tokens': 3},
+        },
+        {'type': 'message_stop'},
+    ]
+    sse = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in events)
+    client = anthropic.Anthropic(
+        api_key='test',
+        http_client=httpx.Client(
+            transport=MockTransport(
+                lambda _: httpx.Response(200, text=sse, headers={'content-type': 'text/event-stream'})
+            )
+        ),
+    )
+    with logfire.instrument_anthropic(client):
+        stream = client.messages.create(
+            max_tokens=1000,
+            model='claude-haiku-4-5',
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+            stream=True,
+        )
+        chunks = [chunk.type for chunk in stream]
+
+    assert chunks == [event['type'] for event in events]
+    assert 'Caught an internal error in Logfire' in caplog.text
+    spans = exporter.exported_spans_as_dict()
+    assert [span['name'] for span in spans] == [
+        'Message with {request_data[model]!r}',
+        'streaming response from {request_data[model]!r} took {duration:.2f}s',
+    ]
+
+
 def test_messages_records_cache_token_attributes(exporter: TestExporter) -> None:
     body = {
         'id': 'msg_1',
