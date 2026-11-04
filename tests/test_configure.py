@@ -508,6 +508,11 @@ def test_read_config_from_environment_variables() -> None:
         assert fresh_pydantic_plugin().exclude == {'test'}
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE': 'test1, test2'}):
         assert fresh_pydantic_plugin().exclude == {'test1', 'test2'}
+    # An empty pattern would match every model, so empty items are skipped
+    with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE': 'test1, ,test2,'}):
+        assert fresh_pydantic_plugin().exclude == {'test1', 'test2'}
+    with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_INCLUDE': ''}):
+        assert fresh_pydantic_plugin().include == set()
 
 
 def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
