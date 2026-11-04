@@ -1,0 +1,22 @@
+tests/otel_integrations/test_valkey.py
+  s_24475900226bf0::t_d730cba20994f9 393-417
+  s_24475900226bf0::t_f2ef73e4a98107 89
+logfire-sdk/logfire/_internal/integrations/valkey.py
+  s_24475900226bf0::t_d730cba20994f9 6,25,34-36,50-69,74-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fb06b00897ff265a65d8ef7efc52b0a475f210dd",
+  "prompts": {},
+  "sessions": {
+    "s_24475900226bf0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a738-ba7e-7d13-9243-3f06f3635be2",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
