@@ -18,6 +18,7 @@ from anthropic.types import (
     MessageStopEvent,
     TextBlock,
     TextDelta,
+    ToolUseBlock,
     Usage,
 )
 from dirty_equals import IsInt, IsPartialDict, IsStr
@@ -2499,6 +2500,35 @@ def test_convert_messages_document_and_file_image_parts() -> None:
                 {'type': 'text', 'content': 'Summarize these.'},
             ],
         }
+    ]
+
+
+def test_convert_messages_response_content_blocks_sent_back() -> None:
+    """An assistant turn given as the content blocks of an earlier response is converted like the dict form."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    messages: list[dict[str, Any]] = [
+        {
+            'role': 'assistant',
+            'content': [
+                TextBlock(text='Checking the weather.', type='text'),
+                ToolUseBlock(id='toolu_1', name='get_weather', input={'city': 'Paris'}, type='tool_use'),
+            ],
+        },
+        {'role': 'user', 'content': [{'type': 'tool_result', 'tool_use_id': 'toolu_1', 'content': 'Sunny'}]},
+    ]
+
+    input_messages, _ = convert_messages_to_semconv(messages)
+
+    assert input_messages == [
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'text', 'content': 'Checking the weather.'},
+                {'type': 'tool_call', 'id': 'toolu_1', 'name': 'get_weather', 'arguments': {'city': 'Paris'}},
+            ],
+        },
+        {'role': 'user', 'parts': [{'type': 'tool_call_response', 'id': 'toolu_1', 'response': 'Sunny'}]},
     ]
 
 
