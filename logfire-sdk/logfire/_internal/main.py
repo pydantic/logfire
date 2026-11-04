@@ -1905,34 +1905,53 @@ class Logfire:
 
     def instrument_urllib3(
         self,
-        excluded_urls: str | None = None,
-        request_hook: Callable[[Span, HTTPConnectionPool, RequestInfo], None] | None = None,
-        response_hook: Callable[[Span, HTTPConnectionPool, HTTPResponse], None] | None = None,
-        url_filter: Callable[[str], str] | None = None,
+        excluded_urls: str | None = cast(Any, _UNSET),
+        request_hook: Callable[[Span, HTTPConnectionPool, RequestInfo], None] | None = cast(Any, _UNSET),
+        response_hook: Callable[[Span, HTTPConnectionPool, HTTPResponse], None] | None = cast(Any, _UNSET),
+        url_filter: Callable[[str], str] | None = cast(Any, _UNSET),
+        *,
+        captured_request_headers: list[str] | None = cast(Any, _UNSET),
+        captured_response_headers: list[str] | None = cast(Any, _UNSET),
+        sensitive_headers: list[str] | None = cast(Any, _UNSET),
         **kwargs: Any,
     ) -> None:
-        """Instrument the `urllib3` module so that spans are automatically created for each request.
+        """Instrument urllib3 connection pools throughout the process.
+
+        OpenTelemetry keeps the first active installation and ignores later calls.
+        Omitted options use OpenTelemetry's defaults, which may change between releases.
 
         Args:
-            excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
-            request_hook: A function called right after a span is created for a request.
-            response_hook: A function called right before a span is finished for the response.
-            url_filter: A function used to modify the URL recorded on request spans.
-            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, for future compatibility.
+            excluded_urls: Comma-separated regular expressions for URLs to skip.
+                Defaults to OpenTelemetry's environment configuration.
+            request_hook: Called after creating the request span. Defaults to no hook.
+            response_hook: Called before ending the response span. Defaults to no hook.
+            url_filter: Transforms the URL before Logfire redacts known credentials.
+                Defaults to no user-supplied transformation.
+            captured_request_headers: Header name patterns to record from requests.
+                Defaults to OpenTelemetry's environment configuration.
+            captured_response_headers: Header name patterns to record from responses.
+                Defaults to OpenTelemetry's environment configuration.
+            sensitive_headers: Header name patterns to redact when capturing headers.
+                Defaults to OpenTelemetry's environment configuration.
+            **kwargs: Additional keyword arguments for the OpenTelemetry instrumentor.
         """
         from .integrations.urllib3 import instrument_urllib3
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_urllib3(
-            excluded_urls=excluded_urls,
-            request_hook=request_hook,
-            response_hook=response_hook,
-            url_filter=url_filter,
-            **{
-                'tracer_provider': self._config.get_tracer_provider(),
-                'meter_provider': self._config.get_meter_provider(),
-                **kwargs,
-            },
+        options = {
+            'excluded_urls': excluded_urls,
+            'request_hook': request_hook,
+            'response_hook': response_hook,
+            'captured_request_headers': captured_request_headers,
+            'captured_response_headers': captured_response_headers,
+            'sensitive_headers': sensitive_headers,
+            'tracer_provider': self._config.get_tracer_provider(),
+            'meter_provider': self._config.get_meter_provider(),
+            **kwargs,
+        }
+        instrument_urllib3(
+            url_filter=None if url_filter is _UNSET else url_filter,
+            **{name: value for name, value in options.items() if value is not _UNSET},
         )
 
     @overload
