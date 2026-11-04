@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 from unittest import mock
 
 import pytest
@@ -10,7 +9,6 @@ from inline_snapshot import snapshot
 from opentelemetry.instrumentation.urllib3 import URLLib3Instrumentor
 
 import logfire
-import logfire._internal.integrations.urllib3
 from logfire.testing import TestExporter
 
 
@@ -253,12 +251,26 @@ def test_urllib3_instrumentation(exporter: TestExporter, instrument_urllib3: Non
 def test_missing_opentelemetry_dependency() -> None:
     with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.urllib3': None}):
         with pytest.raises(RuntimeError) as exc_info:
-            importlib.reload(logfire._internal.integrations.urllib3)
+            logfire.instrument_urllib3()
         assert str(exc_info.value) == snapshot("""\
 `logfire.instrument_urllib3()` requires the `opentelemetry-instrumentation-urllib3` package.
-You can install this with:
-    pip install 'logfire[urllib3]'\
+You can install a compatible version with:
+    pip install -U 'logfire[urllib3]'\
 """)
+
+
+def test_internal_opentelemetry_import_error() -> None:
+    module = 'opentelemetry.instrumentation.urllib3.version'
+    with mock.patch.dict('sys.modules', {module: None}):
+        with pytest.raises(ModuleNotFoundError) as exc_info:
+            logfire.instrument_urllib3()
+    assert exc_info.value.name == module
+
+
+def test_unsupported_opentelemetry_version() -> None:
+    with mock.patch('opentelemetry.instrumentation.urllib3.version.__version__', '0.64b0'):
+        with pytest.raises(RuntimeError, match='opentelemetry-instrumentation-urllib3 >= 0.65b0'):
+            logfire.instrument_urllib3()
 
 
 @pytest.mark.parametrize('custom_filter', [False, True])
