@@ -98,9 +98,10 @@ def test_instrument_valkey_capture_statement(valkey_behavior: dict[str, Any], ex
                 'end_time': 2000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'SET my-key 123',
+                    'logfire.msg': 'SET ? ?',
                     'db.system': 'valkey',
-                    'db.statement': 'SET my-key 123',
+                    'db.statement': 'SET ? ?',
+                    'db.valkey.command': 'SET my-key 123',
                     'db.valkey.args_length': 3,
                     'db.valkey.database_index': 0,
                     'server.address': 'localhost',
@@ -360,7 +361,6 @@ def test_uninstrument_valkey_without_instrument():
 def test_missing_valkey_dependency() -> None:
     with mock.patch.dict('sys.modules', {'valkey': None}):
         # Evict cached integration modules so the missing `valkey` dependency is actually exercised.
-        sys.modules.pop('logfire.integrations.valkey', None)
         sys.modules.pop('logfire._internal.integrations.valkey', None)
         with pytest.raises(RuntimeError) as exc_info:
             importlib.import_module('logfire._internal.integrations.valkey')
@@ -371,9 +371,6 @@ You can install this with:
     pip install 'logfire[valkey]'\
 """
         )
-    # Restore integration modules for subsequent tests.
-    importlib.import_module('logfire.integrations.valkey')
-    importlib.import_module('logfire._internal.integrations.valkey')
 
 
 def test_unrelated_import_error_reraised() -> None:
@@ -387,11 +384,51 @@ def test_unrelated_import_error_reraised() -> None:
             raise ModuleNotFoundError("No module named 'other_dep'", name='other_dep')
         return real_import(name, *args, **kwargs)
 
-    sys.modules.pop('logfire.integrations.valkey', None)
-    sys.modules.pop('logfire._internal.integrations.valkey', None)
-    with mock.patch('builtins.__import__', side_effect=fake_import):
+    with mock.patch.dict(sys.modules), mock.patch('builtins.__import__', side_effect=fake_import):
+        sys.modules.pop('logfire._internal.integrations.valkey', None)
         with pytest.raises(ModuleNotFoundError) as exc_info:
             importlib.import_module('logfire._internal.integrations.valkey')
         assert exc_info.value.name == 'other_dep'
-    importlib.import_module('logfire.integrations.valkey')
-    importlib.import_module('logfire._internal.integrations.valkey')
+
+
+def test_internal_exception_does_not_block_valkey_command(valkey_behavior: dict[str, Any]) -> None:
+    from valkey import Valkey
+
+    class Unprintable:
+        def __str__(self) -> str:
+            raise ValueError('cannot format telemetry')
+
+    uninstrument_valkey()
+    logfire.instrument_valkey(capture_statement=True)
+    assert _sync_execute(Valkey(), 'SET', 'key', Unprintable()) == 'OK'
+
+
+def test_valkey_capture_scrubs_secrets(valkey_behavior: dict[str, Any], exporter: TestExporter) -> None:
+    from valkey import Valkey
+
+    uninstrument_valkey()
+    logfire.instrument_valkey(capture_statement=True)
+    client = Valkey()
+    _sync_execute(client, 'AUTH', 'opaque-credential-123')
+    _sync_execute(client, 'SET', 'password', 'another-credential-456')
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert 'db.valkey.command' not in spans[0]['attributes']
+    assert 'Scrubbed' in spans[1]['attributes']['db.valkey.command']
+    assert 'opaque-credential-123' not in str(spans)
+    assert 'another-credential-456' not in str(spans)
+
+
+@pytest.mark.anyio
+async def test_valkey_context_and_suppression(valkey_behavior: dict[str, Any], exporter: TestExporter) -> None:
+    from opentelemetry.trace import get_current_span
+    from valkey.asyncio import Valkey
+
+    client = Valkey()
+    with logfire.span('parent') as parent:
+        assert await _async_execute(client, 'PING') == 'OK'
+        assert get_current_span().get_span_context() == parent.context
+        with logfire.suppress_instrumentation():
+            assert await _async_execute(client, 'PING') == 'OK'
+    command, parent_span = exporter.exported_spans_as_dict(include_instrumentation_scope=True)
+    assert command['parent'] == parent_span['context']
+    assert command['instrumentation_scope'] == 'logfire.valkey'

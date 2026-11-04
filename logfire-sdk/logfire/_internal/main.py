@@ -2339,7 +2339,8 @@ class Logfire:
         library, specifically `RedisInstrumentor().instrument()`, to which it passes `**kwargs`.
 
         Args:
-            capture_statement: Set to `True` to capture the statement in the span attributes.
+            capture_statement: Include command arguments in the `db.valkey.command` span attribute
+                when the command is eligible for capture.
             request_hook: A function that is called before performing the request.
             response_hook: A function that is called after receiving the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods for future compatibility.
@@ -2363,7 +2364,6 @@ class Logfire:
         capture_statement: bool = False,
         request_hook: ValkeyRequestHook | None = None,
         response_hook: ValkeyResponseHook | None = None,
-        **kwargs: Any,
     ) -> None:
         """Instrument the `valkey` module so that spans are automatically created for each operation.
 
@@ -2371,13 +2371,14 @@ class Logfire:
         ([`valkey-py`](https://valkey-py.readthedocs.io/en/stable/)). The OpenTelemetry
         Redis instrumentation only patches the `redis` package, so Valkey commands would
         otherwise produce no spans. This method applies the same style of instrumentation
-        to `valkey.Valkey` and `valkey.asyncio.Valkey`.
+        to `valkey.Valkey` and `valkey.asyncio.Valkey`. The first call sets the
+        options process-wide, including for clients that already exist.
 
         Args:
-            capture_statement: Set to `True` to capture the statement in the span attributes.
+            capture_statement: Include command arguments in the `db.valkey.command` span attribute
+                when the command is eligible for capture.
             request_hook: A function that is called before performing the request.
             response_hook: A function that is called after receiving the response.
-            **kwargs: Additional keyword arguments for future compatibility.
         """
         from .integrations.valkey import instrument_valkey
 
@@ -2386,11 +2387,7 @@ class Logfire:
             capture_statement=capture_statement,
             request_hook=request_hook,
             response_hook=response_hook,
-            **{
-                'tracer_provider': self._config.get_tracer_provider(),
-                'meter_provider': self._config.get_meter_provider(),
-                **kwargs,
-            },
+            tracer=self.with_settings(custom_scope_suffix='valkey')._spans_tracer,
         )
 
     def instrument_mysql(self, conn: MySQLConnection = None, **kwargs: Any) -> MySQLConnection:
