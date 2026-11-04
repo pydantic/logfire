@@ -2493,7 +2493,7 @@ def test_convert_messages_document_and_file_image_parts() -> None:
         {
             'role': 'user',
             'parts': [
-                {'type': 'blob', 'modality': 'document', 'content': 'JVBER', 'media_type': 'application/pdf'},
+                {'type': 'blob', 'modality': 'document', 'content': 'JVBER', 'mime_type': 'application/pdf'},
                 {'type': 'uri', 'uri': 'https://example.com/report.pdf', 'modality': 'document'},
                 {'type': 'file', 'file_id': 'file_doc_1', 'modality': 'document'},
                 {'type': 'file', 'file_id': 'file_img_1', 'modality': 'image'},
@@ -2589,10 +2589,10 @@ def test_convert_messages_unknown_document_and_image_sources_stay_unchanged() ->
             ],
             [
                 {'type': 'text', 'content': 'Screenshot taken'},
-                {'type': 'blob', 'modality': 'image', 'content': 'iVBOR', 'media_type': 'image/png'},
+                {'type': 'blob', 'modality': 'image', 'content': 'iVBOR', 'mime_type': 'image/png'},
                 {'type': 'text', 'content': 'See attachment'},
                 {'type': 'uri', 'uri': 'https://example.com/image.png', 'modality': 'image'},
-                {'type': 'blob', 'modality': 'document', 'content': 'JVBER', 'media_type': 'application/pdf'},
+                {'type': 'blob', 'modality': 'document', 'content': 'JVBER', 'mime_type': 'application/pdf'},
             ],
             id='mixed-content',
         ),
