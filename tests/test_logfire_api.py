@@ -64,6 +64,10 @@ def uninstrument_global_instrumentors():
     for cls, name, value in saved:
         setattr(cls, name, value)
 
+    valkey_integration = sys.modules.get('logfire._internal.integrations.valkey')
+    if valkey_integration is not None:
+        valkey_integration.uninstrument_valkey()
+
     to_visit = [BaseInstrumentor]
     while to_visit:
         cls = to_visit.pop()

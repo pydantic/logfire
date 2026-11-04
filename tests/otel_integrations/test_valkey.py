@@ -432,3 +432,30 @@ async def test_valkey_context_and_suppression(valkey_behavior: dict[str, Any], e
     command, parent_span = exporter.exported_spans_as_dict(include_instrumentation_scope=True)
     assert command['parent'] == parent_span['context']
     assert command['instrumentation_scope'] == 'logfire.valkey'
+
+
+def test_valkey_instruments_existing_client_at_transport_boundary(
+    monkeypatch: pytest.MonkeyPatch, exporter: TestExporter
+) -> None:
+    from valkey import Connection, ConnectionPool, Valkey
+
+    pool = ConnectionPool()
+    client = Valkey(connection_pool=pool)
+    connection = Connection()
+    send = mock.Mock()
+    monkeypatch.setattr(pool, 'get_connection', mock.Mock(return_value=connection))
+    monkeypatch.setattr(pool, 'release', mock.Mock())
+    monkeypatch.setattr(connection, 'send_command', send)
+    monkeypatch.setattr(connection, 'read_response', mock.Mock(return_value=b'PONG'))
+
+    logfire.instrument_valkey()
+    try:
+        assert client.ping() is True  # pyright: ignore[reportUnknownMemberType]
+    finally:
+        uninstrument_valkey()
+
+    assert send.call_args.args == ('PING',)
+    assert len(exporter.exported_spans_as_dict()) == 1
+    span = exporter.exported_spans[-1]
+    assert span.name == 'PING'
+    assert span.kind.name == 'CLIENT'
