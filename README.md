@@ -41,11 +41,17 @@ This installs both the Python SDK and the Logfire CLI. To install only the SDK, 
 
 [_(learn more)_](https://pydantic.dev/docs/logfire/get-started/first-trace)
 
-## Authenticate
+## Connect your project
 
 ```bash
-logfire auth
+uvx logfire-cli auth
+uvx logfire-cli init
 ```
+
+Run these commands from your application's directory. `uvx` is part of
+[uv](https://docs.astral.sh/uv/). Authentication signs you in; `init` selects or
+creates a project and saves its write token locally for the SDK. Existing project
+credentials continue to work. `logfire.configure()` does not prompt for setup.
 
 [_(learn more)_](https://pydantic.dev/docs/logfire/get-started/#instrument)
 

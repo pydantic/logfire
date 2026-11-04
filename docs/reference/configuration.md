@@ -14,6 +14,20 @@ The order of precedence is as above.
 
 For more details, please refer to our [API documentation][logfire.configure].
 
+!!! note "Set up your project before running your application"
+
+    `logfire.configure()` no longer creates or selects a project interactively.
+    Existing project credentials and tokens continue to work. In a fresh checkout
+    or credential directory, run `uvx logfire-cli wizard` for guided setup, or run
+    `uvx logfire-cli auth` followed by `uvx logfire-cli init` from the project directory.
+    Use `init --data-dir` if your application passes a custom `data_dir` to `configure()`.
+
+    CLI sign-in alone does not configure the SDK. The CLI keeps your account login
+    in the OS credential store; `init` saves the project's write token locally.
+    For deployed applications, set `LOGFIRE_TOKEN` to a
+    [write token](../how-to-guides/create-write-tokens.md) instead.
+    `send_to_logfire=False` and `'if-token-present'` retain their existing behavior.
+
 ## Using environment variables
 
 You can use the following environment variables to configure **Logfire**:

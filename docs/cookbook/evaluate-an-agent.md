@@ -25,7 +25,7 @@ A few terms, defined once:
 ## Prerequisites
 
 - **Python 3.10 or newer.**
-- **A Logfire project and its write token.** The write token is the credential your app uses to send data to a Logfire project. Create a project and copy the token from **Project → Settings → Write tokens** in the Logfire web app. For local development you can instead run `logfire auth` in your terminal (this opens your browser to link the machine, no token to copy). See [Getting Started](../index.md) if you don't have a project yet.
+- **A Logfire project and its write token.** The write token is the credential your app uses to send data to a Logfire project. Create a project, copy the token from **Project → Settings → Write tokens** in the Logfire web app, and set `LOGFIRE_TOKEN`. For local development, use [the CLI setup steps](../first-trace.md) to sign in and save project credentials in your application's directory instead.
 - **A Google Gemini API key**, from [Google AI Studio](https://aistudio.google.com/apikey), set as the `GEMINI_API_KEY` environment variable. The agent below uses `google:gemini-flash-lite-latest`; any [model Pydantic AI supports](https://pydantic.dev/docs/ai/models/) works the same way: swap the model string and set that provider's key instead.
 
 !!! note "Consequence: this sends data, and some of it costs money"
@@ -83,7 +83,7 @@ from pydantic_ai import Agent, RunContext
 
 import logfire
 
-logfire.configure()  # uses your write token or `logfire auth` credentials
+logfire.configure()  # uses LOGFIRE_TOKEN or the project's saved write token
 logfire.instrument_pydantic_ai()  # records every Pydantic AI agent run
 
 support_agent = Agent(

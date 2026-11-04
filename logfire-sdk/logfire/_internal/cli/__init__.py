@@ -1076,6 +1076,6 @@ def main(args: list[str] | None = None) -> None:
         sys.exit(1)
     finally:
         # Restore rather than clear: `main()` is importable and an application may call it
-        # in-process, where leaving the switch set would silently stop every later prompt
-        # -- including ones in `logfire.configure()`, which this flag does not govern.
+        # in-process, where leaving the switch set would silently stop prompts in later
+        # interactive CLI invocations.
         set_non_interactive(previous_non_interactive)

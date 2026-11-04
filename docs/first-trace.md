@@ -38,16 +38,22 @@ Pick your language below; the Python, JavaScript/TypeScript, and Rust tabs are c
 
 === "Python"
 
-    **1. Install and sign in**
+    **1. Install and connect your project**
 
-    Run this in your project's terminal to install the SDK and sign in (`logfire auth` opens your browser to log in, no API key needed):
+    Run this in your project's terminal to install the SDK, sign in, and select or create a project.
+    The setup commands use [`uv`](https://docs.astral.sh/uv/); `auth` opens your browser,
+    and `init` saves the project's write token locally for the SDK:
 
     ```bash
     uv add logfire
-    uv run logfire auth
+    uvx logfire-cli auth
+    uvx logfire-cli init
     ```
 
-    Prefer pip? Use `pip install logfire`, then run `logfire auth` directly (without the `uv run` prefix). Prefer conda? Use `conda install -c conda-forge logfire`.
+    Prefer pip? Use `pip install logfire`, then run the two `uvx logfire-cli` commands above.
+    Prefer conda? Use `conda install -c conda-forge logfire` to install the SDK.
+    If you do not want to use a CLI, set `LOGFIRE_TOKEN` to a
+    [write token](how-to-guides/create-write-tokens.md) from **Project → Settings → Write tokens** instead.
 
     **2. Add Logfire to your app**
 
@@ -68,7 +74,7 @@ Pick your language below; the Python, JavaScript/TypeScript, and Rust tabs are c
     uv run hello.py
     ```
 
-    The first run asks you to pick or create a Logfire project, then sends your trace.
+    The SDK uses the project credentials saved by `init` and sends your trace without setup prompts.
 
 === "JavaScript / TypeScript"
 
@@ -167,7 +173,7 @@ Each integration ships as an extra, so install the matching one first: `pip inst
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Nothing appears in the Live view | Not signed in, or no project or write token set | Run `logfire auth`, then run your app and pick a project when prompted; or set `LOGFIRE_TOKEN` from **Project → Settings → Write tokens** |
+| Nothing appears in the Live view | No project credentials or write token set | Run `uvx logfire-cli auth`, then `uvx logfire-cli init` from your application's directory; or set `LOGFIRE_TOKEN` from **Project → Settings → Write tokens** |
 | The view looks empty | The time range does not include now | Widen the time range in the top right |
 | A short script sends nothing | The program exited before its data was sent | Logfire sends data as your program runs and on exit; in JavaScript, call `await logfire.shutdown()` before exiting |
 
