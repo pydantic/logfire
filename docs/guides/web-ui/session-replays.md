@@ -16,12 +16,14 @@ A session replay records changes to the page's document structure and user inter
 
 ## Record sessions
 
-1. Create a frontend application under **Project settings → Frontend applications** and add its generated browser setup to your application.
-2. Install the optional `@pydantic/logfire-session-replay` package.
-3. Follow the [Session Replay setup](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#session-replay) to load the recorder and configure the replay endpoint.
+1. Open your project and choose **Frontend → Applications**. Open an existing application, or choose **Create application** and confirm **Create application and token**.
+2. Select **Include session replay** in the application's setup instructions. Run the generated install command, which includes `@pydantic/logfire-browser` and `@pydantic/logfire-session-replay`.
+3. Add the generated `logfire.configureFrontend()` configuration to your browser entry point. If you already use it, add the replay integration to that existing call rather than initializing a second time. Both features use the same public application token and regional URL; no separate replay token or proxy is required. See the [Session Replay setup](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#session-replay) for configuration options.
 4. Deploy the change, open the application, and interact with more than one page or control.
 
 Replay data is sent to and stored in your Logfire project. The recorder masks rendered text and input values by default, leaves console capture off, and removes query strings and fragments from captured URLs. Those defaults do not redact document attributes, CSS-generated content, resource URLs, or custom-event payloads. Review the [privacy controls](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#session-replay) before recording pages that contain sensitive data.
+
+The generated setup explicitly enables console capture with `captureConsole: true`. Set it to `false` before deploying if you do not want browser console messages included in replays. Changing the setup checkbox alone does not update your deployed application.
 
 ## Find a useful recording
 
