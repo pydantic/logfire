@@ -8,10 +8,10 @@ from unittest import mock
 
 import pytest
 from inline_snapshot import snapshot
-from opentelemetry.trace import Span
 
 import logfire
 from logfire._internal.integrations.valkey import uninstrument_valkey
+from logfire.integrations.valkey import RequestHookContext, ResponseHookContext
 from logfire.testing import TestExporter
 
 
@@ -261,11 +261,11 @@ def test_instrument_valkey_error(valkey_behavior: dict[str, Any], exporter: Test
 def test_instrument_valkey_with_hooks(valkey_behavior: dict[str, Any], exporter: TestExporter):
     from valkey import Valkey
 
-    def request_hook(span: Span, instance: Any, *args: Any, **kwargs: Any) -> None:
-        span.set_attribute('potato', 'tomato')
+    def request_hook(context: RequestHookContext) -> None:
+        context.span.set_attribute('potato', 'tomato')
 
-    def response_hook(span: Span, instance: Any, response: Any) -> None:
-        span.set_attribute('response', str(response))
+    def response_hook(context: ResponseHookContext) -> None:
+        context.span.set_attribute('response', str(context.response))
 
     uninstrument_valkey()
     logfire.instrument_valkey(request_hook=request_hook, response_hook=response_hook)
@@ -281,7 +281,7 @@ def test_instrument_valkey_with_hooks(valkey_behavior: dict[str, Any], exporter:
 def test_instrument_valkey_hook_error(valkey_behavior: dict[str, Any], exporter: TestExporter):
     from valkey import Valkey
 
-    def bad_hook(span: Span, instance: Any, *args: Any, **kwargs: Any) -> None:
+    def bad_hook(context: RequestHookContext | ResponseHookContext) -> None:
         raise RuntimeError('hook failure')
 
     uninstrument_valkey()
@@ -383,7 +383,7 @@ def test_unrelated_import_error_reraised() -> None:
     real_import = builtins.__import__
 
     def fake_import(name: str, *args: Any, **kwargs: Any) -> Any:
-        if name == 'logfire.integrations.valkey':
+        if name == 'valkey':
             raise ModuleNotFoundError("No module named 'other_dep'", name='other_dep')
         return real_import(name, *args, **kwargs)
 

@@ -1,34 +1,33 @@
 from __future__ import annotations
 
-from typing import Any, Protocol
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
-from opentelemetry.trace import Span
-from valkey import Valkey
-from valkey.asyncio import Valkey as AsyncValkey
-
-
-class RequestHook(Protocol):
-    """A hook that is called before the request is sent."""
-
-    def __call__(self, span: Span, instance: Valkey | AsyncValkey, *args: Any, **kwargs: Any) -> None:
-        """Call the hook.
-
-        Args:
-            span: The span that is being created.
-            instance: The Valkey client instance.
-            *args: The arguments that are passed to the command.
-            **kwargs: The keyword arguments that are passed to the command.
-        """
+if TYPE_CHECKING:
+    from opentelemetry.trace import Span
+    from valkey import Valkey
+    from valkey.asyncio import Valkey as AsyncValkey
 
 
-class ResponseHook(Protocol):
-    """A hook that is called after the response is received."""
+@dataclass(frozen=True)
+class RequestHookContext:
+    """The span, client, and command arguments passed to a Valkey request hook."""
 
-    def __call__(self, span: Span, instance: Valkey | AsyncValkey, response: Any) -> None:
-        """Call the hook.
+    span: Span
+    instance: Valkey | AsyncValkey
+    args: tuple[Any, ...]
+    kwargs: Mapping[str, Any]
 
-        Args:
-            span: The span that is being created.
-            instance: The Valkey client instance.
-            response: The response that is received.
-        """
+
+@dataclass(frozen=True)
+class ResponseHookContext:
+    """The span, client, and successful result passed to a Valkey response hook."""
+
+    span: Span
+    instance: Valkey | AsyncValkey
+    response: Any
+
+
+RequestHook = Callable[[RequestHookContext], None]
+ResponseHook = Callable[[ResponseHookContext], None]

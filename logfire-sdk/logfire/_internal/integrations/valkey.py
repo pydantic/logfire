@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypeVar
+
+from logfire.integrations.valkey import RequestHook, RequestHookContext, ResponseHook, ResponseHookContext
 
 try:
-    from logfire.integrations.valkey import RequestHook, ResponseHook
+    from valkey import Valkey
+    from valkey.asyncio import Valkey as AsyncValkey
 except ModuleNotFoundError as exc:
     if exc.name != 'valkey':
         raise
@@ -24,7 +28,6 @@ from logfire._internal.utils import truncate_string
 
 _logger = logging.getLogger(__name__)
 
-_CLASS = 'Valkey'
 _METHOD = 'execute_command'
 
 _originals: list[tuple[Any, str, Any]] = []
@@ -51,16 +54,12 @@ def instrument_valkey(
     sync_wrapper = _traced_sync_wrapper(tracer, capture_statement, request_hook, response_hook)
     async_wrapper = _traced_async_wrapper(tracer, capture_statement, request_hook, response_hook)
 
-    import valkey.asyncio.client
-    import valkey.client
-
-    for module, wrapper in (
-        (valkey.client, sync_wrapper),
-        (valkey.asyncio.client, async_wrapper),
+    for cls, wrapper in (
+        (Valkey, sync_wrapper),
+        (AsyncValkey, async_wrapper),
     ):
-        cls = getattr(module, _CLASS)
         _originals.append((cls, _METHOD, getattr(cls, _METHOD)))
-        wrap_function_wrapper(module.__name__, f'{_CLASS}.{_METHOD}', wrapper)
+        wrap_function_wrapper(cls, _METHOD, wrapper)
 
     _is_instrumented = True
 
@@ -140,11 +139,14 @@ def _set_attributes(span: Any, instance: Any, args: tuple[Any, ...], statement: 
         span.set_attribute('db.valkey.database_index', db)
 
 
-def _execute_hook(hook: Any | None, *args: Any) -> None:
+T = TypeVar('T')
+
+
+def _execute_hook(hook: Callable[[T], None] | None, context: T) -> None:
     if hook is None:
         return
     try:
-        hook(*args)
+        hook(context)
     except Exception:
         _logger.warning('Exception raised by hook %r', hook, exc_info=True)
 
@@ -159,10 +161,10 @@ def _traced_sync_wrapper(
         statement, display = _display_statement(args, capture_statement=capture_statement)
         with tracer.start_as_current_span(_span_name(args), kind=SpanKind.CLIENT) as span:
             _set_attributes(span, instance, args, statement, display)
-            _execute_hook(request_hook, span, instance, *args, **kwargs)
+            _execute_hook(request_hook, RequestHookContext(span, instance, args, kwargs.copy()))
             # Exceptions propagate through the span, which records them automatically.
             response = wrapped(*args, **kwargs)
-            _execute_hook(response_hook, span, instance, response)
+            _execute_hook(response_hook, ResponseHookContext(span, instance, response))
             return response
 
     return wrapper
@@ -178,10 +180,10 @@ def _traced_async_wrapper(
         statement, display = _display_statement(args, capture_statement=capture_statement)
         with tracer.start_as_current_span(_span_name(args), kind=SpanKind.CLIENT) as span:
             _set_attributes(span, instance, args, statement, display)
-            _execute_hook(request_hook, span, instance, *args, **kwargs)
+            _execute_hook(request_hook, RequestHookContext(span, instance, args, kwargs.copy()))
             # Exceptions propagate through the span, which records them automatically.
             response = await wrapped(*args, **kwargs)
-            _execute_hook(response_hook, span, instance, response)
+            _execute_hook(response_hook, ResponseHookContext(span, instance, response))
             return response
 
     return wrapper
