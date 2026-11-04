@@ -41,3 +41,11 @@ if TYPE_CHECKING:
         dataset_client.get_dataset('dataset', input_type=PromptInputs, output_type=Any, metadata_type=Any),
         expected_text='Dataset[PromptInputs, Any, Any]',
     )
+
+
+if TYPE_CHECKING:
+    from httpx import ASGITransport
+    from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
+
+    def check_asgi_middleware_contract(app: OpenTelemetryMiddleware) -> None:
+        ASGITransport(app=logfire.instrument_asgi(app))
