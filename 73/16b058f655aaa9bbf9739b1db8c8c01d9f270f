@@ -1,0 +1,19 @@
+dev-docs/integration-guidelines.md
+  s_a6c2c5634e0b00::t_890f241eee178d 1-160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7316b058f655aaa9bbf9739b1db8c8c01d9f270f",
+  "prompts": {},
+  "sessions": {
+    "s_a6c2c5634e0b00": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a70e-c9ed-7082-add9-c20c6a9f1306",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
