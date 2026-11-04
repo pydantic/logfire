@@ -69,6 +69,10 @@ Not seeing your urllib3 requests in Logfire? Check these first:
 - **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **You actually made a request.** Spans appear only after a request completes.
+- **A request raises `ValueError` while processing `Content-Length`.** OpenTelemetry urllib3
+  instrumentation versions `0.61b0` through `0.66b0` can raise this error when the server sends an
+  invalid length. Correct the server response or use `excluded_urls` to skip instrumentation for
+  that URL.
 
 ## Advanced
 
