@@ -259,6 +259,25 @@ def test_instrument_valkey_error(valkey_behavior: dict[str, Any], exporter: Test
     assert [e['name'] for e in spans[0]['events']] == ['exception']
 
 
+def test_valkey_server_error_does_not_capture_arguments(
+    valkey_behavior: dict[str, Any], exporter: TestExporter
+) -> None:
+    from valkey import Valkey
+    from valkey.exceptions import ResponseError
+
+    error = ResponseError("unknown command 'GTE', with args beginning with: 'private-key-123'")
+    valkey_behavior['error'] = error
+    with pytest.raises(ResponseError) as exc_info:
+        _sync_execute(Valkey(), 'GTE', 'private-key-123')
+
+    assert exc_info.value is error
+    (span,) = exporter.exported_spans_as_dict()
+    assert 'private-key-123' not in str(span)
+    (event,) = span['events']
+    assert event['attributes'] == {'exception.type': 'ResponseError'}
+    assert exporter.exported_spans[-1].status.status_code.name == 'ERROR'
+
+
 def test_instrument_valkey_with_hooks(valkey_behavior: dict[str, Any], exporter: TestExporter):
     from valkey import Valkey
 

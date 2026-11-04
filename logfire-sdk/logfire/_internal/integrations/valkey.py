@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from typing import Any, TypeVar
 
 from logfire.integrations.valkey import RequestHook, RequestHookContext, ResponseHook, ResponseHookContext
@@ -9,6 +10,7 @@ from logfire.integrations.valkey import RequestHook, RequestHookContext, Respons
 try:
     from valkey import Valkey
     from valkey.asyncio import Valkey as AsyncValkey
+    from valkey.exceptions import ResponseError
 except ModuleNotFoundError as exc:
     if exc.name != 'valkey':
         raise
@@ -18,7 +20,7 @@ except ModuleNotFoundError as exc:
         "    pip install 'logfire[valkey]'"
     ) from exc
 
-from opentelemetry.trace import Span, SpanKind, Tracer
+from opentelemetry.trace import Span, SpanKind, StatusCode, Tracer
 from wrapt import wrap_function_wrapper
 
 from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
@@ -150,6 +152,24 @@ def _execute_hook(hook: Callable[[T], None], context: T) -> None:
         _logger.warning('Exception raised by hook %r', hook, exc_info=True)
 
 
+@contextmanager
+def _command_span(tracer: Tracer, command: str) -> Generator[Span, None, None]:
+    with tracer.start_as_current_span(
+        command, kind=SpanKind.CLIENT, record_exception=False, set_status_on_exception=False
+    ) as span:
+        try:
+            yield span
+        except ResponseError as exc:
+            # Valkey can include raw command arguments in server error messages.
+            span.set_status(StatusCode.ERROR)
+            span.add_event('exception', {'exception.type': type(exc).__qualname__})
+            raise
+        except Exception as exc:
+            span.set_status(StatusCode.ERROR)
+            span.record_exception(exc, escaped=True)
+            raise
+
+
 def _traced_sync_wrapper(
     tracer: Tracer,
     capture_statement: bool,
@@ -161,11 +181,10 @@ def _traced_sync_wrapper(
             return wrapped(*args, **kwargs)
         tokens = _command_tokens(args)
         command = _span_name(tokens)
-        with tracer.start_as_current_span(command, kind=SpanKind.CLIENT) as span:
+        with _command_span(tracer, command) as span:
             _set_attributes(span, instance, args, tokens, command, capture_statement)
             if request_hook is not None:
                 _execute_hook(request_hook, RequestHookContext(span, instance, args, kwargs.copy()))
-            # Exceptions propagate through the span, which records them automatically.
             response = wrapped(*args, **kwargs)
             if response_hook is not None:
                 _execute_hook(response_hook, ResponseHookContext(span, instance, response))
@@ -185,11 +204,10 @@ def _traced_async_wrapper(
             return await wrapped(*args, **kwargs)
         tokens = _command_tokens(args)
         command = _span_name(tokens)
-        with tracer.start_as_current_span(command, kind=SpanKind.CLIENT) as span:
+        with _command_span(tracer, command) as span:
             _set_attributes(span, instance, args, tokens, command, capture_statement)
             if request_hook is not None:
                 _execute_hook(request_hook, RequestHookContext(span, instance, args, kwargs.copy()))
-            # Exceptions propagate through the span, which records them automatically.
             response = await wrapped(*args, **kwargs)
             if response_hook is not None:
                 _execute_hook(response_hook, ResponseHookContext(span, instance, response))
