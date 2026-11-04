@@ -14,6 +14,7 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 from botocore.session import get_session
 from botocore.stub import Stubber
+from inline_snapshot import snapshot
 from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
 from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter, SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import ExponentialHistogram, Histogram, InMemoryMetricReader
@@ -41,6 +42,7 @@ def test_instrument_botocore_uses_local_provider(config_kwargs: dict[str, Any]) 
             'S3Client',
             get_session().create_client(
                 's3',
+                endpoint_url='https://s3.amazonaws.com',
                 region_name='us-east-1',
                 aws_access_key_id='testing',
                 aws_secret_access_key='testing',
@@ -63,20 +65,83 @@ def test_instrument_botocore_uses_local_provider(config_kwargs: dict[str, Any]) 
     finally:
         BotocoreInstrumentor().uninstrument()
 
-    spans = [
-        span for span in exporter.exported_spans if (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+    client_spans = [
+        span
+        for span in exporter.exported_spans
+        if span.kind == SpanKind.CLIENT and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
     ]
-    parent = next(span for span in spans if span.name == 'AWS work')
-    clients = [span for span in spans if span.kind == SpanKind.CLIENT]
-    assert [span.name for span in clients] == ['S3.ListBuckets', 'S3.HeadBucket']
-    assert parent.context is not None
-    for span in clients:
-        assert span.context is not None
-        assert span.parent == parent.context
-        assert span.context.trace_id == parent.context.trace_id
-        assert (span.attributes or {})['rpc.service'] == 'S3'
-    assert clients[0].status.status_code != StatusCode.ERROR
-    assert clients[1].status.status_code == StatusCode.ERROR
+    assert [span.status.status_code for span in client_spans] == [StatusCode.UNSET, StatusCode.ERROR]
+    assert exporter.exported_spans_as_dict(include_instrumentation_scope=True) == snapshot(
+        [
+            {
+                'name': 'S3.ListBuckets',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.botocore',
+                'attributes': {
+                    'rpc.system': 'aws-api',
+                    'rpc.service': 'S3',
+                    'rpc.method': 'ListBuckets',
+                    'cloud.region': 'us-east-1',
+                    'server.address': 's3.amazonaws.com',
+                    'server.port': 443,
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'S3.ListBuckets',
+                    'http.status_code': 200,
+                },
+            },
+            {
+                'name': 'S3.HeadBucket',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 6000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.botocore',
+                'attributes': {
+                    'rpc.system': 'aws-api',
+                    'rpc.service': 'S3',
+                    'rpc.method': 'HeadBucket',
+                    'cloud.region': 'us-east-1',
+                    'server.address': 's3.amazonaws.com',
+                    'server.port': 443,
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'S3.HeadBucket',
+                    'http.status_code': 404,
+                    'logfire.level_num': 17,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 5000000000,
+                        'attributes': {
+                            'exception.type': 'botocore.errorfactory.NoSuchBucket',
+                            'exception.message': 'An error occurred (NoSuchBucket) when calling the HeadBucket operation: Missing bucket',
+                            'exception.stacktrace': 'botocore.errorfactory.NoSuchBucket: An error occurred (NoSuchBucket) when calling the HeadBucket operation: Missing bucket',
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
+            },
+            {
+                'name': 'AWS work',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 7000000000,
+                'instrumentation_scope': 'logfire',
+                'attributes': {
+                    'code.filepath': 'test_botocore.py',
+                    'code.function': 'test_instrument_botocore_uses_local_provider',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'AWS work',
+                    'logfire.msg': 'AWS work',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
 
 
 def test_instrument_botocore_uses_local_bedrock_providers(
