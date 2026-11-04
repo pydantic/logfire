@@ -1,0 +1,24 @@
+docs/integrations/event-streams/arq.md
+  s_4eaaff465eb0c1::t_3d049211598df4 75-78
+  s_4eaaff465eb0c1::t_4c7474b4f360e0 1-74,79-96
+docs/integrations/index.md
+  s_4eaaff465eb0c1::t_29bdfbf5356efc 70
+docs/navigation.yml
+  s_4eaaff465eb0c1::t_0219db51ed31c6 296-298
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bb22f32dd73cb6eaed989c0b5e92725556bffe3a",
+  "prompts": {},
+  "sessions": {
+    "s_4eaaff465eb0c1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a738-76fb-7b43-86c6-f8ea6ad472c0",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
