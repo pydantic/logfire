@@ -32,7 +32,7 @@ One command installs a Collector as a service and connects it to Fleet. It works
       --project <your-project> --token-stdin --yes
     ```
 
-    Use `--region eu` for the EU region. The installer asks for administrator access. The command needs [uv](https://docs.astral.sh/uv/getting-started/installation/). The host does not need to sign in to Logfire: the enrollment key places it in your project.
+    `--token-stdin` makes the installer ask for the key without showing it as you type. Use `--region eu` for the EU region. The installer asks for administrator access. The command needs [uv](https://docs.astral.sh/uv/getting-started/installation/). The host does not need to sign in to Logfire: the enrollment key places it in your project.
 
 5. Keep the setup open. It shows when the host's first data arrives.
 
@@ -53,16 +53,16 @@ The bridge can create, update and delete Collector resources in any namespace. L
 Applications connect to Fleet directly, without a Collector.
 
 1. Open **Applications** in Fleet and select **Add application**.
-2. Choose what your application uses. Install the package Logfire shows:
+2. Choose what your application uses. Install the package and load it the way Logfire shows. Fleet SDK 0.1.1 needs:
 
-    | Application uses | Install |
-    | --- | --- |
-    | Python with the Logfire SDK | `pip install 'pydantic-opamp-otel[logfire]'` |
-    | Python with OpenTelemetry | `pip install pydantic-opamp-otel` |
-    | Node.js with OpenTelemetry | `npm install @pydantic/opamp-otel` |
-    | Java with the OpenTelemetry Java agent | the `dev.pydantic:opamp-javaagent-extension` jar from Maven Central |
-    | .NET with OpenTelemetry automatic instrumentation | `dotnet add package Pydantic.OpAmp.AutoInstrumentation` |
-    | Go with OpenTelemetry | `go get github.com/pydantic/opamp-clients/go/opampotel` |
+    | Application uses | Requires | Install | Load it |
+    | --- | --- | --- | --- |
+    | Python with the Logfire SDK | Python 3.11+, Logfire 5.1+ | `pip install 'pydantic-opamp-otel[logfire]'` | Replace `logfire.configure()` with `pydantic_opamp_otel.configure_logfire()` |
+    | Python with OpenTelemetry | Python 3.11+ | `pip install pydantic-opamp-otel` | Set `OTEL_PYTHON_DISTRO=opamp` and `OTEL_PYTHON_CONFIGURATOR=opamp`, then run `opentelemetry-instrument python app.py` |
+    | Node.js with OpenTelemetry | Node.js 22+ | `npm install @pydantic/opamp-otel` | `node --import @pydantic/opamp-otel/register app.js` |
+    | Java with the OpenTelemetry Java agent | Java 17+ | Download [`opamp-javaagent-extension-0.1.1.jar`](https://repo1.maven.org/maven2/dev/pydantic/opamp-javaagent-extension/0.1.1/opamp-javaagent-extension-0.1.1.jar) and the [Java agent 2.31.1](https://repo1.maven.org/maven2/io/opentelemetry/javaagent/opentelemetry-javaagent/2.31.1/opentelemetry-javaagent-2.31.1.jar) | `java -javaagent:opentelemetry-javaagent.jar -Dotel.javaagent.extensions=opamp-javaagent-extension.jar -jar app.jar` |
+    | .NET with OpenTelemetry automatic instrumentation | .NET 8+ | `dotnet add package OpenTelemetry.AutoInstrumentation --version 1.17.0` and `dotnet add package Pydantic.OpAmp.AutoInstrumentation` | Set `OTEL_DOTNET_AUTO_PLUGINS` as Logfire shows, publish, then start with `./instrument.sh dotnet App.dll` |
+    | Go with OpenTelemetry | Go 1.25+ | `go get github.com/pydantic/opamp-clients/go/opampotel@v0.2.0` | One setup call in `main`, shown in the Go guide |
 
 3. Set the variables Logfire shows (`OTEL_OPAMP_ENDPOINT`, `OTEL_OPAMP_HEADERS` with your connection key, and `OTEL_SERVICE_NAME`) and restart the application.
 4. Logfire shows when the application connects and applies its policy.
