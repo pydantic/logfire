@@ -149,6 +149,21 @@ def test_console_bytearray_attribute(config_kwargs: dict[str, Any], caplog: pyte
     assert not caplog.records
 
 
+@pytest.mark.parametrize('value', [b'', re.compile('')])
+def test_console_empty_formatted_attribute(
+    config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture, value: object
+) -> None:
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('loaded', data=value, count=0)
+
+    assert output.getvalue() == 'loaded\n│ data=\n│ count=0\n'
+    assert not caplog.records
+
+
 @pytest.mark.parametrize('source', ['file', 'environment', 'options'])
 @pytest.mark.parametrize('include_attributes', [True, False])
 def test_console_include_attributes_config_sources(
