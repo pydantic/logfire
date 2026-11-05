@@ -742,6 +742,12 @@ navigation:
       - page: "Kubernetes"
         path: "guides/web-ui/kubernetes.md"
         slug: "observe/kubernetes"
+      - page: "Fleet"
+        path: "guides/web-ui/fleet.md"
+        slug: "observe/fleet"
+        aliases:
+          - "guides/fleet"
+          - "fleet"
       - page: "Docker"
         path: "guides/web-ui/docker.md"
         slug: "observe/docker"

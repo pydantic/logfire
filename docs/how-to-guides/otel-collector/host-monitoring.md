@@ -6,6 +6,9 @@ description: "Ship CPU, memory, disk, filesystem, network, and process metrics f
 
 The OpenTelemetry Collector's [`hostmetrics` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver) reads CPU, memory, disk, filesystem, network, paging and process metrics from the machine the Collector is running on and ships them to Logfire: no SDK required, no application changes. Hosts reporting these metrics show up on the **Hosts** page in Logfire, and the metric series are queryable in **Metrics**, **SQL Workbench**, and any dashboard you build on top of them.
 
+!!! tip "Prefer one command and no config file?"
+    [Fleet](../../guides/web-ui/fleet.md) installs a managed Collector on a host with one command, and lets you change what it collects from Logfire.
+
 This is also the smallest possible working Collector configuration. The same shape works whether the Collector runs as a daemon on a bare VM, a sidecar next to your app, or a DaemonSet in Kubernetes; only the deployment wrapper changes.
 
 ## Minimal configuration
