@@ -508,6 +508,11 @@ def test_read_config_from_environment_variables() -> None:
         assert fresh_pydantic_plugin().exclude == {'test'}
     with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE': 'test1, test2'}):
         assert fresh_pydantic_plugin().exclude == {'test1', 'test2'}
+    # An empty pattern would match every model, so empty items are skipped
+    with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE': 'test1, ,test2,'}):
+        assert fresh_pydantic_plugin().exclude == {'test1', 'test2'}
+    with patch.dict(os.environ, {'LOGFIRE_PYDANTIC_PLUGIN_INCLUDE': ''}):
+        assert fresh_pydantic_plugin().include == set()
 
 
 def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
@@ -541,6 +546,21 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert fresh_pydantic_plugin().include == {'test1', 'test2'}
     assert fresh_pydantic_plugin().exclude == {'test3', 'test4'}
     assert GLOBAL_CONFIG.sampling.head == 0.123
+
+
+def test_pyproject_toml_pydantic_plugin_lists_skip_empty_items(tmp_path: Path) -> None:
+    (tmp_path / 'pyproject.toml').write_text(
+        """
+        [tool.logfire]
+        pydantic_plugin_include = ["test1", "", " test2 "]
+        pydantic_plugin_exclude = [""]
+        """
+    )
+
+    configure(send_to_logfire=False, config_dir=tmp_path)
+
+    assert fresh_pydantic_plugin().include == {'test1', 'test2'}
+    assert fresh_pydantic_plugin().exclude == set()
 
 
 def test_invalid_trace_sample_rate_names_the_setting() -> None:
