@@ -35,6 +35,9 @@ pydantic-core = false
 pydantic-evals = false
 pydantic-graph = false
 pydantic-handlebars = false
+pydantic-monty = false
+pydantic-monty-client = false
+pydantic-monty-runtime = false
 
 [manifest]
 members = [
@@ -4072,7 +4075,7 @@ requires-dist = [
     { name = "pydantic", marker = "extra == 'variables'", specifier = ">=2" },
     { name = "pydantic-evals", marker = "extra == 'datasets'", specifier = ">=1.0.0" },
     { name = "pydantic-handlebars", marker = "extra == 'variables'", specifier = ">=0.2.1" },
-    { name = "pydantic-monty-client", marker = "extra == 'agent-sandboxes'", specifier = ">=1.0.0" },
+    { name = "pydantic-monty-client", marker = "extra == 'agent-sandboxes'", specifier = ">=1.3.0" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rich", specifier = ">=13.4.2" },
     { name = "starlette", marker = "extra == 'gateway'", specifier = ">=0.37.0" },
