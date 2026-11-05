@@ -132,7 +132,7 @@ Hosted names must start with a letter or number and contain only letters, number
 
     Cases are validated against the hosted dataset's JSON schemas when they are created or imported. Partial case updates validate only the fields they submit. One case-import request is rejected in full rather than partially applied when validation fails. `push_dataset(...)` itself is not atomic: it creates or updates the hosted dataset before importing the cases, so that first change can remain if the import fails.
 
-    A hosted dataset also holds at most 10,000 cases, counted as the cases a write would create. Updating existing named cases does not consume capacity, while every unnamed case does. A case-import request that would exceed the limit fails instead of truncating. See [Manage datasets](manage-datasets.md#schemas-are-enforced-on-case-writes).
+    Your plan limits the number of hosted datasets per project, the cases per dataset, and the dataset storage. On the Personal plan, a hosted dataset holds at most 1,000 cases and 10 MiB of stored case data. See [Hosted dataset limits](manage-datasets.md#hosted-dataset-limits) for every plan. The case limit counts the cases a write would create. Updating existing named cases does not consume capacity, while every unnamed case does. A case-import request that would exceed a limit fails instead of truncating.
 
 !!! note "Round-tripping evaluators"
 

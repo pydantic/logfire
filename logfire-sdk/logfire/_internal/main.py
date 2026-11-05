@@ -46,7 +46,6 @@ from .constants import (
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     DISABLE_CONSOLE_KEY,
-    LEVEL_NUMBERS,
     OTLP_MAX_INT_SIZE,
     LevelName,
     log_level_attributes,
@@ -66,7 +65,6 @@ from .tracer import (
     ProxyTracerProvider,
     _LogfireWrappedSpan,  # pyright: ignore[reportPrivateUsage]
     _ProxyTracer,  # pyright: ignore[reportPrivateUsage]
-    set_exception_status,
 )
 from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
 
@@ -841,12 +839,9 @@ class Logfire:
                 if isinstance(exc_info, tuple):
                     exc_info = exc_info[1]
                 if isinstance(exc_info, BaseException):
+                    # Also sets the ERROR status when the log level is error or higher,
+                    # unless the exception callback lowered the level or set a status itself.
                     span.record_exception(exc_info)
-                    if otlp_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY] >= LEVEL_NUMBERS['error']:  # pyright: ignore[reportOperatorIssue]
-                        # Set the status description to the exception message.
-                        # OTEL only lets us set the description when the status code is ERROR,
-                        # which we only want to do when the log level is error.
-                        set_exception_status(span, exc_info)
                 elif exc_info is not None:  # pragma: no cover
                     raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 

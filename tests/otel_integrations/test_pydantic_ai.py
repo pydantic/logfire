@@ -1,25 +1,14 @@
-from typing import TYPE_CHECKING
-
-import pydantic
 import pytest
 
 import logfire
 from logfire._internal.tracer import _ProxyTracer  # type: ignore
-from logfire._internal.utils import get_version
 
-try:
-    from pydantic_ai import Agent
-    from pydantic_ai.models.instrumented import InstrumentationSettings, InstrumentedModel
-    from pydantic_ai.models.test import TestModel
+# Current Pydantic AI and pydantic-graph declare Pydantic >=2.12.
+pytest.importorskip('pydantic', minversion='2.12')
 
-except Exception:
-    assert not TYPE_CHECKING
-
-pytestmark = [
-    pytest.mark.skipif(
-        get_version(pydantic.__version__) < get_version('2.10'), reason='Pydantic AI requires Pydantic 2.10 or higher'
-    ),
-]
+from pydantic_ai import Agent
+from pydantic_ai.models.instrumented import InstrumentationSettings, InstrumentedModel
+from pydantic_ai.models.test import TestModel
 
 
 @pytest.mark.anyio

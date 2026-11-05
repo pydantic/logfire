@@ -149,6 +149,9 @@ def _convert_content_part_or_parts(content: object) -> list[MessagePart]:
 
 def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
     """Convert a single Anthropic content part to semconv format."""
+    if isinstance(part, anthropic.BaseModel):
+        # Content blocks of an earlier response sent back as-is, e.g. `{'role': 'assistant', 'content': message.content}`.
+        part = part.model_dump()
     if not isinstance(part, dict):
         return TextPart(type='text', content=str(part))
 
@@ -256,6 +259,10 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
             block_dict = block.model_dump() if hasattr(block, 'model_dump') else dict(block)
             parts.append(block_dict)
 
+    # A refused response has no content blocks; the reason is in `stop_details`.
+    if refusal_explanation := _refusal_explanation(message):
+        parts.append(TextPart(type='text', content=refusal_explanation))
+
     result = OutputMessage(
         role=message.role,
         parts=parts,
@@ -264,6 +271,13 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
         result['finish_reason'] = message.stop_reason
 
     return result
+
+
+def _refusal_explanation(message: Any) -> str | None:
+    if getattr(message, 'stop_reason', None) != 'refusal':
+        return None
+    explanation = getattr(getattr(message, 'stop_details', None), 'explanation', None)
+    return explanation if isinstance(explanation, str) and explanation else None
 
 
 class AnthropicMessageStreamState(StreamState):
@@ -307,7 +321,7 @@ class AnthropicMessageStreamState(StreamState):
         result = dict(**span_data)
         if 1 in versions:
             result['response_data'] = self.get_response_data()
-        if 2 in versions and self._message and self._message.content:
+        if 2 in versions and self._message and (self._message.content or _refusal_explanation(self._message)):
             result[OUTPUT_MESSAGES] = [convert_response_to_semconv(self._message)]
         if self._message is not None:
             result[RESPONSE_ID] = self._message.id

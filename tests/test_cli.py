@@ -3212,6 +3212,36 @@ def test_read_token_save_narrows_an_existing_permissive_file(tmp_dir_cwd: Path) 
     assert path.stat().st_mode & 0o077 == 0
 
 
+def test_read_token_save_works_where_the_os_has_no_fchmod(tmp_dir_cwd: Path) -> None:
+    """`os.fchmod` does not exist on Windows, and saving a read token must not need it.
+
+    The mode passed to `os.open` is the only restriction Windows can apply, and it has no
+    POSIX mode bits to narrow anyway, so the call is skipped there instead of dying with an
+    `AttributeError` and losing the credential the user asked to save.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _read_token_backend(m)
+        # `create=True` because the attribute is genuinely absent on Windows.
+        stack.enter_context(patch('logfire._internal.cli.os.fchmod', None, create=True))
+
+        main(['read-tokens', 'create', '--save'])
+
+    saved = json.loads((data_dir / READ_TOKEN_FILENAME).read_text())
+    assert saved['token'] == 'saved_read_token'
+    assert saved['project_name'] == 'orders'
+
+
 def test_projects_status_rejects_a_non_200_response(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """204 is not an error by `response.ok`, but it has no body to parse.
 

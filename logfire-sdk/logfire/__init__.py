@@ -115,15 +115,19 @@ variables_pull_config = DEFAULT_LOGFIRE_INSTANCE.variables_pull_config
 variables_build_config = DEFAULT_LOGFIRE_INSTANCE.variables_build_config
 
 
-def loguru_handler() -> Any:
+def loguru_handler(*, console_log: bool = True) -> Any:
     """Create a **Logfire** handler for Loguru.
+
+    Args:
+        console_log: Whether Logfire also prints these logs to the console.
+            Set to `False` to keep Loguru's own console output without duplicates.
 
     Returns:
         A dictionary with the handler and format for Loguru.
     """
     from .integrations import loguru
 
-    return {'sink': loguru.LogfireHandler(), 'format': '{message}'}
+    return {'sink': loguru.LogfireHandler(console_log=console_log), 'format': '{message}'}
 
 
 __version__ = VERSION

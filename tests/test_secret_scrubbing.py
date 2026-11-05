@@ -34,6 +34,7 @@ DEFAULT_PATTERN_EXAMPLES = {
     'credit[._ -]?card': 'has_credit_card_value',
     'logfire[._ -]?token': 'has_logfire-token_value',
     r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token': 'has_access_token_value',
+    'security[._ -]?token': 'has_security_token_value',
     r'pylf_v\d+_': 'has_pylf_v12_token',
     r'(?:\b|_)csrf(?:\b|_)': 'has csrf value',
     r'(?:\b|_)xsrf(?:\b|_)': 'has xsrf value',
@@ -108,6 +109,7 @@ def test_default_pattern_start_chars_cover_each_pattern():
         (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has idtoken value'),
         (r'(?:access|refresh|bearer|(?:\b|_)id)[._ -]?token', 'has access.token value'),
         ('(?:signing|hmac)[._ -]?key', 'has hmac-key value'),
+        ('security[._ -]?token', 'has x-amz-security-token value'),
         ('secret', 'has \u017fecret value'),
         ('credential', 'has credent\u0131al value'),
     ]
@@ -840,5 +842,26 @@ def test_passphrase_and_signing_keys_scrubbed(exporter: TestExporter):
             'hmac_key': "[Scrubbed due to 'hmac_key']",
             'webhook_hmac_key': "[Scrubbed due to 'hmac_key']",
             'keyboard_layout': 'uk',
+        }
+    )
+
+
+def test_aws_security_tokens_scrubbed(exporter: TestExporter):
+    logfire.info(
+        'hi',
+        aws_security_token='FwoGZXIvYXdzEA',
+        security_token='IQoJb3JpZ2luX2Vj',
+        headers={'X-Amz-Security-Token': 'FwoGZXIvYXdzEB'},
+        security_level='high',
+    )
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert {
+        k: attributes[k] for k in ['aws_security_token', 'security_token', 'headers', 'security_level']
+    } == snapshot(
+        {
+            'aws_security_token': "[Scrubbed due to 'security_token']",
+            'security_token': "[Scrubbed due to 'security_token']",
+            'headers': {'X-Amz-Security-Token': "[Scrubbed due to 'Security-Token']"},
+            'security_level': 'high',
         }
     )

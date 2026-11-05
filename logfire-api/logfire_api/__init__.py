@@ -17,7 +17,10 @@ except ImportError:
         VERSION = '0.0.0'
         METRICS_PREFERRED_TEMPORALITY = {}
 
-        def configure(*args, **kwargs): ...
+        def configure(*args, **kwargs) -> Logfire:
+            if kwargs.get('local'):
+                return Logfire()
+            return DEFAULT_LOGFIRE_INSTANCE
 
         class LogfireSpan:
             def __getattr__(self, attr):
@@ -289,7 +292,7 @@ except ImportError:
         forward_export_request = DEFAULT_LOGFIRE_INSTANCE.forward_export_request
         forward_export_request_starlette = DEFAULT_LOGFIRE_INSTANCE.forward_export_request_starlette
 
-        def loguru_handler() -> dict[str, Any]:
+        def loguru_handler(*, console_log: bool = True) -> dict[str, Any]:
             return {}
 
         def no_auto_trace(x):
