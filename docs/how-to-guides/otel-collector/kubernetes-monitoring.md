@@ -7,7 +7,7 @@ description: "Ship Kubernetes cluster metrics, node and pod metrics, pod logs, a
 See cluster health, workload state, pod logs, and Kubernetes Events in Logfire without hand-building a monitoring pipeline. This guide uses the upstream OpenTelemetry Kubernetes Helm chart with a balanced configuration that keeps the Kubernetes page working without collecting every signal enabled by the chart.
 
 !!! tip "Manage the cluster's Collectors from Logfire"
-    To change what the Collectors collect from Logfire instead of editing Helm values, use [Fleet's Kubernetes setup](../../guides/web-ui/fleet.md#connect-a-kubernetes-cluster) instead of this Helm release. Fleet runs its own Collectors through the OpenTelemetry Operator, so don't run both for the same cluster.
+    To change what the Collectors collect from Logfire instead of editing Helm values, use [Fleet's Kubernetes setup](../../guides/web-ui/fleet/collectors.md#connect-a-kubernetes-cluster) instead of this Helm release. Fleet runs its own Collectors through the OpenTelemetry Operator, so don't run both for the same cluster.
 
 ## What the standard setup collects
 
