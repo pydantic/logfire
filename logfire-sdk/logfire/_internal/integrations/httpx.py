@@ -62,8 +62,17 @@ def _import_optional_client_module(name: str) -> ModuleType | None:
         return None
 
 
-_httpx = _import_optional_client_module('httpx')
-_httpx2 = _import_optional_client_module('httpx2')
+def _import_client_modules() -> tuple[ModuleType | None, ModuleType | None]:
+    httpx_module = _import_optional_client_module('httpx')
+    httpx2_module = _import_optional_client_module('httpx2')
+    if httpx_module is not None and httpx_module is httpx2_module:
+        # `httpx2.alias_httpx()` makes `import httpx` return `httpx2` itself.
+        # Instrumenting it under both names would record every request twice.
+        return None, httpx2_module
+    return httpx_module, httpx2_module
+
+
+_httpx, _httpx2 = _import_client_modules()
 
 
 def _client_module_types(name: str) -> tuple[type[Any], ...]:

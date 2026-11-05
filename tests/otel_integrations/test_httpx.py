@@ -266,6 +266,21 @@ def test_instrumentors_for_optional_client_modules(monkeypatch: pytest.MonkeyPat
         logfire._internal.integrations.httpx._instrumentors_for_installed_modules()  # pyright: ignore[reportPrivateUsage]
 
 
+def test_aliased_httpx_is_instrumented_once(monkeypatch: pytest.MonkeyPatch):
+    # `httpx2.alias_httpx()` makes both names resolve to the `httpx2` module.
+    def import_aliased_module(name: str) -> Any:
+        return httpx2
+
+    monkeypatch.setattr(logfire._internal.integrations.httpx, 'import_module', import_aliased_module)
+    modules = logfire._internal.integrations.httpx._import_client_modules()  # pyright: ignore[reportPrivateUsage]
+    assert modules == (None, httpx2)
+
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx', modules[0])
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx2', modules[1])
+    instrumentors = logfire._internal.integrations.httpx._instrumentors_for_installed_modules()  # pyright: ignore[reportPrivateUsage]
+    assert [type(instrumentor) for instrumentor in instrumentors] == [HTTPX2ClientInstrumentor]
+
+
 def test_httpx2_requires_new_otel(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(logfire._internal.integrations.httpx, 'HTTPX2ClientInstrumentor', None)
     with HTTPX2_CLIENT_FAMILY.client() as client:
