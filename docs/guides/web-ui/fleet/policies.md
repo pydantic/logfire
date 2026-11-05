@@ -53,7 +53,7 @@ Sampling (recording only a share of new traces) and exports change what reaches 
 
 !!! warning "Publishing changes running clients"
 
-    **Publish and apply** sends the new version to every connected client that uses the policy, within seconds. Clients that are offline get it when they reconnect. A version that stops exporting a signal, lowers sampling or adds redaction drops that data from then on: it never reaches Logfire.
+    **Publish and apply** sends the new version to every connected client that uses the policy, within seconds. Clients that are offline get it when they reconnect. A version that stops exporting a signal or lowers sampling drops that data from then on: it never reaches Logfire. A version that adds redaction or scrubbing removes those values before the data leaves the client.
 
 A client that can't run a version refuses it and keeps the configuration it has. Its **Policy status** shows **Failed** on the **Collectors** or **SDKs** tab.
 

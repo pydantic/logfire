@@ -8,14 +8,14 @@ Change what your OpenTelemetry Collectors and applications collect, and where th
 
 !!! note "Early access"
 
-    Fleet is in Beta, in early access on Growth, Enterprise, and self-hosted Logfire. To turn it on, enable **Fleet** under [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access). The choice applies to your account in this browser, not automatically to every member.
+    Fleet is in Beta, in early access on Growth, Enterprise, and self-hosted Logfire. To turn it on, enable **Fleet** under [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access). On self-hosted Logfire, open the same page in your own instance. The choice applies to your account in this browser, not automatically to every member.
 
 Your telemetry reaches Logfire from two kinds of software, and Fleet manages both:
 
 - **Collectors**: an OpenTelemetry Collector is a program that runs on your machines, receives or gathers telemetry (host metrics, log files, data from your applications), processes it, and sends it on. Fleet manages Collectors on hosts (servers, virtual machines, laptops) and in Kubernetes clusters. See [Manage Collectors](collectors.md).
 - **Applications**: the SDK inside your application decides what it records and exports. Fleet changes its settings while it runs: sampling, minimum log level, redaction and scrubbing, and which signals to export. See [Manage applications](applications.md).
 
-Each Collector and application takes its settings from a **policy**: a versioned set of settings you edit and publish in Logfire. A Collector policy holds the Collector's whole pipeline. An SDK policy holds the SDK settings it sets, and leaves the rest to the application. See [Change policies](policies.md).
+Each Collector and application takes its settings from a **policy**: a versioned set of settings you edit and publish in Logfire. A Collector policy holds the Collector's whole pipeline. An SDK policy holds the SDK settings it sets, and leaves the rest to the application. A Collector whose configuration is managed elsewhere, such as by Helm or GitOps, shows in Fleet but keeps that configuration. See [Change policies](policies.md).
 
 Clients connect to Fleet over the Open Agent Management Protocol ([OpAMP](https://opentelemetry.io/docs/specs/opamp/)), the OpenTelemetry standard for managing telemetry software remotely. Each client reports its health and the settings it is running, so Fleet also shows what runs where.
 

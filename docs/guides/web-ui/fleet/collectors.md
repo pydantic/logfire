@@ -41,7 +41,7 @@ In a cluster, Fleet manages Collectors through the [OpenTelemetry Operator](http
 3. Under **Advanced**, set the **Collector namespaces** Fleet may run Collectors in. Turn on **Limit the bridge to this policy's components** to make the bridge refuse a later policy that uses any other receiver, processor or exporter.
 4. Select **Get setup instructions**, save the connection key Logfire shows, and follow the steps:
     1. **Prepare your cluster**: check your `kubectl` context and that the Operator is installed. If it isn't, install cert-manager and then the Operator, as the step shows.
-    2. **Create the connection Secrets**: the commands prompt for the connection key and for a Logfire write token, which the Collectors use to send data. Create a write token under **Project settings → Security & access → Write tokens**.
+    2. **Create the connection Secrets**: the commands prompt for the connection key and for a Logfire write token, which the Collectors use to send data. [Create a write token](../../../how-to-guides/create-write-tokens.md) under **Project settings → Security & access → Write tokens**.
     3. **Grant Collector read access**, if you collect cluster metrics: apply `collector-permissions.yaml`.
     4. **Apply the bridge**: download `fleet-bridge.yaml` and run `kubectl apply -f fleet-bridge.yaml`.
 
