@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from copy import copy
 from logging import NOTSET, Handler as LoggingHandler, LogRecord, StreamHandler
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
@@ -105,7 +106,18 @@ class LogfireLoggingHandler(LoggingHandler):
                 exc_info=record.exc_info,
             )
         except Exception:
-            self.handleError(record)
+            # `handleError` prints the record's arguments to stderr, so scrub them first, as they would be in Logfire.
+            self.handleError(self._scrub_args(record))
+
+    def _scrub_args(self, record: LogRecord) -> LogRecord:
+        record = copy(record)
+        scrubber = self.logfire_instance.config.scrubber
+        if isinstance(record.args, Mapping):
+            record.args, _ = scrubber.scrub_value(('attributes',), record.args)
+        else:
+            args, _ = scrubber.scrub_value(('attributes', ATTRIBUTES_LOGGING_ARGS_KEY), record.args)
+            record.args = tuple(args)
+        return record
 
     def fill_attributes(self, record: LogRecord) -> dict[str, Any]:
         """Fill the attributes to send to Logfire.
