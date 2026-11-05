@@ -32,11 +32,11 @@ Fleet needs to be turned on for your account: see [Fleet](index.md). Each applic
 
         Replace your `logfire.configure()` call. Keep its other options and your instrumentation calls:
 
-        ```py
+        ```py skip-run="true" skip-reason="external-connection"
         import pydantic_opamp_otel
 
         pydantic_opamp_otel.configure_logfire(
-            service_name="checkout-api",
+            service_name='checkout-api',
             console=False,
         )
         ```
