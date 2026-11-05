@@ -150,7 +150,7 @@ failed (or worse, succeeded) at run time.
 ## Verify it worked
 
 Open the [Live view](../guides/web-ui/live.md). You should see a `run code` span for the corrected script, with a child
-span for the `billing.list_invoices` call. The script that failed the check has no tool call spans, because none of its
+`call` span for `list_invoices`. The script that failed the check has no tool call spans, because none of its
 code ran.
 
 ## Troubleshooting

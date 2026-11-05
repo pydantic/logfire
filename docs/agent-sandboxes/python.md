@@ -51,7 +51,7 @@ You also need a non-personal project API key with permission to run code in your
 Only project administrators can create a key here.
 Keys created on the setup page expire after 30 days, or sooner if your organization limits key lifetime.
 
-<img src="/logfire/images/guide/agent-sandboxes/connect-key.webp" alt="Setup with a Workbench link and the Choose an execution key step showing key creation and existing-key options" width="768" height="222" loading="lazy" />
+<img src="/logfire/images/guide/agent-sandboxes/connect-key.webp" alt="Setup page with the Choose an execution key step, showing Create execution key, Use existing key, and View API keys" width="620" height="180" loading="lazy" />
 
 *The setup page offers key creation or use of an existing key.*
 

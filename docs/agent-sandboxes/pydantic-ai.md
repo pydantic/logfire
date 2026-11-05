@@ -90,6 +90,9 @@ to `CodeMode`. Code Mode saves the session at the end of each run and loads it a
 conversation. See [Keep the REPL (read-eval-print loop) across runs](https://pydantic.dev/docs/ai/harness/code-mode/#keep-the-repl-across-runs) in
 the Pydantic AI docs, and [Keep an agent's work across conversation turns](conversations.md) for how this works.
 
+With Agent Sandboxes, the state that Code Mode saves is the ID of a snapshot that Logfire stores.
+Logfire keeps it for 7 days, so a conversation that resumes later than that starts with a fresh session.
+
 ## Verify it worked
 
 Run `python agent.py`, then open the [Live view](../guides/web-ui/live.md). You should see the agent run's **trace**

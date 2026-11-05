@@ -6,8 +6,7 @@ description: "Create a hosted volume and mount it in a profile so sandbox sessio
 # Share files between sessions
 
 !!! info "Experimental"
-    Hosted volumes require separate enablement for your organization.
-    Missing **Volumes** or **Mounts** can also mean your account lacks project access.
+    Hosted volumes are being rolled out. If you do not see the **Volumes** tab, volumes are not yet available to you.
 
 Keep files between sandbox sessions and share them with sessions that use the same profile, a named session configuration.
 A **volume** stores files separately from Python memory.
@@ -86,7 +85,7 @@ It should return `'shared volume bytes'`.
 
 ## Troubleshooting
 
-- **Volumes or Mounts is missing.** Volume access is not enabled for the organization, or your account lacks access to the project.
+- **Volumes or Mounts is missing.** Hosted volumes are not yet available in your Logfire region.
 - **A write fails.** Check that the session uses the correct profile and that the mount allows **Read and write** access.
 - **A file is missing.** Check the mount path. An unmounted or deleted volume is unavailable to the session.
 

@@ -63,13 +63,13 @@ pool = logfire.agent_sandboxes()
 
 
 async def run_code(code: str) -> str:
-    async with pool.checkout(type_check=True, type_check_stubs=STUBS, ephemeral=True) as session:
-        try:
+    try:
+        async with pool.checkout(type_check=True, type_check_stubs=STUBS, ephemeral=True) as session:
             result = await session.feed_run(code, external_lookup=TOOLS)
-        except MontyTypingError as e:
-            return f'The script did not run, because it has type errors:\n{e.display()}'
-        except MontyError as e:
-            return f'The script failed: {e}'
+    except MontyTypingError as e:
+        return f'The script did not run, because it has type errors:\n{e.display()}'
+    except MontyError as e:
+        return f'The script failed: {e}'
     return repr(result)
 ```
 

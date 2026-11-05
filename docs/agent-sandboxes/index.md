@@ -115,8 +115,10 @@ The available tabs depend on the features enabled for your organization.
 To disable Agent Sandboxes for a project, open **Setup** and select **Disable Agent Sandboxes** at the bottom of the page.
 You need permission to manage the project.
 Disabling stops running sessions, and no new sessions start.
-Logfire keeps your snapshots, profiles, volumes, and execution keys.
-They work again if you enable the project again.
+Disabling does not delete your snapshots, profiles, volumes, or execution keys.
+They work again if you enable the project again, unless they expired in the meantime.
+Saved sessions and snapshots expire after [7 days](sessions.md#when-a-session-is-saved).
+Keys created on the setup page expire after [30 days](python.md#get-an-execution-key).
 
 - [Run code in the Workbench](workbench.md): try Python without installing a local client.
 - [Manage saved snapshots](snapshots.md): find saved Python state, open it in the Workbench, and free storage.
