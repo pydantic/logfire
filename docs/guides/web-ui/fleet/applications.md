@@ -4,6 +4,10 @@ description: "Connect a Python, Node.js, Java, .NET or Go application to Fleet, 
 ---
 # Manage applications
 
+!!! warning "Experimental"
+
+    Fleet is experimental and can change between releases. Contact [Logfire support](mailto:support@pydantic.dev) for access.
+
 Change what a running application records and sends: its sampling rate, minimum log level, redaction and scrubbing, and which signals it exports. You change these from Logfire, with no restart or redeploy.
 
 Fleet needs to be turned on for your account: see [Fleet](index.md). Each application takes its settings from an **SDK policy**. A policy sets only the settings you choose; every other setting stays as the application configured it ("Application controlled"). See [Change policies](policies.md).

@@ -4,6 +4,10 @@ description: "Install a managed OpenTelemetry Collector on a host with one comma
 ---
 # Manage Collectors
 
+!!! warning "Experimental"
+
+    Fleet is experimental and can change between releases. Contact [Logfire support](mailto:support@pydantic.dev) for access.
+
 Install an OpenTelemetry Collector on a host with one command, or connect the Collectors in a Kubernetes cluster, then change what they collect and where they send it from Logfire. An OpenTelemetry Collector is a program that gathers telemetry (host metrics, log files, data your applications send it), processes it, and sends it on.
 
 Fleet needs to be turned on for your account: see [Fleet](index.md). Each Collector runs the pipeline in its **Collector policy**, which you edit in Logfire: see [Change policies](policies.md).

@@ -4,6 +4,10 @@ description: "Edit a Collector or SDK policy in Logfire, review the change, publ
 ---
 # Change policies
 
+!!! warning "Experimental"
+
+    Fleet is experimental and can change between releases. Contact [Logfire support](mailto:support@pydantic.dev) for access.
+
 Change what your Collectors and applications collect, review the exact change, then send it to every client that uses the policy, or to a few first. Every published version stays in the policy's history, so you can go back.
 
 A **policy** is a versioned set of settings in Logfire. There are two types:
