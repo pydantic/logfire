@@ -112,6 +112,12 @@ Sandboxes start on first use and shut down when idle.
 The project counts toward your organization's enabled-project limit until you disable it.
 The available tabs depend on the features enabled for your organization.
 
+To disable Agent Sandboxes for a project, open **Setup** and select **Disable Agent Sandboxes** at the bottom of the page.
+You need permission to manage the project.
+Disabling stops running sessions, and no new sessions start.
+Logfire keeps your snapshots, profiles, volumes, and execution keys.
+They work again if you enable the project again.
+
 - [Run code in the Workbench](workbench.md): try Python without installing a local client.
 - [Manage saved snapshots](snapshots.md): find saved Python state, open it in the Workbench, and free storage.
 - [Manage profiles](profiles.md): create and select a named profile for a session.
