@@ -21,7 +21,18 @@ import pytest
 from attrs import define, field as attrs_field
 from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
-from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, RootModel, SecretBytes, SecretStr
+from pydantic import (
+    AnyUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    FilePath,
+    NameEmail,
+    RootModel,
+    SecretBytes,
+    SecretStr,
+    computed_field,
+)
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
@@ -165,6 +176,16 @@ class AttrsError(Exception):
 class MyReprAttrs:
     in_repr: int
     not_in_repr: MyDataclass = attrs_field(repr=False)
+
+
+class MyReprModel(BaseModel):
+    in_repr: int
+    not_in_repr: MyDataclass = Field(repr=False)
+
+    @computed_field(repr=False)
+    @property
+    def computed_not_in_repr(self) -> int:
+        return self.in_repr + 1
 
 
 class ListSubclass(_ListSubclass): ...
@@ -540,6 +561,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
                 'properties': {'u': {'type': 'string', 'x-python-datatype': ANYURL_REPR_CLASSNAME}},
             },
             id='pydantic_model',
+        ),
+        pytest.param(
+            MyReprModel(in_repr=1, not_in_repr=MyDataclass(2)),
+            'in_repr=1',
+            '{"in_repr":1}',
+            {'type': 'object', 'title': 'MyReprModel', 'x-python-datatype': 'PydanticModel'},
+            id='pydantic_model_repr',
         ),
         pytest.param(
             MyModel.model_validate(dict(x='x', y=10, u='http://test.com', extra_key=MyDataclass(10))),
@@ -922,6 +950,14 @@ def test_attrs_schema_respects_repr() -> None:
         'type': 'object',
         'title': 'MyReprAttrs',
         'x-python-datatype': 'attrs',
+    }
+
+
+def test_pydantic_model_schema_respects_repr() -> None:
+    assert create_json_schema(MyReprModel(in_repr=1, not_in_repr=MyDataclass(2)), set()) == {
+        'type': 'object',
+        'title': 'MyReprModel',
+        'x-python-datatype': 'PydanticModel',
     }
 
 
