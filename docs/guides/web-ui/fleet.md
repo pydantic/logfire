@@ -53,7 +53,7 @@ The bridge can create, update and delete Collector resources in any namespace. L
 Applications connect to Fleet directly, without a Collector.
 
 1. Open **Applications** in Fleet and select **Add application**.
-2. Choose what your application uses. Install the package and load it the way Logfire shows. Fleet SDK 0.1.1 needs:
+2. Choose what your application uses. Install the package and load it the way Logfire shows:
 
     | Application uses | Requires | Install | Load it |
     | --- | --- | --- | --- |
