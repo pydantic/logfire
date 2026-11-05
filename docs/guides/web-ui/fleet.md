@@ -16,7 +16,7 @@ Fleet manages three kinds of client:
 
 Each client takes its settings from a **policy**: a versioned set of settings you edit and publish in Logfire. Clients connect over the Open Agent Management Protocol ([OpAMP](https://opentelemetry.io/docs/specs/opamp/)), the OpenTelemetry standard for managing telemetry agents remotely. Each one reports its health and the settings it is running, so Fleet also shows what runs where.
 
-Open Fleet from **Fleet overview** in the sidebar, or from the **Fleet** button on the **Hosts**, **Kubernetes** and **Services** pages.
+To turn Fleet on, enable **Fleet** under [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access). The choice applies to your account in this browser, not automatically to every member. Then open Fleet from **Fleet overview** in the sidebar, or from the **Fleet** button on the **Hosts**, **Kubernetes** and **Services** pages.
 
 ## Add a host
 
@@ -88,7 +88,7 @@ Your plan sets how many applications and Collector policies your organization ca
 
 | Symptom | Check |
 | --- | --- |
-| No **Fleet overview** in the sidebar | Your role needs permission to read Fleet. Ask an organization admin. |
+| No **Fleet overview** in the sidebar | Turn on **Fleet** under **Settings → Early access**. If it is on, your role needs permission to read Fleet: ask an organization admin. |
 | A host never appears | Run the install command again with `--dry-run` to see each step. The host needs outbound HTTPS to Logfire. |
 | An application shows as disconnected | Check that the Fleet SDK loads before your application starts. Its logs name connection and authentication errors. |
 | A policy shows as failed on a client | Open the client in Fleet. It reports which setting it could not apply and why. |
