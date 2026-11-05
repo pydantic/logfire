@@ -1256,12 +1256,17 @@ class LogfireConfig(_LogfireConfigData):
                     credentials = None
 
                 if not self.token and self.send_to_logfire is True and credentials is None:
-                    # If we don't have tokens or credentials from a file,
-                    # try initializing a new project and writing a new creds file.
-                    # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
-                    client = LogfireClient.from_url(self.advanced.base_url, self.advanced.server_response_hook)
-                    credentials = LogfireCredentials.initialize_project(client=client)
-                    credentials.write_creds_file(self.data_dir)
+                    # Project setup belongs in the CLI, not application startup. Never consult legacy user logins here.
+                    raise LogfireConfigError(
+                        'No usable project credentials found. Run `uvx logfire-cli auth`, then '
+                        '`uvx logfire-cli init` from your project directory, and rerun your code. '
+                        'Alternatively, run `uvx logfire-cli wizard` for guided setup. '
+                        'CLI sign-in alone does not configure the SDK: OAuth credentials stay in the OS '
+                        'credential store, while `init` saves the project write token locally. '
+                        'Pass the same `--region` or `--base-url` to both commands for a non-default server, '
+                        'and use `init --data-dir` to match a custom SDK data directory. '
+                        'You can also set `LOGFIRE_TOKEN` to a project write token.'
+                    )
 
                 if credentials is not None:
                     # Get token and base_url from credentials if not already set.
@@ -2232,61 +2237,6 @@ class LogfireCredentials:
                 continue
             else:
                 return project
-
-    @classmethod
-    def initialize_project(
-        cls,
-        *,
-        client: LogfireClient,
-    ) -> Self:
-        """Create a new project or use an existing project on logfire.dev requesting the given project name.
-
-        Args:
-            client: The Logfire client to use when making requests.
-
-        Returns:
-            The new credentials.
-
-        Raises:
-            LogfireConfigError: If there was an error on creating/configuring the project.
-        """
-        credentials: dict[str, Any] | None = None
-
-        print(
-            'No Logfire project credentials found.\n'  # TODO: Add a link to the docs about where we look
-            'All data sent to Logfire must be associated with a project.\n'
-        )
-
-        projects = client.get_user_projects()
-        if projects:
-            # `default=True` already says what "no answer" means, same as a real person
-            # pressing Enter would give -- an exhausted stdin gets that same outcome
-            # rather than an EOFError traceback (see `ask_or_default`).
-            use_existing_projects = ask_or_default(
-                lambda: Confirm.ask('Do you want to use one of your existing projects? ', default=True), True
-            )
-            if use_existing_projects:  # pragma: no branch
-                credentials = cls.use_existing_project(client=client, projects=projects)
-
-        if not credentials:
-            credentials = cls.create_new_project(client=client)
-
-        try:
-            result = cls(**credentials, logfire_api_url=client.base_url)
-            # This prompt exists to give a person a beat before moving on -- nothing is
-            # done with the answer either way. When there is no one to press the key,
-            # there is no beat to give, so an exhausted stdin just continues rather than
-            # raising an EOFError traceback after the project was already created.
-            try:
-                Prompt.ask(
-                    f'Project initialized successfully. You will be able to view it at: {result.project_url}\n'
-                    'Press Enter to continue'
-                )
-            except EOFError:
-                pass
-            return result
-        except TypeError as e:  # pragma: no cover
-            raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e
 
     def write_creds_file(self, creds_dir: Path) -> None:
         """Write a credentials file to the given path."""
