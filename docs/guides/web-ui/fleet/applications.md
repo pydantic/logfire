@@ -27,15 +27,15 @@ Fleet needs to be turned on for your account: see [Fleet](index.md). Each applic
         Requires Python 3.11+ and Logfire 5.1 or a later 5.x release.
 
         ```bash
-        pip install 'pydantic-opamp-otel[logfire]'
+        pip install 'logfire-fleet-otel[logfire]'
         ```
 
         Replace your `logfire.configure()` call. Keep its other options and your instrumentation calls:
 
         ```py skip-run="true" skip-reason="external-connection"
-        import pydantic_opamp_otel
+        import logfire_fleet_otel
 
-        pydantic_opamp_otel.configure_logfire(
+        logfire_fleet_otel.configure_logfire(
             service_name='checkout-api',  # the application name you entered in Fleet
             console=False,
         )
@@ -48,7 +48,7 @@ Fleet needs to be turned on for your account: see [Fleet](index.md). Each applic
         Requires Python 3.11+. Keeps your existing instrumentations.
 
         ```bash
-        pip install pydantic-opamp-otel
+        pip install logfire-fleet-otel
         export OTEL_PYTHON_DISTRO=opamp
         export OTEL_PYTHON_CONFIGURATOR=opamp
         opentelemetry-instrument python app.py
@@ -59,8 +59,8 @@ Fleet needs to be turned on for your account: see [Fleet](index.md). Each applic
         Requires Node.js 22+. Uses OpenTelemetry automatic instrumentation.
 
         ```bash
-        npm install @pydantic/opamp-otel
-        node --import @pydantic/opamp-otel/register app.js
+        npm install @pydantic/logfire-fleet-otel
+        node --import @pydantic/logfire-fleet-otel/register app.js
         ```
 
     === "Java"
@@ -69,9 +69,9 @@ Fleet needs to be turned on for your account: see [Fleet](index.md). Each applic
 
         ```bash
         curl -sSfLo opentelemetry-javaagent.jar https://repo1.maven.org/maven2/io/opentelemetry/javaagent/opentelemetry-javaagent/2.31.1/opentelemetry-javaagent-2.31.1.jar
-        curl -sSfLo opamp-javaagent-extension.jar https://repo1.maven.org/maven2/dev/pydantic/opamp-javaagent-extension/0.1.1/opamp-javaagent-extension-0.1.1.jar
+        curl -sSfLo logfire-fleet-javaagent-extension.jar https://repo1.maven.org/maven2/dev/pydantic/logfire-fleet-javaagent-extension/0.2.0/logfire-fleet-javaagent-extension-0.2.0.jar
         java -javaagent:opentelemetry-javaagent.jar \
-          -Dotel.javaagent.extensions=opamp-javaagent-extension.jar \
+          -Dotel.javaagent.extensions=logfire-fleet-javaagent-extension.jar \
           -jar app.jar
         ```
 
@@ -81,8 +81,8 @@ Fleet needs to be turned on for your account: see [Fleet](index.md). Each applic
 
         ```bash
         dotnet add package OpenTelemetry.AutoInstrumentation --version 1.17.0
-        dotnet add package Pydantic.OpAmp.AutoInstrumentation
-        export OTEL_DOTNET_AUTO_PLUGINS="Pydantic.OpAmp.AutoInstrumentation.Plugin, Pydantic.OpAmp.AutoInstrumentation"
+        dotnet add package Logfire.Fleet.AutoInstrumentation
+        export OTEL_DOTNET_AUTO_PLUGINS="Logfire.Fleet.AutoInstrumentation.Plugin, Logfire.Fleet.AutoInstrumentation"
         dotnet publish -c Release -r "linux-$([ "$(uname -m)" = aarch64 ] && echo arm64 || echo x64)" --self-contained false -o ./publish
         cd ./publish
         ./instrument.sh dotnet App.dll
