@@ -6,7 +6,7 @@ description: "Edit a Collector or SDK policy in Logfire, review the change, publ
 
 !!! note "Beta"
 
-    Fleet is in beta and can change between releases. It is off until you turn it on: see [Turn on Fleet](index.md#turn-on-fleet).
+    Fleet is in beta and can change between releases.
 
 Change what your Collectors and applications collect, review the exact change, then send it to every client that uses the policy, or to a few first. Every published version stays in the policy's history, so you can go back.
 

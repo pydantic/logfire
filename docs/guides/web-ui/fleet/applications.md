@@ -6,11 +6,11 @@ description: "Connect a Python, Node.js, Java, .NET or Go application to Fleet, 
 
 !!! note "Beta"
 
-    Fleet is in beta and can change between releases. It is off until you turn it on: see [Turn on Fleet](index.md#turn-on-fleet).
+    Fleet is in beta and can change between releases.
 
 Change what a running application records and sends: its sampling rate, minimum log level, redaction and scrubbing, and which signals it exports. You change these from Logfire, with no restart or redeploy.
 
-Fleet needs to be turned on: see [Turn on Fleet](index.md#turn-on-fleet). Each application takes its settings from an **SDK policy**. A policy sets only the settings you choose; every other setting stays as the application configured it ("Application controlled"). See [Change policies](policies.md).
+Each application takes its settings from an **SDK policy**. A policy sets only the settings you choose; every other setting stays as the application configured it ("Application controlled"). See [Change policies](policies.md).
 
 ## Before you start
 

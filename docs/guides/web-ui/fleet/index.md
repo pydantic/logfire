@@ -8,7 +8,7 @@ Change what your OpenTelemetry Collectors and applications collect, and where th
 
 !!! note "Beta"
 
-    Fleet, and its support for the Open Agent Management Protocol (OpAMP), is in beta. Its features, settings and packages can change between releases. It is off until you [turn it on](#turn-on-fleet).
+    Fleet, and its support for the Open Agent Management Protocol (OpAMP), is in beta. Its features, settings and packages can change between releases.
 
 Your telemetry reaches Logfire from two kinds of software, and Fleet manages both:
 
@@ -19,18 +19,11 @@ Each Collector and application takes its settings from a **policy**: a versioned
 
 Clients connect to Fleet over the Open Agent Management Protocol ([OpAMP](https://opentelemetry.io/docs/specs/opamp/)), the OpenTelemetry standard for managing telemetry software remotely. Each client reports its health and the settings it is running, so Fleet also shows what runs where.
 
-## Turn on Fleet
-
-Fleet is available on every plan, and you turn it on for yourself:
-
-1. In your project, open **Hosts**, **Kubernetes** or **Services** and select **Fleet**. On an empty **Hosts** or **Kubernetes** page the button reads **Install a managed Collector** or **Connect a cluster with Fleet**.
-2. Select **Turn on Fleet**.
-
-Fleet then opens where you were going, and **Fleet management** appears in your project's sidebar. The choice applies to you in this browser: each teammate turns it on for themselves. Fleet's settings page turns it off again; your Collectors, applications and policies keep running either way. On the Growth and Enterprise plans you can also switch it under [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access).
-
 ## Find Fleet in Logfire
 
-Once Fleet is on, open **Fleet management** in your project's sidebar. The **Hosts**, **Kubernetes** and **Services** pages also link to it.
+Fleet is on for every plan. Open **Fleet management** in your project's sidebar. The **Hosts**, **Kubernetes** and **Services** pages also link to it.
+
+If you turned Fleet off on its settings page, it stays off for you in that browser. Opening any Fleet page offers **Turn on Fleet** to bring it back. Turning Fleet off doesn't stop your Collectors, applications or policies.
 
 ![The Collectors tab of Fleet management, listing each Collector with its connection, health, policy status and policy](../../../images/fleet/collectors.png)
 
