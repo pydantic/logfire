@@ -4,9 +4,9 @@ description: "Edit a Collector or SDK policy in Logfire, review the change, publ
 ---
 # Change policies
 
-!!! warning "Experimental"
+!!! note "Beta"
 
-    Fleet is experimental and can change between releases. Contact [Logfire support](mailto:support@pydantic.dev) for access.
+    Fleet is in beta and can change between releases.
 
 Change what your Collectors and applications collect, review the exact change, then send it to every client that uses the policy, or to a few first. Every published version stays in the policy's history, so you can go back.
 
@@ -59,7 +59,7 @@ Sampling (recording only a share of new traces) and exports change what reaches 
 
     **Publish and apply** sends the new version to every connected client that uses the policy, within seconds. Clients that are offline get it when they reconnect. A version that stops exporting a signal or lowers sampling drops that data from then on: it never reaches Logfire. A version that adds redaction or scrubbing removes those values before the data leaves the client.
 
-A client that can't run a version refuses it and keeps the configuration it has. Its **Policy status** shows **Failed** on the **Collectors** or **SDKs** tab.
+A host Collector or an application that can't run a version refuses it and keeps the configuration it has. A host's first policy has nothing earlier to keep, so if it can't run (for example, a port is busy) the Collector keeps restarting until you publish one that works. Its **Policy status** shows **Failed** on the **Collectors** or **SDKs** tab, with the reason. Kubernetes Collectors don't check a version first: a version they can't run restarts their pods until you publish a fixed one.
 
 ## Roll out to a few clients first
 
