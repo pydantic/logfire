@@ -646,7 +646,7 @@ def configure(
         fleet: Whether to manage this SDK from Logfire Fleet: the Fleet policy then applies to everything it sends
             (sampling, which signals are sent, log levels, redaction and volume limits, the console included).
             `True` takes the Fleet server from the `OTEL_OPAMP_*` environment variables; a
-            [`FleetOptions`][logfire.fleet.FleetOptions] gives it in code. Needs `pip install 'logfire[fleet]'`.
+            [`FleetOptions`][logfire.fleet.FleetOptions] gives it in code. Needs the 'fleet' extra.
             It never blocks or raises: until Fleet answers, the last policy saved is in force, else the SDK's own
             settings, and where Fleet can't be joined it warns and the SDK runs unmanaged.
 
