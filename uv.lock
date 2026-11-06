@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
@@ -25,22 +25,22 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P4D"
 
 [options.exclude-newer-package]
-pydantic-ai-slim = false
-pydantic-graph = false
-pydantic-evals = false
-pydantic-monty-runtime = false
-pydantic-handlebars = false
-logfire-fleet-core = false
-pydantic = false
-pydantic-core = false
-pip = false
-pydantic-monty-client = false
-genai-prices = false
-pydantic-monty = false
 certifi = false
+genai-prices = false
 logfire-cli = false
-logfire-fleet-otel = false
 logfire-fleet-client = false
+logfire-fleet-core = false
+logfire-fleet-otel = false
+pip = false
+pydantic = false
+pydantic-ai-slim = false
+pydantic-core = false
+pydantic-evals = false
+pydantic-graph = false
+pydantic-handlebars = false
+pydantic-monty = false
+pydantic-monty-client = false
+pydantic-monty-runtime = false
 
 [manifest]
 members = [
@@ -3579,7 +3579,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "5.4.0"
+version = "5.5.0"
 source = { editable = "logfire" }
 dependencies = [
     { name = "logfire-sdk" },
@@ -3723,7 +3723,7 @@ provides-extras = ["gateway", "agent-sandboxes", "system-metrics", "asgi", "wsgi
 
 [[package]]
 name = "logfire-api"
-version = "5.4.0"
+version = "5.5.0"
 source = { editable = "logfire-api" }
 
 [package.metadata]
@@ -4029,7 +4029,7 @@ editor-tests = [
 
 [[package]]
 name = "logfire-sdk"
-version = "5.4.0"
+version = "5.5.0"
 source = { editable = "logfire-sdk" }
 dependencies = [
     { name = "certifi" },

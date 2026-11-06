@@ -1,6 +1,6 @@
 from logfire import Logfire as Logfire
 from logfire._internal.stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
-from logfire._internal.utils import handle_internal_errors as handle_internal_errors
+from logfire._internal.utils import get_version as get_version, handle_internal_errors as handle_internal_errors
 from snowflake.connector.connection import SnowflakeConnection
 from types import ModuleType
 
