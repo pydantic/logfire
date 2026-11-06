@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import shutil
 import subprocess
 import sys
@@ -13,7 +14,7 @@ from typing import Any
 import grpc
 import pytest
 from inline_snapshot import snapshot
-from pydantic_monty import AsyncMontySession, MontyRefusedError
+from pydantic_monty import AsyncMontyRemote, AsyncMontySession, MontyRefusedError
 
 import logfire
 from logfire._internal import agent_sandboxes as agent_sandboxes_module
@@ -21,6 +22,16 @@ from logfire.exceptions import LogfireConfigError
 from logfire.testing import TestExporter
 
 API_KEY = 'pylf_v1_eu_0123456789abcdef'
+
+
+def test_agent_sandboxes_checkout_signature() -> None:
+    """Typed checkout options must match Monty's optional parameters without duplicating their defaults."""
+    options = agent_sandboxes_module.AgentSandboxCheckoutOptions
+    native = list(inspect.signature(AsyncMontyRemote.checkout).parameters.values())[1:]
+    assert options.__optional_keys__ == {param.name for param in native}
+    assert not options.__required_keys__
+    assert all(param.default is not inspect.Parameter.empty for param in native)
+    assert all('Any' not in str(annotation) for annotation in options.__annotations__.values())
 
 
 class SandboxServer(grpc.GenericRpcHandler):

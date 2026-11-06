@@ -1,15 +1,18 @@
 """Build authenticated Monty pools for Logfire.agent_sandboxes.
 
 AgentSandboxPool wraps checkout to explain hosted-service refusals while yielding Monty sessions.
+AgentSandboxCheckoutOptions preserves the native checkout options without duplicating their defaults.
 """
 
 from __future__ import annotations
 
 import warnings
-from collections.abc import AsyncGenerator, Callable, Mapping
-from contextlib import AsyncExitStack, asynccontextmanager
+from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping
+from contextlib import AbstractAsyncContextManager, AsyncExitStack, asynccontextmanager
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
+
+from typing_extensions import TypedDict, Unpack
 
 from logfire.exceptions import LogfireConfigError
 from logfire.propagate import get_context
@@ -24,7 +27,26 @@ except ImportError:
     ) from None
 
 if TYPE_CHECKING:
+    from pydantic_monty import ExternalModule, OSPolicy, ResourceLimits, TypeCheckFormat
+
     from logfire import Logfire
+
+
+class AgentSandboxCheckoutOptions(TypedDict, total=False):
+    """Keyword options forwarded unchanged to AsyncMontyRemote.checkout."""
+
+    script_name: str
+    limits: ResourceLimits | None
+    type_check: bool
+    type_check_stubs: str | None
+    type_check_format: TypeCheckFormat | None
+    type_check_color: bool
+    assert_message_annotations: bool | int
+    print_flush_interval: float | None
+    os_policy: OSPolicy | None
+    external_modules: Mapping[str, ExternalModule | Callable[[], Awaitable[ExternalModule]]] | None
+    ephemeral: bool | None
+    profile: str | None
 
 
 class AgentSandboxPool:
@@ -44,25 +66,29 @@ class AgentSandboxPool:
     async def __aexit__(self, *args: Any) -> None:
         await self._pool.__aexit__(*args)
 
-    @asynccontextmanager
-    async def checkout(self, **kwargs: Any) -> AsyncGenerator[AsyncMontySession, None]:
-        """Check out a Monty session, forwarding all options to AsyncMontyRemote.checkout."""
-        async with AsyncExitStack() as stack:
-            try:
-                session = await stack.enter_async_context(self._pool.checkout(**kwargs))
-            except MontyRefusedError as exc:
-                if exc.status_code in ('UNAUTHENTICATED', 'PERMISSION_DENIED'):
-                    hint = (
-                        'Check that you use a project API key (not a personal API key) with the '
-                        "`project:execute_agent_sandboxes` scope, that the key's region matches the server URL, "
-                        'and that Agent Sandboxes are enabled for the project.'
-                    )
-                elif exc.status_code == 'RESOURCE_EXHAUSTED' and exc.cause in ('caller_cap', 'capacity'):
-                    hint = 'Lower `max_processes` to open fewer sessions at once, or retry after a delay.'
-                else:
-                    raise
-                raise RuntimeError(f'{exc}\nLogfire Agent Sandboxes: {hint}') from exc
-            yield session
+    def checkout(self, **kwargs: Unpack[AgentSandboxCheckoutOptions]) -> AbstractAsyncContextManager[AsyncMontySession]:
+        """Check out a session with the options and defaults of AsyncMontyRemote.checkout."""
+
+        @asynccontextmanager
+        async def checkout_session() -> AsyncGenerator[AsyncMontySession, None]:
+            async with AsyncExitStack() as stack:
+                try:
+                    session = await stack.enter_async_context(self._pool.checkout(**kwargs))
+                except MontyRefusedError as exc:
+                    if exc.status_code in ('UNAUTHENTICATED', 'PERMISSION_DENIED'):
+                        hint = (
+                            'Check that you use a project API key (not a personal API key) with the '
+                            "`project:execute_agent_sandboxes` scope, that the key's region matches the server URL, "
+                            'and that Agent Sandboxes are enabled for the project.'
+                        )
+                    elif exc.status_code == 'RESOURCE_EXHAUSTED' and exc.cause in ('caller_cap', 'capacity'):
+                        hint = 'Lower `max_processes` to open fewer sessions at once, or retry after a delay.'
+                    else:
+                        raise
+                    raise RuntimeError(f'{exc}\nLogfire Agent Sandboxes: {hint}') from exc
+                yield session
+
+        return checkout_session()
 
 
 def agent_sandboxes_url(base_url: str) -> str:

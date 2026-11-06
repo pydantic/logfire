@@ -113,15 +113,17 @@ run a hosted sandbox. These checks do not apply to a local `Monty()` pool.
   to `caller_cap` or `capacity`, means too many sessions opened at once or the service has no
   capacity. Lower `max_processes` in `logfire.agent_sandboxes()` or retry after a delay.
   The SDK does not retry for you.
-- **Invalid URL:** for `a URL path, query or fragment is not supported`, use only the server
-  origin, for example `https://logfire-us.pydantic.dev`. `/monty-ws/` was the old path; remove it.
-  The SDK now checks both an explicit `url=` and a URL derived from Logfire configuration and
-  raises `LogfireConfigError` before connecting.
+- **Invalid URL:** for
+  `LogfireConfigError: Agent Sandboxes URL 'https://logfire-us.pydantic.dev/monty-ws/' must not contain a path, query, or fragment.`,
+  use only the server origin, for example `https://logfire-us.pydantic.dev`.
+  `/monty-ws/` was the old path; remove it. The SDK checks both an explicit `url=` and a URL
+  derived from Logfire configuration before connecting. Older versions can report
+  `a URL path, query or fragment is not supported` instead.
 - **Unbounded timeout:** for
-  `RuntimeError: monty worker protocol error: CPU execution clock requires a finite client request_timeout`,
-  do not pass `request_timeout=None`. Hosted sandboxes require a finite deadline. The SDK now
-  raises `LogfireConfigError` up front for `None`. Omit the option to use Monty's default of
-  10 seconds, or set a finite number of seconds.
+  ``LogfireConfigError: Logfire Agent Sandboxes require a finite `request_timeout` in seconds; `None` is not supported.``,
+  do not pass `request_timeout=None`. Hosted sandboxes require a finite deadline. Omit the
+  option to use Monty's default of 10 seconds, or set a finite number of seconds. Older versions
+  can report `RuntimeError: monty worker protocol error: CPU execution clock requires a finite client request_timeout`.
 - **`connect timed out`:** check the server URL, network access, and proxy settings. If the
   server is reachable but slow to open a session, increase the finite `request_timeout`.
 - **`not a gRPC server`:** the URL reached a web page instead of the sandbox service. gRPC is
@@ -132,8 +134,11 @@ run a hosted sandbox. These checks do not apply to a local `Monty()` pool.
   The operation might already have run; do not retry operations with external effects unless
   you can safely repeat them.
 - **`MontyShutdown`:** the server is shutting down. Keep `auto_resume=True` (the default) to
-  resume stored sessions automatically. If you disable it, use the exception's `dump` when
-  available to restore the session.
+  resume stored sessions automatically. If you disable it and the exception's `dump` is not
+  `None`, restore it in a fresh session. Use `load_session()` for state saved between feeds,
+  or `load_snapshot()` for state saved during a feed. Resuming a suspended host call can repeat
+  that call, so make sure its external effects are safe to repeat. Without a `dump`, you cannot
+  restore the session.
 
 The SDK adds Logfire hints to authentication and capacity refusals. Because Monty's native
 `MontyRefusedError` cannot be constructed or subclassed from Python, these hinted errors are
