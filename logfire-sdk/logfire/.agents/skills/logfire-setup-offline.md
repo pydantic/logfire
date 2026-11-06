@@ -4,7 +4,7 @@ This bundle includes the `logfire-setup` hub and its SDK specialists:
 `logfire-instrumentation`, `logfire-infrastructure`, and `logfire-evals`.
 Their bundled references resolve without a network fetch.
 
-Frontend, Gateway, coding-agent, and MCP query/UI specialists are not bundled.
+Frontend, Gateway, coding-agent, dataset, and MCP query/UI specialists are not bundled.
 If fetching them is unavailable, report that limitation; do not substitute SDK setup.
 
 A pointer to "the `logfire-infrastructure` skill" (or any other skill named
@@ -33,8 +33,8 @@ verification observed in this session.
 ## Step 1: Authenticate and Select the Exact Project
 
 If the request is already scoped to frontend observability, application Gateway,
-coding-agent setup, querying, or opening the UI, load that specialist from the
-table below first. Its credential requirements differ from ordinary SDK
+coding-agent setup, hosted datasets, querying, or opening the UI, load that
+specialist from the table below first. Its credential requirements differ from ordinary SDK
 instrumentation; do not create a project write token merely to route the request.
 
 For ordinary SDK instrumentation, confirm the exact project with `whoami`
@@ -53,6 +53,7 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 | Frontend observability | Browser errors, RUM, Web Vitals, and session replays | [`logfire-frontend`](https://pydantic.dev/.well-known/agent-skills/logfire-frontend/SKILL.md) |
 | Infrastructure monitoring | Hosts, Docker, Kubernetes, database/queue/cache servers, cloud-provider metrics — no application code | [`logfire-infrastructure`](#skill-logfire-infrastructure) |
 | Evals | Set up and run AI/agent evaluations against test-case datasets in Python or Node.js | [`logfire-evals`](#skill-logfire-evals) |
+| Hosted datasets | Create hosted datasets from traces or case files | [`logfire-datasets`](https://pydantic.dev/.well-known/agent-skills/logfire-datasets/SKILL.md) |
 | Querying telemetry | Search traces/logs/spans/metrics, summarize errors, find root cause | [`logfire-query`](https://pydantic.dev/.well-known/agent-skills/logfire-query/SKILL.md) |
 | Live UI | Open project pages, the live view, trace links, or the Explore page in a browser | [`logfire-ui`](https://pydantic.dev/.well-known/agent-skills/logfire-ui/SKILL.md) |
 | Feature flags | Runtime-managed variables (`logfire.var()`, `logfire.template_var()`) | no dedicated skill yet — see the product's own docs |
@@ -433,7 +434,7 @@ Close with a final report built from what you just confirmed — org/project/reg
 
 # Skill: logfire-evals
 
-*Run offline Python (`pydantic_evals`) or Node.js (`logfire/evals`) evaluations and review them in Logfire. Also redirect existing Braintrust `Eval()` suites. Use for eval setup, test datasets, AI scoring, agent checks, LLM judges, Braintrust migration, or Logfire Datasets & Experiments. Not for live traffic or infrastructure monitoring.*
+*Run offline Python (`pydantic_evals`) or Node.js (`logfire/evals`) evaluations and review them in Logfire. Also redirect existing Braintrust `Eval()` suites. Use for eval setup, test datasets, AI scoring, agent checks, LLM judges, Braintrust migration, or Logfire Datasets & Experiments. Not for live traffic, infrastructure monitoring, or building hosted datasets (use logfire-datasets).*
 
 # Evaluate AI code with Logfire
 
