@@ -15,10 +15,9 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.sampling import ALWAYS_ON, Sampler
 
 import logfire
-from logfire._internal.config import LogfireConfig
+from logfire._internal.config import GLOBAL_CONFIG, LogfireConfig
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
-from logfire._internal.fleet import LogfireFleetWarning
-from logfire.fleet import FleetOptions
+from logfire.fleet import FleetOptions, LogfireFleetWarning
 
 from .test_configure import get_metric_readers, get_span_processors, wait_for_check_token_thread
 
@@ -34,9 +33,14 @@ class Wrapped(SpanExporter):
         return self.exporter.export(spans)
 
 
+STARTED: list[dict[str, Any]] = []
+"""The providers each `start` got, across clients."""
+
+
 class FakeFleet:
     def __init__(self, calls: list[Any]) -> None:
         self.calls = calls
+        self.started: list[dict[str, Any]] = STARTED
         self.resource_attributes = {'service.instance.id': 'fleet-uid'}
 
     def head_sampler(self, sampler: Sampler | None) -> Sampler:
@@ -58,6 +62,7 @@ class FakeFleet:
 
     def start(self, resource: Any, **providers: Any) -> None:
         self.calls.append(('start', resource.attributes['service.instance.id'], sorted(providers)))
+        self.started.append(providers)
 
 
 @pytest.fixture
@@ -73,6 +78,7 @@ def fleet_client() -> Iterator[tuple[list[Any], list[dict[str, Any]]]]:
 
     module.LOGFIRE_FLEET_CONTRACT = 1  # type: ignore[attr-defined]
     module.logfire_fleet = logfire_fleet  # type: ignore[attr-defined]
+    STARTED.clear()
     with patch.dict(sys.modules, {'logfire_fleet_otel': module}):
         yield calls, given
 
@@ -137,14 +143,16 @@ def test_fleet_from_the_environment(fleet_client: tuple[list[Any], list[dict[str
 
 def test_no_fleet_by_default(fleet_client: tuple[list[Any], list[dict[str, Any]]]) -> None:
     calls, given = fleet_client
-    logfire.configure(send_to_logfire=False, console=False, metrics=False)
+    with patch.dict('os.environ', {'LOGFIRE_FLEET': 'false'}):
+        logfire.configure(send_to_logfire=False, console=False, metrics=False)
     assert calls == given == []
 
 
 def test_fleet_without_the_extra_runs_unmanaged() -> None:
     with patch.dict(sys.modules, {'logfire_fleet_otel': None}):
-        with pytest.warns(LogfireFleetWarning, match=r"needs the `fleet` extra: `pip install 'logfire\[fleet\]'`"):
+        with pytest.warns(LogfireFleetWarning, match=r'needs the `fleet` extra, on Python 3.11 or later') as record:
             logfire.configure(send_to_logfire=False, console=False, metrics=False, fleet=True)
+    assert len([w for w in record if issubclass(w.category, LogfireFleetWarning)]) == 1
     with logfire.span('still sent'):
         pass
 
@@ -152,18 +160,20 @@ def test_fleet_without_the_extra_runs_unmanaged() -> None:
 def test_fleet_with_another_contract_runs_unmanaged(fleet_client: tuple[list[Any], list[dict[str, Any]]]) -> None:
     calls, given = fleet_client
     sys.modules['logfire_fleet_otel'].LOGFIRE_FLEET_CONTRACT = 2  # type: ignore[attr-defined]
-    with pytest.warns(LogfireFleetWarning, match='speaks contract 2, not 1'):
+    with pytest.warns(LogfireFleetWarning, match='speaks contract 2, not 1') as record:
         logfire.configure(
             send_to_logfire=False, console=False, metrics=False, fleet=FleetOptions(endpoint='https://x.example')
         )
+    assert len([w for w in record if issubclass(w.category, LogfireFleetWarning)]) == 1
     assert calls == given == []
 
 
 def test_fleet_without_an_endpoint_runs_unmanaged(fleet_client: tuple[list[Any], list[dict[str, Any]]]) -> None:
     calls, given = fleet_client
     with patch.dict('os.environ', {'OTEL_OPAMP_ENDPOINT': ''}):
-        with pytest.warns(LogfireFleetWarning, match='no Fleet endpoint is set'):
+        with pytest.warns(LogfireFleetWarning, match='no Fleet endpoint is set') as record:
             logfire.configure(send_to_logfire=False, console=False, metrics=False, fleet=True)
+        assert len([w for w in record if issubclass(w.category, LogfireFleetWarning)]) == 1
     assert calls == given == []
 
 
@@ -176,3 +186,41 @@ def test_fleet_switched_off_by_its_own_variable_says_nothing(
     with patch.dict('os.environ', {'OTEL_OPAMP_ENDPOINT': '', 'OTEL_OPAMP_DISABLED': 'true'}):
         logfire.configure(send_to_logfire=False, console=False, metrics=False, fleet=True)
     assert calls == given == []
+
+
+def test_fleet_without_a_client_that_imports_runs_unmanaged(
+    fleet_client: tuple[list[Any], list[dict[str, Any]]],
+) -> None:
+    """An installed client that fails on import (not with ImportError) doesn't break `configure()`."""
+
+    def broken(name: str) -> Any:
+        raise RuntimeError('broken native core')
+
+    with patch('importlib.import_module', broken):
+        with pytest.warns(LogfireFleetWarning, match='could not be imported: RuntimeError') as record:
+            logfire.configure(
+                send_to_logfire=False, console=False, metrics=False, fleet=FleetOptions(endpoint='https://x.example')
+            )
+    assert len([w for w in record if issubclass(w.category, LogfireFleetWarning)]) == 1
+    with logfire.span('still sent'):
+        pass
+
+
+def test_fleet_gets_the_providers_the_console_and_a_later_configure_write_to(
+    fleet_client: tuple[list[Any], list[dict[str, Any]]],
+) -> None:
+    """The console and other exporters are governed by the client from the providers it is handed (the
+    client's own tests cover that): here, that it gets the providers they are on, again after a second
+    `configure()`."""
+    calls, _ = fleet_client
+    options = FleetOptions(endpoint='https://fleet.example.com/v1/opamp')
+    logfire.configure(send_to_logfire=False, metrics=False, fleet=options)
+    first = GLOBAL_CONFIG.get_tracer_provider().provider
+    assert STARTED[-1]['tracer_provider'] is first
+    assert any(type(p).__name__ == 'SimpleSpanProcessor' for p in get_span_processors())  # the console
+
+    logfire.configure(send_to_logfire=False, console=False, metrics=False, fleet=options)
+    second = GLOBAL_CONFIG.get_tracer_provider().provider
+    assert second is not first
+    assert STARTED[-1]['tracer_provider'] is second
+    assert [c[0] for c in calls].count('start') == 2

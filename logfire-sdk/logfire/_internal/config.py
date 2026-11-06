@@ -1000,8 +1000,8 @@ class LogfireConfig(_LogfireConfigData):
         variables: VariablesOptions | None = None,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
-        fleet: bool | FleetOptions | None = None,
         advanced: AdvancedOptions | None = None,
+        fleet: bool | FleetOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 

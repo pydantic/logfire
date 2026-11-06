@@ -63,7 +63,10 @@ def load_fleet(options: FleetOptions) -> Any:
         # Not typed for this SDK: the contract is checked below instead.
         logfire_fleet_otel: Any = importlib.import_module('logfire_fleet_otel')
     except ImportError:
-        _warn("Logfire Fleet needs the `fleet` extra: `pip install 'logfire[fleet]'`")
+        _warn("Logfire Fleet needs the `fleet` extra, on Python 3.11 or later: `pip install 'logfire[fleet]'`")
+        return None
+    except Exception as e:
+        _warn(f'the installed logfire-fleet-otel could not be imported: {e!r}')
         return None
     contract = getattr(logfire_fleet_otel, 'LOGFIRE_FLEET_CONTRACT', None)
     if contract != FLEET_CONTRACT:
