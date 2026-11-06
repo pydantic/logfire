@@ -45,14 +45,19 @@ The extension can't use the enrollment key itself: a Collector that connects wit
 
 ```bash
 read -rs ENROLLMENT_KEY  # paste the enrollment key, then press Enter
-jq -n --arg key "$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid)" --arg name "my-gateway" \
-  '{registration_key: $key, name: $name}' |
-  curl --fail --silent --show-error \
-    --header @<(printf 'Authorization: Bearer %s\n' "$ENROLLMENT_KEY") \
-    --header 'Content-Type: application/json' \
-    --data-binary @- \
-    https://logfire-us.pydantic.dev/v1/fleet/enroll/ |
-  (umask 077 && cat > fleet-connection.json)  # readable only by you
+(
+  set -o pipefail
+  umask 077  # fleet-connection.json is readable only by you
+  rm -f fleet-connection.json
+  jq -n --arg key "$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid)" --arg name "my-gateway" \
+    '{registration_key: $key, name: $name}' |
+    curl --fail --silent --show-error \
+      --header @<(printf 'Authorization: Bearer %s\n' "$ENROLLMENT_KEY") \
+      --header 'Content-Type: application/json' \
+      --data-binary @- \
+      --output fleet-connection.json \
+      https://logfire-us.pydantic.dev/v1/fleet/enroll/
+)
 unset ENROLLMENT_KEY
 jq '{opamp_url, name: .installation.name, expires: .credential.expires_at}' fleet-connection.json
 ```
