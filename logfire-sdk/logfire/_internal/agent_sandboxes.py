@@ -1,11 +1,12 @@
 """Build authenticated Monty pools for Logfire.agent_sandboxes.
 
-AgentSandboxPool wraps checkout to explain hosted-service refusals while yielding Monty sessions.
+AgentSandboxPool wraps checkout failures in public Agent Sandboxes errors while yielding Monty sessions.
 AgentSandboxCheckoutOptions preserves the native checkout options without duplicating their defaults.
 """
 
 from __future__ import annotations
 
+import re
 import warnings
 from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping
 from contextlib import AbstractAsyncContextManager, AsyncExitStack, asynccontextmanager
@@ -14,7 +15,7 @@ from urllib.parse import urlsplit
 
 from typing_extensions import TypedDict, Unpack
 
-from logfire.exceptions import LogfireConfigError
+from logfire.exceptions import AgentSandboxConnectionError, AgentSandboxRefusedError, LogfireConfigError
 from logfire.propagate import get_context
 
 try:
@@ -50,14 +51,17 @@ class AgentSandboxCheckoutOptions(TypedDict, total=False):
 
 
 class AgentSandboxPool:
-    """An async Monty remote pool that adds Logfire hints when checkout is refused.
+    """An async Monty remote pool with typed Agent Sandboxes checkout errors.
 
-    Monty's native pool and refusal exception cannot be subclassed. Hinted refusals raise
-    RuntimeError, with the original MontyRefusedError available as the chained cause.
+    Refusals raise AgentSandboxRefusedError; connection failures raise AgentSandboxConnectionError.
+    The original exception is always the chained cause. Errors inside a checked-out session,
+    including user-code exceptions, MontyCrashedError, MontyDisconnectError and MontyShutdown,
+    pass through unchanged.
     """
 
-    def __init__(self, pool: AsyncMontyRemote) -> None:
+    def __init__(self, pool: AsyncMontyRemote, url: str) -> None:
         self._pool = pool
+        self._url = url
 
     async def __aenter__(self) -> AgentSandboxPool:
         await self._pool.__aenter__()
@@ -67,7 +71,12 @@ class AgentSandboxPool:
         await self._pool.__aexit__(*args)
 
     def checkout(self, **kwargs: Unpack[AgentSandboxCheckoutOptions]) -> AbstractAsyncContextManager[AsyncMontySession]:
-        """Check out a session with the options and defaults of AsyncMontyRemote.checkout."""
+        """Check out a session with the options and defaults of AsyncMontyRemote.checkout.
+
+        Monty 1.5.0 uses RuntimeError for connection failures, identified by its URL-qualified
+        spawn prefix and a gRPC status, connect timeout or non-gRPC response diagnostic.
+        Other RuntimeErrors, including malformed metadata and callback failures, pass through.
+        """
 
         @asynccontextmanager
         async def checkout_session() -> AsyncGenerator[AsyncMontySession, None]:
@@ -75,6 +84,7 @@ class AgentSandboxPool:
                 try:
                     session = await stack.enter_async_context(self._pool.checkout(**kwargs))
                 except MontyRefusedError as exc:
+                    hint = None
                     if exc.status_code in ('UNAUTHENTICATED', 'PERMISSION_DENIED'):
                         hint = (
                             'Check that you use a project API key (not a personal API key) with the '
@@ -83,9 +93,22 @@ class AgentSandboxPool:
                         )
                     elif exc.status_code == 'RESOURCE_EXHAUSTED' and exc.cause in ('caller_cap', 'capacity'):
                         hint = 'Lower `max_processes` to open fewer sessions at once, or retry after a delay.'
-                    else:
+                    message = f'Agent Sandboxes refused the session: {exc.status_message or str(exc)}'
+                    if hint is not None:
+                        message += f'\nLogfire Agent Sandboxes: {hint}'
+                    raise AgentSandboxRefusedError(
+                        message, status_code=exc.status_code, status_message=exc.status_message, reason=exc.cause
+                    ) from exc
+                except RuntimeError as exc:
+                    prefix = f'failed to spawn monty worker: {self._url}: '
+                    message = str(exc).removeprefix(prefix)
+                    if not str(exc).startswith(prefix) or not re.match(
+                        r'(?:[A-Z_]+: |connect timed out after |not a gRPC server, )', message
+                    ):
                         raise
-                    raise RuntimeError(f'{exc}\nLogfire Agent Sandboxes: {hint}') from exc
+                    raise AgentSandboxConnectionError(
+                        f'Agent Sandboxes could not connect to {self._url}: {message}'
+                    ) from exc
                 yield session
 
         return checkout_session()
@@ -153,5 +176,6 @@ def create_agent_sandboxes(
             url,
             metadata=session_metadata,
             **kwargs,
-        )
+        ),
+        url,
     )

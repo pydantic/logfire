@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import shutil
+import socket
 import subprocess
 import sys
 import sysconfig
@@ -14,7 +15,14 @@ from typing import Any
 import grpc
 import pytest
 from inline_snapshot import snapshot
-from pydantic_monty import AsyncMontyRemote, AsyncMontySession, MontyRefusedError
+from pydantic_monty import (
+    AsyncMontyRemote,
+    AsyncMontySession,
+    MontyCrashedError,
+    MontyDisconnectError,
+    MontyRefusedError,
+    MontyShutdown,
+)
 
 import logfire
 from logfire._internal import agent_sandboxes as agent_sandboxes_module
@@ -41,12 +49,14 @@ class SandboxServer(grpc.GenericRpcHandler):
     It relays each stream to a local `monty subprocess` worker.
     The worker reads and writes protobuf messages framed with a little-endian 4-byte length prefix.
     The server runs in its own threads, so the client and the server do not share the test's event loop.
+    session_events can supply protobuf ChildEvent replies instead of launching a worker.
     """
 
     def __init__(self) -> None:
         self.requests: list[tuple[str, Mapping[str, str]]] = []
         self.url = ''
         self.refusal: tuple[grpc.StatusCode, str, str | None] | None = None
+        self.session_events: tuple[bytes, ...] | None = None
 
     def service(self, handler_call_details: grpc.HandlerCallDetails) -> grpc.RpcMethodHandler[bytes, bytes] | None:
         metadata = {key: value for key, value in handler_call_details.invocation_metadata if isinstance(value, str)}
@@ -59,9 +69,17 @@ class SandboxServer(grpc.GenericRpcHandler):
             if cause is not None:
                 context.set_trailing_metadata((('monty-cause', cause),))
             context.abort(status, message)
+        if self.session_events is not None:
+            context.send_initial_metadata(())
+            for event in self.session_events:
+                next(requests)
+                yield event
+            next(requests)
+            return
         monty = shutil.which('monty', path=sysconfig.get_path('scripts')) or shutil.which('monty')
         assert monty is not None
         proc = subprocess.Popen([monty, 'subprocess'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        context.add_callback(proc.kill)
         assert proc.stdin is not None and proc.stdout is not None
         stdin, stdout = proc.stdin, proc.stdout
         # The client sends nothing until the server admits the stream with its response headers.
@@ -284,17 +302,22 @@ async def test_agent_sandboxes_auth_refusal(sandbox_server: SandboxServer, statu
     """Auth hints must cover all Logfire checks and keep the real refusal and its metadata as the cause."""
     sandbox_server.refusal = (status, 'unauthenticated', None)
     async with logfire.agent_sandboxes(api_key=API_KEY, url=sandbox_server.url) as pool:
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(logfire.AgentSandboxRefusedError) as exc_info:
             async with pool.checkout():
                 pytest.fail('A refused session must not be yielded')
 
     error = exc_info.value
     cause = error.__cause__
     assert isinstance(cause, MontyRefusedError)
+    assert cause is error.__context__
     assert cause.status_code == status.name
     assert cause.status_message == 'unauthenticated'
+    assert error.status_code == cause.status_code
+    assert error.status_message == cause.status_message
+    assert error.reason == cause.cause
+    assert isinstance(error, logfire.AgentSandboxError)
     assert str(error) == (
-        f'{cause}\nLogfire Agent Sandboxes: '
+        'Agent Sandboxes refused the session: unauthenticated\nLogfire Agent Sandboxes: '
         'Check that you use a project API key (not a personal API key) with the '
         "`project:execute_agent_sandboxes` scope, that the key's region matches the server URL, "
         'and that Agent Sandboxes are enabled for the project.'
@@ -307,7 +330,7 @@ async def test_agent_sandboxes_capacity_refusal(sandbox_server: SandboxServer, c
     """Known capacity refusals must suggest fewer concurrent sessions or a delayed retry without retrying."""
     sandbox_server.refusal = (grpc.StatusCode.RESOURCE_EXHAUSTED, 'assignment attempt rate exceeded', cause)
     async with logfire.agent_sandboxes(api_key=API_KEY, url=sandbox_server.url) as pool:
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(logfire.AgentSandboxRefusedError) as exc_info:
             async with pool.checkout():
                 pytest.fail('A refused session must not be yielded')
 
@@ -316,8 +339,11 @@ async def test_agent_sandboxes_capacity_refusal(sandbox_server: SandboxServer, c
     assert original.status_code == 'RESOURCE_EXHAUSTED'
     assert original.status_message == 'assignment attempt rate exceeded'
     assert original.cause == cause
+    assert exc_info.value.status_code == original.status_code
+    assert exc_info.value.status_message == original.status_message
+    assert exc_info.value.reason == cause
     assert str(exc_info.value) == (
-        f'{original}\nLogfire Agent Sandboxes: '
+        'Agent Sandboxes refused the session: assignment attempt rate exceeded\nLogfire Agent Sandboxes: '
         'Lower `max_processes` to open fewer sessions at once, or retry after a delay.'
     )
     assert len(sandbox_server.requests) == 1
@@ -330,19 +356,26 @@ async def test_agent_sandboxes_capacity_refusal(sandbox_server: SandboxServer, c
         (grpc.StatusCode.RESOURCE_EXHAUSTED, None),
         (grpc.StatusCode.RESOURCE_EXHAUSTED, 'worker_unavailable'),
         (grpc.StatusCode.UNAVAILABLE, 'capacity'),
+        (grpc.StatusCode.FAILED_PRECONDITION, None),
     ],
 )
+@pytest.mark.parametrize('message', ['server unavailable', ''])
 async def test_agent_sandboxes_other_refusal(
-    sandbox_server: SandboxServer, status: grpc.StatusCode, cause: str | None
+    sandbox_server: SandboxServer, status: grpc.StatusCode, cause: str | None, message: str
 ) -> None:
-    """Only the selected status and cause combinations get hints; other refusals retain their type."""
-    sandbox_server.refusal = (status, 'server unavailable', cause)
+    """Every refusal is wrapped with copied attributes, even without a hint or status message."""
+    sandbox_server.refusal = (status, message, cause)
     async with logfire.agent_sandboxes(api_key=API_KEY, url=sandbox_server.url) as pool:
-        with pytest.raises(MontyRefusedError) as exc_info:
+        with pytest.raises(logfire.AgentSandboxRefusedError) as exc_info:
             async with pool.checkout():
                 pytest.fail('A refused session must not be yielded')
-    assert exc_info.value.__cause__ is None
-    assert 'Logfire Agent Sandboxes:' not in str(exc_info.value)
+    error = exc_info.value
+    original = error.__cause__
+    assert isinstance(original, MontyRefusedError)
+    assert error.status_code == original.status_code == status.name
+    assert error.status_message == original.status_message == message
+    assert error.reason == original.cause == cause
+    assert str(error) == f'Agent Sandboxes refused the session: {message or str(original)}'
 
 
 @pytest.mark.anyio
@@ -350,20 +383,100 @@ async def test_agent_sandboxes_non_refusal(sandbox_server: SandboxServer) -> Non
     """Connection or protocol errors must not receive misleading authentication hints."""
     sandbox_server.refusal = (grpc.StatusCode.UNIMPLEMENTED, 'unknown method', None)
     async with logfire.agent_sandboxes(api_key=API_KEY, url=sandbox_server.url) as pool:
-        with pytest.raises(RuntimeError, match='unknown method') as exc_info:
+        with pytest.raises(logfire.AgentSandboxConnectionError) as exc_info:
             async with pool.checkout():
                 pytest.fail('An invalid server must not yield a session')
-    assert exc_info.value.__cause__ is None
-    assert 'Logfire Agent Sandboxes:' not in str(exc_info.value)
+    assert type(exc_info.value.__cause__) is RuntimeError
+    assert isinstance(exc_info.value, logfire.AgentSandboxError)
+    assert str(exc_info.value) == (
+        f'Agent Sandboxes could not connect to {sandbox_server.url}: UNIMPLEMENTED: unknown method'
+    )
 
 
 @pytest.mark.anyio
-async def test_agent_sandboxes_body_error(sandbox_server: SandboxServer) -> None:
-    """Errors from user code inside a successful checkout must pass through unchanged and release the session."""
-    async with logfire.agent_sandboxes(api_key=API_KEY, url=sandbox_server.url, max_processes=1) as pool:
-        with pytest.raises(ValueError, match='user error'):
+@pytest.mark.parametrize('timeout', [False, True])
+async def test_agent_sandboxes_connection_failure(timeout: bool) -> None:
+    """Real TCP failures and stalled connections must become connection errors, preserving Monty's cause."""
+    with socket.socket() as server:
+        server.bind(('127.0.0.1', 0))
+        if timeout:
+            server.listen()
+        url = f'http://127.0.0.1:{server.getsockname()[1]}'
+        async with logfire.agent_sandboxes(api_key=API_KEY, url=url, request_timeout=0.1) as pool:
+            with pytest.raises(logfire.AgentSandboxConnectionError) as exc_info:
+                async with pool.checkout():
+                    pytest.fail('An unreachable server must not yield a session')
+    original = exc_info.value.__cause__
+    assert type(original) is RuntimeError
+    assert original is exc_info.value.__context__
+    inner = str(original).removeprefix(f'failed to spawn monty worker: {url}: ')
+    assert str(exc_info.value) == f'Agent Sandboxes could not connect to {url}: {inner}'
+    if timeout:
+        assert 'connect timed out after' in inner
+
+
+@pytest.mark.anyio
+async def test_agent_sandboxes_tls_failure(sandbox_server: SandboxServer) -> None:
+    """A TLS handshake against a plaintext server must be a connection error, not a refusal."""
+    url = sandbox_server.url.replace('http:', 'https:')
+    async with logfire.agent_sandboxes(api_key=API_KEY, url=url, request_timeout=0.5) as pool:
+        with pytest.raises(logfire.AgentSandboxConnectionError) as exc_info:
             async with pool.checkout():
-                raise ValueError('user error')
+                pytest.fail('An invalid TLS server must not yield a session')
+    assert type(exc_info.value.__cause__) is RuntimeError
+    assert str(exc_info.value).startswith(f'Agent Sandboxes could not connect to {url}: ')
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('metadata', [{'bad header': 'value'}, {'x-header': 'bad\nvalue'}])
+async def test_agent_sandboxes_invalid_metadata(metadata: dict[str, str], sandbox_server: SandboxServer) -> None:
+    """Invalid metadata is a programming error, even though Monty uses the same spawn-error prefix."""
+    async with logfire.agent_sandboxes(api_key=API_KEY, url=sandbox_server.url, metadata=lambda: metadata) as pool:
+        with pytest.raises(RuntimeError, match='metadata entry') as exc_info:
+            async with pool.checkout():
+                pytest.fail('Invalid metadata must not yield a session')
+    assert type(exc_info.value) is RuntimeError
+    assert exc_info.value.__cause__ is None
+    assert not sandbox_server.requests
+
+
+@pytest.mark.anyio
+async def test_agent_sandboxes_metadata_error(sandbox_server: SandboxServer) -> None:
+    """Exceptions from a caller's metadata callback must propagate as the exact original object."""
+    original = RuntimeError('no token available')
+
+    def metadata() -> Mapping[str, str]:
+        raise original
+
+    async with logfire.agent_sandboxes(api_key=API_KEY, url=sandbox_server.url, metadata=metadata) as pool:
+        with pytest.raises(RuntimeError) as exc_info:
+            async with pool.checkout():
+                pytest.fail('A failed callback must not yield a session')
+    assert exc_info.value is original
+    assert original.__cause__ is None
+
+
+@pytest.mark.anyio
+async def test_agent_sandboxes_inactive_pool() -> None:
+    """Forgetting to enter the pool is a programming error, not a server connection failure."""
+    pool = logfire.agent_sandboxes(api_key=API_KEY)
+    with pytest.raises(RuntimeError, match='pool is not active') as exc_info:
+        async with pool.checkout():
+            pytest.fail('An inactive pool must not yield a session')
+    assert type(exc_info.value) is RuntimeError
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('error_type', [ValueError, RuntimeError])
+async def test_agent_sandboxes_body_error(sandbox_server: SandboxServer, error_type: type[Exception]) -> None:
+    """Errors from user code inside a successful checkout must pass through unchanged and release the session."""
+    original = error_type(f'failed to spawn monty worker: {sandbox_server.url}: UNAVAILABLE: user error')
+    async with logfire.agent_sandboxes(api_key=API_KEY, url=sandbox_server.url, max_processes=1) as pool:
+        with pytest.raises(error_type, match='user error') as exc_info:
+            async with pool.checkout():
+                raise original
+        assert exc_info.value is original
+        assert original.__cause__ is None
         async with pool.checkout() as session:
             assert await session.feed_run('1') == 1
 
@@ -373,7 +486,7 @@ async def test_agent_sandboxes_body_refusal(sandbox_server: SandboxServer) -> No
     """A refusal raised inside the checkout body must not be wrapped as a checkout failure."""
     sandbox_server.refusal = (grpc.StatusCode.UNAUTHENTICATED, 'unauthenticated', None)
     async with logfire.agent_sandboxes(api_key=API_KEY, url=sandbox_server.url) as pool:
-        with pytest.raises(RuntimeError) as refused:
+        with pytest.raises(logfire.AgentSandboxRefusedError) as refused:
             async with pool.checkout():
                 pytest.fail('A refused session must not be yielded')
         original = refused.value.__cause__
@@ -383,6 +496,39 @@ async def test_agent_sandboxes_body_refusal(sandbox_server: SandboxServer) -> No
             async with pool.checkout():
                 raise original
         assert body_error.value is original
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    'events,error_type',
+    [
+        (None, MontyCrashedError),
+        ((b'\x52\x00',), MontyDisconnectError),
+        ((b'\x52\x00', b'\x62\x09\x0a\x07session'), MontyShutdown),
+    ],
+)
+async def test_agent_sandboxes_session_failure(
+    sandbox_server: SandboxServer, events: tuple[bytes, ...] | None, error_type: type[Exception]
+) -> None:
+    """Native crash, disconnect and shutdown errors from real session operations must pass through unchanged.
+
+    The synthetic replies encode an empty Ok event (field 10), followed for shutdown by
+    a Shutdown event (field 12) carrying the synthetic session ID "session".
+    """
+    sandbox_server.session_events = events
+    caught: list[Exception] = []
+    async with logfire.agent_sandboxes(
+        api_key=API_KEY, url=sandbox_server.url, request_timeout=0.5, auto_resume=False
+    ) as pool:
+        with pytest.raises(error_type) as exc_info:
+            async with pool.checkout() as session:
+                try:
+                    await session.feed_run('while True: pass' if events is None else '1 + 1')
+                except Exception as exc:
+                    caught.append(exc)
+                    raise
+    assert exc_info.value is caught[0]
+    assert exc_info.value.__cause__ is None
 
 
 @pytest.mark.parametrize(

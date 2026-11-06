@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import asyncio
 import importlib
 import sys
@@ -85,6 +86,19 @@ def logfire_dunder_all() -> set[str]:
     return set(logfire.__all__)
 
 
+def test_public_exports_match_stubs() -> None:
+    """The no-op package's type-checking exports must mirror the SDK, including the checkout error hierarchy."""
+    path = Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / '__init__.pyi'
+    stub = ast.parse(path.read_text())
+    exports = next(
+        node.value
+        for node in stub.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == '__all__' for target in node.targets)
+    )
+    assert set(ast.literal_eval(exports)) == logfire_dunder_all()
+
+
 def import_logfire_api_without_logfire() -> ModuleType:
     logfire = sys.modules['logfire']
     try:
@@ -108,10 +122,27 @@ def import_logfire_api_with_logfire() -> ModuleType:
     ],
 )
 def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str) -> None:
+    """All public names, including catchable checkout errors, must work with and without the SDK installed."""
     logfire__all__ = logfire_dunder_all()
 
     logfire_api = logfire_api_factory()
     assert logfire_api is not None
+
+    error = logfire_api.AgentSandboxRefusedError(
+        'Agent Sandboxes refused the session: server at capacity',
+        status_code='RESOURCE_EXHAUSTED',
+        status_message='server at capacity',
+        reason='capacity',
+    )
+    assert isinstance(error, logfire_api.AgentSandboxError)
+    assert issubclass(logfire_api.AgentSandboxError, Exception)
+    assert error.status_code == 'RESOURCE_EXHAUSTED'
+    assert error.status_message == 'server at capacity'
+    assert error.reason == 'capacity'
+    assert str(error) == 'Agent Sandboxes refused the session: server at capacity'
+    assert isinstance(logfire_api.AgentSandboxConnectionError('cannot connect'), logfire_api.AgentSandboxError)
+    for name in ('AgentSandboxError', 'AgentSandboxRefusedError', 'AgentSandboxConnectionError'):
+        logfire__all__.remove(name)
 
     for member in dir(logfire_api):
         if member.startswith('instrument_'):

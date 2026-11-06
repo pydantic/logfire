@@ -1,4 +1,8 @@
-"""**Logfire** is the observability tool focused on developer experience."""
+"""**Logfire** is the observability tool focused on developer experience.
+
+Applications use agent_sandboxes() for remote sessions and catch AgentSandboxError,
+AgentSandboxRefusedError or AgentSandboxConnectionError for checkout failures.
+"""
 
 from __future__ import annotations
 
@@ -27,6 +31,7 @@ from ._internal.main import Logfire, LogfireSpan
 from ._internal.scrubbing import ScrubbingOptions, ScrubMatch
 from ._internal.stack_info import add_non_user_code_prefix
 from ._internal.utils import suppress_instrumentation
+from .exceptions import AgentSandboxConnectionError, AgentSandboxError, AgentSandboxRefusedError
 from .integrations.logging import LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
 from .version import VERSION
@@ -133,6 +138,9 @@ def loguru_handler(*, console_log: bool = True) -> Any:
 __version__ = VERSION
 
 __all__ = (
+    'AgentSandboxError',
+    'AgentSandboxRefusedError',
+    'AgentSandboxConnectionError',
     'Logfire',
     'LogfireSpan',
     'LevelName',

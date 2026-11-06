@@ -17,6 +17,21 @@ except ImportError:
         VERSION = '0.0.0'
         METRICS_PREFERRED_TEMPORALITY = {}
 
+        class AgentSandboxError(Exception):
+            """Base class for Agent Sandboxes checkout errors."""
+
+        class AgentSandboxRefusedError(AgentSandboxError):
+            """The server refused a checkout."""
+
+            def __init__(self, message, *, status_code, status_message, reason):
+                self.status_code = status_code
+                self.status_message = status_message
+                self.reason = reason
+                super().__init__(message)
+
+        class AgentSandboxConnectionError(AgentSandboxError):
+            """The client could not reach the server or open a session."""
+
         def configure(*args, **kwargs) -> Logfire:
             if kwargs.get('local'):
                 return Logfire()
