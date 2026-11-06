@@ -181,7 +181,11 @@ def _repr_false_exclude(value: Any, seen: set[int]) -> dict[Any, Any] | None:
         if isinstance(value, pydantic.RootModel):
             return None
         cls = type(value)
-        fields = {**cls.model_fields, **cls.model_computed_fields}
+        computed_fields = cls.model_computed_fields
+        if isinstance(computed_fields, property):  # pragma: no cover
+            # Older pydantic versions only have it on instances.
+            computed_fields = value.model_computed_fields  # pyright: ignore[reportDeprecated]
+        fields = {**cls.model_fields, **computed_fields}
         exclude = {name: True for name, field in fields.items() if not field.repr}
         items = [(name, getattr(value, name, None)) for name in cls.model_fields if name not in exclude]
     elif isinstance(value, (list, tuple)):
