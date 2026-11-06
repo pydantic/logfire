@@ -288,3 +288,18 @@ def test_fleet_joined_once_warns_about_other_options(fleet_client: tuple[list[An
     logfire.configure(
         send_to_logfire=False, console=False, metrics=False, fleet=FleetOptions(endpoint='https://a.example')
     )
+
+
+def test_fleet_joined_once_governs_a_later_configure_without_an_endpoint(
+    fleet_client: tuple[list[Any], list[dict[str, Any]]],
+) -> None:
+    """`fleet=True` with no endpoint variable after joining in code: governed by that connection, not unmanaged."""
+    calls, _ = fleet_client
+    logfire.configure(
+        send_to_logfire=False, console=False, metrics=False, fleet=FleetOptions(endpoint='https://a.example')
+    )
+    with patch.dict('os.environ', {'OTEL_OPAMP_ENDPOINT': ''}):
+        with pytest.warns(LogfireFleetWarning, match='already joined Logfire Fleet') as record:
+            logfire.configure(send_to_logfire=False, console=False, metrics=False, fleet=True)
+    assert not [w for w in record if 'no Fleet endpoint' in str(w.message)]
+    assert [c[0] for c in calls].count('start') == 2

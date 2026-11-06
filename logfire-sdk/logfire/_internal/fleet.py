@@ -82,7 +82,8 @@ def load_fleet(options: FleetOptions) -> LogfireFleet | None:
             "install a matching version with `pip install -U 'logfire[fleet]'`"
         )
         return None
-    if not (options.endpoint or os.environ.get('OTEL_OPAMP_ENDPOINT')) and not _disabled():
+    # Once joined, a later configure() is governed by that connection whatever endpoint it gives.
+    if not _joined_with and not (options.endpoint or os.environ.get('OTEL_OPAMP_ENDPOINT')) and not _disabled():
         _warn('no Fleet endpoint is set: set `OTEL_OPAMP_ENDPOINT` or `FleetOptions(endpoint=...)`')
         return None
     if _joined_with and options != _joined_with[0]:
