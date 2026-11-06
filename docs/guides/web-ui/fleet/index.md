@@ -6,9 +6,9 @@ description: "Change what your OpenTelemetry Collectors and application SDKs col
 
 Change what your OpenTelemetry Collectors and applications collect, and where they send it, from Logfire: no config files to edit on each machine and no redeploys.
 
-!!! warning "Experimental"
+!!! note "Beta"
 
-    Fleet, and its support for the Open Agent Management Protocol (OpAMP), is experimental. Its features, settings and packages can change between releases. To use it, contact [Logfire support](mailto:support@pydantic.dev) for access. Once your organization has access, turn it on under [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access). On self-hosted Logfire, open the same page in your own instance. The choice applies to your account in this browser, not automatically to every member.
+    Fleet, and its support for the Open Agent Management Protocol (OpAMP), is in beta. Its features, settings and packages can change between releases.
 
 Your telemetry reaches Logfire from two kinds of software, and Fleet manages both:
 
@@ -21,7 +21,9 @@ Clients connect to Fleet over the Open Agent Management Protocol ([OpAMP](https:
 
 ## Find Fleet in Logfire
 
-Open **Fleet management** in your project's sidebar. The **Hosts**, **Kubernetes** and **Services** pages also link to it.
+Fleet is on for every plan. Open **Fleet management** in your project's sidebar. The **Hosts**, **Kubernetes** and **Services** pages also link to it.
+
+If you turned Fleet off on its settings page, it stays off for you in that browser. Opening any Fleet page offers **Turn on Fleet** to bring it back. Turning Fleet off doesn't stop your Collectors, applications or policies.
 
 ![The Collectors tab of Fleet management, listing each Collector with its connection, health, policy status and policy](../../../images/fleet/collectors.png)
 
