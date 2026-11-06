@@ -146,14 +146,15 @@ if TYPE_CHECKING:
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
-
+"""Common request headers for requests to the Logfire API."""
 API_KEY_CANNOT_WRITE_HINT = (
     'Logfire used the configured `api_key` to send telemetry because no write token was found. '
     'An API key can send telemetry only if it has the `project:write_otlp` ("Send telemetry") scope. '
     'Use an API key with that scope, set `LOGFIRE_TOKEN` to a project write token, '
     'or pass `send_to_logfire=False` to use the API key only for other Logfire APIs.'
 )
-"""Common request headers for requests to the Logfire API."""
+"""Warning text for a 401 on a token that is the configured `api_key`."""
+
 PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
 
 METRICS_PREFERRED_TEMPORALITY = {
@@ -1262,7 +1263,7 @@ class LogfireConfig(_LogfireConfigData):
                     credentials = LogfireCredentials.load_creds_file(self.data_dir)
                 except Exception:
                     # If we have tokens configured by other means, e.g. the env, no need to worry about the creds file.
-                    if not self.token and not (self.api_key and self.send_to_logfire is True):
+                    if not self.token:
                         raise
                     credentials = None
 

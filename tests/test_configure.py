@@ -2175,17 +2175,14 @@ def test_write_credentials_take_priority_over_api_key(
         assert [r.headers['Authorization'] for r in requests.request_history] == [write_token]
 
 
-def test_api_key_used_when_credentials_file_is_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_invalid_credentials_file_is_not_replaced_by_api_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A broken credentials file still fails, so telemetry never goes to the API key's project instead."""
     monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
     (tmp_path / 'logfire_credentials.json').write_text('not json')
     with requests_mock.Mocker() as requests:
-        requests.get(
-            f'{API_KEY_BASE_URL}/v1/info',
-            json={'project_name': 'my-project', 'project_url': f'{API_KEY_BASE_URL}/acme/my-project'},
-        )
-        logfire.configure(send_to_logfire=True, api_key=API_KEY, data_dir=tmp_path, console=False)
-        wait_for_check_token_thread()
-        assert GLOBAL_CONFIG.token == API_KEY
+        with pytest.raises(LogfireConfigError, match='Invalid credentials file'):
+            logfire.configure(send_to_logfire=True, api_key=API_KEY, data_dir=tmp_path, console=False)
+        assert not requests.called
 
 
 @pytest.mark.parametrize('send_to_logfire', [False, 'if-token-present'])
