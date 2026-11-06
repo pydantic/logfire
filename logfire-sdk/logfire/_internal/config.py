@@ -770,8 +770,8 @@ class _LogfireConfigData:
     distributed_tracing: bool | None
     """Whether to extract incoming trace context."""
 
-    fleet: FleetOptions | None
-    """How to join Logfire Fleet, or `None` to run unmanaged."""
+    fleet: FleetOptions | Literal[False]
+    """How to join Logfire Fleet, or `False` to run unmanaged."""
 
     advanced: AdvancedOptions
     """Advanced options primarily used for testing by Logfire developers."""
@@ -823,7 +823,8 @@ class _LogfireConfigData:
             fleet = FleetOptions(**fleet)  # pyright: ignore[reportUnknownArgumentType]
         if fleet is None:
             fleet = param_manager.load_param('fleet')
-        self.fleet = FleetOptions() if fleet is True else (fleet or None)
+        # `False` rather than `None`, so a child process (executors.py) doesn't read `LOGFIRE_FLEET` again.
+        self.fleet = FleetOptions() if fleet is True else (fleet or False)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
         min_level = param_manager.load_param('min_level', min_level)
         if min_level is None:
@@ -1868,7 +1869,7 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
                 'tail_sampling_enabled': sampling.tail is not None,
                 'code_source_set': config.code_source is not None,
                 'variables_set': config.variables is not None,
-                'fleet_enabled': config.fleet is not None,
+                'fleet_enabled': bool(config.fleet),
                 'token_count': token_count,
                 'api_key': bool(config.api_key),
                 'service_name': bool(config.service_name),

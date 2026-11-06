@@ -268,7 +268,7 @@ class _LogfireConfigData:
     code_source: CodeSource | None
     variables: VariablesOptions | LocalVariablesOptions | None
     distributed_tracing: bool | None
-    fleet: FleetOptions | None
+    fleet: FleetOptions | Literal[False]
     advanced: AdvancedOptions
 
 class LogfireConfig(_LogfireConfigData):

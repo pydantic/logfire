@@ -247,3 +247,19 @@ def test_fleet_options_reach_child_processes(fleet_client: tuple[list[Any], list
     deserialize_config(serialized)
     assert GLOBAL_CONFIG.fleet == options
     assert given[-1] == serialized['fleet']
+
+
+def test_fleet_switched_off_in_code_stays_off_in_child_processes(
+    fleet_client: tuple[list[Any], list[dict[str, Any]]],
+) -> None:
+    """`fleet=False` wins over `LOGFIRE_FLEET` in process pool workers too, which configure from the parent's config."""
+    from logfire._internal.integrations.executors import deserialize_config, serialize_config
+
+    calls, given = fleet_client
+    with patch.dict('os.environ', {'LOGFIRE_FLEET': 'true', 'OTEL_OPAMP_ENDPOINT': 'https://fleet.example.com'}):
+        logfire.configure(send_to_logfire=False, console=False, metrics=False, fleet=False)
+        serialized = serialize_config()
+        GLOBAL_CONFIG._initialized = False  # type: ignore  # as in a fresh worker
+        deserialize_config(serialized)
+    assert GLOBAL_CONFIG.fleet is False
+    assert calls == given == []
