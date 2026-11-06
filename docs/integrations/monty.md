@@ -96,3 +96,58 @@ Custom metric aggregation and collection settings in [`MetricsOptions`][logfire.
 - **No data appears in Logfire:** check that your write token is set. Run
   `logfire projects use <your-project>` locally, or set the `LOGFIRE_TOKEN` environment variable in
   production. See [Getting Started](../index.md).
+
+## Troubleshoot Agent Sandboxes
+
+Use this section when `logfire.agent_sandboxes()` cannot open or
+run a hosted sandbox. These checks do not apply to a local `Monty()` pool.
+
+- **Authentication refusal:** a message such as
+  `MontyRefusedError: failed to spawn monty worker: https://logfire-us.pydantic.dev: UNAUTHENTICATED: unauthenticated`,
+  or a refusal with `PERMISSION_DENIED`, requires these checks. Use a **project API key**, not a
+  personal key, with the `project:execute_agent_sandboxes` scope. Create it in
+  **Project → Settings → API Keys**; see [API keys](../reference/advanced/use-api-keys.md).
+  Check that the key's region matches the server URL and that Agent Sandboxes are enabled for
+  the project. This message alone does not identify which check failed.
+- **Capacity refusal:** `RESOURCE_EXHAUSTED: assignment attempt rate exceeded`, with `cause` set
+  to `caller_cap` or `capacity`, means too many sessions opened at once or the service has no
+  capacity. Lower `max_processes` in `logfire.agent_sandboxes()` or retry after a delay.
+  The SDK does not retry for you.
+- **Invalid URL:** for `a URL path, query or fragment is not supported`, use only the server
+  origin, for example `https://logfire-us.pydantic.dev`. `/monty-ws/` was the old path; remove it.
+  The SDK now checks both an explicit `url=` and a URL derived from Logfire configuration and
+  raises `LogfireConfigError` before connecting.
+- **Unbounded timeout:** for
+  `RuntimeError: monty worker protocol error: CPU execution clock requires a finite client request_timeout`,
+  do not pass `request_timeout=None`. Hosted sandboxes require a finite deadline. The SDK now
+  raises `LogfireConfigError` up front for `None`. Omit the option to use Monty's default of
+  10 seconds, or set a finite number of seconds.
+- **`connect timed out`:** check the server URL, network access, and proxy settings. If the
+  server is reachable but slow to open a session, increase the finite `request_timeout`.
+- **`not a gRPC server`:** the URL reached a web page instead of the sandbox service. gRPC is
+  the connection protocol Monty uses. Use the Logfire server origin for your region, without a
+  path, and check that a proxy does not replace its response with a web page.
+- **`MontyDisconnectError: connection closed while waiting for a reply`:** the connection ended
+  after the session opened. Inspect the exception's `status_code`, `status_message`, and `cause`.
+  The operation might already have run; do not retry operations with external effects unless
+  you can safely repeat them.
+- **`MontyShutdown`:** the server is shutting down. Keep `auto_resume=True` (the default) to
+  resume stored sessions automatically. If you disable it, use the exception's `dump` when
+  available to restore the session.
+
+The SDK adds Logfire hints to authentication and capacity refusals. Because Monty's native
+`MontyRefusedError` cannot be constructed or subclassed from Python, these hinted errors are
+`RuntimeError` exceptions, chained from the original refusal. The cause retains `status_code`,
+`status_message`, and `cause` for inspection. Other exceptions pass through unchanged.
+
+### Check project execution limits
+
+A sandbox `TimeoutError` or `MemoryError` can mean that code reached a project limit, not the
+client's `request_timeout`. The default project limits are about **50 milliseconds of execution
+time per feed** (one code submission) and **20 MiB of memory** (about 21 MB). A project admin can
+adjust these limits. Asking for a larger limit in the client does not override the project's limit.
+Reduce the work or memory needed for a submission, or ask a project admin to adjust the limit.
+
+A single sandbox `time.sleep()` is capped at about **10 seconds** and can return before a longer
+requested sleep finishes. Do not use one long sleep to wait for external work. Wait in host code
+instead. Increasing `request_timeout` does not increase this sleep cap or the project limits.
