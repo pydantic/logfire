@@ -77,12 +77,15 @@ def test_variables_config_with_dependencies() -> None:
     config = VariablesConfig(variables={})
     assert config.model_dump() == {'variables': {}}
     assert VariablesConfig.model_validate({'variables': {}}) == config
+    assert isinstance(config, VariablesConfig)
+    assert issubclass(RealVariablesConfig, VariablesConfig)
 
 
 def test_deferred_variables_config_dependency_checks(monkeypatch: pytest.MonkeyPatch) -> None:
     import logfire.variables
     from logfire.variables.config import VariablesConfig as RealVariablesConfig
 
+    config = RealVariablesConfig(variables={})
     with monkeypatch.context() as missing:
         missing.setitem(sys.modules, 'pydantic', None)
         missing.setitem(sys.modules, 'pydantic_handlebars', None)
@@ -94,6 +97,29 @@ def test_deferred_variables_config_dependency_checks(monkeypatch: pytest.MonkeyP
             VariablesConfig.model_validate({'variables': {}})
         with pytest.raises(ImportError, match=r'logfire\[variables\]'):
             getattr(logfire.variables, 'Variable')
+        deferred_config_type = getattr(logfire.variables, 'VariablesConfig')
+        with pytest.raises(ImportError, match=r'logfire\[variables\]'):
+            isinstance(config, deferred_config_type)
+        with pytest.raises(ImportError, match=r'logfire\[variables\]'):
+            issubclass(RealVariablesConfig, deferred_config_type)
 
     assert isinstance(VariablesConfig(variables={}), RealVariablesConfig)
     assert isinstance(VariablesConfig.model_validate({'variables': {}}), RealVariablesConfig)
+
+
+@pytest.mark.parametrize('check', ['instance', 'subclass'])
+def test_retained_variables_config_type_checks(check: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    from logfire.variables.config import VariablesConfig as RealVariablesConfig
+
+    with monkeypatch.context() as missing:
+        missing.setitem(sys.modules, 'pydantic', None)
+        missing.setitem(sys.modules, 'pydantic_handlebars', None)
+        from logfire.variables import VariablesConfig
+
+    if check == 'instance':
+        assert isinstance(VariablesConfig(variables={}), VariablesConfig)
+        assert isinstance(RealVariablesConfig(variables={}), VariablesConfig)
+        assert not isinstance(object(), VariablesConfig)
+    else:
+        assert issubclass(RealVariablesConfig, VariablesConfig)
+        assert not issubclass(int, VariablesConfig)

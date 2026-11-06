@@ -130,6 +130,18 @@ class _DeferredVariablesConfigMeta(type):
 
         return getattr(VariablesConfig, name)
 
+    def __instancecheck__(cls, instance: Any) -> bool:
+        ensure_variables_dependencies()
+        from logfire.variables.config import VariablesConfig
+
+        return isinstance(instance, VariablesConfig)
+
+    def __subclasscheck__(cls, subclass: type[Any]) -> bool:
+        ensure_variables_dependencies()
+        from logfire.variables.config import VariablesConfig
+
+        return issubclass(subclass, VariablesConfig)
+
 
 _deferred_variables_config = _DeferredVariablesConfigMeta('VariablesConfig', (), {'__module__': __name__})
 
