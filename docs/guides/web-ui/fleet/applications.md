@@ -151,7 +151,7 @@ Within seconds the application stops sending info logs to the [Live view](../liv
 | Connected, but **Policy status** shows **Failed** | Open the application in **SDKs**. It reports which setting it couldn't apply and why. |
 | A setting shows as unsupported | Not every setup supports every setting. Unsupported clients are left out of a rollout's preview. |
 | No telemetry arrives | Fleet doesn't send telemetry. Check the application's write token and region settings. |
-| Node.js prints `MetadataLookupWarning` at start | OpenTelemetry's Google Cloud resource detector found no GCP metadata server, so it is harmless outside GCP. To skip the cloud detectors, set `OTEL_NODE_RESOURCE_DETECTORS=env,host,os,process`. |
+| Node.js prints `MetadataLookupWarning` at start | OpenTelemetry's Google Cloud resource detector found no GCP metadata server, so it is harmless outside GCP. To skip the cloud detectors, set `OTEL_NODE_RESOURCE_DETECTORS=env,host,os,process,serviceinstance`. |
 
 ## Next steps
 
