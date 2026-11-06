@@ -51,7 +51,8 @@ jq -n --arg key "$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid)" --a
     --header "Authorization: Bearer $ENROLLMENT_KEY" \
     --header 'Content-Type: application/json' \
     --data-binary @- \
-    https://logfire-us.pydantic.dev/v1/fleet/enroll/ > fleet-connection.json
+    https://logfire-us.pydantic.dev/v1/fleet/enroll/ |
+  (umask 077 && cat > fleet-connection.json)  # readable only by you
 unset ENROLLMENT_KEY
 jq '{opamp_url, name: .installation.name, expires: .credential.expires_at}' fleet-connection.json
 ```
