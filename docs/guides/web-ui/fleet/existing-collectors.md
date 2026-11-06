@@ -48,7 +48,7 @@ read -rs ENROLLMENT_KEY  # paste the enrollment key, then press Enter
 jq -n --arg key "$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid)" --arg name "my-gateway" \
   '{registration_key: $key, name: $name}' |
   curl --fail --silent --show-error \
-    --header "Authorization: Bearer $ENROLLMENT_KEY" \
+    --header @<(printf 'Authorization: Bearer %s\n' "$ENROLLMENT_KEY") \
     --header 'Content-Type: application/json' \
     --data-binary @- \
     https://logfire-us.pydantic.dev/v1/fleet/enroll/ |
@@ -57,16 +57,17 @@ unset ENROLLMENT_KEY
 jq '{opamp_url, name: .installation.name, expires: .credential.expires_at}' fleet-connection.json
 ```
 
-Use `https://logfire-eu.pydantic.dev` for the EU region. `name` names this installation and its connection key in Fleet: use the Collector's role, such as `my-gateway`. `registration_key` is a new random ID.
+The key goes to `curl` through a file descriptor, not its command line, so other users on the machine can't see it in the process list. This needs bash or zsh. Use `https://logfire-eu.pydantic.dev` for the EU region. `name` names this installation and its connection key in Fleet: use the Collector's role, such as `my-gateway`. `registration_key` is a new random ID.
 
 `fleet-connection.json` holds the connection key in `token`. It lasts 90 days. Move it to your secret store, note `opamp_url`, and delete the file. If the file also has a `telemetry_token`, that's a Logfire write token you can use to send this Collector's data. It expires with the connection key.
 
 ## 3. Add the extension
 
-Add the extension to your Collector configuration, and add `opamp` to the extensions you already list under `service.extensions`:
+Add the extension to your Collector configuration, and add `opamp` to the extensions you already list under `service.extensions`. Keep the ones you have: this example already runs `health_check`.
 
 ```yaml
 extensions:
+  health_check: {}  # one you already have
   opamp:
     server:
       ws:
@@ -82,12 +83,12 @@ extensions:
         otel.collector.role: gateway
 
 service:
-  extensions: [opamp]
+  extensions: [health_check, opamp]  # your existing extensions, plus opamp
 ```
 
 Start the Collector with the connection key in `LOGFIRE_OPAMP_TOKEN`.
 
-- The Collector reports its configuration to Fleet with the `Authorization` header shown as `[REDACTED]`, so the key doesn't reach Fleet.
+- `reports_effective_config` sends the Collector's running configuration to Fleet, where members of your project can read it. The Collector replaces values it treats as secrets, such as this `Authorization` header and exporter API keys, with `[REDACTED]`. A secret written into an ordinary field, such as a password inside an endpoint URL, is sent as is: move it into a secret setting or an environment variable reference, or set `reports_effective_config: false`.
 - `otel.collector.role` is optional. Fleet shows it on the Collector, which helps tell Collectors apart.
 - Leave `instance_uid` unset. The extension picks a new ID each time the Collector starts.
 - Leave `accepts_restart_command` and `reports_raw_config` off. Fleet doesn't use them for this kind of Collector.
