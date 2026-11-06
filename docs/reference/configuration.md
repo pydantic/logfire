@@ -28,6 +28,9 @@ For more details, please refer to our [API documentation][logfire.configure].
     in the OS credential store; `init` saves the project's write token locally.
     For deployed applications, set `LOGFIRE_TOKEN` to a
     [write token](../how-to-guides/create-write-tokens.md) instead.
+    If no write token or project credentials are found, `logfire.configure()` sends
+    telemetry with `LOGFIRE_API_KEY`. This works only when the project API key has
+    the `project:write_otlp` (Send telemetry) scope.
     `send_to_logfire=False` and `'if-token-present'` retain their existing behavior.
 
 ## Using environment variables

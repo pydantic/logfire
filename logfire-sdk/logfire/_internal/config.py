@@ -146,6 +146,13 @@ if TYPE_CHECKING:
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
+
+API_KEY_CANNOT_WRITE_HINT = (
+    'Logfire used the configured `api_key` to send telemetry because no write token was found. '
+    'An API key can send telemetry only if it has the `project:write_otlp` ("Send telemetry") scope. '
+    'Use an API key with that scope, set `LOGFIRE_TOKEN` to a project write token, '
+    'or pass `send_to_logfire=False` to use the API key only for other Logfire APIs.'
+)
 """Common request headers for requests to the Logfire API."""
 PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
 
@@ -573,6 +580,10 @@ def configure(
         api_key: API key for the Logfire API.
 
             If not provided, will be loaded from the `LOGFIRE_API_KEY` environment variable.
+
+            If `send_to_logfire` is `True` and no write token or project credentials file is found,
+            the API key is also used to send telemetry. This requires a project API key with the
+            `project:write_otlp` scope.
 
         service_name: Name of this service.
 
@@ -1251,9 +1262,16 @@ class LogfireConfig(_LogfireConfigData):
                     credentials = LogfireCredentials.load_creds_file(self.data_dir)
                 except Exception:
                     # If we have tokens configured by other means, e.g. the env, no need to worry about the creds file.
-                    if not self.token:
+                    if not self.token and not (self.api_key and self.send_to_logfire is True):
                         raise
                     credentials = None
+
+                # An API key with the `project:write_otlp` scope can also write telemetry.
+                # It is the last fallback, so a write token or a creds file always takes priority.
+                # `'if-token-present'` ignores the API key, because an API key without that scope
+                # (e.g. one used only to query data) would make every export fail.
+                if not self.token and self.send_to_logfire is True and credentials is None and self.api_key:
+                    self.token = self.api_key
 
                 if not self.token and self.send_to_logfire is True and credentials is None:
                     # Project setup belongs in the CLI, not application startup. Never consult legacy user logins here.
@@ -1265,7 +1283,8 @@ class LogfireConfig(_LogfireConfigData):
                         'credential store, while `init` saves the project write token locally. '
                         'Pass the same `--region` or `--base-url` to both commands for a non-default server, '
                         'and use `init --data-dir` to match a custom SDK data directory. '
-                        'You can also set `LOGFIRE_TOKEN` to a project write token.'
+                        'You can also set `LOGFIRE_TOKEN` to a project write token, or set `LOGFIRE_API_KEY` '
+                        'to a project API key with the `project:write_otlp` scope.'
                     )
 
                 if credentials is not None:
@@ -1711,7 +1730,10 @@ class LogfireConfig(_LogfireConfigData):
         # be deduplicated against it. The synchronous exporter setup already warns for every
         # token in the same list, so stay silent here.
         return LogfireCredentials.from_token(
-            token, session, self.advanced.generate_base_url(token, warn_unknown_region=False)
+            token,
+            session,
+            self.advanced.generate_base_url(token, warn_unknown_region=False),
+            rejected_hint=API_KEY_CANNOT_WRITE_HINT if self.api_key and token == self.api_key else None,
         )
 
     def _ensure_flush_after_aws_lambda(self):
@@ -1922,12 +1944,16 @@ class LogfireCredentials:
                 raise LogfireConfigError(f'Invalid credentials file: {path} - {e}') from e
 
     @classmethod
-    def from_token(cls, token: str, session: requests.Session, base_url: str) -> Self | None:
+    def from_token(
+        cls, token: str, session: requests.Session, base_url: str, *, rejected_hint: str | None = None
+    ) -> Self | None:
         """Check that the token is valid.
 
         Issue a warning if the Logfire API is unreachable, or we get a response other than 200 or 401.
 
         We continue unless we get a 401. If something is wrong, we'll later store data locally for back-fill.
+
+        `rejected_hint` is appended to the warning when the API rejects the token with a 401.
 
         Raises:
             LogfireConfigError: If the token is invalid.
@@ -1943,15 +1969,16 @@ class LogfireCredentials:
             return None
 
         if response.status_code != 200:
+            hint = f'\n{rejected_hint}' if rejected_hint and response.status_code == 401 else ''
             try:
                 detail = response.json()['detail']
             except Exception:
                 warnings.warn(
-                    f'Logfire API returned status code {response.status_code}, you may have trouble sending data.',
+                    f'Logfire API returned status code {response.status_code}, you may have trouble sending data.{hint}',
                 )
             else:
                 warnings.warn(
-                    f'Logfire API returned status code {response.status_code}. Detail: {detail}',
+                    f'Logfire API returned status code {response.status_code}. Detail: {detail}{hint}',
                 )
             return None
 

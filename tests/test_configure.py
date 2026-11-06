@@ -18,7 +18,7 @@ from contextlib import ExitStack
 from io import StringIO
 from pathlib import Path
 from time import sleep, time
-from typing import Any
+from typing import Any, Literal
 from unittest import mock
 from unittest.mock import patch
 
@@ -2105,6 +2105,122 @@ def test_initialize_credentials_from_token_unhealthy():
             UserWarning, match='Logfire API returned status code 500, you may have trouble sending data.'
         ):
             LogfireConfig()._initialize_credentials_from_token('some-token')  # type: ignore
+
+
+API_KEY = 'pylf_v2_eu_00000000-0000-0000-0000-000000000000_project_api_key'
+API_KEY_BASE_URL = 'https://logfire-eu.pydantic.dev'
+
+
+@pytest.mark.parametrize('api_key_source', ['argument', 'environment'])
+def test_api_key_sends_telemetry_without_write_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, api_key_source: str
+) -> None:
+    monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
+    if api_key_source == 'environment':
+        monkeypatch.setenv('LOGFIRE_API_KEY', API_KEY)
+    with requests_mock.Mocker() as requests:
+        requests.get(
+            f'{API_KEY_BASE_URL}/v1/info',
+            json={'project_name': 'my-project', 'project_url': f'{API_KEY_BASE_URL}/acme/my-project'},
+        )
+        requests.post(f'{API_KEY_BASE_URL}/v1/traces')
+        logfire.configure(
+            send_to_logfire=True,
+            api_key=API_KEY if api_key_source == 'argument' else None,
+            data_dir=tmp_path,
+            console=False,
+            metrics=False,
+        )
+        wait_for_check_token_thread()
+        assert GLOBAL_CONFIG.token == API_KEY
+
+        logfire.info('hello')
+        logfire.force_flush()
+
+        assert [(r.method, r.url, r.headers['Authorization']) for r in requests.request_history] == [
+            ('GET', f'{API_KEY_BASE_URL}/v1/info', API_KEY),
+            ('POST', f'{API_KEY_BASE_URL}/v1/traces', API_KEY),
+        ]
+
+
+@pytest.mark.parametrize('write_credential', ['token', 'credentials-file'])
+def test_write_credentials_take_priority_over_api_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, write_credential: str
+) -> None:
+    write_token = 'pylf_v1_eu_project_write_token'
+    if write_credential == 'credentials-file':
+        (tmp_path / 'logfire_credentials.json').write_text(
+            json.dumps(
+                {
+                    'token': write_token,
+                    'project_name': 'my-project',
+                    'project_url': f'{API_KEY_BASE_URL}/acme/my-project',
+                    'logfire_api_url': API_KEY_BASE_URL,
+                }
+            )
+        )
+    else:
+        monkeypatch.setenv('LOGFIRE_TOKEN', write_token)
+    with requests_mock.Mocker() as requests:
+        requests.get(
+            f'{API_KEY_BASE_URL}/v1/info',
+            json={'project_name': 'my-project', 'project_url': f'{API_KEY_BASE_URL}/acme/my-project'},
+        )
+        logfire.configure(send_to_logfire=True, api_key=API_KEY, data_dir=tmp_path, console=False)
+        wait_for_check_token_thread()
+        assert GLOBAL_CONFIG.token == write_token
+        assert GLOBAL_CONFIG.api_key == API_KEY
+        assert [r.headers['Authorization'] for r in requests.request_history] == [write_token]
+
+
+def test_api_key_used_when_credentials_file_is_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
+    (tmp_path / 'logfire_credentials.json').write_text('not json')
+    with requests_mock.Mocker() as requests:
+        requests.get(
+            f'{API_KEY_BASE_URL}/v1/info',
+            json={'project_name': 'my-project', 'project_url': f'{API_KEY_BASE_URL}/acme/my-project'},
+        )
+        logfire.configure(send_to_logfire=True, api_key=API_KEY, data_dir=tmp_path, console=False)
+        wait_for_check_token_thread()
+        assert GLOBAL_CONFIG.token == API_KEY
+
+
+@pytest.mark.parametrize('send_to_logfire', [False, 'if-token-present'])
+def test_api_key_does_not_send_telemetry_unless_send_to_logfire_is_true(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, send_to_logfire: bool | Literal['if-token-present']
+) -> None:
+    monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
+    with requests_mock.Mocker() as requests:
+        logfire.configure(send_to_logfire=send_to_logfire, api_key=API_KEY, data_dir=tmp_path, console=False)
+        wait_for_check_token_thread()
+        assert GLOBAL_CONFIG.token is None
+        assert GLOBAL_CONFIG.api_key == API_KEY
+        assert not requests.called
+
+
+def test_api_key_without_write_scope_warns_with_hint(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
+    with requests_mock.Mocker() as requests:
+        requests.get(f'{API_KEY_BASE_URL}/v1/info', json={'detail': 'Unknown token'}, status_code=401)
+        with pytest.warns(UserWarning) as record:
+            config = LogfireConfig(api_key=API_KEY, data_dir=tmp_path)
+            config._initialize_credentials_from_token(API_KEY)  # type: ignore
+    [warning] = record
+    assert str(warning.message) == snapshot("""\
+Logfire API returned status code 401. Detail: Unknown token
+Logfire used the configured `api_key` to send telemetry because no write token was found. An API key can send telemetry only if it has the `project:write_otlp` ("Send telemetry") scope. Use an API key with that scope, set `LOGFIRE_TOKEN` to a project write token, or pass `send_to_logfire=False` to use the API key only for other Logfire APIs.\
+""")
+
+
+def test_write_token_rejection_has_no_api_key_hint(tmp_path: Path) -> None:
+    with requests_mock.Mocker() as requests:
+        requests.get(f'{API_KEY_BASE_URL}/v1/info', json={'detail': 'Unknown token'}, status_code=401)
+        with pytest.warns(UserWarning) as record:
+            config = LogfireConfig(api_key=API_KEY, data_dir=tmp_path)
+            config._initialize_credentials_from_token('pylf_v1_eu_project_write_token')  # type: ignore
+    [warning] = record
+    assert str(warning.message) == 'Logfire API returned status code 401. Detail: Unknown token'
 
 
 def test_configure_twice_no_warning(caplog: LogCaptureFixture):
