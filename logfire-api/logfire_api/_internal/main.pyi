@@ -527,7 +527,7 @@ class Logfire:
         It records Monty sessions, executed code, inputs, outputs, external calls,
         exceptions, printed text, and pool metrics. Recorded values are subject to Logfire's configured scrubbing.
         """
-    def agent_sandboxes(self, *, api_key: str | None = None, url: str | None = None, max_processes: int | None | _Unset = ..., checkout_timeout: float | None | _Unset = ..., request_timeout: float | None | _Unset = ..., connect_headers: Callable[[], Mapping[str, str]] | None | _Unset = ..., feed_duration_limit_grace: float | None | _Unset = ..., turn_duration_limit_grace: float | None | _Unset = ..., auto_resume: bool | _Unset = ..., **kwargs: Any) -> AsyncMontyRemote:
+    def agent_sandboxes(self, *, api_key: str | None = None, url: str | None = None, max_processes: int | None | _Unset = ..., checkout_timeout: float | None | _Unset = ..., request_timeout: float | None | _Unset = ..., metadata: Callable[[], Mapping[str, str]] | None | _Unset = ..., connect_headers: Callable[[], Mapping[str, str]] | None | _Unset = ..., feed_duration_limit_grace: float | None | _Unset = ..., turn_duration_limit_grace: float | None | _Unset = ..., auto_resume: bool | _Unset = ..., **kwargs: Any) -> AsyncMontyRemote:
         """Connect to Logfire Agent Sandboxes, remote Pydantic Monty workers hosted by Logfire.
 
         Requires the `agent-sandboxes` extra, e.g. `pip install 'logfire[agent-sandboxes]'`.
@@ -568,9 +568,10 @@ class Logfire:
             request_timeout: Hard per-turn deadline in seconds. A sandbox that exceeds it has its
                 session closed and the call raises `MontyCrashedError`. `None` waits indefinitely.
                 Defaults to `10.0`. Raise this when installing dependencies in a sandbox.
-            connect_headers: Called once per session to produce extra request metadata for its gRPC
+            metadata: Called once per session to produce extra request metadata for its gRPC
                 stream. Names are lowercased and values must be ASCII. These are merged with the
                 `authorization` entry and win on conflicts.
+            connect_headers: The deprecated name of `metadata`.
                 Defaults to `None`, which adds no extra headers beyond Logfire authentication.
             feed_duration_limit_grace: Seconds to wait past a feed's `max_feed_duration_secs`
                 before closing the sandbox. Defaults to `1.0`; `None` disables this backstop.

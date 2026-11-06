@@ -88,7 +88,7 @@ async def test_agent_sandboxes_run_code(sandbox_server: SandboxServer, exporter:
         async with logfire.agent_sandboxes(
             api_key=API_KEY,
             url=sandbox_server.url,
-            connect_headers=lambda: {'x-custom': 'custom-value'},
+            metadata=lambda: {'x-custom': 'custom-value'},
         ) as pool:
             async with pool.checkout() as session:
                 assert await session.feed_run('1 + 1') == 2
@@ -106,17 +106,37 @@ async def test_agent_sandboxes_run_code(sandbox_server: SandboxServer, exporter:
 
 @pytest.mark.anyio
 @pytest.mark.parametrize('header_name', ['Authorization', 'authorization', 'aUtHoRiZaTiOn'])
-async def test_agent_sandboxes_connect_headers_override(sandbox_server: SandboxServer, header_name: str) -> None:
+async def test_agent_sandboxes_metadata_override(sandbox_server: SandboxServer, header_name: str) -> None:
     async with logfire.agent_sandboxes(
         api_key=API_KEY,
         url=sandbox_server.url,
-        connect_headers=lambda: {header_name: 'Bearer other'},
+        metadata=lambda: {header_name: 'Bearer other'},
     ) as pool:
         async with pool.checkout() as session:
             assert await session.feed_run('2 * 3') == 6
 
     [(_, headers)] = sandbox_server.requests
     assert headers['authorization'] == 'Bearer other'
+
+
+@pytest.mark.anyio
+async def test_agent_sandboxes_connect_headers_deprecated(sandbox_server: SandboxServer) -> None:
+    with pytest.warns(DeprecationWarning, match='`connect_headers` is deprecated, use `metadata` instead.'):
+        pool = logfire.agent_sandboxes(
+            api_key=API_KEY, url=sandbox_server.url, connect_headers=lambda: {'X-Custom': 'old-name'}
+        )
+    async with pool:
+        async with pool.checkout() as session:
+            assert await session.feed_run('1') == 1
+
+    [(_, headers)] = sandbox_server.requests
+    assert headers['x-custom'] == 'old-name'
+    assert headers['authorization'] == f'Bearer {API_KEY}'
+
+
+def test_agent_sandboxes_metadata_and_connect_headers() -> None:
+    with pytest.raises(TypeError, match='Pass `metadata` only; `connect_headers` is its deprecated name.'):
+        logfire.agent_sandboxes(api_key=API_KEY, metadata=lambda: {}, connect_headers=lambda: {})
 
 
 @pytest.mark.anyio
@@ -190,7 +210,7 @@ def test_agent_sandboxes_url(
     'options',
     [
         {},
-        {'connect_headers': None},
+        {'metadata': None},
         {
             'max_processes': 2,
             'checkout_timeout': 3.0,
@@ -222,7 +242,7 @@ def test_agent_sandboxes_pool_options(options: dict[str, Any], monkeypatch: pyte
 
     metadata = received.pop('metadata')
     assert metadata() == {'authorization': f'Bearer {API_KEY}'}
-    assert received == {name: value for name, value in options.items() if name != 'connect_headers'}
+    assert received == {name: value for name, value in options.items() if name != 'metadata'}
 
 
 def test_agent_sandboxes_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:

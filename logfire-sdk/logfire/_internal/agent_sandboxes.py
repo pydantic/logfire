@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any
 
@@ -32,9 +33,19 @@ def create_agent_sandboxes(
     *,
     api_key: str | None,
     url: str | None,
+    metadata: Callable[[], Mapping[str, str]] | None = None,
     connect_headers: Callable[[], Mapping[str, str]] | None = None,
     **kwargs: Any,
 ) -> AsyncMontyRemote:
+    if connect_headers is not None:
+        if metadata is not None:
+            raise TypeError('Pass `metadata` only; `connect_headers` is its deprecated name.')
+        warnings.warn(
+            '`connect_headers` is deprecated, use `metadata` instead.',
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        metadata = connect_headers
     config = logfire_instance.config
     api_key = api_key or config.api_key
     if not api_key:
@@ -45,16 +56,18 @@ def create_agent_sandboxes(
     if url is None:
         url = agent_sandboxes_url(config.advanced.generate_base_url(api_key))
 
-    def metadata() -> dict[str, str]:
+    user_metadata = metadata
+
+    def session_metadata() -> dict[str, str]:
         # `traceparent` for the current span, so the server's spans for this session join the caller's trace.
         result = {name.lower(): value for name, value in get_context().items()}
         result['authorization'] = f'Bearer {api_key}'
-        if connect_headers is not None:
-            result.update((name.lower(), value) for name, value in connect_headers().items())
+        if user_metadata is not None:
+            result.update((name.lower(), value) for name, value in user_metadata().items())
         return result
 
     return AsyncMontyRemote(
         url,
-        metadata=metadata,
+        metadata=session_metadata,
         **kwargs,
     )

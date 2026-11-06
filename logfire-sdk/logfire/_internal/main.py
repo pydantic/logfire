@@ -1241,6 +1241,7 @@ class Logfire:
         max_processes: int | None | _Unset = _UNSET,
         checkout_timeout: float | None | _Unset = _UNSET,
         request_timeout: float | None | _Unset = _UNSET,
+        metadata: Callable[[], Mapping[str, str]] | None | _Unset = _UNSET,
         connect_headers: Callable[[], Mapping[str, str]] | None | _Unset = _UNSET,
         feed_duration_limit_grace: float | None | _Unset = _UNSET,
         turn_duration_limit_grace: float | None | _Unset = _UNSET,
@@ -1287,9 +1288,10 @@ class Logfire:
             request_timeout: Hard per-turn deadline in seconds. A sandbox that exceeds it has its
                 session closed and the call raises `MontyCrashedError`. `None` waits indefinitely.
                 Defaults to `10.0`. Raise this when installing dependencies in a sandbox.
-            connect_headers: Called once per session to produce extra request metadata for its gRPC
+            metadata: Called once per session to produce extra request metadata for its gRPC
                 stream. Names are lowercased and values must be ASCII. These are merged with the
                 `authorization` entry and win on conflicts.
+            connect_headers: The deprecated name of `metadata`.
                 Defaults to `None`, which adds no extra headers beyond Logfire authentication.
             feed_duration_limit_grace: Seconds to wait past a feed's `max_feed_duration_secs`
                 before closing the sandbox. Defaults to `1.0`; `None` disables this backstop.
@@ -1304,6 +1306,7 @@ class Logfire:
             'max_processes': max_processes,
             'checkout_timeout': checkout_timeout,
             'request_timeout': request_timeout,
+            'metadata': metadata,
             'connect_headers': connect_headers,
             'feed_duration_limit_grace': feed_duration_limit_grace,
             'turn_duration_limit_grace': turn_duration_limit_grace,
