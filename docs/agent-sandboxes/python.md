@@ -205,6 +205,67 @@ The most common ones:
 
 See [`logfire.agent_sandboxes()`][logfire.Logfire.agent_sandboxes] for every option.
 
+## Handle checkout errors
+
+If a checkout fails, `pool.checkout()` raises one of two Logfire errors. Catch them around the checkout:
+
+```python skip-run="true" skip-reason="external-connection"
+import asyncio
+
+import logfire
+
+logfire.configure()
+
+
+async def main():
+    async with logfire.agent_sandboxes() as pool:
+        try:
+            async with pool.checkout() as session:
+                result = await session.feed_run('1 + 1')
+                print(result)
+        except logfire.AgentSandboxRefusedError as exc:
+            print(exc.status_code, exc.status_message, exc.reason)
+        except logfire.AgentSandboxConnectionError as exc:
+            print(exc)
+
+
+asyncio.run(main())
+```
+
+Both errors inherit from `logfire.AgentSandboxError`. Catch the base class to handle either checkout failure.
+
+Every server refusal raises `AgentSandboxRefusedError`, including a refusal without a troubleshooting hint.
+Its `status_code`, `status_message`, and `reason` attributes copy the `status_code`, `status_message`, and `cause`
+of the original `MontyRefusedError`.
+Authentication and capacity refusals include a Logfire hint on a separate line.
+
+The original exception is kept as `exc.__cause__`. For example, the exception chain of a capacity refusal ends with:
+
+```text
+pydantic_monty.MontyRefusedError: failed to spawn monty worker: https://logfire-us.pydantic.dev: RESOURCE_EXHAUSTED: server at capacity
+
+The above exception was the direct cause of the following exception:
+
+logfire.exceptions.AgentSandboxRefusedError: Agent Sandboxes refused the session: server at capacity
+Logfire Agent Sandboxes: Lower `max_processes` to open fewer sessions at once, or retry after a delay.
+```
+
+A connection failure raises `AgentSandboxConnectionError`.
+Examples are an unreachable address, a connection timeout, a failed TLS handshake, or a server that does not support gRPC.
+The exception chain of a connection timeout ends with:
+
+```text
+RuntimeError: failed to spawn monty worker: https://logfire-us.pydantic.dev: connect timed out after 10s
+
+The above exception was the direct cause of the following exception:
+
+logfire.exceptions.AgentSandboxConnectionError: Agent Sandboxes could not connect to https://logfire-us.pydantic.dev: connect timed out after 10s
+```
+
+Errors inside a checked-out session pass through unchanged.
+These include exceptions from your sandbox code, `MontyCrashedError`, `MontyDisconnectError`, and `MontyShutdown`.
+Programming errors also pass through unchanged, such as invalid metadata or an exception from your metadata callback.
+
 ## Verify it worked
 
 Run the [first snippet](#run-your-first-snippet).
@@ -218,9 +279,18 @@ took.
 - **`LogfireConfigError: Agent sandboxes require a Logfire API key with the project:execute_agent_sandboxes scope`**:
   no API key was found.
   Set `LOGFIRE_API_KEY`, pass `api_key` to `logfire.configure()`, or pass `api_key` to `logfire.agent_sandboxes()`.
-- **`RuntimeError: failed to spawn monty worker: ...
-  HTTP error: 401 Unauthorized`**: the server rejected the API key.
-  Check that the key is correct, hasn't been deleted, and has permission to run code in this project's agent sandboxes.
+- **`AgentSandboxRefusedError: Agent Sandboxes refused the session: ...` with an authentication hint**:
+  the server rejected the API key.
+  Use a project API key, not a personal key.
+  Check its `project:execute_agent_sandboxes` scope and the server region.
+  Also check that Agent Sandboxes are enabled for the project.
+- **`AgentSandboxRefusedError` with `reason` set to `caller_cap` or `capacity`**: too many sessions are open.
+  Lower `max_processes` to open fewer sessions at once, or retry after a delay.
+  The SDK does not retry refusals for you.
+- **`AgentSandboxConnectionError: Agent Sandboxes could not connect to ...`**: check the URL, network access, and TLS
+  configuration.
+  Use the server origin without a path, query, or fragment.
+  Inspect `__cause__` for the original connection diagnostic.
 - **`RuntimeError: logfire.agent_sandboxes() requires the pydantic-monty-client package`**: install Logfire with the
   extra: `pip install 'logfire[agent-sandboxes]'`.
 - **`MontyCrashedError` with `timed_out=True`**: the call took longer than `request_timeout`.
