@@ -1387,9 +1387,10 @@ class LogfireConfig(_LogfireConfigData):
                         )
                         span_exporter = QuietSpanExporter(span_exporter)
                         span_exporter = RetryFewerSpansSpanExporter(span_exporter)
-                        span_exporter = RemovePendingSpansExporter(span_exporter)
                         if api_key_write_access is not None:
+                            # Inside `RemovePendingSpansExporter`, which `add_span_processor` detects by type.
                             span_exporter = ApiKeyGatedSpanExporter(span_exporter, api_key_write_access)
+                        span_exporter = RemovePendingSpansExporter(span_exporter)
                         if emscripten:  # pragma: no cover
                             # BatchSpanProcessor uses threads which fail in Pyodide / Emscripten
                             logfire_processor = SimpleSpanProcessor(span_exporter)

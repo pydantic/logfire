@@ -2468,6 +2468,35 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     assert isinstance(exporter.exporter, OTLPLogExporter)
 
 
+def test_api_key_exporters(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """The API key's exporters are gated, and pending spans and metrics still reach them."""
+    monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+    logfire.configure(send_to_logfire=True, api_key=API_KEY, data_dir=tmp_path)
+    wait_for_check_token_thread()
+
+    [console_span_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
+    assert isinstance(send_to_logfire_processor, DynamicBatchSpanProcessor)
+    assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
+    assert isinstance(send_to_logfire_processor.span_exporter.wrapped_exporter, api_key_gate.ApiKeyGatedSpanExporter)
+    assert isinstance(pending_span_processor, PendingSpanProcessor)
+    assert pending_span_processor.processor.processor._span_processors == (  # type: ignore
+        console_span_processor,
+        send_to_logfire_processor,
+    )
+
+    [logfire_metric_reader] = get_metric_readers()
+    assert isinstance(logfire_metric_reader, PeriodicExportingMetricReader)
+    metric_exporter = logfire_metric_reader._exporter  # type: ignore
+    assert isinstance(metric_exporter, api_key_gate.ApiKeyGatedMetricExporter)
+    assert isinstance(metric_exporter.wrapped_exporter, QuietMetricExporter)
+
+    [_, logfire_log_processor] = get_log_record_processors()
+    log_exporter = get_batch_log_exporter(logfire_log_processor)
+    assert isinstance(log_exporter, api_key_gate.ApiKeyGatedLogExporter)
+    assert isinstance(log_exporter.exporter, QuietLogExporter)
+
+
 def test_custom_exporters():
     custom_span_processor = SimpleSpanProcessor(ConsoleSpanExporter())
     custom_metric_reader = InMemoryMetricReader()
