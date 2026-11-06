@@ -8,15 +8,17 @@ policy has to act as the SDK is built (see `logfire_fleet_otel.LogfireFleet`).
 from __future__ import annotations
 
 import dataclasses
-import importlib
 import os
 from collections.abc import Mapping
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 from .stack_info import warn_at_user_stacklevel
 from .utils import platform_is_emscripten
+
+if TYPE_CHECKING:
+    from logfire_fleet_otel import LogfireFleet
 
 # The contract version of `logfire_fleet_otel.LogfireFleet` this SDK calls.
 FLEET_CONTRACT = 1
@@ -51,7 +53,7 @@ class LogfireFleetWarning(UserWarning):
     """The SDK couldn't join Logfire Fleet, so it runs unmanaged."""
 
 
-def load_fleet(options: FleetOptions) -> Any:
+def load_fleet(options: FleetOptions) -> LogfireFleet | None:
     """The Fleet client's hook for `options`, or `None` (with a warning) where it can't run.
 
     It never raises: telemetry is sent either way, under the SDK's own settings.
@@ -60,8 +62,9 @@ def load_fleet(options: FleetOptions) -> Any:
         _warn('Logfire Fleet needs threads, which this platform does not have')
         return None
     try:
-        # Not typed for this SDK: the contract is checked below instead.
-        logfire_fleet_otel: Any = importlib.import_module('logfire_fleet_otel')
+        # Imported here, not with this module: `import logfire` doesn't load the client and its
+        # native core unless Fleet is used.
+        import logfire_fleet_otel
     except ImportError:
         _warn("Logfire Fleet needs the `fleet` extra, on Python 3.11 or later: `pip install 'logfire[fleet]'`")
         return None
@@ -79,7 +82,8 @@ def load_fleet(options: FleetOptions) -> Any:
         _warn('no Fleet endpoint is set: set `OTEL_OPAMP_ENDPOINT` or `FleetOptions(endpoint=...)`')
         return None
     try:
-        return logfire_fleet_otel.logfire_fleet(
+        # logfire-fleet-otel 0.2.1 annotates `state_dir` with a bare `os.PathLike`.
+        return logfire_fleet_otel.logfire_fleet(  # pyright: ignore[reportUnknownMemberType]
             endpoint=options.endpoint,
             headers=options.headers,
             state_dir=options.state_dir,

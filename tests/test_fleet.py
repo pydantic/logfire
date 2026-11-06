@@ -193,10 +193,14 @@ def test_fleet_without_a_client_that_imports_runs_unmanaged(
 ) -> None:
     """An installed client that fails on import (not with ImportError) doesn't break `configure()`."""
 
-    def broken(name: str) -> Any:
-        raise RuntimeError('broken native core')
+    real_import = __import__
 
-    with patch('importlib.import_module', broken):
+    def broken(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'logfire_fleet_otel':
+            raise RuntimeError('broken native core')
+        return real_import(name, *args, **kwargs)
+
+    with patch('builtins.__import__', broken):
         with pytest.warns(LogfireFleetWarning, match='could not be imported: RuntimeError') as record:
             logfire.configure(
                 send_to_logfire=False, console=False, metrics=False, fleet=FleetOptions(endpoint='https://x.example')
