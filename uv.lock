@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
@@ -25,19 +25,22 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P4D"
 
 [options.exclude-newer-package]
-certifi = false
-genai-prices = false
-logfire-cli = false
-pip = false
-pydantic = false
 pydantic-ai-slim = false
-pydantic-core = false
-pydantic-evals = false
 pydantic-graph = false
-pydantic-handlebars = false
-pydantic-monty = false
-pydantic-monty-client = false
+pydantic-evals = false
 pydantic-monty-runtime = false
+pydantic-handlebars = false
+logfire-fleet-core = false
+pydantic = false
+pydantic-core = false
+pip = false
+pydantic-monty-client = false
+genai-prices = false
+pydantic-monty = false
+certifi = false
+logfire-cli = false
+logfire-fleet-otel = false
+logfire-fleet-client = false
 
 [manifest]
 members = [
@@ -3622,6 +3625,9 @@ fastapi = [
 flask = [
     { name = "logfire-sdk", extra = ["flask"] },
 ]
+fleet = [
+    { name = "logfire-sdk", extra = ["fleet"] },
+]
 gateway = [
     { name = "logfire-sdk", extra = ["gateway"] },
 ]
@@ -3693,6 +3699,7 @@ requires-dist = [
     { name = "logfire-sdk", extras = ["dspy"], marker = "extra == 'dspy'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["fastapi"], marker = "extra == 'fastapi'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["flask"], marker = "extra == 'flask'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["fleet"], marker = "extra == 'fleet'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["gateway"], marker = "extra == 'gateway'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["google-genai"], marker = "extra == 'google-genai'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["httpx"], marker = "extra == 'httpx'", editable = "logfire-sdk" },
@@ -3712,7 +3719,7 @@ requires-dist = [
     { name = "logfire-sdk", extras = ["variables"], marker = "extra == 'variables'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["wsgi"], marker = "extra == 'wsgi'", editable = "logfire-sdk" },
 ]
-provides-extras = ["gateway", "agent-sandboxes", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "agent-sandboxes", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables", "fleet"]
 
 [[package]]
 name = "logfire-api"
@@ -3723,6 +3730,48 @@ source = { editable = "logfire-api" }
 
 [package.metadata.requires-dev]
 dev = []
+
+[[package]]
+name = "logfire-fleet-client"
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "logfire-fleet-core" },
+    { name = "protobuf" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4e/5e/e6fc8440286000742fc57dad93a529555f14d294af09eb62466eefe6e845/logfire_fleet_client-0.2.1-py3-none-any.whl", hash = "sha256:9812f1588d0cb64847d8fa41ad81caa99b1d63d2b43c6469061a42adafb5ed22", size = 94813, upload-time = "2026-11-06T03:49:41.994Z" },
+]
+
+[[package]]
+name = "logfire-fleet-core"
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e4/d5/e817a3d91281a6477ae0f52a21257ff7c22c35364a7a36910bae0e59a2ce/logfire_fleet_core-0.2.1-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:b53ec30e29d9dd6cbe90cc1ab579a80c7fbf1bdc8bfdb008de93135ffea3e14a", size = 1032330, upload-time = "2026-11-06T03:49:19.044Z" },
+    { url = "https://files.pythonhosted.org/packages/fb/ec/1859e13c9562dbda7b6ba16b87291d66660ae7399cbe3534ff2c00c04554/logfire_fleet_core-0.2.1-py3-none-macosx_11_0_arm64.whl", hash = "sha256:a7f3f7afb4be18e0f292bdef6881e897708e1d46725634aef1c45749ddc36942", size = 921213, upload-time = "2026-11-06T03:49:21.101Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/ab/0f999e1a5afe84e5eb78a42a6532de9a03b41f647798396ee256e1cdf45d/logfire_fleet_core-0.2.1-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f578a5516d8fd5c01f119508f33e6cb4f68efa0e6e6bca3a63b08746f605464d", size = 952613, upload-time = "2026-11-06T03:49:23.011Z" },
+    { url = "https://files.pythonhosted.org/packages/68/66/d913f96df1b5d39e33fe68a5c30f0709318fb7559f87d268af75ccef3d60/logfire_fleet_core-0.2.1-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7e678a73f2bf3febf760df42e4486e2fac57d7c214d8e5f7934a5b5803c722fc", size = 1066070, upload-time = "2026-11-06T03:49:25.087Z" },
+    { url = "https://files.pythonhosted.org/packages/99/19/144f743e9cae4436bfa272da3715cedb9d2d45f00a34119ba0d8cdd22dd3/logfire_fleet_core-0.2.1-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:fa8574527eed3800c4a88fdbe85c426b823be76603f6b46e1bf4be5cb6627201", size = 951500, upload-time = "2026-11-06T03:49:26.839Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/1f/7d0b851b55cbf49bf766880faa4786710bfe4234a03454e538af626b1457/logfire_fleet_core-0.2.1-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:2cc74de3f033041383541d623a5f8b2aea5a96ea4b66bb22dbc3ebafec1e74cb", size = 1064809, upload-time = "2026-11-06T03:49:29.15Z" },
+    { url = "https://files.pythonhosted.org/packages/54/78/44483ee91996d3453a38cf3a1fa82dfca69778e35b6913fc7d7851b9a0b7/logfire_fleet_core-0.2.1-py3-none-win_amd64.whl", hash = "sha256:a34837fb49cac139df3f211133964fa5b4522a41bc7f107ffe6902d29d1891fa", size = 1002461, upload-time = "2026-11-06T03:49:31.145Z" },
+    { url = "https://files.pythonhosted.org/packages/4b/d5/ff7c465d3df61471ba69f5659c53239a0d398d98d4546b16f4f8b60e6b82/logfire_fleet_core-0.2.1-py3-none-win_arm64.whl", hash = "sha256:71c9e8a0c71c71ca141e8e4e73321e9d3d878371967b7c4597637efd493e1eea", size = 898731, upload-time = "2026-11-06T03:49:32.866Z" },
+]
+
+[[package]]
+name = "logfire-fleet-otel"
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "logfire-fleet-client" },
+    { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-sdk" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bf/79/787682bbd4582203ca4357d0371cda12a8a88df4576f42b170c3615d1cfa/logfire_fleet_otel-0.2.1-py3-none-any.whl", hash = "sha256:7e25a0086c0e3d5ec6797acb03b1840ae30b67097dad8606e6c97caa307c936c", size = 45914, upload-time = "2026-11-06T03:49:51.377Z" },
+]
 
 [[package]]
 name = "logfire-python"
@@ -3773,6 +3822,7 @@ dev = [
     { name = "litellm" },
     { name = "litestar" },
     { name = "logfire-api" },
+    { name = "logfire-fleet-otel", marker = "python_full_version >= '3.11'" },
     { name = "loguru" },
     { name = "mypy" },
     { name = "mysql-connector-python" },
@@ -3899,6 +3949,7 @@ dev = [
     { name = "litellm", marker = "python_full_version >= '3.11'", specifier = ">=1.98.0" },
     { name = "litestar", specifier = ">=2.11.0" },
     { name = "logfire-api", editable = "logfire-api" },
+    { name = "logfire-fleet-otel", marker = "python_full_version >= '3.11'", specifier = ">=0.2.1,<0.3" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "mypy", specifier = ">=1.10.0" },
     { name = "mysql-connector-python", specifier = ">=8.0" },
@@ -4039,6 +4090,9 @@ fastapi = [
 flask = [
     { name = "opentelemetry-instrumentation-flask" },
 ]
+fleet = [
+    { name = "logfire-fleet-otel", marker = "python_full_version >= '3.11'" },
+]
 gateway = [
     { name = "httpx" },
     { name = "starlette", version = "1.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -4109,6 +4163,7 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'datasets'", specifier = ">=0.27.2" },
     { name = "httpx", marker = "extra == 'gateway'", specifier = ">=0.27.0" },
     { name = "litestar", marker = "extra == 'litestar'", specifier = ">=2.11.0" },
+    { name = "logfire-fleet-otel", marker = "python_full_version >= '3.11' and extra == 'fleet'", specifier = ">=0.2.1,<0.3" },
     { name = "openinference-instrumentation-dspy", marker = "extra == 'dspy'", specifier = ">=0" },
     { name = "openinference-instrumentation-litellm", marker = "extra == 'litellm'", specifier = ">=0" },
     { name = "opentelemetry-api", specifier = ">=1.39.0,<1.46.0" },
@@ -4158,7 +4213,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.13.0" },
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["gateway", "agent-sandboxes", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "agent-sandboxes", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables", "fleet"]
 
 [[package]]
 name = "loguru"
@@ -5332,6 +5387,19 @@ requests = [
 ]
 
 [[package]]
+name = "opentelemetry-exporter-otlp"
+version = "1.45.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-exporter-otlp-proto-grpc" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e3/6f/5a561048ea372894f22f58f70e8478e4cd97d9a4e2d6f014559584a29bc5/opentelemetry_exporter_otlp-1.45.1.tar.gz", hash = "sha256:d0ac35592e77663a9fabf2740b4818c57196b1b764e0c8449d0d7bb2c7b2bc67", size = 6094, upload-time = "2026-10-06T17:33:00.966Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/36/e1/68c28d7da4482ce882a640b2c61405a78284c0a3a17a4db125647189b0b7/opentelemetry_exporter_otlp-1.45.1-py3-none-any.whl", hash = "sha256:ef3910d32b36ccbaf62390189759bd43a8109885e2d50b738ed9c9b255bf5cb5", size = 6730, upload-time = "2026-10-06T17:32:37.236Z" },
+]
+
+[[package]]
 name = "opentelemetry-exporter-otlp-common"
 version = "0.66b1"
 source = { registry = "https://pypi.org/simple" }
@@ -5353,6 +5421,25 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c1/8e/65e85e5137991a3c493b11682151d198638a5bc1dd4b4c5f67e013c57d7c/opentelemetry_exporter_otlp_proto_common-1.45.1.tar.gz", hash = "sha256:2e4adcc3a67bcf57804fc49514f0ef64974ca7590aa3491da389852b4a0628f6", size = 18873, upload-time = "2026-10-06T17:33:04.471Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/84/aa/92f225d353904e7f70b8b3e3c1b02db0cf56f744c2e83c581dc372e78873/opentelemetry_exporter_otlp_proto_common-1.45.1-py3-none-any.whl", hash = "sha256:2f446183ae7047b036226f1d846c41a834b0e8755ad13b51a51dd38952eb466c", size = 15393, upload-time = "2026-10-06T17:32:41.911Z" },
+]
+
+[[package]]
+name = "opentelemetry-exporter-otlp-proto-grpc"
+version = "1.45.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "googleapis-common-protos" },
+    { name = "grpcio" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-common" },
+    { name = "opentelemetry-exporter-otlp-proto-common" },
+    { name = "opentelemetry-proto" },
+    { name = "opentelemetry-sdk" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d6/00/a82af0be959dc58495740b169c6669a86e0811f6cd353a01eda34d255db3/opentelemetry_exporter_otlp_proto_grpc-1.45.1.tar.gz", hash = "sha256:3b3dcfbfdcb4e35149fcf309972282054b45228f5c10547d0095d6578510a9a0", size = 25997, upload-time = "2026-10-06T17:33:05.114Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4d/46/2d1da202f1e17c81aae7efcf702898d524b46709e4d3e2bf1f7f8ca8fbc6/opentelemetry_exporter_otlp_proto_grpc-1.45.1-py3-none-any.whl", hash = "sha256:e42ecb789d2fc5d8145e3dadc3e2991c9f18cd166d7c7514e234702540274b76", size = 19492, upload-time = "2026-10-06T17:32:42.838Z" },
 ]
 
 [[package]]

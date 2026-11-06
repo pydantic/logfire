@@ -52,7 +52,12 @@ from opentelemetry.sdk.metrics import (
     ObservableUpDownCounter,
     UpDownCounter,
 )
-from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
+from opentelemetry.sdk.metrics.export import (
+    AggregationTemporality,
+    MetricExporter,
+    MetricReader,
+    PeriodicExportingMetricReader,
+)
 from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import OsResourceDetector, Resource, ResourceDetector, get_aggregated_resources
 from opentelemetry.sdk.trace import (
@@ -115,6 +120,7 @@ from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWr
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
+from .fleet import FleetOptions, LogfireFleetWarning, load_fleet
 from .forwarding import OTLPForwardingManager
 from .http_transport import install_connection_policy
 from .integrations.executors import instrument_executors
@@ -553,6 +559,7 @@ def configure(
     code_source: CodeSource | None = None,
     variables: VariablesOptions | LocalVariablesOptions | None = None,
     distributed_tracing: bool | None = None,
+    fleet: bool | FleetOptions | None = None,
     advanced: AdvancedOptions | None = None,
 ) -> Logfire:
     """Configure the logfire SDK.
@@ -636,6 +643,14 @@ def configure(
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.
+        fleet: Whether to manage this SDK from Logfire Fleet: the Fleet policy then applies to everything it sends
+            (sampling, which signals are sent, log levels, redaction and volume limits, the console included).
+            `True` takes the Fleet server from the `OTEL_OPAMP_*` environment variables; a
+            [`FleetOptions`][logfire.fleet.FleetOptions] gives it in code. Needs the 'fleet' extra.
+            It never blocks or raises: until Fleet answers, the last policy saved is in force, else the SDK's own
+            settings, and where Fleet can't be joined it warns and the SDK runs unmanaged.
+
+            Defaults to the `LOGFIRE_FLEET` environment variable, otherwise `False`.
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
@@ -666,6 +681,7 @@ def configure(
             code_source=code_source,
             variables=variables,
             distributed_tracing=distributed_tracing,
+            fleet=fleet,
             advanced=advanced,
         )
     except LogfireConfigError as e:
@@ -754,6 +770,9 @@ class _LogfireConfigData:
     distributed_tracing: bool | None
     """Whether to extract incoming trace context."""
 
+    fleet: FleetOptions | Literal[False]
+    """How to join Logfire Fleet, or `False` to run unmanaged."""
+
     advanced: AdvancedOptions
     """Advanced options primarily used for testing by Logfire developers."""
 
@@ -782,6 +801,7 @@ class _LogfireConfigData:
         code_source: CodeSource | None,
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
+        fleet: bool | FleetOptions | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
@@ -798,6 +818,13 @@ class _LogfireConfigData:
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
+        if isinstance(fleet, dict):
+            # This is particularly for deserializing from a dict as in executors.py
+            fleet = FleetOptions(**fleet)  # pyright: ignore[reportUnknownArgumentType]
+        if fleet is None:
+            fleet = param_manager.load_param('fleet')
+        # `False` rather than `None`, so a child process (executors.py) doesn't read `LOGFIRE_FLEET` again.
+        self.fleet = FleetOptions() if fleet is True else (fleet or False)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
         min_level = param_manager.load_param('min_level', min_level)
         if min_level is None:
@@ -975,6 +1002,7 @@ class LogfireConfig(_LogfireConfigData):
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
+        fleet: bool | FleetOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -1005,6 +1033,7 @@ class LogfireConfig(_LogfireConfigData):
             code_source=code_source,
             variables=variables,
             distributed_tracing=distributed_tracing,
+            fleet=fleet,
             advanced=advanced,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
@@ -1045,6 +1074,7 @@ class LogfireConfig(_LogfireConfigData):
         code_source: CodeSource | None,
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
+        fleet: bool | FleetOptions | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         with self._lock:
@@ -1070,6 +1100,7 @@ class LogfireConfig(_LogfireConfigData):
                 code_source,
                 variables,
                 distributed_tracing,
+                fleet,
                 advanced,
             )
             self.initialize()
@@ -1174,7 +1205,12 @@ class LogfireConfig(_LogfireConfigData):
         otlp_forwarding_destinations: list[tuple[str, str]] = []
 
         with suppress_instrumentation():
+            # The Fleet client, where `fleet` is set and it can run: it is called below where the policy acts.
+            fleet = load_fleet(self.fleet) if self.fleet else None
             resource = self._build_resource()
+            if fleet is not None:
+                # The instance ID Fleet knows this process by.
+                resource = resource.merge(Resource(fleet.resource_attributes))
 
             head = self.sampling.head
             sampler: Sampler | None = None
@@ -1183,6 +1219,9 @@ class LogfireConfig(_LogfireConfigData):
                     sampler = ParentBasedTraceIdRatio(head)
             else:
                 sampler = head
+            if fleet is not None:
+                # The live sampler: the SDK's own until the Fleet policy sets a sampling rate or rules.
+                sampler = fleet.head_sampler(sampler)
             tracer_provider = SDKTracerProvider(
                 sampler=sampler,
                 resource=resource,
@@ -1345,7 +1384,13 @@ class LogfireConfig(_LogfireConfigData):
                             headers=headers,
                         )
                         span_exporter = QuietSpanExporter(span_exporter)
+                        if fleet is not None:
+                            # Redaction under the retries, so a span they make is redacted too.
+                            span_exporter = fleet.redacting_spans(span_exporter)
                         span_exporter = RetryFewerSpansSpanExporter(span_exporter)
+                        if fleet is not None:
+                            # The policy's gate above the retries, so each span is decided and counted once.
+                            span_exporter = fleet.spans(span_exporter)
                         span_exporter = RemovePendingSpansExporter(span_exporter)
                         if emscripten:  # pragma: no cover
                             # BatchSpanProcessor uses threads which fail in Pyodide / Emscripten
@@ -1357,23 +1402,22 @@ class LogfireConfig(_LogfireConfigData):
                         # TODO should we warn here if we have metrics but we're in emscripten?
                         # I guess we could do some hack to use InMemoryMetricReader and call it after user code has run?
                         if metric_readers is not None and not emscripten:
-                            metric_readers.append(
-                                PeriodicExportingMetricReader(
-                                    QuietMetricExporter(
-                                        OTLPMetricExporter(
-                                            endpoint=urljoin(base_url, '/v1/metrics'),
-                                            headers=headers,
-                                            session=session,
-                                            compression=compression,
-                                            # I'm pretty sure that this line here is redundant,
-                                            # and that passing it to the QuietMetricExporter is what matters
-                                            # because the PeriodicExportingMetricReader will read it from there.
-                                            preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                                        ),
-                                        preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                                    )
-                                )
+                            metric_exporter: MetricExporter = QuietMetricExporter(
+                                OTLPMetricExporter(
+                                    endpoint=urljoin(base_url, '/v1/metrics'),
+                                    headers=headers,
+                                    session=session,
+                                    compression=compression,
+                                    # I'm pretty sure that this line here is redundant,
+                                    # and that passing it to the QuietMetricExporter is what matters
+                                    # because the PeriodicExportingMetricReader will read it from there.
+                                    preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                                ),
+                                preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
                             )
+                            if fleet is not None:
+                                metric_exporter = fleet.metrics(metric_exporter)
+                            metric_readers.append(PeriodicExportingMetricReader(metric_exporter))
 
                         log_exporter = OTLPLogExporter(
                             endpoint=urljoin(base_url, '/v1/logs'),
@@ -1382,6 +1426,8 @@ class LogfireConfig(_LogfireConfigData):
                             compression=compression,
                         )
                         log_exporter = QuietLogExporter(log_exporter)
+                        if fleet is not None:
+                            log_exporter = fleet.logs(log_exporter)
 
                         if emscripten:  # pragma: no cover
                             # BatchLogRecordProcessor uses threads which fail in Pyodide / Emscripten
@@ -1518,6 +1564,21 @@ class LogfireConfig(_LogfireConfigData):
 
             self._logger_provider.set_provider(logger_provider)
             self._logger_provider.set_min_level(self.min_level)
+
+            if fleet is not None:
+                # Every other exporter on the providers (the console, `additional_span_processors`,
+                # `OTEL_EXPORTER_OTLP_*`) gets the policy's gates too, and the Fleet client starts.
+                try:
+                    fleet.start(
+                        resource,
+                        tracer_provider=tracer_provider,
+                        meter_provider=meter_provider,
+                        logger_provider=logger_provider,
+                    )
+                except Exception as e:  # pragma: no cover - the client promises not to raise
+                    warn_at_user_stacklevel(
+                        f'Logfire Fleet could not start: {e!r}. The SDK runs unmanaged.', category=LogfireFleetWarning
+                    )
 
             if self is GLOBAL_CONFIG and not self._has_set_providers:
                 self._has_set_providers = True
@@ -1808,6 +1869,7 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
                 'tail_sampling_enabled': sampling.tail is not None,
                 'code_source_set': config.code_source is not None,
                 'variables_set': config.variables is not None,
+                'fleet_enabled': bool(config.fleet),
                 'token_count': token_count,
                 'api_key': bool(config.api_key),
                 'service_name': bool(config.service_name),
