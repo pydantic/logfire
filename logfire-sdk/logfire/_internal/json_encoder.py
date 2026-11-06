@@ -198,7 +198,10 @@ def _repr_false_exclude(value: Any, seen: set[int]) -> dict[Any, Any] | None:
     if value_id not in seen:
         seen = seen | {value_id}
         for key, item in items:
-            if (nested := _repr_false_exclude(item, seen)) is not None:
+            # Most items are plain values, so skip them without a call.
+            if not isinstance(item, (str, int, float, type(None))) and (
+                (nested := _repr_false_exclude(item, seen)) is not None
+            ):
                 exclude[key] = nested
     return exclude or None
 
