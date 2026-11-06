@@ -230,7 +230,8 @@ except ImportError:
             async def forward_export_request_starlette(self, *args, **kwargs) -> MagicMock:
                 return MagicMock()
 
-            def shutdown(self, *args, **kwargs) -> None: ...
+            def shutdown(self, *args, **kwargs) -> bool:
+                return True
 
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span
