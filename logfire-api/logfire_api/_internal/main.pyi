@@ -51,7 +51,7 @@ from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
 from pydantic_evals.reporting import EvaluationReport
-from pydantic_monty import AsyncMontyWebsocket
+from pydantic_monty import AsyncMontyRemote
 from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
 from snowflake.connector.connection import SnowflakeConnection
 from sqlalchemy import Engine
@@ -527,12 +527,12 @@ class Logfire:
         It records Monty sessions, executed code, inputs, outputs, external calls,
         exceptions, printed text, and pool metrics. Recorded values are subject to Logfire's configured scrubbing.
         """
-    def agent_sandboxes(self, *, api_key: str | None = None, url: str | None = None, max_processes: int | None | _Unset = ..., checkout_timeout: float | None | _Unset = ..., request_timeout: float | None | _Unset = ..., connect_headers: Callable[[], Mapping[str, str]] | None | _Unset = ..., feed_duration_limit_grace: float | None | _Unset = ..., turn_duration_limit_grace: float | None | _Unset = ..., auto_resume: bool | _Unset = ..., **kwargs: Any) -> AsyncMontyWebsocket:
+    def agent_sandboxes(self, *, api_key: str | None = None, url: str | None = None, max_processes: int | None | _Unset = ..., checkout_timeout: float | None | _Unset = ..., request_timeout: float | None | _Unset = ..., connect_headers: Callable[[], Mapping[str, str]] | None | _Unset = ..., feed_duration_limit_grace: float | None | _Unset = ..., turn_duration_limit_grace: float | None | _Unset = ..., auto_resume: bool | _Unset = ..., **kwargs: Any) -> AsyncMontyRemote:
         """Connect to Logfire Agent Sandboxes, remote Pydantic Monty workers hosted by Logfire.
 
         Requires the `agent-sandboxes` extra, e.g. `pip install 'logfire[agent-sandboxes]'`.
 
-        Returns a [`pydantic_monty.AsyncMontyWebsocket`][pydantic_monty.AsyncMontyWebsocket] pool;
+        Returns a [`pydantic_monty.AsyncMontyRemote`][pydantic_monty.AsyncMontyRemote] pool;
         use it as an async context manager and check out sessions from it:
 
         ```py
@@ -559,24 +559,25 @@ class Logfire:
             api_key: A Logfire API key with the `project:execute_agent_sandboxes` scope.
                 Defaults to the `api_key` passed to [`configure()`][logfire.configure],
                 then the `LOGFIRE_API_KEY` environment variable.
-            url: The WebSocket URL of the sandboxes server.
+            url: The `https://` URL of the sandboxes server.
                 Defaults to the Logfire region the API key belongs to.
-            max_processes: Cap on concurrent sandbox connections. Defaults to `None`, which uses
+            max_processes: Cap on concurrent sandbox sessions. Defaults to `None`, which uses
                 the CPU count; checkouts beyond it wait.
             checkout_timeout: Seconds `checkout()` waits for capacity before raising `TimeoutError`.
                 Defaults to `None`, which waits forever.
             request_timeout: Hard per-turn deadline in seconds. A sandbox that exceeds it has its
-                connection closed and the call raises `MontyCrashedError`. `None` waits indefinitely.
+                session closed and the call raises `MontyCrashedError`. `None` waits indefinitely.
                 Defaults to `10.0`. Raise this when installing dependencies in a sandbox.
-            connect_headers: Called once per session to produce extra headers for the WebSocket
-                connection. These are merged with the `Authorization` header and win on conflicts.
+            connect_headers: Called once per session to produce extra request metadata for its gRPC
+                stream. Names are lowercased and values must be ASCII. These are merged with the
+                `authorization` entry and win on conflicts.
                 Defaults to `None`, which adds no extra headers beyond Logfire authentication.
             feed_duration_limit_grace: Seconds to wait past a feed's `max_feed_duration_secs`
                 before closing the sandbox. Defaults to `1.0`; `None` disables this backstop.
             turn_duration_limit_grace: The same, for `max_turn_duration_secs`. Defaults to `1.0`.
             auto_resume: When the server drains a stored session, transparently resume it on
                 another server instead of raising `MontyShutdown`. Defaults to `True`.
-            kwargs: Additional keyword arguments passed to `AsyncMontyWebsocket` for future compatibility.
+            kwargs: Additional keyword arguments passed to `AsyncMontyRemote` for future compatibility.
         """
     def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.

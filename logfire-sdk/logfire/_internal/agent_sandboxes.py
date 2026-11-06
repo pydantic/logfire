@@ -7,7 +7,7 @@ from logfire.exceptions import LogfireConfigError
 from logfire.propagate import get_context
 
 try:
-    from pydantic_monty import AsyncMontyWebsocket
+    from pydantic_monty import AsyncMontyRemote
 except ImportError:
     raise RuntimeError(
         '`logfire.agent_sandboxes()` requires the `pydantic-monty-client` package.\n'
@@ -20,10 +20,11 @@ if TYPE_CHECKING:
 
 
 def agent_sandboxes_url(base_url: str) -> str:
-    """Convert a Logfire HTTP(S) base URL into the agent sandboxes WebSocket URL."""
-    scheme, _, rest = base_url.partition('://')
-    scheme = {'https': 'wss', 'http': 'ws'}.get(scheme, scheme)
-    return f'{scheme}://{rest.rstrip("/")}/monty-ws/'
+    """Return the agent sandboxes server URL for a Logfire HTTP(S) base URL.
+
+    The client opens its gRPC stream at the root of this URL.
+    """
+    return base_url.rstrip('/')
 
 
 def create_agent_sandboxes(
@@ -33,7 +34,7 @@ def create_agent_sandboxes(
     url: str | None,
     connect_headers: Callable[[], Mapping[str, str]] | None = None,
     **kwargs: Any,
-) -> AsyncMontyWebsocket:
+) -> AsyncMontyRemote:
     config = logfire_instance.config
     api_key = api_key or config.api_key
     if not api_key:
@@ -44,7 +45,7 @@ def create_agent_sandboxes(
     if url is None:
         url = agent_sandboxes_url(config.advanced.generate_base_url(api_key))
 
-    def headers() -> dict[str, str]:
+    def metadata() -> dict[str, str]:
         # `traceparent` for the current span, so the server's spans for this session join the caller's trace.
         result = {name.lower(): value for name, value in get_context().items()}
         result['authorization'] = f'Bearer {api_key}'
@@ -52,8 +53,8 @@ def create_agent_sandboxes(
             result.update((name.lower(), value) for name, value in connect_headers().items())
         return result
 
-    return AsyncMontyWebsocket(
+    return AsyncMontyRemote(
         url,
-        connect_headers=headers,
+        metadata=metadata,
         **kwargs,
     )
