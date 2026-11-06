@@ -4,9 +4,9 @@ description: "Add the Collector's own opamp extension to a Collector you already
 ---
 # Connect an existing Collector
 
-!!! warning "Experimental"
+!!! note "Beta"
 
-    Fleet is experimental and can change between releases. Contact [Logfire support](mailto:support@pydantic.dev) for access.
+    Fleet is in beta and can change between releases. It is off until you turn it on: see [Turn on Fleet](index.md#turn-on-fleet).
 
 If you already run an OpenTelemetry Collector and manage its configuration yourself, with Helm, GitOps or a file on disk, you can still see it in Fleet. Add the [`opamp` extension](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/opampextension) that ships in the Collector Contrib distribution and give it a Fleet connection key. The extension connects to Fleet over the Open Agent Management Protocol (OpAMP), the OpenTelemetry standard for managing telemetry software remotely. You don't install anything else.
 

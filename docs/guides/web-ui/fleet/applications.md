@@ -4,13 +4,13 @@ description: "Connect a Python, Node.js, Java, .NET or Go application to Fleet, 
 ---
 # Manage applications
 
-!!! warning "Experimental"
+!!! note "Beta"
 
-    Fleet is experimental and can change between releases. Contact [Logfire support](mailto:support@pydantic.dev) for access.
+    Fleet is in beta and can change between releases. It is off until you turn it on: see [Turn on Fleet](index.md#turn-on-fleet).
 
 Change what a running application records and sends: its sampling rate, minimum log level, redaction and scrubbing, and which signals it exports. You change these from Logfire, with no restart or redeploy.
 
-Fleet needs to be turned on for your account: see [Fleet](index.md). Each application takes its settings from an **SDK policy**. A policy sets only the settings you choose; every other setting stays as the application configured it ("Application controlled"). See [Change policies](policies.md).
+Fleet needs to be turned on: see [Turn on Fleet](index.md#turn-on-fleet). Each application takes its settings from an **SDK policy**. A policy sets only the settings you choose; every other setting stays as the application configured it ("Application controlled"). See [Change policies](policies.md).
 
 ## Before you start
 
@@ -151,6 +151,7 @@ Within seconds the application stops sending info logs to the [Live view](../liv
 | Connected, but **Policy status** shows **Failed** | Open the application in **SDKs**. It reports which setting it couldn't apply and why. |
 | A setting shows as unsupported | Not every setup supports every setting. Unsupported clients are left out of a rollout's preview. |
 | No telemetry arrives | Fleet doesn't send telemetry. Check the application's write token and region settings. |
+| Node.js prints `MetadataLookupWarning` at start | OpenTelemetry's Google Cloud resource detector found no GCP metadata server, so it is harmless outside GCP. To skip the cloud detectors, set `OTEL_NODE_RESOURCE_DETECTORS=env,host,os,process`. |
 
 ## Next steps
 

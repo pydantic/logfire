@@ -4,13 +4,13 @@ description: "Install a managed OpenTelemetry Collector on a host with one comma
 ---
 # Manage Collectors
 
-!!! warning "Experimental"
+!!! note "Beta"
 
-    Fleet is experimental and can change between releases. Contact [Logfire support](mailto:support@pydantic.dev) for access.
+    Fleet is in beta and can change between releases. It is off until you turn it on: see [Turn on Fleet](index.md#turn-on-fleet).
 
 Install an OpenTelemetry Collector on a host with one command, or connect the Collectors in a Kubernetes cluster, then change what they collect and where they send it from Logfire. An OpenTelemetry Collector is a program that gathers telemetry (host metrics, log files, data your applications send it), processes it, and sends it on.
 
-Fleet needs to be turned on for your account: see [Fleet](index.md). Each Collector runs the pipeline in its **Collector policy**, which you edit in Logfire: see [Change policies](policies.md).
+Fleet needs to be turned on: see [Turn on Fleet](index.md#turn-on-fleet). Each Collector runs the pipeline in its **Collector policy**, which you edit in Logfire: see [Change policies](policies.md).
 
 Already run a Collector whose configuration you manage yourself? Add the Collector's own `opamp` extension to see it in Fleet without changing how you configure it: see [Connect an existing Collector](existing-collectors.md).
 
@@ -78,7 +78,9 @@ Select a Collector to see what it reported: its health per component, the config
 | --- | --- |
 | A host never appears | Run the install command again with `--dry-run` to see each step. The host needs outbound HTTPS to Logfire. |
 | A host appears but sends nothing | A Collector collects nothing until it has a policy. Open it and check **Policy status**. |
-| **Policy status** shows **Failed** | Open the Collector. It reports which component or setting it could not apply. A Collector refuses a version that uses a component it doesn't include, and keeps running the configuration it has. |
+| **Policy status** shows **Failed** | Open the Collector: Fleet says why. A host Collector checks each version before it runs it, refuses one that uses a component it doesn't include, and keeps running the configuration it has. Fix the policy and publish again. |
+| **Failed** says another program holds the port | Another Collector or agent on the host already listens on a port the policy uses, often 4317 or 4318 for OTLP. Stop that program, or change the receiver's port in the policy and publish again. A host's first policy has nothing earlier to go back to, so the Collector keeps restarting until then. |
+| Kubernetes Collector pods keep restarting after a publish | Kubernetes Collectors don't check a version before running it. Fleet warns when a policy uses components the `otelcol-contrib` image lacks. Publish a fixed version, or restore the previous one (see [roll back](policies.md#see-past-versions-and-roll-back)). |
 | The Kubernetes bridge never connects | Check the bridge pod's logs in the `logfire-fleet` namespace, and that the connection key Secret exists there. |
 | Kubernetes Collectors don't start | Check that the Operator's controller and webhooks are ready, and that the Collector namespaces exist. |
 
