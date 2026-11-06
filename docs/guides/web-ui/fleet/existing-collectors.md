@@ -88,7 +88,7 @@ service:
 
 Start the Collector with the connection key in `LOGFIRE_OPAMP_TOKEN`.
 
-- `reports_effective_config` sends the Collector's running configuration to Fleet, where members of your project can read it. The Collector replaces values it treats as secrets, such as this `Authorization` header and exporter API keys, with `[REDACTED]`. A secret written into an ordinary field, such as a password inside an endpoint URL, is sent as is: move it into a secret setting or an environment variable reference, or set `reports_effective_config: false`.
+- `reports_effective_config` sends the Collector's running configuration to Fleet, where members of your project can read it. The Collector replaces values it treats as secrets, such as this `Authorization` header and exporter API keys, with `[REDACTED]`. A secret in an ordinary field, such as a password inside an endpoint URL, is sent as is, even when it comes from an environment variable: move it into a setting the component treats as a secret, or set `reports_effective_config: false`.
 - `otel.collector.role` is optional. Fleet shows it on the Collector, which helps tell Collectors apart.
 - Leave `instance_uid` unset. The extension picks a new ID each time the Collector starts.
 - Leave `accepts_restart_command` and `reports_raw_config` off. Fleet doesn't use them for this kind of Collector.
