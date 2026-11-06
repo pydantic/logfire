@@ -224,3 +224,26 @@ def test_fleet_gets_the_providers_the_console_and_a_later_configure_write_to(
     assert second is not first
     assert STARTED[-1]['tracer_provider'] is second
     assert [c[0] for c in calls].count('start') == 2
+
+
+def test_fleet_options_reach_child_processes(fleet_client: tuple[list[Any], list[dict[str, Any]]]) -> None:
+    """The config handed to process pool workers carries the Fleet options, and a worker joins with them."""
+    import pickle
+
+    from logfire._internal.integrations.executors import deserialize_config, serialize_config
+
+    _, given = fleet_client
+    options = FleetOptions(endpoint='https://fleet.example.com/v1/opamp', heartbeat_interval=5)
+    logfire.configure(send_to_logfire=False, console=False, metrics=False, fleet=options)
+    serialized = pickle.loads(pickle.dumps(serialize_config()))
+    assert serialized['fleet'] == {
+        'endpoint': 'https://fleet.example.com/v1/opamp',
+        'headers': None,
+        'state_dir': None,
+        'heartbeat_interval': 5,
+    }
+
+    GLOBAL_CONFIG._initialized = False  # type: ignore  # as in a fresh worker
+    deserialize_config(serialized)
+    assert GLOBAL_CONFIG.fleet == options
+    assert given[-1] == serialized['fleet']
