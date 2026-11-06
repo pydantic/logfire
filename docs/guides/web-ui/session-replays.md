@@ -10,13 +10,13 @@ A session replay records changes to the page's document structure and user inter
 
 !!! note "Early access"
 
-    Session Replay is available in early access on Growth, Enterprise, and self-hosted Logfire, as part of frontend observability. To turn it on, enable **Frontend observability** under [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access). The choice applies to your account in this browser, not automatically to every member.
+    Session Replay is available in early access. [Contact Pydantic](https://pydantic.dev/contact) if you are interested.
 
 {{ video("e49bf181d6a087689147e170f104b86a") }}
 
 ## Record sessions
 
-1. Create a frontend application under **Project settings → Frontend applications** and add its generated browser setup to your application.
+1. Open **Frontend → Session replays** in your project and select **Set up**. Create a frontend application or select an existing application, then add its generated browser setup to your application.
 2. Install the optional `@pydantic/logfire-session-replay` package.
 3. Follow the [Session Replay setup](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#session-replay) to load the recorder and configure the replay endpoint.
 4. Deploy the change, open the application, and interact with more than one page or control.
