@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 from logfire.exceptions import LogfireConfigError
 from logfire.propagate import get_context
 
 try:
-    from pydantic_monty import AsyncMontyWebsocket
+    from pydantic_monty import AsyncMontyRemote
 except ImportError:
     raise RuntimeError(
         '`logfire.agent_sandboxes()` requires the `pydantic-monty-client` package.\n'
@@ -20,10 +22,17 @@ if TYPE_CHECKING:
 
 
 def agent_sandboxes_url(base_url: str) -> str:
-    """Convert a Logfire HTTP(S) base URL into the agent sandboxes WebSocket URL."""
-    scheme, _, rest = base_url.partition('://')
-    scheme = {'https': 'wss', 'http': 'ws'}.get(scheme, scheme)
-    return f'{scheme}://{rest.rstrip("/")}/monty-ws/'
+    """Return the agent sandboxes server URL for a Logfire HTTP(S) base URL.
+
+    The client opens its gRPC stream at the root of this URL, so the base URL must not have a path.
+    """
+    parts = urlsplit(base_url)
+    if parts.path.strip('/') or parts.query or parts.fragment:
+        raise LogfireConfigError(
+            f'Agent sandboxes are served at the root of the Logfire URL, but the base URL {base_url!r} has a path. '
+            'Pass the sandboxes server URL to `logfire.agent_sandboxes(url=...)`.'
+        )
+    return f'{parts.scheme}://{parts.netloc}'
 
 
 def create_agent_sandboxes(
@@ -31,9 +40,19 @@ def create_agent_sandboxes(
     *,
     api_key: str | None,
     url: str | None,
+    metadata: Callable[[], Mapping[str, str]] | None = None,
     connect_headers: Callable[[], Mapping[str, str]] | None = None,
     **kwargs: Any,
-) -> AsyncMontyWebsocket:
+) -> AsyncMontyRemote:
+    if connect_headers is not None:
+        if metadata is not None:
+            raise TypeError('Pass `metadata` only; `connect_headers` is its deprecated name.')
+        warnings.warn(
+            '`connect_headers` is deprecated, use `metadata` instead.',
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        metadata = connect_headers
     config = logfire_instance.config
     api_key = api_key or config.api_key
     if not api_key:
@@ -44,16 +63,18 @@ def create_agent_sandboxes(
     if url is None:
         url = agent_sandboxes_url(config.advanced.generate_base_url(api_key))
 
-    def headers() -> dict[str, str]:
+    user_metadata = metadata
+
+    def session_metadata() -> dict[str, str]:
         # `traceparent` for the current span, so the server's spans for this session join the caller's trace.
         result = {name.lower(): value for name, value in get_context().items()}
         result['authorization'] = f'Bearer {api_key}'
-        if connect_headers is not None:
-            result.update((name.lower(), value) for name, value in connect_headers().items())
+        if user_metadata is not None:
+            result.update((name.lower(), value) for name, value in user_metadata().items())
         return result
 
-    return AsyncMontyWebsocket(
+    return AsyncMontyRemote(
         url,
-        connect_headers=headers,
+        metadata=session_metadata,
         **kwargs,
     )
