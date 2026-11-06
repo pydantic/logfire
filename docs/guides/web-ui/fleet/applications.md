@@ -28,13 +28,13 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
 
     === "Python with Logfire"
 
-        Requires Python 3.11+ and Logfire 5.1 or a later 5.x release.
+        Requires Python 3.11+ and Logfire `>=5.1,<6`. If you are upgrading from 4.x, read the [5.x upgrade notes](../../../release-notes.md#upgrading-from-4x-to-5x) first.
 
         ```bash
         pip install 'logfire-fleet-otel[logfire]'
         ```
 
-        Replace your `logfire.configure()` call. Keep its other options and your instrumentation calls:
+        Replace your `logfire.configure(...)` call with `logfire_fleet_otel.configure_logfire(...)`, using the same arguments. Keep your instrumentation calls:
 
         ```py skip-run="true" skip-reason="external-connection"
         import logfire_fleet_otel
@@ -45,7 +45,7 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
         )
         ```
 
-        Console output stays off so the policy controls where your telemetry goes.
+        Without `OTEL_OPAMP_ENDPOINT` set (and without an `endpoint=` argument), this behaves like `logfire.configure()` with the same arguments. You can deploy the code before adding the Fleet environment variables. See the [Python Logfire guide](https://github.com/pydantic/opamp-clients/blob/main/docs/python-otel.md#the-logfire-sdk-configure_logfire) for the full reference.
 
     === "Python with OpenTelemetry"
 
@@ -58,6 +58,8 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
         opentelemetry-instrument python app.py
         ```
 
+        See the [Python OpenTelemetry guide](https://github.com/pydantic/opamp-clients/blob/main/docs/python-otel.md) for configuration and deployment examples.
+
     === "Node.js"
 
         Requires Node.js 22+. Uses OpenTelemetry automatic instrumentation.
@@ -66,6 +68,8 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
         npm install @pydantic/logfire-fleet-otel
         node --import @pydantic/logfire-fleet-otel/register app.js
         ```
+
+        See the [Node.js guide](https://github.com/pydantic/opamp-clients/blob/main/docs/node-otel.md) for configuration and deployment examples.
 
     === "Java"
 
@@ -78,6 +82,8 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
           -Dotel.javaagent.extensions=logfire-fleet-javaagent-extension.jar \
           -jar app.jar
         ```
+
+        See the [Java guide](https://github.com/pydantic/opamp-clients/blob/main/docs/javaagent.md) for configuration and deployment examples.
 
     === ".NET"
 
@@ -94,7 +100,7 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
 
     === "Go"
 
-        Requires Go 1.25+. One call in `main` sets up OpenTelemetry and keeps your instrumentations.
+        Requires Go 1.25+ for the pinned v0.2.0 below. One call in `main` sets up OpenTelemetry and keeps your instrumentations.
 
         ```bash
         go get github.com/pydantic/opamp-clients/go/opampotel@v0.2.0
@@ -120,7 +126,20 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
         }
         ```
 
-4. Save the **Fleet connection key** Logfire shows in your secret manager: you can't view it again after closing setup. Set the variables Logfire shows before you start the application: `OTEL_OPAMP_ENDPOINT`, `OTEL_OPAMP_HEADERS` with the connection key, and `OTEL_SERVICE_NAME`. In a terminal, Logfire's commands prompt for the key without showing it. In production, set the variables in your deployment instead.
+        See the [Go guide](https://github.com/pydantic/opamp-clients/blob/main/docs/go-otel.md) for configuration and deployment examples.
+
+4. Save the **Fleet connection key** from this **Add application** setup in your secret manager. Logfire shows it once: you can't view it again after closing setup. Set these environment variables before starting the application:
+
+    | Variable | Value |
+    | --- | --- |
+    | `OTEL_OPAMP_ENDPOINT` | US: `wss://logfire-us.pydantic.dev/v1/opamp`. EU: `wss://logfire-eu.pydantic.dev/v1/opamp`. Use your project's region. |
+    | `OTEL_OPAMP_HEADERS` | `Authorization=Bearer%20<Fleet connection key>`. Replace `<Fleet connection key>` with the key from setup. `%20` is the encoded space between `Bearer` and the key, required by OpenTelemetry's header format. |
+    | `OTEL_SERVICE_NAME` | The application name you entered in Fleet, for example `checkout-api`. This names the application in Fleet. |
+
+    For self-hosted Logfire, use your [Logfire host](../../../reference/self-hosted/overview.md#client-configuration) with `/v1/opamp`, replacing `https://` with `wss://`: for example, `wss://logfire.example.com/v1/opamp`.
+
+    In a terminal, Logfire's setup commands prompt for the key without showing it. In production, set the variables in your deployment instead.
+
 5. Start the application, and select **Check connection**.
 
 The connection key only manages settings. Your application keeps sending telemetry with its existing write token. Each language has a full guide in [pydantic/opamp-clients](https://github.com/pydantic/opamp-clients), including frameworks and deployment examples.

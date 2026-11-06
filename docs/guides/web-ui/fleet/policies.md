@@ -47,6 +47,35 @@ Open an SDK policy to change its sections: **Trace sampling**, **Sampling rules*
 
 Sampling (recording only a share of new traces) and exports change what reaches Logfire. Redaction and scrubbing (removing sensitive values before data leaves the application) change what Logfire stores.
 
+### Protect data at startup
+
+!!! warning "A new application starts with its own settings"
+
+    With no saved policy, the SDK uses the application's own settings until it connects to Fleet and applies its first policy. Records exported before then are not filtered or scrubbed by the policy. Configure any protection you need from startup in the application itself; don't rely on Fleet for it.
+
+On later starts, the SDK restores its last applied policy from saved state before reconnecting. If there is no usable saved policy, it starts with the application's settings again. See [SDK startup behavior](https://github.com/pydantic/opamp-clients/blob/main/docs/sdk-settings.md#at-start).
+
+### Match scrubbing patterns
+
+A policy's scrubbing patterns match a **whole attribute key or whole string value**, ignoring ASCII letter case. They are not regular expressions: only `*` has a special meaning, matching any number of characters, including none.
+
+| Policy pattern | Matches | Does not match |
+| --- | --- | --- |
+| `zebra` | The key or string value `zebra` | `zebra_ref`, `a zebra reference` |
+| `*zebra*` | `zebra`, `zebra_ref`, `a zebra reference` | `horse_ref` |
+
+When a key matches, scrubbing replaces its value. When a string value matches, scrubbing replaces that string. The SDK's [built-in scrubbing patterns](../../../how-to-guides/scrubbing.md) match substrings instead, which is why a built-in pattern such as `password` also catches the key `user_password` without `*`.
+
+A policy **adds** scrubbing patterns. It cannot turn off the SDK's own default scrubbing patterns, such as `auth`, `password` and `secret`. A setting left as **Application controlled** leaves the application's scrubbing in place. See the [policy scrubbing reference](https://github.com/pydantic/opamp-clients/blob/main/docs/sdk-settings.md#scrubbing) for safe keys and other matching rules.
+
+### Apply changes without a restart
+
+Sampling, signal exports, minimum log level, attribute redaction and scrubbing change while the application runs, with no restart or redeploy. After publishing to connected instances, expect changes **within seconds**, not at an exact interval. Sampling changes apply to new traces; export-time settings apply when the next batch is exported. Data already sent cannot be changed by a later policy.
+
+At export, **Minimum log level** drops log records below the chosen level before the policy's rate limiting, redaction and scrubbing. A dropped record never reaches policy scrubbing. For example, with the level set to **Warn**, an info log containing `zebra_ref` is dropped rather than scrubbed. The SDK's own scrubbing may already have run before the policy processes the record.
+
+Records emitted before a policy arrives can still be in an export batch when it takes effect. They receive the export-time settings in force when that batch is processed, not necessarily the settings from when they were emitted.
+
 ## Review and publish
 
 1. Select **Save draft** to keep your changes without sending them.
