@@ -206,6 +206,19 @@ def test_agent_sandboxes_url(
     assert urls == [expected]
 
 
+@pytest.mark.parametrize('base_url', ['https://logfire.example.com/prefix', 'https://logfire.example.com/?x=1'])
+def test_agent_sandboxes_url_with_path(base_url: str, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['advanced'].base_url = base_url
+    logfire.configure(**config_kwargs)
+
+    with pytest.raises(LogfireConfigError) as exc_info:
+        logfire.agent_sandboxes(api_key=API_KEY)
+    assert str(exc_info.value) == (
+        f'Agent sandboxes are served at the root of the Logfire URL, but the base URL {base_url!r} has a path. '
+        'Pass the sandboxes server URL to `logfire.agent_sandboxes(url=...)`.'
+    )
+
+
 @pytest.mark.parametrize(
     'options',
     [

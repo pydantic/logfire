@@ -3,6 +3,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 from logfire.exceptions import LogfireConfigError
 from logfire.propagate import get_context
@@ -23,9 +24,15 @@ if TYPE_CHECKING:
 def agent_sandboxes_url(base_url: str) -> str:
     """Return the agent sandboxes server URL for a Logfire HTTP(S) base URL.
 
-    The client opens its gRPC stream at the root of this URL.
+    The client opens its gRPC stream at the root of this URL, so the base URL must not have a path.
     """
-    return base_url.rstrip('/')
+    parts = urlsplit(base_url)
+    if parts.path.strip('/') or parts.query or parts.fragment:
+        raise LogfireConfigError(
+            f'Agent sandboxes are served at the root of the Logfire URL, but the base URL {base_url!r} has a path. '
+            'Pass the sandboxes server URL to `logfire.agent_sandboxes(url=...)`.'
+        )
+    return f'{parts.scheme}://{parts.netloc}'
 
 
 def create_agent_sandboxes(
