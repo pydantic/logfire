@@ -53,6 +53,10 @@ class LogfireFleetWarning(UserWarning):
     """The SDK couldn't join Logfire Fleet, so it runs unmanaged."""
 
 
+_joined_with: list[FleetOptions] = []
+"""The options this process joined Fleet with: it joins once, so a later `configure()` is governed under them."""
+
+
 def load_fleet(options: FleetOptions) -> LogfireFleet | None:
     """The Fleet client's hook for `options`, or `None` (with a warning) where it can't run.
 
@@ -81,9 +85,15 @@ def load_fleet(options: FleetOptions) -> LogfireFleet | None:
     if not (options.endpoint or os.environ.get('OTEL_OPAMP_ENDPOINT')) and not _disabled():
         _warn('no Fleet endpoint is set: set `OTEL_OPAMP_ENDPOINT` or `FleetOptions(endpoint=...)`')
         return None
+    if _joined_with and options != _joined_with[0]:
+        warn_at_user_stacklevel(
+            'this process already joined Logfire Fleet with other `FleetOptions`. It joins once, so this '
+            'configuration is governed by that Fleet connection and its policy, and these options are ignored.',
+            category=LogfireFleetWarning,
+        )
     try:
         # logfire-fleet-otel 0.2.1 annotates `state_dir` with a bare `os.PathLike`.
-        return logfire_fleet_otel.logfire_fleet(  # pyright: ignore[reportUnknownMemberType]
+        fleet = logfire_fleet_otel.logfire_fleet(  # pyright: ignore[reportUnknownMemberType]
             endpoint=options.endpoint,
             headers=options.headers,
             state_dir=options.state_dir,
@@ -92,6 +102,9 @@ def load_fleet(options: FleetOptions) -> LogfireFleet | None:
     except Exception as e:  # pragma: no cover - the client promises not to raise
         _warn(f'the Fleet client could not start: {e!r}')
         return None
+    if fleet is not None and not _joined_with:
+        _joined_with.append(options)
+    return fleet
 
 
 def _disabled() -> bool:

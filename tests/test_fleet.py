@@ -15,6 +15,7 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.sampling import ALWAYS_ON, Sampler
 
 import logfire
+from logfire._internal import fleet as fleet_module
 from logfire._internal.config import GLOBAL_CONFIG, LogfireConfig
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire.fleet import FleetOptions, LogfireFleetWarning
@@ -79,7 +80,7 @@ def fleet_client() -> Iterator[tuple[list[Any], list[dict[str, Any]]]]:
     module.LOGFIRE_FLEET_CONTRACT = 1  # type: ignore[attr-defined]
     module.logfire_fleet = logfire_fleet  # type: ignore[attr-defined]
     STARTED.clear()
-    with patch.dict(sys.modules, {'logfire_fleet_otel': module}):
+    with patch.dict(sys.modules, {'logfire_fleet_otel': module}), patch.object(fleet_module, '_joined_with', []):
         yield calls, given
 
 
@@ -267,3 +268,23 @@ def test_fleet_switched_off_in_code_stays_off_in_child_processes(
         deserialize_config(serialized)
     assert GLOBAL_CONFIG.fleet is False
     assert calls == given == []
+
+
+def test_fleet_joined_once_warns_about_other_options(fleet_client: tuple[list[Any], list[dict[str, Any]]]) -> None:
+    """A `local` configuration with other `FleetOptions` is governed by the connection the process already has."""
+    logfire.configure(
+        send_to_logfire=False, console=False, metrics=False, fleet=FleetOptions(endpoint='https://a.example')
+    )
+    with pytest.warns(LogfireFleetWarning, match='already joined Logfire Fleet with other `FleetOptions`') as record:
+        logfire.configure(
+            local=True,
+            send_to_logfire=False,
+            console=False,
+            metrics=False,
+            fleet=FleetOptions(endpoint='https://b.example'),
+        )
+    assert len([w for w in record if issubclass(w.category, LogfireFleetWarning)]) == 1
+    # The same options again say nothing.
+    logfire.configure(
+        send_to_logfire=False, console=False, metrics=False, fleet=FleetOptions(endpoint='https://a.example')
+    )
