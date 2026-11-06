@@ -1,3 +1,10 @@
+"""Implement Logfire's public tracing, logging, metrics, and integration APIs.
+
+Applications use these through the default logfire instance or a Logfire instance.
+LogfireSpan represents a span; Logfire.agent_sandboxes creates remote session pools
+whose checkout failures use the public AgentSandboxError hierarchy.
+"""
+
 from __future__ import annotations
 
 import contextlib

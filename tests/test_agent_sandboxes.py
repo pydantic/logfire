@@ -1,3 +1,5 @@
+"""Verify checkout errors and session boundaries with SandboxServer's local gRPC streams and synthetic workers."""
+
 from __future__ import annotations
 
 import importlib

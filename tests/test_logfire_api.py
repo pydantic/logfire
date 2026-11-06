@@ -1,3 +1,5 @@
+"""Verify that logfire-api mirrors the SDK's public exports and behavior, with and without the SDK installed."""
+
 from __future__ import annotations
 
 import ast

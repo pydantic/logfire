@@ -1,3 +1,10 @@
+"""Provide an optional Logfire API for libraries that do not require the SDK.
+
+When the SDK is installed, this module delegates to logfire. Otherwise Logfire and
+configure provide no-op instrumentation, and the AgentSandboxError hierarchy keeps
+checkout-error imports available without installing the optional client.
+"""
+
 from __future__ import annotations
 
 import importlib
