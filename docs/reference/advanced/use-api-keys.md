@@ -96,6 +96,9 @@ Available scopes depend on whether you're creating an organization or project AP
 
 Dataset permissions can be assigned to organization-wide keys, but the [datasets SDK](../../evaluate/datasets-sdk.md#creating-a-client) requires a key scoped to a specific project.
 
+[Agent Sandboxes](../../agent-sandboxes/index.md) reject [personal](#personal-api-keys) API keys, and organization API keys that have access to all projects.
+An organization API key limited to one project works.
+
 !!! info
     Select only the scopes your application needs to follow the principle of least privilege.
 
