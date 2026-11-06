@@ -111,7 +111,9 @@ dev = [
     "fastmcp-slim[server]>=4",
     "pydantic-ai-slim[mcp]>=2",
     "pydantic-evals>=2",
-    "pydantic-monty>=0.0.23",
+    "pydantic-monty>=1.5.0",
+    # Serves the agent sandboxes gRPC stream in tests.
+    "grpcio>=1.75",
     # >=1.3.9 fixes path traversal / sandbox escape in file-search middleware and loaders (GHSA-gr75-jv2w-4656).
     "langchain>=1.3.9",
     "langchain-openai>=0.3.17",
@@ -164,6 +166,9 @@ logfire-cli = false
 logfire-fleet-otel = false
 logfire-fleet-client = false
 logfire-fleet-core = false
+pydantic-monty = false
+pydantic-monty-client = false
+pydantic-monty-runtime = false
 
 [tool.uv.workspace]
 members = ["logfire", "logfire-api", "logfire-sdk"]

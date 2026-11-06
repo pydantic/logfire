@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-import asyncio
 import importlib
 import shutil
+import subprocess
 import sys
 import sysconfig
-from collections.abc import AsyncIterator, Mapping
+import threading
+from collections.abc import Iterator, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+import grpc
 import pytest
 from inline_snapshot import snapshot
-from websockets.asyncio.server import ServerConnection, serve
 
 import logfire
 from logfire._internal import agent_sandboxes as agent_sandboxes_module
@@ -20,57 +22,64 @@ from logfire.testing import TestExporter
 API_KEY = 'pylf_v1_eu_0123456789abcdef'
 
 
-class SandboxServer:
+class SandboxServer(grpc.GenericRpcHandler):
     """A local stand-in for the agent sandboxes server.
 
-    Records each WebSocket upgrade request and relays the connection to a local `monty subprocess` worker,
-    which reads and writes protobuf messages framed with a little-endian 4-byte length prefix.
+    Serves the `monty.v1.MontySession/Session` gRPC method and records the path and metadata of each stream.
+    It relays each stream to a local `monty subprocess` worker.
+    The worker reads and writes protobuf messages framed with a little-endian 4-byte length prefix.
+    The server runs in its own threads, so the client and the server do not share the test's event loop.
     """
 
     def __init__(self) -> None:
         self.requests: list[tuple[str, Mapping[str, str]]] = []
         self.url = ''
 
-    async def handler(self, ws: ServerConnection) -> None:
-        assert ws.request is not None
-        self.requests.append((ws.request.path, ws.request.headers))
+    def service(self, handler_call_details: grpc.HandlerCallDetails) -> grpc.RpcMethodHandler[bytes, bytes] | None:
+        metadata = {key: value for key, value in handler_call_details.invocation_metadata if isinstance(value, str)}
+        self.requests.append((handler_call_details.method, metadata))
+        return grpc.stream_stream_rpc_method_handler(self.session)
+
+    def session(self, requests: Iterator[bytes], context: grpc.ServicerContext) -> Iterator[bytes]:
         monty = shutil.which('monty', path=sysconfig.get_path('scripts')) or shutil.which('monty')
         assert monty is not None
-        proc = await asyncio.create_subprocess_exec(
-            monty, 'subprocess', stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
-        )
+        proc = subprocess.Popen([monty, 'subprocess'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         assert proc.stdin is not None and proc.stdout is not None
         stdin, stdout = proc.stdin, proc.stdout
+        # The client sends nothing until the server admits the stream with its response headers.
+        context.send_initial_metadata(())
 
-        async def to_worker() -> None:
-            async for message in ws:
-                assert isinstance(message, bytes)
-                stdin.write(len(message).to_bytes(4, 'little') + message)
-                await stdin.drain()
+        def to_worker() -> None:
+            try:
+                for message in requests:
+                    stdin.write(len(message).to_bytes(4, 'little') + message)
+                    stdin.flush()
+            except (grpc.RpcError, OSError):
+                pass
+            finally:
+                stdin.close()
 
-        async def to_client() -> None:
-            while True:
-                size = int.from_bytes(await stdout.readexactly(4), 'little')
-                await ws.send(await stdout.readexactly(size))
-
-        tasks = [asyncio.create_task(to_worker()), asyncio.create_task(to_client())]
+        threading.Thread(target=to_worker, daemon=True).start()
         try:
-            await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            while len(header := stdout.read(4)) == 4:
+                yield stdout.read(int.from_bytes(header, 'little'))
         finally:
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
             proc.kill()
-            await proc.wait()
+            proc.wait()
+            stdout.close()
 
 
 @pytest.fixture
-async def sandbox_server() -> AsyncIterator[SandboxServer]:
+def sandbox_server() -> Iterator[SandboxServer]:
     server = SandboxServer()
-    async with serve(server.handler, '127.0.0.1', 0) as ws_server:
-        port = ws_server.sockets[0].getsockname()[1]
-        server.url = f'ws://127.0.0.1:{port}/monty-ws/'
+    grpc_server = grpc.server(ThreadPoolExecutor(max_workers=4), handlers=[server])
+    port = grpc_server.add_insecure_port('127.0.0.1:0')
+    grpc_server.start()
+    server.url = f'http://127.0.0.1:{port}'
+    try:
         yield server
+    finally:
+        grpc_server.stop(grace=None)
 
 
 @pytest.mark.anyio
@@ -79,13 +88,13 @@ async def test_agent_sandboxes_run_code(sandbox_server: SandboxServer, exporter:
         async with logfire.agent_sandboxes(
             api_key=API_KEY,
             url=sandbox_server.url,
-            connect_headers=lambda: {'x-custom': 'custom-value'},
+            metadata=lambda: {'x-custom': 'custom-value'},
         ) as pool:
             async with pool.checkout() as session:
                 assert await session.feed_run('1 + 1') == 2
 
     [(path, headers)] = sandbox_server.requests
-    assert path == '/monty-ws/'
+    assert path == '/monty.v1.MontySession/Session'
     assert headers['authorization'] == f'Bearer {API_KEY}'
     assert headers['x-custom'] == 'custom-value'
 
@@ -97,17 +106,37 @@ async def test_agent_sandboxes_run_code(sandbox_server: SandboxServer, exporter:
 
 @pytest.mark.anyio
 @pytest.mark.parametrize('header_name', ['Authorization', 'authorization', 'aUtHoRiZaTiOn'])
-async def test_agent_sandboxes_connect_headers_override(sandbox_server: SandboxServer, header_name: str) -> None:
+async def test_agent_sandboxes_metadata_override(sandbox_server: SandboxServer, header_name: str) -> None:
     async with logfire.agent_sandboxes(
         api_key=API_KEY,
         url=sandbox_server.url,
-        connect_headers=lambda: {header_name: 'Bearer other'},
+        metadata=lambda: {header_name: 'Bearer other'},
     ) as pool:
         async with pool.checkout() as session:
             assert await session.feed_run('2 * 3') == 6
 
     [(_, headers)] = sandbox_server.requests
     assert headers['authorization'] == 'Bearer other'
+
+
+@pytest.mark.anyio
+async def test_agent_sandboxes_connect_headers_deprecated(sandbox_server: SandboxServer) -> None:
+    with pytest.warns(DeprecationWarning, match='`connect_headers` is deprecated, use `metadata` instead.'):
+        pool = logfire.agent_sandboxes(
+            api_key=API_KEY, url=sandbox_server.url, connect_headers=lambda: {'X-Custom': 'old-name'}
+        )
+    async with pool:
+        async with pool.checkout() as session:
+            assert await session.feed_run('1') == 1
+
+    [(_, headers)] = sandbox_server.requests
+    assert headers['x-custom'] == 'old-name'
+    assert headers['authorization'] == f'Bearer {API_KEY}'
+
+
+def test_agent_sandboxes_metadata_and_connect_headers() -> None:
+    with pytest.raises(TypeError, match='Pass `metadata` only; `connect_headers` is its deprecated name.'):
+        logfire.agent_sandboxes(api_key=API_KEY, metadata=lambda: {}, connect_headers=lambda: {})
 
 
 @pytest.mark.anyio
@@ -153,11 +182,11 @@ def test_agent_sandboxes_no_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.parametrize(
     'api_key,base_url,expected',
     [
-        ('pylf_v1_us_abc', None, 'wss://logfire-us.pydantic.dev/monty-ws/'),
-        ('pylf_v1_eu_abc', None, 'wss://logfire-eu.pydantic.dev/monty-ws/'),
-        ('pylf_v2_stagingeu_abc', None, 'wss://logfire-eu.pydantic.info/monty-ws/'),
-        ('pylf_v1_us_abc', 'http://localhost:8000', 'ws://localhost:8000/monty-ws/'),
-        ('pylf_v1_us_abc', 'https://logfire.example.com/', 'wss://logfire.example.com/monty-ws/'),
+        ('pylf_v1_us_abc', None, 'https://logfire-us.pydantic.dev'),
+        ('pylf_v1_eu_abc', None, 'https://logfire-eu.pydantic.dev'),
+        ('pylf_v2_stagingeu_abc', None, 'https://logfire-eu.pydantic.info'),
+        ('pylf_v1_us_abc', 'http://localhost:8000', 'http://localhost:8000'),
+        ('pylf_v1_us_abc', 'https://logfire.example.com/', 'https://logfire.example.com'),
     ],
 )
 def test_agent_sandboxes_url(
@@ -167,21 +196,34 @@ def test_agent_sandboxes_url(
     logfire.configure(**config_kwargs)
     urls: list[str] = []
 
-    def fake_websocket(url: str, **kwargs: Any) -> str:
+    def fake_remote(url: str, **kwargs: Any) -> str:
         urls.append(url)
         return url
 
-    monkeypatch.setattr(agent_sandboxes_module, 'AsyncMontyWebsocket', fake_websocket)
+    monkeypatch.setattr(agent_sandboxes_module, 'AsyncMontyRemote', fake_remote)
 
     logfire.agent_sandboxes(api_key=api_key)
     assert urls == [expected]
+
+
+@pytest.mark.parametrize('base_url', ['https://logfire.example.com/prefix', 'https://logfire.example.com/?x=1'])
+def test_agent_sandboxes_url_with_path(base_url: str, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['advanced'].base_url = base_url
+    logfire.configure(**config_kwargs)
+
+    with pytest.raises(LogfireConfigError) as exc_info:
+        logfire.agent_sandboxes(api_key=API_KEY)
+    assert str(exc_info.value) == (
+        f'Agent sandboxes are served at the root of the Logfire URL, but the base URL {base_url!r} has a path. '
+        'Pass the sandboxes server URL to `logfire.agent_sandboxes(url=...)`.'
+    )
 
 
 @pytest.mark.parametrize(
     'options',
     [
         {},
-        {'connect_headers': None},
+        {'metadata': None},
         {
             'max_processes': 2,
             'checkout_timeout': 3.0,
@@ -204,16 +246,16 @@ def test_agent_sandboxes_url(
 def test_agent_sandboxes_pool_options(options: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
     received: dict[str, Any] = {}
 
-    def fake_websocket(url: str, **kwargs: Any) -> None:
+    def fake_remote(url: str, **kwargs: Any) -> None:
         received.update(kwargs)
 
-    monkeypatch.setattr(agent_sandboxes_module, 'AsyncMontyWebsocket', fake_websocket)
+    monkeypatch.setattr(agent_sandboxes_module, 'AsyncMontyRemote', fake_remote)
 
     logfire.agent_sandboxes(api_key=API_KEY, **options)
 
-    headers = received.pop('connect_headers')
-    assert headers() == {'authorization': f'Bearer {API_KEY}'}
-    assert received == {name: value for name, value in options.items() if name != 'connect_headers'}
+    metadata = received.pop('metadata')
+    assert metadata() == {'authorization': f'Bearer {API_KEY}'}
+    assert received == {name: value for name, value in options.items() if name != 'metadata'}
 
 
 def test_agent_sandboxes_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
