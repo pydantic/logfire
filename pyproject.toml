@@ -23,7 +23,7 @@ dev = [
     "django >= 4.2.16",
     "dirty-equals >= 0.8.0",
     # For type checking `logfire.configure(fleet=...)` against the Fleet client (the `fleet` extra).
-    "logfire-fleet-otel >= 0.2.1; python_version >= '3.11'",
+    "logfire-fleet-otel >= 0.2.1, < 0.3; python_version >= '3.11'",
     "pytest >= 8.3.4",
     "pytest-django >= 4.6.0",
     "pytest-pretty >= 1.2.0",
