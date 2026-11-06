@@ -1284,7 +1284,8 @@ class LogfireConfig(_LogfireConfigData):
                         'Pass the same `--region` or `--base-url` to both commands for a non-default server, '
                         'and use `init --data-dir` to match a custom SDK data directory. '
                         'You can also set `LOGFIRE_TOKEN` to a project write token, or set `LOGFIRE_API_KEY` '
-                        'to a project API key with the `project:write_otlp` scope.'
+                        'to a project API key with the `project:write_otlp` scope. '
+                        'To run without sending telemetry, pass `send_to_logfire=False` to `logfire.configure()`.'
                     )
 
                 if credentials is not None:

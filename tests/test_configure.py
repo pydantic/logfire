@@ -1756,6 +1756,8 @@ def test_missing_sdk_credentials_explain_native_cli_setup(
         assert '`uvx logfire-cli wizard`' in message
         assert 'CLI sign-in alone does not configure the SDK' in message
         assert '`LOGFIRE_TOKEN` to a project write token' in message
+        assert '`LOGFIRE_API_KEY`' in message
+        assert 'pass `send_to_logfire=False` to `logfire.configure()`' in message
         assert '`--region` or `--base-url`' in message
         assert '`init --data-dir`' in message
         assert 'fake_user_token' not in message
