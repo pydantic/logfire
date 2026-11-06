@@ -18,7 +18,7 @@ from contextlib import ExitStack
 from io import StringIO
 from pathlib import Path
 from time import sleep, time
-from typing import Any
+from typing import Any, Literal
 from unittest import mock
 from unittest.mock import patch
 
@@ -38,8 +38,13 @@ from opentelemetry.propagate import get_global_textmap
 from opentelemetry.propagators.composite import CompositePropagator
 from opentelemetry.sdk._logs import LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogRecordExporter, SimpleLogRecordProcessor
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader, PeriodicExportingMetricReader
+from opentelemetry.sdk._logs.export import (
+    BatchLogRecordProcessor,
+    LogRecordExporter,
+    LogRecordExportResult,
+    SimpleLogRecordProcessor,
+)
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader, MetricExportResult, PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource, ResourceDetector
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import (
@@ -52,6 +57,7 @@ from opentelemetry.sdk.trace.export import (
 from opentelemetry.trace import get_tracer_provider
 from pydantic import __version__ as pydantic_version
 from pytest import LogCaptureFixture
+from requests.exceptions import ConnectionError as RequestsConnectionError
 
 import logfire
 import logfire._internal.config as config_module
@@ -69,6 +75,7 @@ from logfire._internal.config import (
     sanitize_project_name,
 )
 from logfire._internal.config_params import extract_list_of_str, normalize_token
+from logfire._internal.exporters import api_key_gate
 from logfire._internal.exporters.console import (
     ConsoleLogExporter,
     ShowParentsConsoleSpanExporter,
@@ -1756,6 +1763,8 @@ def test_missing_sdk_credentials_explain_native_cli_setup(
         assert '`uvx logfire-cli wizard`' in message
         assert 'CLI sign-in alone does not configure the SDK' in message
         assert '`LOGFIRE_TOKEN` to a project write token' in message
+        assert '`LOGFIRE_API_KEY`' in message
+        assert 'pass `send_to_logfire=False` to `logfire.configure()`' in message
         assert '`--region` or `--base-url`' in message
         assert '`init --data-dir`' in message
         assert 'fake_user_token' not in message
@@ -2107,6 +2116,204 @@ def test_initialize_credentials_from_token_unhealthy():
             LogfireConfig()._initialize_credentials_from_token('some-token')  # type: ignore
 
 
+API_KEY = 'pylf_v2_eu_00000000-0000-0000-0000-000000000000_project_api_key'
+API_KEY_BASE_URL = 'https://logfire-eu.pydantic.dev'
+
+
+@pytest.mark.parametrize('send_to_logfire', [True, 'if-token-present'])
+@pytest.mark.parametrize('api_key_source', ['argument', 'environment'])
+def test_api_key_sends_telemetry_without_write_token(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    api_key_source: str,
+    send_to_logfire: bool | Literal['if-token-present'],
+) -> None:
+    monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
+    if api_key_source == 'environment':
+        monkeypatch.setenv('LOGFIRE_API_KEY', API_KEY)
+    with requests_mock.Mocker() as requests:
+        requests.get(
+            f'{API_KEY_BASE_URL}/v1/info',
+            json={'project_name': 'my-project', 'project_url': f'{API_KEY_BASE_URL}/acme/my-project'},
+        )
+        requests.post(f'{API_KEY_BASE_URL}/v1/traces')
+        logfire.configure(
+            send_to_logfire=send_to_logfire,
+            api_key=API_KEY if api_key_source == 'argument' else None,
+            data_dir=tmp_path,
+            console=False,
+            metrics=False,
+        )
+        wait_for_check_token_thread()
+        assert GLOBAL_CONFIG.token == API_KEY
+
+        logfire.info('hello')
+        logfire.force_flush()
+
+        assert [(r.method, r.url, r.headers['Authorization']) for r in requests.request_history] == [
+            ('GET', f'{API_KEY_BASE_URL}/v1/info', API_KEY),
+            ('POST', f'{API_KEY_BASE_URL}/v1/traces', API_KEY),
+        ]
+
+
+@pytest.mark.parametrize('write_credential', ['token', 'credentials-file'])
+def test_write_credentials_take_priority_over_api_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, write_credential: str
+) -> None:
+    write_token = 'pylf_v1_eu_project_write_token'
+    if write_credential == 'credentials-file':
+        (tmp_path / 'logfire_credentials.json').write_text(
+            json.dumps(
+                {
+                    'token': write_token,
+                    'project_name': 'my-project',
+                    'project_url': f'{API_KEY_BASE_URL}/acme/my-project',
+                    'logfire_api_url': API_KEY_BASE_URL,
+                }
+            )
+        )
+    else:
+        monkeypatch.setenv('LOGFIRE_TOKEN', write_token)
+    with requests_mock.Mocker() as requests:
+        requests.get(
+            f'{API_KEY_BASE_URL}/v1/info',
+            json={'project_name': 'my-project', 'project_url': f'{API_KEY_BASE_URL}/acme/my-project'},
+        )
+        logfire.configure(send_to_logfire=True, api_key=API_KEY, data_dir=tmp_path, console=False)
+        wait_for_check_token_thread()
+        assert GLOBAL_CONFIG.token == write_token
+        assert GLOBAL_CONFIG.api_key == API_KEY
+        assert [r.headers['Authorization'] for r in requests.request_history] == [write_token]
+
+
+def test_invalid_credentials_file_is_not_replaced_by_api_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A broken credentials file still fails, so telemetry never goes to the API key's project instead."""
+    monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
+    (tmp_path / 'logfire_credentials.json').write_text('not json')
+    with requests_mock.Mocker() as requests:
+        with pytest.raises(LogfireConfigError, match='Invalid credentials file'):
+            logfire.configure(send_to_logfire=True, api_key=API_KEY, data_dir=tmp_path, console=False)
+        assert not requests.called
+
+
+def test_api_key_does_not_send_telemetry_when_send_to_logfire_is_false(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
+    with requests_mock.Mocker() as requests:
+        logfire.configure(send_to_logfire=False, api_key=API_KEY, data_dir=tmp_path, console=False)
+        wait_for_check_token_thread()
+        assert GLOBAL_CONFIG.token is None
+        assert GLOBAL_CONFIG.api_key == API_KEY
+        assert not requests.called
+
+
+def test_api_key_without_write_scope_warns_with_hint(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
+    with requests_mock.Mocker() as requests:
+        requests.get(f'{API_KEY_BASE_URL}/v1/info', json={'detail': 'Unknown token'}, status_code=401)
+        with pytest.warns(UserWarning) as record:
+            config = LogfireConfig(api_key=API_KEY, data_dir=tmp_path)
+            config._initialize_credentials_from_token(API_KEY)  # type: ignore
+    [warning] = record
+    assert str(warning.message) == snapshot("""\
+Logfire API returned status code 401. Detail: Unknown token
+Logfire used the configured `api_key` to send telemetry because no write token was found. An API key can send telemetry only if it has the `project:write_otlp` ("Send telemetry") scope. Use an API key with that scope, set `LOGFIRE_TOKEN` to a project write token, or pass `send_to_logfire=False` to use the API key only for other Logfire APIs.\
+""")
+
+
+@pytest.mark.parametrize('send_to_logfire', [True, 'if-token-present'])
+def test_rejected_api_key_drops_telemetry_after_one_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, send_to_logfire: bool | Literal['if-token-present']
+) -> None:
+    """An API key without `project:write_otlp` warns once, and its exports stop instead of failing every batch."""
+    monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
+    with requests_mock.Mocker() as requests, warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter('always')
+        requests.get(f'{API_KEY_BASE_URL}/v1/info', json={'detail': 'Unknown token'}, status_code=401)
+        requests.post(f'{API_KEY_BASE_URL}/v1/traces', status_code=401)
+        logfire.configure(
+            send_to_logfire=send_to_logfire, api_key=API_KEY, data_dir=tmp_path, console=False, metrics=False
+        )
+        for i in range(3):
+            logfire.info('hello {i}', i=i)
+            logfire.force_flush()
+        wait_for_check_token_thread()
+
+        assert [(r.method, r.url) for r in requests.request_history] == [('GET', f'{API_KEY_BASE_URL}/v1/info')]
+    assert [str(w.message).splitlines()[0] for w in record] == [
+        'Logfire API returned status code 401. Detail: Unknown token'
+    ]
+
+
+def test_api_key_exports_continue_when_token_check_is_unreachable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
+    with requests_mock.Mocker() as requests, warnings.catch_warnings(record=True):
+        warnings.simplefilter('always')
+        requests.get(f'{API_KEY_BASE_URL}/v1/info', exc=RequestsConnectionError)
+        requests.post(f'{API_KEY_BASE_URL}/v1/traces')
+        logfire.configure(send_to_logfire=True, api_key=API_KEY, data_dir=tmp_path, console=False, metrics=False)
+        logfire.info('hello')
+        logfire.force_flush()
+
+        assert ('POST', f'{API_KEY_BASE_URL}/v1/traces') in [(r.method, r.url) for r in requests.request_history]
+
+
+def test_api_key_exports_do_not_wait_when_token_check_is_skipped_on_aws_lambda(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
+    monkeypatch.setenv('AWS_LAMBDA_FUNCTION_NAME', 'my-function')
+    monkeypatch.setattr(api_key_gate, 'VERDICT_TIMEOUT_SECONDS', 60)
+    with requests_mock.Mocker() as requests:
+        requests.post(f'{API_KEY_BASE_URL}/v1/traces')
+        logfire.configure(send_to_logfire=True, api_key=API_KEY, data_dir=tmp_path, console=False, metrics=False)
+        start = time()
+        logfire.info('hello')
+        logfire.force_flush()
+        assert time() - start < 10
+        assert [(r.method, r.url) for r in requests.request_history] == [('POST', f'{API_KEY_BASE_URL}/v1/traces')]
+
+
+def test_api_key_write_access_allows_exports_if_the_check_never_finishes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(api_key_gate, 'VERDICT_TIMEOUT_SECONDS', 0)
+    assert api_key_gate.ApiKeyWriteAccess().allows_export()
+
+
+def test_api_key_gated_log_and_metric_exporters() -> None:
+    log_exporter = mock.Mock()
+    metric_exporter = mock.Mock()
+    allowed = api_key_gate.ApiKeyWriteAccess()
+    allowed.settle()
+    rejected = api_key_gate.ApiKeyWriteAccess()
+    rejected.reject()
+
+    assert api_key_gate.ApiKeyGatedLogExporter(log_exporter, allowed).export([]) is log_exporter.export.return_value
+    assert api_key_gate.ApiKeyGatedLogExporter(log_exporter, rejected).export([]) == LogRecordExportResult.FAILURE
+    metrics_data = mock.Mock()
+    assert (
+        api_key_gate.ApiKeyGatedMetricExporter(metric_exporter, allowed).export(metrics_data)
+        is metric_exporter.export.return_value
+    )
+    assert api_key_gate.ApiKeyGatedMetricExporter(metric_exporter, rejected).export(metrics_data) == (
+        MetricExportResult.FAILURE
+    )
+    assert log_exporter.export.call_count == 1
+    assert metric_exporter.export.call_count == 1
+
+
+def test_write_token_rejection_has_no_api_key_hint(tmp_path: Path) -> None:
+    with requests_mock.Mocker() as requests:
+        requests.get(f'{API_KEY_BASE_URL}/v1/info', json={'detail': 'Unknown token'}, status_code=401)
+        with pytest.warns(UserWarning) as record:
+            config = LogfireConfig(api_key=API_KEY, data_dir=tmp_path)
+            config._initialize_credentials_from_token('pylf_v1_eu_project_write_token')  # type: ignore
+    [warning] = record
+    assert str(warning.message) == 'Logfire API returned status code 401. Detail: Unknown token'
+
+
 def test_configure_twice_no_warning(caplog: LogCaptureFixture):
     logfire.configure(send_to_logfire=False)
     assert not caplog.messages
@@ -2260,6 +2467,35 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     exporter = get_batch_log_exporter(logfire_log_processor)
     assert isinstance(exporter, QuietLogExporter)
     assert isinstance(exporter.exporter, OTLPLogExporter)
+
+
+def test_api_key_exporters(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """The API key's exporters are gated, and pending spans and metrics still reach them."""
+    monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+    logfire.configure(send_to_logfire=True, api_key=API_KEY, data_dir=tmp_path)
+    wait_for_check_token_thread()
+
+    [console_span_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
+    assert isinstance(send_to_logfire_processor, DynamicBatchSpanProcessor)
+    assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
+    assert isinstance(send_to_logfire_processor.span_exporter.wrapped_exporter, api_key_gate.ApiKeyGatedSpanExporter)
+    assert isinstance(pending_span_processor, PendingSpanProcessor)
+    assert pending_span_processor.processor.processor._span_processors == (  # type: ignore
+        console_span_processor,
+        send_to_logfire_processor,
+    )
+
+    [logfire_metric_reader] = get_metric_readers()
+    assert isinstance(logfire_metric_reader, PeriodicExportingMetricReader)
+    metric_exporter = logfire_metric_reader._exporter  # type: ignore
+    assert isinstance(metric_exporter, api_key_gate.ApiKeyGatedMetricExporter)
+    assert isinstance(metric_exporter.wrapped_exporter, QuietMetricExporter)
+
+    [_, logfire_log_processor] = get_log_record_processors()
+    log_exporter = get_batch_log_exporter(logfire_log_processor)
+    assert isinstance(log_exporter, api_key_gate.ApiKeyGatedLogExporter)
+    assert isinstance(log_exporter.exporter, QuietLogExporter)
 
 
 def test_custom_exporters():
