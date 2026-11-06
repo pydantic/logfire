@@ -12,6 +12,8 @@ Install an OpenTelemetry Collector on a host with one command, or connect the Co
 
 Fleet needs to be turned on for your account: see [Fleet](index.md). Each Collector runs the pipeline in its **Collector policy**, which you edit in Logfire: see [Change policies](policies.md).
 
+Already run a Collector whose configuration you manage yourself? Add the Collector's own `opamp` extension to see it in Fleet without changing how you configure it: see [Connect an existing Collector](existing-collectors.md).
+
 ## Add a host
 
 One command installs a Collector as a service and connects it to Fleet. It works on Linux, macOS and Windows.
@@ -82,5 +84,6 @@ Select a Collector to see what it reported: its health per component, the config
 
 ## Next steps
 
+- [Connect an existing Collector](existing-collectors.md): see a Collector you configure yourself in Fleet.
 - [Change policies](policies.md): edit what your Collectors collect and roll out the change.
 - [Hosts](../hosts.md) and [Kubernetes](../kubernetes.md): see the metrics your Collectors send.
