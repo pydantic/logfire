@@ -52,7 +52,12 @@ from opentelemetry.sdk.metrics import (
     ObservableUpDownCounter,
     UpDownCounter,
 )
-from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
+from opentelemetry.sdk.metrics.export import (
+    AggregationTemporality,
+    MetricExporter,
+    MetricReader,
+    PeriodicExportingMetricReader,
+)
 from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import OsResourceDetector, Resource, ResourceDetector, get_aggregated_resources
 from opentelemetry.sdk.trace import (
@@ -92,6 +97,12 @@ from .constants import (
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL,
     RESOURCE_ATTRIBUTES_VERSION,
     LevelName,
+)
+from .exporters.api_key_gate import (
+    ApiKeyGatedLogExporter,
+    ApiKeyGatedMetricExporter,
+    ApiKeyGatedSpanExporter,
+    ApiKeyWriteAccess,
 )
 from .exporters.console import (
     ConsoleColorsValues,
@@ -582,9 +593,9 @@ def configure(
 
             If not provided, will be loaded from the `LOGFIRE_API_KEY` environment variable.
 
-            If `send_to_logfire` is `True` and no write token or project credentials file is found,
-            the API key is also used to send telemetry. This requires a project API key with the
-            `project:write_otlp` scope.
+            If no write token or project credentials file is found, the API key is also used to send
+            telemetry, unless `send_to_logfire` is `False`. This requires a project API key with the
+            `project:write_otlp` scope. Otherwise Logfire warns that the key cannot send telemetry.
 
         service_name: Name of this service.
 
@@ -907,6 +918,7 @@ class _LogfireConfigData:
 
         self.additional_span_processors = additional_span_processors
         self._project_url: str | None = None
+        self._api_key_write_access: ApiKeyWriteAccess | None = None
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -1269,10 +1281,12 @@ class LogfireConfig(_LogfireConfigData):
 
                 # An API key with the `project:write_otlp` scope can also write telemetry.
                 # It is the last fallback, so a write token or a creds file always takes priority.
-                # `'if-token-present'` ignores the API key, because an API key without that scope
-                # (e.g. one used only to query data) would make every export fail.
-                if not self.token and self.send_to_logfire is True and credentials is None and self.api_key:
+                # An API key without that scope gets one warning from the token check below.
+                api_key_write_access: ApiKeyWriteAccess | None = None
+                if not self.token and credentials is None and self.api_key:
                     self.token = self.api_key
+                    api_key_write_access = ApiKeyWriteAccess()
+                self._api_key_write_access = api_key_write_access
 
                 if not self.token and self.send_to_logfire is True and credentials is None:
                     # Project setup belongs in the CLI, not application startup. Never consult legacy user logins here.
@@ -1317,13 +1331,18 @@ class LogfireConfig(_LogfireConfigData):
                     # hence we try to print it eagerly above.
                     # But we only have the link if we have a creds file, otherwise we only know the token at this point.
                     def check_tokens():
-                        with suppress_instrumentation():
-                            for token in token_list:
-                                validated_credentials = self._initialize_credentials_from_token(token)
-                                if validated_credentials is not None:
-                                    self._project_url = self._project_url or validated_credentials.project_url
-                                    if show_project_link and token not in printed_tokens:
-                                        validated_credentials.print_token_summary()
+                        try:
+                            with suppress_instrumentation():
+                                for token in token_list:
+                                    validated_credentials = self._initialize_credentials_from_token(token)
+                                    if validated_credentials is not None:
+                                        self._project_url = self._project_url or validated_credentials.project_url
+                                        if show_project_link and token not in printed_tokens:
+                                            validated_credentials.print_token_summary()
+                        finally:
+                            # Exports with the API key wait for this check, so they must not wait after it ends.
+                            if api_key_write_access is not None:
+                                api_key_write_access.settle()
 
                     if emscripten:  # pragma: no cover
                         check_tokens()
@@ -1335,7 +1354,8 @@ class LogfireConfig(_LogfireConfigData):
                         # thawed although nothing is wrong, and running the check synchronously would
                         # slow down every cold start. The check is not essential: the exporters
                         # report a rejected token on the first export anyway.
-                        pass
+                        if api_key_write_access is not None:
+                            api_key_write_access.settle()
                     else:
                         thread = Thread(target=check_tokens, name='check_logfire_token')
                         thread.start()
@@ -1368,6 +1388,8 @@ class LogfireConfig(_LogfireConfigData):
                         span_exporter = QuietSpanExporter(span_exporter)
                         span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                         span_exporter = RemovePendingSpansExporter(span_exporter)
+                        if api_key_write_access is not None:
+                            span_exporter = ApiKeyGatedSpanExporter(span_exporter, api_key_write_access)
                         if emscripten:  # pragma: no cover
                             # BatchSpanProcessor uses threads which fail in Pyodide / Emscripten
                             logfire_processor = SimpleSpanProcessor(span_exporter)
@@ -1378,23 +1400,26 @@ class LogfireConfig(_LogfireConfigData):
                         # TODO should we warn here if we have metrics but we're in emscripten?
                         # I guess we could do some hack to use InMemoryMetricReader and call it after user code has run?
                         if metric_readers is not None and not emscripten:
-                            metric_readers.append(
-                                PeriodicExportingMetricReader(
-                                    QuietMetricExporter(
-                                        OTLPMetricExporter(
-                                            endpoint=urljoin(base_url, '/v1/metrics'),
-                                            headers=headers,
-                                            session=session,
-                                            compression=compression,
-                                            # I'm pretty sure that this line here is redundant,
-                                            # and that passing it to the QuietMetricExporter is what matters
-                                            # because the PeriodicExportingMetricReader will read it from there.
-                                            preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                                        ),
-                                        preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                                    )
-                                )
+                            metric_exporter: MetricExporter = QuietMetricExporter(
+                                OTLPMetricExporter(
+                                    endpoint=urljoin(base_url, '/v1/metrics'),
+                                    headers=headers,
+                                    session=session,
+                                    compression=compression,
+                                    # I'm pretty sure that this line here is redundant,
+                                    # and that passing it to the QuietMetricExporter is what matters
+                                    # because the PeriodicExportingMetricReader will read it from there.
+                                    preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                                ),
+                                preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
                             )
+                            if api_key_write_access is not None:
+                                metric_exporter = ApiKeyGatedMetricExporter(
+                                    metric_exporter,
+                                    api_key_write_access,
+                                    preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                                )
+                            metric_readers.append(PeriodicExportingMetricReader(metric_exporter))
 
                         log_exporter = OTLPLogExporter(
                             endpoint=urljoin(base_url, '/v1/logs'),
@@ -1403,6 +1428,8 @@ class LogfireConfig(_LogfireConfigData):
                             compression=compression,
                         )
                         log_exporter = QuietLogExporter(log_exporter)
+                        if api_key_write_access is not None:
+                            log_exporter = ApiKeyGatedLogExporter(log_exporter, api_key_write_access)
 
                         if emscripten:  # pragma: no cover
                             # BatchLogRecordProcessor uses threads which fail in Pyodide / Emscripten
@@ -1736,6 +1763,9 @@ class LogfireConfig(_LogfireConfigData):
             session,
             self.advanced.generate_base_url(token, warn_unknown_region=False),
             rejected_hint=API_KEY_CANNOT_WRITE_HINT if self.api_key and token == self.api_key else None,
+            on_rejected=self._api_key_write_access.reject
+            if self._api_key_write_access is not None and token == self.api_key
+            else None,
         )
 
     def _ensure_flush_after_aws_lambda(self):
@@ -1947,7 +1977,13 @@ class LogfireCredentials:
 
     @classmethod
     def from_token(
-        cls, token: str, session: requests.Session, base_url: str, *, rejected_hint: str | None = None
+        cls,
+        token: str,
+        session: requests.Session,
+        base_url: str,
+        *,
+        rejected_hint: str | None = None,
+        on_rejected: Callable[[], None] | None = None,
     ) -> Self | None:
         """Check that the token is valid.
 
@@ -1956,6 +1992,7 @@ class LogfireCredentials:
         We continue unless we get a 401. If something is wrong, we'll later store data locally for back-fill.
 
         `rejected_hint` is appended to the warning when the API rejects the token with a 401.
+        `on_rejected` is called for that 401 too.
 
         Raises:
             LogfireConfigError: If the token is invalid.
@@ -1972,6 +2009,8 @@ class LogfireCredentials:
 
         if response.status_code != 200:
             hint = f'\n{rejected_hint}' if rejected_hint and response.status_code == 401 else ''
+            if on_rejected is not None and response.status_code == 401:
+                on_rejected()
             try:
                 detail = response.json()['detail']
             except Exception:
