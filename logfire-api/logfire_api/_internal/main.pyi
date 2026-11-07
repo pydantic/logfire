@@ -16,7 +16,6 @@ from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOpt
 from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
 from ..variables import ResolveFunction as ResolveFunction, TemplateVariable as TemplateVariable, ValidationReport as ValidationReport, Variable as Variable, VariablesConfig as VariablesConfig
 from ..version import VERSION as VERSION
-from .agent_sandboxes import AgentSandboxPool as AgentSandboxPool
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
 from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig, TemplateMismatchPolicy as TemplateMismatchPolicy
 from .config_params import PydanticPluginRecordValues as PydanticPluginRecordValues
@@ -52,6 +51,7 @@ from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
 from pydantic_evals.reporting import EvaluationReport
+from pydantic_monty import AsyncMontyRemote
 from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
 from snowflake.connector.connection import SnowflakeConnection
 from sqlalchemy import Engine
@@ -527,13 +527,13 @@ class Logfire:
         It records Monty sessions, executed code, inputs, outputs, external calls,
         exceptions, printed text, and pool metrics. Recorded values are subject to Logfire's configured scrubbing.
         """
-    def agent_sandboxes(self, *, api_key: str | None = None, url: str | None = None, max_processes: int | None | _Unset = ..., checkout_timeout: float | None | _Unset = ..., request_timeout: float | None | _Unset = ..., metadata: Callable[[], Mapping[str, str]] | None | _Unset = ..., connect_headers: Callable[[], Mapping[str, str]] | None | _Unset = ..., feed_duration_limit_grace: float | None | _Unset = ..., turn_duration_limit_grace: float | None | _Unset = ..., auto_resume: bool | _Unset = ..., **kwargs: Any) -> AgentSandboxPool:
+    def agent_sandboxes(self, *, api_key: str | None = None, url: str | None = None, max_processes: int | None | _Unset = ..., checkout_timeout: float | None | _Unset = ..., request_timeout: float | None | _Unset = ..., metadata: Callable[[], Mapping[str, str]] | None | _Unset = ..., connect_headers: Callable[[], Mapping[str, str]] | None | _Unset = ..., feed_duration_limit_grace: float | None | _Unset = ..., turn_duration_limit_grace: float | None | _Unset = ..., auto_resume: bool | _Unset = ..., **kwargs: Any) -> AsyncMontyRemote:
         """Connect to Logfire Agent Sandboxes, remote Pydantic Monty workers hosted by Logfire.
 
         Requires the `agent-sandboxes` extra, e.g. `pip install 'logfire[agent-sandboxes]'`.
 
-        Returns a wrapper around a [`pydantic_monty.AsyncMontyRemote`][pydantic_monty.AsyncMontyRemote] pool;
-        use it as an async context manager and check out sessions from it:
+        Returns a [`pydantic_monty.AsyncMontyRemote`][pydantic_monty.AsyncMontyRemote] pool that
+        authenticates with your Logfire API key. Use it as an async context manager and check out sessions from it:
 
         ```py
         import logfire
@@ -549,13 +549,14 @@ class Logfire:
 
         No connection is made until a session is checked out.
 
-        Checkout accepts the same options and yields the same Monty sessions as `AsyncMontyRemote`.
-        Every server refusal raises `AgentSandboxRefusedError`, with Logfire hints for authentication
-        and capacity refusals. Recognized connection failures raise `AgentSandboxConnectionError`. Both derive
-        from `AgentSandboxError` (a `RuntimeError` subclass) and preserve the original exception as `__cause__`.
-        Other errors, including invalid metadata and exceptions from metadata callbacks, pass through unchanged.
-        Errors inside a checked-out session, including user-code exceptions, `MontyCrashedError`,
-        `MontyDisconnectError` and `MontyShutdown`, pass through unchanged.
+        Because the pool is a plain `AsyncMontyRemote`, you can pass this method wherever a Monty pool
+        factory is expected, for example `CodeMode(monty_sandbox=logfire.agent_sandboxes)` in Pydantic AI.
+
+        Errors are Monty's own. A refused checkout raises `MontyRefusedError`. For `UNAUTHENTICATED` or
+        `PERMISSION_DENIED`, check that the key is a project API key with the
+        `project:execute_agent_sandboxes` scope, that its region matches the server URL, and that Agent
+        Sandboxes are enabled for the project. For `RESOURCE_EXHAUSTED`, lower `max_processes` or retry
+        after a delay.
 
         The Logfire platform records sandbox usage itself. The current trace context is sent
         with each session so those spans join the caller's trace.

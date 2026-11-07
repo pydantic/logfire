@@ -1,10 +1,3 @@
-"""Implement Logfire's public tracing, logging, metrics, and integration APIs.
-
-Applications use these through the default logfire instance or a Logfire instance.
-LogfireSpan represents a span; Logfire.agent_sandboxes creates remote session pools
-whose server refusals and recognized connection failures use the AgentSandboxError hierarchy.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -96,6 +89,7 @@ if TYPE_CHECKING:
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
     from pydantic_evals.reporting import EvaluationReport
+    from pydantic_monty import AsyncMontyRemote
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
     from snowflake.connector.connection import SnowflakeConnection
     from sqlalchemy import Engine
@@ -134,7 +128,6 @@ if TYPE_CHECKING:
         Variable,
         VariablesConfig,
     )
-    from .agent_sandboxes import AgentSandboxPool
     from .config import TemplateMismatchPolicy
     from .forwarding import ForwardExportRequestResponse
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
@@ -1254,13 +1247,13 @@ class Logfire:
         turn_duration_limit_grace: float | None | _Unset = _UNSET,
         auto_resume: bool | _Unset = _UNSET,
         **kwargs: Any,
-    ) -> AgentSandboxPool:
+    ) -> AsyncMontyRemote:
         """Connect to Logfire Agent Sandboxes, remote Pydantic Monty workers hosted by Logfire.
 
         Requires the `agent-sandboxes` extra, e.g. `pip install 'logfire[agent-sandboxes]'`.
 
-        Returns a wrapper around a [`pydantic_monty.AsyncMontyRemote`][pydantic_monty.AsyncMontyRemote] pool;
-        use it as an async context manager and check out sessions from it:
+        Returns a [`pydantic_monty.AsyncMontyRemote`][pydantic_monty.AsyncMontyRemote] pool that
+        authenticates with your Logfire API key. Use it as an async context manager and check out sessions from it:
 
         ```py
         import logfire
@@ -1276,13 +1269,14 @@ class Logfire:
 
         No connection is made until a session is checked out.
 
-        Checkout accepts the same options and yields the same Monty sessions as `AsyncMontyRemote`.
-        Every server refusal raises `AgentSandboxRefusedError`, with Logfire hints for authentication
-        and capacity refusals. Recognized connection failures raise `AgentSandboxConnectionError`. Both derive
-        from `AgentSandboxError` (a `RuntimeError` subclass) and preserve the original exception as `__cause__`.
-        Other errors, including invalid metadata and exceptions from metadata callbacks, pass through unchanged.
-        Errors inside a checked-out session, including user-code exceptions, `MontyCrashedError`,
-        `MontyDisconnectError` and `MontyShutdown`, pass through unchanged.
+        Because the pool is a plain `AsyncMontyRemote`, you can pass this method wherever a Monty pool
+        factory is expected, for example `CodeMode(monty_sandbox=logfire.agent_sandboxes)` in Pydantic AI.
+
+        Errors are Monty's own. A refused checkout raises `MontyRefusedError`. For `UNAUTHENTICATED` or
+        `PERMISSION_DENIED`, check that the key is a project API key with the
+        `project:execute_agent_sandboxes` scope, that its region matches the server URL, and that Agent
+        Sandboxes are enabled for the project. For `RESOURCE_EXHAUSTED`, lower `max_processes` or retry
+        after a delay.
 
         The Logfire platform records sandbox usage itself. The current trace context is sent
         with each session so those spans join the caller's trace.
