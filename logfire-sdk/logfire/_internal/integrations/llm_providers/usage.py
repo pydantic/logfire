@@ -1,8 +1,37 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from .semconv import CACHE_CREATION_INPUT_TOKENS, CACHE_READ_INPUT_TOKENS, INPUT_TOKENS, OUTPUT_TOKENS, USAGE_RAW
+
+# Where the AI Gateway writes the cost in the `usage` object: the current block, then the
+# deprecated one, which is all that older and self-hosted gateways send.
+GATEWAY_COST_FIELDS = (('logfire_ai_gateway', 'cost'), ('pydantic_ai_gateway', 'cost_estimate'))
+
+
+def _parse_gateway_cost(value: object) -> float | None:
+    if not isinstance(value, (str, int, float)) or isinstance(value, bool):
+        return None
+    try:
+        # Going through `str` turns an int too large for a float into `inf` instead of raising.
+        cost = float(str(value))
+    except ValueError:
+        return None
+    return cost if math.isfinite(cost) and cost >= 0 else None
+
+
+def _gateway_reported_cost(usage: Any) -> float | None:
+    """The cost the AI Gateway reported in the `usage` object, if any.
+
+    The gateway's blocks are extra fields on the usage object, so this needs neither genai_prices
+    nor a dump of the response. A reported `0` (e.g. a gateway cache hit) is a real cost.
+    """
+    for block_name, field_name in GATEWAY_COST_FIELDS:
+        block = getattr(usage, block_name, None)
+        if isinstance(block, dict) and (cost := _parse_gateway_cost(block.get(field_name))) is not None:  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+            return cost
+    return None
 
 
 def get_usage_attributes(
@@ -30,6 +59,10 @@ def get_usage_attributes(
     pydantic-ai's resolution order:
     https://github.com/pydantic/pydantic-ai/blob/28a58d53b4d75b4da6d3b372edb9651f9cbe2411/pydantic_ai_slim/pydantic_ai/usage.py#L327-L329
 
+    A cost reported by the AI Gateway in `usage` takes precedence over the genai_prices estimate,
+    since it is the cost the gateway calculated, including any custom prices.
+    An invalid reported cost is ignored in favor of the estimate.
+
     Token/raw-usage and cost fail independently: a cost error does not prevent tokens
     from being set. Cost errors are silently caught (expected for unknown models etc.).
     """
@@ -49,6 +82,10 @@ def get_usage_attributes(
             result[USAGE_RAW] = usage.model_dump(exclude_none=True)
     except Exception:
         pass
+
+    if (reported_cost := _gateway_reported_cost(usage)) is not None:
+        result['operation.cost'] = reported_cost
+        return result
 
     # Resolve the provider the way pydantic-ai's RequestUsage.extract does: the client's
     # base URL first, then the integration's provider id, trying each in turn because
