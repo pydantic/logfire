@@ -433,3 +433,50 @@ def test_logging_non_string(exporter: TestExporter, logger: Logger):
             }
         ]
     )
+
+
+class UnprintableArg:
+    def __str__(self) -> str:
+        raise RuntimeError('cannot be printed')
+
+
+def test_logging_with_bad_arguments_does_not_raise(exporter: TestExporter, capsys: pytest.CaptureFixture[str]) -> None:
+    # Like other handlers, `LogfireLoggingHandler` must report a log call that can't be formatted
+    # with `Handler.handleError` rather than raising from the application's `logger.info(...)` line.
+    bad_logger = getLogger('tests.test_stdlib_logging.bad_arguments')
+    bad_logger.propagate = False  # pytest's own handlers deliberately raise on badly formatted records
+    handler = LogfireLoggingHandler()
+    bad_logger.addHandler(handler)
+    try:
+        bad_logger.error('%d items', 'many')
+        bad_logger.error('value: %s', UnprintableArg())
+        bad_logger.error('fine: %s', 'ok')
+    finally:
+        bad_logger.removeHandler(handler)
+
+    errors = capsys.readouterr().err
+    assert errors.count('--- Logging error ---') == 2
+    assert 'TypeError: %d format' in errors
+    assert 'RuntimeError: cannot be printed' in errors
+    assert [span.attributes['logfire.msg'] for span in exporter.exported_spans] == ['fine: ok']  # type: ignore
+
+
+def test_logging_error_scrubs_arguments(exporter: TestExporter, capsys: pytest.CaptureFixture[str]) -> None:
+    # `handleError` prints the arguments of a record that can't be formatted,
+    # so they must be scrubbed like the attributes sent to Logfire.
+    bad_logger = getLogger('tests.test_stdlib_logging.scrub_arguments')
+    bad_logger.propagate = False
+    handler = LogfireLoggingHandler()
+    bad_logger.addHandler(handler)
+    secret = 'hunter' + '2'  # not spelled out, as the printed call stack includes this file's source lines
+    try:
+        bad_logger.error('n=%(n)d', {'n': 'many', 'password': secret})
+        bad_logger.error('%d items', f'my password is {secret}')
+    finally:
+        bad_logger.removeHandler(handler)
+
+    errors = capsys.readouterr().err
+    assert errors.count('--- Logging error ---') == 2
+    assert secret not in errors
+    assert "[Scrubbed due to 'password']" in errors
+    assert exporter.exported_spans == []

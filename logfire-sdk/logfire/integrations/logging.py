@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from copy import copy
 from logging import NOTSET, Handler as LoggingHandler, LogRecord, StreamHandler
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
@@ -89,18 +90,34 @@ class LogfireLoggingHandler(LoggingHandler):
             self.fallback.handle(record)
             return
 
-        attributes = self.fill_attributes(record)
-        tags = attributes.pop(ATTRIBUTES_TAGS_KEY, None)
-        if isinstance(tags, str):
-            tags = (tags,)
+        # Like the handlers in the standard library, report a failure (e.g. a message that can't be formatted
+        # with its arguments) through `handleError` instead of raising from the application's logging call.
+        try:
+            attributes = self.fill_attributes(record)
+            tags = attributes.pop(ATTRIBUTES_TAGS_KEY, None)
+            if isinstance(tags, str):
+                tags = (tags,)
 
-        self.logfire_instance.log(
-            msg_template=attributes.pop(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, record.msg),
-            level=LOGGING_TO_OTEL_LEVEL_NUMBERS.get(record.levelno, record.levelno),
-            attributes=attributes,
-            tags=tags,
-            exc_info=record.exc_info,
-        )
+            self.logfire_instance.log(
+                msg_template=attributes.pop(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, record.msg),
+                level=LOGGING_TO_OTEL_LEVEL_NUMBERS.get(record.levelno, record.levelno),
+                attributes=attributes,
+                tags=tags,
+                exc_info=record.exc_info,
+            )
+        except Exception:
+            # `handleError` prints the record's arguments to stderr, so scrub them first, as they would be in Logfire.
+            self.handleError(self._scrub_args(record))
+
+    def _scrub_args(self, record: LogRecord) -> LogRecord:
+        record = copy(record)
+        scrubber = self.logfire_instance.config.scrubber
+        if isinstance(record.args, Mapping):
+            record.args, _ = scrubber.scrub_value(('attributes',), record.args)
+        else:
+            args, _ = scrubber.scrub_value(('attributes', ATTRIBUTES_LOGGING_ARGS_KEY), record.args)
+            record.args = tuple(args)
+        return record
 
     def fill_attributes(self, record: LogRecord) -> dict[str, Any]:
         """Fill the attributes to send to Logfire.
