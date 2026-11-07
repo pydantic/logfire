@@ -91,7 +91,7 @@ def logfire_dunder_all() -> set[str]:
 
 
 def test_public_exports_match_stubs() -> None:
-    """The no-op package's type-checking exports must mirror the SDK, including the checkout error hierarchy."""
+    """The no-op package's stubs must mirror the SDK's exports and RuntimeError-compatible checkout hierarchy."""
     path = Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / '__init__.pyi'
     stub = ast.parse(path.read_text())
     exports = next(
@@ -101,6 +101,11 @@ def test_public_exports_match_stubs() -> None:
         and any(isinstance(target, ast.Name) and target.id == '__all__' for target in node.targets)
     )
     assert set(ast.literal_eval(exports)) == logfire_dunder_all()
+    exceptions_stub = ast.parse(path.with_name('exceptions.pyi').read_text())
+    base_error = next(
+        node for node in exceptions_stub.body if isinstance(node, ast.ClassDef) and node.name == 'AgentSandboxError'
+    )
+    assert [ast.unparse(base) for base in base_error.bases] == ['RuntimeError']
 
 
 def import_logfire_api_without_logfire() -> ModuleType:
@@ -116,6 +121,21 @@ def import_logfire_api_without_logfire() -> ModuleType:
 def import_logfire_api_with_logfire() -> ModuleType:
     logfire_api = importlib.import_module('logfire_api')
     return importlib.reload(logfire_api)
+
+
+@pytest.mark.parametrize(
+    'logfire_api_factory',
+    [import_logfire_api_without_logfire, import_logfire_api_with_logfire],
+    ids=['without_logfire', 'with_logfire'],
+)
+def test_agent_sandbox_runtime_error_compatibility(logfire_api_factory: Callable[[], ModuleType]) -> None:
+    """Existing RuntimeError handlers must keep catching both typed checkout errors, with or without the SDK."""
+    logfire_api = logfire_api_factory()
+    assert issubclass(logfire_api.AgentSandboxRefusedError, RuntimeError)
+    assert issubclass(logfire_api.AgentSandboxConnectionError, RuntimeError)
+    for error_type in (logfire_api.AgentSandboxRefusedError, logfire_api.AgentSandboxConnectionError):
+        with pytest.raises(RuntimeError):
+            raise error_type('Agent Sandboxes checkout failed')
 
 
 @pytest.mark.parametrize(
@@ -163,7 +183,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         reason='capacity',
     )
     assert isinstance(error, logfire_api.AgentSandboxError)
-    assert logfire_api.AgentSandboxError.__bases__ == (Exception,)
+    assert logfire_api.AgentSandboxError.__bases__ == (RuntimeError,)
     assert logfire_api.AgentSandboxRefusedError.__bases__ == (logfire_api.AgentSandboxError,)
     assert logfire_api.AgentSandboxConnectionError.__bases__ == (logfire_api.AgentSandboxError,)
     assert error.status_code == 'RESOURCE_EXHAUSTED'

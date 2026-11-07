@@ -1,5 +1,5 @@
-class AgentSandboxError(Exception):
-    """Base class for Agent Sandboxes checkout errors."""
+class AgentSandboxError(RuntimeError):
+    """Base class for Agent Sandboxes checkout errors, compatible with RuntimeError handlers."""
 
 class AgentSandboxRefusedError(AgentSandboxError):
     """The server refused a checkout; the original Monty error is the chained cause.

@@ -24,8 +24,8 @@ except ImportError:
         VERSION = '0.0.0'
         METRICS_PREFERRED_TEMPORALITY = {}
 
-        class AgentSandboxError(Exception):
-            """Base class for Agent Sandboxes checkout errors."""
+        class AgentSandboxError(RuntimeError):
+            """Base class for Agent Sandboxes checkout errors, compatible with RuntimeError handlers."""
 
         class AgentSandboxRefusedError(AgentSandboxError):
             """The server refused a checkout."""

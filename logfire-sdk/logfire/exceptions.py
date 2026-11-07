@@ -1,13 +1,13 @@
 """Exceptions for Logfire callers, including Agent Sandboxes checkout failures.
 
-AgentSandboxError groups refusal and connection errors. AgentSandboxRefusedError exposes
+AgentSandboxError groups refusal and connection errors under RuntimeError. AgentSandboxRefusedError exposes
 the server's status and reason; AgentSandboxConnectionError reports transport failures.
 Errors raised inside checked-out sessions are not wrapped.
 """
 
 
-class AgentSandboxError(Exception):
-    """Base class for Agent Sandboxes checkout errors."""
+class AgentSandboxError(RuntimeError):
+    """Base class for Agent Sandboxes checkout errors, compatible with RuntimeError handlers."""
 
 
 class AgentSandboxRefusedError(AgentSandboxError):
