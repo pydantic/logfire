@@ -6,6 +6,7 @@ from ..types import ExceptionCallback as ExceptionCallback
 from .client import InvalidProjectName as InvalidProjectName, LogfireClient as LogfireClient, ProjectAlreadyExists as ProjectAlreadyExists
 from .config_params import CompressionValues as CompressionValues, ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues, normalize_token as normalize_token
 from .constants import ATTRIBUTES_CONFIG as ATTRIBUTES_CONFIG, ATTRIBUTES_PACKAGE_VERSIONS as ATTRIBUTES_PACKAGE_VERSIONS, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH, RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR, RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL, RESOURCE_ATTRIBUTES_VERSION as RESOURCE_ATTRIBUTES_VERSION
+from .exporters.api_key_gate import ApiKeyGatedLogExporter as ApiKeyGatedLogExporter, ApiKeyGatedMetricExporter as ApiKeyGatedMetricExporter, ApiKeyGatedSpanExporter as ApiKeyGatedSpanExporter, ApiKeyWriteAccess as ApiKeyWriteAccess
 from .exporters.console import ConsoleColorsValues as ConsoleColorsValues, ConsoleLogExporter as ConsoleLogExporter, IndentedConsoleSpanExporter as IndentedConsoleSpanExporter, ShowParentsConsoleSpanExporter as ShowParentsConsoleSpanExporter, SimpleConsoleSpanExporter as SimpleConsoleSpanExporter
 from .exporters.dynamic_batch import DynamicBatchSpanProcessor as DynamicBatchSpanProcessor
 from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper as CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper as MainLogProcessorWrapper
@@ -54,6 +55,7 @@ from typing_extensions import Self
 
 CREDENTIALS_FILENAME: str
 COMMON_REQUEST_HEADERS: Incomplete
+API_KEY_CANNOT_WRITE_HINT: str
 PROJECT_NAME_PATTERN: str
 METRICS_PREFERRED_TEMPORALITY: Incomplete
 
@@ -165,6 +167,10 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
         api_key: API key for the Logfire API.
 
             If not provided, will be loaded from the `LOGFIRE_API_KEY` environment variable.
+
+            If no write token or project credentials file is found, the API key is also used to send
+            telemetry, unless `send_to_logfire` is `False`. This requires a project API key with the
+            `project:write_otlp` scope. Otherwise Logfire warns that the key cannot send telemetry.
 
         service_name: Name of this service.
 
@@ -369,12 +375,15 @@ class LogfireCredentials:
             LogfireConfigError: If the credentials file exists but is invalid.
         """
     @classmethod
-    def from_token(cls, token: str, session: requests.Session, base_url: str) -> Self | None:
+    def from_token(cls, token: str, session: requests.Session, base_url: str, *, rejected_hint: str | None = None, on_rejected: Callable[[], None] | None = None) -> Self | None:
         """Check that the token is valid.
 
         Issue a warning if the Logfire API is unreachable, or we get a response other than 200 or 401.
 
         We continue unless we get a 401. If something is wrong, we'll later store data locally for back-fill.
+
+        `rejected_hint` is appended to the warning when the API rejects the token with a 401.
+        `on_rejected` is called for that 401 too.
 
         Raises:
             LogfireConfigError: If the token is invalid.
@@ -416,19 +425,6 @@ class LogfireCredentials:
 
         Raises:
             LogfireConfigError: If there was an error creating projects.
-        """
-    @classmethod
-    def initialize_project(cls, *, client: LogfireClient) -> Self:
-        """Create a new project or use an existing project on logfire.dev requesting the given project name.
-
-        Args:
-            client: The Logfire client to use when making requests.
-
-        Returns:
-            The new credentials.
-
-        Raises:
-            LogfireConfigError: If there was an error on creating/configuring the project.
         """
     def write_creds_file(self, creds_dir: Path) -> None:
         """Write a credentials file to the given path."""
