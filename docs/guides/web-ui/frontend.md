@@ -18,7 +18,7 @@ The page groups browser telemetry by frontend application. A frontend applicatio
 
 1. Open **Frontend** in your project and select **Set up**.
 2. Create a frontend application with a stable name, such as `customer-portal`, or select an existing application.
-3. Copy the generated setup into your browser application.
+3. Copy the generated setup, including the frontend application token and regional trace URL, into your browser application. Use the generated values, not placeholders or a regular Logfire write token.
 4. Enable the browser signals you want to investigate. See the [browser SDK guide](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/) for automatic request tracing, Core Web Vitals, browser metrics, and framework-specific options.
 
 Browser telemetry is sent to and stored in your Logfire project. Review the attributes your application adds before sending sensitive values.

@@ -16,10 +16,11 @@ A session replay records changes to the page's document structure and user inter
 
 ## Record sessions
 
-1. Open **Frontend → Session replays** in your project and select **Set up**. Create a frontend application or select an existing application, then add its generated browser setup to your application.
-2. Install the optional `@pydantic/logfire-session-replay` package.
-3. Follow the [Session Replay setup](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#session-replay) to load the recorder and configure the replay endpoint.
-4. Deploy the change, open the application, and interact with more than one page or control.
+1. Open **Frontend → Session replays** in your project and select **Set up**. Create a frontend application or select an existing application.
+2. Copy the generated browser setup, including the frontend application token and regional trace URL, into your application. Use the generated values, not placeholders or a regular Logfire write token.
+3. Install the optional `@pydantic/logfire-session-replay` package.
+4. Follow the [Session Replay setup](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#session-replay) to load the recorder and configure the replay endpoint.
+5. Deploy the change, open the application, and interact with more than one page or control.
 
 Replay data is sent to and stored in your Logfire project. The recorder masks rendered text and input values by default, leaves console capture off, and removes query strings and fragments from captured URLs. Those defaults do not redact document attributes, CSS-generated content, resource URLs, or custom-event payloads. Review the [privacy controls](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#session-replay) before recording pages that contain sensitive data.
 
