@@ -551,8 +551,9 @@ class Logfire:
 
         Checkout accepts the same options and yields the same Monty sessions as `AsyncMontyRemote`.
         Every server refusal raises `AgentSandboxRefusedError`, with Logfire hints for authentication
-        and capacity refusals. Connection failures raise `AgentSandboxConnectionError`. Both derive
+        and capacity refusals. Recognized connection failures raise `AgentSandboxConnectionError`. Both derive
         from `AgentSandboxError` and preserve the original exception as `__cause__`.
+        Other errors, including invalid metadata and exceptions from metadata callbacks, pass through unchanged.
         Errors inside a checked-out session, including user-code exceptions, `MontyCrashedError`,
         `MontyDisconnectError` and `MontyShutdown`, pass through unchanged.
 

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import copy
 import importlib
+import pickle
 import sys
 import warnings
 from collections.abc import Callable
@@ -117,6 +119,30 @@ def import_logfire_api_with_logfire() -> ModuleType:
 
 
 @pytest.mark.parametrize(
+    'logfire_api_factory',
+    [import_logfire_api_without_logfire, import_logfire_api_with_logfire],
+    ids=['without_logfire', 'with_logfire'],
+)
+@pytest.mark.parametrize(
+    'attributes',
+    [{}, {'status_code': 'RESOURCE_EXHAUSTED', 'status_message': 'server at capacity', 'reason': 'capacity'}],
+)
+def test_agent_sandbox_error_serialization(
+    logfire_api_factory: Callable[[], ModuleType], attributes: dict[str, str]
+) -> None:
+    """Refusal errors must support exception reconstruction without losing status attributes, even without the SDK."""
+    logfire_api = logfire_api_factory()
+    error = logfire_api.AgentSandboxRefusedError(
+        'Agent Sandboxes refused the session: server at capacity', **attributes
+    )
+    assert vars(error) == {name: attributes.get(name) for name in ('status_code', 'status_message', 'reason')}
+    for restored in (copy.copy(error), copy.deepcopy(error), pickle.loads(pickle.dumps(error))):
+        assert type(restored) is type(error)
+        assert restored.args == error.args
+        assert vars(restored) == vars(error)
+
+
+@pytest.mark.parametrize(
     ['logfire_api_factory', 'module_name'],
     [
         pytest.param(import_logfire_api_without_logfire, 'logfire_api.', id='without_logfire'),
@@ -137,7 +163,9 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         reason='capacity',
     )
     assert isinstance(error, logfire_api.AgentSandboxError)
-    assert issubclass(logfire_api.AgentSandboxError, Exception)
+    assert logfire_api.AgentSandboxError.__bases__ == (Exception,)
+    assert logfire_api.AgentSandboxRefusedError.__bases__ == (logfire_api.AgentSandboxError,)
+    assert logfire_api.AgentSandboxConnectionError.__bases__ == (logfire_api.AgentSandboxError,)
     assert error.status_code == 'RESOURCE_EXHAUSTED'
     assert error.status_message == 'server at capacity'
     assert error.reason == 'capacity'

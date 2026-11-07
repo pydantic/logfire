@@ -9,10 +9,10 @@ from ._internal.main import Logfire as Logfire, LogfireSpan as LogfireSpan
 from ._internal.scrubbing import ScrubMatch as ScrubMatch, ScrubbingOptions as ScrubbingOptions
 from ._internal.stack_info import add_non_user_code_prefix as add_non_user_code_prefix
 from ._internal.utils import suppress_instrumentation as suppress_instrumentation
+from .exceptions import AgentSandboxConnectionError as AgentSandboxConnectionError, AgentSandboxError as AgentSandboxError, AgentSandboxRefusedError as AgentSandboxRefusedError
 from .integrations.logging import LogfireLoggingHandler as LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
 from .version import VERSION as VERSION
-from .exceptions import AgentSandboxConnectionError as AgentSandboxConnectionError, AgentSandboxError as AgentSandboxError, AgentSandboxRefusedError as AgentSandboxRefusedError
 from logfire.propagate import attach_context as attach_context, get_context as get_context
 from logfire.sampling import SamplingOptions as SamplingOptions
 from typing import Any

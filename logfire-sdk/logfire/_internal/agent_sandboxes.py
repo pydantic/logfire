@@ -1,6 +1,6 @@
 """Build authenticated Monty pools for Logfire.agent_sandboxes.
 
-AgentSandboxPool wraps checkout failures in public Agent Sandboxes errors while yielding Monty sessions.
+AgentSandboxPool wraps server refusals and recognized connection failures while yielding Monty sessions.
 AgentSandboxCheckoutOptions preserves the native checkout options without duplicating their defaults.
 """
 
@@ -53,7 +53,7 @@ class AgentSandboxCheckoutOptions(TypedDict, total=False):
 class AgentSandboxPool:
     """An async Monty remote pool with typed Agent Sandboxes checkout errors.
 
-    Refusals raise AgentSandboxRefusedError; connection failures raise AgentSandboxConnectionError.
+    Refusals raise AgentSandboxRefusedError; recognized connection failures raise AgentSandboxConnectionError.
     The original exception is always the chained cause. Errors inside a checked-out session,
     including user-code exceptions, MontyCrashedError, MontyDisconnectError and MontyShutdown,
     pass through unchanged.

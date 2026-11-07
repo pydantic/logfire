@@ -30,7 +30,7 @@ except ImportError:
         class AgentSandboxRefusedError(AgentSandboxError):
             """The server refused a checkout."""
 
-            def __init__(self, message, *, status_code, status_message, reason):
+            def __init__(self, message, *, status_code=None, status_message=None, reason=None):
                 self.status_code = status_code
                 self.status_message = status_message
                 self.reason = reason

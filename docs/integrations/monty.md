@@ -81,7 +81,8 @@ Custom metric aggregation and collection settings in [`MetricsOptions`][logfire.
 
 For remote sessions created by `logfire.agent_sandboxes()`, catch the public Logfire errors
 around `pool.checkout()`. Install the client with `pip install 'logfire[agent-sandboxes]'` and
-set `LOGFIRE_API_KEY` to a project API key with the `project:execute_agent_sandboxes` scope.
+set `LOGFIRE_API_KEY` to a [non-personal project API key](../reference/advanced/use-api-keys.md#project-api-key)
+with the `project:execute_agent_sandboxes` scope. Personal API keys cannot execute Agent Sandboxes sessions.
 The key's region must match the server URL, and Agent Sandboxes must be enabled for the project.
 
 ```python skip-run="true" skip-reason="external-connection"
@@ -125,8 +126,9 @@ logfire.exceptions.AgentSandboxRefusedError: Agent Sandboxes refused the session
 Logfire Agent Sandboxes: Lower `max_processes` to open fewer sessions at once, or retry after a delay.
 ```
 
-Connection failures, such as an unreachable address, connection timeout, failed TLS (encrypted
-connection) handshake, or a server that does not support the gRPC connection protocol, raise
+Connection failures, such as an unreachable address, connection timeout, failed TLS (Transport
+Layer Security) handshake, or a server that does not support gRPC (a protocol for calling functions
+on a remote server), raise
 `AgentSandboxConnectionError`. A connection timeout's exception chain ends with:
 
 ```text
@@ -146,7 +148,7 @@ invalid metadata or exceptions from your metadata callback also pass through unc
 - **`Agent Sandboxes refused the session: ...` with an authentication hint:** use a project API
   key, not a personal key. Check its `project:execute_agent_sandboxes` scope, the server region,
   and whether Agent Sandboxes are enabled for the project.
-- **A refusal with `reason` set to `caller_cap` or `capacity`:** lower `max_processes` to open
+- **A `RESOURCE_EXHAUSTED` refusal with `reason` set to `caller_cap` or `capacity`:** lower `max_processes` to open
   fewer sessions at once, or retry after a delay. The SDK does not retry refusals for you.
 - **`Agent Sandboxes could not connect to ...`:** check the URL, network access, and TLS
   configuration. Use the server origin without a path, query, or fragment. Inspect `__cause__`

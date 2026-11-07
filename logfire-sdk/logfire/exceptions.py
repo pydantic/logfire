@@ -20,11 +20,16 @@ class AgentSandboxRefusedError(AgentSandboxError):
     """
 
     def __init__(
-        self, message: str, *, status_code: str | None, status_message: str | None, reason: str | None
+        self,
+        message: str,
+        *,
+        status_code: str | None = None,
+        status_message: str | None = None,
+        reason: str | None = None,
     ) -> None:
-        self.status_code = status_code
-        self.status_message = status_message
-        self.reason = reason
+        self.status_code: str | None = status_code
+        self.status_message: str | None = status_message
+        self.reason: str | None = reason
         super().__init__(message)
 
 

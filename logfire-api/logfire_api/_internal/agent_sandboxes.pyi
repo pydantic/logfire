@@ -1,7 +1,7 @@
 from collections.abc import Awaitable as Awaitable, Callable, Mapping
 from contextlib import AbstractAsyncContextManager
 from logfire import Logfire as Logfire
-from logfire.exceptions import LogfireConfigError as LogfireConfigError
+from logfire.exceptions import AgentSandboxConnectionError as AgentSandboxConnectionError, AgentSandboxRefusedError as AgentSandboxRefusedError, LogfireConfigError as LogfireConfigError
 from logfire.propagate import get_context as get_context
 from pydantic_monty import AsyncMontyRemote, AsyncMontySession as AsyncMontySession, ExternalModule as ExternalModule, OSPolicy, ResourceLimits, TypeCheckFormat
 from typing import Any
@@ -25,7 +25,7 @@ class AgentSandboxCheckoutOptions(TypedDict, total=False):
 class AgentSandboxPool:
     """An async Monty remote pool with typed Agent Sandboxes checkout errors.
 
-    Refusals raise AgentSandboxRefusedError; connection failures raise AgentSandboxConnectionError.
+    Refusals raise AgentSandboxRefusedError; recognized connection failures raise AgentSandboxConnectionError.
     The original exception is always the chained cause. Errors inside a checked-out session,
     including user-code exceptions, MontyCrashedError, MontyDisconnectError and MontyShutdown,
     pass through unchanged.
