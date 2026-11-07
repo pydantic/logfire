@@ -124,10 +124,10 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
 
     === "Go"
 
-        Requires Go 1.25+ for the pinned v0.2.0 below. One call in `main` sets up OpenTelemetry and keeps your instrumentations.
+        Requires Go 1.26+ for the pinned v0.2.1 below. One call in `main` sets up OpenTelemetry and keeps your instrumentations.
 
         ```bash
-        go get github.com/pydantic/opamp-clients/go/opampotel@v0.2.0
+        go get github.com/pydantic/opamp-clients/go/opampotel@v0.2.1
         ```
 
         ```go
