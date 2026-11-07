@@ -28,28 +28,30 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
 
     === "Python with Logfire"
 
-        Requires Python 3.11+ and Logfire `>=5.1,<6`. If you are upgrading from 4.x, read the [5.x upgrade notes](../../../release-notes.md#upgrading-from-4x-to-5x) first.
+        Requires Python 3.11+ and Logfire 5.5.0 or a later 5.x release. If you are upgrading from 4.x, read the [5.x upgrade notes](../../../release-notes.md#upgrading-from-4x-to-5x) first.
 
         ```bash
-        pip install 'logfire-fleet-otel[logfire]'
+        pip install --upgrade 'logfire[fleet]'
         ```
 
-        Replace your `logfire.configure(...)` call with `logfire_fleet_otel.configure_logfire(...)`, using the same arguments. Keep your instrumentation calls:
+        Add `fleet=True` to your `logfire.configure()` call. Keep its other arguments and your instrumentation calls:
 
         ```py skip-run="true" skip-reason="external-connection"
-        import logfire_fleet_otel
+        import logfire
 
-        logfire_fleet_otel.configure_logfire(
+        logfire.configure(
             service_name='checkout-api',  # the application name you entered in Fleet
-            console=False,
+            fleet=True,
         )
         ```
 
-        Without `OTEL_OPAMP_ENDPOINT` set (and without an `endpoint=` argument), this behaves like `logfire.configure()` with the same arguments. You can deploy the code before adding the Fleet environment variables. See the [Python Logfire guide](https://github.com/pydantic/opamp-clients/blob/main/docs/python-otel.md#the-logfire-sdk-configure_logfire) for the full reference.
+        Setting `LOGFIRE_FLEET=true` in the environment does the same without a code change. The policy then applies to everything the SDK sends, on every exporter, the console included. `configure()` never raises for Fleet: without the `fleet` extra or without `OTEL_OPAMP_ENDPOINT`, it warns with `LogfireFleetWarning` and the SDK runs with its own settings, so you can deploy the code before adding the Fleet environment variables. To set the connection in code instead of the environment, pass `fleet=FleetOptions(...)` from `logfire.fleet`. See the [Python Logfire guide](https://github.com/pydantic/opamp-clients/blob/main/docs/python-otel.md#the-logfire-sdk-logfireconfigurefleettrue) for the full reference.
+
+        On Logfire 5.1 to 5.4, install `'logfire-fleet-otel[logfire]'` and replace `logfire.configure(...)` with `logfire_fleet_otel.configure_logfire(...)`, using the same arguments. See the [Python Logfire guide](https://github.com/pydantic/opamp-clients/blob/main/docs/python-otel.md#the-logfire-sdk-configure_logfire).
 
     === "Python with OpenTelemetry"
 
-        Requires Python 3.11+. Keeps your existing instrumentations.
+        Requires Python 3.11+. Keeps your existing instrumentations. See the [Python OpenTelemetry guide](https://github.com/pydantic/opamp-clients/blob/main/docs/python-otel.md) for configuration and deployment examples.
 
         ```bash
         pip install logfire-fleet-otel
@@ -58,18 +60,14 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
         opentelemetry-instrument python app.py
         ```
 
-        See the [Python OpenTelemetry guide](https://github.com/pydantic/opamp-clients/blob/main/docs/python-otel.md) for configuration and deployment examples.
-
     === "Node.js"
 
-        Requires Node.js 22+. Uses OpenTelemetry automatic instrumentation.
+        Requires Node.js 22+. Uses OpenTelemetry automatic instrumentation. See the [Node.js guide](https://github.com/pydantic/opamp-clients/blob/main/docs/node-otel.md) for configuration and deployment examples.
 
         ```bash
         npm install @pydantic/logfire-fleet-otel
         node --import @pydantic/logfire-fleet-otel/register app.js
         ```
-
-        See the [Node.js guide](https://github.com/pydantic/opamp-clients/blob/main/docs/node-otel.md) for configuration and deployment examples.
 
     === "Java"
 
