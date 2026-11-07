@@ -14,6 +14,7 @@ Replaying (default, no real CLI needed):
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import shutil
 import stat
@@ -45,7 +46,7 @@ from claude_agent_sdk import (
     ToolResultBlock,
     ToolUseBlock,
 )
-from claude_agent_sdk.types import HookContext
+from claude_agent_sdk.types import HookContext, HookEvent
 
 from logfire._internal.integrations.claude_agent_sdk import (
     _clear_state,
@@ -602,6 +603,26 @@ def test_inject_hooks_with_existing_events() -> None:
     assert options.hooks is not None
     assert len(options.hooks['PreToolUse']) == 2
     assert options.hooks['PreToolUse'][1] is existing_hook
+
+
+def test_inject_hooks_shared_hooks_dict() -> None:
+    """Clients whose options share a hooks dict, e.g. via `dataclasses.replace`, get the tracing hooks once.
+
+    Each extra copy makes the CLI call the hooks again for every tool call,
+    starting another `execute_tool` span that is never ended.
+    """
+    hooks: dict[HookEvent, list[HookMatcher]] = {}
+    options = ClaudeAgentOptions(hooks=hooks)
+    ClaudeSDKClient(options=options)
+    ClaudeSDKClient(options=options)
+    ClaudeSDKClient(options=ClaudeAgentOptions(hooks=hooks))
+    ClaudeSDKClient(options=dataclasses.replace(options, max_turns=1))
+
+    assert hooks == {
+        'PreToolUse': [HookMatcher(matcher=None, hooks=[pre_tool_use_hook])],
+        'PostToolUse': [HookMatcher(matcher=None, hooks=[post_tool_use_hook])],
+        'PostToolUseFailure': [HookMatcher(matcher=None, hooks=[post_tool_use_failure_hook])],
+    }
 
 
 @pytest.mark.anyio
