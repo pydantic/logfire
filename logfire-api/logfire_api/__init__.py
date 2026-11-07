@@ -1,3 +1,10 @@
+"""Provide an optional Logfire API for libraries that do not require the SDK.
+
+When the SDK is installed, this module delegates to logfire. Otherwise Logfire and
+configure provide no-op instrumentation, and the AgentSandboxError hierarchy keeps
+checkout-error imports available without installing the optional client.
+"""
+
 from __future__ import annotations
 
 import importlib
@@ -16,6 +23,21 @@ except ImportError:
         LevelName = Literal['trace', 'debug', 'info', 'notice', 'warn', 'warning', 'error', 'fatal']
         VERSION = '0.0.0'
         METRICS_PREFERRED_TEMPORALITY = {}
+
+        class AgentSandboxError(RuntimeError):
+            """Base class for Agent Sandboxes checkout errors, compatible with RuntimeError handlers."""
+
+        class AgentSandboxRefusedError(AgentSandboxError):
+            """The server refused a checkout."""
+
+            def __init__(self, message, *, status_code=None, status_message=None, reason=None):
+                self.status_code = status_code
+                self.status_message = status_message
+                self.reason = reason
+                super().__init__(message)
+
+        class AgentSandboxConnectionError(AgentSandboxError):
+            """The client could not reach the server or open a session."""
 
         def configure(*args, **kwargs) -> Logfire:
             if kwargs.get('local'):

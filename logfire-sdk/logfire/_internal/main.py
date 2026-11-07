@@ -1,3 +1,10 @@
+"""Implement Logfire's public tracing, logging, metrics, and integration APIs.
+
+Applications use these through the default logfire instance or a Logfire instance.
+LogfireSpan represents a span; Logfire.agent_sandboxes creates remote session pools
+whose server refusals and recognized connection failures use the AgentSandboxError hierarchy.
+"""
+
 from __future__ import annotations
 
 import contextlib
@@ -1270,8 +1277,12 @@ class Logfire:
         No connection is made until a session is checked out.
 
         Checkout accepts the same options and yields the same Monty sessions as `AsyncMontyRemote`.
-        Authentication and capacity refusals raise `RuntimeError` with Logfire hints, chained from
-        the original `MontyRefusedError`. Other errors pass through unchanged.
+        Every server refusal raises `AgentSandboxRefusedError`, with Logfire hints for authentication
+        and capacity refusals. Recognized connection failures raise `AgentSandboxConnectionError`. Both derive
+        from `AgentSandboxError` (a `RuntimeError` subclass) and preserve the original exception as `__cause__`.
+        Other errors, including invalid metadata and exceptions from metadata callbacks, pass through unchanged.
+        Errors inside a checked-out session, including user-code exceptions, `MontyCrashedError`,
+        `MontyDisconnectError` and `MontyShutdown`, pass through unchanged.
 
         The Logfire platform records sandbox usage itself. The current trace context is sent
         with each session so those spans join the caller's trace.

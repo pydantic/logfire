@@ -1,7 +1,7 @@
 from collections.abc import Awaitable as Awaitable, Callable, Mapping
 from contextlib import AbstractAsyncContextManager
 from logfire import Logfire as Logfire
-from logfire.exceptions import LogfireConfigError as LogfireConfigError
+from logfire.exceptions import AgentSandboxConnectionError as AgentSandboxConnectionError, AgentSandboxRefusedError as AgentSandboxRefusedError, LogfireConfigError as LogfireConfigError
 from logfire.propagate import get_context as get_context
 from pydantic_monty import AsyncMontyRemote, AsyncMontySession as AsyncMontySession, ExternalModule as ExternalModule, OSPolicy, ResourceLimits, TypeCheckFormat
 from typing import Any
@@ -23,16 +23,23 @@ class AgentSandboxCheckoutOptions(TypedDict, total=False):
     profile: str | None
 
 class AgentSandboxPool:
-    """An async Monty remote pool that adds Logfire hints when checkout is refused.
+    """An async Monty remote pool with typed Agent Sandboxes checkout errors.
 
-    Monty's native pool and refusal exception cannot be subclassed. Hinted refusals raise
-    RuntimeError, with the original MontyRefusedError available as the chained cause.
+    Refusals raise AgentSandboxRefusedError; recognized connection failures raise AgentSandboxConnectionError.
+    The original exception is always the chained cause. Errors inside a checked-out session,
+    including user-code exceptions, MontyCrashedError, MontyDisconnectError and MontyShutdown,
+    pass through unchanged.
     """
-    def __init__(self, pool: AsyncMontyRemote) -> None: ...
+    def __init__(self, pool: AsyncMontyRemote, url: str) -> None: ...
     async def __aenter__(self) -> AgentSandboxPool: ...
     async def __aexit__(self, *args: Any) -> None: ...
     def checkout(self, **kwargs: Unpack[AgentSandboxCheckoutOptions]) -> AbstractAsyncContextManager[AsyncMontySession]:
-        """Check out a session with the options and defaults of AsyncMontyRemote.checkout."""
+        """Check out a session with the options and defaults of AsyncMontyRemote.checkout.
+
+        Monty 1.5.0 uses RuntimeError for connection failures, identified by its URL-qualified
+        spawn prefix and a gRPC status, connect timeout or non-gRPC response diagnostic.
+        Other RuntimeErrors, including malformed metadata and callback failures, pass through.
+        """
 
 def agent_sandboxes_url(base_url: str) -> str:
     """Validate and normalize a supplied or derived Logfire Agent Sandboxes URL.
