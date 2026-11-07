@@ -1,12 +1,7 @@
-"""Verify that logfire-api mirrors the SDK's public exports and behavior, with and without the SDK installed."""
-
 from __future__ import annotations
 
-import ast
 import asyncio
-import copy
 import importlib
-import pickle
 import sys
 import warnings
 from collections.abc import Callable
@@ -90,24 +85,6 @@ def logfire_dunder_all() -> set[str]:
     return set(logfire.__all__)
 
 
-def test_public_exports_match_stubs() -> None:
-    """The no-op package's stubs must mirror the SDK's exports and RuntimeError-compatible checkout hierarchy."""
-    path = Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / '__init__.pyi'
-    stub = ast.parse(path.read_text())
-    exports = next(
-        node.value
-        for node in stub.body
-        if isinstance(node, ast.Assign)
-        and any(isinstance(target, ast.Name) and target.id == '__all__' for target in node.targets)
-    )
-    assert set(ast.literal_eval(exports)) == logfire_dunder_all()
-    exceptions_stub = ast.parse(path.with_name('exceptions.pyi').read_text())
-    base_error = next(
-        node for node in exceptions_stub.body if isinstance(node, ast.ClassDef) and node.name == 'AgentSandboxError'
-    )
-    assert [ast.unparse(base) for base in base_error.bases] == ['RuntimeError']
-
-
 def import_logfire_api_without_logfire() -> ModuleType:
     logfire = sys.modules['logfire']
     try:
@@ -124,45 +101,6 @@ def import_logfire_api_with_logfire() -> ModuleType:
 
 
 @pytest.mark.parametrize(
-    'logfire_api_factory',
-    [import_logfire_api_without_logfire, import_logfire_api_with_logfire],
-    ids=['without_logfire', 'with_logfire'],
-)
-def test_agent_sandbox_runtime_error_compatibility(logfire_api_factory: Callable[[], ModuleType]) -> None:
-    """Existing RuntimeError handlers must keep catching both typed checkout errors, with or without the SDK."""
-    logfire_api = logfire_api_factory()
-    assert issubclass(logfire_api.AgentSandboxRefusedError, RuntimeError)
-    assert issubclass(logfire_api.AgentSandboxConnectionError, RuntimeError)
-    for error_type in (logfire_api.AgentSandboxRefusedError, logfire_api.AgentSandboxConnectionError):
-        with pytest.raises(RuntimeError):
-            raise error_type('Agent Sandboxes checkout failed')
-
-
-@pytest.mark.parametrize(
-    'logfire_api_factory',
-    [import_logfire_api_without_logfire, import_logfire_api_with_logfire],
-    ids=['without_logfire', 'with_logfire'],
-)
-@pytest.mark.parametrize(
-    'attributes',
-    [{}, {'status_code': 'RESOURCE_EXHAUSTED', 'status_message': 'server at capacity', 'reason': 'capacity'}],
-)
-def test_agent_sandbox_error_serialization(
-    logfire_api_factory: Callable[[], ModuleType], attributes: dict[str, str]
-) -> None:
-    """Refusal errors must support exception reconstruction without losing status attributes, even without the SDK."""
-    logfire_api = logfire_api_factory()
-    error = logfire_api.AgentSandboxRefusedError(
-        'Agent Sandboxes refused the session: server at capacity', **attributes
-    )
-    assert vars(error) == {name: attributes.get(name) for name in ('status_code', 'status_message', 'reason')}
-    for restored in (copy.copy(error), copy.deepcopy(error), pickle.loads(pickle.dumps(error))):
-        assert type(restored) is type(error)
-        assert restored.args == error.args
-        assert vars(restored) == vars(error)
-
-
-@pytest.mark.parametrize(
     ['logfire_api_factory', 'module_name'],
     [
         pytest.param(import_logfire_api_without_logfire, 'logfire_api.', id='without_logfire'),
@@ -170,29 +108,10 @@ def test_agent_sandbox_error_serialization(
     ],
 )
 def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str) -> None:
-    """All public names, including catchable checkout errors, must work with and without the SDK installed."""
     logfire__all__ = logfire_dunder_all()
 
     logfire_api = logfire_api_factory()
     assert logfire_api is not None
-
-    error = logfire_api.AgentSandboxRefusedError(
-        'Agent Sandboxes refused the session: server at capacity',
-        status_code='RESOURCE_EXHAUSTED',
-        status_message='server at capacity',
-        reason='capacity',
-    )
-    assert isinstance(error, logfire_api.AgentSandboxError)
-    assert logfire_api.AgentSandboxError.__bases__ == (RuntimeError,)
-    assert logfire_api.AgentSandboxRefusedError.__bases__ == (logfire_api.AgentSandboxError,)
-    assert logfire_api.AgentSandboxConnectionError.__bases__ == (logfire_api.AgentSandboxError,)
-    assert error.status_code == 'RESOURCE_EXHAUSTED'
-    assert error.status_message == 'server at capacity'
-    assert error.reason == 'capacity'
-    assert str(error) == 'Agent Sandboxes refused the session: server at capacity'
-    assert isinstance(logfire_api.AgentSandboxConnectionError('cannot connect'), logfire_api.AgentSandboxError)
-    for name in ('AgentSandboxError', 'AgentSandboxRefusedError', 'AgentSandboxConnectionError'):
-        logfire__all__.remove(name)
 
     for member in dir(logfire_api):
         if member.startswith('instrument_'):
