@@ -25,7 +25,7 @@ One command installs a Collector as a service and connects it to Fleet. It works
 5. Run the command Logfire shows on the host, and paste the key when it asks. On Linux, for a project in the US region:
 
     ```bash
-    uvx --from 'logfire-cli>=0.1.17' logfire-cli --beta --region us --org <your-org> collector install \
+    uvx --from 'logfire-cli>=0.1.19' logfire-cli --beta --region us --org <your-org> collector install \
       --project <your-project> --token-stdin --yes
     ```
 
