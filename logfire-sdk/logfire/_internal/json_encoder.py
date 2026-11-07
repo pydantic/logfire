@@ -5,7 +5,7 @@ import dataclasses
 import datetime
 import json
 import math
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from decimal import Decimal
 from enum import Enum
 from functools import cache, lru_cache
@@ -13,7 +13,7 @@ from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6
 from pathlib import PurePath
 from re import Pattern
 from types import GeneratorType
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from .utils import JsonValue, safe_repr
@@ -159,11 +159,51 @@ def _pydantic_model_encoder(o: Any, seen: set[int]) -> JsonValue:
         return to_json_value(o.root, seen)  # pyright: ignore[reportUnknownMemberType]
 
     try:
-        dump = o.model_dump()
+        # Like dataclass and attrs fields, fields with repr=False are left out.
+        dump = o.model_dump(exclude=_repr_false_exclude(o, set()))
     except AttributeError:  # pragma: no cover
         # pydantic v1
         dump = o.dict()  # pyright: ignore[reportDeprecated]
     return to_json_value(dump, seen)
+
+
+def _repr_false_exclude(value: Any, seen: set[int]) -> dict[Any, Any] | None:
+    """The `model_dump` exclude for the repr=False fields of the models in `value`, nested ones included.
+
+    `model_dump` turns nested models into dicts, so their fields are excluded from the outermost dump.
+    """
+    import pydantic
+
+    value_id = id(value)
+    exclude: dict[Any, Any] = {}
+    items: Iterable[tuple[Any, Any]]
+    if isinstance(value, pydantic.BaseModel):
+        if isinstance(value, pydantic.RootModel):
+            return None
+        cls = type(value)
+        computed_fields = cls.model_computed_fields
+        if isinstance(computed_fields, property):  # pragma: no cover
+            # Older pydantic versions only have it on instances.
+            computed_fields = value.model_computed_fields  # pyright: ignore[reportDeprecated]
+        fields = {**cls.model_fields, **computed_fields}
+        exclude = {name: True for name, field in fields.items() if not field.repr}
+        items = [(name, getattr(value, name, None)) for name in cls.model_fields if name not in exclude]
+    elif isinstance(value, (list, tuple)):
+        items = enumerate(cast('Sequence[Any]', value))
+    elif isinstance(value, Mapping):
+        items = cast('Mapping[Any, Any]', value).items()
+    else:
+        return None
+
+    if value_id not in seen:
+        seen = seen | {value_id}
+        for key, item in items:
+            # Most items are plain values, so skip them without a call.
+            if not isinstance(item, (str, int, float, type(None))) and (
+                (nested := _repr_false_exclude(item, seen)) is not None
+            ):
+                exclude[key] = nested
+    return exclude or None
 
 
 def _get_sqlalchemy_data(o: Any, seen: set[int]) -> JsonValue | None:

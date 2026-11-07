@@ -21,7 +21,18 @@ import pytest
 from attrs import define, field as attrs_field
 from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
-from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, RootModel, SecretBytes, SecretStr
+from pydantic import (
+    AnyUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    FilePath,
+    NameEmail,
+    RootModel,
+    SecretBytes,
+    SecretStr,
+    computed_field,
+)
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
@@ -30,6 +41,7 @@ from sqlalchemy.sql.schema import ForeignKey
 from sqlmodel import SQLModel
 
 import logfire
+from logfire._internal.json_encoder import to_json_value
 from logfire._internal.json_formatter import json_args_value_formatter
 from logfire._internal.json_schema import create_json_schema
 from logfire.testing import TestExporter
@@ -165,6 +177,16 @@ class AttrsError(Exception):
 class MyReprAttrs:
     in_repr: int
     not_in_repr: MyDataclass = attrs_field(repr=False)
+
+
+class MyReprModel(BaseModel):
+    in_repr: int
+    not_in_repr: MyDataclass = Field(repr=False)
+
+    @computed_field(repr=False)
+    @property
+    def computed_not_in_repr(self) -> int:
+        return self.in_repr + 1
 
 
 class ListSubclass(_ListSubclass): ...
@@ -540,6 +562,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
                 'properties': {'u': {'type': 'string', 'x-python-datatype': ANYURL_REPR_CLASSNAME}},
             },
             id='pydantic_model',
+        ),
+        pytest.param(
+            MyReprModel(in_repr=1, not_in_repr=MyDataclass(2)),
+            'in_repr=1',
+            '{"in_repr":1}',
+            {'type': 'object', 'title': 'MyReprModel', 'x-python-datatype': 'PydanticModel'},
+            id='pydantic_model_repr',
         ),
         pytest.param(
             MyModel.model_validate(dict(x='x', y=10, u='http://test.com', extra_key=MyDataclass(10))),
@@ -923,6 +952,53 @@ def test_attrs_schema_respects_repr() -> None:
         'title': 'MyReprAttrs',
         'x-python-datatype': 'attrs',
     }
+
+
+def test_pydantic_model_schema_respects_repr() -> None:
+    assert create_json_schema(MyReprModel(in_repr=1, not_in_repr=MyDataclass(2)), set()) == {
+        'type': 'object',
+        'title': 'MyReprModel',
+        'x-python-datatype': 'PydanticModel',
+    }
+
+
+def test_pydantic_nested_models_respect_repr() -> None:
+    class Outer(BaseModel):
+        inner: MyReprModel
+        inner_list: list[MyReprModel]
+        inner_dict: dict[str, MyReprModel]
+        inner_tuple: tuple[int, MyReprModel]
+        root: RootModel[list[int]]
+        hidden_inner: MyReprModel = Field(repr=False)
+
+    inner = MyReprModel(in_repr=1, not_in_repr=MyDataclass(2))
+    outer = Outer(
+        inner=inner,
+        inner_list=[inner],
+        inner_dict={'a': inner},
+        inner_tuple=(3, inner),
+        root=RootModel[list[int]]([4]),
+        hidden_inner=inner,
+    )
+    assert to_json_value(outer, set()) == snapshot(
+        {
+            'inner': {'in_repr': 1},
+            'inner_list': [{'in_repr': 1}],
+            'inner_dict': {'a': {'in_repr': 1}},
+            'inner_tuple': [3, {'in_repr': 1}],
+            'root': [4],
+        }
+    )
+
+
+def test_pydantic_circular_model_respects_repr() -> None:
+    class Node(BaseModel):
+        children: list[Any] = []
+        hidden: int = Field(default=0, repr=False)
+
+    node = Node()
+    node.children.append(node)
+    assert to_json_value(node, set()) == snapshot({'children': [{'children': ['<circular reference>']}]})
 
 
 def test_attrs_falsey_callable_repr(exporter: TestExporter) -> None:
