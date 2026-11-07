@@ -86,10 +86,9 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
         sdk.start() // your existing NodeSDK (or logfire.configure())
         const fleet = manage()
 
-        process.on('SIGTERM', async () => {
-          await fleet.shutdown() // tell Fleet first
-          await sdk.shutdown()
-        })
+        // In your existing shutdown, tell Fleet first:
+        //   await fleet.shutdown()
+        //   await sdk.shutdown()
         ```
 
         See [In code](#in-code) for what changes.
