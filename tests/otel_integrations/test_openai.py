@@ -3225,7 +3225,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
         # use a hardcoded API key to make sure one in the environment is never used
         openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
 
-        with logfire.instrument_openai(openai_client, suppress_other_instrumentation=False, version=[1, 'latest']):
+        with logfire.instrument_openai(openai_client, version=[1, 'latest']):
             response = openai_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
 
     assert response.choices[0].text == 'Nine'
@@ -3402,7 +3402,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
         # use a hardcoded API key to make sure one in the environment is never used
         openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
 
-        with logfire.instrument_openai(openai_client, version=[1, 'latest']):
+        with logfire.instrument_openai(openai_client, suppress_other_instrumentation=True, version=[1, 'latest']):
             response = openai_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
 
     assert response.choices[0].text == 'Nine'
