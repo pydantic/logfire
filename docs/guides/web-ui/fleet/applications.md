@@ -134,7 +134,7 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
     | `OTEL_OPAMP_HEADERS` | `Authorization=Bearer%20<Fleet connection key>`. Replace `<Fleet connection key>` with the key from setup. `%20` is the encoded space between `Bearer` and the key, required by OpenTelemetry's header format. |
     | `OTEL_SERVICE_NAME` | The application name you entered in Fleet, for example `checkout-api`. This names the application in Fleet. |
 
-    For self-hosted Logfire, use your [Logfire host](../../../reference/self-hosted/overview.md#client-configuration) with `/v1/opamp`, replacing `https://` with `wss://`: for example, `wss://logfire.example.com/v1/opamp`.
+    For self-hosted Logfire, use your [Logfire host](../../../reference/self-hosted/overview.md#client-configuration) with `/v1/opamp`, replacing `https://` with `wss://`: for example, `wss://logfire.example.com/v1/opamp`. Your operator can set a different URL, so if the **Add application** setup shows one, use that.
 
     In a terminal, Logfire's setup commands prompt for the key without showing it. In production, set the variables in your deployment instead.
 
