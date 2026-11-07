@@ -1272,7 +1272,9 @@ class Logfire:
         Because the pool is a plain `AsyncMontyRemote`, you can pass this method wherever a Monty pool
         factory is expected, for example `CodeMode(monty_sandbox=logfire.agent_sandboxes)` in Pydantic AI.
 
-        Errors are Monty's own. A refused checkout raises `MontyRefusedError`. For `UNAUTHENTICATED` or
+        Checkout errors from the sandboxes server are Monty's own exceptions; this method does not wrap them.
+        An exception raised by your `metadata` callback propagates unchanged. A refused checkout raises
+        `MontyRefusedError`. For `UNAUTHENTICATED` or
         `PERMISSION_DENIED`, check that the key is a project API key with the
         `project:execute_agent_sandboxes` scope, that its region matches the server URL, and that Agent
         Sandboxes are enabled for the project. For `RESOURCE_EXHAUSTED`, lower `max_processes` or retry
