@@ -98,8 +98,9 @@ def _pandas_data_frame_encoder(o: Any, seen: set[int]) -> JsonValue:
 
     rows: list[Any] = []
     for row_slice in row_slices:
-        for _, row in o.iloc[row_slice].iterrows():
-            rows.append([item for column_slice in column_slices for item in row.iloc[column_slice]])
+        # Including the index preserves rows when the frame has no columns.
+        for _, *row in o.iloc[row_slice].itertuples(name=None):
+            rows.append([item for column_slice in column_slices for item in row[column_slice]])
 
     return to_json_value(rows, seen)
 

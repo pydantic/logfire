@@ -954,6 +954,28 @@ def test_attrs_falsey_callable_repr(exporter: TestExporter) -> None:
     }
 
 
+@pytest.mark.parametrize('max_rows,row_positions', [(None, [0, 1, 2]), (2, [0, 2])])
+@pytest.mark.parametrize('max_columns,column_positions', [(None, [0, 1, 2]), (2, [0, 2])])
+def test_log_dataframe_preserves_integer_precision(
+    exporter: TestExporter,
+    max_rows: int | None,
+    row_positions: list[int],
+    max_columns: int | None,
+    column_positions: list[int],
+) -> None:
+    rows = [[2**53 + 1 + row * 2, row + 0.5, 2**64 - 1 - row] for row in range(3)]
+    frame = pandas.DataFrame(rows, columns=['integer', 'fraction', 'unsigned'])
+    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):
+        logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    assert isinstance(attributes['frame'], str)
+    assert json.loads(attributes['frame']) == [
+        [rows[row][column] for column in column_positions] for row in row_positions
+    ]
+
+
 @pytest.mark.parametrize(
     'row_count,row_positions', [(0, []), (1, [0]), (3, [0, 1, 2]), (4, [0, 1, 2, 3]), (5, [0, 1, 3, 4])]
 )
