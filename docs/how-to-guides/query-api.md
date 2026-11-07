@@ -177,6 +177,71 @@ Here's an example of how to use these clients:
         main()
     ```
 
+## Export more than 10,000 records
+
+Use `iter_records()` to download records across multiple requests without collecting the
+whole result in memory. It returns all columns from the `records` table and fetches the
+next page only when you finish consuming the current one.
+
+Choose a fixed historical time window whose records have finished arriving and changing.
+Pagination does not create a database snapshot. Records that arrive late or change while
+you iterate can be missed, even with a fixed end time. This method is not a live data feed.
+
+Set `LOGFIRE_READ_TOKEN` to a token from **Project → Settings → Read tokens**, then run:
+
+```python skip-run="true" skip-reason="external-connection"
+import json
+import os
+from datetime import datetime, timedelta, timezone
+
+from logfire.query_client import LogfireQueryClient
+
+# Replace these bounds with a completed historical period for your project.
+end = datetime(2026, 1, 2, tzinfo=timezone.utc)
+start = end - timedelta(days=1)
+
+with LogfireQueryClient(read_token=os.environ['LOGFIRE_READ_TOKEN']) as client:
+    with open('records.jsonl', 'w') as output:
+        count = 0
+        for record in client.iter_records(
+            min_timestamp=start,
+            max_timestamp=end,
+            page_size=1000,
+            where="service_name = 'my-service'",
+        ):
+            output.write(json.dumps(record) + '\n')
+            count += 1
+        print(f'Wrote {count} records to records.jsonl')
+```
+
+`AsyncLogfireQueryClient` provides the same method: use `async with` for the client and
+`async for record in client.iter_records(...)` for iteration.
+
+Records are ordered by `start_timestamp`, `trace_id`, `span_id`, and `kind`. The iterator
+uses the last record's values as a cursor (the position at which the next page starts),
+so records with the same timestamp can span several pages. `page_size` controls each
+request, not the total number of records. It accepts values from 1 to 10,000.
+
+The optional `where` argument is a SQL condition without the `WHERE` keyword. Supply
+trusted SQL, as with `query_json_rows`; do not interpolate unescaped user input.
+`environment` and `timezone` work as they do for the other query methods.
+
+### Verify the export
+
+The script prints the number of records written. Check it against `SELECT count(*) FROM
+records WHERE service_name = 'my-service'` using `query_json_rows` with the same time bounds
+and environment. The counts should match while the underlying records remain unchanged.
+
+### Troubleshoot incomplete exports
+
+- **The counts differ:** check that records are no longer arriving or changing within the
+  window, then repeat the export with identical filters and bounds.
+- **A request fails partway through:** the iterator raises the query or network error;
+  it does not silently return a successful partial export. Restart the export once the
+  cause is resolved. Earlier records may already have been written to your output.
+- **The API returns `429 Too Many Requests`:** each page counts as a query. See
+  [query limits](../reference/query-limits.md) and respect the error's `retry_after` value.
+
 ## DB API 2.0 Interface
 
 Logfire also provides a [PEP 249](https://peps.python.org/pep-0249/) (DB API 2.0) compatible interface via
