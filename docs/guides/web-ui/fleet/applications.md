@@ -83,13 +83,13 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
         ```js
         import { manage } from '@pydantic/logfire-fleet-otel'
 
-        sdk.start() // your existing NodeSDK (or logfire.configure())
+        sdk.start() // your existing NodeSDK
         const fleet = manage()
 
-        // In your existing shutdown, tell Fleet first:
-        //   await fleet.shutdown()
-        //   await sdk.shutdown()
+        // On shutdown, await fleet.shutdown() before sdk.shutdown().
         ```
+
+        With the Logfire SDK, call `manage()` right after `logfire.configure()`, and on shutdown await `fleet.shutdown()` before `logfire.shutdown()`.
 
         See [In code](#in-code) for what changes.
 
