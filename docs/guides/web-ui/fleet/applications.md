@@ -58,6 +58,17 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
         opentelemetry-instrument python app.py
         ```
 
+        **Set up in code instead?** If your application sets up OpenTelemetry itself, keep that setup and add one call after it. Start the application as usual (`python app.py`), without the two `OTEL_PYTHON_*` variables:
+
+        ```py skip-run="true" skip-reason="external-connection"
+        import logfire_fleet_otel
+
+        # ...your existing OpenTelemetry setup...
+        logfire_fleet_otel.manage()
+        ```
+
+        No setup of your own yet? Call `logfire_fleet_otel.configure()` in its place: it builds the SDK from the `OTEL_*` variables and joins Fleet. See [In code](#in-code) for what changes.
+
     === "Node.js"
 
         Requires Node.js 22+. Uses OpenTelemetry automatic instrumentation.
@@ -66,6 +77,22 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
         npm install @pydantic/logfire-fleet-otel
         node --import @pydantic/logfire-fleet-otel/register app.js
         ```
+
+        **Set up in code instead?** If your application starts its own `NodeSDK`, or the Logfire SDK (`@pydantic/logfire-node`), keep that setup and call `manage()` after it, in place of `--import`. Start the application as usual (`node app.js`):
+
+        ```js
+        import { manage } from '@pydantic/logfire-fleet-otel'
+
+        sdk.start() // your existing NodeSDK (or logfire.configure())
+        const fleet = manage()
+
+        process.on('SIGTERM', async () => {
+          await fleet.shutdown() // tell Fleet first
+          await sdk.shutdown()
+        })
+        ```
+
+        See [In code](#in-code) for what changes.
 
     === "Java"
 
@@ -125,6 +152,15 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
 
 The connection key only manages settings. Your application keeps sending telemetry with its existing write token. Each language has a full guide in [pydantic/opamp-clients](https://github.com/pydantic/opamp-clients), including frameworks and deployment examples.
 
+### In code
+
+In the Fleet setup, choose **In my code** under **Where does your application set up OpenTelemetry?** for Python with OpenTelemetry or Node.js. With `manage()`, your application keeps its own OpenTelemetry setup, and Fleet places its controls in front of every exporter that setup has:
+
+- **Applied:** redaction, scrubbing, minimum log level, rate limits and which signals are exported.
+- **Kept in your code:** the sampler and the instrumentations. A policy that changes sampling or instrumentations reports **Failed** for this application, naming the setting, and the application logs a warning at start.
+
+The connection still comes from `OTEL_OPAMP_ENDPOINT` and `OTEL_OPAMP_HEADERS`. Call `manage()` once, after your setup: with no SDK set up, it warns and the application runs unmanaged. For full control, including sampling, use the launcher (`opentelemetry-instrument` or `--import`) or, in Python, `logfire_fleet_otel.configure()`. The [Python](https://github.com/pydantic/opamp-clients/blob/main/docs/python-otel.md#an-sdk-set-up-already-manage) and [Node.js](https://github.com/pydantic/opamp-clients/blob/main/docs/node-otel.md#an-sdk-set-up-already-manage) guides cover `manage()` in full.
+
 ## Check the connection
 
 Within a few seconds of starting, the setup shows the application as connected and its policy as applied:
@@ -148,7 +184,7 @@ Within seconds the application stops sending info logs to the [Live view](../liv
 | Symptom | Check |
 | --- | --- |
 | The application never connects | Check that the Fleet package loads before your application starts, and that `OTEL_OPAMP_ENDPOINT` and `OTEL_OPAMP_HEADERS` are set in the application's environment. Its logs name connection and authentication errors. |
-| Connected, but **Policy status** shows **Failed** | Open the application in **SDKs**. It reports which setting it couldn't apply and why. |
+| Connected, but **Policy status** shows **Failed** | Open the application in **SDKs**. It reports which setting it couldn't apply and why. An application set up [in code](#in-code) can't take sampling or instrumentation changes. |
 | A setting shows as unsupported | Not every setup supports every setting. Unsupported clients are left out of a rollout's preview. |
 | No telemetry arrives | Fleet doesn't send telemetry. Check the application's write token and region settings. |
 | Node.js prints `MetadataLookupWarning` at start | OpenTelemetry's Google Cloud resource detector found no GCP metadata server, so it is harmless outside GCP. To skip the cloud detectors, set `OTEL_NODE_RESOURCE_DETECTORS=env,host,os,process,serviceinstance`. |
