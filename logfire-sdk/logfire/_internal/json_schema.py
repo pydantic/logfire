@@ -207,8 +207,10 @@ def _bytearray_schema(obj: bytearray, _seen: set[int]) -> JsonDict:
 def _enum_schema(obj: Enum, seen: set[int]) -> JsonDict:
     enum_values = [e.value for e in obj.__class__]
     enum_types = set(type(value).__name__ for value in enum_values)
-    if all(t in {'str', 'int', 'bool', 'float'} for t in enum_types):
-        type_ = {'str': 'string', 'int': 'integer', 'bool': 'boolean', 'float': 'number'}[enum_types.pop()]
+    if enum_types == {'int', 'float'}:
+        type_ = 'number'
+    elif len(enum_types) == 1 and enum_types <= {'str', 'int', 'bool', 'float'}:
+        type_ = {'str': 'string', 'int': 'integer', 'bool': 'boolean', 'float': 'number'}[next(iter(enum_types))]
     else:
         type_ = 'object'
 
