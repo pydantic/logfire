@@ -1098,6 +1098,47 @@ def test_log_non_finite_scalar_float_args(exporter: TestExporter) -> None:
     assert attributes['finite'] == 1.5
 
 
+class NumpyIntSubclass(numpy.int64):
+    pass
+
+
+def test_log_numpy_scalar_args(exporter: TestExporter) -> None:
+    logfire.info(
+        'test message',
+        count=numpy.int64(42),
+        loss=numpy.float32(0.25),
+        acc=numpy.float64(0.5),
+        sub=NumpyIntSubclass(3),
+        ok=numpy.bool_(True),
+        nan=numpy.float32('nan'),
+        nested={'n': numpy.int32(7), 'f1': numpy.float32(0.5), 'ok': numpy.bool_(False), 'sub': NumpyIntSubclass(3)},
+    )
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    assert attributes['count'] == 42
+    assert attributes['loss'] == 0.25
+    assert attributes['acc'] == 0.5
+    assert attributes['sub'] == 3
+    assert attributes['ok'] is True
+    assert attributes['nan'] == 'nan'
+    assert attributes['nested'] == '{"n":7,"f1":0.5,"ok":false,"sub":3}'
+    assert attributes['logfire.json_schema'] == IsJson(
+        {
+            'type': 'object',
+            'properties': {
+                'count': {},
+                'loss': {},
+                'acc': {},
+                'sub': {},
+                'ok': {},
+                'nan': {},
+                'nested': {'type': 'object'},
+            },
+        }
+    )
+
+
 class SABase(MappedAsDataclass, DeclarativeBase):
     pass
 

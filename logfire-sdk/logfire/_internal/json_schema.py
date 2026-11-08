@@ -84,7 +84,8 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
     with contextlib.suppress(ModuleNotFoundError):
         import numpy
 
-        lookup.update({numpy.ndarray: _numpy_schema})
+        # NumPy scalars are encoded as plain Python values, see `numpy_scalar_to_python`.
+        lookup.update({numpy.ndarray: _numpy_schema, numpy.bool_: {}, numpy.integer: {}, numpy.floating: {}})
 
     with contextlib.suppress(ModuleNotFoundError):
         import pandas
