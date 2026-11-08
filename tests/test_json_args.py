@@ -1139,6 +1139,35 @@ def test_log_numpy_scalar_args(exporter: TestExporter) -> None:
     )
 
 
+def test_log_numpy_timedelta_args(exporter: TestExporter) -> None:
+    # `numpy.timedelta64` subclasses `numpy.integer`, but is kept as its repr so the unit is not lost.
+    logfire.info('test message', td=numpy.timedelta64(5, 's'), nested={'td': numpy.timedelta64(5, 's')})
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    td_repr = repr(numpy.timedelta64(5, 's'))
+    assert attributes['td'] == json.dumps(td_repr)
+    assert attributes['nested'] == json.dumps({'td': td_repr}, separators=(',', ':'))
+    unknown = {'type': 'object', 'x-python-datatype': 'unknown'}
+    assert attributes['logfire.json_schema'] == IsJson(
+        {
+            'type': 'object',
+            'properties': {'td': unknown, 'nested': {'type': 'object', 'properties': {'td': unknown}}},
+        }
+    )
+
+
+def test_log_numpy_out_of_range_int_args(exporter: TestExporter) -> None:
+    # Same as a Python int outside the signed 64-bit range: a warning, and the value is sent as a string.
+    with pytest.warns(UserWarning, match='outside the range of OTLP integers'):
+        logfire.info('test message', big=numpy.uint64(2**64 - 1))
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    assert attributes['big'] == '18446744073709551615'
+    assert attributes['logfire.json_schema'] == IsJson({'type': 'object', 'properties': {'big': {}}})
+
+
 class SABase(MappedAsDataclass, DeclarativeBase):
     pass
 

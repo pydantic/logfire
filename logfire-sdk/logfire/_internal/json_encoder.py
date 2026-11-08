@@ -151,6 +151,10 @@ def _numpy_array_encoder(o: Any, seen: set[int]) -> JsonValue:
     return to_json_value(o.tolist(), seen)
 
 
+def _repr_encoder(o: Any, seen: set[int]) -> JsonValue:
+    return safe_repr(o)
+
+
 def _numpy_scalar_encoder(o: Any, seen: set[int]) -> JsonValue:
     return to_json_value(numpy_scalar_to_python(o), seen)
 
@@ -247,6 +251,8 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
                 numpy.bool_: _numpy_scalar_encoder,
                 numpy.integer: _numpy_scalar_encoder,
                 numpy.floating: _numpy_scalar_encoder,
+                # `timedelta64` subclasses `numpy.integer`, but `int()` would drop its unit, so keep the repr.
+                numpy.timedelta64: _repr_encoder,
             }
         )
 
@@ -266,6 +272,8 @@ def numpy_scalar_to_python(o: Any) -> Any:
 
         if issubclass(o_type, numpy.bool_):
             return bool(o)
+        if issubclass(o_type, numpy.timedelta64):
+            return o
         if issubclass(o_type, numpy.integer):
             return int(o)
         if issubclass(o_type, numpy.floating):
