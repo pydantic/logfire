@@ -613,13 +613,20 @@ def test_inject_hooks_shared_hooks_dict() -> None:
     """
     hooks: dict[HookEvent, list[HookMatcher]] = {}
     options = ClaudeAgentOptions(hooks=hooks)
-    ClaudeSDKClient(options=options)
+    client = ClaudeSDKClient(options=options)
+
+    # The tracing hooks are injected in place, so a hook added to the dict later still reaches the client.
+    user_matcher = HookMatcher(matcher='Bash')
+    hooks['PreToolUse'].append(user_matcher)
+    assert client.options.hooks is not None
+    assert client.options.hooks['PreToolUse'][-1] is user_matcher
+
     ClaudeSDKClient(options=options)
     ClaudeSDKClient(options=ClaudeAgentOptions(hooks=hooks))
     ClaudeSDKClient(options=dataclasses.replace(options, max_turns=1))
 
     assert hooks == {
-        'PreToolUse': [HookMatcher(matcher=None, hooks=[pre_tool_use_hook])],
+        'PreToolUse': [HookMatcher(matcher=None, hooks=[pre_tool_use_hook]), user_matcher],
         'PostToolUse': [HookMatcher(matcher=None, hooks=[post_tool_use_hook])],
         'PostToolUseFailure': [HookMatcher(matcher=None, hooks=[post_tool_use_failure_hook])],
     }
