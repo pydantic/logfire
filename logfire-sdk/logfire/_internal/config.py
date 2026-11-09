@@ -207,6 +207,8 @@ class ConsoleOptions:
 
     It includes the filename, log level, line number, and attributes.
     `include_attributes` can override whether attributes are shown.
+
+    Show attributes will cause scrubbing to happen on the calling thread, which may slow down your application.
     """
     min_log_level: LevelName = 'info'
     """The minimum log level to show in the console."""
@@ -220,6 +222,8 @@ class ConsoleOptions:
 
     Set to `True` with `verbose=False` to show attributes without the filename, line number, or log level.
     This uses Logfire's formatting metadata and does not change the message itself.
+
+    Setting this to `True` will cause scrubbing to happen on the calling thread, which may slow down your application.
     """
 
 
@@ -639,6 +643,8 @@ def configure(
 
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
+            Processors which have an `on_end` method (other than `BatchSpanProcessor`) will cause
+            span attribute scrubbing to happen on the calling thread, which may slow down your application.
         metrics: Set to `False` to disable sending all metrics,
             or provide a `MetricsOptions` object to configure metrics, e.g. additional metric readers.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.

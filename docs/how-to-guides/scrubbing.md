@@ -4,7 +4,7 @@ description: "Learn how to use Logfire to keep logs & sensitive data safe: Autom
 ---
 # Scrubbing sensitive data
 
-By default, Logfire checks logs and spans for potentially sensitive values to redact before sending them. A span represents one operation with a name, a start time, and a duration.
+The **Logfire** SDK scans for and redacts potentially sensitive data from logs and spans before exporting them.
 
 ## Disabling scrubbing
 
@@ -86,21 +86,22 @@ def scrubbing_callback(match: logfire.ScrubMatch):
 logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
 ```
 
-!!! warning "Use a callback that can run on a background thread"
+!!! warning "Keep scrubbing callbacks simple and pure"
 
     Base your callback on the match and any configuration that is safe to share across threads.
     Request-local values, such as values stored in a Python `ContextVar`, may be unavailable on the background thread.
-    If the callback raises an exception during span scrubbing, Logfire can send the span with its original attributes.
+    The callback should not have side effects.
+    It should return quickly, as it can get called many times.
 
 ## When Logfire scrubs spans
 
-Logfire can scrub span attributes, the key-value details attached to a span, on a background thread before sending the span.
-If you show attributes in console output or add a custom span processor that implements an `on_end` hook, Logfire scrubs span attributes on the calling thread.
-This applies to all destinations, including those that send spans in batches.
-Logfire also scrubs message template fields on the calling thread as it formats the message.
+Scrubbing span attributes is slow, so it happens in a background thread when possible.
+It will instead happen on the calling thread if any of the following are true:
 
-With [tail sampling](sampling.md#tail-sampling-by-level-and-duration), Logfire decides whether to keep a trace after seeing its spans.
-Logfire scrubs span attributes after that decision, so discarded spans skip attribute scrubbing.
+- Console logging is enabled and prints attributes, i.e. `include_attributes` or `verbose` is `True`.
+- A span processor is included in `additional_span_processors` that implements an `on_end` hook and isn't a `BatchSpanProcessor`.
+
+Message template fields are always scrubbed on the calling thread during message formatting.
 
 ## Security tips
 

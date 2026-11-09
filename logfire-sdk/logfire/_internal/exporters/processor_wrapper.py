@@ -119,7 +119,9 @@ class _SpanProcessorExporter(SpanExporter):
 def make_scrubbing_queue(processor: SpanProcessor, scrubber: BaseScrubber) -> BatchSpanProcessor:
     """Queue records for scrubbing before delivering them to a processor."""
     return BatchSpanProcessor(
-        _SpanProcessorExporter(ScrubbingSpanProcessor(processor, scrubber)), max_export_batch_size=1
+        _SpanProcessorExporter(ScrubbingSpanProcessor(processor, scrubber)),
+        max_export_batch_size=1,
+        max_queue_size=4096,
     )
 
 
