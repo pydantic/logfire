@@ -2436,10 +2436,14 @@ def test_pending_spans_false(monkeypatch: pytest.MonkeyPatch, use_env_var: bool)
     assert get_pending_span_processors(pending_span_processor) == (console_span_processor,)
 
 
-def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
+@pytest.mark.parametrize('enable_scrubbing', [True, False])
+def test_default_exporters(monkeypatch: pytest.MonkeyPatch, enable_scrubbing: bool):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
-    logfire.configure(send_to_logfire=True, token='foo')
+    logfire.configure(send_to_logfire=True, token='foo', scrubbing=None if enable_scrubbing else False)
     wait_for_check_token_thread()
+
+    expected_processor = BackgroundScrubbingSpanProcessor if enable_scrubbing else SynchronousMultiSpanProcessor
+    assert isinstance(get_span_processor_root(), expected_processor)
 
     [console_span_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
 
@@ -2642,11 +2646,15 @@ def test_metrics_false(monkeypatch: pytest.MonkeyPatch):
     assert isinstance(get_meter_provider().provider, NoOpMeterProvider)  # type: ignore
 
 
-def get_span_processors() -> Iterable[SpanProcessor]:
+def get_span_processor_root() -> SpanProcessor:
     [root] = get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
     assert isinstance(root, CheckSuppressInstrumentationProcessorWrapper)
     assert isinstance(root.processor, MainSpanProcessorWrapper)
-    processor = root.processor.processor
+    return root.processor.processor
+
+
+def get_span_processors() -> Iterable[SpanProcessor]:
+    processor = get_span_processor_root()
     if isinstance(processor, (BackgroundScrubbingSpanProcessor, ScrubbingSpanProcessor)):
         processor = processor.processor
     assert isinstance(processor, SynchronousMultiSpanProcessor)
