@@ -2,11 +2,13 @@ import gc
 import gzip
 import inspect
 import os
+import signal
 import socket
 import subprocess
 import sys
 import textwrap
 import threading
+import warnings
 import weakref
 from io import BytesIO
 from pathlib import Path
@@ -734,6 +736,78 @@ def test_closing_the_session_discards_pending_disk_retries() -> None:
         assert not retryer.dir.exists()
     finally:
         session.close()
+
+
+@pytest.mark.skipif(not hasattr(os, 'fork'), reason='os.fork is not available')
+def test_forked_child_leaves_disk_retries_to_the_parent(monkeypatch: pytest.MonkeyPatch) -> None:
+    def no_sleep(_: float) -> None:
+        pass
+
+    monkeypatch.setattr('time.sleep', no_sleep)
+    release_retries = threading.Event()
+
+    class BlockingSinkHTTPAdapter(SinkHTTPAdapter):
+        def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
+            assert release_retries.wait(timeout=10)
+            return super().send(request, *args, **kwargs)
+
+    def failed_export(data: bytes) -> None:
+        with pytest.raises(requests.exceptions.HTTPError):
+            session.post('http://example.com', data=data, timeout=30)
+
+    with OTLPExporterHttpSession() as session:
+        # requests would otherwise look up the system proxy settings, which can crash a forked process on macOS.
+        session.trust_env = False
+        # Each failed export is attempted twice before it's queued.
+        session.mount('http://', StatusCodeHTTPAdapter(*[503] * 8))
+        retryer = session.retryer
+        retryer.session.trust_env = False
+        retry_adapter = BlockingSinkHTTPAdapter()
+        retryer.session.mount('http://', retry_adapter)
+
+        payloads = [b'parent 0', b'parent 1', b'parent 2']
+        for payload in payloads:
+            failed_export(payload)
+
+        read_fd, write_fd = os.pipe()
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*fork.*')
+            child_pid = os.fork()
+
+        if child_pid == 0:  # pragma: no cover
+            signal.alarm(10)
+            os.close(read_fd)
+            try:
+                child_retryer = session.retryer
+                child_retryer.session.trust_env = False
+                child_retryer.session.mount('http://', SinkHTTPAdapter())
+                failed_export(b'child')
+                # This is what runs when a worker exits normally.
+                cleanup_disk_retryers()
+                assert not child_retryer.dir.exists()
+                result = b''
+                exit_code = 0
+            except BaseException as error:
+                result = repr(error).encode()
+                exit_code = 1
+            os.write(write_fd, result)
+            os._exit(exit_code)
+
+        os.close(write_fd)
+        with os.fdopen(read_fd, 'rb') as read_file:
+            result = read_file.read()
+        _, status = os.waitpid(child_pid, 0)
+        assert os.waitstatus_to_exitcode(status) == 0, result
+
+        assert retryer.dir.is_dir()
+        release_retries.set()
+        with retryer.lock:
+            thread = retryer.thread
+        if thread is not None:
+            thread.join(timeout=5)
+            assert not thread.is_alive()
+        assert retry_adapter.bodies == payloads
+        assert not list(retryer.dir.iterdir())
 
 
 def test_cleanup_disk_retryers_skips_dead_weakrefs(monkeypatch: pytest.MonkeyPatch) -> None:

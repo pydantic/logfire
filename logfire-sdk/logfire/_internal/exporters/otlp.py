@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import atexit
 import logging
+import os
 import random
 import shutil
 import sys
@@ -10,7 +11,6 @@ import uuid
 import weakref
 from collections import deque
 from collections.abc import Callable, Mapping, Sequence
-from functools import cached_property
 from pathlib import Path
 from tempfile import mkdtemp
 from threading import Lock, Thread
@@ -237,11 +237,15 @@ class OTLPExporterHttpSession(Session):
         raise_for_retryable_status(response)
         return response
 
-    @cached_property
+    @property
     def retryer(self) -> DiskRetryer:
         # Only create this when needed to save resources,
         # and because the full set of headers are only set some time after this session is created.
-        return DiskRetryer(self.headers)
+        retryer: DiskRetryer | None = self.__dict__.get('retryer')
+        # After a fork, the inherited retryer still belongs to the parent, so start a separate one.
+        if retryer is None or retryer.pid != os.getpid():
+            retryer = self.__dict__['retryer'] = DiskRetryer(self.headers)
+        return retryer
 
     def close(self) -> None:
         retryer = self.__dict__.get('retryer')
@@ -278,6 +282,9 @@ class DiskRetryer:
         self.total_size = 0
         self.closed = False
 
+        # A forked child inherits this object, but `dir` and `tasks` belong to the process that created it.
+        self.pid = os.getpid()
+
         # Make a new session rather than using the OTLPExporterHttpSession directly
         # because thread safety of Session is questionable.
         # This assumes that the only important state is the headers.
@@ -296,6 +303,9 @@ class DiskRetryer:
         shutil.rmtree(path, ignore_errors=True)
 
     def close(self) -> None:
+        if self.pid != os.getpid():  # pragma: no cover
+            return
+
         with self.lock:
             self.closed = True
             self.tasks = deque(maxlen=0)
