@@ -52,7 +52,7 @@ from .constants import (
 )
 from .formatter import logfire_format, logfire_format_with_magic
 from .instrument import instrument
-from .json_encoder import logfire_json_dumps
+from .json_encoder import logfire_json_dumps, numpy_scalar_to_python
 from .json_schema import (
     JsonSchemaProperties,
     attributes_json_schema,
@@ -3580,6 +3580,8 @@ def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
         return value
     elif isinstance(value, (str, bool)):
         return value
+    elif (python_value := numpy_scalar_to_python(value)) is not value:
+        return prepare_otlp_attribute(python_value)
     else:
         return logfire_json_dumps(value)
 

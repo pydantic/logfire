@@ -1122,6 +1122,76 @@ def test_log_non_finite_scalar_float_args(exporter: TestExporter) -> None:
     assert attributes['finite'] == 1.5
 
 
+class NumpyIntSubclass(numpy.int64):
+    pass
+
+
+def test_log_numpy_scalar_args(exporter: TestExporter) -> None:
+    logfire.info(
+        'test message',
+        count=numpy.int64(42),
+        loss=numpy.float32(0.25),
+        acc=numpy.float64(0.5),
+        sub=NumpyIntSubclass(3),
+        ok=numpy.bool_(True),
+        nan=numpy.float32('nan'),
+        nested={'n': numpy.int32(7), 'f1': numpy.float32(0.5), 'ok': numpy.bool_(False), 'sub': NumpyIntSubclass(3)},
+    )
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    assert attributes['count'] == 42
+    assert attributes['loss'] == 0.25
+    assert attributes['acc'] == 0.5
+    assert attributes['sub'] == 3
+    assert attributes['ok'] is True
+    assert attributes['nan'] == 'nan'
+    assert attributes['nested'] == '{"n":7,"f1":0.5,"ok":false,"sub":3}'
+    assert attributes['logfire.json_schema'] == IsJson(
+        {
+            'type': 'object',
+            'properties': {
+                'count': {},
+                'loss': {},
+                'acc': {},
+                'sub': {},
+                'ok': {},
+                'nan': {},
+                'nested': {'type': 'object'},
+            },
+        }
+    )
+
+
+def test_log_numpy_timedelta_args(exporter: TestExporter) -> None:
+    # `numpy.timedelta64` subclasses `numpy.integer`, but is kept as its repr so the unit is not lost.
+    logfire.info('test message', td=numpy.timedelta64(5, 's'), nested={'td': numpy.timedelta64(5, 's')})
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    td_repr = repr(numpy.timedelta64(5, 's'))
+    assert attributes['td'] == json.dumps(td_repr)
+    assert attributes['nested'] == json.dumps({'td': td_repr}, separators=(',', ':'))
+    unknown = {'type': 'object', 'x-python-datatype': 'unknown'}
+    assert attributes['logfire.json_schema'] == IsJson(
+        {
+            'type': 'object',
+            'properties': {'td': unknown, 'nested': {'type': 'object', 'properties': {'td': unknown}}},
+        }
+    )
+
+
+def test_log_numpy_out_of_range_int_args(exporter: TestExporter) -> None:
+    # Same as a Python int outside the signed 64-bit range: a warning, and the value is sent as a string.
+    with pytest.warns(UserWarning, match='outside the range of OTLP integers'):
+        logfire.info('test message', big=numpy.uint64(2**64 - 1))
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    assert attributes['big'] == '18446744073709551615'
+    assert attributes['logfire.json_schema'] == IsJson({'type': 'object', 'properties': {'big': {}}})
+
+
 class SABase(MappedAsDataclass, DeclarativeBase):
     pass
 
