@@ -256,3 +256,41 @@ async def test_await_in_fstring(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_nested_scope_in_fstring(exporter: TestExporter):
+    """A lambda, generator expression or comprehension in an f-string isn't evaluated again, so warn."""
+    items = [1, 2, 3]
+    n = 10
+    precision = 2
+    name = 'local'
+
+    with pytest.warns(FormattingFailedWarning) as warnings:
+        logfire.info(f'joined {", ".join(str(y) for y in items)}')
+        logfire.info(f'doubled {[y * 2 for y in items]}')
+        logfire.info(f'lambda {(lambda: n)()}')
+        logfire.info(f'spec {n:.{(lambda: precision)()}f}')
+        # Evaluated again, the generator expression would look up `name` in the module globals
+        logfire.info(f'name {next(name for _ in items)}', name='kwarg')
+
+    assert [str(w.message).splitlines()[-1].strip() for w in warnings] == snapshot(
+        [
+            'The problem was: Cannot evaluate the f-string value {", ".join(str(y) for y in items)} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {[y * 2 for y in items]} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {(lambda: n)()} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {n} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {next(name for _ in items)} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+        ]
+    )
+    assert [
+        (span['attributes']['logfire.msg_template'], span['attributes']['logfire.msg'])
+        for span in exporter.exported_spans_as_dict()
+    ] == snapshot(
+        [
+            ('joined 1, 2, 3', 'joined 1, 2, 3'),
+            ('doubled [2, 4, 6]', 'doubled [2, 4, 6]'),
+            ('lambda 10', 'lambda 10'),
+            ('spec 10.00', 'spec 10.00'),
+            ('name local', 'name local'),
+        ]
+    )
