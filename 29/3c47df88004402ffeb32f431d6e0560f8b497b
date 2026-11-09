@@ -1,0 +1,26 @@
+logfire-sdk/logfire/_internal/config.py
+  h_d9dd17644dded9 646
+docs/how-to-guides/scrubbing.md
+  s_b201f398315755::t_5e3d46fa774cdb 101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "293c47df88004402ffeb32f431d6e0560f8b497b",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_b201f398315755": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1794171902835",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
