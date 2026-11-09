@@ -61,6 +61,7 @@ from opentelemetry.sdk.metrics.export import (
 from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import OsResourceDetector, Resource, ResourceDetector, get_aggregated_resources
 from opentelemetry.sdk.trace import (
+    ConcurrentMultiSpanProcessor,
     SpanProcessor,
     SynchronousMultiSpanProcessor,
     Tracer as SDKTracer,
@@ -122,7 +123,13 @@ from .exporters.otlp import (
     cleanup_disk_retryers,
     zstd_compress,
 )
-from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
+from .exporters.processor_wrapper import (
+    BackgroundScrubbingSpanProcessor,
+    CheckSuppressInstrumentationProcessorWrapper,
+    MainSpanProcessorWrapper,
+    ScrubbingSpanProcessor,
+    scrub_span,
+)
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
@@ -997,6 +1004,39 @@ def _register_at_fork_resource_updates(
     os.register_at_fork(after_in_child=fix_pid)
 
 
+def _span_processor_can_defer(processor: SpanProcessor) -> bool:
+    if type(processor) in (BatchSpanProcessor, DynamicBatchSpanProcessor):
+        return True
+    if type(processor) is ConcurrentMultiSpanProcessor:
+        return all(
+            _span_processor_can_defer(child) or _span_processor_has_no_end_hook(child)
+            for child in processor._span_processors  # pyright: ignore[reportPrivateUsage]
+        )
+    return False
+
+
+def _span_processor_has_no_end_hook(processor: SpanProcessor) -> bool:
+    return getattr(processor.on_end, '__func__', None) is SpanProcessor.on_end
+
+
+def _span_processor_can_skip_scrubbing(processor: SpanProcessor) -> bool:
+    if _span_processor_has_no_end_hook(processor):
+        return True
+    if type(processor) is SimpleSpanProcessor:
+        exporter = processor.span_exporter
+        if type(exporter) in (SimpleConsoleSpanExporter, IndentedConsoleSpanExporter, ShowParentsConsoleSpanExporter):
+            assert isinstance(exporter, SimpleConsoleSpanExporter)
+            return not exporter._include_attributes  # pyright: ignore[reportPrivateUsage]
+    return False
+
+
+def _multi_span_processor(processors: Sequence[SpanProcessor]) -> SynchronousMultiSpanProcessor:
+    multi = SynchronousMultiSpanProcessor()
+    for processor in processors:
+        multi.add_span_processor(processor)
+    return multi
+
+
 class LogfireConfig(_LogfireConfigData):
     def __init__(
         self,
@@ -1252,7 +1292,7 @@ class LogfireConfig(_LogfireConfigData):
 
             processors_with_pending_spans: list[SpanProcessor] = []
             user_deferred_processors: list[SpanProcessor] = []
-            main_multiprocessor = SynchronousMultiSpanProcessor()
+            span_processors: list[SpanProcessor] = []
 
             pending_span_exporter_types: tuple[type[SpanExporter], ...] = (TestExporter, SimpleConsoleSpanExporter)
             if self.advanced.pending_spans:
@@ -1262,7 +1302,7 @@ class LogfireConfig(_LogfireConfigData):
                 if self.sampling.tail and getattr(span_processor, 'tail_sampling_defer_on_start', False):
                     user_deferred_processors.append(span_processor)
                 else:
-                    main_multiprocessor.add_span_processor(span_processor)
+                    span_processors.append(span_processor)
                 has_pending = isinstance(getattr(span_processor, 'span_exporter', None), pending_span_exporter_types)
                 if has_pending:
                     processors_with_pending_spans.append(span_processor)
@@ -1489,40 +1529,6 @@ class LogfireConfig(_LogfireConfigData):
                         # This line is just to make sure.
                         session.headers.update(headers)
 
-            deferred_processors: list[SpanProcessor] = []
-            if processors_with_pending_spans:
-                pending_multiprocessor = SynchronousMultiSpanProcessor()
-                for processor in processors_with_pending_spans:
-                    pending_multiprocessor.add_span_processor(processor)
-                deferred_processors.append(
-                    PendingSpanProcessor(
-                        self.advanced.id_generator, MainSpanProcessorWrapper(pending_multiprocessor, self.scrubber)
-                    )
-                )
-            deferred_processors.extend(user_deferred_processors)
-
-            root_processor: SpanProcessor = main_multiprocessor
-            if self.sampling.tail:
-                deferred_multi: SpanProcessor | None = None
-                if deferred_processors:
-                    deferred_multi = SynchronousMultiSpanProcessor()
-                    for p in deferred_processors:
-                        deferred_multi.add_span_processor(p)
-                root_processor = TailSamplingProcessor(
-                    main_multiprocessor,
-                    self.sampling.tail,
-                    deferred_processor=deferred_multi,
-                )
-            else:
-                for p in deferred_processors:
-                    main_multiprocessor.add_span_processor(p)
-
-            tracer_provider.add_span_processor(
-                CheckSuppressInstrumentationProcessorWrapper(
-                    MainSpanProcessorWrapper(root_processor, self.scrubber),
-                )
-            )
-
             otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
             otlp_traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
             otlp_metrics_endpoint = os.getenv(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT)
@@ -1533,6 +1539,10 @@ class LogfireConfig(_LogfireConfigData):
 
             if (otlp_endpoint or otlp_traces_endpoint) and otlp_traces_exporter in ('otlp', ''):
                 add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+
+            tracer_provider.add_span_processor(
+                self._build_span_processor(span_processors, processors_with_pending_spans, user_deferred_processors)
+            )
 
             if (
                 (otlp_endpoint or otlp_metrics_endpoint)
@@ -1669,6 +1679,66 @@ class LogfireConfig(_LogfireConfigData):
             set_global_textmap(new_textmap)
 
             self._ensure_flush_after_aws_lambda()
+
+    def _build_span_processor(
+        self,
+        span_processors: Sequence[SpanProcessor],
+        pending_processors: Sequence[SpanProcessor],
+        user_deferred_processors: Sequence[SpanProcessor],
+    ) -> SpanProcessor:
+        main = _multi_span_processor(span_processors)
+        completed: SpanProcessor = main
+        pending: SpanProcessor = _multi_span_processor(pending_processors)
+        prepare_ended_span = None
+        if self.scrubber is not NOOP_SCRUBBER:
+            background = [p for p in span_processors if _span_processor_can_defer(p)]
+            synchronous = [p for p in span_processors if not _span_processor_can_defer(p)]
+            if (
+                background
+                and not platform_is_emscripten()
+                and not user_deferred_processors
+                and all(_span_processor_can_skip_scrubbing(p) for p in synchronous)
+            ):
+                background_pending = [p for p in pending_processors if _span_processor_can_defer(p)]
+                worker = BackgroundScrubbingSpanProcessor(
+                    main,
+                    _multi_span_processor(synchronous),
+                    _multi_span_processor(background),
+                    _multi_span_processor(background_pending) if background_pending else None,
+                    self.scrubber,
+                )
+                completed = worker
+                synchronous_pending = [p for p in pending_processors if not _span_processor_can_defer(p)]
+                if worker.pending_processor is not None:
+                    synchronous_pending.append(worker.pending_processor)
+                pending = _multi_span_processor(synchronous_pending)
+            else:
+                pending = ScrubbingSpanProcessor(pending, self.scrubber)
+                if self.sampling.tail:
+                    # Both end-hook routes receive the same scrubbed span after sampling.
+                    prepare_ended_span = functools.partial(scrub_span, scrubber=self.scrubber)
+                else:
+                    completed = ScrubbingSpanProcessor(main, self.scrubber)
+
+        deferred_processors: list[SpanProcessor] = []
+        if pending_processors:
+            deferred_processors.append(
+                PendingSpanProcessor(self.advanced.id_generator, MainSpanProcessorWrapper(pending))
+            )
+        deferred_processors.extend(user_deferred_processors)
+
+        if self.sampling.tail:
+            completed = TailSamplingProcessor(
+                completed,
+                self.sampling.tail,
+                deferred_processor=_multi_span_processor(deferred_processors) if deferred_processors else None,
+                prepare_ended_span=prepare_ended_span,
+            )
+        else:
+            for processor in deferred_processors:
+                main.add_span_processor(processor)
+
+        return CheckSuppressInstrumentationProcessorWrapper(MainSpanProcessorWrapper(completed))
 
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
         """Force flush all telemetry and forwarding pipelines.

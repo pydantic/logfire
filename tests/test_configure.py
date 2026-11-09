@@ -85,8 +85,11 @@ from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
 from logfire._internal.exporters.otlp import QuietLogExporter, QuietSpanExporter
 from logfire._internal.exporters.processor_wrapper import (
+    BackgroundScrubbingSpanProcessor,
     CheckSuppressInstrumentationProcessorWrapper,
     MainSpanProcessorWrapper,
+    ScrubbingSpanProcessor,
+    _SpanProcessorExporter,  # pyright: ignore[reportPrivateUsage]
 )
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
@@ -2430,7 +2433,7 @@ def test_pending_spans_false(monkeypatch: pytest.MonkeyPatch, use_env_var: bool)
 
     # Only the console still receives pending spans.
     assert isinstance(pending_span_processor, PendingSpanProcessor)
-    assert pending_span_processor.processor.processor._span_processors == (console_span_processor,)  # type: ignore
+    assert get_pending_span_processors(pending_span_processor) == (console_span_processor,)
 
 
 def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
@@ -2447,9 +2450,7 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
 
     assert isinstance(pending_span_processor, PendingSpanProcessor)
-    assert isinstance(pending_span_processor.processor, MainSpanProcessorWrapper)
-    assert isinstance(pending_span_processor.processor.processor, SynchronousMultiSpanProcessor)
-    assert pending_span_processor.processor.processor._span_processors == (  # type: ignore
+    assert get_pending_span_processors(pending_span_processor) == (
         console_span_processor,
         send_to_logfire_processor,
     )
@@ -2481,7 +2482,7 @@ def test_api_key_exporters(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
     assert isinstance(send_to_logfire_processor.span_exporter.wrapped_exporter, api_key_gate.ApiKeyGatedSpanExporter)
     assert isinstance(pending_span_processor, PendingSpanProcessor)
-    assert pending_span_processor.processor.processor._span_processors == (  # type: ignore
+    assert get_pending_span_processors(pending_span_processor) == (
         console_span_processor,
         send_to_logfire_processor,
     )
@@ -2645,11 +2646,32 @@ def get_span_processors() -> Iterable[SpanProcessor]:
     [root] = get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
     assert isinstance(root, CheckSuppressInstrumentationProcessorWrapper)
     assert isinstance(root.processor, MainSpanProcessorWrapper)
-    assert isinstance(root.processor.processor, SynchronousMultiSpanProcessor)
+    processor = root.processor.processor
+    if isinstance(processor, (BackgroundScrubbingSpanProcessor, ScrubbingSpanProcessor)):
+        processor = processor.processor
+    assert isinstance(processor, SynchronousMultiSpanProcessor)
 
-    result = list(root.processor.processor._span_processors)  # type: ignore
+    result = list(processor._span_processors)  # type: ignore
     assert isinstance(result[0], DirectBaggageAttributesSpanProcessor)
     return result[1:]
+
+
+def get_pending_span_processors(pending: PendingSpanProcessor) -> tuple[SpanProcessor, ...]:
+    assert isinstance(pending.processor, MainSpanProcessorWrapper)
+    processor = pending.processor.processor
+    if isinstance(processor, ScrubbingSpanProcessor):
+        processor = processor.processor
+    assert isinstance(processor, SynchronousMultiSpanProcessor)
+    result: list[SpanProcessor] = []
+    for child in processor._span_processors:  # pyright: ignore[reportPrivateUsage]
+        if isinstance(child, BatchSpanProcessor) and isinstance(child.span_exporter, _SpanProcessorExporter):
+            scrubber = child.span_exporter.processor
+            assert isinstance(scrubber, ScrubbingSpanProcessor)
+            assert isinstance(scrubber.processor, SynchronousMultiSpanProcessor)
+            result.extend(scrubber.processor._span_processors)  # pyright: ignore[reportPrivateUsage]
+        else:
+            result.append(child)
+    return tuple(result)
 
 
 def get_metric_readers() -> Iterable[object]:
