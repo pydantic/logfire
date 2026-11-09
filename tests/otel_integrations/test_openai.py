@@ -2986,6 +2986,59 @@ def test_responses_stream_incomplete_or_failed(final_fields: dict[str, Any], exp
     client.close()
 
 
+@pytest.mark.parametrize('connection_lost', [False, True])
+def test_responses_stream_interrupted(connection_lost: bool, exporter: TestExporter) -> None:
+    response: dict[str, Any] = {
+        'id': 'resp_1',
+        'object': 'response',
+        'created_at': 1,
+        'model': 'gpt-4.1-2025-04-14',
+        'status': 'in_progress',
+        'output': [],
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+    }
+    events: list[dict[str, Any]] = [
+        {'type': 'response.created', 'sequence_number': 0, 'response': response},
+        {'type': 'response.in_progress', 'sequence_number': 1, 'response': response},
+        {
+            'type': 'response.output_item.added',
+            'sequence_number': 2,
+            'output_index': 0,
+            'item': {'id': 'msg_1', 'type': 'message', 'status': 'in_progress', 'role': 'assistant', 'content': []},
+        },
+    ]
+
+    class InterruptedStream(httpx.SyncByteStream):
+        def __iter__(self) -> Iterator[bytes]:
+            for event in events:
+                yield f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n'.encode()
+            if connection_lost:
+                raise httpx.RemoteProtocolError('peer closed connection')
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={'content-type': 'text/event-stream'}, stream=InterruptedStream())
+
+    client = openai.Client(
+        api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)), max_retries=0
+    )
+    with logfire.instrument_openai(client):
+        stream = client.responses.create(model='gpt-4.1', input='What is four plus five?', stream=True)
+        if connection_lost:
+            with pytest.raises(httpx.RemoteProtocolError):
+                list(stream)
+        else:
+            list(stream)
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
+    assert attributes['gen_ai.response.id'] == 'resp_1'
+    assert attributes['gen_ai.response.model'] == 'gpt-4.1-2025-04-14'
+    assert 'gen_ai.response.finish_reasons' not in attributes
+    assert 'gen_ai.usage.input_tokens' not in attributes
+    client.close()
+
+
 def test_completions_stream(instrumented_client: openai.Client, exporter: TestExporter) -> None:
     response = instrumented_client.completions.create(
         model='gpt-3.5-turbo-instruct',
