@@ -1,0 +1,42 @@
+logfire-sdk/logfire/_internal/config.py
+  h_d9dd17644dded9 210-211,225,646-647
+  h_d9dd17644dded9 226
+docs/how-to-guides/scrubbing.md
+  s_b201f398315755::t_0763fe0db3fa61 7
+  h_d9dd17644dded9 104
+  s_b201f398315755::t_1335c653e99f38 94
+  s_b201f398315755::t_95840a89ad4f57 93
+  h_d9dd17644dded9 89,98-99,101-103
+logfire-sdk/logfire/_internal/exporters/processor_wrapper.py
+  h_d9dd17644dded9 123-124
+  s_97fafab3f99c6a::t_73a2426091c27b 122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5f2c044475dfa9bfbb070eaccdade8f9c7bdcf8f",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_97fafab3f99c6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c0c6-92e6-7673-b388-a74f6fac2558",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_b201f398315755": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1794171902835",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
