@@ -151,12 +151,12 @@ class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
             else None
         )
         # Drain both scrubbing queues before flushing or shutting down the destinations they share.
-        lifecycle = SpanProcessorGroup()
+        processor_group = SpanProcessorGroup()
         if self.pending_processor is not None:
-            lifecycle.add_span_processor(self.pending_processor)
-        lifecycle.add_span_processor(self._batch)
-        lifecycle.add_span_processor(processor)
-        super().__init__(lifecycle)
+            processor_group.add_span_processor(self.pending_processor)
+        processor_group.add_span_processor(self._batch)
+        processor_group.add_span_processor(processor)
+        super().__init__(processor_group)
 
     def on_end(self, span: ReadableSpan) -> None:
         # PendingSpanProcessor.on_start routes synthetic pending spans to their own queue.
