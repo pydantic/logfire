@@ -128,6 +128,7 @@ from .exporters.processor_wrapper import (
     MainSpanProcessorWrapper,
     ScrubbingSpanProcessor,
     SpanProcessorGroup,
+    make_scrubbing_queue,
     scrub_span,
 )
 from .exporters.quiet_metrics import QuietMetricExporter
@@ -1700,17 +1701,20 @@ class LogfireConfig(_LogfireConfigData):
                 and all(_span_processor_can_skip_scrubbing(p) for p in synchronous)
             ):
                 background_pending = [p for p in pending_processors if _span_processor_can_defer(p)]
-                worker = BackgroundScrubbingSpanProcessor(
+                background_scrubbing = BackgroundScrubbingSpanProcessor(
                     all_processors=main,
-                    synchronous_end=_multi_span_processor(synchronous),
-                    background_end=_multi_span_processor(background),
-                    background_pending=_multi_span_processor(background_pending) if background_pending else None,
-                    scrubber=self.scrubber,
+                    synchronous_end_processors=_multi_span_processor(synchronous),
+                    completed_queue=make_scrubbing_queue(_multi_span_processor(background), self.scrubber),
+                    pending_queue=(
+                        make_scrubbing_queue(_multi_span_processor(background_pending), self.scrubber)
+                        if background_pending
+                        else None
+                    ),
                 )
-                completed = worker
+                completed = background_scrubbing
                 synchronous_pending = [p for p in pending_processors if not _span_processor_can_defer(p)]
-                if worker.pending_processor is not None:
-                    synchronous_pending.append(worker.pending_processor)
+                if background_scrubbing.pending_queue is not None:
+                    synchronous_pending.append(background_scrubbing.pending_queue)
                 pending = _multi_span_processor(synchronous_pending)
             else:
                 pending = ScrubbingSpanProcessor(pending, self.scrubber)

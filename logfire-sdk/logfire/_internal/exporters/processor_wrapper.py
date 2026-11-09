@@ -113,6 +113,13 @@ class _SpanProcessorExporter(SpanExporter):
         return SpanExportResult.SUCCESS
 
 
+def make_scrubbing_queue(processor: SpanProcessor, scrubber: BaseScrubber) -> BatchSpanProcessor:
+    """Queue records for scrubbing before delivering them to a processor."""
+    return BatchSpanProcessor(
+        _SpanProcessorExporter(ScrubbingSpanProcessor(processor, scrubber)), max_export_batch_size=1
+    )
+
+
 class SpanProcessorGroup(SynchronousMultiSpanProcessor):
     """Flush processors that may inherit a no-op force_flush returning None."""
 
@@ -134,35 +141,26 @@ class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
     def __init__(
         self,
         all_processors: SpanProcessor,
-        synchronous_end: SpanProcessor,
-        background_end: SpanProcessor,
-        background_pending: SpanProcessor | None,
-        scrubber: BaseScrubber,
+        synchronous_end_processors: SpanProcessor,
+        completed_queue: BatchSpanProcessor,
+        pending_queue: BatchSpanProcessor | None,
     ) -> None:
-        self._synchronous_end = synchronous_end
-        self._batch = BatchSpanProcessor(
-            _SpanProcessorExporter(ScrubbingSpanProcessor(background_end, scrubber)), max_export_batch_size=1
-        )
-        self.pending_processor = (
-            BatchSpanProcessor(
-                _SpanProcessorExporter(ScrubbingSpanProcessor(background_pending, scrubber)), max_export_batch_size=1
-            )
-            if background_pending is not None
-            else None
-        )
+        self.synchronous_end_processors = synchronous_end_processors
+        self.completed_queue = completed_queue
+        self.pending_queue = pending_queue
         # Both queues have no-op start hooks, so only all_processors forwards on_start.
         # Drain both scrubbing queues before flushing or shutting down the destinations they share.
         processor_group = SpanProcessorGroup()
-        if self.pending_processor is not None:
-            processor_group.add_span_processor(self.pending_processor)
-        processor_group.add_span_processor(self._batch)
+        if pending_queue is not None:
+            processor_group.add_span_processor(pending_queue)
+        processor_group.add_span_processor(completed_queue)
         processor_group.add_span_processor(all_processors)
         super().__init__(processor_group)
 
     def on_end(self, span: ReadableSpan) -> None:
         # PendingSpanProcessor.on_start routes synthetic pending spans to their own queue.
-        self._synchronous_end.on_end(span)
-        self._batch.on_end(span)
+        self.synchronous_end_processors.on_end(span)
+        self.completed_queue.on_end(span)
 
 
 def _set_error_level_and_status(span: ReadableSpanDict) -> None:
