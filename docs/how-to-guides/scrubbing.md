@@ -4,7 +4,7 @@ description: "Learn how to use Logfire to keep logs & sensitive data safe: Autom
 ---
 # Scrubbing sensitive data
 
-Logfire looks for and hides sensitive values in logs and spans before sending them. A span represents one operation with a name, a start time, and a duration.
+By default, Logfire checks logs and spans for potentially sensitive values to redact before sending them. A span represents one operation with a name, a start time, and a duration.
 
 ## Disabling scrubbing
 
