@@ -1,0 +1,33 @@
+logfire-sdk/logfire/_internal/exporters/processor_wrapper.py
+  h_d9dd17644dded9 156,160,174
+logfire-sdk/logfire/_internal/config.py
+  s_b201f398315755::t_613450799f1b0a 1708
+  s_b201f398315755::t_5fdf9519400565 1725
+  s_b201f398315755::t_3d2a2f381bcf32 1019,1021
+  s_b201f398315755::t_6184d5a9eba780 1715
+  h_d9dd17644dded9 1020,1723
+  s_b201f398315755::t_6dd644568491a5 1022-1024
+  s_b201f398315755::t_b4c656c75af0d5 1716-1718
+  h_d9dd17644dded9 1025-1031,1719-1721
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9e82c0d7e46fd2cdcf944e98feb5f168ced98192",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_b201f398315755": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1794171902835",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
