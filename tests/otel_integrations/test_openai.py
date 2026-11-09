@@ -5697,7 +5697,8 @@ def test_cache_write_tokens_recorded_from_streams(exporter: TestExporter) -> Non
     client.close()
 
 
-def test_azure_content_filter_chunks_ignored_in_stream(exporter: TestExporter) -> None:
+@pytest.mark.parametrize('chunks_have_object', [True, False])
+def test_azure_content_filter_chunks_ignored_in_stream(chunks_have_object: bool, exporter: TestExporter) -> None:
     filter_results = {'hate': {'filtered': False, 'severity': 'safe'}}
     chunks: list[dict[str, Any]] = [
         {
@@ -5745,6 +5746,10 @@ def test_azure_content_filter_chunks_ignored_in_stream(exporter: TestExporter) -
             ],
         },
     ]
+    if not chunks_have_object:
+        for chunk in chunks:
+            if chunk['object']:
+                del chunk['object']
     sse = ''.join(f'data: {json.dumps(chunk)}\n\n' for chunk in chunks) + 'data: [DONE]\n\n'
     client = openai.Client(
         api_key='fake_api_key',
