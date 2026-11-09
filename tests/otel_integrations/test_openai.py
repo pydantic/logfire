@@ -3008,6 +3008,23 @@ def test_responses_stream_interrupted(connection_lost: bool, exporter: TestExpor
             'output_index': 0,
             'item': {'id': 'msg_1', 'type': 'message', 'status': 'in_progress', 'role': 'assistant', 'content': []},
         },
+        {
+            'type': 'response.content_part.added',
+            'sequence_number': 3,
+            'item_id': 'msg_1',
+            'output_index': 0,
+            'content_index': 0,
+            'part': {'type': 'output_text', 'text': '', 'annotations': []},
+        },
+        {
+            'type': 'response.output_text.delta',
+            'sequence_number': 4,
+            'item_id': 'msg_1',
+            'output_index': 0,
+            'content_index': 0,
+            'delta': 'Four plus',
+            'logprobs': [],
+        },
     ]
 
     class InterruptedStream(httpx.SyncByteStream):
@@ -3034,6 +3051,9 @@ def test_responses_stream_interrupted(connection_lost: bool, exporter: TestExpor
     attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
     assert attributes['gen_ai.response.id'] == 'resp_1'
     assert attributes['gen_ai.response.model'] == 'gpt-4.1-2025-04-14'
+    assert attributes['gen_ai.output.messages'] == snapshot(
+        [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus'}]}]
+    )
     assert 'gen_ai.response.finish_reasons' not in attributes
     assert 'gen_ai.usage.input_tokens' not in attributes
     client.close()

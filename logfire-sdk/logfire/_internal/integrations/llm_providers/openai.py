@@ -595,7 +595,6 @@ class OpenaiResponsesStreamState(StreamState):
     def __init__(self):
         self._state = ResponseStreamState(input_tools=openai.omit, text_format=openai.omit)
         self._incomplete_or_failed_response: Response | None = None
-        self._started_response: Response | None = None
 
     def record_chunk(self, chunk: Any) -> None:
         # ResponseStreamState only keeps the final response from `response.completed`, but a stream
@@ -607,17 +606,15 @@ class OpenaiResponsesStreamState(StreamState):
                 getattr(event.response, 'output', None) is not None
             ):
                 self._incomplete_or_failed_response = event.response
-            elif (
-                event.type == 'response.created'
-                or event.type == 'response.in_progress'
-                or event.type == 'response.queued'
-            ):
-                self._started_response = event.response
 
     def get_response_data(self) -> Any:
         response = self._state._completed_response  # pyright: ignore[reportPrivateUsage]
 
-        return response or self._incomplete_or_failed_response or self._started_response
+        return (
+            response
+            or self._incomplete_or_failed_response
+            or getattr(self._state, '_ResponseStreamState__current_snapshot', None)
+        )
 
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         versions = self._versions
