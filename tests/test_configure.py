@@ -2466,7 +2466,7 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch, enable_scrubbing: bo
         assert isinstance(pending, SynchronousMultiSpanProcessor)
         pending_queue = pending._span_processors[-1]  # pyright: ignore[reportPrivateUsage]
         queue_order = root.processor._span_processors[:2]  # pyright: ignore[reportPrivateUsage]
-        assert queue_order == (pending_queue, root.completed_queue)
+        assert queue_order == (pending_queue, root.background_end_processor)
 
     [logfire_metric_reader] = get_metric_readers()
     assert isinstance(logfire_metric_reader, PeriodicExportingMetricReader)

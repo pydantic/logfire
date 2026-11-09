@@ -138,22 +138,16 @@ class SpanProcessorGroup(SynchronousMultiSpanProcessor):
         return success
 
 
+@dataclass
 class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
     """Send completed spans to the synchronous processors and the scrubbing queue."""
 
-    def __init__(
-        self,
-        processor_group: SpanProcessorGroup,
-        synchronous_end_processor: SpanProcessor,
-        completed_queue: BatchSpanProcessor,
-    ) -> None:
-        self.synchronous_end_processor = synchronous_end_processor
-        self.completed_queue = completed_queue
-        super().__init__(processor_group)
+    synchronous_end_processor: SpanProcessor
+    background_end_processor: BatchSpanProcessor
 
     def on_end(self, span: ReadableSpan) -> None:
         self.synchronous_end_processor.on_end(span)
-        self.completed_queue.on_end(span)
+        self.background_end_processor.on_end(span)
 
 
 def _set_error_level_and_status(span: ReadableSpanDict) -> None:
