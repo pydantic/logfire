@@ -155,6 +155,7 @@ def test_console_bytearray_attribute(config_kwargs: dict[str, Any], caplog: pyte
         (None, ['  | a', '--+--', '0 | 3', '1 | 4']),
         ([1.5, 2.5], ['    | a', '----+--', '1.5 | 3', '2.5 | 4']),
         ([True, False], ['      | a', '------+--', 'True  | 3', 'False | 4']),
+        ([('x', 1), ('y', 2)], ['         | a', '---------+--', "['x', 1] | 3", "['y', 2] | 4"]),
     ],
 )
 def test_console_dataframe_non_string_index(
