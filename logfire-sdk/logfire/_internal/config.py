@@ -643,7 +643,7 @@ def configure(
 
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
-            Processors which have an `on_end` method (other than `BatchSpanProcessor`) will cause
+            Processors which have a custom `on_end` method (other than `BatchSpanProcessor`) will cause
             span attribute scrubbing to happen on the calling thread, which may slow down your application.
         metrics: Set to `False` to disable sending all metrics,
             or provide a `MetricsOptions` object to configure metrics, e.g. additional metric readers.

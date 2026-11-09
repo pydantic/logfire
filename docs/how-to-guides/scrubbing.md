@@ -98,7 +98,7 @@ logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback
 Scrubbing span attributes is slow, so it happens in a background thread when possible.
 It will instead happen on the calling thread if any of the following are true:
 
-- Console logging is enabled and prints attributes, i.e. `include_attributes` or `verbose` is `True`.
+- Console logging is enabled and prints attributes, i.e. `include_attributes` is `True`, or it is unset and `verbose` is `True`.
 - A span processor is included in `additional_span_processors` that implements an `on_end` hook and isn't a `BatchSpanProcessor`.
 
 Message template fields are always scrubbed on the calling thread during message formatting.
