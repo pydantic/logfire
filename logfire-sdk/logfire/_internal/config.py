@@ -63,7 +63,6 @@ from opentelemetry.sdk.resources import OsResourceDetector, Resource, ResourceDe
 from opentelemetry.sdk.trace import (
     ConcurrentMultiSpanProcessor,
     SpanProcessor,
-    SynchronousMultiSpanProcessor,
     Tracer as SDKTracer,
     TracerProvider as SDKTracerProvider,
 )
@@ -128,6 +127,7 @@ from .exporters.processor_wrapper import (
     CheckSuppressInstrumentationProcessorWrapper,
     MainSpanProcessorWrapper,
     ScrubbingSpanProcessor,
+    SpanProcessorGroup,
     scrub_span,
 )
 from .exporters.quiet_metrics import QuietMetricExporter
@@ -1030,8 +1030,8 @@ def _span_processor_can_skip_scrubbing(processor: SpanProcessor) -> bool:
     return False
 
 
-def _multi_span_processor(processors: Sequence[SpanProcessor]) -> SynchronousMultiSpanProcessor:
-    multi = SynchronousMultiSpanProcessor()
+def _multi_span_processor(processors: Sequence[SpanProcessor]) -> SpanProcessorGroup:
+    multi = SpanProcessorGroup()
     for processor in processors:
         multi.add_span_processor(processor)
     return multi

@@ -4,6 +4,7 @@ import json
 from collections.abc import Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
+from time import monotonic_ns
 from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 
@@ -112,6 +113,21 @@ class _SpanProcessorExporter(SpanExporter):
         return SpanExportResult.SUCCESS
 
 
+class SpanProcessorGroup(SynchronousMultiSpanProcessor):
+    """Flush processors that may inherit a no-op force_flush returning None."""
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        deadline = monotonic_ns() + timeout_millis * 1_000_000
+        success = True
+        for processor in self._span_processors:
+            remaining = deadline - monotonic_ns()
+            if remaining <= 0:
+                return False
+            if processor.force_flush(remaining // 1_000_000) is False:
+                success = False
+        return success
+
+
 class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
     """Keep start hooks synchronous and scrub queued spans before their batch processors see them."""
 
@@ -136,7 +152,7 @@ class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
             else None
         )
         # Drain both scrubbing queues before flushing or shutting down the destinations they share.
-        self._lifecycle = SynchronousMultiSpanProcessor()
+        self._lifecycle = SpanProcessorGroup()
         if self.pending_processor is not None:
             self._lifecycle.add_span_processor(self.pending_processor)
         self._lifecycle.add_span_processor(self._batch)

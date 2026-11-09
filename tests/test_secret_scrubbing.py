@@ -18,15 +18,37 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
+from logfire._internal.exporters.processor_wrapper import SpanProcessorGroup
 from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
 
 
+def test_span_processor_group_flushes_after_failure():
+    flushed: list[bool] = []
+
+    class FlushProcessor(SpanProcessor):
+        def __init__(self, result: bool):
+            self.result = result
+
+        def force_flush(self, timeout_millis: int = 30000) -> bool:
+            flushed.append(self.result)
+            return self.result
+
+    group = SpanProcessorGroup()
+    group.add_span_processor(FlushProcessor(False))
+    group.add_span_processor(FlushProcessor(True))
+
+    assert not group.force_flush(timeout_millis=0)
+    assert flushed == []
+    assert not group.force_flush()
+    assert flushed == [False, True]
+
+
 @pytest.mark.parametrize('include_attributes', [False, True])
 @pytest.mark.parametrize('concurrent', [False, True])
 def test_scrubbing_thread_depends_on_console_attributes(
-    config_kwargs: dict[str, Any], include_attributes: bool, concurrent: bool
+    config_kwargs: dict[str, Any], include_attributes: bool, concurrent: bool, monkeypatch: pytest.MonkeyPatch
 ):
     from opentelemetry.context import Context
 
@@ -38,6 +60,12 @@ def test_scrubbing_thread_depends_on_console_attributes(
         def on_start(self, span: Span, parent_context: Context | None = None) -> None:
             assert get_ident() == caller
             span.set_attribute('password', 'sensitive')
+
+    # OTel 1.39's default implementation returns None for start-only processors.
+    def noop_force_flush(processor: StartProcessor, timeout_millis: int) -> None:
+        pass
+
+    monkeypatch.setattr(StartProcessor, 'force_flush', noop_force_flush)
 
     def callback(match: logfire.ScrubMatch) -> str:
         threads.append(get_ident())
