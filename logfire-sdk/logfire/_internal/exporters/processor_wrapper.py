@@ -102,7 +102,10 @@ class ScrubbingSpanProcessor(WrapperSpanProcessor):
 
 @dataclass
 class _SpanProcessorExporter(SpanExporter):
-    """Deliver queued spans to a processor whose lifecycle is managed separately."""
+    """Forward drained records to a processor's `on_end` hook.
+
+    The group that owns the destination processor flushes and shuts it down.
+    """
 
     processor: SpanProcessor
 
@@ -136,7 +139,16 @@ class SpanProcessorGroup(SynchronousMultiSpanProcessor):
 
 
 class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
-    """Keep start hooks synchronous and scrub queued spans before their batch processors see them."""
+    """Scrub each queued record once before sending it to its destinations.
+
+    `all_processors` owns the configured processors. It runs their start hooks
+    and manages their flush and shutdown. The synchronous route and the queues
+    share instances from that group and call only their end hooks.
+
+    A completed span goes directly to processors that can consume it as-is and
+    through `completed_queue` to the background processors. The `pending_queue`
+    delivers only to background processors configured for pending records.
+    """
 
     def __init__(
         self,
@@ -148,8 +160,8 @@ class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
         self.synchronous_end_processors = synchronous_end_processors
         self.completed_queue = completed_queue
         self.pending_queue = pending_queue
-        # Both queues have no-op start hooks, so only all_processors forwards on_start.
-        # Drain both scrubbing queues before flushing or shutting down the destinations they share.
+        # Drain the queues before flushing or shutting down the processors they feed.
+        # The queues' on_start hooks are no-ops, so all_processors runs each start hook once.
         processor_group = SpanProcessorGroup()
         if pending_queue is not None:
             processor_group.add_span_processor(pending_queue)
@@ -158,7 +170,7 @@ class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
         super().__init__(processor_group)
 
     def on_end(self, span: ReadableSpan) -> None:
-        # PendingSpanProcessor.on_start routes synthetic pending spans to their own queue.
+        # PendingSpanProcessor.on_start feeds pending_queue through a separate route.
         self.synchronous_end_processors.on_end(span)
         self.completed_queue.on_end(span)
 
