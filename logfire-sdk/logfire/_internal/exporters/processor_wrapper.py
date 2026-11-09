@@ -152,22 +152,16 @@ class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
 
     def __init__(
         self,
-        all_processors: SpanProcessor,
         synchronous_end_processor: SpanProcessor,
         completed_queue: BatchSpanProcessor,
-        pending_queue: BatchSpanProcessor | None,
     ) -> None:
         self.synchronous_end_processor = synchronous_end_processor
         self.completed_queue = completed_queue
-        self.pending_queue = pending_queue
         # Drain the queues before flushing or shutting down the processors they feed.
         # The queues' on_start hooks are no-ops, so all_processors runs each start hook once.
-        processor_group = SpanProcessorGroup()
-        if pending_queue is not None:
-            processor_group.add_span_processor(pending_queue)
-        processor_group.add_span_processor(completed_queue)
-        processor_group.add_span_processor(all_processors)
-        super().__init__(processor_group)
+        self.processor_group = SpanProcessorGroup()
+        self.processor_group.add_span_processor(completed_queue)
+        super().__init__(self.processor_group)
 
     def on_end(self, span: ReadableSpan) -> None:
         # PendingSpanProcessor.on_start feeds pending_queue through a separate route.

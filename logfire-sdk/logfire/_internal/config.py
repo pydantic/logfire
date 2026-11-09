@@ -1713,18 +1713,16 @@ class LogfireConfig(_LogfireConfigData):
                 and all(_span_processor_can_skip_scrubbing(p) for p in synchronous)
             ):
                 background_pending, synchronous_pending = _deferred_and_sync_span_processors(pending_processors)
-                if background_pending:
-                    pending_queue = make_scrubbing_queue(_multi_span_processor(background_pending), self.scrubber)
-                    synchronous_pending.append(pending_queue)
-                else:
-                    pending_queue = None
-                completed = BackgroundScrubbingSpanProcessor(
-                    all_processors=main,
+                background_scrubber = completed = BackgroundScrubbingSpanProcessor(
                     synchronous_end_processor=_multi_span_processor(synchronous),
                     completed_queue=make_scrubbing_queue(_multi_span_processor(background), self.scrubber),
-                    pending_queue=pending_queue,
                 )
+                if background_pending:
+                    pending_queue = make_scrubbing_queue(_multi_span_processor(background_pending), self.scrubber)
+                    background_scrubber.processor_group.add_span_processor(pending_queue)
+                    synchronous_pending.append(pending_queue)
                 pending = _multi_span_processor(synchronous_pending)
+                background_scrubber.processor_group.add_span_processor(main)
             else:
                 pending = ScrubbingSpanProcessor(pending, self.scrubber)
                 if self.sampling.tail:
