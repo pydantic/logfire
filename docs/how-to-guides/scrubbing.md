@@ -4,7 +4,7 @@ description: "Learn how to use Logfire to keep logs & sensitive data safe: Autom
 ---
 # Scrubbing sensitive data
 
-The **Logfire** SDK scans for and redacts potentially sensitive data from logs and spans before exporting them.
+Logfire looks for and hides sensitive values in logs and spans before sending them. A span represents one operation with a name, a start time, and a duration.
 
 ## Disabling scrubbing
 
@@ -85,6 +85,21 @@ def scrubbing_callback(match: logfire.ScrubMatch):
 
 logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
 ```
+
+!!! warning "Use a callback that can run on a background thread"
+
+    Base your callback on the match and any configuration that is safe to share across threads.
+    Request-local values, such as values stored in a Python `ContextVar`, may be unavailable on the background thread.
+    If the callback raises an exception during span scrubbing, Logfire can send the span with its original attributes.
+
+## When Logfire scrubs spans
+
+Logfire can scrub span attributes, the key-value details attached to a span, on a background thread before sending the span.
+If a destination needs the scrubbed attributes immediately, such as console output that shows attributes, Logfire scrubs on the calling thread.
+Logfire also scrubs message template fields on the calling thread as it formats the message.
+
+With [tail sampling](sampling.md#tail-sampling-by-level-and-duration), Logfire decides whether to keep a trace after seeing its spans.
+Logfire scrubs span attributes after that decision, so discarded spans skip attribute scrubbing.
 
 ## Security tips
 

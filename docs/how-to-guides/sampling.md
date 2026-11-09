@@ -405,3 +405,6 @@ logfire.configure(
    performance, and we know that `get_tail_sample_rate` will always return at most 0.5 so the other 50% of traces will
    be discarded anyway. The probabilities are not independent - this will not discard traces that would otherwise have
    been kept by tail sampling.
+
+Your tail sampling function can see span attributes before [Logfire scrubs them](scrubbing.md#when-logfire-scrubs-spans).
+Treat those values as potentially sensitive if your function logs or forwards them.
