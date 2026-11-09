@@ -500,7 +500,8 @@ def test_span_level_hashes_as_its_name():
     with pytest.warns(UserWarning, match='Hashing a SpanLevel is discouraged'):
         assert warn in {'warn', 'error'}
         assert warn not in {'info', 'error'}
-        assert {'warn': 1}[warn] == 1
+        by_name: dict[object, int] = {'warn': 1}
+        assert by_name[warn] == 1
         assert hash(SpanLevel(1234)) == hash(None)
 
 
