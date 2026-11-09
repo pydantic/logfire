@@ -2655,7 +2655,12 @@ def get_span_processor_root() -> SpanProcessor:
 
 def get_span_processors() -> Iterable[SpanProcessor]:
     processor = get_span_processor_root()
-    if isinstance(processor, (BackgroundScrubbingSpanProcessor, ScrubbingSpanProcessor)):
+    if isinstance(processor, BackgroundScrubbingSpanProcessor):
+        lifecycle = processor.processor
+        assert isinstance(lifecycle, SynchronousMultiSpanProcessor)
+        # The downstream group is the last child, after the scrubbing queues.
+        processor = lifecycle._span_processors[-1]  # pyright: ignore[reportPrivateUsage]
+    elif isinstance(processor, ScrubbingSpanProcessor):
         processor = processor.processor
     assert isinstance(processor, SynchronousMultiSpanProcessor)
 

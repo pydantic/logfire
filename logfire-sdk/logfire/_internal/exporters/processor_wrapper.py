@@ -139,7 +139,6 @@ class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
         pending: SpanProcessor | None,
         scrubber: BaseScrubber,
     ) -> None:
-        super().__init__(processor)
         self._synchronous = synchronous
         self._batch = BatchSpanProcessor(
             _SpanProcessorExporter(ScrubbingSpanProcessor(background, scrubber)), max_export_batch_size=1
@@ -152,23 +151,16 @@ class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
             else None
         )
         # Drain both scrubbing queues before flushing or shutting down the destinations they share.
-        self._lifecycle = SpanProcessorGroup()
+        lifecycle = SpanProcessorGroup()
         if self.pending_processor is not None:
-            self._lifecycle.add_span_processor(self.pending_processor)
-        self._lifecycle.add_span_processor(self._batch)
-        self._lifecycle.add_span_processor(processor)
+            lifecycle.add_span_processor(self.pending_processor)
+        lifecycle.add_span_processor(self._batch)
+        lifecycle.add_span_processor(processor)
+        super().__init__(lifecycle)
 
     def on_end(self, span: ReadableSpan) -> None:
         self._synchronous.on_end(span)
         self._batch.on_end(span)
-
-    def force_flush(self, timeout_millis: int = 30000) -> bool:
-        with logfire.suppress_instrumentation():
-            return self._lifecycle.force_flush(timeout_millis)
-
-    def shutdown(self) -> None:
-        with logfire.suppress_instrumentation():
-            self._lifecycle.shutdown()
 
 
 def _set_error_level_and_status(span: ReadableSpanDict) -> None:
