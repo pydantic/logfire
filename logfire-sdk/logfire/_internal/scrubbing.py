@@ -198,7 +198,8 @@ class BaseScrubber(ABC):
 
 
 class NoopScrubber(BaseScrubber):
-    def scrub_span(self, span: ReadableSpanDict):
+    def scrub_span(self, span: ReadableSpanDict):  # pragma: no cover
+        # The span processor graph omits scrubbing when it is disabled.
         pass
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
