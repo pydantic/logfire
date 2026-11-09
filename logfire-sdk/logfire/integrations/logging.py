@@ -155,7 +155,7 @@ class LogfireLoggingHandler(LoggingHandler):
 def _is_single_positional_argument(msg: Any, args: Mapping[str, Any]) -> bool:
     """Whether `_format_message` treats the mapping `args` as one positional argument, not as keyword arguments."""
     try:
-        msg % (args,)
+        _ = msg % (args,)
     except TypeError:
         return False
     except Exception:
