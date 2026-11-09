@@ -139,16 +139,7 @@ class SpanProcessorGroup(SynchronousMultiSpanProcessor):
 
 
 class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
-    """Scrub each queued record once before sending it to its destinations.
-
-    `all_processors` owns the configured processors. It runs their start hooks
-    and manages their flush and shutdown. The synchronous route and the queues
-    share instances from that group and call only their end hooks.
-
-    A completed span goes directly to processors that can consume it as-is and
-    through `completed_queue` to the background processors. The `pending_queue`
-    delivers only to background processors configured for pending records.
-    """
+    """Send completed spans to the synchronous processors and the scrubbing queue."""
 
     def __init__(
         self,
@@ -157,14 +148,11 @@ class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
     ) -> None:
         self.synchronous_end_processor = synchronous_end_processor
         self.completed_queue = completed_queue
-        # Drain the queues before flushing or shutting down the processors they feed.
-        # The queues' on_start hooks are no-ops, so all_processors runs each start hook once.
         self.processor_group = SpanProcessorGroup()
         self.processor_group.add_span_processor(completed_queue)
         super().__init__(self.processor_group)
 
     def on_end(self, span: ReadableSpan) -> None:
-        # PendingSpanProcessor.on_start feeds pending_queue through a separate route.
         self.synchronous_end_processor.on_end(span)
         self.completed_queue.on_end(span)
 

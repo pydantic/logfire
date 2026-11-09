@@ -1700,12 +1700,19 @@ class LogfireConfig(_LogfireConfigData):
         pending_processors: Sequence[SpanProcessor],
         user_deferred_processors: Sequence[SpanProcessor],
     ) -> SpanProcessor:
+        """Wire the delivery paths for completed spans and synthetic pending records."""
+        # main owns the processors whose start hooks run immediately. The pending route
+        # reuses only the configured processors that accept synthetic pending records.
         main = _multi_span_processor(span_processors)
         completed: SpanProcessor = main
         pending: SpanProcessor = _multi_span_processor(pending_processors)
         prepare_ended_span = None
         if self.scrubber is not NOOP_SCRUBBER:
+            # Built-in batch processors can be deferred, including in concurrent groups where every
+            # end hook is either deferrable or a no-op.
             background, synchronous = _deferred_and_sync_span_processors(span_processors)
+            # Queues need threads. Start-only processors and consoles that hide attributes can stay
+            # synchronous without scrubbing. Custom tail-deferred processors need the same scrubbed span as main.
             if (
                 background
                 and not platform_is_emscripten()
@@ -1713,32 +1720,42 @@ class LogfireConfig(_LogfireConfigData):
                 and all(_span_processor_can_skip_scrubbing(p) for p in synchronous)
             ):
                 background_pending, synchronous_pending = _deferred_and_sync_span_processors(pending_processors)
+                # on_end sends the completed record to synchronous and to completed_queue. The queue
+                # scrubs it once before calling on_end on the background processors.
                 background_scrubber = completed = BackgroundScrubbingSpanProcessor(
                     synchronous_end_processor=_multi_span_processor(synchronous),
                     completed_queue=make_scrubbing_queue(_multi_span_processor(background), self.scrubber),
                 )
                 if background_pending:
                     pending_queue = make_scrubbing_queue(_multi_span_processor(background_pending), self.scrubber)
+                    # The pending route feeds this queue, which scrubs before delivery to background_pending.
+                    # Register the same queue in processor_group so it also gets flushed and shut down.
                     background_scrubber.processor_group.add_span_processor(pending_queue)
                     synchronous_pending.append(pending_queue)
                 pending = _multi_span_processor(synchronous_pending)
+                # The wrapper uses processor_group for start, flush, and shutdown. The queues have no-op
+                # start hooks, so main runs each configured start hook once. Main goes last so both
+                # queues drain before the shared destinations flush or shut down.
                 background_scrubber.processor_group.add_span_processor(main)
             else:
                 pending = ScrubbingSpanProcessor(pending, self.scrubber)
                 if self.sampling.tail:
-                    # Both end-hook routes receive the same scrubbed span after sampling.
+                    # Scrub each kept completed span once before calling the main and deferred end hooks.
                     prepare_ended_span = functools.partial(scrub_span, scrubber=self.scrubber)
                 else:
                     completed = ScrubbingSpanProcessor(main, self.scrubber)
 
         deferred_processors: list[SpanProcessor] = []
         if pending_processors:
+            # PendingSpanProcessor creates the record from on_start. The wrapper normalizes it
+            # before sending it to pending.on_end.
             deferred_processors.append(
                 PendingSpanProcessor(self.advanced.id_generator, MainSpanProcessorWrapper(pending))
             )
         deferred_processors.extend(user_deferred_processors)
 
         if self.sampling.tail:
+            # For buffered traces, tail sampling gates completed delivery and the start hooks that emit pending records.
             completed = TailSamplingProcessor(
                 completed,
                 self.sampling.tail,
@@ -1746,9 +1763,11 @@ class LogfireConfig(_LogfireConfigData):
                 prepare_ended_span=prepare_ended_span,
             )
         else:
+            # Run these after the configured start hooks so pending records include their attributes.
             for processor in deferred_processors:
                 main.add_span_processor(processor)
 
+        # Skip suppressed instrumentation and normalize completed spans before routing them.
         return CheckSuppressInstrumentationProcessorWrapper(MainSpanProcessorWrapper(completed))
 
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
