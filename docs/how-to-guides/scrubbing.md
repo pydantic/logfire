@@ -95,7 +95,8 @@ logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback
 ## When Logfire scrubs spans
 
 Logfire can scrub span attributes, the key-value details attached to a span, on a background thread before sending the span.
-If a destination needs the scrubbed attributes immediately, such as console output that shows attributes, Logfire scrubs on the calling thread.
+If you show attributes in console output or add a custom span processor that implements an `on_end` hook, Logfire scrubs span attributes on the calling thread.
+This applies to all destinations, including those that send spans in batches.
 Logfire also scrubs message template fields on the calling thread as it formats the message.
 
 With [tail sampling](sampling.md#tail-sampling-by-level-and-duration), Logfire decides whether to keep a trace after seeing its spans.
