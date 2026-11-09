@@ -1,0 +1,30 @@
+docs/how-to-guides/scrubbing.md
+  s_0fe06aeb531123::t_c7f13c5f7a139f 7,89-102
+  s_97fafab3f99c6a::t_4957043e801dcd 103
+docs/how-to-guides/sampling.md
+  s_0fe06aeb531123::t_c7f13c5f7a139f 408-410
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fa4ae6053d3272f88691c1c8305112efa68cbefe",
+  "prompts": {},
+  "sessions": {
+    "s_0fe06aeb531123": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c061-4b20-7f01-b74b-1f9b99eff15b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_97fafab3f99c6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c0c6-92e6-7673-b388-a74f6fac2558",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
