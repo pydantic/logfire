@@ -61,8 +61,8 @@ from opentelemetry.sdk.metrics.export import (
 from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import OsResourceDetector, Resource, ResourceDetector, get_aggregated_resources
 from opentelemetry.sdk.trace import (
+    ConcurrentMultiSpanProcessor,
     SpanProcessor,
-    SynchronousMultiSpanProcessor,
     Tracer as SDKTracer,
     TracerProvider as SDKTracerProvider,
 )
@@ -122,7 +122,15 @@ from .exporters.otlp import (
     cleanup_disk_retryers,
     zstd_compress,
 )
-from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
+from .exporters.processor_wrapper import (
+    BackgroundScrubbingSpanProcessor,
+    CheckSuppressInstrumentationProcessorWrapper,
+    MainSpanProcessorWrapper,
+    ScrubbingSpanProcessor,
+    SpanProcessorGroup,
+    make_scrubbing_queue,
+    scrub_span,
+)
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
@@ -199,6 +207,8 @@ class ConsoleOptions:
 
     It includes the filename, log level, line number, and attributes.
     `include_attributes` can override whether attributes are shown.
+
+    Show attributes will cause scrubbing to happen on the calling thread, which may slow down your application.
     """
     min_log_level: LevelName = 'info'
     """The minimum log level to show in the console."""
@@ -212,6 +222,8 @@ class ConsoleOptions:
 
     Set to `True` with `verbose=False` to show attributes without the filename, line number, or log level.
     This uses Logfire's formatting metadata and does not change the message itself.
+
+    Setting this to `True` will cause scrubbing to happen on the calling thread, which may slow down your application.
     """
 
 
@@ -631,6 +643,8 @@ def configure(
 
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
+            Processors which have a custom `on_end` method (other than `BatchSpanProcessor`) will cause
+            span attribute scrubbing to happen on the calling thread, which may slow down your application.
         metrics: Set to `False` to disable sending all metrics,
             or provide a `MetricsOptions` object to configure metrics, e.g. additional metric readers.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
@@ -997,6 +1011,52 @@ def _register_at_fork_resource_updates(
     os.register_at_fork(after_in_child=fix_pid)
 
 
+def _span_processor_can_defer(processor: SpanProcessor) -> bool:
+    if type(processor) in (BatchSpanProcessor, DynamicBatchSpanProcessor):
+        return True
+    if type(processor) is ConcurrentMultiSpanProcessor:
+        return all(
+            _span_processor_can_defer(child) or _span_processor_has_no_end_hook(child)
+            for child in processor._span_processors  # pyright: ignore[reportPrivateUsage]
+        )
+    return False
+
+
+def _deferred_and_sync_span_processors(
+    processors: Sequence[SpanProcessor],
+) -> tuple[list[SpanProcessor], list[SpanProcessor]]:
+    deferred_processors: list[SpanProcessor] = []
+    sync_processors: list[SpanProcessor] = []
+    for processor in processors:
+        if _span_processor_can_defer(processor):
+            deferred_processors.append(processor)
+        else:
+            sync_processors.append(processor)
+    return deferred_processors, sync_processors
+
+
+def _span_processor_has_no_end_hook(processor: SpanProcessor) -> bool:
+    return getattr(processor.on_end, '__func__', None) is SpanProcessor.on_end
+
+
+def _span_processor_can_skip_scrubbing(processor: SpanProcessor) -> bool:
+    if _span_processor_has_no_end_hook(processor):
+        return True
+    if type(processor) is SimpleSpanProcessor:
+        exporter = processor.span_exporter
+        if type(exporter) in (SimpleConsoleSpanExporter, IndentedConsoleSpanExporter, ShowParentsConsoleSpanExporter):
+            assert isinstance(exporter, SimpleConsoleSpanExporter)
+            return not exporter._include_attributes  # pyright: ignore[reportPrivateUsage]
+    return False
+
+
+def _multi_span_processor(processors: Sequence[SpanProcessor]) -> SpanProcessorGroup:
+    multi = SpanProcessorGroup()
+    for processor in processors:
+        multi.add_span_processor(processor)
+    return multi
+
+
 class LogfireConfig(_LogfireConfigData):
     def __init__(
         self,
@@ -1252,7 +1312,7 @@ class LogfireConfig(_LogfireConfigData):
 
             processors_with_pending_spans: list[SpanProcessor] = []
             user_deferred_processors: list[SpanProcessor] = []
-            main_multiprocessor = SynchronousMultiSpanProcessor()
+            span_processors: list[SpanProcessor] = []
 
             pending_span_exporter_types: tuple[type[SpanExporter], ...] = (TestExporter, SimpleConsoleSpanExporter)
             if self.advanced.pending_spans:
@@ -1262,7 +1322,7 @@ class LogfireConfig(_LogfireConfigData):
                 if self.sampling.tail and getattr(span_processor, 'tail_sampling_defer_on_start', False):
                     user_deferred_processors.append(span_processor)
                 else:
-                    main_multiprocessor.add_span_processor(span_processor)
+                    span_processors.append(span_processor)
                 has_pending = isinstance(getattr(span_processor, 'span_exporter', None), pending_span_exporter_types)
                 if has_pending:
                     processors_with_pending_spans.append(span_processor)
@@ -1489,40 +1549,6 @@ class LogfireConfig(_LogfireConfigData):
                         # This line is just to make sure.
                         session.headers.update(headers)
 
-            deferred_processors: list[SpanProcessor] = []
-            if processors_with_pending_spans:
-                pending_multiprocessor = SynchronousMultiSpanProcessor()
-                for processor in processors_with_pending_spans:
-                    pending_multiprocessor.add_span_processor(processor)
-                deferred_processors.append(
-                    PendingSpanProcessor(
-                        self.advanced.id_generator, MainSpanProcessorWrapper(pending_multiprocessor, self.scrubber)
-                    )
-                )
-            deferred_processors.extend(user_deferred_processors)
-
-            root_processor: SpanProcessor = main_multiprocessor
-            if self.sampling.tail:
-                deferred_multi: SpanProcessor | None = None
-                if deferred_processors:
-                    deferred_multi = SynchronousMultiSpanProcessor()
-                    for p in deferred_processors:
-                        deferred_multi.add_span_processor(p)
-                root_processor = TailSamplingProcessor(
-                    main_multiprocessor,
-                    self.sampling.tail,
-                    deferred_processor=deferred_multi,
-                )
-            else:
-                for p in deferred_processors:
-                    main_multiprocessor.add_span_processor(p)
-
-            tracer_provider.add_span_processor(
-                CheckSuppressInstrumentationProcessorWrapper(
-                    MainSpanProcessorWrapper(root_processor, self.scrubber),
-                )
-            )
-
             otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
             otlp_traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
             otlp_metrics_endpoint = os.getenv(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT)
@@ -1533,6 +1559,10 @@ class LogfireConfig(_LogfireConfigData):
 
             if (otlp_endpoint or otlp_traces_endpoint) and otlp_traces_exporter in ('otlp', ''):
                 add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+
+            tracer_provider.add_span_processor(
+                self._build_span_processor(span_processors, processors_with_pending_spans, user_deferred_processors)
+            )
 
             if (
                 (otlp_endpoint or otlp_metrics_endpoint)
@@ -1669,6 +1699,88 @@ class LogfireConfig(_LogfireConfigData):
             set_global_textmap(new_textmap)
 
             self._ensure_flush_after_aws_lambda()
+
+    def _build_span_processor(
+        self,
+        span_processors: Sequence[SpanProcessor],
+        pending_processors: Sequence[SpanProcessor],
+        user_deferred_processors: Sequence[SpanProcessor],
+    ) -> SpanProcessor:
+        """Wire the delivery paths for completed spans and synthetic pending records."""
+        # main owns the processors whose start hooks run immediately. The pending route
+        # reuses only the configured processors that accept synthetic pending records.
+        main = _multi_span_processor(span_processors)
+        completed: SpanProcessor = main
+        pending: SpanProcessor = _multi_span_processor(pending_processors)
+        prepare_ended_span = None
+        if self.scrubber is not NOOP_SCRUBBER:
+            # Built-in batch processors can be deferred, including in concurrent groups where every
+            # end hook is either deferrable or a no-op.
+            background, synchronous = _deferred_and_sync_span_processors(span_processors)
+            # Queues need threads. Start-only processors and consoles that hide attributes can stay
+            # synchronous without scrubbing. Custom tail-deferred processors need the same scrubbed span as main.
+            if (
+                background
+                and not platform_is_emscripten()
+                and not user_deferred_processors
+                and all(_span_processor_can_skip_scrubbing(p) for p in synchronous)
+            ):
+                processor_group = SpanProcessorGroup()
+
+                background_pending, synchronous_pending = _deferred_and_sync_span_processors(pending_processors)
+                if background_pending:
+                    pending_queue = make_scrubbing_queue(_multi_span_processor(background_pending), self.scrubber)
+                    # The pending route feeds this queue, which scrubs before delivery to background_pending.
+                    # Put the pending queue first in the flush and shutdown order.
+                    processor_group.add_span_processor(pending_queue)
+                    synchronous_pending.append(pending_queue)
+                pending = _multi_span_processor(synchronous_pending)
+
+                # The wrapper uses processor_group for start, flush, and shutdown. The queues have no-op
+                # start hooks, so main runs each configured start hook once. Main goes last so both
+                # queues drain before the shared destinations flush or shut down.
+                background_end_processor = make_scrubbing_queue(_multi_span_processor(background), self.scrubber)
+                processor_group.add_span_processor(background_end_processor)
+                processor_group.add_span_processor(main)
+                # on_end sends the completed record to synchronous and to background_end_processor.
+                # background_end_processor scrubs it once before calling on_end on the background processors.
+                completed = BackgroundScrubbingSpanProcessor(
+                    processor=processor_group,
+                    synchronous_end_processor=_multi_span_processor(synchronous),
+                    background_end_processor=background_end_processor,
+                )
+            else:
+                pending = ScrubbingSpanProcessor(pending, self.scrubber)
+                if self.sampling.tail:
+                    # Scrub each kept completed span once before calling the main and deferred end hooks.
+                    prepare_ended_span = functools.partial(scrub_span, scrubber=self.scrubber)
+                else:
+                    completed = ScrubbingSpanProcessor(main, self.scrubber)
+
+        deferred_processors: list[SpanProcessor] = []
+        if pending_processors:
+            # PendingSpanProcessor creates the record from on_start. The wrapper normalizes it
+            # before sending it to pending.on_end.
+            deferred_processors.append(
+                PendingSpanProcessor(self.advanced.id_generator, MainSpanProcessorWrapper(pending))
+            )
+        deferred_processors.extend(user_deferred_processors)
+
+        if self.sampling.tail:
+            # For buffered traces, tail sampling gates completed delivery and the start hooks that emit pending records.
+            completed = TailSamplingProcessor(
+                completed,
+                self.sampling.tail,
+                deferred_processor=_multi_span_processor(deferred_processors) if deferred_processors else None,
+                prepare_ended_span=prepare_ended_span,
+            )
+        else:
+            # Run these after the configured start hooks so pending records include their attributes.
+            for processor in deferred_processors:
+                main.add_span_processor(processor)
+
+        # Skip suppressed instrumentation and normalize completed spans before routing them.
+        return CheckSuppressInstrumentationProcessorWrapper(MainSpanProcessorWrapper(completed))
 
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
         """Force flush all telemetry and forwarding pipelines.
