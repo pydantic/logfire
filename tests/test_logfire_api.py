@@ -361,7 +361,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire__all__.remove(member)
 
     assert hasattr(logfire_api, 'shutdown')
-    logfire_api.shutdown()
+    assert logfire_api.shutdown() is True
     logfire__all__.remove('shutdown')
 
     assert hasattr(logfire_api, 'AutoTraceModule')
