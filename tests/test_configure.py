@@ -2442,8 +2442,9 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch, enable_scrubbing: bo
     logfire.configure(send_to_logfire=True, token='foo', scrubbing=None if enable_scrubbing else False)
     wait_for_check_token_thread()
 
+    root = get_span_processor_root()
     expected_processor = BackgroundScrubbingSpanProcessor if enable_scrubbing else SynchronousMultiSpanProcessor
-    assert isinstance(get_span_processor_root(), expected_processor)
+    assert isinstance(root, expected_processor)
 
     [console_span_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
 
@@ -2458,6 +2459,14 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch, enable_scrubbing: bo
         console_span_processor,
         send_to_logfire_processor,
     )
+    if isinstance(root, BackgroundScrubbingSpanProcessor):
+        assert isinstance(root.processor, SynchronousMultiSpanProcessor)
+        assert isinstance(pending_span_processor.processor, MainSpanProcessorWrapper)
+        pending = pending_span_processor.processor.processor
+        assert isinstance(pending, SynchronousMultiSpanProcessor)
+        pending_queue = pending._span_processors[-1]  # pyright: ignore[reportPrivateUsage]
+        queue_order = root.processor._span_processors[:2]  # pyright: ignore[reportPrivateUsage]
+        assert queue_order == (pending_queue, root.completed_queue)
 
     [logfire_metric_reader] = get_metric_readers()
     assert isinstance(logfire_metric_reader, PeriodicExportingMetricReader)

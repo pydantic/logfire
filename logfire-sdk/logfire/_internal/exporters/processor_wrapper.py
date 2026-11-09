@@ -143,14 +143,13 @@ class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
 
     def __init__(
         self,
+        processor_group: SpanProcessorGroup,
         synchronous_end_processor: SpanProcessor,
         completed_queue: BatchSpanProcessor,
     ) -> None:
         self.synchronous_end_processor = synchronous_end_processor
         self.completed_queue = completed_queue
-        self.processor_group = SpanProcessorGroup()
-        self.processor_group.add_span_processor(completed_queue)
-        super().__init__(self.processor_group)
+        super().__init__(processor_group)
 
     def on_end(self, span: ReadableSpan) -> None:
         self.synchronous_end_processor.on_end(span)

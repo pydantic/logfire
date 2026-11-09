@@ -1720,23 +1720,27 @@ class LogfireConfig(_LogfireConfigData):
                 and all(_span_processor_can_skip_scrubbing(p) for p in synchronous)
             ):
                 background_pending, synchronous_pending = _deferred_and_sync_span_processors(pending_processors)
-                # on_end sends the completed record to synchronous and to completed_queue. The queue
-                # scrubs it once before calling on_end on the background processors.
-                background_scrubber = completed = BackgroundScrubbingSpanProcessor(
-                    synchronous_end_processor=_multi_span_processor(synchronous),
-                    completed_queue=make_scrubbing_queue(_multi_span_processor(background), self.scrubber),
-                )
+                completed_queue = make_scrubbing_queue(_multi_span_processor(background), self.scrubber)
+                processor_group = SpanProcessorGroup()
                 if background_pending:
                     pending_queue = make_scrubbing_queue(_multi_span_processor(background_pending), self.scrubber)
                     # The pending route feeds this queue, which scrubs before delivery to background_pending.
-                    # Register the same queue in processor_group so it also gets flushed and shut down.
-                    background_scrubber.processor_group.add_span_processor(pending_queue)
+                    # Put the pending queue first in the flush and shutdown order.
+                    processor_group.add_span_processor(pending_queue)
                     synchronous_pending.append(pending_queue)
                 pending = _multi_span_processor(synchronous_pending)
                 # The wrapper uses processor_group for start, flush, and shutdown. The queues have no-op
                 # start hooks, so main runs each configured start hook once. Main goes last so both
                 # queues drain before the shared destinations flush or shut down.
-                background_scrubber.processor_group.add_span_processor(main)
+                processor_group.add_span_processor(completed_queue)
+                processor_group.add_span_processor(main)
+                # on_end sends the completed record to synchronous and to completed_queue. The queue
+                # scrubs it once before calling on_end on the background processors.
+                completed = BackgroundScrubbingSpanProcessor(
+                    processor_group=processor_group,
+                    synchronous_end_processor=_multi_span_processor(synchronous),
+                    completed_queue=completed_queue,
+                )
             else:
                 pending = ScrubbingSpanProcessor(pending, self.scrubber)
                 if self.sampling.tail:
