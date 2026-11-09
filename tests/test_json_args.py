@@ -408,6 +408,30 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             id='enum_with_complex_values',
         ),
         pytest.param(
+            Enum('Color', {'RED': 1, 'GREEN': 'str'}).RED,
+            'Color.RED',
+            '1',
+            {
+                'type': 'object',
+                'title': 'Color',
+                'x-python-datatype': 'Enum',
+                'enum': [1, 'str'],
+            },
+            id='enum_with_int_and_str_values',
+        ),
+        pytest.param(
+            Enum('Color', {'RED': 1, 'GREEN': 1.5}).RED,
+            'Color.RED',
+            '1',
+            {
+                'type': 'number',
+                'title': 'Color',
+                'x-python-datatype': 'Enum',
+                'enum': [1, 1.5],
+            },
+            id='enum_with_int_and_float_values',
+        ),
+        pytest.param(
             deque([4, 5]),
             'deque([4, 5])',
             '[4,5]',
