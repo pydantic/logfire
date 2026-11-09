@@ -133,34 +133,35 @@ class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
 
     def __init__(
         self,
-        processor: SpanProcessor,
-        synchronous: SpanProcessor,
-        background: SpanProcessor,
-        pending: SpanProcessor | None,
+        all_processors: SpanProcessor,
+        synchronous_end: SpanProcessor,
+        background_end: SpanProcessor,
+        background_pending: SpanProcessor | None,
         scrubber: BaseScrubber,
     ) -> None:
-        self._synchronous = synchronous
+        self._synchronous_end = synchronous_end
         self._batch = BatchSpanProcessor(
-            _SpanProcessorExporter(ScrubbingSpanProcessor(background, scrubber)), max_export_batch_size=1
+            _SpanProcessorExporter(ScrubbingSpanProcessor(background_end, scrubber)), max_export_batch_size=1
         )
         self.pending_processor = (
             BatchSpanProcessor(
-                _SpanProcessorExporter(ScrubbingSpanProcessor(pending, scrubber)), max_export_batch_size=1
+                _SpanProcessorExporter(ScrubbingSpanProcessor(background_pending, scrubber)), max_export_batch_size=1
             )
-            if pending is not None
+            if background_pending is not None
             else None
         )
+        # Both queues have no-op start hooks, so only all_processors forwards on_start.
         # Drain both scrubbing queues before flushing or shutting down the destinations they share.
         processor_group = SpanProcessorGroup()
         if self.pending_processor is not None:
             processor_group.add_span_processor(self.pending_processor)
         processor_group.add_span_processor(self._batch)
-        processor_group.add_span_processor(processor)
+        processor_group.add_span_processor(all_processors)
         super().__init__(processor_group)
 
     def on_end(self, span: ReadableSpan) -> None:
         # PendingSpanProcessor.on_start routes synthetic pending spans to their own queue.
-        self._synchronous.on_end(span)
+        self._synchronous_end.on_end(span)
         self._batch.on_end(span)
 
 

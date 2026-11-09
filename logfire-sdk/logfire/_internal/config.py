@@ -1701,11 +1701,11 @@ class LogfireConfig(_LogfireConfigData):
             ):
                 background_pending = [p for p in pending_processors if _span_processor_can_defer(p)]
                 worker = BackgroundScrubbingSpanProcessor(
-                    main,
-                    _multi_span_processor(synchronous),
-                    _multi_span_processor(background),
-                    _multi_span_processor(background_pending) if background_pending else None,
-                    self.scrubber,
+                    all_processors=main,
+                    synchronous_end=_multi_span_processor(synchronous),
+                    background_end=_multi_span_processor(background),
+                    background_pending=_multi_span_processor(background_pending) if background_pending else None,
+                    scrubber=self.scrubber,
                 )
                 completed = worker
                 synchronous_pending = [p for p in pending_processors if not _span_processor_can_defer(p)]
