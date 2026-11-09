@@ -462,7 +462,7 @@ def test_logging_with_bad_arguments_does_not_raise(exporter: TestExporter, capsy
 
 
 def test_logging_error_scrubs_arguments(exporter: TestExporter, capsys: pytest.CaptureFixture[str]) -> None:
-    # `handleError` prints the arguments of a record that can't be formatted,
+    # `handleError` prints the message and the arguments of a record that can't be formatted,
     # so they must be scrubbed like the attributes sent to Logfire.
     bad_logger = getLogger('tests.test_stdlib_logging.scrub_arguments')
     bad_logger.propagate = False
@@ -472,11 +472,17 @@ def test_logging_error_scrubs_arguments(exporter: TestExporter, capsys: pytest.C
     try:
         bad_logger.error('n=%(n)d', {'n': 'many', 'password': secret})
         bad_logger.error('%d items', f'my password is {secret}')
+        # The message is scrubbed too.
+        bad_logger.error(f'password={secret} and %d', 'many')
+        # A mapping that `%y` can't format is treated as one positional argument, as when the record is exported.
+        bad_logger.error('%y', {'password': secret})
+        # A message that is not a string.
+        bad_logger.error(UnprintableArg())
     finally:
         bad_logger.removeHandler(handler)
 
     errors = capsys.readouterr().err
-    assert errors.count('--- Logging error ---') == 2
+    assert errors.count('--- Logging error ---') == 5
     assert secret not in errors
     assert "[Scrubbed due to 'password']" in errors
     assert exporter.exported_spans == []

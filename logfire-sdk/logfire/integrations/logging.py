@@ -106,17 +106,27 @@ class LogfireLoggingHandler(LoggingHandler):
                 exc_info=record.exc_info,
             )
         except Exception:
-            # `handleError` prints the record's arguments to stderr, so scrub them first, as they would be in Logfire.
+            # `handleError` prints the message and the arguments of the record to stderr, so scrub them first, as they would be in Logfire.
             self.handleError(self._scrub_args(record))
 
     def _scrub_args(self, record: LogRecord) -> LogRecord:
         record = copy(record)
-        scrubber = self.logfire_instance.config.scrubber
-        if isinstance(record.args, Mapping):
-            record.args, _ = scrubber.scrub_value(('attributes',), record.args)
-        else:
-            args, _ = scrubber.scrub_value(('attributes', ATTRIBUTES_LOGGING_ARGS_KEY), record.args)
-            record.args = tuple(args)
+        try:
+            scrub = self.logfire_instance.config.scrubber.scrub_value
+            args = record.args
+            # Scrub the values with the paths they have in the exported span, as a scrubbing callback can look at the path.
+            if not isinstance(args, Mapping):
+                record.args = tuple(scrub(('attributes', ATTRIBUTES_LOGGING_ARGS_KEY), args or ())[0])
+            elif _is_single_positional_argument(record.msg, args):
+                record.args = scrub(('attributes', ATTRIBUTES_LOGGING_ARGS_KEY), (args,))[0][0]
+            else:
+                record.args = scrub(('attributes',), dict(args))[0]
+            if isinstance(record.msg, str):
+                record.msg = scrub(('attributes', ATTRIBUTES_MESSAGE_KEY), record.msg)[0]
+        except Exception:  # pragma: no cover
+            # Never print a message or arguments that couldn't be scrubbed.
+            record.msg = ''
+            record.args = None
         return record
 
     def fill_attributes(self, record: LogRecord) -> dict[str, Any]:
@@ -140,6 +150,17 @@ class LogfireLoggingHandler(LoggingHandler):
         attributes.update(args)
 
         return attributes
+
+
+def _is_single_positional_argument(msg: Any, args: Mapping[str, Any]) -> bool:
+    """Whether `_format_message` treats the mapping `args` as one positional argument, not as keyword arguments."""
+    try:
+        msg % (args,)
+    except TypeError:
+        return False
+    except Exception:
+        pass  # The message can't be formatted either way, and `_format_message` fails with this error too.
+    return True
 
 
 def _format_message(record: LogRecord) -> tuple[str, Mapping[str, Any]]:
