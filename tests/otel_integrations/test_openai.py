@@ -5697,6 +5697,86 @@ def test_cache_write_tokens_recorded_from_streams(exporter: TestExporter) -> Non
     client.close()
 
 
+def test_azure_content_filter_chunks_ignored_in_stream(exporter: TestExporter) -> None:
+    filter_results = {'hate': {'filtered': False, 'severity': 'safe'}}
+    chunks: list[dict[str, Any]] = [
+        {
+            'id': '',
+            'object': '',
+            'created': 0,
+            'model': '',
+            'choices': [],
+            'prompt_filter_results': [{'prompt_index': 0, 'content_filter_results': filter_results}],
+        },
+        {
+            'id': 'chatcmpl-1',
+            'object': 'chat.completion.chunk',
+            'created': 1,
+            'model': 'gpt-4o-mini-2024-07-18',
+            'choices': [{'index': 0, 'delta': {'role': 'assistant', 'content': 'Nine'}, 'finish_reason': None}],
+        },
+        {
+            'id': 'chatcmpl-1',
+            'object': 'chat.completion.chunk',
+            'created': 1,
+            'model': 'gpt-4o-mini-2024-07-18',
+            'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'stop'}],
+        },
+        {
+            'id': 'chatcmpl-1',
+            'object': 'chat.completion.chunk',
+            'created': 1,
+            'model': 'gpt-4o-mini-2024-07-18',
+            'choices': [],
+            'usage': {'prompt_tokens': 10, 'completion_tokens': 1, 'total_tokens': 11},
+        },
+        {
+            'id': '',
+            'object': '',
+            'created': 0,
+            'model': '',
+            'choices': [
+                {
+                    'index': 0,
+                    'finish_reason': None,
+                    'content_filter_offsets': {'check_offset': 0, 'start_offset': 0, 'end_offset': 4},
+                    'content_filter_results': filter_results,
+                }
+            ],
+        },
+    ]
+    sse = ''.join(f'data: {json.dumps(chunk)}\n\n' for chunk in chunks) + 'data: [DONE]\n\n'
+    client = openai.Client(
+        api_key='fake_api_key',
+        http_client=httpx.Client(
+            transport=MockTransport(
+                lambda _: httpx.Response(200, text=sse, headers={'content-type': 'text/event-stream'})
+            )
+        ),
+    )
+    with logfire.instrument_openai(client):
+        list(
+            client.chat.completions.create(
+                model='my-deployment',
+                messages=[{'role': 'user', 'content': 'hi'}],
+                stream=True,
+                stream_options={'include_usage': True},
+            )
+        )
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
+    assert attributes['gen_ai.response.id'] == 'chatcmpl-1'
+    assert attributes['gen_ai.response.model'] == 'gpt-4o-mini-2024-07-18'
+    assert attributes['gen_ai.response.finish_reasons'] == ['stop']
+    assert attributes['gen_ai.usage.input_tokens'] == 10
+    assert attributes['gen_ai.usage.output_tokens'] == 1
+    assert attributes['operation.cost'] == snapshot(2.1e-06)
+    assert attributes['gen_ai.output.messages'] == [
+        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+    ]
+    client.close()
+
+
 def test_uncached_prompt_tokens_omit_cache_attribute(exporter: TestExporter) -> None:
     body = {
         'id': 'chatcmpl-1',
