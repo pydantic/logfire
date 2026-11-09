@@ -159,6 +159,7 @@ class BackgroundScrubbingSpanProcessor(WrapperSpanProcessor):
         super().__init__(lifecycle)
 
     def on_end(self, span: ReadableSpan) -> None:
+        # PendingSpanProcessor.on_start routes synthetic pending spans to their own queue.
         self._synchronous.on_end(span)
         self._batch.on_end(span)
 
