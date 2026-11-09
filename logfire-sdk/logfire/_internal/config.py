@@ -1016,6 +1016,19 @@ def _span_processor_can_defer(processor: SpanProcessor) -> bool:
     return False
 
 
+def _deferred_and_sync_span_processors(
+    processors: Sequence[SpanProcessor],
+) -> tuple[list[SpanProcessor], list[SpanProcessor]]:
+    deferred_processors: list[SpanProcessor] = []
+    sync_processors: list[SpanProcessor] = []
+    for processor in processors:
+        if _span_processor_can_defer(processor):
+            deferred_processors.append(processor)
+        else:
+            sync_processors.append(processor)
+    return deferred_processors, sync_processors
+
+
 def _span_processor_has_no_end_hook(processor: SpanProcessor) -> bool:
     return getattr(processor.on_end, '__func__', None) is SpanProcessor.on_end
 
@@ -1692,29 +1705,25 @@ class LogfireConfig(_LogfireConfigData):
         pending: SpanProcessor = _multi_span_processor(pending_processors)
         prepare_ended_span = None
         if self.scrubber is not NOOP_SCRUBBER:
-            background = [p for p in span_processors if _span_processor_can_defer(p)]
-            synchronous = [p for p in span_processors if not _span_processor_can_defer(p)]
+            background, synchronous = _deferred_and_sync_span_processors(span_processors)
             if (
                 background
                 and not platform_is_emscripten()
                 and not user_deferred_processors
                 and all(_span_processor_can_skip_scrubbing(p) for p in synchronous)
             ):
-                background_pending = [p for p in pending_processors if _span_processor_can_defer(p)]
-                background_scrubbing = BackgroundScrubbingSpanProcessor(
+                background_pending, synchronous_pending = _deferred_and_sync_span_processors(pending_processors)
+                if background_pending:
+                    pending_queue = make_scrubbing_queue(_multi_span_processor(background_pending), self.scrubber)
+                    synchronous_pending.append(pending_queue)
+                else:
+                    pending_queue = None
+                completed = BackgroundScrubbingSpanProcessor(
                     all_processors=main,
-                    synchronous_end_processors=_multi_span_processor(synchronous),
+                    synchronous_end_processor=_multi_span_processor(synchronous),
                     completed_queue=make_scrubbing_queue(_multi_span_processor(background), self.scrubber),
-                    pending_queue=(
-                        make_scrubbing_queue(_multi_span_processor(background_pending), self.scrubber)
-                        if background_pending
-                        else None
-                    ),
+                    pending_queue=pending_queue,
                 )
-                completed = background_scrubbing
-                synchronous_pending = [p for p in pending_processors if not _span_processor_can_defer(p)]
-                if background_scrubbing.pending_queue is not None:
-                    synchronous_pending.append(background_scrubbing.pending_queue)
                 pending = _multi_span_processor(synchronous_pending)
             else:
                 pending = ScrubbingSpanProcessor(pending, self.scrubber)
