@@ -199,6 +199,25 @@ def test_unbalanced_braces_still_logged(exporter: TestExporter):
     assert span['attributes']['logfire.msg_template'] == 'value = {'
 
 
+def test_fstring_literal_braces_escaped_in_template(exporter: TestExporter):
+    y = 1
+    logfire.info(f'{{x}} {y}')
+    logfire.info('{{x}} {y}', y=y)
+    with logfire.span(f'a {{b}} {y} }}'):
+        pass
+
+    assert [
+        (span['name'], span['attributes']['logfire.msg_template'], span['attributes']['logfire.msg'])
+        for span in exporter.exported_spans_as_dict()
+    ] == snapshot(
+        [
+            ('{{x}} {y}', '{{x}} {y}', '{x} 1'),
+            ('{{x}} {y}', '{{x}} {y}', '{x} 1'),
+            ('a {{b}} {y} }}', 'a {{b}} {y} }}', 'a {b} 1 }'),
+        ]
+    )
+
+
 class BadScrubber(Scrubber):
     def scrub_value(self, path: JsonPath, value: Any):
         raise ValueError('bad scrubber')

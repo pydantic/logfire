@@ -122,7 +122,7 @@ class ChunksFormatter(Formatter):
                 # These are the parts of the f-string not enclosed by `{}`, e.g. 'foo ' in f'foo {bar}'
                 value: str = node_value.value  # pyright: ignore[reportAssignmentType]
                 result.append({'v': value, 't': 'lit'})
-                new_template += value
+                new_template += value.replace('{', '{{').replace('}', '}}')
             else:
                 # These are the parts of the f-string enclosed by `{}`, e.g. 'bar' in f'foo {bar}'
                 assert isinstance(node_value, ast.FormattedValue)
