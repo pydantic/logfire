@@ -423,7 +423,7 @@ def test_scrub_message(exporter: TestExporter):
     # Only the sensitive part of the `user` attribute is redacted.
     # The full formatted value is redacted from the message,
     # because the formatting code only sees the full `str(user)`.
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'User: {user}',
@@ -439,14 +439,12 @@ def test_scrub_message(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_scrub_message',
                     'code.lineno': 123,
-                    'user': IsJson([{'name': 'John', 'password': "[Scrubbed due to 'password']"}]),
-                    'logfire.scrubbed': IsJson(
-                        [
-                            {'path': ['message', 'user'], 'matched_substring': 'password'},
-                            {'path': ['attributes', 'user', 0, 'password'], 'matched_substring': 'password'},
-                        ]
-                    ),
-                    'logfire.json_schema': '{"type":"object","properties":{"user":{"type":"array"}}}',
+                    'user': [{'name': 'John', 'password': "[Scrubbed due to 'password']"}],
+                    'logfire.scrubbed': [
+                        {'path': ['message', 'user'], 'matched_substring': 'password'},
+                        {'path': ['attributes', 'user', 0, 'password'], 'matched_substring': 'password'},
+                    ],
+                    'logfire.json_schema': {'type': 'object', 'properties': {'user': {'type': 'array'}}},
                 },
             }
         ]
