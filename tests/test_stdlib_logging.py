@@ -436,6 +436,57 @@ def test_logging_non_string(exporter: TestExporter, logger: Logger):
     )
 
 
+class UnprintableArg:
+    def __str__(self) -> str:
+        raise RuntimeError('cannot be printed')
+
+
+def test_logging_with_bad_arguments_does_not_raise(exporter: TestExporter, capsys: pytest.CaptureFixture[str]) -> None:
+    # Like other handlers, `LogfireLoggingHandler` must report a log call that can't be formatted
+    # with `Handler.handleError` rather than raising from the application's `logger.info(...)` line.
+    bad_logger = getLogger('tests.test_stdlib_logging.bad_arguments')
+    bad_logger.propagate = False  # pytest's own handlers deliberately raise on badly formatted records
+    handler = LogfireLoggingHandler()
+    bad_logger.addHandler(handler)
+    try:
+        bad_logger.error('%d items', 'many')
+        bad_logger.error('value: %s', UnprintableArg())
+        bad_logger.error('fine: %s', 'ok')
+    finally:
+        bad_logger.removeHandler(handler)
+
+    errors = capsys.readouterr().err
+    assert errors.count('--- Logging error ---') == 2
+    assert 'TypeError: %d format' in errors
+    assert 'RuntimeError: cannot be printed' in errors
+    assert [span.attributes['logfire.msg'] for span in exporter.exported_spans] == ['fine: ok']  # type: ignore
+
+
+def test_logging_error_scrubs_arguments(exporter: TestExporter, capsys: pytest.CaptureFixture[str]) -> None:
+    # Preserve the message template in `handleError` diagnostics and scrub the arguments.
+    bad_logger = getLogger('tests.test_stdlib_logging.scrub_arguments')
+    bad_logger.propagate = False
+    handler = LogfireLoggingHandler()
+    bad_logger.addHandler(handler)
+    secret = 'hunter' + '2'  # not spelled out, as the printed call stack includes this file's source lines
+    try:
+        bad_logger.error('n=%(n)d', {'n': 'many', 'password': secret})
+        bad_logger.error('password check: %d', f'my password is {secret}')
+        # A mapping that `%y` can't format is treated as one positional argument, as when the record is exported.
+        bad_logger.error('%y', {'password': secret})
+        # A message that is not a string.
+        bad_logger.error(UnprintableArg())
+    finally:
+        bad_logger.removeHandler(handler)
+
+    errors = capsys.readouterr().err
+    assert errors.count('--- Logging error ---') == 4
+    assert "Message: 'password check: %d'" in errors
+    assert secret not in errors
+    assert "[Scrubbed due to 'password']" in errors
+    assert exporter.exported_spans == []
+
+
 @pytest.mark.parametrize('levelno', [logging.CRITICAL, logging.CRITICAL + 1, 60, 100])
 def test_stdlib_logging_levels_above_critical(exporter: TestExporter, logger: Logger, levelno: int) -> None:
     logger.log(levelno, 'severe')
