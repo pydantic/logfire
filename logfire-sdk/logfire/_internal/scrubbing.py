@@ -321,6 +321,8 @@ class SpanScrubber:
         `path` is a list of keys and indices leading to `value` in the span.
         Similar to the truncation code, it should use the field names in the frontend, e.g. `otel_events`.
         """
+        if type(value) in (int, float, bool, type(None)):
+            return value
         if isinstance(value, str):
             if match := self._pattern.search(value):
                 if match.span() == (0, len(value)):
