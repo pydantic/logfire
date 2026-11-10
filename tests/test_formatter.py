@@ -295,5 +295,17 @@ def test_logfire_fstring_call_fails_in_tests(exporter: TestExporter, monkeypatch
     with pytest.raises(AssertionError, match='Logfire called itself with an f-string'):
         logfire.info(f'internal {x}')
 
+    # Re-evaluating the expression can fail, and that must not hide the f-string either.
+    calls: list[int] = []
+
+    def fails_when_called_again() -> int:
+        calls.append(1)
+        if len(calls) > 1:
+            raise RuntimeError('called again')
+        return x
+
+    with pytest.raises(RuntimeError, match='called again'):
+        logfire.info(f'internal {fails_when_called_again()}')
+
     logfire.info('internal {x}', x=x)
     assert [span['attributes']['logfire.msg'] for span in exporter.exported_spans_as_dict()] == snapshot(['internal 1'])

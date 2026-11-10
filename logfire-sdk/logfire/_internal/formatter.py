@@ -313,8 +313,9 @@ def _check_not_fstring(
         _chunks, _extra_attrs, template = chunks_formatter.chunks(
             format_string, kwargs, scrubber=scrubber, fstring_frame=fstring_frame
         )
-    except Exception:  # pragma: no cover
-        # Formatting errors are reported by the normal path in `logfire_format_with_magic`.
+    except KnownFormattingError:  # pragma: no cover
+        # Only raised when formatting a plain template, which the normal path in `logfire_format_with_magic`
+        # reports. Anything else, e.g. an error re-evaluating an f-string expression, should fail the test.
         return
     assert template == format_string, (
         f'Logfire called itself with an f-string message template, {template!r}. Pass the values as attributes instead.'
