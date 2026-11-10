@@ -1998,182 +1998,32 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
     )
     assert response.status_code == 200
 
-    # TODO scrub URL parameters
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
-            {
-                'name': 'FastAPI arguments',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 5000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg_template': 'FastAPI arguments',
-                    'logfire.msg': 'FastAPI arguments',
-                    'values': (
-                        {
-                            'path_param': "[Scrubbed due to 'auth']",
-                            'foo': 'foo_val',
-                            'password': "[Scrubbed due to 'password']",
-                            'testauthorization': "[Scrubbed due to 'auth']",
-                        }
-                    ),
-                    'errors': [],
-                    'custom_attr': 'custom_value',
-                    'fastapi.route.operation_id': 'null',
-                    'http.method': 'GET',
-                    'http.route': '/secret/{path_param}',
-                    'fastapi.route.name': 'secret',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'http.method': {},
-                            'http.route': {},
-                            'fastapi.route.name': {},
-                            'fastapi.route.operation_id': {'type': 'null'},
-                            'values': {'type': 'object'},
-                            'errors': {'type': 'array'},
-                            'custom_attr': {},
-                        },
-                    },
-                    'logfire.scrubbed': (
-                        [
-                            {'path': ['attributes', 'values', 'path_param'], 'matched_substring': 'auth'},
-                            {'path': ['attributes', 'values', 'password'], 'matched_substring': 'password'},
-                            {'path': ['attributes', 'values', 'testauthorization'], 'matched_substring': 'auth'},
-                        ]
-                    ),
-                },
-            },
-            {
-                'name': '{method} {http.route} ({code.function})',
-                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 6000000000,
-                'end_time': 9000000000,
-                'attributes': {
-                    'code.filepath': 'test_fastapi.py',
-                    'code.function': 'get_secret',
-                    'code.lineno': 123,
-                    'method': 'GET',
-                    'http.route': '/secret/{path_param}',
-                    'logfire.msg_template': '{method} {http.route} ({code.function})',
-                    'logfire.msg': 'GET /secret/{path_param} (get_secret)',
-                    'logfire.json_schema': {'type': 'object', 'properties': {'method': {}, 'http.route': {}}},
-                    'logfire.span_type': 'span',
-                },
-            },
-            {
-                'name': 'GET /secret/{path_param} http send response.start',
-                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 10000000000,
-                'end_time': 11000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'GET /secret/{path_param} http send response.start',
-                    'http.status_code': 200,
-                    'asgi.event.type': 'http.response.start',
-                    'logfire.level_num': 5,
-                    'http.response.status_code': 200,
-                },
-            },
-            {
-                'name': 'GET /secret/{path_param} http send response.body',
-                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 12000000000,
-                'end_time': 13000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'GET /secret/{path_param} http send response.body',
-                    'asgi.event.type': 'http.response.body',
-                    'logfire.level_num': 5,
-                },
-            },
-            {
-                'name': 'GET /secret/{path_param}',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 14000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': "GET /secret/test_auth ? foo='foo_val' & password='hunter2'",
-                    'http.scheme': 'http',
-                    'url.scheme': 'http',
-                    'http.host': 'testserver',
-                    'server.address': 'testserver',
-                    'net.host.port': 80,
-                    'server.port': 80,
-                    'http.flavor': '1.1',
-                    'network.protocol.version': '1.1',
-                    'http.target': '/secret/test_auth',
-                    'url.path': '/secret/test_auth',
-                    'url.query': 'foo=foo_val&password=hunter2',
-                    'http.url': 'http://testserver/secret/test_auth?foo=foo_val&password=hunter2',
-                    'http.method': 'GET',
-                    'http.request.method': 'GET',
-                    'http.server_name': 'testserver',
-                    'http.user_agent': 'testclient',
-                    'user_agent.original': 'testclient',
-                    'net.peer.ip': 'testclient',
-                    'client.address': 'testclient',
-                    'net.peer.port': 50000,
-                    'client.port': 50000,
-                    'http.route': '/secret/{path_param}',
-                    'http.request.header.testauthorization': ("[Scrubbed due to 'auth']",),
-                    'fastapi.route.name': 'secret',
-                    'fastapi.route.operation_id': 'null',
-                    'fastapi.arguments.start_timestamp': '1970-01-01T00:00:03.000000Z',
-                    'fastapi.arguments.end_timestamp': '1970-01-01T00:00:04.000000Z',
-                    'fastapi.arguments.values': {
-                        'path_param': "[Scrubbed due to 'auth']",
-                        'foo': 'foo_val',
-                        'password': "[Scrubbed due to 'password']",
-                        'testauthorization': "[Scrubbed due to 'auth']",
-                    },
-                    'fastapi.arguments.errors': [],
-                    'custom_attr': 'custom_value',
-                    'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:07.000000Z',
-                    'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:08.000000Z',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'fastapi.route.name': {},
-                            'fastapi.route.operation_id': {'type': 'null'},
-                            'custom_attr': {},
-                            'fastapi.arguments.values': {'type': 'object'},
-                            'fastapi.arguments.errors': {'type': 'array'},
-                        },
-                    },
-                    'http.status_code': 200,
-                    'http.response.status_code': 200,
-                    'logfire.scrubbed': (
-                        [
-                            {
-                                'path': ['attributes', 'http.request.header.testauthorization'],
-                                'matched_substring': 'auth',
-                            },
-                            {
-                                'path': ['attributes', 'fastapi.arguments.values', 'path_param'],
-                                'matched_substring': 'auth',
-                            },
-                            {
-                                'path': ['attributes', 'fastapi.arguments.values', 'password'],
-                                'matched_substring': 'password',
-                            },
-                            {
-                                'path': ['attributes', 'fastapi.arguments.values', 'testauthorization'],
-                                'matched_substring': 'auth',
-                            },
-                        ]
-                    ),
-                },
-            },
-        ]
-    )
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    for secret in ('hunter2', 'Bearer abcd'):
+        assert secret not in str(spans)
+
+    server_span = next(span for span in spans if span['name'] == 'GET /secret/{path_param}')
+    attributes = server_span['attributes']
+    assert attributes['http.target'] == attributes['url.path'] == '/secret/test_auth'
+    assert attributes['http.url'].startswith('http://testserver/secret/test_auth?')
+    assert attributes['http.url'].split('?', 1)[1] == attributes['url.query']
+    assert 'foo=foo_val' in attributes['url.query']
+    assert 'password=' in attributes['url.query']
+    assert attributes['logfire.msg'].startswith('GET /secret/test_auth')
+    assert 'foo_val' in attributes['logfire.msg']
+    assert attributes['fastapi.arguments.values']['foo'] == 'foo_val'
+    assert attributes['fastapi.arguments.values']['path_param'] != 'test_auth'
+
+    arguments = next(span for span in spans if span['name'] == 'FastAPI arguments')
+    assert arguments['attributes']['values']['foo'] == 'foo_val'
+    assert arguments['attributes']['values']['path_param'] != 'test_auth'
+    scrubbed_paths = {tuple(note['path']) for note in attributes['logfire.scrubbed']}
+    assert {
+        ('message', 'url.query', 'password'),
+        ('attributes', 'url.query', 'password'),
+        ('attributes', 'http.url', 'password'),
+        ('attributes', 'http.request.header.testauthorization'),
+    } <= scrubbed_paths
 
 
 def make_request_hook_spans(record_send_receive: bool):

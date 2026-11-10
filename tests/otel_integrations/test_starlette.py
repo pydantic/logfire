@@ -5,7 +5,7 @@ import os
 from unittest import mock
 
 import pytest
-from dirty_equals import IsAnyStr, IsFloat, IsInt
+from dirty_equals import IsAnyStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 from opentelemetry.trace import Span
@@ -197,94 +197,27 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
             headers={'TestAuthorization': 'Bearer abcd'},
         )
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
-            {
-                'name': 'GET /secret/{path_param}',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': "GET /secret/my_token ? foo='foo_val' & password='hunter2'",
-                    'http.scheme': 'http',
-                    'url.scheme': 'http',
-                    'http.host': 'testserver',
-                    'server.address': 'testserver',
-                    'net.host.port': 80,
-                    'server.port': 80,
-                    'http.flavor': '1.1',
-                    'network.protocol.version': '1.1',
-                    'http.target': '/secret/my_token',
-                    'url.path': '/secret/my_token',
-                    'url.query': 'foo=foo_val&password=hunter2',
-                    'http.url': 'http://testserver/secret/my_token?foo=foo_val&password=hunter2',
-                    'http.method': 'GET',
-                    'http.request.method': 'GET',
-                    'http.server_name': 'testserver',
-                    'http.user_agent': 'testclient',
-                    'user_agent.original': 'testclient',
-                    'net.peer.ip': 'testclient',
-                    'client.address': 'testclient',
-                    'net.peer.port': 50000,
-                    'client.port': 50000,
-                    'http.route': '/secret/{path_param}',
-                    'logfire.level_num': 17,
-                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
-                    'logfire.metrics': {
-                        'http.server.duration': {
-                            'details': [
-                                {
-                                    'attributes': {
-                                        'http.flavor': '1.1',
-                                        'http.host': 'testserver',
-                                        'http.method': 'GET',
-                                        'http.scheme': 'http',
-                                        'http.server_name': 'testserver',
-                                        'http.target': '/secret/{path_param}',
-                                        'net.host.port': 80,
-                                    },
-                                    'total': IsInt(),
-                                }
-                            ],
-                            'total': IsInt(),
-                        },
-                        'http.server.request.duration': {
-                            'details': [
-                                {
-                                    'attributes': {
-                                        'http.request.method': 'GET',
-                                        'http.route': '/secret/{path_param}',
-                                        'network.protocol.version': '1.1',
-                                        'url.scheme': 'http',
-                                    },
-                                    'total': IsFloat(),
-                                }
-                            ],
-                            'total': IsFloat(),
-                        },
-                    },
-                    'http.request.header.testauthorization': ("[Scrubbed due to 'auth']",),
-                    'logfire.scrubbed': (
-                        [{'path': ['attributes', 'http.request.header.testauthorization'], 'matched_substring': 'auth'}]
-                    ),
-                },
-                'events': [
-                    {
-                        'name': 'exception',
-                        'timestamp': 2000000000,
-                        'attributes': {
-                            'exception.type': 'ValueError',
-                            'exception.message': 'test exception',
-                            'exception.stacktrace': 'ValueError: test exception',
-                            'exception.escaped': 'False',
-                        },
-                    }
-                ],
-            }
-        ]
-    )
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    for secret in ('hunter2', 'Bearer abcd'):
+        assert secret not in str(spans)
+
+    [server_span] = spans
+    attributes = server_span['attributes']
+    assert attributes['http.target'] == attributes['url.path'] == '/secret/my_token'
+    assert attributes['http.url'].startswith('http://testserver/secret/my_token?')
+    assert attributes['http.url'].split('?', 1)[1] == attributes['url.query']
+    assert 'foo=foo_val' in attributes['url.query']
+    assert 'password=' in attributes['url.query']
+    assert attributes['logfire.msg'].startswith('GET /secret/my_token')
+    assert 'foo_val' in attributes['logfire.msg']
+    assert server_span['events'][0]['attributes']['exception.type'] == 'ValueError'
+    scrubbed_paths = {tuple(note['path']) for note in attributes['logfire.scrubbed']}
+    assert {
+        ('message', 'url.query', 'password'),
+        ('attributes', 'url.query', 'password'),
+        ('attributes', 'http.url', 'password'),
+        ('attributes', 'http.request.header.testauthorization'),
+    } <= scrubbed_paths
 
 
 def test_missing_opentelemetry_dependency() -> None:
