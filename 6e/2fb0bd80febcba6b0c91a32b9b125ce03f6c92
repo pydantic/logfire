@@ -1,0 +1,15 @@
+tests/test_secret_scrubbing.py
+  h_d9dd17644dded9 426,442-443,446-447
+  h_d9dd17644dded9 444-445
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6e2fb0bd80febcba6b0c91a32b9b125ce03f6c92",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
