@@ -1,0 +1,24 @@
+tests/test_secret_scrubbing.py
+  s_4a5597820cedcc::t_d67ea10427a459 496-501
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6f4595b4db462a77e07577d3dc73df2a625db63d",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_4a5597820cedcc": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1794308244748",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
