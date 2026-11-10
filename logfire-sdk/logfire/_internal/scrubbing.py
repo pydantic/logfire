@@ -103,6 +103,20 @@ class ScrubbedNote(TypedDict):
     matched_substring: str
 
 
+def _is_unchanged_container(value: Any, result: Any) -> bool:
+    if not isinstance(value, (Mapping, Sequence)) or isinstance(value, (str, bytes, bytearray, memoryview)):
+        return False
+    if result is value:
+        return True
+    if not isinstance(result, (Mapping, Sequence)) or isinstance(result, (str, bytes, bytearray, memoryview)):
+        return False
+    try:
+        return bool(result == value)
+    except (TypeError, ValueError):
+        # Some containers do not provide a single Boolean result for equality.
+        return False
+
+
 @dataclass
 class ScrubbingOptions:
     """Options for redacting sensitive data."""
@@ -112,6 +126,9 @@ class ScrubbingOptions:
     A function that is called for each match found by the scrubber.
     If it returns `None`, the value is redacted.
     Otherwise, the returned value replaces the matched value.
+    If a key matches and its container value is returned unchanged or equal to the original,
+    Logfire continues scrubbing inside it. A different container is treated as the final value.
+    Do not mutate the original value in place: Logfire may not detect the change.
     The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
     """
@@ -359,6 +376,8 @@ class SpanScrubber:
                     result[k] = v
                 elif match := self._pattern.search(k):
                     redacted = self._redact(ScrubMatch(path + (k,), v, match))
+                    if _is_unchanged_container(v, redacted):
+                        redacted = self.scrub(path + (k,), redacted)
                     if isinstance(redacted, str) and isinstance(v, Sequence) and not isinstance(v, str):
                         redacted = [redacted]
                     result[k] = redacted
@@ -369,7 +388,7 @@ class SpanScrubber:
 
     def _redact(self, match: ScrubMatch) -> Any:
         if self._callback and (result := self._callback(match)) is not None:
-            if result is not match.value:
+            if result is not match.value and not _is_unchanged_container(match.value, result):
                 self.scrub_count += 1
             return result
         self.scrub_count += 1
