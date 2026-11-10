@@ -7,7 +7,7 @@ import pytest
 from opentelemetry.sdk.trace.sampling import ALWAYS_ON
 
 import logfire
-from logfire.sampling import SamplingOptions
+from logfire.sampling import SamplingOptions, SubtreeSampler
 from logfire.testing import TestExporter
 
 
@@ -70,3 +70,7 @@ def test_sample_rate_validates() -> None:
     with pytest.raises(ValueError):
         with logfire.sample_rate(1.5):
             pass  # pragma: no cover
+
+
+def test_subtree_sampler_description() -> None:
+    assert SubtreeSampler(ALWAYS_ON).get_description() == 'SubtreeSampler{AlwaysOnSampler}'
