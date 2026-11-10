@@ -205,7 +205,7 @@ def _render_appendix(name: str, *, bundled_references: frozenset[str]) -> str:
             bundled_references=bundled_references,
         )
         content = _qualify_reference_headings(content, relative_path)
-        parts.append(f'<a id="{_reference_anchor(relative_path)}"></a>\n\n## {relative}\n\n{content}')
+        parts.append(f'<a id="{_reference_anchor(relative_path)}"></a>\n\n## {relative_path}\n\n{content}')
     return '\n\n'.join(parts)
 
 

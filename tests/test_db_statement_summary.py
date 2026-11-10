@@ -169,3 +169,34 @@ def test_insert_long_table_short_values():
     assert message_from_db_statement(attrs(q), None, 'INSERT') == snapshot(
         'INSERT INTO "analytics"."ve…me_for_testing" (apple) VALUES (12345678901234567890)'
     )
+
+
+def test_cte_with_column_aliases():
+    q = 'WITH example AS (SELECT 1 AS a, 2 AS b, 3 AS c FROM source_table) SELECT * FROM example'
+    # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
+    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'WITH example AS (…) SELECT * FROM example'
+
+
+def test_ctes_with_column_lists_and_nested_aliases():
+    q = (
+        'WITH foo(x) AS (SELECT count(*) AS n FROM table), bar AS MATERIALIZED (SELECT (SELECT 1) AS y FROM foo) '
+        'SELECT * FROM bar'
+    )
+    # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
+    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'WITH …[2 CTEs] SELECT * FROM bar'
+
+
+def test_cte_with_long_literal():
+    literal = 'x AS y ' * 3_000
+    q = f"WITH geometry AS (SELECT ST_GeomFromWKB(decode('{literal}', 'hex')) AS geom) SELECT ST_AsText(geom) FROM geometry"
+    # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
+    assert (
+        message_from_db_statement(attrs(q), None, 'SELECT')
+        == 'WITH geometry AS (…) SELECT ST_AsText(geom) FROM geometry'
+    )
+
+
+def test_ctes_with_parentheses_in_literals():
+    q = "WITH foo AS (SELECT * FROM t WHERE name LIKE '%(%'), bar AS (SELECT ')' AS paren FROM foo) SELECT * FROM bar"
+    # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
+    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'WITH …[2 CTEs] SELECT * FROM bar'

@@ -1,153 +1,129 @@
 ---
-title: Logfire Exception Tracking and Grouping via Issues
-description: "Automatically group exceptions and track Pydantic issues in your application. Identify, prioritize, and resolve errors."
+title: Find and investigate application errors
+description: "Group exceptions, investigate patterns, and track fixes with Error Tracking."
 ---
-# Issues
+# Error Tracking
 
-!!! note "Found an issue?"
+Find recurring errors, inspect the requests that failed, and track a fix.
 
-    Please [create a GitHub issue](https://github.com/pydantic/logfire/issues/new/choose){:target="\_blank"}
-    if you find bugs or have questions.
+The <OpenInLogfire path="issues" variant="inline" label="Error Tracking" /> page groups repeated exceptions into issues. This feature was previously called **Issues**; some headings and buttons still use that name.
 
-The <OpenInLogfire path="issues" variant="inline" label="Issues" /> page provides automatic exception tracking and grouping. Enable it to identify, prioritize, and resolve problems in your application.
+## Enable Error Tracking
 
-![Enable issues screen](../../images/guide/browser-issues-enable-issues.png)
+You need a project that receives exception data and permission to change its configuration.
 
-## What are Issues?
+1. In the project sidebar, open **Product & Behavior**, then **Error tracking**. In the compact sidebar, select the **Product & Behavior** icon to open its menu.
+2. If tracking is disabled, select **Enable Issues**.
+3. Select notification channels, or leave them empty to track errors only in Logfire.
+4. Select **Enable Issue Tracking**. If you left channels empty, select **Enable anyway** in the **No active channel** dialog.
+5. Send new requests that produce exceptions. Tracking runs periodically, so an issue may take a few minutes to appear.
 
-Issues are automatically created when Logfire detects exceptions in your application. Instead of manually searching through individual exception logs, Logfire groups similar exceptions together based on their fingerprint, giving you a clear overview of problems affecting your application.
+A plain error-level message does not contain the exception data needed to create an issue. For Python examples, see [record exceptions](../onboarding-checklist/add-manual-tracing.md#exceptions).
 
-Each issue shows:
+<img src="../../images/guide/browser-error-tracking-enable.png" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." width="2278" height="684" loading="lazy" />
 
-- **Exception type and message** - What went wrong
-- **Hits** - How many times this exception occurred
-- **Last seen and Age** - When the issue was last seen and how long since it first appeared
-- **Affected services and environments** - Where the problem is happening
-- **Stack trace** - Technical details for debugging
+To change filters or channels later, select **Configure**.
 
+## Find a failure to investigate
 
-![Logfire issues screen](../../images/guide/browser-issues-list.png)
+Logfire groups exceptions by their fingerprint, an identifier that determines which occurrences belong to the same issue.
 
+The list shows each issue's exception type and message, affected services and environments, and:
 
-## Issue States
+- **Hits**: the number of occurrences.
+- **Last seen**: the most recent occurrence.
+- **First seen**: the first occurrence.
 
-Issues can be in one of three states:
+Open an issue to inspect its comparison cards, matching spans, and exception details.
 
-### Open
-Active issues that need attention. New exceptions automatically create open issues.
+<img src="../../images/guide/browser-error-tracking-list.png" alt="Three open checkout issues, each with four hits, alongside state tabs, search, and configuration controls." width="2346" height="1020" loading="lazy" />
 
-### Resolved
-Issues you've marked as fixed. **Resolved issues will automatically reopen** if the same exception occurs again in the future.
+## Investigate what stands out
 
-### Ignored
-Issues you want to permanently ignore. **Ignored issues never reopen** and won't send notifications, even if the same exception continues to occur.
+Open an issue and select **What stands out** (Beta). The cards compare recent occurrences with similar spans. A span is one operation with a start time and duration.
 
-## Managing Issues
+For example, checkout starts timing out after a release. The timeout issue shows:
 
-### Individual Issue Actions
+| Attribute | Value | This issue | Similar-span sample |
+| --- | --- | --- | --- |
+| `checkout.release` | `2026.09.19` | 4/4 | 0/6 |
+| `cloud.region` | `eu-west-1` | 4/4 | 0/6 |
+| `payment.provider` | `stripe` | 4/4 | 0/6 |
 
-For each issue, you can:
+All four timeouts share the release, region, and provider. None of the six successful requests in the comparison sample share those values. Start by inspecting Stripe requests in `eu-west-1` on release `2026.09.19`. These values narrow the search; they do not prove what caused the timeouts.
 
-- **Resolve** - Mark as fixed (will reopen if exception occurs again)
-- **Ignore** - Silence permanently (no alerts even if exception recurs)
-- **Re-open** - Mark a resolved or ignored issue as active again
-- **Delete** - Permanently delete resolved issues
+These fields come from [attributes recorded by the sample app](../onboarding-checklist/add-manual-tracing.md#attributes). Record context such as the release or provider on your app's spans so Logfire can compare those values. The cards can also show status or duration signals.
 
-## Turn on Issue Alerts
+1. Select **Open matching spans** on a card to inspect the records behind it.
+2. Expand **Things we checked** to see values that did not stand out and why.
+3. Select **Traces** to inspect individual occurrences and their surrounding trace.
+4. Select **Detail** for the first recorded exception message and traceback.
 
-By default, Issues are only visible in the Logfire web interface. To be notified when Issues occur in your other tools, you can select external channels.
+<img src="../../images/guide/browser-error-tracking-standouts.png" alt="What stands out for CheckoutGatewayTimeout: error status, release, region, and provider each appear in four of four issue spans and zero of six similar spans." width="2346" height="1364" loading="lazy" />
 
-### Select an Alert Channel
+The comparison sample contains completed spans from the same service and operation, excluding this issue's occurrences. It can include other failures.
 
-You can:
+The analysis uses limited samples of recent data, so card counts can differ from total **Hits**. If no comparable spans are available, the cards show shared values without a comparison.
 
-1. Create a new channel - Add a webhook URL for services like Slack, Discord, Microsoft Teams, or any service that accepts webhooks
-2. Use an existing channel - Select from previously configured notification channels.
+## Track issue states
 
-### Create a new channel:
+| State | Meaning | What happens on another occurrence |
+| --- | --- | --- |
+| **Open** | Needs attention. | The issue stays open and its hit count increases. |
+| **Resolved** | Marked as fixed. | The issue reopens. |
+| **Ignored** | A failure your team has decided not to act on. | The issue stays ignored. |
 
-1. Go to **Settings** on the **Issues** page
-2. Click **Add another channel**
-3. Enter a channel name and webhook URL
-4. Test the channel before saving
+Resolve an issue after you deploy a fix. Ignore an issue only when your team has decided the failure needs no follow-up.
 
-### Managing Notifications
+## Manage issues
 
-- Select one or many channels where you want to receive issue notifications
-- Edit existing channels using the edit icon
+Open an issue to **Resolve**, **Ignore**, or **Re-open** it. A state change returns you to the list. Select **Resolved** or **Ignored** to find an issue you moved out of **Open**.
 
-Notifications are sent when new issues open and when resolved issues reopen. Ignored issues never send notifications.
+For several issues, select their checkboxes and use the action bar. **Re-open** is available in the **Resolved** and **Ignored** tabs.
 
-### Bulk Actions
+You can **Delete** resolved issues. Deletion is permanent. If the exception occurs again, Logfire creates a new issue.
 
-To select multiple issues at once, hold down `shift` or `cmd` (macOS) / `ctrl` (windows).
+## Receive issue notifications
 
-After selecting more than one issue you can:
+Select **Configure**, choose one or more existing notification channels, and select **Save changes**. Notifications are sent when new issues open or resolved issues reopen. Ignored issues do not send notifications.
 
-- Ignore all selected issues
-- Resolve all selected issues
+To create a channel:
 
-## Fix with AI
+1. In **Configure**, select **Add channel**.
+2. Enter a **Channel Name** and choose a **Type**.
+3. Fill in the destination fields. For **Webhook**, enter the **Webhook URL**.
+4. If the type requires a connectivity test, select **Send test message**. This sends a notification to that destination.
+5. Select **Create channel**, then select the channel in the issue configuration and select **Save changes**.
 
-Use this feature to debug your exceptions using your local LLM coding tool plus the Logfire MCP server.
+## Investigate with an AI assistant
 
-![Fix with AI button](../../images/guide/browser-issues-fix-with-ai.png)
+Connect your coding assistant to the [Logfire Model Context Protocol (MCP) server](../../how-to-guides/mcp-server.md). Copy the prompt from the banner above the issue list into your assistant to start an investigation.
 
-The Fix with AI button uses Logfire's MCP server to give your AI assistant access to your application data for debugging. You can choose between:
+## Sort and search
 
-- Claude Code - Debug with Claude Code
-- OpenAI Codex - Debug with OpenAI Codex
+Use **Search issues** to search exception messages.
 
-Run the command provided to retrieve the exception information from the Logfire MCP server so your AI assistant can analyze that specific exception and provide debugging suggestions based on your application context.
+On a wide screen, select **Issue**, **Last seen**, **First seen**, or **Hits** in the list header to sort. Select the same heading again to reverse the order. On narrow screens, use the sort control above the list.
 
-Want us to integrate more AI Code assistants? [Let us know](../../help.md).
+## Disable Error Tracking
 
-## Sorting and Searching
+!!! warning "Permanent data loss"
+    Disabling tracking permanently deletes the project's issues, states, and history. Re-enabling it starts a new issue history.
 
-Search for exception message text using the Search field.
+1. Open **Error tracking** and select **Configure**.
+2. Select **Disable issues**.
+3. In the dialog, type the project name exactly as shown.
+4. Select **Disable issues** to confirm.
 
+## Verify
 
-Use the sort options to find specific issues:
-_Click twice on any sort to reverse the order_
+After enabling tracking, send repeated requests that raise the same exception from the same code path. You should see one issue in **Open** with multiple hits. Open it to inspect **What stands out**, **Traces**, and **Detail**.
 
-- **Sort by Last Seen** - most <> least recent issues
-- **Sort by First Seen** - youngest <> oldest issues
-- **Sort by Message** - sort exception message alphabetically (A-Z) / (Z-A)
-- **Sort by Hits** - most <> least hits
-- **Sort by Exception** - sort exception alphabetically (A-Z) / (Z-A)
+To check recurrence in a test project, resolve an issue and find it in **Resolved**. Produce the same exception again. Once tracking processes it, the issue should return to **Open** with more hits. An ignored issue should stay in **Ignored** after further occurrences.
 
-## Best Practices
+## Troubleshooting
 
-### Issue Management Workflow
-
-1. **Monitor open issues regularly** - Check for new exceptions affecting your application
-2. **Investigate high-frequency issues first** - Focus on problems impacting the most users
-3. **Resolve issues after fixing** - Mark issues as resolved once you've deployed a fix
-4. **Ignore noise, not problems** - Only ignore issues that are truly safe to disregard
-
-### When to Resolve vs Ignore
-
-**Resolve** when:
-- You've fixed the underlying problem
-- You want to be notified if the issue returns
-- The exception indicates a real bug or problem
-
-**Ignore** when:
-- The exception is expected behavior (e.g., user input validation errors)
-- Third-party service errors you can't control
-- Legacy code issues you've decided not to fix
-
-### Cleanup
-
-Periodically delete resolved issues that haven't reoccurred to keep your issues list manageable. Remember that deleting an issue is permanent - if the same exception occurs later, it will create a new issue.
-
-## Disabling Issues
-
-If you want to stop tracking issues for a project:
-
-1. Go to **Alerts** menu for the project
-2. Click **Settings** on the **Issues** page
-3. Click **Disable issues**
-
-!!! warning "Permanent Data Loss"
-    Disabling issues will permanently delete all existing issues data, states, and history. You can re-enable issues later, but all previous issue data will be gone and you'll start fresh.
+- **No issues appear:** check that tracking is enabled, new exception records reach this project, and the configured filter includes them. Allow a few minutes for processing.
+- **No standout patterns appear:** values may vary across occurrences or also be common in similar spans. Inspect **Things we checked** and individual traces.
+- **No comparison appears:** send representative traffic, including successful requests, from the same service and operation.
+- **Configure is missing:** ask a project administrator to change the configuration or grant the required permissions.

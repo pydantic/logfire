@@ -118,7 +118,7 @@ The following Anthropic methods are covered:
 
 - [`client.messages.create`](https://docs.anthropic.com/en/api/messages)
 - [`client.messages.stream`](https://docs.anthropic.com/en/api/messages-streaming)
-- [`client.beta.tools.messages.create`](https://docs.anthropic.com/en/docs/tool-use)
+- [`client.beta.messages.create`](https://docs.anthropic.com/en/docs/tool-use)
 
 All methods are covered with both `anthropic.Anthropic` and `anthropic.AsyncAnthropic`.
 

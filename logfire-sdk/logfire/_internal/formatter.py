@@ -164,7 +164,14 @@ class ChunksFormatter(Formatter):
         # We currently don't use positional arguments
         args = ()
         value_cleaner = MessageValueCleaner(scrubber, check_keys=False)
-        for literal_text, field_name, format_spec, conversion in self.parse(format_string):
+        try:
+            fields = list(self.parse(format_string))
+        except ValueError as exc:
+            # `str.Formatter.parse` raises for things like unbalanced braces,
+            # which are common in messages that aren't really templates, e.g. JSON fragments or code snippets.
+            # Just use the message as-is (with a nice warning) instead of reporting an internal error.
+            raise KnownFormattingError(str(exc)) from None
+        for literal_text, field_name, format_spec, conversion in fields:
             # output the literal text
             if literal_text:
                 result.append({'v': literal_text, 't': 'lit'})
@@ -244,7 +251,7 @@ def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: BaseScr
 
 
 def logfire_format_with_magic(
-    format_string: str,
+    format_string: Any,
     kwargs: dict[str, Any],
     scrubber: BaseScrubber,
     fstring_frame: types.FrameType | None = None,
@@ -254,6 +261,12 @@ def logfire_format_with_magic(
     # 2. A dictionary of extra attributes to add to the span/log.
     #      These can come from evaluating values in f-strings.
     # 3. The final message template, which may differ from `format_string` if it was an f-string.
+    # Lazy proxies can report __class__ as str without being real strings.
+    if not issubclass(type(format_string), str):
+        warn_formatting(f'The message template must be a string, not {type(format_string).__name__}.')
+        message = str(format_string)
+        return message, {}, message
+
     try:
         chunks, extra_attrs, new_template = chunks_formatter.chunks(
             format_string,

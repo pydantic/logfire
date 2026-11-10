@@ -8,7 +8,7 @@ description: "Connect an upstream model provider with your own credentials and t
 Use an existing model-provider account with Gateway. Your provider bills you directly; you do not need to activate Logfire's built-in providers.
 
 !!! note "Plan availability"
-    Personal and Team include up to **3 BYOK providers** per organization. Growth, Enterprise, and self-hosted Logfire have no BYOK provider-count limit.
+    Each organization can have up to **3 bring-your-own-key (BYOK) providers** on Personal, **5** on Team, and **20** on Growth. Enterprise and self-hosted Logfire have no BYOK provider-count limit. Built-in providers don't count toward the limit.
 
     Custom base URLs and custom OpenAI- or Anthropic-compatible providers require **Team, Growth, Enterprise, or self-hosted Logfire**. On Personal, supported vendors must use their own permitted endpoint hosts. For example, an Azure or Vertex account-specific vendor endpoint can be valid, but an arbitrary proxy URL is not.
 
@@ -43,6 +43,7 @@ On **Providers**, confirm the new provider is active. On **Endpoints → your en
 - If the connection test fails, recheck the provider type, base URL, credential permissions, and the provider's own model-listing API. A credential can be valid but lack permission to list models. If you changed the base URL in **Advanced options**, run the check again.
 - If the test passes but inference fails, check the model identifier, upstream account quota, and the provider's error. **Test & continue** is not an inference test.
 - If **Connect** says the endpoint has no active providers, confirm that the provider is active on **Providers** and **Available for routing** on the endpoint's **Routing** tab.
-- If a model is unavailable because pricing is required, see [first-request troubleshooting](first-request.md#troubleshooting).
+- If a model is unavailable because pricing is required, [set a custom price](model-access.md#set-custom-prices-on-a-byok-provider) for it, or see [first-request troubleshooting](first-request.md#troubleshooting).
+- If a model is rejected with `403`, check its access setting on the provider's [**Models** tab](model-access.md).
 
 For one stable URL across multiple providers, [configure an endpoint](endpoints.md).

@@ -70,8 +70,13 @@ def make_app(**instrument_kwargs: Any) -> ASGIApp:
 
 @pytest.fixture(autouse=True)
 def restore_header_capture_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv('OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST', raising=False)
-    monkeypatch.delenv('OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE', raising=False)
+    # Register initially absent variables too, so capture_headers=True cannot leak into later tests.
+    for name in (
+        'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST',
+        'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE',
+    ):
+        monkeypatch.setenv(name, '')
+        monkeypatch.delenv(name)
 
 
 def test_routes(exporter: TestExporter) -> None:
