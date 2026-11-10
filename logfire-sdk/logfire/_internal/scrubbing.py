@@ -280,6 +280,7 @@ class SpanScrubber:
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
+        self._approved_container_ids: set[int] = set()
 
     def scrub_span(self, span: ReadableSpanDict):
         # We need to use BoundedAttributes because:
@@ -377,7 +378,20 @@ class SpanScrubber:
                 elif match := self._pattern.search(k):
                     redacted = self._redact(ScrubMatch(path + (k,), v, match))
                     if _is_unchanged_container(v, redacted):
-                        redacted = self.scrub(path + (k,), redacted)
+                        container_id = id(v)
+                        if container_id in self._approved_container_ids:
+                            # A callback may approve a container that contains itself.
+                            # Redact the repeated reference rather than exporting its unscanned contents.
+                            self.scrub_count += 1
+                            matched_substring = match.group(0)
+                            self.scrubbed.append(ScrubbedNote(path=path + (k,), matched_substring=matched_substring))
+                            redacted = f'[Scrubbed due to {matched_substring!r}]'
+                        else:
+                            self._approved_container_ids.add(container_id)
+                            try:
+                                redacted = self.scrub(path + (k,), redacted)
+                            finally:
+                                self._approved_container_ids.remove(container_id)
                     if isinstance(redacted, str) and isinstance(v, Sequence) and not isinstance(v, str):
                         redacted = [redacted]
                     result[k] = redacted

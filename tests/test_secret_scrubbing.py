@@ -573,6 +573,20 @@ def test_callback_container_with_ambiguous_equality_is_final():
     assert notes == []
 
 
+@pytest.mark.parametrize('copy_container', [False, True])
+def test_callback_approved_self_referential_container_is_redacted(copy_container: bool):
+    container: dict[str, Any] = {}
+    container['password_hint'] = container
+
+    def callback(match: logfire.ScrubMatch):
+        return match.value.copy() if copy_container else match.value
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), container)
+
+    assert result == {'password_hint': {'password_hint': "[Scrubbed due to 'password']"}}
+    assert notes == [{'path': ('attributes', 'password_hint', 'password_hint'), 'matched_substring': 'password'}]
+
+
 class PasswordError(Exception):
     pass
 
