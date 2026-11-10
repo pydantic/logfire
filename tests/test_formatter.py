@@ -1,13 +1,15 @@
 import contextlib
 from collections import ChainMap
 from collections.abc import Mapping
-from types import SimpleNamespace
+from types import FrameType, SimpleNamespace
 from typing import Any
 
+import executing
 import pytest
 from inline_snapshot import snapshot
 
 import logfire
+from logfire._internal import formatter
 from logfire._internal.formatter import FormattingFailedWarning, chunks_formatter, logfire_format
 from logfire._internal.scrubbing import NOOP_SCRUBBER, JsonPath, Scrubber
 from logfire.testing import TestExporter
@@ -256,3 +258,42 @@ async def test_await_in_fstring(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_logfire_calls_skip_fstring_magic(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    """Spans that logfire opens itself don't run `executing` on their call site (#2771)."""
+    # In tests, logfire's own calls are checked for f-strings, which needs `executing`. Turn that off.
+    monkeypatch.delenv('PYTEST_CURRENT_TEST')
+    inspected: list[str] = []
+    real_executing = executing.Source.executing.__func__
+
+    def spy(cls: type[executing.Source], frame: FrameType) -> Any:
+        inspected.append(frame.f_code.co_filename)
+        return real_executing(cls, frame)
+
+    monkeypatch.setattr(executing.Source, 'executing', classmethod(spy))
+
+    with logfire.var('my_flag', type=bool, default=False).get():
+        pass
+    assert inspected == []
+
+    # Calls from user code still get the magic.
+    x = 1
+    logfire.info(f'user {x}')
+    assert inspected == [__file__]
+
+    assert [span['attributes']['logfire.msg_template'] for span in exporter.exported_spans_as_dict()] == snapshot(
+        ['Resolve variable my_flag', 'user {x}']
+    )
+
+
+def test_logfire_fstring_call_fails_in_tests(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    """In tests, an f-string passed by logfire's own code is an error, since the magic is skipped for it."""
+    monkeypatch.setattr(formatter, 'is_logfire_code', lambda code: code.co_filename == __file__)  # type: ignore
+
+    x = 1
+    with pytest.raises(AssertionError, match='Logfire called itself with an f-string'):
+        logfire.info(f'internal {x}')
+
+    logfire.info('internal {x}', x=x)
+    assert [span['attributes']['logfire.msg'] for span in exporter.exported_spans_as_dict()] == snapshot(['internal 1'])
