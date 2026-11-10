@@ -16,6 +16,7 @@ from opentelemetry.trace import Status
 import logfire
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import TestExporter
+from logfire.types import SpanLevel
 
 
 @pytest.fixture(scope='module')
@@ -484,3 +485,13 @@ def test_logging_error_scrubs_arguments(exporter: TestExporter, capsys: pytest.C
     assert secret not in errors
     assert "[Scrubbed due to 'password']" in errors
     assert exporter.exported_spans == []
+
+
+@pytest.mark.parametrize('levelno', [logging.CRITICAL, logging.CRITICAL + 1, 60, 100])
+def test_stdlib_logging_levels_above_critical(exporter: TestExporter, logger: Logger, levelno: int) -> None:
+    logger.log(levelno, 'severe')
+
+    [span] = exporter.exported_spans
+    level = SpanLevel.from_span(span)
+    assert level.number == 21
+    assert level.name == 'fatal'

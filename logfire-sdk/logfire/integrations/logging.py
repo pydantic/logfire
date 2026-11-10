@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from copy import copy
-from logging import NOTSET, Handler as LoggingHandler, LogRecord, StreamHandler
+from logging import CRITICAL, NOTSET, Handler as LoggingHandler, LogRecord, StreamHandler
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import logfire
@@ -100,7 +100,7 @@ class LogfireLoggingHandler(LoggingHandler):
 
             self.logfire_instance.log(
                 msg_template=attributes.pop(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, record.msg),
-                level=LOGGING_TO_OTEL_LEVEL_NUMBERS.get(record.levelno, record.levelno),
+                level=LOGGING_TO_OTEL_LEVEL_NUMBERS.get(min(record.levelno, CRITICAL), record.levelno),
                 attributes=attributes,
                 tags=tags,
                 exc_info=record.exc_info,

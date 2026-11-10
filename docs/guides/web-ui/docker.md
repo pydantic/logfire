@@ -79,6 +79,72 @@ The receiver reads the local Docker socket (`unix:///var/run/docker.sock` by def
 
 The `container_labels_to_metric_labels` mapping is what powers the **Compose projects** tab: `docker_stats` doesn't export container labels on its own, so it lifts Compose's `com.docker.compose.project`/`service` labels into the `compose.project`/`compose.service` attributes the view groups on.
 
+### Send container logs
+
+`docker_stats` sends metrics only. To also see what each container prints to its standard output and standard error (stdout and stderr), have the collector read the log file Docker keeps for every container. The `docker_observer` extension watches the Docker socket for running containers, and `receiver_creator` starts one log reader per container, so every log line arrives labeled with the container's name, image, ID, and Compose project and service:
+
+```yaml
+extensions:
+  docker_observer:
+    include_all_containers: true
+    excluded_images: ["*opentelemetry-collector*"]   # skip the collector's own logs
+
+receivers:
+  receiver_creator/docker_logs:
+    watch_observers: [docker_observer]
+    receivers:
+      filelog:
+        rule: type == "container" and port == 0   # one log reader per container
+        config:
+          include:
+            - /var/lib/docker/containers/`container_id`/`container_id`-json.log
+          operators:
+            - type: container
+              format: docker
+              add_metadata_from_filepath: false
+        resource_attributes:
+          container.id: '`container_id`'
+          compose.project: '`labels["com.docker.compose.project"]`'
+          compose.service: '`labels["com.docker.compose.service"]`'
+
+processors:
+  resource/docker_logs:
+    attributes:
+      - key: container.runtime
+        value: docker
+        action: upsert
+
+service:
+  extensions: [docker_observer]
+  pipelines:
+    logs:
+      receivers: [receiver_creator/docker_logs]
+      processors: [resourcedetection, resource/docker_logs]
+      exporters: [otlphttp/logfire]
+```
+
+Merge this into the configuration above. The `resourcedetection` processor is the same one the metrics pipeline uses, so logs and metrics share a host name. Three settings matter:
+
+- **`include_all_containers` and `port == 0` go together.** The observer reports a container once for every port it exposes, and `include_all_containers` adds one more report with no port. Matching only that report reads each log file once. Without it, a container with three ports sends every line three times, and a container with no ports sends nothing.
+- **`add_metadata_from_filepath: false`** turns off a step meant for Kubernetes log paths. Left on, it logs an error for every Docker log line.
+- **`container.runtime: docker`** marks the logs as Docker logs. Logfire uses it to tell them apart from other container logs.
+
+The collector also needs to read the log files. Docker keeps them in `/var/lib/docker/containers`, which only root can read, so a containerized collector needs that directory mounted read-only and has to run as root:
+
+```bash
+docker run --rm \
+  -v "$(pwd)/collector.yaml:/etc/otelcol-contrib/config.yaml" \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /var/lib/docker/containers:/var/lib/docker/containers:ro \
+  -e LOGFIRE_TOKEN=<your write token from project Settings → Write tokens> \
+  --user 0:0 \
+  otel/opentelemetry-collector-contrib:latest
+```
+
+Only containers that use Docker's default `json-file` logging driver write these files. The collector reads from the end of each file, so it sends new lines only, not the history already on disk. Every line it sends is stored in Logfire and counts toward your usage, so add chatty images to `excluded_images` before you turn this on.
+
+To find the logs, open the <OpenInLogfire path="" variant="inline" label="Live view" /> and filter on `container.name`.
+
 ### Control metric volume
 
 Keep `collection_interval: 60s` unless you have a specific need for finer resolution. The receiver defaults to 10 seconds, so setting 60 seconds sends one-sixth as many datapoints while still giving the Docker view a useful operational resolution.
@@ -112,4 +178,6 @@ Metric volume scales with the number of containers. Network metrics also split b
 | No containers appear | The collector can't read the socket, or nothing is exporting yet. Confirm the socket is readable and add a `debug` exporter to watch metrics in the logs. The `otlphttp` exporter logs only on failure, so "success" is data showing up in Logfire, not a 2xx line. |
 | Uptime and Restarts columns are empty | Those two metrics are off by default. Enable `container.uptime` and `container.restarts` under the receiver's `metrics:` block. |
 | `api version is too old` at startup | An older collector build isn't auto-negotiating. Pin `api_version: "1.44"` (a quoted string) on the receiver. |
+| Container logs don't appear | The collector can't read `/var/lib/docker/containers` (mount it and run as root), the container uses a logging driver other than `json-file`, or the container hasn't printed anything since the collector started. |
+| Every container log line appears more than once | The `filelog` rule doesn't include `port == 0`, so the collector starts a reader for every port a container exposes. |
 | Containerised collector can't reach a local Logfire | Inside the container `localhost` is the collector itself. For a self-hosted or local-dev Logfire, reach the host via `host.docker.internal` (add `extra_hosts: ["host.docker.internal:host-gateway"]`). A public-cloud Logfire URL needs no change. |

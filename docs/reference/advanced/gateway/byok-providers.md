@@ -8,7 +8,7 @@ description: "Connect an upstream model provider with your own credentials and t
 Use an existing model-provider account with Gateway. Your provider bills you directly; you do not need to activate Logfire's built-in providers.
 
 !!! note "Plan availability"
-    Personal and Team include up to **3 BYOK providers** per organization. Growth, Enterprise, and self-hosted Logfire have no BYOK provider-count limit.
+    Each organization can have up to **3 bring-your-own-key (BYOK) providers** on Personal, **5** on Team, and **20** on Growth. Enterprise and self-hosted Logfire have no BYOK provider-count limit. Built-in providers don't count toward the limit.
 
     Custom base URLs and custom OpenAI- or Anthropic-compatible providers require **Team, Growth, Enterprise, or self-hosted Logfire**. On Personal, supported vendors must use their own permitted endpoint hosts. For example, an Azure or Vertex account-specific vendor endpoint can be valid, but an arbitrary proxy URL is not.
 

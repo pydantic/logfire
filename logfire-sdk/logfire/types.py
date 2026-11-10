@@ -31,6 +31,9 @@ class SpanLevel:
     `<`, `>`, `<=`, or `>=`, so e.g. `level >= 'error'` is valid.
 
     Will raise an exception if compared to a non-string or an invalid level name.
+
+    Hashing a level warns and uses its name, so `level in {'warn', 'error'}` works,
+    but `level in {13}` does not. Prefer `level.name in {...}`.
     """
 
     number: int
@@ -59,13 +62,20 @@ class SpanLevel:
         if isinstance(other, int):
             return self.number == other
         if isinstance(other, str):
-            return self.name == other
+            # Compare numbers, since 'warning' and 'warn' name the same level.
+            return other in LEVEL_NUMBERS and self.number == LEVEL_NUMBERS[other]
         if isinstance(other, SpanLevel):
             return self.number == other.number
         return NotImplemented
 
     def __hash__(self):
-        return hash(self.number)
+        warn_at_user_stacklevel(
+            'Hashing a SpanLevel is discouraged: it equals a level name, a level number and, for `warn`, `warning`,'
+            ' and no single hash fits all of them. Use `level.name` as the set member or dict key instead.',
+            UserWarning,
+        )
+        # Hash the name, so that `level in {'warn', 'error'}` agrees with `level == 'warn'`.
+        return hash(self.name)
 
     def __lt__(self, other: LevelName):
         return self.number < LEVEL_NUMBERS[other]

@@ -4625,6 +4625,30 @@ def test_convert_chat_completions_custom_tool_call_input() -> None:
     )
 
 
+def test_convert_chat_completions_legacy_function_call_input() -> None:
+    """A legacy `function_call` replayed in the history is recorded as a tool call."""
+    from logfire._internal.integrations.llm_providers.openai import convert_chat_completions_to_semconv
+
+    messages: list[dict[str, Any]] = [
+        {'role': 'user', 'content': 'Weather in Lima?'},
+        {
+            'role': 'assistant',
+            'content': None,
+            'function_call': {'name': 'get_weather', 'arguments': '{"city": "Lima"}'},
+        },
+    ]
+
+    assert convert_chat_completions_to_semconv(messages) == snapshot(
+        [
+            {'role': 'user', 'parts': [{'type': 'text', 'content': 'Weather in Lima?'}]},
+            {
+                'role': 'assistant',
+                'parts': [{'type': 'tool_call', 'id': '', 'name': 'get_weather', 'arguments': {'city': 'Lima'}}],
+            },
+        ]
+    )
+
+
 def test_convert_openai_response_refusal() -> None:
     """A refusal is recorded as a text part, since the message has no content."""
     from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
@@ -5670,6 +5694,91 @@ def test_cache_write_tokens_recorded_from_streams(exporter: TestExporter) -> Non
     assert chat_span['attributes']['gen_ai.usage.cache_read.input_tokens'] == 20
     assert responses_span['attributes']['gen_ai.usage.cache_creation.input_tokens'] == 40
     assert 'gen_ai.usage.cache_read.input_tokens' not in responses_span['attributes']
+    client.close()
+
+
+@pytest.mark.parametrize('chunks_have_object', [True, False])
+def test_azure_content_filter_chunks_ignored_in_stream(chunks_have_object: bool, exporter: TestExporter) -> None:
+    filter_results = {'hate': {'filtered': False, 'severity': 'safe'}}
+    chunks: list[dict[str, Any]] = [
+        {
+            'id': '',
+            'object': '',
+            'created': 0,
+            'model': '',
+            'choices': [],
+            'prompt_filter_results': [{'prompt_index': 0, 'content_filter_results': filter_results}],
+        },
+        {
+            'id': 'chatcmpl-1',
+            'object': 'chat.completion.chunk',
+            'created': 1,
+            'model': 'gpt-4o-mini-2024-07-18',
+            'choices': [{'index': 0, 'delta': {'role': 'assistant', 'content': 'Nine'}, 'finish_reason': None}],
+        },
+        {
+            'id': 'chatcmpl-1',
+            'object': 'chat.completion.chunk',
+            'created': 1,
+            'model': 'gpt-4o-mini-2024-07-18',
+            'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'stop'}],
+        },
+        {
+            'id': 'chatcmpl-1',
+            'object': 'chat.completion.chunk',
+            'created': 1,
+            'model': 'gpt-4o-mini-2024-07-18',
+            'choices': [],
+            'usage': {'prompt_tokens': 10, 'completion_tokens': 1, 'total_tokens': 11},
+        },
+        {
+            'id': '',
+            'object': '',
+            'created': 0,
+            'model': '',
+            'choices': [
+                {
+                    'index': 0,
+                    'finish_reason': None,
+                    'content_filter_offsets': {'check_offset': 0, 'start_offset': 0, 'end_offset': 4},
+                    'content_filter_results': filter_results,
+                }
+            ],
+        },
+    ]
+    if not chunks_have_object:
+        for chunk in chunks:
+            if chunk['object']:
+                del chunk['object']
+    sse = ''.join(f'data: {json.dumps(chunk)}\n\n' for chunk in chunks) + 'data: [DONE]\n\n'
+    client = openai.Client(
+        api_key='fake_api_key',
+        http_client=httpx.Client(
+            transport=MockTransport(
+                lambda _: httpx.Response(200, text=sse, headers={'content-type': 'text/event-stream'})
+            )
+        ),
+    )
+    with logfire.instrument_openai(client):
+        list(
+            client.chat.completions.create(
+                model='my-deployment',
+                messages=[{'role': 'user', 'content': 'hi'}],
+                stream=True,
+                stream_options={'include_usage': True},
+            )
+        )
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
+    assert attributes['gen_ai.response.id'] == 'chatcmpl-1'
+    assert attributes['gen_ai.response.model'] == 'gpt-4o-mini-2024-07-18'
+    assert attributes['gen_ai.response.finish_reasons'] == ['stop']
+    assert attributes['gen_ai.usage.input_tokens'] == 10
+    assert attributes['gen_ai.usage.output_tokens'] == 1
+    assert attributes['operation.cost'] == snapshot(2.1e-06)
+    assert attributes['gen_ai.output.messages'] == [
+        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+    ]
     client.close()
 
 
