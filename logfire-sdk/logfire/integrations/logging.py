@@ -106,7 +106,7 @@ class LogfireLoggingHandler(LoggingHandler):
                 exc_info=record.exc_info,
             )
         except Exception:
-            # `handleError` prints the message and the arguments of the record to stderr, so scrub them first, as they would be in Logfire.
+            # Scrub the arguments that `handleError` prints to stderr, as we do for exported logs.
             self.handleError(self._scrub_args(record))
 
     def _scrub_args(self, record: LogRecord) -> LogRecord:
@@ -121,11 +121,8 @@ class LogfireLoggingHandler(LoggingHandler):
                 record.args = scrub(('attributes', ATTRIBUTES_LOGGING_ARGS_KEY), (args,))[0][0]
             else:
                 record.args = scrub(('attributes',), dict(args))[0]
-            if isinstance(record.msg, str):
-                record.msg = scrub(('attributes', ATTRIBUTES_MESSAGE_KEY), record.msg)[0]
         except Exception:  # pragma: no cover
-            # Never print a message or arguments that couldn't be scrubbed.
-            record.msg = ''
+            # Never print arguments that couldn't be scrubbed.
             record.args = None
         return record
 
