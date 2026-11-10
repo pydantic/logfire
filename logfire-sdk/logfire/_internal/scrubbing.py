@@ -32,6 +32,7 @@ from .constants import (
     RESOURCE_ATTRIBUTES_VERSION,
 )
 from .integrations.llm_providers import semconv as gen_ai_semconv
+from .json_encoder import logfire_json_dumps
 from .stack_info import STACK_INFO_KEYS
 from .utils import ReadableSpanDict, truncate_string
 
@@ -329,7 +330,7 @@ class SpanScrubber:
                     decoded = json.loads(value)
                     scrub_count_before = self.scrub_count
                     scrubbed = self.scrub(path, decoded)
-                    return json.dumps(scrubbed) if self.scrub_count != scrub_count_before else value
+                    return logfire_json_dumps(scrubbed) if self.scrub_count != scrub_count_before else value
                 except (ValueError, RecursionError):
                     pass
             if match := self._pattern.search(value):
