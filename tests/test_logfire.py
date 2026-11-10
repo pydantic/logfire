@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import inspect
 import os
 import re
@@ -1744,6 +1745,136 @@ async def test_instrument_asynccontextmanager_prevent_warning(exporter: TestExpo
             },
         ]
     )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('exception_type', [ValueError, BaseException, asyncio.CancelledError, GeneratorExit])
+@pytest.mark.parametrize('handling', ['propagate', 'suppress', 'replace'])
+async def test_instrument_asynccontextmanager_exception(
+    exporter: TestExporter, exception_type: type[BaseException], handling: str
+):
+    error = exception_type('body failed')
+    replacement = RuntimeError('replacement')
+    events: list[str] = []
+
+    @asynccontextmanager
+    @logfire.instrument('manager', allow_generator=True)
+    async def manager():
+        try:
+            yield
+        except BaseException as caught:
+            assert caught is error
+            events.append('handled')
+            if handling == 'propagate':
+                raise
+            if handling == 'replace':
+                raise replacement from caught
+        finally:
+            await asyncio.sleep(0)
+            assert get_current_span() is not INVALID_SPAN
+            events.append('released')
+
+    if handling == 'suppress':
+        async with manager():
+            raise error
+    else:
+        expected = replacement if handling == 'replace' else error
+        with pytest.raises(type(expected)) as exc_info:
+            async with manager():
+                raise error
+        assert exc_info.value is expected
+
+    assert events == ['handled', 'released']
+    assert get_current_span() is INVALID_SPAN
+    [span] = exporter.exported_spans_as_dict()
+    assert span['name'] == 'manager'
+    raw_span = exporter.exported_spans[-1]
+    assert raw_span.status.status_code == (StatusCode.UNSET if handling == 'suppress' else StatusCode.ERROR)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('exception_type', [StopIteration, StopAsyncIteration])
+async def test_instrument_asynccontextmanager_stop_exception(exception_type: type[Exception]):
+    error = exception_type('body failed')
+
+    @asynccontextmanager
+    @logfire.instrument(allow_generator=True)
+    async def manager():
+        yield
+
+    with pytest.raises(exception_type) as exc_info:
+        async with manager():
+            raise error
+    assert exc_info.value is error
+    assert get_current_span() is INVALID_SPAN
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('replace', [False, True])
+async def test_instrument_async_generator_close(exporter: TestExporter, replace: bool):
+    events: list[str] = []
+    error = RuntimeError('cleanup failed')
+
+    @logfire.instrument('generator', allow_generator=True)
+    async def generator():
+        try:
+            yield 1
+            yield 2
+        finally:
+            await asyncio.sleep(0)
+            assert get_current_span() is not INVALID_SPAN
+            events.append('released')
+            if replace:
+                raise error
+
+    items = generator()
+    assert await items.__anext__() == 1
+    if replace:
+        with pytest.raises(RuntimeError) as exc_info:
+            await items.aclose()
+        assert exc_info.value is error
+    else:
+        await items.aclose()
+    assert events == ['released']
+    assert get_current_span() is INVALID_SPAN
+    assert len(exporter.exported_spans_as_dict()) == 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('count', [0, 3])
+async def test_instrument_async_generator_iteration(count: int):
+    @logfire.instrument(allow_generator=True)
+    async def generator():
+        for i in range(count):
+            yield i
+
+    with logfire.span('parent'):
+        parent = get_current_span()
+        assert [value async for value in generator()] == list(range(count))
+        assert get_current_span() is parent
+    assert get_current_span() is INVALID_SPAN
+
+
+@pytest.mark.anyio
+async def test_instrument_async_generator_throw():
+    error = ValueError('resume after handling')
+
+    @logfire.instrument(allow_generator=True)
+    async def generator():
+        try:
+            yield 1
+        except ValueError as caught:
+            assert caught is error
+            yield 2
+        yield 3
+
+    items = generator()
+    assert await items.__anext__() == 1
+    assert await items.athrow(error) == 2
+    assert await items.__anext__() == 3
+    with pytest.raises(StopAsyncIteration):
+        await items.__anext__()
+    assert get_current_span() is INVALID_SPAN
 
 
 @pytest.mark.anyio
