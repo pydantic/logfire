@@ -70,6 +70,8 @@ On the other hand, if the scrubbing is too aggressive, you can pass a function t
 
 The function will be called for each potential match found by the scrubber. If it returns `None`, the value is redacted. Otherwise, the returned value replaces the matched value. The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
 
+When a key matches and the callback returns its dictionary or list value unchanged (or returns an equal copy), Logfire continues scrubbing inside it. This lets you allow the key without allowing sensitive data nested under it. If the callback returns a different container, Logfire uses that replacement as the final value and does not scrub inside it.
+
 Here's an example:
 
 ```python
@@ -91,6 +93,7 @@ logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback
     Base your callback on the match and any configuration that is safe to share across threads.
     Request-local values, such as values stored in a Python `ContextVar`, may be unavailable on the background thread.
     The callback should not have side effects.
+    Do not mutate `match.value` in place. Logfire may not detect the change, so the mutated value may not be written back.
     It should return quickly, as it can get called many times.
 
 ## When Logfire scrubs spans
