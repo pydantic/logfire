@@ -644,6 +644,8 @@ try:
             self._stream_state = ChatCompletionStreamState()
 
         def record_chunk(self, chunk: ChatCompletionChunk) -> None:
+            if getattr(chunk, 'object', None) == '':
+                return
             try:
                 self._stream_state.handle_chunk(chunk)
             except Exception:
