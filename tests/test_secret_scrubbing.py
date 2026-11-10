@@ -493,7 +493,12 @@ def test_scrub_json_that_cannot_be_written_back(monkeypatch: pytest.MonkeyPatch)
     result, scrubbed_notes = Scrubber(None).scrub_value(('attributes', 'payload'), b'["password=hunter2"]')
 
     assert result == "[Scrubbed due to 'password']"
-    assert {'path': ('attributes', 'payload'), 'matched_substring': 'password'} in scrubbed_notes
+    assert scrubbed_notes == snapshot(
+        [
+            {'path': ('attributes', 'payload', 0), 'matched_substring': 'password'},
+            {'path': ('attributes', 'payload'), 'matched_substring': 'password'},
+        ]
+    )
 
 
 def test_scrub_json_containers_without_a_raw_pattern_match(exporter: TestExporter):
