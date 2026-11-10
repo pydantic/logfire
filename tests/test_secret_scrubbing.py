@@ -423,7 +423,7 @@ def test_scrub_message(exporter: TestExporter):
     # Only the sensitive part of the `user` attribute is redacted.
     # The full formatted value is redacted from the message,
     # because the formatting code only sees the full `str(user)`.
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'User: {user}',
@@ -439,14 +439,12 @@ def test_scrub_message(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_scrub_message',
                     'code.lineno': 123,
-                    'user': '[{"name": "John", "password": "[Scrubbed due to \'password\']"}]',
-                    'logfire.scrubbed': IsJson(
-                        [
-                            {'path': ['message', 'user'], 'matched_substring': 'password'},
-                            {'path': ['attributes', 'user', 0, 'password'], 'matched_substring': 'password'},
-                        ]
-                    ),
-                    'logfire.json_schema': '{"type":"object","properties":{"user":{"type":"array"}}}',
+                    'user': [{'name': 'John', 'password': "[Scrubbed due to 'password']"}],
+                    'logfire.scrubbed': [
+                        {'path': ['message', 'user'], 'matched_substring': 'password'},
+                        {'path': ['attributes', 'user', 0, 'password'], 'matched_substring': 'password'},
+                    ],
+                    'logfire.json_schema': {'type': 'object', 'properties': {'user': {'type': 'array'}}},
                 },
             }
         ]
@@ -469,13 +467,14 @@ def test_scrub_binary_values(value: bytes, expected: bytes | str, expected_notes
     assert [note['matched_substring'] for note in scrubbed_notes] == expected_notes
 
 
-def test_scrub_json_that_cannot_be_parsed(monkeypatch: pytest.MonkeyPatch):
+@pytest.mark.parametrize('error_type', [ValueError, RecursionError])
+def test_scrub_json_that_cannot_be_parsed(monkeypatch: pytest.MonkeyPatch, error_type: type[Exception]):
     """A parse error must redact the text instead of aborting scrubbing of the whole span."""
 
-    def raise_recursion_error(*args: Any, **kwargs: Any):
-        raise RecursionError('maximum recursion depth exceeded')
+    def raise_decode_error(*args: Any, **kwargs: Any):
+        raise error_type('cannot decode JSON')
 
-    monkeypatch.setattr(json, 'loads', raise_recursion_error)
+    monkeypatch.setattr(json, 'loads', raise_decode_error)
 
     result, scrubbed_notes = Scrubber(None).scrub_value(('attributes', 'payload'), b'["password"]')
 
@@ -491,10 +490,23 @@ def test_scrub_json_that_cannot_be_written_back(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(json, 'dumps', raise_recursion_error)
 
-    result, scrubbed_notes = Scrubber(None).scrub_value(('attributes', 'payload'), b'["password"]')
+    result, scrubbed_notes = Scrubber(None).scrub_value(('attributes', 'payload'), b'["password=hunter2"]')
 
     assert result == "[Scrubbed due to 'password']"
-    assert [note['matched_substring'] for note in scrubbed_notes] == ['password']
+    assert scrubbed_notes == snapshot(
+        [
+            {'path': ('attributes', 'payload', 0), 'matched_substring': 'password'},
+            {'path': ('attributes', 'payload'), 'matched_substring': 'password'},
+        ]
+    )
+
+
+def test_scrub_json_containers_without_a_raw_pattern_match(exporter: TestExporter):
+    logfire.info('Example', data=r'{"pass\u0077ord":"hunter2"}', unchanged='{"amount":1e400}')
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert json.loads(span['attributes']['data']) == {'password': "[Scrubbed due to 'password']"}
+    assert span['attributes']['unchanged'] == '{"amount":1e400}'
 
 
 class PasswordError(Exception):

@@ -32,6 +32,7 @@ from .constants import (
     RESOURCE_ATTRIBUTES_VERSION,
 )
 from .integrations.llm_providers import semconv as gen_ai_semconv
+from .json_encoder import logfire_json_dumps
 from .stack_info import STACK_INFO_KEYS
 from .utils import ReadableSpanDict, truncate_string
 
@@ -261,7 +262,7 @@ class SpanScrubber:
         self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
-        self.did_scrub = False
+        self.scrub_count = 0
 
     def scrub_span(self, span: ReadableSpanDict):
         # We need to use BoundedAttributes because:
@@ -271,7 +272,7 @@ class SpanScrubber:
         #      BoundedAttributes handles it according to the installed OTEL version.
         # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
         new_attributes = self.scrub(('attributes',), span['attributes'])
-        if self.did_scrub:
+        if self.scrub_count:
             span['attributes'] = BoundedAttributes(attributes=new_attributes)
 
         span['events'] = [
@@ -296,7 +297,7 @@ class SpanScrubber:
         new_attributes: dict[str, Any] | None = self.scrub(('attributes',), log.attributes)
         new_body = self.scrub(('log_body',), log.body)
 
-        if not self.did_scrub:
+        if not self.scrub_count:
             return log
 
         if self.scrubbed:
@@ -324,18 +325,20 @@ class SpanScrubber:
         if type(value) in (int, float, bool, type(None)):
             return value
         if isinstance(value, str):
+            if value.lstrip().startswith(('{', '[')):
+                try:
+                    decoded = json.loads(value)
+                    scrub_count_before = self.scrub_count
+                    scrubbed = self.scrub(path, decoded)
+                    return logfire_json_dumps(scrubbed) if self.scrub_count != scrub_count_before else value
+                except (ValueError, RecursionError):
+                    pass
             if match := self._pattern.search(value):
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
                     return value
-                try:
-                    return json.dumps(self.scrub(path, json.loads(value)))
-                except (json.JSONDecodeError, RecursionError):
-                    # Deeply nested JSON can raise while it is parsed, walked or written back out,
-                    # and letting that escape aborts scrubbing of the whole span,
-                    # so treat the original value as plain text.
-                    return self._redact(ScrubMatch(path, value, match))
+                return self._redact(ScrubMatch(path, value, match))
         elif isinstance(value, (bytes, bytearray, memoryview)):
             # Iterating over a binary value yields integers, so recursing into it would rewrite
             # the value into a sequence of ints. Decode it instead, so text hidden in bytes is
@@ -366,9 +369,10 @@ class SpanScrubber:
 
     def _redact(self, match: ScrubMatch) -> Any:
         if self._callback and (result := self._callback(match)) is not None:
-            self.did_scrub = self.did_scrub or result is not match.value
+            if result is not match.value:
+                self.scrub_count += 1
             return result
-        self.did_scrub = True
+        self.scrub_count += 1
         matched_substring = match.pattern_match.group(0)
         self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
         return f'[Scrubbed due to {matched_substring!r}]'
