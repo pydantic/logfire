@@ -8,6 +8,7 @@ import subprocess
 import sys
 import textwrap
 import threading
+import time
 import warnings
 import weakref
 from io import BytesIO
@@ -32,6 +33,7 @@ from requests.sessions import HTTPAdapter
 
 import logfire
 from logfire._internal.config import LogfireConfig, LogfireConfigWarning
+from logfire._internal.exporters import otlp
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
@@ -736,6 +738,34 @@ def test_closing_the_session_discards_pending_disk_retries() -> None:
         assert not retryer.dir.exists()
     finally:
         session.close()
+
+
+def test_threads_share_one_retryer(monkeypatch: pytest.MonkeyPatch) -> None:
+    num_threads = 4
+    barrier = threading.Barrier(num_threads)
+    real_mkdtemp = otlp.mkdtemp
+
+    def slow_mkdtemp(prefix: str) -> str:
+        # Give the other threads time to ask for a retryer while this one is being made.
+        time.sleep(0.05)
+        return real_mkdtemp(prefix=prefix)
+
+    monkeypatch.setattr(otlp, 'mkdtemp', slow_mkdtemp)
+    retryers: list[DiskRetryer] = []
+
+    def get_retryer() -> None:
+        barrier.wait()
+        retryers.append(session.retryer)
+
+    with OTLPExporterHttpSession() as session:
+        threads = [threading.Thread(target=get_retryer) for _ in range(num_threads)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert len(retryers) == num_threads
+        assert all(retryer is session.retryer for retryer in retryers)
 
 
 @pytest.mark.skipif(not hasattr(os, 'fork'), reason='os.fork is not available')

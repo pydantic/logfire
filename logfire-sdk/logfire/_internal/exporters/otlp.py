@@ -43,6 +43,20 @@ from .wrapper import WrapperLogExporter, WrapperSpanExporter
 
 _DISK_RETRYERS: list[weakref.ref[DiskRetryer]] = []
 
+# Spans, metrics and logs share a session but are exported from different threads,
+# so this makes sure they all get the same retryer.
+_retryer_lock = Lock()
+
+
+def _reset_retryer_lock() -> None:  # pragma: no cover
+    # Another thread may have held the lock when the process forked.
+    global _retryer_lock
+    _retryer_lock = Lock()
+
+
+if hasattr(os, 'register_at_fork'):  # pragma: no branch
+    os.register_at_fork(after_in_child=_reset_retryer_lock)
+
 
 class _OTLPExportResult(Protocol):
     success: bool
@@ -241,11 +255,12 @@ class OTLPExporterHttpSession(Session):
     def retryer(self) -> DiskRetryer:
         # Only create this when needed to save resources,
         # and because the full set of headers are only set some time after this session is created.
-        retryer: DiskRetryer | None = self.__dict__.get('retryer')
-        # After a fork, the inherited retryer still belongs to the parent, so start a separate one.
-        if retryer is None or retryer.pid != os.getpid():
-            retryer = self.__dict__['retryer'] = DiskRetryer(self.headers)
-        return retryer
+        with _retryer_lock:
+            retryer: DiskRetryer | None = self.__dict__.get('retryer')
+            # After a fork, the inherited retryer still belongs to the parent, so start a separate one.
+            if retryer is None or retryer.pid != os.getpid():
+                retryer = self.__dict__['retryer'] = DiskRetryer(self.headers)
+            return retryer
 
     def close(self) -> None:
         retryer = self.__dict__.get('retryer')
