@@ -112,7 +112,7 @@ def _is_unchanged_container(value: Any, result: Any) -> bool:
         return False
     try:
         return bool(result == value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, RecursionError):
         # Some containers do not provide a single Boolean result for equality.
         return False
 
@@ -280,7 +280,7 @@ class SpanScrubber:
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
-        self._approved_container_ids: set[int] = set()
+        self._active_container_ids: set[int] | None = set() if self._callback else None
 
     def scrub_span(self, span: ReadableSpanDict):
         # We need to use BoundedAttributes because:
@@ -368,36 +368,38 @@ class SpanScrubber:
                 return binary
             scrubbed = self.scrub(path, text)
             return binary if scrubbed == text else scrubbed
-        elif isinstance(value, Sequence):
-            return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
-        elif isinstance(value, Mapping):
-            result: dict[str, Any] = {}
-            for k, v in cast('Mapping[str, Any]', value).items():
-                if k in BaseScrubber.SAFE_KEYS:
-                    result[k] = v
-                elif match := self._pattern.search(k):
-                    redacted = self._redact(ScrubMatch(path + (k,), v, match))
-                    if _is_unchanged_container(v, redacted):
-                        container_id = id(v)
-                        if container_id in self._approved_container_ids:
-                            # A callback may approve a container that contains itself.
-                            # Redact the repeated reference rather than exporting its unscanned contents.
-                            self.scrub_count += 1
-                            matched_substring = match.group(0)
-                            self.scrubbed.append(ScrubbedNote(path=path + (k,), matched_substring=matched_substring))
-                            redacted = f'[Scrubbed due to {matched_substring!r}]'
-                        else:
-                            self._approved_container_ids.add(container_id)
-                            try:
+        elif isinstance(value, (Sequence, Mapping)):
+            active_ids = self._active_container_ids
+            container_id = id(cast(Any, value))
+            if active_ids is not None:
+                if container_id in active_ids:
+                    self.scrub_count += 1
+                    return '[Scrubbed recursive reference]'
+                active_ids.add(container_id)
+            try:
+                if isinstance(value, Sequence):
+                    return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
+                result: dict[str, Any] = {}
+                for k, v in cast('Mapping[str, Any]', value).items():
+                    if k in BaseScrubber.SAFE_KEYS:
+                        result[k] = v
+                    elif match := self._pattern.search(k):
+                        redacted = self._redact(ScrubMatch(path + (k,), v, match))
+                        if _is_unchanged_container(v, redacted):
+                            if active_ids is not None and id(v) in active_ids:
+                                self.scrub_count += 1
+                                redacted = '[Scrubbed recursive reference]'
+                            else:
                                 redacted = self.scrub(path + (k,), redacted)
-                            finally:
-                                self._approved_container_ids.remove(container_id)
-                    if isinstance(redacted, str) and isinstance(v, Sequence) and not isinstance(v, str):
-                        redacted = [redacted]
-                    result[k] = redacted
-                else:
-                    result[k] = self.scrub(path + (k,), v)
-            return result
+                        if isinstance(redacted, str) and isinstance(v, Sequence) and not isinstance(v, str):
+                            redacted = [redacted]
+                        result[k] = redacted
+                    else:
+                        result[k] = self.scrub(path + (k,), v)
+                return result
+            finally:
+                if active_ids is not None:
+                    active_ids.remove(container_id)
         return value
 
     def _redact(self, match: ScrubMatch) -> Any:

@@ -583,8 +583,26 @@ def test_callback_approved_self_referential_container_is_redacted(copy_container
 
     result, notes = Scrubber(None, callback).scrub_value(('attributes',), container)
 
-    assert result == {'password_hint': {'password_hint': "[Scrubbed due to 'password']"}}
-    assert notes == [{'path': ('attributes', 'password_hint', 'password_hint'), 'matched_substring': 'password'}]
+    marker = '[Scrubbed recursive reference]'
+    assert result == {'password_hint': marker}
+    assert notes == []
+
+
+@pytest.mark.parametrize('container_type', [dict, list])
+def test_callback_approved_container_cycle_through_unmatched_child_is_redacted(container_type: type):
+    if container_type is dict:
+        container: Any = {}
+        container['child'] = container
+        expected: Any = {'child': '[Scrubbed recursive reference]'}
+    else:
+        container = []
+        container.append(container)
+        expected = ['[Scrubbed recursive reference]']
+
+    result, notes = Scrubber(None, lambda match: match.value).scrub_value(('attributes',), {'secret': container})
+
+    assert result == {'secret': expected}
+    assert notes == []
 
 
 class PasswordError(Exception):
