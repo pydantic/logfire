@@ -1,0 +1,22 @@
+tests/test_secret_scrubbing.py
+  s_60e3c23d493487::t_dd41b49d3c0c86 576-586,588-589
+  s_60e3c23d493487::t_45b3aa4c045114 587
+logfire-sdk/logfire/_internal/scrubbing.py
+  s_60e3c23d493487::t_dd41b49d3c0c86 283,381-394
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "55fcee3edc3e4ca736a4e946c0c2d64b0cdf8a6c",
+  "prompts": {},
+  "sessions": {
+    "s_60e3c23d493487": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c5fa-5e37-73c0-b6df-455251da8152",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
