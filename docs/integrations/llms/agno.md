@@ -21,6 +21,9 @@ pip install logfire agno openai openinference-instrumentation-agno
 
 ## Usage
 
+Before running your agent, [connect your project](../../first-trace.md) or set `LOGFIRE_TOKEN`
+to a [write token](../../how-to-guides/create-write-tokens.md) from **Project → Settings → Write tokens**.
+
 Call [`logfire.configure()`][logfire.configure] and then `AgnoInstrumentor().instrument()` **before** creating
 and running your agent:
 
@@ -51,8 +54,8 @@ counts; the [framework coverage guide](../agent-frameworks/support-matrix.md) sh
 
 !!! note
     Agno's own docs show configuring a raw OTLP exporter. With **Logfire** you don't need to — just call
-    [`logfire.configure()`][logfire.configure], which reads your `LOGFIRE_TOKEN` (or `logfire auth`
-    credentials) and sets up export and region handling for you.
+    [`logfire.configure()`][logfire.configure], which reads `LOGFIRE_TOKEN` or your project's
+    saved write token and sets up export and region handling for you.
 
 ## Managed prompts
 

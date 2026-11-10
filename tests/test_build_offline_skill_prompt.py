@@ -1,6 +1,9 @@
 import re
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
+import pytest
+
+from scripts import build_offline_skill_prompt
 from scripts.build_offline_skill_prompt import (
     MANDATORY_REFERENCES,
     PUBLIC_SKILLS_ROOT,
@@ -9,6 +12,7 @@ from scripts.build_offline_skill_prompt import (
     _qualify_reference_headings,  # pyright: ignore[reportPrivateUsage]
     _reference_anchor,  # pyright: ignore[reportPrivateUsage]
     _reference_section_anchor,  # pyright: ignore[reportPrivateUsage]
+    _render_appendix,  # pyright: ignore[reportPrivateUsage]
     _rewrite_public_links_for_offline_bundle,  # pyright: ignore[reportPrivateUsage]
     build,
 )
@@ -53,6 +57,57 @@ def test_mandatory_references_are_never_dropped() -> None:
     headings = _appendix_headings(compact)
     for mandatory in MANDATORY_REFERENCES:
         assert mandatory in headings, f'{mandatory} missing from the compact build appendix'
+
+
+def test_appendix_headings_use_posix_paths() -> None:
+    """Reference headings must not depend on the platform that ran the build.
+
+    The heading is the reader-facing name of an inlined reference, and everything else
+    about it (`bundled_references` keys, `<a id=...>` anchors, the link targets rewritten
+    in the skill bodies) is posix. Interpolating the `Path` object rendered `\\` on Windows,
+    so a fresh build there never matched the checked-in bundle even though the bundle was
+    up to date, and headings stopped agreeing with the anchors pointing at them.
+    """
+    compact = build(include_references=False)
+    headings = _appendix_headings(compact)
+    assert headings, 'compact build produced no Reference Files appendix at all'
+    for heading in headings:
+        assert '\\' not in heading, f'appendix heading is not a posix path: {heading!r}'
+        # The heading and the anchor the rewritten links jump to must be the same path.
+        assert f'<a id="{_reference_anchor(heading)}"></a>' in compact, heading
+
+
+def test_appendix_headings_ignore_windows_separators(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The heading must stay posix even when the reference paths render with backslashes.
+
+    `str(Path)` is platform dependent, so a test that only builds the real tree cannot fail
+    on the Linux matrix -- there `str()` already returns the posix form. This one feeds the
+    appendix a Windows-style path on every platform, which is the exact shape of the bug:
+    anchors, `bundled_references` keys and link targets were posix while the heading
+    interpolated `str(relative)` and rendered `logfire-instrumentation\\references\\auth.md`.
+    """
+
+    class _WindowsReference(PureWindowsPath):
+        """A Windows relative path that also pretends to be a file on disk."""
+
+        def read_text(self, encoding: str = 'utf-8') -> str:
+            return '# Authentication\n\nUse a write token.\n'
+
+    reference = _WindowsReference('C:/skills/logfire-instrumentation/references/auth.md')
+
+    def _fake_reference_files(_skill_dir: Path) -> list[PureWindowsPath]:
+        return [reference]
+
+    monkeypatch.setattr(build_offline_skill_prompt, 'SKILLS_ROOT', PureWindowsPath('C:/skills'))
+    monkeypatch.setattr(build_offline_skill_prompt, '_reference_files', _fake_reference_files)
+
+    appendix = _render_appendix(
+        'logfire-instrumentation',
+        bundled_references=frozenset({'logfire-instrumentation/references/auth.md'}),
+    )
+
+    assert '## logfire-instrumentation/references/auth.md' in appendix
+    assert '\\' not in appendix, f'appendix rendered a platform-dependent path: {appendix!r}'
 
 
 def test_full_build_has_no_dead_reference_links() -> None:

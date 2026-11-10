@@ -2,7 +2,7 @@
 name = "logfire-python"
 version = "0.0.0"
 requires-python = ">=3.10"
-dependencies = ["logfire-sdk"]
+dependencies = ["logfire"]
 
 [dependency-groups]
 editor-tests = [
@@ -22,6 +22,8 @@ dev = [
     "Flask >= 3.0.3",
     "django >= 4.2.16",
     "dirty-equals >= 0.8.0",
+    # For type checking `logfire.configure(fleet=...)` against the Fleet client (the `fleet` extra).
+    "logfire-fleet-otel >= 0.2.1, < 0.3; python_version >= '3.11'",
     "pytest >= 8.3.4",
     "pytest-django >= 4.6.0",
     "pytest-pretty >= 1.2.0",
@@ -36,7 +38,8 @@ dev = [
     # Keep depending on types-requests so its stubs take priority; it previously came
     # in transitively via openai-agents.
     "types-requests",
-    "sqlalchemy >= 1.4.54",
+    # OTel instrumentation currently supports SQLAlchemy <2.1.
+    "sqlalchemy >= 1.4.54, <2.1",
     "pandas>=2.1.2",
     "attrs >= 23.1.0",
     "openai >= 1.108.1",
@@ -103,13 +106,16 @@ dev = [
     "aiosqlite!=0.22.*",
     "boto3 >= 1.28.57",
     "botocore >= 1.31.57",
+    "opentelemetry-instrumentation-botocore >= 0.42b0",
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
     "openai-agents[voice]>=0.14.0",
     "fastmcp-slim[server]>=4",
     "pydantic-ai-slim[mcp]>=2",
     "pydantic-evals>=2",
-    "pydantic-monty>=0.0.23",
+    "pydantic-monty>=1.5.0",
+    # Serves the agent sandboxes gRPC stream in tests.
+    "grpcio>=1.75",
     # >=1.3.9 fixes path traversal / sandbox escape in file-search middleware and loaders (GHSA-gr75-jv2w-4656).
     "langchain>=1.3.9",
     "langchain-openai>=0.3.17",
@@ -137,6 +143,7 @@ default-flags = ["disable"]
 format-command = "ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
+logfire = { workspace = true }
 logfire-api = { workspace = true }
 logfire-sdk = { workspace = true }
 
@@ -146,6 +153,9 @@ default-groups = ["dev"]
 exclude-newer = "4 days"
 
 [tool.uv.exclude-newer-package]
+# Allow the security update that removes trust in compromised eMudhra certificate chains.
+certifi = false
+pip = false
 # These are our own packages, not worth defending from supply chain attacks on them.
 pydantic_ai_slim = false
 pydantic-graph = false
@@ -155,6 +165,12 @@ pydantic-core = false
 pydantic-handlebars = false
 genai-prices = false
 logfire-cli = false
+logfire-fleet-otel = false
+logfire-fleet-client = false
+logfire-fleet-core = false
+pydantic-monty = false
+pydantic-monty-client = false
+pydantic-monty-runtime = false
 
 [tool.uv.workspace]
 members = ["logfire", "logfire-api", "logfire-sdk"]
@@ -220,6 +236,7 @@ venvPath = "."
 venv = ".venv"
 
 [tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
 xfail_strict = true
 pythonpath = ["."]
 markers = [

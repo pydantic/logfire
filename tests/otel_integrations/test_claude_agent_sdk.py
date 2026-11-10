@@ -19,6 +19,7 @@ import shutil
 import stat
 from contextlib import suppress
 from pathlib import Path
+from typing import Any
 from unittest.mock import Mock
 
 import anyio
@@ -38,6 +39,7 @@ from claude_agent_sdk import (
     ClaudeAgentOptions,
     ClaudeSDKClient,
     HookMatcher,
+    ResultMessage,
     TextBlock,
     ThinkingBlock,
     ToolResultBlock,
@@ -51,6 +53,7 @@ from logfire._internal.integrations.claude_agent_sdk import (
     _ConversationState,
     _extract_usage,
     _inject_tracing_hooks,
+    _record_result,
     _set_state,
     post_tool_use_failure_hook,
     post_tool_use_hook,
@@ -609,6 +612,38 @@ async def test_already_instrumented() -> None:
     # No error, and only one layer of patching
 
 
+def _result_message(**kwargs: Any) -> ResultMessage:
+    return ResultMessage(
+        subtype=kwargs.pop('subtype', 'success'),
+        duration_ms=10,
+        duration_api_ms=8,
+        is_error=kwargs.pop('is_error', False),
+        num_turns=1,
+        session_id='session-1',
+        **kwargs,
+    )
+
+
+@pytest.mark.parametrize(
+    ('result_kwargs', 'expected_error_type'),
+    [
+        ({'subtype': 'error_max_turns', 'is_error': True}, 'error_max_turns'),
+        ({'subtype': 'success', 'is_error': True, 'api_error_status': 529}, '529'),
+        ({'subtype': 'success', 'is_error': True}, 'error'),
+        ({'subtype': 'success', 'is_error': False}, None),
+    ],
+)
+def test_record_result_reports_why_the_run_failed(
+    exporter: TestExporter, result_kwargs: dict[str, Any], expected_error_type: str | None
+) -> None:
+    with logfire.span('invoke_agent') as span:
+        _record_result(span, _result_message(**result_kwargs))
+
+    attributes = exporter.exported_spans[-1].attributes or {}
+    assert attributes.get('error.type') == expected_error_type
+    assert (attributes.get('logfire.level_num') == 17) == (expected_error_type is not None)
+
+
 # ---------------------------------------------------------------------------
 # Cassette-based integration tests (replay through real transport).
 # ---------------------------------------------------------------------------
@@ -654,6 +689,7 @@ async def test_basic_conversation_cassette(
                     'gen_ai.request.model': 'claude-sonnet-4-6',
                     'gen_ai.usage.partial.output_tokens': 1,
                     'gen_ai.usage.partial.cache_read.input_tokens': 7166,
+                    'gen_ai.response.id': 'msg_01BxK8UH2LyuFLVXSPamqHam',
                     'gen_ai.usage.partial.cache_creation.input_tokens': 2175,
                     'logfire.msg_template': 'chat',
                     'logfire.msg': 'chat claude-sonnet-4-6',
@@ -668,12 +704,15 @@ async def test_basic_conversation_cassette(
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.request.model': {},
                             'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.partial.input_tokens': {},
                             'gen_ai.usage.partial.output_tokens': {},
                             'gen_ai.usage.partial.cache_read.input_tokens': {},
                             'gen_ai.usage.partial.cache_creation.input_tokens': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'logfire.span_type': 'span',
                 },
             },
@@ -800,6 +839,7 @@ async def test_tool_use_conversation_cassette(
                     'gen_ai.request.model': 'claude-sonnet-4-6',
                     'gen_ai.usage.partial.output_tokens': 0,
                     'gen_ai.usage.partial.cache_read.input_tokens': 8313,
+                    'gen_ai.response.id': 'msg_012DpPdrAVfKdLdmF5gharfL',
                     'gen_ai.usage.partial.cache_creation.input_tokens': 1027,
                     'logfire.msg_template': 'chat',
                     'logfire.msg': 'chat claude-sonnet-4-6',
@@ -814,6 +854,7 @@ async def test_tool_use_conversation_cassette(
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.partial.input_tokens': {},
                             'gen_ai.usage.partial.output_tokens': {},
                             'gen_ai.usage.partial.cache_read.input_tokens': {},
@@ -999,6 +1040,7 @@ uv.lock\
                     'gen_ai.request.model': 'claude-sonnet-4-6',
                     'gen_ai.usage.partial.output_tokens': 1,
                     'gen_ai.usage.partial.cache_read.input_tokens': 9340,
+                    'gen_ai.response.id': 'msg_015HEK7Jn8ExYpnauec8nXMJ',
                     'gen_ai.usage.partial.cache_creation.input_tokens': 188,
                     'logfire.msg_template': 'chat',
                     'logfire.msg': 'chat claude-sonnet-4-6',
@@ -1013,12 +1055,15 @@ uv.lock\
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.request.model': {},
                             'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.partial.input_tokens': {},
                             'gen_ai.usage.partial.output_tokens': {},
                             'gen_ai.usage.partial.cache_read.input_tokens': {},
                             'gen_ai.usage.partial.cache_creation.input_tokens': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'logfire.span_type': 'span',
                 },
             },

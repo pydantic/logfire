@@ -72,6 +72,8 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
     """Extract request parameters from json_data and add to span_data."""
     if (max_tokens := json_data.get('max_tokens')) is not None:
         span_data[REQUEST_MAX_TOKENS] = max_tokens
+    elif (max_completion_tokens := json_data.get('max_completion_tokens')) is not None:
+        span_data[REQUEST_MAX_TOKENS] = max_completion_tokens
     elif (max_output_tokens := json_data.get('max_output_tokens')) is not None:
         span_data[REQUEST_MAX_TOKENS] = max_output_tokens
 
@@ -246,6 +248,18 @@ def convert_chat_completions_to_semconv(
             # Add tool call parts (for assistant messages with tool calls)
             if tool_calls:  # pragma: no cover
                 for tc in tool_calls:
+                    if tc.get('type') == 'custom':
+                        # Custom tools take a free-form `input` string instead of JSON `arguments`.
+                        custom = tc.get('custom', {})
+                        parts.append(
+                            ToolCallPart(
+                                type='tool_call',
+                                id=tc.get('id', ''),
+                                name=custom.get('name', ''),
+                                arguments=custom.get('input'),
+                            )
+                        )
+                        continue
                     function = tc.get('function', {})
                     parts.append(
                         make_tool_call_part(
@@ -254,6 +268,16 @@ def convert_chat_completions_to_semconv(
                             arguments=function.get('arguments'),
                         )
                     )
+
+            # The legacy `function_call` field has no call id, as on the output side.
+            if function_call := msg.get('function_call'):
+                parts.append(
+                    make_tool_call_part(
+                        tool_call_id='',
+                        name=function_call.get('name', ''),
+                        arguments=function_call.get('arguments'),
+                    )
+                )
 
         # Build message structure
         message: ChatMessage = {
@@ -288,6 +312,8 @@ def _convert_content_part(part: object) -> MessagePart:
     part_type = part.get('type', 'unknown')
     if part_type in ('text', 'output_text', 'input_text'):
         return TextPart(type='text', content=part.get('text', ''))
+    elif part_type == 'refusal':
+        return TextPart(type='text', content=part.get('refusal', ''))
     elif part_type in ('image_url', 'input_image'):
         if uri := _media_part_uri(part, 'image_url'):
             return UriPart(type='uri', uri=uri, modality='image')
@@ -360,7 +386,9 @@ def convert_responses_inputs_to_semconv(
                             ],
                         )
                     )
-                elif typ == 'function_call_output':
+                elif typ == 'custom_tool_call':
+                    input_messages.append(ChatMessage(role='assistant', parts=[_custom_tool_call_part(inp)]))
+                elif typ in ('function_call_output', 'custom_tool_call_output'):
                     msg: ChatMessage = {
                         'role': 'tool',
                         'parts': [
@@ -398,9 +426,13 @@ def convert_openai_response_to_semconv(
     if refusal := getattr(message, 'refusal', None):
         parts.append(TextPart(type='text', content=refusal))
 
+    # An audio response leaves `content` empty: the audio is a blob part, like `input_audio`.
+    # Its transcript is not a part of the message, so it is not recorded as a text part.
+    if (audio := getattr(message, 'audio', None)) and audio.data:
+        parts.append(BlobPart(type='blob', content=audio.data, modality='audio'))
+
     if message.tool_calls:  # pragma: no cover
         for tc in message.tool_calls:
-            # Only handle function tool calls (not custom tool calls)
             if isinstance(tc, ChatCompletionMessageFunctionToolCall):  # pragma: no cover
                 parts.append(
                     make_tool_call_part(
@@ -409,6 +441,26 @@ def convert_openai_response_to_semconv(
                         arguments=tc.function.arguments,
                     )
                 )
+            elif tc.type == 'custom':
+                # A custom tool takes a free-form `input` string instead of JSON `arguments`, so it is not parsed.
+                parts.append(
+                    ToolCallPart(
+                        type='tool_call',
+                        id=tc.id,
+                        name=tc.custom.name,
+                        arguments=tc.custom.input,
+                    )
+                )
+
+    # The legacy `function_call` field has no call id.
+    if function_call := getattr(message, 'function_call', None):
+        parts.append(
+            make_tool_call_part(
+                tool_call_id='',
+                name=function_call.name,
+                arguments=function_call.arguments,
+            )
+        )
 
     result: OutputMessage = {
         'role': message.role,
@@ -418,6 +470,23 @@ def convert_openai_response_to_semconv(
         result['finish_reason'] = finish_reason
 
     return result
+
+
+def responses_finish_reasons(response: Any) -> list[str]:
+    """Derive `gen_ai.response.finish_reasons` from a Responses API response, which has no `finish_reason` field.
+
+    The values match the chat completions ones: `stop`, `tool_calls`, `length` and `content_filter`.
+    """
+    status = getattr(response, 'status', None)
+    if status == 'completed':
+        has_tool_call = any(
+            getattr(out, 'type', None) in ('function_call', 'custom_tool_call') for out in response.output
+        )
+        return ['tool_calls' if has_tool_call else 'stop']
+    if status == 'incomplete':
+        reason = getattr(getattr(response, 'incomplete_details', None), 'reason', None)
+        return ['length' if reason == 'max_output_tokens' else reason] if reason else []
+    return []
 
 
 def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
@@ -448,7 +517,22 @@ def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
                     ],
                 )
             )
+        elif typ == 'custom_tool_call':
+            output_messages.append(OutputMessage(role='assistant', parts=[_custom_tool_call_part(out_dict)]))
     return output_messages
+
+
+def _custom_tool_call_part(item: dict[str, Any]) -> ToolCallPart:
+    """Convert a Responses API `custom_tool_call` item to a tool call part.
+
+    A custom tool takes a free-form `input` string instead of JSON `arguments`, so it is not parsed.
+    """
+    return ToolCallPart(
+        type='tool_call',
+        id=item.get('call_id', ''),
+        name=item.get('name', ''),
+        arguments=item.get('input'),
+    )
 
 
 def make_tool_call_part(
@@ -543,6 +627,8 @@ class OpenaiResponsesStreamState(StreamState):
             response_model = getattr(response, 'model', None)
             if isinstance(response_model, str):
                 span_data[RESPONSE_MODEL] = response_model
+            if finish_reasons := responses_finish_reasons(response):
+                span_data[RESPONSE_FINISH_REASONS] = finish_reasons
             span_data.update(get_openai_usage_attributes(response, self.base_url))
         return span_data
 
@@ -629,8 +715,19 @@ def get_openai_usage_attributes(response: Any, base_url: str | None = None) -> d
         api_flavor = 'embeddings'
     else:
         api_flavor = 'chat'
+    # Chat completions report cached prompt tokens under `prompt_tokens_details`, the Responses API
+    # under `input_tokens_details`. Cache reads are `cached_tokens` and cache writes `cache_write_tokens`.
+    details = getattr(usage, 'prompt_tokens_details', None) or getattr(usage, 'input_tokens_details', None)
     return get_usage_attributes(
-        response, usage, input_tokens, output_tokens, provider_id='openai', api_flavor=api_flavor, provider_url=base_url
+        response,
+        usage,
+        input_tokens,
+        output_tokens,
+        provider_id='openai',
+        api_flavor=api_flavor,
+        provider_url=base_url,
+        cache_read_tokens=getattr(details, 'cached_tokens', None),
+        cache_write_tokens=getattr(details, 'cache_write_tokens', None),
     )
 
 
@@ -707,6 +804,8 @@ def on_response(
         if 1 in versions:
             span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
+        if finish_reasons := responses_finish_reasons(response):
+            span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons)
         if 2 in versions:
             response_output_messages: OutputMessages = convert_responses_outputs_to_semconv(response)
             span.set_attribute(OUTPUT_MESSAGES, response_output_messages)

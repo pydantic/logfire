@@ -59,7 +59,8 @@ class SpanLevel:
         if isinstance(other, int):
             return self.number == other
         if isinstance(other, str):
-            return self.name == other
+            # Compare numbers, since 'warning' and 'warn' name the same level.
+            return other in LEVEL_NUMBERS and self.number == LEVEL_NUMBERS[other]
         if isinstance(other, SpanLevel):
             return self.number == other.number
         return NotImplemented

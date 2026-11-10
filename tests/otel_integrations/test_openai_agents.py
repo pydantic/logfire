@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import os
 from typing import Any
 
@@ -8,6 +9,7 @@ import pytest
 from dirty_equals import IsInt, IsPartialDict, IsStr
 from inline_snapshot import snapshot
 from openai import AsyncOpenAI
+from openai.types.responses import Response
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
@@ -358,6 +360,42 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
     )
 
 
+def test_generator_close(exporter: TestExporter, caplog: pytest.LogCaptureFixture):
+    logfire.instrument_openai_agents()
+
+    def traced_generator(name: str):
+        with trace(name):
+            with custom_span('span_name'):
+                yield
+
+    # Closed from the context that advanced it, e.g. by breaking out of a loop over it.
+    generator = traced_generator('trace 1')
+    next(generator)
+    generator.close()
+    assert get_current_span() is None
+    assert get_current_trace() is None
+
+    # So starting the next trace doesn't make openai-agents warn that a trace already exists.
+    with trace('trace 2'):
+        pass
+    assert 'Trace already exists' not in caplog.text
+
+    # Finalized from another context, which can't reset the context the generator ran in: no error.
+    generator = traced_generator('trace 3')
+    contextvars.copy_context().run(next, generator)
+    generator.close()
+
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot(
+        [
+            'Custom span: {name}',
+            'OpenAI Agents trace: {name}',
+            'OpenAI Agents trace: {name}',
+            'Custom span: {name}',
+            'OpenAI Agents trace: {name}',
+        ]
+    )
+
+
 def test_manual_parents(exporter: TestExporter):
     logfire.instrument_openai_agents()
 
@@ -537,6 +575,8 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                     'gen_ai.request.model': 'gpt-4o',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
+                    'gen_ai.response.id': 'resp_67ced68228748191b31ea5d9172a7b4b',
+                    'gen_ai.response.finish_reasons': ['tool_calls'],
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [{'content': 'Generate a random number then, hand off to agent2.', 'role': 'user'}],
                     'events': [
@@ -674,6 +714,8 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                     'logfire.msg': "Responses API with 'gpt-4o'",
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.response.id': 'resp_67ced68425f48191a5fb0c2b61cb27dd',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'operation.cost': 0.0004025,
                     'raw_input': [
                         {'content': 'Generate a random number then, hand off to agent2.', 'role': 'user'},
@@ -923,6 +965,8 @@ async def test_input_guardrails(exporter: TestExporter):
                     'gen_ai.request.model': 'gpt-4o',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
+                    'gen_ai.response.id': 'resp_67cee263c6e0819184efdc0fe2624cc8',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [{'content': '1+1?', 'role': 'user'}],
                     'events': [
@@ -1572,6 +1616,8 @@ async def test_responses_simple(exporter: TestExporter):
                     'gen_ai.request.model': 'gpt-4o',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
+                    'gen_ai.response.id': 'resp_01544eeb9f4d9c9100699336d86b9481a1aeace2b855734b8a',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [{'content': '2+2?', 'role': 'user'}],
                     'events': [
@@ -1707,6 +1753,8 @@ async def test_responses_simple(exporter: TestExporter):
                             'role': 'assistant',
                         },
                     ],
+                    'gen_ai.response.id': 'resp_01544eeb9f4d9c9100699336da82d081a1a2b74cadabbd9a07',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.usage.input_tokens': 28,
                     'gen_ai.usage.output_tokens': 6,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
@@ -1858,6 +1906,8 @@ async def test_file_search(exporter: TestExporter):
                     'gen_ai.request.model': 'gpt-4o',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
+                    'gen_ai.response.id': 'resp_05cdfcc11457b63e0069933708a22881a08d070f84c840a8c8',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [{'content': 'Who made Logfire?', 'role': 'user'}],
                     'events': [
@@ -2048,6 +2098,8 @@ See JSON for details\
                         {'event.name': 'gen_ai.user.message', 'content': '2+2?', 'role': 'user'},
                         {'event.name': 'gen_ai.assistant.message', 'content': '2 + 2 equals 4.', 'role': 'assistant'},
                     ],
+                    'gen_ai.response.id': 'resp_05cdfcc11457b63e006993370c20d881a0ac8a9082d4d1b977',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.usage.input_tokens': 862,
                     'gen_ai.usage.output_tokens': 10,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
@@ -2195,8 +2247,10 @@ async def test_function_tool_exception(exporter: TestExporter):
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
+                    'gen_ai.response.id': 'resp_67d17435ebcc8191b68300d26c22b0f90273f8a636c82b58',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.response.finish_reasons': ['tool_calls'],
                     'raw_input': [{'content': 'Call the tool.', 'role': 'user'}],
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'Call the tool.', 'role': 'user'},
@@ -2309,6 +2363,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
+                    'gen_ai.response.id': 'resp_67d17436e29481919a2bd269518a8a3e0273f8a636c82b58',
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [
                         {'content': 'Call the tool.', 'role': 'user'},
@@ -2326,6 +2381,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                             'type': 'function_call_output',
                         },
                     ],
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'Call the tool.', 'role': 'user'},
                         {
@@ -2527,6 +2583,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.response.id': 'resp_0f4c5a783ebc79bc00699336f0df488194bddca1fa9a623a2e',
                     'raw_input': [{'role': 'user', 'content': 'あたし'}],
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'あたし', 'role': 'user'},
@@ -2536,6 +2593,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                             'role': 'assistant',
                         },
                     ],
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.usage.input_tokens': 10,
                     'gen_ai.usage.output_tokens': 41,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
@@ -2672,3 +2730,32 @@ async def test_voice_pipeline(exporter: TestExporter):
             },
         ]
     )
+
+
+@pytest.mark.parametrize(
+    ('fields', 'expected'),
+    [
+        ({'status': 'completed'}, ['stop']),
+        ({'status': 'incomplete', 'incomplete_details': {'reason': 'max_output_tokens'}}, ['length']),
+        ({'status': 'failed'}, None),
+    ],
+)
+def test_response_id_and_finish_reasons(fields: dict[str, Any], expected: list[str] | None):
+    response = Response.model_validate(
+        {
+            'id': 'resp_1',
+            'object': 'response',
+            'created_at': 0,
+            'model': 'gpt-4o',
+            'parallel_tool_calls': True,
+            'tool_choice': 'auto',
+            'tools': [],
+            'output': [],
+            **fields,
+        }
+    )
+
+    attributes = openai_agents.get_basic_response_attributes(response)
+
+    assert attributes['gen_ai.response.id'] == 'resp_1'
+    assert attributes.get('gen_ai.response.finish_reasons') == expected

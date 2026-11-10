@@ -4,7 +4,7 @@ import contextvars
 import inspect
 import sys
 from abc import abstractmethod
-from contextlib import nullcontext
+from contextlib import nullcontext, suppress
 from dataclasses import dataclass
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
@@ -38,8 +38,10 @@ from logfire._internal.formatter import logfire_format
 from logfire._internal.integrations.llm_providers.openai import (
     get_openai_usage_attributes,
     inputs_to_events,
+    responses_finish_reasons,
     responses_output_events,
 )
+from logfire._internal.integrations.llm_providers.semconv import RESPONSE_FINISH_REASONS, RESPONSE_ID
 from logfire._internal.scrubbing import NOOP_SCRUBBER
 from logfire._internal.utils import handle_internal_errors, log_internal_error, truncate_string
 
@@ -229,9 +231,16 @@ class LogfireWrapperBase(Generic[T]):
     def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType) -> None:
         self.on_ending()
         self.span_helper.__exit__(exc_type, exc_val, exc_tb)
-        self.wrapped.finish()
-        if exc_type is not GeneratorExit:  # pragma: no branch
-            self.detach()
+        try:
+            self.wrapped.finish()
+        finally:
+            if exc_type is GeneratorExit:
+                # A generator closed from the context that advanced it must still reset the current trace/span.
+                # One finalized from another context can't: a token can only be reset in the context that created it.
+                with suppress(ValueError):
+                    self.detach()
+            else:
+                self.detach()
 
     @abstractmethod
     def on_ending(self): ...
@@ -406,12 +415,16 @@ def attributes_from_span_data(
 
 
 def get_basic_response_attributes(response: Response):
-    return {
+    attributes: dict[str, Any] = {
+        RESPONSE_ID: response.id,
         'gen_ai.response.model': getattr(response, 'model', None),
         'response': response,
         'gen_ai.system': 'openai',
         'gen_ai.operation.name': 'chat',
     }
+    if finish_reasons := responses_finish_reasons(response):
+        attributes[RESPONSE_FINISH_REASONS] = finish_reasons
+    return attributes
 
 
 def get_magic_response_attributes() -> tuple[dict[str, Any], str | None]:

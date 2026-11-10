@@ -3,14 +3,21 @@
 import gc
 import os
 import re
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
 import pydantic
 import pytest
+from packaging.utils import canonicalize_name
 from pytest_examples import CodeExample, EvalExample, find_examples
 
 from logfire._internal.utils import get_version
+
+if sys.version_info >= (3, 11):
+    from tomllib import loads
+else:
+    from tomli import loads
 
 # Prevent accidental live API calls during testing
 os.environ.setdefault('LOGFIRE_SEND_TO_LOGFIRE', 'false')
@@ -47,6 +54,10 @@ SENSITIVE_FROM_LITERAL_PATTERN = re.compile(
     r"""--from-literal(?:=|[ \t]+)["']?(?:[A-Z0-9_.-]*(?:TOKEN|PASSWORD|SECRET|[_.-]KEY)|KEY)=""",
     re.IGNORECASE,
 )
+LOGFIRE_EXTRAS_PATTERN = re.compile(
+    r'(?<![\w.-])logfire\[\s*([a-z0-9][a-z0-9._-]*(?:\s*,\s*[a-z0-9][a-z0-9._-]*)*)\s*\]',
+    re.IGNORECASE,
+)
 
 
 def set_eval_config(eval_example: EvalExample):
@@ -63,6 +74,50 @@ def set_eval_config(eval_example: EvalExample):
 def _iter_documentation_sources() -> Iterator[tuple[Path, str]]:
     for path in Path('docs').rglob('*.md'):
         yield path, path.read_text()
+
+
+def _unsupported_logfire_extras(source: str, supported: set[str]) -> Iterator[tuple[int, list[str]]]:
+    for match in LOGFIRE_EXTRAS_PATTERN.finditer(source):
+        extras: set[str] = {canonicalize_name(extra.strip()) for extra in match.group(1).split(',')}
+        if unsupported := sorted(extras - supported):
+            yield source.count('\n', 0, match.start()) + 1, unsupported
+
+
+def test_documented_logfire_extras_exist():
+    """Prevent the unsupported install extras fixed in #2197 from returning."""
+    project = loads(Path('logfire/pyproject.toml').read_text())['project']
+    supported: set[str] = {canonicalize_name(extra) for extra in project['optional-dependencies']}
+    paths = [
+        Path('README.md'),
+        *Path('docs').rglob('*.md'),
+        *Path('logfire-sdk/logfire/.agents').rglob('*.md'),
+    ]
+    errors = [
+        f'{path}:{line}: unsupported Logfire extras: {", ".join(extras)}'
+        for path in sorted(paths)
+        for line, extras in _unsupported_logfire_extras(path.read_text(), supported)
+    ]
+    assert not errors, '\n'.join(errors)
+
+
+@pytest.mark.parametrize(
+    ('source', 'expected'),
+    [
+        ('pip install "logfire[pydantic-ai]"', [(1, ['pydantic-ai'])]),
+        ('pip install "logfire[pydantic-ai,psycopg]"', [(1, ['pydantic-ai'])]),
+        ("uv add 'logfire[openai]' 'logfire[anthropic]'", [(1, ['openai']), (1, ['anthropic'])]),
+        ('Example:\n\n    pip install logfire[missing]>=6', [(3, ['missing'])]),
+        ('pip install "logfire[httpx, missing, unknown]"', [(1, ['missing', 'unknown'])]),
+        ("uv add 'logfire[httpx,psycopg]'", []),
+        ('Install `logfire[httpx]` for HTTPX.', []),
+        ('pip install "Logfire[HTTPX,system_metrics,system.metrics]"', []),
+        ('pip install logfire openai pydantic-ai', []),
+        ('pip install "other-logfire[unknown]" "logfire-api[unknown]"', []),
+        ("'logfire[._ -]?token',", []),
+    ],
+)
+def test_unsupported_logfire_extras(source: str, expected: list[tuple[int, list[str]]]):
+    assert list(_unsupported_logfire_extras(source, {'httpx', 'psycopg', 'system-metrics'})) == expected
 
 
 def test_formatting(eval_example: EvalExample, monkeypatch: pytest.MonkeyPatch):

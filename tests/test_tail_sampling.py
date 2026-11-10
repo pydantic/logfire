@@ -468,8 +468,10 @@ def test_span_levels():
     assert not (warn <= 'debug')
 
     assert warn == 'warn'
+    assert warn == 'warning'
     assert warn != 'error'
     assert not (warn != 'warn')
+    assert not (warn != 'warning')
     assert not (warn == 'error')
     assert warn == warn.number
     assert warn != 123

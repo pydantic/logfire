@@ -170,6 +170,35 @@ def test_numbered_fields():
         logfire_format('{2.3}', {'2': 'a'}, NOOP_SCRUBBER)
 
 
+def test_unbalanced_braces():
+    """A message with unbalanced braces isn't a template, so it's kept as-is with a warning.
+
+    Parsing such a string raises `ValueError`, which used to escape the normal formatting error handling
+    and be reported as an internal error in Logfire.
+    """
+    with warns_failed("Single '{' encountered in format string"):
+        assert logfire_format('value = {', {}, NOOP_SCRUBBER) == 'value = {'
+
+    with warns_failed("Single '}' encountered in format string"):
+        assert logfire_format('value = }', {}, NOOP_SCRUBBER) == 'value = }'
+
+    with warns_failed("expected '}' before end of string"):
+        assert logfire_format('a { b', {}, NOOP_SCRUBBER) == 'a { b'
+
+    with warns_failed("unmatched '{' in format spec"):
+        assert logfire_format('{a:{b}', {'a': 1, 'b': 2}, NOOP_SCRUBBER) == '{a:{b}'
+
+
+def test_unbalanced_braces_still_logged(exporter: TestExporter):
+    """A message with an unbalanced brace is logged as-is, not dropped as an internal error."""
+    with pytest.warns(FormattingFailedWarning):
+        logfire.info('value = {')
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == 'value = {'
+    assert span['attributes']['logfire.msg_template'] == 'value = {'
+
+
 class BadScrubber(Scrubber):
     def scrub_value(self, path: JsonPath, value: Any):
         raise ValueError('bad scrubber')

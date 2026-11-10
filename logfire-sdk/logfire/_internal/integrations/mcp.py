@@ -107,11 +107,13 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                     level = 'fatal'
                 else:
                     level = params.level
-                span_name = 'MCP server log'
+                message_template = 'MCP server log'
+                attributes = dict(data=params.data)
                 if params.logger:
-                    span_name += f' from {params.logger}'
+                    message_template = 'MCP server log from {logger}'
+                    attributes['logger'] = params.logger
                 with _request_context(root):
-                    logfire_instance.log(level, span_name, attributes=dict(data=params.data))
+                    logfire_instance.log(level, message_template, attributes=attributes)
         await original_received_notification(self, notification, *args, **kwargs)
 
     ClientSession._received_notification = _received_notification
