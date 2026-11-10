@@ -311,7 +311,8 @@ class SimpleConsoleSpanExporter(SpanExporter):
         """Print logfire arguments without color using the built-in `print` function."""
         out: list[str] = []
         for k, value_code in arguments.items():
-            value_lines = value_code.splitlines()
+            # An empty value, e.g. b'', has no lines but still gets its `k=` line
+            value_lines = value_code.splitlines() or ['']
             out += [f'{indent_str}│ {k}={value_lines[0]}']
             prefix = f'{indent_str}│ {" " * len(k)} '
             for line in value_lines[1:]:

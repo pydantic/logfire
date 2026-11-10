@@ -112,6 +112,7 @@ class ScrubbingOptions:
     If it returns `None`, the value is redacted.
     Otherwise, the returned value replaces the matched value.
     The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
+    It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
     """
 
     extra_patterns: Sequence[str] | None = None
@@ -197,7 +198,8 @@ class BaseScrubber(ABC):
 
 
 class NoopScrubber(BaseScrubber):
-    def scrub_span(self, span: ReadableSpanDict):
+    def scrub_span(self, span: ReadableSpanDict):  # pragma: no cover
+        # The span processor graph omits scrubbing when it is disabled.
         pass
 
     def scrub_log(self, log: LogRecord) -> LogRecord:

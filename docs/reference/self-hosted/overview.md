@@ -50,7 +50,14 @@ There is no supported way to move existing data from Logfire Cloud to a self-hos
 
 ## Client Configuration
 
-After deploying self-hosted Logfire, point the SDK at your Logfire base URL:
+After deploying self-hosted Logfire, create a project and copy its write token from
+**Project → Settings → Write tokens**. Set it before running your application:
+
+```bash
+export LOGFIRE_TOKEN="your-write-token"
+```
+
+Point the SDK at your Logfire base URL:
 
 ```python
 import logfire
@@ -60,8 +67,11 @@ logfire.configure(
 )
 ```
 
-You can also authenticate the CLI against your self-hosted instance:
+For local development, you can instead sign in and save project credentials with
+the CLI. These commands require [`uv`](https://docs.astral.sh/uv/); pass the same
+base URL to both:
 
 ```bash
-logfire --base-url="https://logfire.example.com" auth
+uvx logfire-cli --base-url="https://logfire.example.com" auth
+uvx logfire-cli --base-url="https://logfire.example.com" init
 ```

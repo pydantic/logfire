@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import re
+from io import StringIO
 from pathlib import Path
+from threading import Event, get_ident
 from typing import Any
 
 import pytest
@@ -11,11 +13,170 @@ from inline_snapshot import snapshot
 from opentelemetry._logs import LogRecord, get_logger
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
+from opentelemetry.sdk.trace import ConcurrentMultiSpanProcessor, ReadableSpan, Span, SpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
+from logfire._internal.exporters.processor_wrapper import SpanProcessorGroup
 from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
+from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
+
+
+def test_span_processor_group_flushes_after_failure():
+    flushed: list[bool] = []
+
+    class FlushProcessor(SpanProcessor):
+        def __init__(self, result: bool):
+            self.result = result
+
+        def force_flush(self, timeout_millis: int = 30000) -> bool:
+            flushed.append(self.result)
+            return self.result
+
+    group = SpanProcessorGroup()
+    group.add_span_processor(FlushProcessor(False))
+    group.add_span_processor(FlushProcessor(True))
+
+    assert not group.force_flush(timeout_millis=0)
+    assert flushed == []
+    assert not group.force_flush()
+    assert flushed == [False, True]
+
+
+@pytest.mark.parametrize('include_attributes', [False, True])
+@pytest.mark.parametrize('concurrent', [False, True])
+def test_scrubbing_thread_depends_on_console_attributes(
+    config_kwargs: dict[str, Any], include_attributes: bool, concurrent: bool, monkeypatch: pytest.MonkeyPatch
+):
+    from opentelemetry.context import Context
+
+    caller = get_ident()
+    scrubbed = Event()
+    threads: list[int] = []
+
+    class StartProcessor(SpanProcessor):
+        def on_start(self, span: Span, parent_context: Context | None = None) -> None:
+            assert get_ident() == caller
+            span.set_attribute('password', 'sensitive')
+
+    # OTel 1.39's default implementation returns None for start-only processors.
+    def noop_force_flush(processor: StartProcessor, timeout_millis: int) -> None:
+        pass
+
+    monkeypatch.setattr(StartProcessor, 'force_flush', noop_force_flush)
+
+    def callback(match: logfire.ScrubMatch) -> str:
+        threads.append(get_ident())
+        scrubbed.set()
+        return '[masked]'
+
+    exporters = [TestExporter(), TestExporter()]
+    processors: list[SpanProcessor] = [BatchSpanProcessor(e) for e in exporters]
+    if concurrent:
+        group = ConcurrentMultiSpanProcessor()
+        for processor in processors:
+            group.add_span_processor(processor)
+        processors = [group]
+    output = StringIO()
+    config_kwargs.update(
+        additional_span_processors=[StartProcessor(), *processors],
+        console=logfire.ConsoleOptions(verbose=False, include_attributes=include_attributes, output=output),
+        scrubbing=logfire.ScrubbingOptions(callback=callback),
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('test record', password='initial')
+
+    assert scrubbed.wait(timeout=5)
+    assert logfire.force_flush()
+    assert len(threads) == 1
+    assert (threads[0] == caller) is include_attributes
+    assert 'test record' in output.getvalue()
+    assert ('[masked]' in output.getvalue()) is include_attributes
+    for exporter in exporters:
+        (span,) = exporter.exported_spans
+        assert span.attributes is not None
+        assert span.attributes['password'] == '[masked]'
+
+
+@pytest.mark.parametrize('tail_sampling', [False, True])
+def test_background_scrubbing_flushes_pending_and_completed_spans(config_kwargs: dict[str, Any], tail_sampling: bool):
+    exporter = TestExporter()
+    config_kwargs['additional_span_processors'] = [BatchSpanProcessor(exporter, schedule_delay_millis=60_000)]
+    sampling = logfire.SamplingOptions(tail=lambda _: 1.0) if tail_sampling else None
+    logfire.configure(**config_kwargs, sampling=sampling)
+
+    with logfire.span('test span', password='sensitive'):
+        assert logfire.force_flush()
+        (pending,) = exporter.exported_spans
+        assert pending.attributes is not None
+        assert pending.attributes['logfire.span_type'] == 'pending_span'
+        assert pending.attributes['password'] == "[Scrubbed due to 'password']"
+
+    logfire.shutdown()
+    _, completed = exporter.exported_spans
+    assert completed.attributes is not None
+    assert completed.attributes['logfire.span_type'] == 'span'
+    assert completed.attributes['password'] == "[Scrubbed due to 'password']"
+
+
+@pytest.mark.parametrize('concurrent', [False, True])
+def test_custom_end_processor_keeps_scrubbing_synchronous(config_kwargs: dict[str, Any], concurrent: bool):
+    caller = get_ident()
+    exporter = TestExporter()
+    synchronous: SpanProcessor = SimpleSpanProcessor(exporter)
+    if concurrent:
+        group = ConcurrentMultiSpanProcessor()
+        group.add_span_processor(synchronous)
+        synchronous = group
+    threads: list[int] = []
+
+    def callback(match: logfire.ScrubMatch) -> None:
+        threads.append(get_ident())
+
+    config_kwargs['additional_span_processors'] = [BatchSpanProcessor(TestExporter()), synchronous]
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
+    logfire.info('test record', password='sensitive')
+
+    assert threads == [caller]
+    (span,) = exporter.exported_spans
+    assert span.attributes is not None
+    assert span.attributes['password'] == "[Scrubbed due to 'password']"
+
+
+def test_scrubbing_after_tail_sampling(config_kwargs: dict[str, Any]):
+    exported: list[ReadableSpan] = []
+    scrubbed_values: list[Any] = []
+
+    class DeferredProcessor(SpanProcessor):
+        tail_sampling_defer_on_start = True
+
+        def on_end(self, span: ReadableSpan) -> None:
+            exported.append(span)
+
+    def sample(info: TailSamplingSpanInfo) -> float:
+        if info.event == 'end' and info.span.attributes and info.span.attributes.get('password') == 'keep':
+            return 1.0
+        return 0.0
+
+    def callback(match: logfire.ScrubMatch) -> None:
+        scrubbed_values.append(match.value)
+
+    config_kwargs['additional_span_processors'].append(DeferredProcessor())
+    logfire.configure(
+        **config_kwargs,
+        sampling=logfire.SamplingOptions(tail=sample),
+        scrubbing=logfire.ScrubbingOptions(callback=callback),
+    )
+    logfire.info('discarded', password='discard')
+    logfire.info('kept', password='keep')
+
+    assert scrubbed_values == ['keep']
+    (span,) = exported
+    assert span.attributes is not None
+    assert span.attributes['password'] == "[Scrubbed due to 'password']"
+
 
 DEFAULT_PATTERN_EXAMPLES = {
     'password': 'has_password_value',

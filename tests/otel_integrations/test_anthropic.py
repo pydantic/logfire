@@ -18,6 +18,7 @@ from anthropic.types import (
     MessageStopEvent,
     TextBlock,
     TextDelta,
+    ToolUseBlock,
     Usage,
 )
 from dirty_equals import IsInt, IsPartialDict, IsStr
@@ -374,6 +375,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                             'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': None,
+                            'speed': None,
                         },
                     },
                     'gen_ai.output.messages': [
@@ -1134,6 +1136,7 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
                             'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': None,
+                            'speed': None,
                         },
                     },
                     'gen_ai.output.messages': [
@@ -1334,6 +1337,7 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                             'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': None,
+                            'speed': None,
                         },
                     },
                     'gen_ai.output.messages': [
@@ -1647,6 +1651,7 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
                             'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': IsStr(),
+                            'speed': None,
                         },
                     },
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
@@ -1982,7 +1987,8 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
     )
 
 
-@pytest.mark.vcr()
+# Anthropic 2.3 removed the legacy beta=true query parameter.
+@pytest.mark.vcr(match_on=['method', 'scheme', 'host', 'port', 'path'])
 def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
     client = anthropic.Anthropic(api_key='foobar')
     logfire.instrument_anthropic(client, version=['latest', 1], suppress_other_instrumentation=True)
@@ -2140,7 +2146,8 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
     )
 
 
-@pytest.mark.vcr()
+# Anthropic 2.3 removed the legacy beta=true query parameter.
+@pytest.mark.vcr(match_on=['method', 'scheme', 'host', 'port', 'path'])
 async def test_async_beta_messages(exporter: TestExporter) -> None:
     client = anthropic.AsyncAnthropic()
     logfire.instrument_anthropic(client, version=['latest', 1], suppress_other_instrumentation=True)
@@ -2323,6 +2330,62 @@ def test_internal_exception_in_on_response_keeps_the_response(
     assert response.id == 'msg_1'
     assert 'Caught an internal error in Logfire' in caplog.text
     assert len(exporter.exported_spans_as_dict()) == 1
+
+
+def test_internal_exception_in_stream_attributes_keeps_the_stream(
+    exporter: TestExporter, caplog: pytest.LogCaptureFixture
+) -> None:
+    """If recording a streamed response fails inside Logfire, iterating the stream still works."""
+    # `usage.input_tokens` is missing from `message_start`, as in the non-streaming test above.
+    events: list[dict[str, Any]] = [
+        {
+            'type': 'message_start',
+            'message': {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'model': 'claude-haiku-4-5',
+                'content': [],
+                'stop_reason': None,
+                'stop_sequence': None,
+                'usage': {'output_tokens': 1},
+            },
+        },
+        {'type': 'content_block_start', 'index': 0, 'content_block': {'type': 'text', 'text': ''}},
+        {'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': 'Nine'}},
+        {'type': 'content_block_stop', 'index': 0},
+        {
+            'type': 'message_delta',
+            'delta': {'stop_reason': 'end_turn', 'stop_sequence': None},
+            'usage': {'output_tokens': 3},
+        },
+        {'type': 'message_stop'},
+    ]
+    sse = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in events)
+    client = anthropic.Anthropic(
+        api_key='test',
+        http_client=httpx.Client(
+            transport=MockTransport(
+                lambda _: httpx.Response(200, text=sse, headers={'content-type': 'text/event-stream'})
+            )
+        ),
+    )
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
+        stream = client.messages.create(
+            max_tokens=1000,
+            model='claude-haiku-4-5',
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+            stream=True,
+        )
+        chunks = [chunk.type for chunk in stream]
+
+    assert chunks == [event['type'] for event in events]
+    assert 'Caught an internal error in Logfire' in caplog.text
+    spans = exporter.exported_spans_as_dict()
+    assert [span['name'] for span in spans] == [
+        'Message with {request_data[model]!r}',
+        'streaming response from {request_data[model]!r} took {duration:.2f}s',
+    ]
 
 
 def test_messages_records_cache_token_attributes(exporter: TestExporter) -> None:
@@ -2532,6 +2595,35 @@ def test_convert_messages_document_and_file_image_parts() -> None:
                 {'type': 'text', 'content': 'Summarize these.'},
             ],
         }
+    ]
+
+
+def test_convert_messages_response_content_blocks_sent_back() -> None:
+    """An assistant turn given as the content blocks of an earlier response is converted like the dict form."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    messages: list[dict[str, Any]] = [
+        {
+            'role': 'assistant',
+            'content': [
+                TextBlock(text='Checking the weather.', type='text'),
+                ToolUseBlock(id='toolu_1', name='get_weather', input={'city': 'Paris'}, type='tool_use'),
+            ],
+        },
+        {'role': 'user', 'content': [{'type': 'tool_result', 'tool_use_id': 'toolu_1', 'content': 'Sunny'}]},
+    ]
+
+    input_messages, _ = convert_messages_to_semconv(messages)
+
+    assert input_messages == [
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'text', 'content': 'Checking the weather.'},
+                {'type': 'tool_call', 'id': 'toolu_1', 'name': 'get_weather', 'arguments': {'city': 'Paris'}},
+            ],
+        },
+        {'role': 'user', 'parts': [{'type': 'tool_call_response', 'id': 'toolu_1', 'response': 'Sunny'}]},
     ]
 
 

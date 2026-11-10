@@ -17,7 +17,10 @@ except ImportError:
         VERSION = '0.0.0'
         METRICS_PREFERRED_TEMPORALITY = {}
 
-        def configure(*args, **kwargs): ...
+        def configure(*args, **kwargs) -> Logfire:
+            if kwargs.get('local'):
+                return Logfire()
+            return DEFAULT_LOGFIRE_INSTANCE
 
         class LogfireSpan:
             def __getattr__(self, attr):
@@ -227,7 +230,8 @@ except ImportError:
             async def forward_export_request_starlette(self, *args, **kwargs) -> MagicMock:
                 return MagicMock()
 
-            def shutdown(self, *args, **kwargs) -> None: ...
+            def shutdown(self, *args, **kwargs) -> bool:
+                return True
 
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span
