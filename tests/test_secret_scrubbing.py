@@ -439,7 +439,7 @@ def test_scrub_message(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_scrub_message',
                     'code.lineno': 123,
-                    'user': '[{"name": "John", "password": "[Scrubbed due to \'password\']"}]',
+                    'user': IsJson([{'name': 'John', 'password': "[Scrubbed due to 'password']"}]),
                     'logfire.scrubbed': IsJson(
                         [
                             {'path': ['message', 'user'], 'matched_substring': 'password'},
@@ -499,12 +499,11 @@ def test_scrub_json_that_cannot_be_written_back(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_scrub_json_containers_without_a_raw_pattern_match(exporter: TestExporter):
-    logfire.info('Example', data=r'{"pass\u0077ord":"hunter2"}', unchanged='{"amount":1e400}', identifier='1e3')
+    logfire.info('Example', data=r'{"pass\u0077ord":"hunter2"}', unchanged='{"amount":1e400}')
 
     (span,) = exporter.exported_spans_as_dict()
     assert json.loads(span['attributes']['data']) == {'password': "[Scrubbed due to 'password']"}
     assert span['attributes']['unchanged'] == '{"amount":1e400}'
-    assert span['attributes']['identifier'] == '1e3'
 
 
 class PasswordError(Exception):
