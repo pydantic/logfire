@@ -1,0 +1,36 @@
+logfire-sdk/logfire/_internal/scrubbing.py
+  s_041759c3f14114::t_fd8c4b4760c90e 327-329,332-333,339
+  s_4a5597820cedcc::t_083e88fdc7bdf2 330-331
+tests/test_secret_scrubbing.py
+  s_041759c3f14114::t_05a513a5205a33 498,506
+  s_041759c3f14114::t_06473c9f59ac9f 472-473,476-477,479,495,499-505,507
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aa71929c6943d077c821be5d6cf7d637473e100f",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_041759c3f14114": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c556-a4e9-7a41-b6ef-939d0e620be4",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_4a5597820cedcc": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1794308244748",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
