@@ -324,18 +324,19 @@ class SpanScrubber:
         if type(value) in (int, float, bool, type(None)):
             return value
         if isinstance(value, str):
+            if value.lstrip().startswith(('{', '[')):
+                try:
+                    decoded = json.loads(value)
+                    scrubbed = self.scrub(path, decoded)
+                    return json.dumps(scrubbed) if self.did_scrub else value
+                except (ValueError, RecursionError):
+                    pass
             if match := self._pattern.search(value):
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
                     return value
-                try:
-                    return json.dumps(self.scrub(path, json.loads(value)))
-                except (json.JSONDecodeError, RecursionError):
-                    # Deeply nested JSON can raise while it is parsed, walked or written back out,
-                    # and letting that escape aborts scrubbing of the whole span,
-                    # so treat the original value as plain text.
-                    return self._redact(ScrubMatch(path, value, match))
+                return self._redact(ScrubMatch(path, value, match))
         elif isinstance(value, (bytes, bytearray, memoryview)):
             # Iterating over a binary value yields integers, so recursing into it would rewrite
             # the value into a sequence of ints. Decode it instead, so text hidden in bytes is

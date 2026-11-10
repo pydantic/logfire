@@ -469,13 +469,14 @@ def test_scrub_binary_values(value: bytes, expected: bytes | str, expected_notes
     assert [note['matched_substring'] for note in scrubbed_notes] == expected_notes
 
 
-def test_scrub_json_that_cannot_be_parsed(monkeypatch: pytest.MonkeyPatch):
+@pytest.mark.parametrize('error_type', [ValueError, RecursionError])
+def test_scrub_json_that_cannot_be_parsed(monkeypatch: pytest.MonkeyPatch, error_type: type[Exception]):
     """A parse error must redact the text instead of aborting scrubbing of the whole span."""
 
-    def raise_recursion_error(*args: Any, **kwargs: Any):
-        raise RecursionError('maximum recursion depth exceeded')
+    def raise_decode_error(*args: Any, **kwargs: Any):
+        raise error_type('cannot decode JSON')
 
-    monkeypatch.setattr(json, 'loads', raise_recursion_error)
+    monkeypatch.setattr(json, 'loads', raise_decode_error)
 
     result, scrubbed_notes = Scrubber(None).scrub_value(('attributes', 'payload'), b'["password"]')
 
@@ -491,10 +492,19 @@ def test_scrub_json_that_cannot_be_written_back(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(json, 'dumps', raise_recursion_error)
 
-    result, scrubbed_notes = Scrubber(None).scrub_value(('attributes', 'payload'), b'["password"]')
+    result, scrubbed_notes = Scrubber(None).scrub_value(('attributes', 'payload'), b'["password=hunter2"]')
 
     assert result == "[Scrubbed due to 'password']"
-    assert [note['matched_substring'] for note in scrubbed_notes] == ['password']
+    assert {'path': ('attributes', 'payload'), 'matched_substring': 'password'} in scrubbed_notes
+
+
+def test_scrub_json_containers_without_a_raw_pattern_match(exporter: TestExporter):
+    logfire.info('Example', data=r'{"pass\u0077ord":"hunter2"}', unchanged=' { "x": 1 } ', identifier='1e3')
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert json.loads(span['attributes']['data']) == {'password': "[Scrubbed due to 'password']"}
+    assert json.loads(span['attributes']['unchanged']) == {'x': 1}
+    assert span['attributes']['identifier'] == '1e3'
 
 
 class PasswordError(Exception):
