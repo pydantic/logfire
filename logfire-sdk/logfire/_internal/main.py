@@ -1508,7 +1508,7 @@ class Logfire:
             | None
         ) = None,
         *,
-        suppress_other_instrumentation: bool = True,
+        suppress_other_instrumentation: bool = False,
         version: SemconvVersion | Sequence[SemconvVersion] = 2,
     ) -> AbstractContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
@@ -1550,9 +1550,8 @@ class Logfire:
                 - The `anthropic.AsyncAnthropic` or `anthropic.AsyncAnthropicBedrock` class or subclass
                 - An instance of any of the above classes
 
-            suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
-                enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
-                OpenAI uses HTTPX to make HTTP requests.
+            suppress_other_instrumentation: Set to True to suppress other OpenTelemetry instrumentation,
+                such as HTTPX. By default, HTTPX request spans can be created as children of the Anthropic span.
 
             version: The version(s) of the span attribute format to use:
 

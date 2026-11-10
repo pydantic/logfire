@@ -87,8 +87,12 @@ variables_push_config = DEFAULT_LOGFIRE_INSTANCE.variables_push_config
 variables_pull_config = DEFAULT_LOGFIRE_INSTANCE.variables_pull_config
 variables_build_config = DEFAULT_LOGFIRE_INSTANCE.variables_build_config
 
-def loguru_handler() -> Any:
+def loguru_handler(*, console_log: bool = True) -> Any:
     """Create a **Logfire** handler for Loguru.
+
+    Args:
+        console_log: Whether Logfire also prints these logs to the console.
+            Set to `False` to keep Loguru's own console output without duplicates.
 
     Returns:
         A dictionary with the handler and format for Loguru.

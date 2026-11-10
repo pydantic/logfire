@@ -19,7 +19,7 @@ from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
 from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig, TemplateMismatchPolicy as TemplateMismatchPolicy
 from .config_params import PydanticPluginRecordValues as PydanticPluginRecordValues
-from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
+from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LevelName as LevelName, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
 from .forwarding import ForwardExportRequestResponse as ForwardExportRequestResponse
 from .instrument import instrument as instrument
@@ -34,7 +34,7 @@ from .json_encoder import logfire_json_dumps as logfire_json_dumps
 from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
-from .tracer import ProxyTracerProvider as ProxyTracerProvider, _ProxyTracer, set_exception_status as set_exception_status
+from .tracer import ProxyTracerProvider as ProxyTracerProvider, _ProxyTracer
 from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
 from anthropic.lib.bedrock import AnthropicBedrock as _AnthropicBedrock, AsyncAnthropicBedrock as _AsyncAnthropicBedrock
 from collections.abc import Iterable, Mapping, Sequence
@@ -691,7 +691,7 @@ class Logfire:
         For instrumentation of the standard OpenAI SDK package,
         see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
-    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | _AnthropicBedrock | _AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[_AnthropicBedrock] | type[_AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 2) -> AbstractContextManager[None]:
+    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | _AnthropicBedrock | _AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[_AnthropicBedrock] | type[_AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = False, version: SemconvVersion | Sequence[SemconvVersion] = 2) -> AbstractContextManager[None]:
         '''Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
@@ -731,9 +731,8 @@ class Logfire:
                 - The `anthropic.AsyncAnthropic` or `anthropic.AsyncAnthropicBedrock` class or subclass
                 - An instance of any of the above classes
 
-            suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
-                enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
-                OpenAI uses HTTPX to make HTTP requests.
+            suppress_other_instrumentation: Set to True to suppress other OpenTelemetry instrumentation,
+                such as HTTPX. By default, HTTPX request spans can be created as children of the Anthropic span.
 
             version: The version(s) of the span attribute format to use:
 

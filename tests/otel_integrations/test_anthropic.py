@@ -172,6 +172,36 @@ async def instrumented_async_client() -> AsyncIterator[anthropic.AsyncAnthropic]
             yield anthropic_client
 
 
+@pytest.mark.parametrize('suppress_httpx', [False, True], ids=['default', 'suppressed'])
+def test_httpx_spans_follow_suppression(exporter: TestExporter, suppress_httpx: bool) -> None:
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        logfire.instrument_httpx(httpx_client)
+        client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
+        instrumentation = (
+            logfire.instrument_anthropic(client, suppress_other_instrumentation=True)
+            if suppress_httpx
+            else logfire.instrument_anthropic(client)
+        )
+        with instrumentation:
+            response = client.messages.create(
+                max_tokens=1000,
+                model='claude-3-haiku-20240307',
+                system='You are a helpful assistant.',
+                messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+            )
+
+    assert isinstance(response.content[0], TextBlock)
+    assert response.content[0].text == 'Nine'
+    spans = exporter.exported_spans_as_dict(include_instrumentation_scope=True)
+    [llm_span] = [span for span in spans if span['attributes'].get('gen_ai.system') == 'anthropic']
+    httpx_spans = [span for span in spans if span['instrumentation_scope'] == 'opentelemetry.instrumentation.httpx']
+    if suppress_httpx:
+        assert httpx_spans == []
+    else:
+        [httpx_span] = httpx_spans
+        assert httpx_span['parent'] == llm_span['context']
+
+
 def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
     response = instrumented_client.messages.create(
         max_tokens=1000,
