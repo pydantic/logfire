@@ -46,6 +46,16 @@ def test_sample_rate_drops_descendants_with_non_parent_based_head(
     assert {s.name for s in exporter.exported_spans} == {'parent'}
 
 
+def test_otel_traces_sampler_env_still_applies(
+    exporter: TestExporter, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv('OTEL_TRACES_SAMPLER', 'always_off')
+    logfire.configure(**config_kwargs)
+    with logfire.span('span'):
+        logfire.info('log')
+    assert exporter.exported_spans == []
+
+
 @pytest.mark.parametrize('rate', [0.0, 1.0])
 def test_sample_rate_bounds(exporter: TestExporter, rate: float) -> None:
     with logfire.span('parent'):

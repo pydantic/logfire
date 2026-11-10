@@ -22,7 +22,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 from opentelemetry import context as context_api, trace as trace_api
-from opentelemetry.sdk.trace.sampling import ALWAYS_ON, Decision, ParentBased, Sampler, SamplingResult
+from opentelemetry.sdk.trace import sampling as sdk_sampling
+from opentelemetry.sdk.trace.sampling import Decision, Sampler, SamplingResult
 from opentelemetry.trace import Link, SpanKind
 from opentelemetry.util.types import Attributes
 
@@ -61,7 +62,8 @@ class SubtreeSampler(Sampler):
     """A sampler that applies `sample_rate` decisions and otherwise defers to a delegate sampler."""
 
     def __init__(self, delegate: Sampler | None = None) -> None:
-        self.delegate = delegate or ParentBased(ALWAYS_ON)
+        # `_get_from_env_or_default` is what `TracerProvider(sampler=None)` uses, so `OTEL_TRACES_SAMPLER` still applies.
+        self.delegate = delegate or sdk_sampling._get_from_env_or_default()  # pyright: ignore[reportPrivateUsage]
 
     def should_sample(
         self,
