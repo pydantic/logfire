@@ -1,10 +1,61 @@
 from __future__ import annotations
 
+import asyncio
+import sys
+from collections.abc import Generator
+from contextlib import contextmanager
 from typing import Any
 
 from pydantic import BaseModel
 
 from logfire.testing import TestExporter
+
+
+@contextmanager
+def event_loop_policy(policy: asyncio.AbstractEventLoopPolicy) -> Generator[None, None, None]:
+    previous_policy = asyncio.get_event_loop_policy()  # pyright: ignore[reportDeprecated]
+    asyncio.set_event_loop_policy(policy)  # pyright: ignore[reportDeprecated]
+    try:
+        yield
+    finally:
+        asyncio.set_event_loop_policy(previous_policy)  # pyright: ignore[reportDeprecated]
+
+
+@contextmanager
+def current_event_loop(loop: asyncio.AbstractEventLoop) -> Generator[None, None, None]:
+    """Temporarily set a loop on Python 3.14+, where get_event_loop() never creates one."""
+    try:
+        previous_loop = asyncio.get_event_loop()
+    except RuntimeError:
+        previous_loop = None
+
+    asyncio.set_event_loop(loop)
+    try:
+        yield
+    finally:
+        asyncio.set_event_loop(previous_loop)
+
+
+@contextmanager
+def isolated_litellm_event_loop_context() -> Generator[None, None, None]:
+    """Give LiteLLM a loop owned by this test without disturbing an existing loop."""
+    if sys.version_info >= (3, 14):
+        loop = asyncio.new_event_loop()
+        try:
+            with current_event_loop(loop):
+                yield
+        finally:
+            loop.close()
+        return
+
+    test_policy = asyncio.DefaultEventLoopPolicy()
+    with event_loop_policy(test_policy):
+        loop = asyncio.new_event_loop()
+        try:
+            asyncio.set_event_loop(loop)
+            yield
+        finally:
+            loop.close()
 
 
 def exported_spans_as_models(

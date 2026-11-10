@@ -30,7 +30,7 @@ You can install this with:
 @pytest.mark.skipif(
     get_version(pydantic.__version__) < get_version('2.11.0'), reason='LiteLLM requires Pydantic >= 2.11'
 )
-def test_litellm_instrumentation(exporter: TestExporter) -> None:
+def test_litellm_instrumentation(exporter: TestExporter, isolated_litellm_event_loop: None) -> None:
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', category=DeprecationWarning)
         import litellm
