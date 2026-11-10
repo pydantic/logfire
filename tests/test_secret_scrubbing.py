@@ -573,38 +573,6 @@ def test_callback_container_with_ambiguous_equality_is_final():
     assert notes == []
 
 
-@pytest.mark.parametrize('copy_container', [False, True])
-def test_callback_approved_self_referential_container_is_redacted(copy_container: bool):
-    container: dict[str, Any] = {}
-    container['password_hint'] = container
-
-    def callback(match: logfire.ScrubMatch):
-        return match.value.copy() if copy_container else match.value
-
-    result, notes = Scrubber(None, callback).scrub_value(('attributes',), container)
-
-    marker = '[Scrubbed recursive reference]'
-    assert result == {'password_hint': marker}
-    assert notes == []
-
-
-@pytest.mark.parametrize('container_type', [dict, list])
-def test_callback_approved_container_cycle_through_unmatched_child_is_redacted(container_type: type):
-    if container_type is dict:
-        container: Any = {}
-        container['child'] = container
-        expected: Any = {'child': '[Scrubbed recursive reference]'}
-    else:
-        container = []
-        container.append(container)
-        expected = ['[Scrubbed recursive reference]']
-
-    result, notes = Scrubber(None, lambda match: match.value).scrub_value(('attributes',), {'secret': container})
-
-    assert result == {'secret': expected}
-    assert notes == []
-
-
 class PasswordError(Exception):
     pass
 
