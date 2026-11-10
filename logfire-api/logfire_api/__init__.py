@@ -167,7 +167,11 @@ except ImportError:
 
             def instrument_sqlalchemy(self, *args, **kwargs) -> None: ...
 
-            def instrument_sqlite3(self, *args, **kwargs) -> None: ...
+            def instrument_sqlite3(self, conn=None, *args, **kwargs):
+                return conn
+
+            def instrument_mysql(self, conn=None, *args, **kwargs):
+                return conn
 
             def instrument_aws_lambda(self, *args, **kwargs) -> None: ...
 
