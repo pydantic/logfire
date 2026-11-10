@@ -261,7 +261,7 @@ class SpanScrubber:
         self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
-        self.did_scrub = False
+        self.scrub_count = 0
 
     def scrub_span(self, span: ReadableSpanDict):
         # We need to use BoundedAttributes because:
@@ -271,7 +271,7 @@ class SpanScrubber:
         #      BoundedAttributes handles it according to the installed OTEL version.
         # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
         new_attributes = self.scrub(('attributes',), span['attributes'])
-        if self.did_scrub:
+        if self.scrub_count:
             span['attributes'] = BoundedAttributes(attributes=new_attributes)
 
         span['events'] = [
@@ -296,7 +296,7 @@ class SpanScrubber:
         new_attributes: dict[str, Any] | None = self.scrub(('attributes',), log.attributes)
         new_body = self.scrub(('log_body',), log.body)
 
-        if not self.did_scrub:
+        if not self.scrub_count:
             return log
 
         if self.scrubbed:
@@ -327,8 +327,9 @@ class SpanScrubber:
             if value.lstrip().startswith(('{', '[')):
                 try:
                     decoded = json.loads(value)
+                    scrub_count_before = self.scrub_count
                     scrubbed = self.scrub(path, decoded)
-                    return json.dumps(scrubbed) if self.did_scrub else value
+                    return json.dumps(scrubbed) if self.scrub_count != scrub_count_before else value
                 except (ValueError, RecursionError):
                     pass
             if match := self._pattern.search(value):
@@ -367,9 +368,10 @@ class SpanScrubber:
 
     def _redact(self, match: ScrubMatch) -> Any:
         if self._callback and (result := self._callback(match)) is not None:
-            self.did_scrub = self.did_scrub or result is not match.value
+            if result is not match.value:
+                self.scrub_count += 1
             return result
-        self.did_scrub = True
+        self.scrub_count += 1
         matched_substring = match.pattern_match.group(0)
         self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
         return f'[Scrubbed due to {matched_substring!r}]'

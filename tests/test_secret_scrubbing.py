@@ -499,11 +499,11 @@ def test_scrub_json_that_cannot_be_written_back(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_scrub_json_containers_without_a_raw_pattern_match(exporter: TestExporter):
-    logfire.info('Example', data=r'{"pass\u0077ord":"hunter2"}', unchanged=' { "x": 1 } ', identifier='1e3')
+    logfire.info('Example', data=r'{"pass\u0077ord":"hunter2"}', unchanged='{"amount":1e400}', identifier='1e3')
 
     (span,) = exporter.exported_spans_as_dict()
     assert json.loads(span['attributes']['data']) == {'password': "[Scrubbed due to 'password']"}
-    assert json.loads(span['attributes']['unchanged']) == {'x': 1}
+    assert span['attributes']['unchanged'] == '{"amount":1e400}'
     assert span['attributes']['identifier'] == '1e3'
 
 
