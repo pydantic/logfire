@@ -112,7 +112,7 @@ def _is_unchanged_container(value: Any, result: Any) -> bool:
         return False
     try:
         return bool(result == value)
-    except (TypeError, ValueError):
+    except Exception:
         # Some containers do not provide a single Boolean result for equality.
         return False
 

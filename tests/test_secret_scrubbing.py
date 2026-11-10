@@ -559,7 +559,7 @@ def test_callback_changed_container_is_final():
 def test_callback_container_with_ambiguous_equality_is_final():
     class IncomparableDict(dict[str, str]):
         def __eq__(self, other: object) -> bool:
-            raise ValueError('cannot compare')
+            raise RuntimeError('cannot compare')
 
     replacement = IncomparableDict(password='allowed')
 
