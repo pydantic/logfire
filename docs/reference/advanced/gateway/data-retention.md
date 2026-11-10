@@ -18,7 +18,7 @@ The Gateway holds request and response bodies in memory while it proxies them. I
 
 | Data | Contains prompts or responses | Where | How long | How to turn it off |
 | --- | --- | --- | --- | --- |
-| Request spans: model, token counts, cost, status, timing, URL, request and response headers | No. Headers, the URL, and [baggage](telemetry.md) are recorded as you sent them. | Your Logfire project | Your organization's retention period. The default is 30 days. | You cannot turn it off. See [Request spans are always recorded](#request-spans-are-always-recorded). |
+| Request spans: model, token counts, cost, status, timing, URL, request and response headers | No. The URL, [baggage](telemetry.md), and every header except the [credential headers](#turn-off-message-capture) are recorded as you sent them. | Your Logfire project | Your organization's retention period. The default is 30 days. | No setting turns it off. See [Request spans have no off switch](#request-spans-have-no-off-switch). |
 | Message content on those spans: prompts, responses, system instructions, stop sequences, and raw HTTP bodies | Yes | Your Logfire project | Your organization's retention period | Turn off **Include messages** for the project. It is on by default. |
 | Response cache entries | Yes. The entry holds the response body. The request is only hashed into the cache key. | The Gateway's cache | 24 hours | Off by default. You turn it on for each API key. Send `Cache-Control: no-store` to skip it for one request. |
 | Spend totals for each key, member, project, and organization | No. Amounts in US dollars only. | The Gateway's database | No fixed expiry | You cannot turn it off. [Spending limits](spending-policies.md) need it. |
@@ -27,7 +27,7 @@ The Gateway holds request and response bodies in memory while it proxies them. I
 
 A **span** is one unit of work, with a name, a start, and a duration. The Gateway records one span for each attempt to reach a provider.
 
-The Gateway stores nothing for these features:
+The Gateway does not store the raw payload for these features:
 
 - **Files and batches.** The Gateway refuses these endpoints on a built-in provider, because the files of every organization would share one provider account. On a custom provider, the Gateway forwards the request unchanged, and the file or batch lives only in your provider account. The provider's retention rules apply.
 - **Realtime sessions.** The Gateway relays audio and text frames and reads token usage from them. It records usage and cost. It does not record frames or transcripts.
@@ -37,13 +37,13 @@ The Gateway stores nothing for these features:
 !!! warning "A Presidio protection sends prompt text to your Presidio service"
     A Presidio protection sends the prompt text to the base URL of the connection that you configured. What that service stores is outside the Gateway.
 
-### Request spans are always recorded
+### Request spans have no off switch
 
 The Gateway writes its spans to the project that owns the API key. No setting stops that export, because usage, cost, and spending limits are only auditable when every request leaves a record. **Include messages** decides whether those spans also carry content.
 
-Your organization's retention period decides how long the spans live. The default is 30 days. Growth organizations can set up to 90 days, and Enterprise organizations can set a longer period.
+There is one exception. The Gateway honors the sampling decision in a `traceparent` header. If your app marks its trace as not sampled, the Gateway exports no span for that request.
 
-The Gateway honors the sampling decision in a `traceparent` header. If your app marks its trace as not sampled, the Gateway exports no span for that request.
+Your organization's retention period decides how long the spans live. The default is 30 days. Growth organizations can set up to 90 days, and Enterprise organizations can set a longer period.
 
 ## Turn off message capture
 
@@ -165,7 +165,7 @@ The settings above control what the Gateway stores. They do not control what the
 
 ### How request fields pass through
 
-The Gateway sends your request body to the provider as you wrote it. It never adds, removes, or changes a retention field. If you leave a field out, the provider applies its own default.
+The Gateway sends your request body to the provider with only the changes listed below. It never adds, removes, or changes a retention field. If you leave a field out, the provider applies its own default.
 
 | Provider | Forwarded unchanged | Changed by the Gateway |
 | --- | --- | --- |
@@ -220,7 +220,7 @@ print(response.output_text)
 !!! note "Experimental"
     The zero data retention requirement is experimental, and it can change. The organization setting needs an Enterprise Cloud organization or a self-hosted deployment.
 
-A request that requires ZDR can only reach a built-in provider that Pydantic confirmed as ZDR. Custom providers are not affected, because their retention terms are yours.
+Among built-in providers, a request that requires ZDR can only reach one that Pydantic confirmed as ZDR. Custom providers are not affected, because their retention terms are yours.
 
 Send the `x-pydantic-zero-data-retention` header to require ZDR for one request or one client:
 
