@@ -166,8 +166,10 @@ def test_exception_log_record_matches_span_enrichment(
         raise_value_error()
     except ValueError:
         logfire.exception('as span')
-    [span] = exporter.exported_spans_as_dict()
-    span_fingerprint = span['attributes']['logfire.exception.fingerprint']
+    # The dict helpers mask fingerprints, so read the raw attributes.
+    [span] = exporter.exported_spans
+    span_fingerprint = (span.attributes or {})['logfire.exception.fingerprint']
+    assert span_fingerprint != '0' * 64
 
     config_kwargs['advanced'] = replace(config_kwargs['advanced'], logs_as_log_records=True)
     logfire.configure(**config_kwargs)
@@ -185,7 +187,7 @@ def test_exception_log_record_matches_span_enrichment(
     except ValidationError:
         logfire.warn('invalid', _exc_info=True)
 
-    top, nested, invalid = (log['attributes'] for log in logs_exporter.exported_logs_as_dicts())
+    top, nested, invalid = (dict(log.log_record.attributes or {}) for log in logs_exporter.get_finished_logs())
     assert top['logfire.exception.fingerprint'] == span_fingerprint
     assert 'logfire.exception.fingerprint' not in nested
     assert 'logfire.exception.fingerprint' not in invalid
