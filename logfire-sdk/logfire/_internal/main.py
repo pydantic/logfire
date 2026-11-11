@@ -831,7 +831,9 @@ class Logfire:
                 otlp_attributes[DISABLE_CONSOLE_KEY] = True
             start_time = self._config.advanced.ns_timestamp_generator()
 
-            if self._config.advanced.logs_as_log_records:
+            advanced = self._config.advanced
+            # `exception_callback` works on a span, so a log with an exception stays a span when it is set.
+            if advanced.logs_as_log_records and not (exc_info and advanced.exception_callback):
                 self._emit_log_record(level_num, msg, otlp_attributes, start_time, exc_info)
                 return
 

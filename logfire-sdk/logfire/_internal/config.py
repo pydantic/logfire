@@ -350,6 +350,9 @@ class AdvancedOptions:
     The default emits each log as a zero-duration span. Log records go through `log_record_processors`
     and the logs exporters, not through span processors or the head sampler.
 
+    When `exception_callback` is set, a log with an exception is still emitted as a span,
+    so that the callback can process it.
+
     This option is experimental and may change or be removed.
     """
 

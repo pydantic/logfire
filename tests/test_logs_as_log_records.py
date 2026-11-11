@@ -8,6 +8,7 @@ from inline_snapshot import snapshot
 
 import logfire
 from logfire.testing import TestExporter, TestLogExporter
+from logfire.types import ExceptionCallbackHelper
 
 
 def test_logs_as_log_records(
@@ -104,3 +105,27 @@ def test_log_record_with_custom_level(logs_exporter: TestLogExporter, config_kwa
     assert (log['body'], log['severity_number'], log['attributes']['logfire.level_num']) == snapshot(
         ('custom', None, 25)
     )
+
+
+def test_exception_callback_keeps_exception_logs_as_spans(
+    exporter: TestExporter, logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]
+) -> None:
+    seen: list[str] = []
+
+    def callback(helper: ExceptionCallbackHelper) -> None:
+        seen.append(type(helper.exception).__name__)
+        helper.no_record_exception()
+
+    config_kwargs['advanced'] = replace(
+        config_kwargs['advanced'], logs_as_log_records=True, exception_callback=callback
+    )
+    logfire.configure(**config_kwargs)
+
+    logfire.info('plain')
+    logfire.error('failed', _exc_info=ValueError('secret'))
+
+    assert seen == ['ValueError']
+    assert [log['body'] for log in logs_exporter.exported_logs_as_dicts()] == ['plain']
+    [span] = exporter.exported_spans_as_dict()
+    assert span['name'] == 'failed'
+    assert 'events' not in span
