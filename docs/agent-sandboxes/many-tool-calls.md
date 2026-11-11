@@ -115,10 +115,10 @@ variables. The following example adapts that workflow to return compact results:
 2. Fetch each customer's request counts and return the names below their availability target.
 3. Look up tickets for those customers and return the names with open tickets.
 
-The scripts request one tool call at a time.
-An agent can also combine several calls with `asyncio.gather`.
-Each call, including each call inside `asyncio.gather`, is one network round trip between the sandbox and your
-application. The calls are not batched, so many calls can take seconds in total.
+The second script starts all 40 `get_request_stats` calls at once with `asyncio.gather`.
+Each call is one network round trip between the sandbox and your application, and the round trips overlap.
+In one test, this script took about 1 second. The same 40 calls took about 11 seconds when the script awaited them
+one at a time.
 
 You can run these scripts without a model. Save the code below as `main.py` beside `tools.py`:
 
@@ -137,7 +137,9 @@ customers = await list_customers(plan='enterprise')
 len(customers)
 """,
     """
-stats_lists = [await get_request_stats(customer_id=c['id'], days=7) for c in customers]
+import asyncio
+
+stats_lists = await asyncio.gather(*[get_request_stats(customer_id=c['id'], days=7) for c in customers])
 missed = []
 for c, rows in zip(customers, stats_lists):
     total = sum(r['requests'] for r in rows)
@@ -148,7 +150,7 @@ for c, rows in zip(customers, stats_lists):
 [c['name'] for c in missed]
 """,
     """
-tickets_lists = [await list_open_tickets(customer_id=c['id']) for c in missed]
+tickets_lists = await asyncio.gather(*[list_open_tickets(customer_id=c['id']) for c in missed])
 [c['name'] for c, tickets in zip(missed, tickets_lists) if tickets]
 """,
 ]
@@ -184,9 +186,8 @@ AI](pydantic-ai.md) or [Add a code tool to any agent](any-framework.md) to conne
 
 ## Verify it worked
 
-Open the [Live view](../guides/web-ui/live.md). You should see a `run code` span (one unit of work: a single operation,
-with a name, a start, and a duration) for each script. The second one has a child span for each of the 40
-`get_request_stats` calls.
+Open the [Live view](../guides/web-ui/live.md). You should see a `run code` span for each script. The second one has a child span
+for each of the 40 `get_request_stats` calls.
 
 !!! warning "Tool arguments and results are recorded in your project"
     With tracing on (the default), Logfire records each script, each tool call's arguments and result, and each final

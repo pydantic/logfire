@@ -70,18 +70,34 @@ Pass the function itself, not `logfire.agent_sandboxes()`.
 Code Mode calls it on the first `run_code` call of each agent run, so concurrent runs each get their own pool.
 No connection opens until the model first calls `run_code`.
 
+Run `python agent.py`. For the sample data, a correct answer names Customer 9, Customer 42, Customer 87, and
+Customer 111 as below their target, and Customer 42 and Customer 87 as the ones with open tickets.
+
 ## What the model writes
 
-The model sees one tool, `run_code`, with your three tools listed as Python functions. For the question above it writes
-short scripts like the ones on [Answer questions that need dozens of tool
-calls](many-tool-calls.md#see-the-code-the-agent-writes). They fetch the enterprise customers, fetch each customer's
-request counts, compute availability in Python, and return only the customers that
-missed their target. Each script continues from the variables of the one before it. The exact code changes from run
-to run.
+The model sees one tool, `run_code`, with your three tools listed as Python functions. It does not call your tools
+one at a time. It writes scripts like this one, and each script continues from the variables of the one before it:
 
-A script can also run several calls at once with `asyncio.gather`.
-Each call is still a separate round trip between the sandbox and your process.
-Your tools run in your process, as they would without Code Mode. Only the script runs in the sandbox.
+```python skip="true" skip-reason="sandbox-code"
+import asyncio
+
+customers = await list_customers(plan='enterprise')
+stats_lists = await asyncio.gather(*[get_request_stats(customer_id=c['id'], days=7) for c in customers])
+missed = []
+for c, rows in zip(customers, stats_lists):
+    total = sum(r['requests'] for r in rows)
+    errors = sum(r['errors'] for r in rows)
+    if (total - errors) / total < c['target']:
+        missed.append(c)
+[c['name'] for c in missed]
+```
+
+The exact code changes from run to run. This script makes 41 tool calls and reads 1,680 rows, and it returns four
+names to the model. Your tools run in your process, as they do without Code Mode. Only the script runs in the sandbox.
+
+In three runs of this question, the agent was correct each time and used a median of 4,680 input tokens. With plain
+tool calls, the same agent was correct in one run of three and used 111,162. See
+[the full comparison](many-tool-calls.md#what-this-changes), which includes a smaller model and the limits of the test.
 
 ## Keep the sandbox's variables across conversation turns
 
@@ -95,8 +111,8 @@ Logfire keeps it for 7 days, so a conversation that resumes later than that star
 
 ## Verify it worked
 
-Run `python agent.py`, then open the [Live view](../guides/web-ui/live.md). You should see the agent run's **trace**
-(the full journey of one request, made of nested spans). Inside it, find the `run_code` tool call. It contains a
+Run `python agent.py`, then open the [Live view](../guides/web-ui/live.md). You should see the agent run's trace.
+Inside it, find the `run_code` tool call. It contains a
 `run code` span with the script the model wrote, and a span for each tool the script called.
 
 ## Troubleshooting

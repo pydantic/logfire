@@ -97,7 +97,7 @@ Your Logfire plan limits how many projects in your organization can have Agent S
 | Personal | 1 | 4 |
 | Other plans | 3 | No plan limit |
 
-To free a slot, [disable Agent Sandboxes](index.md#use-the-web-ui) in another project.
+To free a slot, [disable Agent Sandboxes](index.md#disable-agent-sandboxes) in another project.
 
 ## Coming soon
 

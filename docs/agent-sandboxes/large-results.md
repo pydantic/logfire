@@ -11,9 +11,8 @@ description: "Let your agent reduce thousands of rows from several sources to a 
 
 "Which recent deploys coincide with more exceptions?" To answer, an agent needs the error counts for every service over
 several hours, the list of deploys, and a comparison of error rates before and after each deploy. As tool results, that
-is hundreds of rows that the model must read and compare in its head. Every row takes space in the model's **context
-window** (the text the model reads on each turn), costs **tokens** (the units models read and bill by), and gives the
-model another chance to misread a number.
+is hundreds of rows that the model must read and compare in its head. Every row takes space in the model's context
+window, costs tokens, and gives the model another chance to misread a number.
 
 With Agent Sandboxes, the model writes a script that fetches the rows, compares them in Python, and returns only the
 deploys with a higher proportion of exception-bearing spans. The rows stay in the [sandbox](index.md). The model reads one line.

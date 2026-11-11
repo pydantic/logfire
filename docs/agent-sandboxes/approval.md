@@ -31,7 +31,7 @@ approach on this page.
 | Refunds correct                     | 3 of 3                            | 3 of 3                    |
 
 The model was `gpt-6.1-sol`. With approval for each tool call, the person approves 37 separate refunds, and the model must
-run again afterwards to send the emails. With a sandbox, the steps after the approval are already written. The host functions must check that each action matches the approved plan. A model instruction alone cannot enforce approval.
+run again afterwards to send the emails. With a sandbox, the steps after the approval are already written.
 
 These are three-run results on a fixed scenario, not a prediction of production accuracy or token use.
 
@@ -65,7 +65,7 @@ async def list_orders_during(start: str, end: str) -> list[dict]:
     ]
 
 
-async def request_approval(plan: dict) -> bool:
+def request_approval(plan: dict) -> bool:
     raise RuntimeError('A person answers this call. It never runs on its own.')
 
 
@@ -103,7 +103,7 @@ async def issue_refund(order_id: str, amount_cents: int, idempotency_key: str) -
     """Refund an approved order. Use the exact amount and key from the approved plan."""
 async def send_email(customer_id: str, subject: str, body: str, idempotency_key: str) -> None:
     """Send an approved email. Use the exact fields and key from the approved plan."""
-async def request_approval(plan: dict) -> bool:
+def request_approval(plan: dict) -> bool:
     """Ask a person to approve the complete plan before any refund or email.
     plan['refunds'] contains order_id, amount_cents, and idempotency_key for each refund.
     plan['emails'] contains customer_id, subject, body, and idempotency_key for each email.
@@ -112,19 +112,12 @@ async def request_approval(plan: dict) -> bool:
 '''
 ```
 
-!!! warning "This example handles one approval at a time"
-    The JSON files below demonstrate one workflow on one machine. `RUN_LOCK` serializes `run_code` calls within this process. Do not share them across users or
-    concurrent jobs. In production, store each request under its own ID. Authenticate the approver and claim the
-    decision atomically before running it. Keep the approved plan separate from model-editable state.
-
 ## Give the agent a code tool that can pause
 
 `run_code` runs the agent's script until it finishes, or until it calls a function in `NEEDS_APPROVAL`. Then it stores
 the paused script and tells the model that the script is waiting.
 
 ```python title="code_tool.py" skip-run="true" skip-reason="external-connection"
-import asyncio
-import inspect
 import json
 from pathlib import Path
 
@@ -141,8 +134,6 @@ import logfire
 logfire.configure()
 pool = logfire.agent_sandboxes()
 PENDING = Path('pending-approval.json')
-IN_PROGRESS = Path('in-progress-approval.json')
-RUN_LOCK = asyncio.Lock()
 
 
 def save_pending(snapshot):
@@ -161,39 +152,33 @@ async def run_until_approval(snapshot):
 
 
 async def run_code(code: str) -> str:
-    async with RUN_LOCK:
-        if PENDING.exists() or IN_PROGRESS.exists():
-            return 'An approval is already pending. Wait for the person to decide.'
-        async with pool.checkout(type_check=True, type_check_stubs=STUBS) as session:
-            try:
-                snapshot = await run_until_approval(await session.feed_start(code, external_lookup=TOOLS))
-            except MontyTypingError as e:
-                return f'The script did not run, because it has type errors:\n{e.display()}'
-            except MontyError as e:
-                return f'The script failed: {e}'
-            if isinstance(snapshot, MontyComplete):
-                return repr(snapshot.output)
-            save_pending(snapshot)
-        return 'The script is paused until a person reviews the saved plan. Tell the user.'
-
-
-async def answer(snapshot, outcome: dict):
-    """Answer the call the script is waiting on, with a return value or an exception."""
-    if inspect.iscoroutinefunction(TOOLS[snapshot.function_name]):
-        # The script awaited an async function, so settle that pending call.
-        pending = await snapshot.resume({'future': ...})
-        return await pending.resume({snapshot.call_id: outcome})
-    return await snapshot.resume(outcome)
+    if PENDING.exists():
+        return 'An approval is already pending. Wait for the person to decide.'
+    async with pool.checkout(type_check=True, type_check_stubs=STUBS) as session:
+        try:
+            snapshot = await run_until_approval(await session.feed_start(code, external_lookup=TOOLS))
+        except MontyTypingError as e:
+            return f'The script did not run, because it has type errors:\n{e.display()}'
+        except MontyError as e:
+            return f'The script failed: {e}'
+        if isinstance(snapshot, MontyComplete):
+            return repr(snapshot.output)
+        save_pending(snapshot)
+    return 'The script is paused until a person reviews the saved plan. Tell the user.'
 
 
 RUN_CODE_DESCRIPTION = f"""Run a Python script and return the value of its last expression.
-The script can `await` these functions, and combine several with `asyncio.gather`:
+The script can `await` the async functions below, and combine several with `asyncio.gather`:
 {STUBS}
 In this sandbox, `asyncio.gather` takes no keyword arguments, so do not pass `return_exceptions`.
-Call `request_approval` on its own, not inside `asyncio.gather`.
+`request_approval` is not async. Call it without `await`.
 If the task needs approval, write the whole task as one script. After `request_approval` returns True, the same
 script must continue and do the rest of the task. You will not be called again after the approval."""
 ```
+
+`session.feed_start()` runs the script one step at a time. Each step is a **snapshot** of the script at the point
+where it calls one of your functions. `resume_auto()` runs that function and continues. `run_until_approval` stops
+at the first call to a function in `NEEDS_APPROVAL` and does not run it.
 
 `snapshot.dump()` returns a short ID. Logfire stores the paused script under it. Store the ID with the approval
 request, for example in the row your approval UI reads.
@@ -244,23 +229,14 @@ import argparse
 import asyncio
 import json
 
-from code_tool import (
-    IN_PROGRESS,
-    PENDING,
-    answer,
-    pool,
-    run_until_approval,
-    save_pending,
-)
+from code_tool import PENDING, pool, run_until_approval, save_pending
 from pydantic_monty import MontyComplete
 from tools import make_tools
 
 
 async def main(approved: bool):
-    if IN_PROGRESS.exists():
-        raise RuntimeError('A previous attempt is unfinished. Review its effects before you retry.')
-    PENDING.rename(IN_PROGRESS)
-    request = json.loads(IN_PROGRESS.read_text(encoding='utf-8'))
+    request = json.loads(PENDING.read_text(encoding='utf-8'))
+    PENDING.unlink()  # a decision is used once
     tools = make_tools(request['plan'] if approved else None)
     if approved:
         outcome = {'return_value': True}
@@ -269,13 +245,11 @@ async def main(approved: bool):
     async with pool:
         async with pool.checkout() as session:
             snapshot = await session.load_snapshot(bytes.fromhex(request['saved']), external_lookup=tools)
-            result = await run_until_approval(await answer(snapshot, outcome))
-            if not isinstance(result, MontyComplete):
-                save_pending(result)
-    IN_PROGRESS.unlink()
+            result = await run_until_approval(await snapshot.resume(outcome))
     if isinstance(result, MontyComplete):
         print('Finished:', result.output)
     else:
+        save_pending(result)
         print('Paused again. Review the new plan in pending-approval.json.')
 
 
@@ -286,20 +260,11 @@ if __name__ == '__main__':
     asyncio.run(main(approved=args.decision == 'approve'))
 ```
 
-Review `pending-approval.json`, then run `python approve.py approve`. The script refunds the orders, emails the customers, and prints what it returned. The model is
-not called. Run `python approve.py deny` instead to decline, and `request_approval` raises `PermissionError` inside the
-script. If the script does not catch it, `approve.py` raises `MontyRuntimeError`.
+Review `pending-approval.json`, then run `python approve.py approve`. The script refunds the orders, emails the
+customers, and prints what it returned. The model is not called.
 
-If a declined plan stops with `MontyRuntimeError`, the in-progress file remains.
-Check that no refunds or emails ran, then move `in-progress-approval.json` to a separate archive filename.
-Start a new agent run for a revised plan. Do not restore or retry the declined checkpoint.
-
-If the script asks for approval again, `save_pending()` writes the new checkpoint and its plan. Review that new plan
-before you repeat the decision. A completed run removes the request. Running the command again cannot silently
-reload the original checkpoint.
-
-If a resume fails, the in-progress file remains. Review which actions completed before you recover it. A checkpoint
-can replay host calls when you load it again. Idempotency checks in the host services must prevent duplicate actions.
+Run `python approve.py deny` instead to decline. `request_approval` then raises `PermissionError` inside the script.
+If the script does not catch it, `approve.py` raises `MontyRuntimeError`, and no refund or email runs.
 
 ## Why this works in a sandbox
 
@@ -309,6 +274,22 @@ stored value, so it can wait for days, survive a deploy of your application, and
 This example does not restart the model after a decision.
 Your application can start a new agent run if it needs a revised plan or a message for the customer.
 
+## Before production
+
+This example handles one approval on one machine, with one JSON file. In your application:
+
+- **Store each request under its own ID**, for example in the table that your approval UI reads. Store the paused
+  script's ID and the plan together.
+- **Authenticate the approver, and use each decision once.** Claim the request atomically before you resume the script,
+  so two processes cannot act on the same decision.
+- **Enforce the plan in your functions.** Here, `issue_refund` and `send_email` reject any action that is not in the
+  approved plan. Keep the approved plan where the model cannot change it. An instruction to the model does not enforce
+  approval.
+- **Make actions safe to repeat.** If a resume fails part way, some actions may already be complete. A paused script
+  that you load again can repeat calls to your functions. Idempotency keys let your services skip the actions that
+  are already complete.
+- **Resume within 7 days.** Logfire deletes a paused script 7 days after it is saved.
+
 ## Verify it worked
 
 Open **AI Runtime → Agent Sandboxes → Overview** in Logfire. You should see two sessions: one that ends at the `request_approval`
@@ -316,15 +297,11 @@ call, and one that starts there and contains the `issue_refund` and `send_email`
 
 ## Troubleshooting
 
-- **A call runs twice after a resume.** If your application stops while it answers a call, the resumed script asks for
-  the same call again. Make functions that change things safe to repeat. Here, `issue_refund` takes an idempotency key.
-- **`TypeError: 'bool' object can't be awaited`** after a resume: the script awaited an async function, and you
-  answered with `snapshot.resume({'return_value': ...})` directly. Use `answer()`, which settles the awaited call.
 - **The script stops after the approval and does nothing more**: the model planned to finish in a later turn. Keep
   the last sentence of `RUN_CODE_DESCRIPTION`, which tells the model that it is not called again.
-- **The script fails after the approval, and `approve.py` then refuses to run**: some approved actions may already have
-  run. `in-progress-approval.json` holds the plan. Check which refunds and emails happened before you retry. One cause
-  is `NotImplementedError: gather() does not yet support keyword arguments`, which the type check does not catch.
+- **The script fails after the approval**: some approved actions may already be complete. Check which refunds and
+  emails happened before you start a new run. One cause is
+  `NotImplementedError: gather() does not yet support keyword arguments`, which the type check does not catch.
   `RUN_CODE_DESCRIPTION` tells the model to avoid it.
 - **A refund or email fails with `PermissionError`**: it does not exactly match the approved plan. The host rejects
   it before the action. Review a new plan instead of bypassing the check.

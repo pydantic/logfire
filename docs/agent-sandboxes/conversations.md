@@ -15,7 +15,7 @@ pastes them back into the conversation so it can read them again.
 
 With Agent Sandboxes, each conversation gets its own sandbox session. Variables that the agent's script defines in one
 turn, such as `churned`, are still defined in the next turn. The next script starts from them. The data stays in the
-sandbox, not in the model's **context window** (the text the model reads on each turn).
+sandbox, not in the model's context window.
 
 ## Before you start
 
@@ -58,22 +58,8 @@ async def list_open_tickets(customer_id: str) -> list[dict]:
 
 ## Store a session ID for each conversation
 
-Store a saved session or checkpoint ID with the conversation.
-On the next turn, check out a new session and load that ID into it.
-Save a new checkpoint after each turn, then replace the stored ID.
-The example uses `dump()` so the next turn does not race with connection cleanup.
-The IDs are opaque bytes. The dictionary stores bytes directly.
-For a text database field, encode with `.hex()` and decode with `bytes.fromhex()` before `load_session()`.
-See [session ID storage](sessions.md#resume-a-session-from-a-new-connection).
-
-This example relies on Logfire's enforced 7-day retention for saved state.
-Each turn creates a checkpoint. Replacing its ID in the dictionary does not delete the previous checkpoint.
-The closed session also consumes snapshot storage. Check the project's [snapshot quota](snapshots.md#delete-snapshots-and-check-storage) for high-volume conversations.
-Delete superseded snapshots when you need to reclaim space sooner. Keep every checkpoint that a conversation still needs.
-
-Process only one tool call at a time for each conversation. Concurrent calls can load the same old state and overwrite
-each other's saved ID. If several servers handle the conversation, serialize those calls in your application and
-store the mapping in a shared database. The dictionary below is a single-process example.
+At the end of each turn, `session.dump()` saves the session and returns an ID. Store that ID with the conversation.
+On the next turn, check out a new session and load the ID into it.
 
 ```python title="code_tool.py" skip-run="true" skip-reason="external-connection"
 from pydantic_monty import MontyError, MontyTypingError
@@ -157,6 +143,21 @@ from the first turn.
 With a shared, persistent session-ID mapping, turns do not need to come from the same process. A conversation can continue on another server, or days later, as long
 as the stored session ID is less than 7 days old.
 
+## Before production
+
+The example keeps the IDs in a dictionary in one process. In your application:
+
+- **Store the IDs in your database.** The IDs are opaque bytes. For a text field, encode with `.hex()` and decode with
+  `bytes.fromhex()` before `load_session()`. See
+  [session ID storage](sessions.md#resume-a-session-from-a-new-connection).
+- **Run one tool call at a time for each conversation.** Concurrent calls can load the same old state and overwrite
+  each other's saved ID. If several servers handle a conversation, serialize its calls.
+- **Watch snapshot storage.** Each turn saves a new checkpoint, and a new ID does not delete the previous checkpoint.
+  Logfire deletes each one after 7 days. For high-volume conversations, check the project's
+  [snapshot quota](snapshots.md#delete-snapshots-and-check-storage) and delete checkpoints that no conversation needs.
+- **Decide what a failed turn means.** If a host function or the connection fails with an error that `run_code` does
+  not catch, the stored ID does not advance. Inspect the failed run before the conversation continues.
+
 ## Verify it worked
 
 Open the [Live view](../guides/web-ui/live.md). You should see one `run code` span for each turn. The second turn's
@@ -164,17 +165,11 @@ span has `list_open_tickets` calls, but no `list_customers` call.
 
 ## Troubleshooting
 
-- **`MontyRuntimeError` with `unknown session`**: the checkpoint may have expired, been deleted, or belong to another project.
-  Check the stored ID and the API key's project. This example waits for `dump()` before it stores the ID.
-  If you store the session's own ID instead, wait for the connection to close and its save to finish before loading it.
-- **`NameError` for a variable from an earlier turn**: the stored ID is from an older turn. Check that you store
-  the checkpoint ID returned by `dump()`, including turns where the script failed. A failed load preserves the
-  previous ID so a transient error does not silently discard the conversation state.
-- **An unexpected host-function or connection error escapes `run_code`**: this example propagates errors outside `MontyError` and `MontyTypingError`.
-  Its stored ID does not advance. Stop further turns for this conversation and inspect the failed run before recovery.
-  Do not retry against the old ID as if it included the failed turn's changes.
-- **The saved state is older than 7 days**: it has expired. Explicitly remove its ID from your application's mapping,
-  then start a new session and let the agent fetch the data again. Do not reset the ID for every load failure.
+- **`MontyRuntimeError` with `unknown session`**: the checkpoint expired, was deleted, or belongs to another project.
+  Logfire keeps saved state for 7 days. Check the stored ID and the API key's project. If the state has expired, remove
+  the ID from your mapping and let the agent fetch the data again.
+- **`NameError` for a variable from an earlier turn**: the stored ID is from an older turn. Store the ID that `dump()`
+  returns after every turn, including turns where the script failed.
 
 ## Next steps
 
