@@ -1,6 +1,7 @@
 import re
 import typing_extensions
 from .constants import ATTRIBUTES_CONFIG as ATTRIBUTES_CONFIG, ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOGGING_NAME as ATTRIBUTES_LOGGING_NAME, ATTRIBUTES_LOG_LEVEL_NAME_KEY as ATTRIBUTES_LOG_LEVEL_NAME_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_PACKAGE_VERSIONS as ATTRIBUTES_PACKAGE_VERSIONS, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SCRUBBED_KEY as ATTRIBUTES_SCRUBBED_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT as MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT, RESOURCE_ATTRIBUTES_VERSION as RESOURCE_ATTRIBUTES_VERSION
+from .json_encoder import logfire_json_dumps as logfire_json_dumps
 from .stack_info import STACK_INFO_KEYS as STACK_INFO_KEYS
 from .utils import ReadableSpanDict as ReadableSpanDict, truncate_string as truncate_string
 from _typeshed import Incomplete
@@ -62,7 +63,7 @@ class SpanScrubber:
     and hold and mutate state about the span being scrubbed, specifically the scrubbed notes.
     """
     scrubbed: list[ScrubbedNote]
-    did_scrub: bool
+    scrub_count: int
     def __init__(self, parent: Scrubber) -> None: ...
     def scrub_span(self, span: ReadableSpanDict): ...
     def scrub_log(self, log: LogRecord) -> LogRecord: ...

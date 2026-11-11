@@ -1,5 +1,38 @@
 # Release Notes
 
+## [v5.6.0] (2026-11-11)
+
+* **Breaking Change:** `logfire.agent_sandboxes()` returns a plain `pydantic_monty.AsyncMontyRemote` instead of the `AgentSandboxPool` wrapper, so it can be passed to code typed against Monty such as `CodeMode(monty_sandbox=logfire.agent_sandboxes)` by @dmontagu in [#2747](https://github.com/pydantic/logfire/pull/2747) and [#2756](https://github.com/pydantic/logfire/pull/2756)
+* `logfire[agent-sandboxes]` requires `pydantic-monty-client>=1.6.0`, which sends the first request without waiting for the `Configure` reply and raises typed connection and configuration errors
+* Log structlog critical events at the fatal level by @Fahmid-Arman in [#2719](https://github.com/pydantic/logfire/pull/2719)
+* Make the enum JSON schema type independent of the member set order by @Yasser-Ameur in [#2759](https://github.com/pydantic/logfire/pull/2759)
+* Reset the current OpenAI Agents trace and span when a generator is closed by @devjoinedthechat in [#2698](https://github.com/pydantic/logfire/pull/2698)
+* Record NumPy scalar attributes as numbers, not their repr by @Sonica-B in [#2757](https://github.com/pydantic/logfire/pull/2757)
+* Preserve integer precision in logged DataFrames by @Jinyong-Li in [#2753](https://github.com/pydantic/logfire/pull/2753)
+* Return success from the shim shutdown by @shayanxcyber in [#2740](https://github.com/pydantic/logfire/pull/2740)
+* Defer span scrubbing for batch exporters by @alexmojaki in [#2761](https://github.com/pydantic/logfire/pull/2761)
+* Keep disk retries with the process that queued them by @ska2704 in [#2762](https://github.com/pydantic/logfire/pull/2762)
+* Hash SpanLevel by name and warn that hashing it is discouraged by @chrikrah in [#2768](https://github.com/pydantic/logfire/pull/2768)
+* Format non-string DataFrame indices in the console exporter by @anubhavlal07 in [#2765](https://github.com/pydantic/logfire/pull/2765)
+* Map stdlib logging levels above CRITICAL to fatal by @anubhavlal07 in [#2766](https://github.com/pydantic/logfire/pull/2766)
+* Skip Azure content filter chunks in OpenAI streams by @anubhavlal07 in [#2763](https://github.com/pydantic/logfire/pull/2763)
+* Report LogfireLoggingHandler failures through handleError instead of raising by @JayPokale in [#2703](https://github.com/pydantic/logfire/pull/2703)
+* fix: preserve exceptions in instrumented async context managers by @peterolkhov in [#2767](https://github.com/pydantic/logfire/pull/2767)
+* Speed up scrubbing with fast path for simple types by @alexmojaki in [#2773](https://github.com/pydantic/logfire/pull/2773)
+* Scrub decoded JSON containers without a regex prefilter by @alexmojaki in [#2774](https://github.com/pydantic/logfire/pull/2774)
+* Skip f-string inspection for spans and logs that logfire opens itself by @ska2704 in [#2775](https://github.com/pydantic/logfire/pull/2775)
+* Return the connection from the logfire-api shim's instrument_sqlite3 and instrument_mysql by @anubhavlal07 in [#2777](https://github.com/pydantic/logfire/pull/2777)
+
+## New Contributors
+* @Yasser-Ameur made their first contribution in [#2759](https://github.com/pydantic/logfire/pull/2759)
+* @Sonica-B made their first contribution in [#2757](https://github.com/pydantic/logfire/pull/2757)
+* @Jinyong-Li made their first contribution in [#2753](https://github.com/pydantic/logfire/pull/2753)
+* @shayanxcyber made their first contribution in [#2740](https://github.com/pydantic/logfire/pull/2740)
+* @ska2704 made their first contribution in [#2762](https://github.com/pydantic/logfire/pull/2762)
+* @anubhavlal07 made their first contribution in [#2765](https://github.com/pydantic/logfire/pull/2765)
+* @JayPokale made their first contribution in [#2703](https://github.com/pydantic/logfire/pull/2703)
+* @peterolkhov made their first contribution in [#2767](https://github.com/pydantic/logfire/pull/2767)
+
 ## [v5.5.0] (2026-11-06)
 
 * Drop all incoming context when distributed tracing is disabled by @dmontagu in [#2679](https://github.com/pydantic/logfire/pull/2679)
@@ -1494,3 +1527,4 @@ First release from new repo!
 [v5.3.0]: https://github.com/pydantic/logfire/compare/v6.0.0b8...v5.3.0
 [v5.4.0]: https://github.com/pydantic/logfire/compare/v5.3.0...v5.4.0
 [v5.5.0]: https://github.com/pydantic/logfire/compare/v5.4.0...v5.5.0
+[v5.6.0]: https://github.com/pydantic/logfire/compare/v5.5.0...v5.6.0
