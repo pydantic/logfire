@@ -1116,3 +1116,24 @@ def test_preserve_non_sensitive_url_values(exporter: TestExporter, field: str, v
 
     [span] = exporter.exported_spans_as_dict()
     assert span['attributes'][field] == value
+
+
+@pytest.mark.parametrize('url_field', ['http.url', 'url.full'])
+def test_http_message_omits_empty_query_values(exporter: TestExporter, url_field: str):
+    url = 'https://example.test/items?flag&empty='
+    attributes = {url_field: url, 'http.route': '/items'}
+    if url_field == 'http.url':
+        attributes.update({'http.method': 'GET', 'http.target': '/items'})
+    else:
+        attributes.update({'http.request.method': 'GET', 'url.path': '/items', 'url.query': 'flag&empty='})
+
+    with get_tracer(__name__).start_as_current_span('GET', kind=SpanKind.CLIENT, attributes=attributes):
+        pass
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes'][url_field] == url
+    message = span['attributes']['logfire.msg']
+    assert message.endswith('/items')
+    assert '?' not in message
+    if url_field == 'url.full':
+        assert span['attributes']['url.query'] == 'flag&empty='
