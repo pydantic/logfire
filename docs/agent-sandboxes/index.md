@@ -5,9 +5,9 @@ description: "What Logfire Agent Sandboxes are, when to use them, and how they f
 
 # Agent Sandboxes
 
-!!! info "Experimental"
-    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
-    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 Let your AI agents write and run Python without running that code on your own servers.
 Logfire Agent Sandboxes run each piece of code in an isolated, remote Python environment hosted by Logfire, and send the
@@ -44,8 +44,8 @@ With Agent Sandboxes, Logfire runs the sandboxes for you:
 ## How it works
 
 Your application opens a connection to the Agent Sandboxes server in your Logfire [data
-region](../reference/data-regions.md), using a **WebSocket** (a long-lived, two-way connection between your application
-and the server).
+region](../reference/data-regions.md), using **gRPC** over one long-lived HTTP/2 connection between your application
+and the server.
 Each time you check out a session, the server gives you a dedicated sandbox.
 You send code to it, and it sends back the result, printed output, and any calls to your host functions.
 When the session ends, the sandbox is released.
@@ -53,7 +53,7 @@ When the session ends, the sandbox is released.
 ```
 your application                         Logfire Agent Sandboxes
 ────────────────                         ───────────────────────
-checkout()      ── WebSocket connection ──▶  dedicated sandbox
+checkout()      ─────── gRPC stream ──────▶  dedicated sandbox
 feed_run(code)  ───────── code ─────────▶    runs the code
 host function   ◀──── function call ─────    calls get_weather('London')
                 ───── function result ───▶
@@ -104,13 +104,12 @@ agent](any-framework.md). For what scripts can run, see [What sandbox code can d
 
 ### Use the web UI
 
-Open **AI Optimization** > **Agent Sandboxes** in your project.
-If you do not see it, open the invitation link you received first.
+Open **AI Runtime** > **Agent Sandboxes** in your project.
+If you do not see it, [turn on the page](python.md#enable-agent-sandboxes) first.
 For a new project, choose **Use Agent Sandboxes** during [product onboarding](python.md#enable-agent-sandboxes).
 If the project shows **Enable Agent Sandboxes**, ask a project manager to enable it.
 Sandboxes start on first use and shut down when idle.
 The project counts toward your organization's enabled-project limit until you disable it.
-The available tabs depend on the features enabled for your organization.
 
 To disable Agent Sandboxes for a project, open **Setup** and select **Disable Agent Sandboxes** at the bottom of the page.
 You need permission to manage the project.
@@ -123,5 +122,5 @@ Keys created on the setup page expire after [30 days](python.md#get-an-execution
 - [Run code in the Workbench](workbench.md): try Python without installing a local client.
 - [Manage saved snapshots](snapshots.md): find saved Python state, open it in the Workbench, and free storage.
 - [Manage profiles](profiles.md): create and select a named profile for a session.
-- [Share files between sessions](volumes.md): mount persistent files in a profile when volume access is enabled.
+- [Share files between sessions](volumes.md): mount persistent files in a profile.
 - [Inspect sandbox runs](inspect.md): read recorded source and follow related calls in Live view.

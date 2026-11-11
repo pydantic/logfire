@@ -5,20 +5,20 @@ description: "Create, select, rename, and delete project profiles for Agent Sand
 
 # Manage sandbox profiles
 
-!!! info "Experimental"
-    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
-    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 Give sandbox sessions a reusable configuration that you can select when you run code.
 A profile belongs to one project and has its own ID.
-If your organization has volume access, a profile also controls which [shared files](volumes.md) its sessions can use.
+A profile also controls which [shared files](volumes.md) its sessions can use.
 A **session** is a group of related interactions, such as successive Workbench code runs.
 
 ## Before you start
 
 You need [access to Agent Sandboxes](index.md) and permission to manage profiles in the project.
 Members with read-only access can inspect the list but cannot change it.
-Open **AI Optimization** > **Agent Sandboxes** > **Profiles**.
+Open **AI Runtime** > **Agent Sandboxes** > **Profiles**.
 
 ## Create a profile
 

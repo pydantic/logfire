@@ -5,9 +5,9 @@ description: "Let your agent reduce thousands of rows from several sources to a 
 
 # Work with large tool results without filling the context window
 
-!!! info "Experimental"
-    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
-    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 "Which recent deploys coincide with more exceptions?" To answer, an agent needs the error counts for every service over
 several hours, the list of deploys, and a comparison of error rates before and after each deploy. As tool results, that

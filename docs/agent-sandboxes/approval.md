@@ -5,9 +5,9 @@ description: "Let an agent plan a batch of sensitive actions in one script, ask 
 
 # Pause agent code for human approval, and resume it later
 
-!!! info "Experimental"
-    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
-    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 An incident charged 25 customers for 37 orders that then failed. A support agent can find the orders, refund each one,
 and email each customer. But a person must approve the refunds first, and that person may answer in five minutes or
@@ -311,7 +311,7 @@ Your application can start a new agent run if it needs a revised plan or a messa
 
 ## Verify it worked
 
-Open **AI Optimization → Agent Sandboxes → Overview** in Logfire. You should see two sessions: one that ends at the `request_approval`
+Open **AI Runtime → Agent Sandboxes → Overview** in Logfire. You should see two sessions: one that ends at the `request_approval`
 call, and one that starts there and contains the `issue_refund` and `send_email` calls.
 
 ## Troubleshooting

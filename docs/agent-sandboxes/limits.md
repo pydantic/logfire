@@ -5,9 +5,9 @@ description: "The Python features, standard library modules, and resource limits
 
 # What sandbox code can and cannot do
 
-!!! info "Experimental"
-    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
-    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 Check here before you give an agent a task, so you know whether its script can do it. Agent Sandboxes run
 [Pydantic Monty](https://pydantic.dev/docs/monty/), a Python interpreter that supports the parts of Python agents use
@@ -34,7 +34,7 @@ uses an unsupported feature after it sees the error.
 
 ## Standard library
 
-Available: `asyncio`, `base64`, `bisect`, `collections`, `copy`, `csv`, `dataclasses`, `datetime`, `decimal`, `functools`,
+Available: `asyncio`, `base64`, `bisect`, `collections`, `copy`, `csv`, `dataclasses`, `datetime`, `decimal`, `fnmatch`, `functools`,
 `hashlib`, `itertools`, `json`, `math`, `random`, `re`, `time`, `typing`, and some others.
 
 Not available, among others: `enum`, `logging`, `statistics`, `uuid`, `io`, `sqlite3`, `subprocess`,
@@ -47,7 +47,7 @@ function in your application that uses the package, and pass that function to th
 
 Sandbox code cannot open network connections, read environment variables, or read arbitrary server files.
 It can call functions and modules supplied by your application, and access directories that you explicitly expose.
-Hosted [volume mounts](volumes.md) can also expose files stored by Logfire when volume access is enabled.
+Hosted [volume mounts](volumes.md) can also expose files stored by Logfire.
 
 ## Resource limits
 
@@ -71,7 +71,7 @@ The byte and snapshot-count limits apply separately to each project.
 Pending uploads and objects awaiting cleanup also count until cleanup finishes.
 Use `checkout(ephemeral=True)` for sessions that nothing will load again. See [Persist, resume, and fork sessions](sessions.md).
 
-Hosted [volumes](volumes.md) keep files between sessions when volume access is enabled for your organization.
+Hosted [volumes](volumes.md) keep files between sessions.
 They are separate from Python snapshots. Restoring a snapshot does not roll back volume files.
 
 ## Understand tracing and storage
@@ -88,12 +88,22 @@ Use [ephemeral sessions](sessions.md#opt-out-of-storage-with-ephemeral-sessions)
 Ephemeral sessions do not turn off hosted telemetry.
 Do not send data that your application must keep entirely on its own machines.
 
+## Plan limits
+
+Your Logfire plan limits how many projects in your organization can have Agent Sandboxes enabled at once:
+
+| Plan | Projects with Agent Sandboxes enabled | Concurrent sessions |
+| --- | --- | --- |
+| Personal | 1 | 4 |
+| Other plans | 3 | No plan limit |
+
+To free a slot, [disable Agent Sandboxes](index.md#use-the-web-ui) in another project.
+
 ## Coming soon
 
 These are not documented yet:
 
-- Pricing and plan limits
-- Which data regions run sandboxes
+- Pricing
 - Running sandboxes in a self-hosted Logfire deployment
 - Connecting sandboxes to Model Context Protocol (MCP) servers
 

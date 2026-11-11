@@ -5,9 +5,9 @@ description: "Let your agent write one short script that calls your tools and do
 
 # Answer questions that need dozens of tool calls
 
-!!! info "Experimental"
-    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
-    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 "Which enterprise customers missed their availability target this week, and do they have an open support ticket?" To
 answer, an agent fetches 40 customers, then a week of request counts for each one, then tickets. With plain tool calls,

@@ -5,9 +5,9 @@ description: "Expose a Python module to agent code with type stubs, and reject c
 
 # Give an agent a whole API without a tool for every endpoint
 
-!!! info "Experimental"
-    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
-    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 An internal API with dozens of operations can require dozens of tool definitions. The model reads those definitions
 on each turn. A script can combine several calls without another model request between them.

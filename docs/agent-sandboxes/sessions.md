@@ -5,9 +5,9 @@ description: "Pause and resume sandbox sessions, take snapshots as checkpoints, 
 
 # Persist, resume, and fork sessions
 
-!!! info "Experimental"
-    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
-    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 Pick up an agent's sandbox where it left off, from a new connection or a different process.
 Python client sessions are **persistent** by default: Logfire saves each session's state under a session ID, and you can
@@ -23,8 +23,8 @@ Use [Snapshots](snapshots.md) to find saved state and manage its storage in the 
 
 A session's saved state is the memory of its Python interpreter: the global variables, functions, and classes that
 earlier `feed_run()` calls defined.
-A restored session also keeps the script name, resource limits, and type-checking settings it was created with.
-The options you pass to `checkout()` for the restoring session don't override them.
+A restored session keeps the script name and type-checking settings it was created with.
+The resource limits of the restoring `checkout()` cap the restored limits.
 
 A session runs in an interpreter, not a virtual machine, so there are no processes, open network connections, or root
 filesystem to save.
@@ -67,14 +67,12 @@ They count toward your project's snapshot storage quota.
 
 ## Resume a session from a new connection
 
-Read `session.session_id` while the session is open.
-Treat it as opaque bytes. Use hexadecimal encoding if your storage requires text.
+Before the session closes, call `await session.dump()`. It saves the state and returns an ID.
+Treat the ID as opaque bytes. Use hexadecimal encoding if your storage requires text.
 Decode that text back to bytes before calling `load_session()`.
 Store it wherever your application keeps the agent's conversation state, such as a database row.
 
-To resume, check out a new session and pass the ID to `load_session()`.
-The example below stores the ID that `dump()` returns, not `session.session_id`.
-Both IDs work with `load_session()`, but the `dump()` ID is ready as soon as `dump()` returns:
+To resume, check out a new session and pass the ID to `load_session()`:
 
 ```python skip-run="true" skip-reason="external-connection"
 import asyncio
@@ -106,21 +104,21 @@ async def main():
 asyncio.run(main())
 ```
 
-This example takes an explicit checkpoint with `dump()` before closing.
-So the immediate load does not race with the server's save on connection close.
+The ID from `dump()` is ready as soon as `dump()` returns.
+So the immediate load in this example does not race with the server's save on connection close.
 
 The resumed session gets a **new** session ID.
 `load_session()` copies the saved state into the new session and never reattaches to the old one, so the record you
 loaded is unchanged.
-To resume again later, store `session.session_id` from the new session.
+To resume again later, call `dump()` in the new session and store the new ID.
 
 Loading a session ID gives you the state as of that session's last save.
 That is the state when the connection closed, unless the server stopped without saving, for example after a crash.
 If you need a guaranteed restore point, take a snapshot.
 
 The server saves the session as the connection closes, which takes a moment.
-If you call `load_session()` with `session.session_id` before the save completes, it raises a `MontyRuntimeError` whose
-message contains `unknown session`.
+If you load the closed session's own ID before that save completes, `load_session()` raises a `MontyRuntimeError`
+whose message contains `unknown session`. The ID from `dump()` does not have this problem.
 
 ## Take a snapshot as a checkpoint
 
@@ -215,7 +213,7 @@ async def main():
 asyncio.run(main())
 ```
 
-An ephemeral session has no session ID (`session.session_id` is `None`).
+An ephemeral session has no session ID.
 The hosted Agent Sandboxes service rejects `dump()` with a `MontyRuntimeError` whose message contains
 `this session is ephemeral, so it cannot be dumped`.
 The server discards the interpreter state when the connection closes or the server is redeployed.

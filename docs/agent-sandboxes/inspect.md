@@ -5,9 +5,9 @@ description: "Use the overview, recorded source, and Live view to investigate sa
 
 # Inspect sandbox runs
 
-!!! info "Experimental"
-    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
-    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 Find a sandbox session, read the Python it ran, and follow related activity when a result is slow or fails.
 A **session** is a group of related interactions, which can include several code runs and calls.
@@ -19,7 +19,7 @@ You need [access to Agent Sandboxes](index.md) and permission to read the projec
 
 ## Find a session
 
-1. Open **AI Optimization** > **Agent Sandboxes** > **Overview**.
+1. Open **AI Runtime** > **Agent Sandboxes** > **Overview**.
 2. Choose a time range that includes your run. Check any active environment filters.
 3. Read the summary cards, then find the session under **Sessions**.
 4. Check its code-run count, calls, and failures. A missing duration shows **Not reported**, rather than zero.

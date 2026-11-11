@@ -5,9 +5,9 @@ description: "Let a Pydantic AI agent call its tools from Python scripts that ru
 
 # Use Agent Sandboxes with Pydantic AI
 
-!!! info "Experimental"
-    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
-    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 Let a [Pydantic AI](https://pydantic.dev/docs/ai/overview/) agent answer a question with one Python script instead of many tool calls.
 You keep your tools as they are. Pydantic AI's **Code Mode** (a capability that turns an agent's tools into functions
@@ -29,7 +29,7 @@ records every run in Logfire. You add one argument.
 - Install Logfire with the `agent-sandboxes` extra, and Pydantic AI Harness with the `codemode` extra:
 
 ```bash
-pip install 'logfire[agent-sandboxes]>=5.4.0' 'pydantic-ai-harness[codemode]>=0.62.0'
+pip install 'logfire[agent-sandboxes]>=5.5.0' 'pydantic-ai-harness[codemode]>=0.67.0'
 ```
 
 ## Run the agent's code in Agent Sandboxes

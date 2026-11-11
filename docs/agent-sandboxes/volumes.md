@@ -5,8 +5,9 @@ description: "Create a hosted volume and mount it in a profile so sandbox sessio
 
 # Share files between sessions
 
-!!! info "Experimental"
-    Hosted volumes are being rolled out. If you do not see the **Volumes** tab, volumes are not yet available to you.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 Keep files between sandbox sessions and share them with sessions that use the same profile, a named session configuration.
 A **volume** stores files separately from Python memory.
@@ -14,12 +15,12 @@ A **mount** gives a profile access to a volume at a path such as `/data`.
 
 ## Before you start
 
-You need [access to Agent Sandboxes](index.md), volume access, and permission to manage the project's volumes and profiles.
+You need [access to Agent Sandboxes](index.md) and permission to manage the project's volumes and profiles.
 [Create a profile](profiles.md) such as `Analysis` before you add a mount.
 
 ## Create and mount a volume
 
-1. Open **AI Optimization** > **Agent Sandboxes** > **Volumes**.
+1. Open **AI Runtime** > **Agent Sandboxes** > **Volumes**.
 2. Select **Create volume**, enter a **Volume name** such as `Shared reports`, then select **Create volume**.
 3. Open **Profiles** and select **Mounts** beside `Analysis`.
 4. Choose `Shared reports` under **Volume** and enter `/data` under **Mount path**.
@@ -85,7 +86,7 @@ It should return `'shared volume bytes'`.
 
 ## Troubleshooting
 
-- **Volumes or Mounts is missing.** Hosted volumes are not yet available in your Logfire region.
+- **Volumes or Mounts is missing.** Check that you use Logfire Cloud. Self-hosted Logfire deployments do not include hosted volumes.
 - **A write fails.** Check that the session uses the correct profile and that the mount allows **Read and write** access.
 - **A file is missing.** Check the mount path. An unmounted or deleted volume is unavailable to the session.
 

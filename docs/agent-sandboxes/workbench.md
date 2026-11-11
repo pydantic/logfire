@@ -5,9 +5,9 @@ description: "Run Python interactively, check types, and save or restore sandbox
 
 # Run code in the Workbench
 
-!!! info "Experimental"
-    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
-    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 Try Python in your project's sandbox and read the result without installing a client.
 Each submission runs in the same session until you reset it or load another saved session.
@@ -16,7 +16,7 @@ A **session** is a group of related interactions, which here can share Python va
 ## Before you start
 
 You need [access to Agent Sandboxes](index.md) and permission to run code in the project.
-Open **AI Optimization** > **Agent Sandboxes** > **Workbench**.
+Open **AI Runtime** > **Agent Sandboxes** > **Workbench**.
 If the project shows **Enable Agent Sandboxes**, ask a project manager to enable it first.
 If you want a named profile, [create one](profiles.md) before you start the session.
 Check [what sandbox code can do](limits.md) if your code uses imports or features beyond the examples below.
@@ -50,7 +50,7 @@ print('Saved total')
 
 The first run prints `Saved total`. The second returns `42`.
 After a successful run, the Workbench clears the editor for the next command.
-The transcript shows the newest run first, with its execution time, result, printed output, or Python error.
+The transcript shows the newest run first, with its result, printed output, or Python error.
 
 <img src="/logfire/images/guide/agent-sandboxes/workbench-history.webp" alt="Workbench with Type check, Load session, Save session, a Saved here marker, and total returning 42" width="1160" height="485" loading="lazy" />
 

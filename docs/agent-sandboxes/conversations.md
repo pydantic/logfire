@@ -5,9 +5,9 @@ description: "Give each conversation its own sandbox session, so data an agent l
 
 # Keep an agent's work across conversation turns
 
-!!! info "Experimental"
-    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
-    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 A person asks your data agent "which customers churned last quarter?", then "which of those had open tickets?", then
 "show me the three biggest". If each turn starts from nothing, the agent fetches the same customers three times, or
@@ -166,7 +166,7 @@ span has `list_open_tickets` calls, but no `list_customers` call.
 
 - **`MontyRuntimeError` with `unknown session`**: the checkpoint may have expired, been deleted, or belong to another project.
   Check the stored ID and the API key's project. This example waits for `dump()` before it stores the ID.
-  If you store `session.session_id` instead, wait for the connection to close and its save to finish before loading it.
+  If you store the session's own ID instead, wait for the connection to close and its save to finish before loading it.
 - **`NameError` for a variable from an earlier turn**: the stored ID is from an older turn. Check that you store
   the checkpoint ID returned by `dump()`, including turns where the script failed. A failed load preserves the
   previous ID so a transient error does not silently discard the conversation state.

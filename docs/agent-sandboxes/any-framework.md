@@ -5,9 +5,9 @@ description: "Give an agent built with any framework, or none, one run_code tool
 
 # Add a code tool to any agent
 
-!!! info "Experimental"
-    Agent Sandboxes is experimental and available to selected Logfire organizations. Email
-    [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
+!!! info "Beta"
+    Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
+    [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
 Give your agent one tool, `run_code`, that takes a Python script, runs it in an [Agent Sandbox](index.md), and returns
 the result. The script can call the functions you choose. This works with any agent framework that supports tool
