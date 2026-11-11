@@ -282,6 +282,10 @@ took.
   Use the server origin, such as `https://logfire-us.pydantic.dev`, without a path, query, or fragment.
 - **`MontyConfigurationError: session refused: ...`**: the server rejected the session's settings.
   The message names the setting, such as a `profile` ID that does not exist in the project.
+- **`MontyDisconnectError` during a call**: the session's stream ended before the call finished.
+  If the server ended it, `cause` says why, such as `idle_timeout`, `session_timeout`, `turn_timeout`, or `capacity`.
+  The call may have run, so do not replay it automatically.
+  Check out a new session, and restore saved state with `load_session()` if you need it.
 - **`LogfireConfigError` about the URL path**: remove the old `/monty-ws/` path from the `url` you pass.
 - **`RuntimeError: logfire.agent_sandboxes() requires the pydantic-monty-client package`**: install Logfire with the
   extra: `pip install 'logfire[agent-sandboxes]'`.
