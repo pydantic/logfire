@@ -559,7 +559,11 @@ def exception_log_record_attributes(exception: BaseException, level_num: int) ->
         ),
     }
     if ValidationError is not None and isinstance(exception, ValidationError):
-        attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = exception.json(include_url=False)
+        try:
+            attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = exception.json(include_url=False)
+        except TypeError:  # pragma: no cover
+            # pydantic v1
+            attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = exception.json()
     # This matches `ExceptionCallbackHelper.create_issue`: error level and no parent span in this process.
     parent = get_current_span().get_span_context()
     if level_num >= LEVEL_NUMBERS['error'] and OPEN_SPANS.get(_open_spans_key(parent)) is None:
