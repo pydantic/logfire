@@ -42,7 +42,8 @@ asyncio.run(main())
 ```
 
 This prints `Tokyo`. The script made three tool calls, and the model reads one word.
-[Run code from Python](python.md) shows how to set this up.
+[Run code from Python](python.md) shows how to set this up. For Node.js, see
+[Run code from TypeScript](typescript.md).
 
 ## What this changes
 
@@ -124,6 +125,7 @@ You authenticate with a [non-personal project API key](python.md#get-an-executio
 | --- | --- |
 | Answer a question that needs dozens of tool calls | [Call tools from one script](many-tool-calls.md) |
 | Reduce thousands of rows before the model reads them | [Work with large tool results](large-results.md) |
+| Read many documents, then do exact logic on the results | [Call a fast model from agent code](fast-model.md) |
 | Give an agent a whole API, checked before it runs | [Expose a typed module](typed-api.md) |
 | Stop at a sensitive action, and continue hours later | [Pause for approval](approval.md) |
 | Keep loaded data for follow-up questions | [Keep a session across turns](conversations.md) |
@@ -140,7 +142,7 @@ You authenticate with a [non-personal project API key](python.md#get-an-executio
 
 ## Next steps
 
-Start with [Run code from Python](python.md) to run your first script.
+Start with [Run code from Python](python.md) or [Run code from TypeScript](typescript.md) to run your first script.
 To connect your agent, see [Use Agent Sandboxes with Pydantic AI](pydantic-ai.md) or [Add a code tool to any
 agent](any-framework.md). Then pick a guide from [Choose a workflow](#choose-a-workflow).
 
