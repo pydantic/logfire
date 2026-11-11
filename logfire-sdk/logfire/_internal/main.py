@@ -833,9 +833,14 @@ class Logfire:
 
             advanced = self._config.advanced
             # `exception_callback` works on a span, so a log with an exception stays a span when it is set.
-            if advanced.logs_as_log_records and not (exc_info and advanced.exception_callback):
-                self._emit_log_record(level_num, msg, otlp_attributes, start_time, exc_info)
-                return
+            if advanced.logs_as_log_records:
+                if exc_info is True:
+                    exc_info = sys.exc_info()
+                if isinstance(exc_info, tuple):
+                    exc_info = exc_info[1]
+                if not (isinstance(exc_info, BaseException) and advanced.exception_callback):
+                    self._emit_log_record(level_num, msg, otlp_attributes, start_time, exc_info)
+                    return
 
             span = self._logs_tracer.start_span(
                 msg_template,
@@ -866,12 +871,8 @@ class Logfire:
         msg: str,
         attributes: dict[str, otel_types.AttributeValue],
         timestamp: int,
-        exc_info: ExcInfo,
+        exc_info: BaseException | bool | None,
     ) -> None:
-        if exc_info is True:
-            exc_info = sys.exc_info()
-        if isinstance(exc_info, tuple):
-            exc_info = exc_info[1]
         if isinstance(exc_info, BaseException):
             # `Logger.emit(exception=...)` needs opentelemetry-sdk 1.40, so set the semconv attributes directly.
             attributes['exception.type'] = type(exc_info).__qualname__

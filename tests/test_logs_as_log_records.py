@@ -129,3 +129,21 @@ def test_exception_callback_keeps_exception_logs_as_spans(
     [span] = exporter.exported_spans_as_dict()
     assert span['name'] == 'failed'
     assert 'events' not in span
+
+
+def ignore_exception(helper: ExceptionCallbackHelper) -> None:
+    pass
+
+
+def test_exception_callback_without_active_exception(
+    exporter: TestExporter, logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]
+) -> None:
+    config_kwargs['advanced'] = replace(
+        config_kwargs['advanced'], logs_as_log_records=True, exception_callback=ignore_exception
+    )
+    logfire.configure(**config_kwargs)
+
+    logfire.info('no exception', _exc_info=True)
+
+    assert [log['body'] for log in logs_exporter.exported_logs_as_dicts()] == ['no exception']
+    assert exporter.exported_spans_as_dict() == []
