@@ -338,7 +338,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.name': {},
                             'gen_ai.tool.call.id': {},
-                            'gen_ai.tool.call.arguments': {'type': 'object'},
+                            'gen_ai.tool.call.arguments': {},
                             'gen_ai.tool.call.result': {},
                         },
                     },
@@ -367,7 +367,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.name': {},
                             'gen_ai.tool.call.id': {},
-                            'gen_ai.tool.call.arguments': {'type': 'object'},
+                            'gen_ai.tool.call.arguments': {},
                         },
                     },
                 },
@@ -397,7 +397,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.name': {},
                             'gen_ai.tool.call.id': {},
-                            'gen_ai.tool.call.arguments': {'type': 'object'},
+                            'gen_ai.tool.call.arguments': {},
                             'error.type': {},
                         },
                     },
@@ -470,7 +470,7 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.name': {},
                             'gen_ai.tool.call.id': {},
-                            'gen_ai.tool.call.arguments': {'type': 'object'},
+                            'gen_ai.tool.call.arguments': {},
                         },
                     },
                 },
@@ -682,9 +682,11 @@ async def test_basic_conversation_cassette(
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-6',
-                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
-                    'gen_ai.output.messages': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': '4'}]}],
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is 2+2?'}]}],
+                    'gen_ai.system_instructions': ({'type': 'text', 'content': 'Be helpful'},),
+                    'gen_ai.output.messages': ({'role': 'assistant', 'parts': ({'type': 'text', 'content': '4'},)},),
+                    'gen_ai.input.messages': (
+                        {'role': 'user', 'parts': ({'type': 'text', 'content': 'What is 2+2?'},)},
+                    ),
                     'gen_ai.usage.partial.input_tokens': 9344,
                     'gen_ai.request.model': 'claude-sonnet-4-6',
                     'gen_ai.usage.partial.output_tokens': 1,
@@ -699,20 +701,20 @@ async def test_basic_conversation_cassette(
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.system': {},
+                            'gen_ai.input.messages': {},
+                            'gen_ai.system_instructions': {},
+                            'gen_ai.output.messages': {},
                             'gen_ai.response.model': {},
-                            'gen_ai.system_instructions': {'type': 'array'},
-                            'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.request.model': {},
-                            'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
                             'gen_ai.usage.partial.input_tokens': {},
                             'gen_ai.usage.partial.output_tokens': {},
                             'gen_ai.usage.partial.cache_read.input_tokens': {},
                             'gen_ai.usage.partial.cache_creation.input_tokens': {},
-                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'gen_ai.response.finish_reasons': {},
                         },
                     },
-                    'gen_ai.response.finish_reasons': ['end_turn'],
+                    'gen_ai.response.finish_reasons': ('end_turn',),
                     'logfire.span_type': 'span',
                 },
             },
@@ -729,8 +731,10 @@ async def test_basic_conversation_cassette(
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is 2+2?'}]}],
-                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
+                    'gen_ai.input.messages': (
+                        {'role': 'user', 'parts': ({'type': 'text', 'content': 'What is 2+2?'},)},
+                    ),
+                    'gen_ai.system_instructions': ({'type': 'text', 'content': 'Be helpful'},),
                     'logfire.msg_template': 'invoke_agent',
                     'logfire.msg': 'invoke_agent',
                     'logfire.span_type': 'span',
@@ -750,8 +754,8 @@ async def test_basic_conversation_cassette(
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.system': {},
-                            'gen_ai.input.messages': {'type': 'array'},
-                            'gen_ai.system_instructions': {'type': 'array'},
+                            'gen_ai.input.messages': {},
+                            'gen_ai.system_instructions': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.cache_read.input_tokens': {},
@@ -816,14 +820,17 @@ async def test_tool_use_conversation_cassette(
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
-                    'gen_ai.input.messages': [
-                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'List files in the current directory'}]}
-                    ],
-                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
-                    'gen_ai.output.messages': [
+                    'gen_ai.input.messages': (
+                        {
+                            'role': 'user',
+                            'parts': ({'type': 'text', 'content': 'List files in the current directory'},),
+                        },
+                    ),
+                    'gen_ai.system_instructions': ({'type': 'text', 'content': 'Be helpful'},),
+                    'gen_ai.output.messages': (
                         {
                             'role': 'assistant',
-                            'parts': [
+                            'parts': (
                                 {'type': 'reasoning', 'content': 'Let me list the files in the current directory.'},
                                 {
                                     'type': 'tool_call',
@@ -831,9 +838,9 @@ async def test_tool_use_conversation_cassette(
                                     'name': 'Bash',
                                     'arguments': {'command': 'ls', 'description': 'List files in current directory'},
                                 },
-                            ],
-                        }
-                    ],
+                            ),
+                        },
+                    ),
                     'gen_ai.response.model': 'claude-sonnet-4-6',
                     'gen_ai.usage.partial.input_tokens': 9343,
                     'gen_ai.request.model': 'claude-sonnet-4-6',
@@ -849,9 +856,9 @@ async def test_tool_use_conversation_cassette(
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.system': {},
-                            'gen_ai.input.messages': {'type': 'array'},
-                            'gen_ai.system_instructions': {'type': 'array'},
-                            'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.input.messages': {},
+                            'gen_ai.system_instructions': {},
+                            'gen_ai.output.messages': {},
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
                             'gen_ai.response.id': {},
@@ -917,8 +924,8 @@ uv.lock\
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.name': {},
                             'gen_ai.tool.call.id': {},
-                            'gen_ai.tool.call.arguments': {'type': 'object'},
-                            'gen_ai.tool.call.result': {'type': 'object'},
+                            'gen_ai.tool.call.arguments': {},
+                            'gen_ai.tool.call.result': {},
                         },
                     },
                 },
@@ -937,11 +944,11 @@ uv.lock\
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-6',
-                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
-                    'gen_ai.output.messages': [
+                    'gen_ai.system_instructions': ({'type': 'text', 'content': 'Be helpful'},),
+                    'gen_ai.output.messages': (
                         {
                             'role': 'assistant',
-                            'parts': [
+                            'parts': (
                                 {
                                     'type': 'text',
                                     'content': """\
@@ -974,18 +981,18 @@ Here are the files and directories in the current directory:
 
 There are **9 files** and **12 directories** in the current directory. It looks like a Python project (given `pyproject.toml`, `uv.lock`) — likely the **Logfire** SDK or library based on the `logfire/` and `logfire-api/` directories.\
 """,
-                                }
-                            ],
-                        }
-                    ],
-                    'gen_ai.input.messages': [
+                                },
+                            ),
+                        },
+                    ),
+                    'gen_ai.input.messages': (
                         {
                             'role': 'user',
-                            'parts': [{'type': 'text', 'content': 'List files in the current directory'}],
+                            'parts': ({'type': 'text', 'content': 'List files in the current directory'},),
                         },
                         {
                             'role': 'assistant',
-                            'parts': [
+                            'parts': (
                                 {'type': 'reasoning', 'content': 'Let me list the files in the current directory.'},
                                 {
                                     'type': 'tool_call',
@@ -993,11 +1000,11 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                                     'name': 'Bash',
                                     'arguments': {'command': 'ls', 'description': 'List files in current directory'},
                                 },
-                            ],
+                            ),
                         },
                         {
                             'role': 'tool',
-                            'parts': [
+                            'parts': (
                                 {
                                     'type': 'tool_call_response',
                                     'id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
@@ -1032,10 +1039,10 @@ uv.lock\
                                         'isImage': False,
                                         'noOutputExpected': False,
                                     },
-                                }
-                            ],
+                                },
+                            ),
                         },
-                    ],
+                    ),
                     'gen_ai.usage.partial.input_tokens': 9529,
                     'gen_ai.request.model': 'claude-sonnet-4-6',
                     'gen_ai.usage.partial.output_tokens': 1,
@@ -1050,20 +1057,20 @@ uv.lock\
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.system': {},
+                            'gen_ai.input.messages': {},
+                            'gen_ai.system_instructions': {},
+                            'gen_ai.output.messages': {},
                             'gen_ai.response.model': {},
-                            'gen_ai.system_instructions': {'type': 'array'},
-                            'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.request.model': {},
-                            'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.response.id': {},
                             'gen_ai.usage.partial.input_tokens': {},
                             'gen_ai.usage.partial.output_tokens': {},
                             'gen_ai.usage.partial.cache_read.input_tokens': {},
                             'gen_ai.usage.partial.cache_creation.input_tokens': {},
-                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'gen_ai.response.finish_reasons': {},
                         },
                     },
-                    'gen_ai.response.finish_reasons': ['end_turn'],
+                    'gen_ai.response.finish_reasons': ('end_turn',),
                     'logfire.span_type': 'span',
                 },
             },
@@ -1080,13 +1087,13 @@ uv.lock\
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
-                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
-                    'gen_ai.input.messages': [
+                    'gen_ai.system_instructions': ({'type': 'text', 'content': 'Be helpful'},),
+                    'gen_ai.input.messages': (
                         {
                             'role': 'user',
-                            'parts': [{'type': 'text', 'content': 'List files in the current directory'}],
-                        }
-                    ],
+                            'parts': ({'type': 'text', 'content': 'List files in the current directory'},),
+                        },
+                    ),
                     'gen_ai.usage.input_tokens': 18872,
                     'gen_ai.usage.output_tokens': 415,
                     'gen_ai.usage.cache_read.input_tokens': 17653,
@@ -1103,8 +1110,8 @@ uv.lock\
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.system': {},
-                            'gen_ai.system_instructions': {'type': 'array'},
-                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.input.messages': {},
+                            'gen_ai.system_instructions': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.cache_read.input_tokens': {},

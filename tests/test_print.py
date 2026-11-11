@@ -91,10 +91,10 @@ after uninstrument
                     'code.lineno': 123,
                     'y': y,
                     'x': x,
-                    'lst': lst,
+                    'lst': (4, 5),
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'y': {}, 'x': {}, 'lst': {'type': 'array'}},
+                        'properties': {'y': {}, 'x': {}, 'lst': {}},
                     },
                 },
             },
@@ -114,14 +114,10 @@ after uninstrument
                     'code.lineno': 123,
                     'z': z,
                     'x': x,
-                    'logfire.print_args': lst + [y] + lst2,
+                    'logfire.print_args': (4, 5, 2, 6, 7),
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {
-                            'z': {},
-                            'x': {},
-                            'logfire.print_args': {'type': 'array'},
-                        },
+                        'properties': {'z': {}, 'x': {}, 'logfire.print_args': {}},
                     },
                 },
             },
@@ -211,7 +207,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Using `l
                     'code.filepath': 'test_print.py',
                     'code.function': 'test_executing_failure',
                     'code.lineno': 123,
-                    'logfire.print_args': [3, []],
+                    'logfire.print_args': (3, ()),
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -286,7 +282,7 @@ Secret hunter2 my api key
                     'code.filepath': 'test_print.py',
                     'code.function': 'test_instrument_print_no_inspect_args',
                     'code.lineno': 123,
-                    'logfire.print_args': [x] + lst + [y] + lst2 + [z],
+                    'logfire.print_args': (1, 4, 5, 2, 6, 7, 3),
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {'logfire.print_args': {'type': 'array', 'x-python-datatype': 'tuple'}},
@@ -307,7 +303,7 @@ Secret hunter2 my api key
                     'code.filepath': 'test_print.py',
                     'code.function': 'test_instrument_print_no_inspect_args',
                     'code.lineno': 123,
-                    'logfire.print_args': ['Secret', 'hunter2', "[Scrubbed due to 'api key']"],
+                    'logfire.print_args': ('Secret', 'hunter2', "[Scrubbed due to 'api key']"),
                     'logfire.scrubbed': [
                         {'path': ['message', 'logfire.print_args'], 'matched_substring': 'api key'},
                         {'path': ['attributes', 'logfire.print_args', 2], 'matched_substring': 'api key'},

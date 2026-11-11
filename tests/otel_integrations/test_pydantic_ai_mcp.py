@@ -1,6 +1,7 @@
 # No from __future__ import annotations here
 # because it breaks `ctx: Context` being recognised by `@fastmcp.tool()` properly.
 
+import json
 import os
 from importlib import import_module
 from typing import TYPE_CHECKING
@@ -65,7 +66,10 @@ Why did the sock break up with the shoe?
 Because it found something more "sole-ful!"\
 """)
 
-    assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+    # Structured attribute values come back as tuples. Convert them to lists so that the snapshot
+    # is the same for every version of `mcp` that this test runs with.
+    spans = json.loads(json.dumps(simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True))))
+    assert spans == snapshot(
         [
             {
                 'name': 'MCP request: initialize',
@@ -218,7 +222,7 @@ Because it found something more "sole-ful!"\
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'operation.cost': 0.0002625,
                     'gen_ai.response.id': 'chatcmpl-CB4UKZ6j6biTXLnSyuCu15BPxKHT8',
-                    'gen_ai.response.finish_reasons': ('tool_call',),
+                    'gen_ai.response.finish_reasons': ['tool_call'],
                 },
             },
             {
@@ -268,7 +272,7 @@ Because it found something more "sole-ful!"\
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'operation.cost': 0.00023,
                     'gen_ai.response.id': 'chatcmpl-CB4UMeutkPM3KsHUypidgbENPki0v',
-                    'gen_ai.response.finish_reasons': ('stop',),
+                    'gen_ai.response.finish_reasons': ['stop'],
                 },
             },
             {
@@ -704,7 +708,7 @@ Because it found something more "sole-ful!"\
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'operation.cost': 0.0004275,
                     'gen_ai.response.id': 'chatcmpl-CB4UNlU07HRfa3dlbjeCwGhyUxFxV',
-                    'gen_ai.response.finish_reasons': ('stop',),
+                    'gen_ai.response.finish_reasons': ['stop'],
                 },
             },
             {

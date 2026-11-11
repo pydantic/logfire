@@ -465,8 +465,8 @@ def test_instrument_snowflake_captures_parameters_when_enabled(exporter: TestExp
     conn.cursor().executemany('insert into my_table values (%s)', [('person@example.com',)])
 
     spans = exporter.exported_spans_as_dict()
-    assert spans[0]['attributes']['params'] == '["person@example.com"]'
-    assert spans[1]['attributes']['seqparams'] == '[["person@example.com"]]'
+    assert spans[0]['attributes']['params'] == ('person@example.com',)
+    assert spans[1]['attributes']['seqparams'] == (('person@example.com',),)
 
 
 def test_connection_capture_parameters_survives_module_instrumentation(exporter: TestExporter) -> None:
@@ -478,8 +478,8 @@ def test_connection_capture_parameters_survives_module_instrumentation(exporter:
     conn.cursor().executemany('insert into my_table values (%s)', [('person@example.com',)])
 
     spans = exporter.exported_spans_as_dict()
-    assert spans[0]['attributes']['params'] == '["person@example.com"]'
-    assert spans[1]['attributes']['seqparams'] == '[["person@example.com"]]'
+    assert spans[0]['attributes']['params'] == ('person@example.com',)
+    assert spans[1]['attributes']['seqparams'] == (('person@example.com',),)
 
     FakeConnection().cursor().execute('select %s', ('other@example.com',))
     assert 'params' not in exporter.exported_spans_as_dict()[-1]['attributes']
@@ -661,7 +661,7 @@ def test_connector_5_query_keywords(
     assert calls == [query_kwargs]
     [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
     assert span['attributes']['command'] == 'select %s'
-    assert span['attributes'][parameter_attribute] == ([1] if method == 'execute' else [[1]])
+    assert span['attributes'][parameter_attribute] == ((1,) if method == 'execute' else ((1,),))
 
 
 def test_interleaved_cursor_results(exporter: TestExporter) -> None:

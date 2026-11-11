@@ -21,6 +21,7 @@ import pytest
 from attrs import define, field as attrs_field
 from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
+from opentelemetry import trace
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, RootModel, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
@@ -30,8 +31,10 @@ from sqlalchemy.sql.schema import ForeignKey
 from sqlmodel import SQLModel
 
 import logfire
+from logfire._internal.json_encoder import logfire_json_dumps
 from logfire._internal.json_formatter import json_args_value_formatter
 from logfire._internal.json_schema import create_json_schema
+from logfire._internal.main import set_json_text_attribute_on_raw_span
 from logfire.testing import TestExporter
 
 if sys.version_info >= (3, 11):  # pragma: no branch
@@ -937,8 +940,16 @@ def test_log_non_scalar_args(
     assert s.attributes, "Span doesn't have attributes"
     assert isinstance(s.attributes['logfire.msg'], str)
     assert s.attributes['logfire.msg'].startswith(f'test message var={value_repr}')
-    assert s.attributes['var'] == value_json
-    assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema  # type: ignore
+    var = s.attributes['var']
+    if not isinstance(var, str):
+        # Plain dicts and lists are sent as structured OTLP values instead of JSON strings.
+        var = json.dumps(var, separators=(',', ':'), ensure_ascii=False)
+    assert var == value_json
+    var_schema = json.loads(s.attributes['logfire.json_schema'])['properties']['var']  # type: ignore
+    if not isinstance(s.attributes['var'], str) and json_schema in ({'type': 'object'}, {'type': 'array'}):  # type: ignore
+        # The backend doesn't need a schema to know that a structured value is an object or an array.
+        json_schema = {}
+    assert var_schema == json_schema
 
 
 def test_attrs_schema_respects_repr() -> None:
@@ -969,7 +980,7 @@ def test_attrs_falsey_callable_repr(exporter: TestExporter) -> None:
     logfire.info('test message {var=}', var=value)
     attributes = exporter.exported_spans[0].attributes
     assert attributes is not None
-    assert json.loads(attributes['var']) == {'value': {'t': 2}}  # type: ignore
+    assert attributes['var'] == {'value': {'t': 2}}
     assert json.loads(attributes['logfire.json_schema'])['properties']['var'] == {  # type: ignore
         'type': 'object',
         'title': 'CallableReprAttrs',
@@ -1025,9 +1036,8 @@ def test_log_dataframe_labels_match_data(
     assert attributes is not None
     value = attributes['frame']
     schema = attributes['logfire.json_schema']
-    assert isinstance(value, str)
     assert isinstance(schema, str)
-    assert json.loads(value) == [[row * column_count + column for column in column_positions] for row in row_positions]
+    assert value == tuple(tuple(row * column_count + column for column in column_positions) for row in row_positions)
     assert json.loads(schema)['properties']['frame'] == {
         'type': 'array',
         'x-python-datatype': 'DataFrame',
@@ -1066,11 +1076,8 @@ def test_log_dataframe_with_unlimited_and_odd_display_limits(
 
     attributes = exporter.exported_spans[0].attributes
     assert attributes is not None
-    assert isinstance(attributes['frame'], str)
     assert isinstance(attributes['logfire.json_schema'], str)
-    assert json.loads(attributes['frame']) == [
-        [row * 5 + column for column in column_positions] for row in row_positions
-    ]
+    assert attributes['frame'] == tuple(tuple(row * 5 + column for column in column_positions) for row in row_positions)
     assert json.loads(attributes['logfire.json_schema'])['properties']['frame'] == {
         'type': 'array',
         'x-python-datatype': 'DataFrame',
@@ -1106,10 +1113,12 @@ def test_log_dataframe_odd_display_limits_formatting(
 
     attributes = exporter.exported_spans[0].attributes
     assert attributes is not None
-    assert isinstance(attributes['frame'], str)
+    frame_value = attributes['frame']
+    assert isinstance(frame_value, tuple)
     assert isinstance(attributes['logfire.json_schema'], str)
     formatted = json_args_value_formatter(
-        json.loads(attributes['frame']), schema=json.loads(attributes['logfire.json_schema'])['properties']['frame']
+        json.loads(json.dumps(frame_value)),
+        schema=json.loads(attributes['logfire.json_schema'])['properties']['frame'],
     )
     cells = [[cell.strip() for cell in line.split('|')] for line in formatted.splitlines() if '|' in line]
     assert cells == [
@@ -1168,7 +1177,7 @@ def test_log_numpy_scalar_args(exporter: TestExporter) -> None:
     assert attributes['sub'] == 3
     assert attributes['ok'] is True
     assert attributes['nan'] == 'nan'
-    assert attributes['nested'] == '{"n":7,"f1":0.5,"ok":false,"sub":3}'
+    assert attributes['nested'] == {'n': 7, 'f1': 0.5, 'ok': False, 'sub': 3}
     assert attributes['logfire.json_schema'] == IsJson(
         {
             'type': 'object',
@@ -1179,7 +1188,7 @@ def test_log_numpy_scalar_args(exporter: TestExporter) -> None:
                 'sub': {},
                 'ok': {},
                 'nan': {},
-                'nested': {'type': 'object'},
+                'nested': {},
             },
         }
     )
@@ -1193,7 +1202,7 @@ def test_log_numpy_timedelta_args(exporter: TestExporter) -> None:
     assert attributes
     td_repr = repr(numpy.timedelta64(5, 's'))
     assert attributes['td'] == json.dumps(td_repr)
-    assert attributes['nested'] == json.dumps({'td': td_repr}, separators=(',', ':'))
+    assert attributes['nested'] == {'td': td_repr}
     unknown = {'type': 'object', 'x-python-datatype': 'unknown'}
     assert attributes['logfire.json_schema'] == IsJson(
         {
@@ -1265,8 +1274,8 @@ def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
                     'code.filepath': 'test_json_args.py',
                     'code.function': 'test_log_sqlalchemy_class',
                     'code.lineno': 123,
-                    'var': '{"models2":"<deferred>","id":1,"name":"test name"}',
-                    'var2': '{"model":"<deferred>","id":1,"model_id":1}',
+                    'var': {'models2': '<deferred>', 'id': 1, 'name': 'test name'},
+                    'var2': {'model': '<deferred>', 'id': 1, 'model_id': 1},
                     'logfire.json_schema': '{"type":"object","properties":{"var":{"type":"object","title":"SAModel","x-python-datatype":"sqlalchemy"},"var2":{"type":"object","title":"SAModel2","x-python-datatype":"sqlalchemy"}}}',
                 },
             }
@@ -1321,8 +1330,13 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
             'code.lineno': 123,
             'code.function': 'test_log_non_scalar_complex_args',
             'a': 1,
-            'complex_list': '["a",1,{"x":"x","y":"2023-01-01T00:00:00"},{"t":10},{"p":20}]',
-            'complex_dict': '{"k1":"v1","model":{"x":"x","y":"2023-01-01T00:00:00"},"dataclass":{"t":10},"pydantic_dataclass":{"p":20}}',
+            'complex_list': ('a', 1, {'x': 'x', 'y': '2023-01-01T00:00:00'}, {'t': 10}, {'p': 20}),
+            'complex_dict': {
+                'k1': 'v1',
+                'model': {'x': 'x', 'y': '2023-01-01T00:00:00'},
+                'dataclass': {'t': 10},
+                'pydantic_dataclass': {'p': 20},
+            },
         }
     )
 
@@ -1372,37 +1386,19 @@ def test_log_dicts_and_lists(exporter: TestExporter) -> None:
                     'code.filepath': 'test_json_args.py',
                     'code.function': 'test_log_dicts_and_lists',
                     'code.lineno': 123,
-                    'list_of_lists': '[[1,2],[3,4]]',
-                    'list_of_dicts': '[{"a":1},{"b":2}]',
-                    'dict_of_lists': '{"a":[1,2],"b":[3,4]}',
-                    'dict_of_dicts': '{"a":{"a":1},"b":{"b":2}}',
+                    'list_of_lists': ((1, 2), (3, 4)),
+                    'list_of_dicts': ({'a': 1}, {'b': 2}),
+                    'dict_of_lists': {'a': (1, 2), 'b': (3, 4)},
+                    'dict_of_dicts': {'a': {'a': 1}, 'b': {'b': 2}},
                     'complex_list': '[1,2,{"a":{"b":{"c":["d"]}}},{"b":[2]},true,false,null,"a","b",[1,2]]',
-                    'complex_dict': '{"a":1,"b":{"c":{"d":[1,2]}}}',
-                    'list_of_objects': '[{"values":[1,2]},{"values":{"a":1,"b":2}},{"values":[{"a":1,"b":2},{"c":3,"d":4}]}]',
-                    'logfire.json_schema': IsJson(
-                        {
-                            'type': 'object',
-                            'properties': {
-                                'list_of_lists': {'type': 'array'},
-                                'list_of_dicts': {'type': 'array'},
-                                'dict_of_lists': {'type': 'object'},
-                                'dict_of_dicts': {'type': 'object'},
-                                'complex_list': {'type': 'array'},
-                                'complex_dict': {'type': 'object'},
-                                'list_of_objects': {
-                                    'type': 'array',
-                                    'prefixItems': [
-                                        {'type': 'object', 'title': 'Model', 'x-python-datatype': 'PydanticModel'},
-                                        {'type': 'object', 'title': 'Dataclass', 'x-python-datatype': 'dataclass'},
-                                        {
-                                            'type': 'object',
-                                            'title': 'PydanticDataclass',
-                                            'x-python-datatype': 'dataclass',
-                                        },
-                                    ],
-                                },
-                            },
-                        }
+                    'complex_dict': {'a': 1, 'b': {'c': {'d': (1, 2)}}},
+                    'list_of_objects': (
+                        {'values': (1, 2)},
+                        {'values': {'a': 1, 'b': 2}},
+                        {'values': ({'a': 1, 'b': 2}, {'c': 3, 'd': 4})},
+                    ),
+                    'logfire.json_schema': (
+                        '{"type":"object","properties":{"list_of_lists":{},"list_of_dicts":{},"dict_of_lists":{},"dict_of_dicts":{},"complex_list":{"type":"array"},"complex_dict":{},"list_of_objects":{"type":"array","prefixItems":[{"type":"object","title":"Model","x-python-datatype":"PydanticModel"},{"type":"object","title":"Dataclass","x-python-datatype":"dataclass"},{"type":"object","title":"PydanticDataclass","x-python-datatype":"dataclass"}]}}}'
                     ),
                 },
             }
@@ -1448,98 +1444,16 @@ def test_recursive_objects(exporter: TestExporter) -> None:
                     'code.filepath': 'test_json_args.py',
                     'code.function': 'test_recursive_objects',
                     'code.lineno': 123,
-                    'dct': IsJson(
+                    'dct': (
                         # The reason this doesn't see a circular reference sooner
                         # is that BaseModel.model_dump() returns copies of the objects.
-                        {'model': {'lst': [{'dct': {'model': {'lst': [{'dct': {'model': '<circular reference>'}}]}}}]}}
+                        {'model': {'lst': ({'dct': {'model': {'lst': ({'dct': '<circular reference>'},)}}},)}}
                     ),
-                    'data': IsJson(
-                        {'dct': {'model': {'lst': [{'dct': {'model': {'lst': ['<circular reference>']}}}]}}}
-                    ),
-                    'lst': IsJson(
-                        [{'dct': {'model': {'lst': [{'dct': {'model': {'lst': ['<circular reference>']}}}]}}}]
-                    ),
-                    'model': IsJson(
-                        {'lst': [{'dct': {'model': {'lst': [{'dct': {'model': '<circular reference>'}}]}}}]}
-                    ),
-                    'logfire.json_schema': IsJson(
-                        {
-                            'type': 'object',
-                            'properties': {
-                                'dct': {
-                                    'type': 'object',
-                                    'properties': {
-                                        'model': {
-                                            'type': 'object',
-                                            'title': 'Model',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'lst': {
-                                                    'type': 'array',
-                                                    'items': {
-                                                        'type': 'object',
-                                                        'title': 'Dataclass',
-                                                        'x-python-datatype': 'dataclass',
-                                                    },
-                                                }
-                                            },
-                                        },
-                                    },
-                                },
-                                'data': {
-                                    'type': 'object',
-                                    'title': 'Dataclass',
-                                    'x-python-datatype': 'dataclass',
-                                    'properties': {
-                                        'dct': {
-                                            'type': 'object',
-                                            'properties': {
-                                                'model': {
-                                                    'type': 'object',
-                                                    'title': 'Model',
-                                                    'x-python-datatype': 'PydanticModel',
-                                                },
-                                            },
-                                        }
-                                    },
-                                },
-                                'lst': {
-                                    'type': 'array',
-                                    'items': {
-                                        'type': 'object',
-                                        'title': 'Dataclass',
-                                        'x-python-datatype': 'dataclass',
-                                        'properties': {
-                                            'dct': {
-                                                'type': 'object',
-                                                'properties': {
-                                                    'model': {
-                                                        'type': 'object',
-                                                        'title': 'Model',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
-                                                },
-                                            }
-                                        },
-                                    },
-                                },
-                                'model': {
-                                    'type': 'object',
-                                    'title': 'Model',
-                                    'x-python-datatype': 'PydanticModel',
-                                    'properties': {
-                                        'lst': {
-                                            'type': 'array',
-                                            'items': {
-                                                'type': 'object',
-                                                'title': 'Dataclass',
-                                                'x-python-datatype': 'dataclass',
-                                            },
-                                        }
-                                    },
-                                },
-                            },
-                        }
+                    'data': ({'dct': {'model': {'lst': ({'dct': {'model': {'lst': ('<circular reference>',)}}},)}}}),
+                    'lst': (({'dct': {'model': {'lst': ({'dct': {'model': {'lst': ('<circular reference>',)}}},)}}},)),
+                    'model': ({'lst': ({'dct': {'model': {'lst': ({'dct': {'model': '<circular reference>'}},)}}},)}),
+                    'logfire.json_schema': (
+                        '{"type":"object","properties":{"dct":{"type":"object","properties":{"model":{"type":"object","title":"Model","x-python-datatype":"PydanticModel","properties":{"lst":{"type":"array","items":{"type":"object","title":"Dataclass","x-python-datatype":"dataclass"}}}}}},"data":{"type":"object","title":"Dataclass","x-python-datatype":"dataclass","properties":{"dct":{"type":"object","properties":{"model":{"type":"object","title":"Model","x-python-datatype":"PydanticModel"}}}}},"lst":{"type":"array","items":{"type":"object","title":"Dataclass","x-python-datatype":"dataclass","properties":{"dct":{"type":"object","properties":{"model":{"type":"object","title":"Model","x-python-datatype":"PydanticModel"}}}}}},"model":{"type":"object","title":"Model","x-python-datatype":"PydanticModel","properties":{"lst":{"type":"array","items":{"type":"object","title":"Dataclass","x-python-datatype":"dataclass"}}}}}}'
                     ),
                 },
             }
@@ -1573,7 +1487,7 @@ def test_repeated_objects(exporter: TestExporter) -> None:
                     'code.filepath': 'test_json_args.py',
                     'code.function': 'test_repeated_objects',
                     'code.lineno': 123,
-                    'm': '{"x":[{"x":1},{"x":1}]}',
+                    'm': {'x': ({'x': 1}, {'x': 1})},
                     'logfire.json_schema': '{"type":"object","properties":{"m":{"type":"object","title":"Model","x-python-datatype":"dataclass","properties":{"x":{"type":"array","items":{"type":"object","title":"Model","x-python-datatype":"dataclass"}}}}}}',
                 },
             }
@@ -1653,7 +1567,60 @@ def test_numpy_array_truncation(exporter: TestExporter):
                     'code.filepath': 'test_json_args.py',
                     'code.function': 'test_numpy_array_truncation',
                     'code.lineno': 123,
-                    'm': IsJson(truncated),
+                    'm': (
+                        (
+                            (
+                                (0, 1, 2, 3, 4, 6, 7, 8, 9, 10),
+                                (11, 12, 13, 14, 15, 17, 18, 19, 20, 21),
+                                (22, 23, 24, 25, 26, 28, 29, 30, 31, 32),
+                            ),
+                            (
+                                (33, 34, 35, 36, 37, 39, 40, 41, 42, 43),
+                                (44, 45, 46, 47, 48, 50, 51, 52, 53, 54),
+                                (55, 56, 57, 58, 59, 61, 62, 63, 64, 65),
+                            ),
+                            (
+                                (66, 67, 68, 69, 70, 72, 73, 74, 75, 76),
+                                (77, 78, 79, 80, 81, 83, 84, 85, 86, 87),
+                                (88, 89, 90, 91, 92, 94, 95, 96, 97, 98),
+                            ),
+                            (
+                                (99, 100, 101, 102, 103, 105, 106, 107, 108, 109),
+                                (110, 111, 112, 113, 114, 116, 117, 118, 119, 120),
+                                (121, 122, 123, 124, 125, 127, 128, 129, 130, 131),
+                            ),
+                            (
+                                (132, 133, 134, 135, 136, 138, 139, 140, 141, 142),
+                                (143, 144, 145, 146, 147, 149, 150, 151, 152, 153),
+                                (154, 155, 156, 157, 158, 160, 161, 162, 163, 164),
+                            ),
+                            (
+                                (264, 265, 266, 267, 268, 270, 271, 272, 273, 274),
+                                (275, 276, 277, 278, 279, 281, 282, 283, 284, 285),
+                                (286, 287, 288, 289, 290, 292, 293, 294, 295, 296),
+                            ),
+                            (
+                                (297, 298, 299, 300, 301, 303, 304, 305, 306, 307),
+                                (308, 309, 310, 311, 312, 314, 315, 316, 317, 318),
+                                (319, 320, 321, 322, 323, 325, 326, 327, 328, 329),
+                            ),
+                            (
+                                (330, 331, 332, 333, 334, 336, 337, 338, 339, 340),
+                                (341, 342, 343, 344, 345, 347, 348, 349, 350, 351),
+                                (352, 353, 354, 355, 356, 358, 359, 360, 361, 362),
+                            ),
+                            (
+                                (363, 364, 365, 366, 367, 369, 370, 371, 372, 373),
+                                (374, 375, 376, 377, 378, 380, 381, 382, 383, 384),
+                                (385, 386, 387, 388, 389, 391, 392, 393, 394, 395),
+                            ),
+                            (
+                                (396, 397, 398, 399, 400, 402, 403, 404, 405, 406),
+                                (407, 408, 409, 410, 411, 413, 414, 415, 416, 417),
+                                (418, 419, 420, 421, 422, 424, 425, 426, 427, 428),
+                            ),
+                        )
+                    ),
                     'logfire.json_schema': '{"type":"object","properties":{"m":{"type":"array","x-python-datatype":"ndarray","x-shape":[13,3,11],"x-dtype":"int64"}}}',
                 },
             }
@@ -1719,7 +1686,7 @@ def test_to_dict(exporter: TestExporter):
                     'code.filepath': 'test_json_args.py',
                     'code.function': 'test_to_dict',
                     'code.lineno': 123,
-                    'foo': '{"x":1}',
+                    'foo': {'x': 1},
                     'logfire.json_schema': '{"type":"object","properties":{"foo":{"type":"object","x-python-datatype":"unknown"}}}',
                 },
             }
@@ -2050,3 +2017,54 @@ def test_homogeneous_dict_formatting(capsys: pytest.CaptureFixture[str]):
             '│   }',
         ]
     )
+
+
+def test_structured_attribute_values(exporter: TestExporter) -> None:
+    logfire.info(
+        'hi',
+        plain_dict={'a': 1, 'b': [1, 'x', None]},
+        plain_list=[1, 'x', {'a': None}],
+        list_with_none=[1, None, 2],
+        nested_list_with_none={'a': [None]},
+        big_int=[2**64],
+        empty_key={'': 1},
+        dates=[datetime(2026, 1, 1)],
+    )
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_json_args.py',
+                    'code.function': 'test_structured_attribute_values',
+                    'code.lineno': 123,
+                    'plain_dict': '{"a":1,"b":[1,"x",null]}',
+                    'plain_list': (1, 'x', {'a': None}),
+                    'list_with_none': '[1,null,2]',
+                    'nested_list_with_none': '{"a":[null]}',
+                    'big_int': '[18446744073709551616]',
+                    'empty_key': '{"":1}',
+                    'dates': ('2026-01-01T00:00:00',),
+                    'logfire.json_schema': '{"type":"object","properties":{"plain_dict":{"type":"object"},"plain_list":{},"list_with_none":{"type":"array"},"nested_list_with_none":{"type":"object"},"big_int":{"type":"array"},"empty_key":{"type":"object"},"dates":{"type":"array","items":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_logfire_json_dumps_non_str_keys() -> None:
+    assert logfire_json_dumps({(1, 2): 3}) == '{"(1, 2)":3}'
+
+
+def test_set_json_text_attribute_on_non_recording_span() -> None:
+    span = trace.NonRecordingSpan(trace.INVALID_SPAN_CONTEXT)
+    set_json_text_attribute_on_raw_span(span, 'body', '{"a": 1}')  # type: ignore[arg-type]
