@@ -47,7 +47,7 @@ def _gateway_cost(response: Any) -> float | None:
     candidates = response.candidates or ()
     content = candidates[0].content if candidates else None
     parts = (content.parts if content else None) or ()
-    if parts and (cost := gateway_reported_cost(parts[-1].part_metadata or {})) is not None:
+    if parts and (cost := gateway_reported_cost(getattr(parts[-1], 'part_metadata', None) or {})) is not None:
         return cost
     http_response = response.sdk_http_response
     return gateway_header_cost(http_response.headers if http_response else None)
