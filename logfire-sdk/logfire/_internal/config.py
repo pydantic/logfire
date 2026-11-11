@@ -74,7 +74,7 @@ from rich.prompt import Confirm, Prompt
 from typing_extensions import Self, assert_type
 
 from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
-from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
+from logfire._internal.baggage import DirectBaggageAttributesLogProcessorWrapper, DirectBaggageAttributesSpanProcessor
 from logfire._internal.collect_system_info import collect_package_info
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
@@ -665,7 +665,7 @@ def configure(
             filtered `logfire.span` context manager.
             If set to `None`, uses the `LOGFIRE_MIN_LEVEL` environment variable; if that is not set, there is no minimum level.
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
-        add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
+        add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans and log records as attributes.
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
         variables: Options related to managed variables.
@@ -1632,9 +1632,11 @@ class LogfireConfig(_LogfireConfigData):
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
                 multi_log_processor.add_log_record_processor(processor)
-            root_log_processor = CheckSuppressInstrumentationLogProcessorWrapper(
-                MainLogProcessorWrapper(multi_log_processor, self.scrubber)
-            )
+            main_log_processor: LogRecordProcessor = MainLogProcessorWrapper(multi_log_processor, self.scrubber)
+            if self.add_baggage_to_attributes:
+                # Baggage goes in before scrubbing, as it does for spans.
+                main_log_processor = DirectBaggageAttributesLogProcessorWrapper(main_log_processor)
+            root_log_processor = CheckSuppressInstrumentationLogProcessorWrapper(main_log_processor)
             logger_provider = SDKLoggerProvider(resource)
             logger_provider.add_log_record_processor(root_log_processor)
 

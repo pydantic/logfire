@@ -6,8 +6,11 @@ from contextlib import contextmanager
 from typing import Any
 
 from opentelemetry import baggage, context
+from opentelemetry.attributes import BoundedAttributes
+from opentelemetry.sdk._logs import ReadWriteLogRecord
 from opentelemetry.sdk.trace import Span, SpanProcessor
 
+from .exporters.wrapper import WrapperLogProcessor
 from .json_encoder import logfire_json_dumps
 
 __all__ = (
@@ -112,3 +115,17 @@ def baggage_attributes(parent_context: context.Context | None, existing_attrs: M
 class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
         span.set_attributes(baggage_attributes(parent_context, span.attributes or {}))
+
+
+class DirectBaggageAttributesLogProcessorWrapper(WrapperLogProcessor):
+    """Add baggage to log records as attributes before the wrapped processor sees them."""
+
+    def on_emit(self, log_record: ReadWriteLogRecord) -> None:
+        record = log_record.log_record
+        # `Logger.emit` runs processors synchronously, so the current context is the caller's
+        # when the record carries none.
+        parent_context = record.context or context.get_current()
+        existing_attrs = record.attributes or {}
+        if attrs := baggage_attributes(parent_context, existing_attrs):
+            record.attributes = BoundedAttributes(attributes={**existing_attrs, **attrs})
+        super().on_emit(log_record)

@@ -4,9 +4,10 @@ import pytest
 from inline_snapshot import snapshot
 from inline_snapshot.extra import warns
 from opentelemetry import baggage as otel_baggage, context
+from opentelemetry._logs import get_logger
 
 import logfire
-from logfire.testing import TestExporter
+from logfire.testing import TestExporter, TestLogExporter
 
 
 def test_baggage_sets_and_restores():
@@ -257,3 +258,44 @@ def test_raw_baggage_non_string_attribute(config_kwargs: dict[str, Any], exporte
             }
         ]
     )
+
+
+def test_baggage_goes_to_log_record_attributes(config_kwargs: dict[str, Any], logs_exporter: TestLogExporter) -> None:
+    config_kwargs['add_baggage_to_attributes'] = True
+    logfire.configure(**config_kwargs)
+    logger = get_logger('test')
+    with logfire.set_baggage(a='1', b='2'):
+        logger.emit(body='first', attributes={'b': '2'})
+        logger.emit(body='second', attributes={'b': '3'})
+    logger.emit(body='outside')
+
+    assert [(log['body'], log['attributes']) for log in logs_exporter.exported_logs_as_dicts()] == snapshot(
+        [('first', {'b': '2', 'a': '1'}), ('second', {'b': '3', 'a': '1', 'baggage_conflict.b': '2'}), ('outside', {})]
+    )
+
+
+def test_baggage_on_log_records_is_scrubbed(config_kwargs: dict[str, Any], logs_exporter: TestLogExporter) -> None:
+    config_kwargs['add_baggage_to_attributes'] = True
+    logfire.configure(**config_kwargs)
+    with logfire.set_baggage(password='hunter2'):
+        get_logger('test').emit(body='hi')
+
+    [log] = logs_exporter.exported_logs_as_dicts()
+    assert log['attributes'] == snapshot(
+        {
+            'password': "[Scrubbed due to 'password']",
+            'logfire.scrubbed': '[{"path": ["attributes", "password"], "matched_substring": "password"}]',
+        }
+    )
+
+
+def test_baggage_not_added_to_log_records_when_disabled(
+    config_kwargs: dict[str, Any], logs_exporter: TestLogExporter
+) -> None:
+    config_kwargs['add_baggage_to_attributes'] = False
+    logfire.configure(**config_kwargs)
+    with logfire.set_baggage(a='1'):
+        get_logger('test').emit(body='hi')
+
+    [log] = logs_exporter.exported_logs_as_dicts()
+    assert log['attributes'] == {}
