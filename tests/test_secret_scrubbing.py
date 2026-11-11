@@ -46,9 +46,9 @@ def test_span_processor_group_flushes_after_failure():
     assert flushed == [False, True]
 
 
-@pytest.mark.parametrize('include_attributes', [False, True])
-def test_log_scrubbing_thread_depends_on_console_attributes(
-    config_kwargs: dict[str, Any], include_attributes: bool, time_generator: Any
+@pytest.mark.parametrize('console', [False, True])
+def test_log_scrubbing_thread_depends_on_console(
+    config_kwargs: dict[str, Any], console: bool, time_generator: Any
 ) -> None:
     caller = get_ident()
     scrubbed = Event()
@@ -61,21 +61,23 @@ def test_log_scrubbing_thread_depends_on_console_attributes(
 
     exporters = [TestLogExporter(time_generator), TestLogExporter(time_generator)]
     output = StringIO()
+    # The console hides attributes, but it prints them as the message of a record that has no body.
     config_kwargs.update(
-        console=logfire.ConsoleOptions(verbose=False, include_attributes=include_attributes, output=output),
+        console=logfire.ConsoleOptions(verbose=False, include_attributes=False, output=output) if console else False,
         scrubbing=logfire.ScrubbingOptions(callback=callback),
     )
     config_kwargs['advanced'] = replace(
         config_kwargs['advanced'], log_record_processors=[BatchLogRecordProcessor(e) for e in exporters]
     )
     logfire.configure(**config_kwargs)
-    get_logger('test').emit(body='test record', attributes={'password': 'sensitive'})
+    get_logger('test').emit(attributes={'password': 'sensitive'})
 
     assert scrubbed.wait(timeout=5)
     assert logfire.force_flush()
     assert len(threads) == 1
-    assert (threads[0] == caller) is include_attributes
-    assert 'test record' in output.getvalue()
+    assert (threads[0] == caller) is console
+    assert 'sensitive' not in output.getvalue()
+    assert ('[masked]' in output.getvalue()) is console
     for exporter in exporters:
         [log] = exporter.exported_logs_as_dicts()
         assert log['attributes']['password'] == '[masked]'

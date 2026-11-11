@@ -62,28 +62,23 @@ class _LogProcessorExporter(LogRecordExporter):
 
 @dataclass
 class BackgroundScrubbingLogProcessor(LogRecordProcessor):
-    """Send each record unscrubbed to `synchronous`, and to `background` after a queue thread scrubs it.
+    """Send each record to `processor` after a queue thread scrubs it."""
 
-    `synchronous` holds only processors that do not need scrubbed records, such as a console that hides attributes.
-    """
-
-    synchronous: LogRecordProcessor
-    background: LogRecordProcessor
+    processor: LogRecordProcessor
     scrubber: BaseScrubber
 
     def __post_init__(self) -> None:
         self._queue = BatchLogRecordProcessor(
-            _LogProcessorExporter(MainLogProcessorWrapper(self.background, self.scrubber)), max_export_batch_size=1
+            _LogProcessorExporter(MainLogProcessorWrapper(self.processor, self.scrubber)), max_export_batch_size=1
         )
 
     def on_emit(self, log_record: ReadWriteLogRecord) -> None:
-        self.synchronous.on_emit(log_record)
         self._queue.on_emit(log_record)
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
-        # The queue drains into `background`, so it flushes first.
+        # The queue drains into `processor`, so it flushes first.
         deadline = monotonic_ns() + timeout_millis * 1_000_000
-        for processor in (self._queue, self.background, self.synchronous):
+        for processor in (self._queue, self.processor):
             remaining = (deadline - monotonic_ns()) // 1_000_000
             if remaining <= 0 or processor.force_flush(remaining) is False:
                 return False
@@ -91,5 +86,4 @@ class BackgroundScrubbingLogProcessor(LogRecordProcessor):
 
     def shutdown(self) -> None:
         self._queue.shutdown()
-        self.background.shutdown()
-        self.synchronous.shutdown()
+        self.processor.shutdown()

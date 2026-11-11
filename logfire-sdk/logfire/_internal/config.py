@@ -1054,14 +1054,6 @@ def _span_processor_can_skip_scrubbing(processor: SpanProcessor) -> bool:
     return False
 
 
-def _log_processor_can_skip_scrubbing(processor: LogRecordProcessor) -> bool:
-    if type(processor) is SimpleLogRecordProcessor:
-        exporter = processor._exporter  # pyright: ignore[reportPrivateUsage]
-        if type(exporter) is ConsoleLogExporter:
-            return not exporter.span_exporter._include_attributes  # pyright: ignore[reportPrivateUsage]
-    return False
-
-
 def _multi_log_processor(processors: Sequence[LogRecordProcessor]) -> SynchronousMultiLogRecordProcessor:
     multi = SynchronousMultiLogRecordProcessor()
     for processor in processors:
@@ -1719,16 +1711,16 @@ class LogfireConfig(_LogfireConfigData):
             self._ensure_flush_after_aws_lambda()
 
     def _main_log_processor(self, processors: Sequence[LogRecordProcessor]) -> LogRecordProcessor:
-        """Scrub log records on a queue thread when no processor needs them scrubbed synchronously."""
-        if self.scrubber is not NOOP_SCRUBBER and not platform_is_emscripten():
-            background = [p for p in processors if type(p) is BatchLogRecordProcessor]
-            synchronous = [p for p in processors if type(p) is not BatchLogRecordProcessor]
-            if background and all(_log_processor_can_skip_scrubbing(p) for p in synchronous):
-                return BackgroundScrubbingLogProcessor(
-                    synchronous=_multi_log_processor(synchronous),
-                    background=_multi_log_processor(background),
-                    scrubber=self.scrubber,
-                )
+        """Scrub log records on a queue thread when every processor is a batch processor."""
+        # Unlike for spans, a console that hides attributes still needs scrubbed records:
+        # it prints the log body, or the attributes when there is no body.
+        if (
+            self.scrubber is not NOOP_SCRUBBER
+            and not platform_is_emscripten()
+            and processors
+            and all(type(p) is BatchLogRecordProcessor for p in processors)
+        ):
+            return BackgroundScrubbingLogProcessor(_multi_log_processor(processors), self.scrubber)
         return MainLogProcessorWrapper(_multi_log_processor(processors), self.scrubber)
 
     def _build_span_processor(

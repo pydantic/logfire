@@ -2718,11 +2718,7 @@ def get_log_record_processors() -> Iterable[LogRecordProcessor]:
     if isinstance(processor, DirectBaggageAttributesLogProcessorWrapper):
         processor = processor.processor
     if isinstance(processor, BackgroundScrubbingLogProcessor):
-        # The synchronous processors run first, then the queued ones.
-        return (
-            *processor.synchronous._log_record_processors,  # type: ignore
-            *processor.background._log_record_processors,  # type: ignore
-        )
+        return processor.processor._log_record_processors  # type: ignore
     assert isinstance(processor, MainLogProcessorWrapper)
     processor = processor.processor
     assert isinstance(processor, SynchronousMultiLogRecordProcessor)
