@@ -880,11 +880,16 @@ class Logfire:
         elif exc_info:  # pragma: no cover
             raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 
-        # Logfire level numbers follow the OTel severity numbers.
+        # Logfire level numbers follow the OTel severity numbers. A custom level outside that range
+        # gets no severity number and keeps its value in `logfire.level_num`.
+        try:
+            severity_number = SeverityNumber(level_num)
+        except ValueError:
+            severity_number = None
         self._logger.emit(
             timestamp=timestamp,
             observed_timestamp=timestamp,
-            severity_number=SeverityNumber(level_num),
+            severity_number=severity_number,
             severity_text=NUMBER_TO_LEVEL.get(level_num),
             body=msg,
             attributes=attributes,

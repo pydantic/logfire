@@ -89,3 +89,18 @@ def test_log_record_with_unprintable_exception(logs_exporter: TestLogExporter, c
     assert log['body'] == 'failed'
     assert log['attributes']['exception.type'] == 'UnprintableError'
     assert log['attributes']['exception.message'] == snapshot('<exception str() failed>')
+    assert log['attributes']['exception.stacktrace'] == snapshot(
+        'tests.test_logs_as_log_records.UnprintableError: <exception str() failed>\n'
+    )
+
+
+def test_log_record_with_custom_level(logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['advanced'] = replace(config_kwargs['advanced'], logs_as_log_records=True)
+    logfire.configure(**config_kwargs)
+
+    logfire.log(25, 'custom')
+
+    [log] = logs_exporter.exported_logs_as_dicts(include_resources=False)
+    assert (log['body'], log['severity_number'], log['attributes']['logfire.level_num']) == snapshot(
+        ('custom', None, 25)
+    )
