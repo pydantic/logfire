@@ -167,7 +167,11 @@ except ImportError:
 
             def instrument_sqlalchemy(self, *args, **kwargs) -> None: ...
 
-            def instrument_sqlite3(self, *args, **kwargs) -> None: ...
+            def instrument_sqlite3(self, conn=None, *args, **kwargs):
+                return conn
+
+            def instrument_mysql(self, conn=None, *args, **kwargs):
+                return conn
 
             def instrument_aws_lambda(self, *args, **kwargs) -> None: ...
 
@@ -230,7 +234,8 @@ except ImportError:
             async def forward_export_request_starlette(self, *args, **kwargs) -> MagicMock:
                 return MagicMock()
 
-            def shutdown(self, *args, **kwargs) -> None: ...
+            def shutdown(self, *args, **kwargs) -> bool:
+                return True
 
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span

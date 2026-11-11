@@ -349,6 +349,15 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
             logfire_api.agent_sandboxes()
     logfire__all__.remove('agent_sandboxes')
 
+    for member in ('instrument_sqlite3', 'instrument_mysql'):
+        assert hasattr(logfire_api, member), member
+        if module_name == 'logfire_api.':
+            conn = MagicMock()
+            assert getattr(logfire_api, member)(conn) is conn
+            assert getattr(logfire_api, member)(conn=conn) is conn
+        assert getattr(logfire_api, member)() is None
+        logfire__all__.remove(member)
+
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
         if member == 'instrument_monty' and module_name == 'logfire.':
@@ -361,7 +370,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire__all__.remove(member)
 
     assert hasattr(logfire_api, 'shutdown')
-    logfire_api.shutdown()
+    assert logfire_api.shutdown() is True
     logfire__all__.remove('shutdown')
 
     assert hasattr(logfire_api, 'AutoTraceModule')

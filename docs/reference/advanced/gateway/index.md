@@ -38,7 +38,7 @@ You do not need a paid plan to send Gateway requests or set basic spending limit
 | Feature | Availability |
 |---------|--------------|
 | Connect, endpoint priorities and weights, and key, organization, project, and member spending limits | All Gateway plans, including Personal. |
-| BYOK providers | Up to 3 on Personal and Team; unlimited on Growth, Enterprise, and self-hosted Logfire. |
+| BYOK providers | Up to 3 on Personal, 5 on Team, and 20 on Growth; unlimited on Enterprise and self-hosted Logfire. |
 | Custom provider base URLs and custom OpenAI- or Anthropic-compatible providers | Team, Growth, Enterprise, or self-hosted Logfire. |
 | Prebuilt and custom-pattern Guardrails | All Gateway plans, in Beta. |
 | Optimizations | Via Early Access on Growth, Enterprise, or self-hosted Logfire. |
