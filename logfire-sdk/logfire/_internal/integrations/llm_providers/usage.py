@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from typing import Any
 
 from .semconv import CACHE_CREATION_INPUT_TOKENS, CACHE_READ_INPUT_TOKENS, INPUT_TOKENS, OUTPUT_TOKENS, USAGE_RAW
@@ -21,17 +22,29 @@ def _parse_gateway_cost(value: object) -> float | None:
     return cost if math.isfinite(cost) and cost >= 0 else None
 
 
-def _gateway_reported_cost(usage: Any) -> float | None:
+def gateway_reported_cost(usage: Any) -> float | None:
     """The cost the AI Gateway reported in the `usage` object, if any.
 
-    The gateway's blocks are extra fields on the usage object, so this needs neither genai_prices
-    nor a dump of the response. A reported `0` (e.g. a gateway cache hit) is a real cost.
+    The gateway's blocks are extra fields on the usage object, or keys when it's a mapping (e.g. a
+    Gemini `part_metadata`), so this needs neither genai_prices nor a dump of the response.
+    A reported `0` (e.g. a gateway cache hit) is a real cost.
     """
     for block_name, field_name in GATEWAY_COST_FIELDS:
-        block = getattr(usage, block_name, None)
+        block = usage.get(block_name) if isinstance(usage, Mapping) else getattr(usage, block_name, None)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
         if isinstance(block, dict) and (cost := _parse_gateway_cost(block.get(field_name))) is not None:  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
             return cost
     return None
+
+
+def gateway_header_cost(headers: Mapping[str, str] | None) -> float | None:
+    """The cost in the AI Gateway's `logfire-ai-gateway-cost` response header, e.g. `0.0125USD`, if any.
+
+    The deprecated `pydantic-ai-gateway-price-estimate` header isn't read, because it's rounded to 4 decimals.
+    """
+    value = next((v for k, v in (headers or {}).items() if k.lower() == 'logfire-ai-gateway-cost'), None)
+    if value is None or not value.endswith('USD'):
+        return None
+    return _parse_gateway_cost(value[:-3])
 
 
 def get_usage_attributes(
@@ -83,7 +96,7 @@ def get_usage_attributes(
     except Exception:
         pass
 
-    if (reported_cost := _gateway_reported_cost(usage)) is not None:
+    if (reported_cost := gateway_reported_cost(usage)) is not None:
         result['operation.cost'] = reported_cost
         return result
 

@@ -12,7 +12,7 @@ from openai.types.responses.response_usage import InputTokensDetails, OutputToke
 
 from logfire._internal.integrations.llm_providers.anthropic import get_anthropic_usage_attributes
 from logfire._internal.integrations.llm_providers.openai import get_openai_usage_attributes
-from logfire._internal.integrations.llm_providers.usage import get_usage_attributes
+from logfire._internal.integrations.llm_providers.usage import gateway_header_cost, get_usage_attributes
 
 try:
     import genai_prices  # noqa: F401  # pyright: ignore[reportUnusedImport]
@@ -419,3 +419,21 @@ def test_anthropic_gateway_cost() -> None:
     )
     response = AnthropicMessage.model_construct(model='claude-3-haiku-20240307', usage=usage)
     assert get_anthropic_usage_attributes(response)['operation.cost'] == 0.5
+
+
+@pytest.mark.parametrize(
+    'headers, expected',
+    [
+        pytest.param({'logfire-ai-gateway-cost': '0.0125USD'}, 0.0125, id='lowercase'),
+        pytest.param({'Logfire-AI-Gateway-Cost': '0.0125USD'}, 0.0125, id='any-case'),
+        pytest.param({'logfire-ai-gateway-cost': '0USD'}, 0.0, id='zero'),
+        pytest.param({'logfire-ai-gateway-cost': '0.0125'}, None, id='no-currency'),
+        pytest.param({'logfire-ai-gateway-cost': 'nanUSD'}, None, id='nan'),
+        pytest.param({'logfire-ai-gateway-cost': '-1USD'}, None, id='negative'),
+        pytest.param({'pydantic-ai-gateway-price-estimate': '0.0125USD'}, None, id='deprecated-header-is-rounded'),
+        pytest.param({}, None, id='no-header'),
+        pytest.param(None, None, id='no-headers'),
+    ],
+)
+def test_gateway_header_cost(headers: dict[str, str] | None, expected: float | None) -> None:
+    assert gateway_header_cost(headers) == expected

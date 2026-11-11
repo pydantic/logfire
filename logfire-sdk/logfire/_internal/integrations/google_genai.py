@@ -4,6 +4,7 @@ import os
 from typing import Any
 
 import logfire
+from logfire._internal.integrations.llm_providers.usage import gateway_header_cost, gateway_reported_cost
 from logfire._internal.utils import safe_repr
 
 CAPTURE_MESSAGE_CONTENT_ENV_VAR = 'OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'
@@ -32,6 +33,43 @@ try:
             return {key: safe_repr(value)}
 
     dict_util._flatten_compound_value = wrapped_flatten_compound_value  # pyright: ignore[reportPrivateUsage]
+except Exception:  # pragma: no cover
+    pass
+
+
+def _gateway_cost(response: Any) -> float | None:
+    """The cost the AI Gateway reported for a response or the final chunk of a stream, if any.
+
+    google-genai keeps no unknown usage fields, so the gateway reports the cost of a stream in
+    `part_metadata` of the last part of the first candidate in the final chunk. A non-streamed
+    response has it in the `logfire-ai-gateway-cost` header, which google-genai keeps.
+    """
+    candidates = response.candidates or ()
+    content = candidates[0].content if candidates else None
+    parts = (content.parts if content else None) or ()
+    if parts and (cost := gateway_reported_cost(parts[-1].part_metadata or {})) is not None:
+        return cost
+    http_response = response.sdk_http_response
+    return gateway_header_cost(http_response.headers if http_response else None)
+
+
+try:
+    from opentelemetry.instrumentation.google_genai import generate_content
+
+    # Every streamed chunk and non-streamed response, sync or async, goes through this function.
+    original_apply_response_attributes = generate_content._apply_response_attributes  # pyright: ignore[reportPrivateUsage]
+
+    def wrapped_apply_response_attributes(
+        response: Any, finish_reasons: Any, invocation: Any, *args: Any, **kwargs: Any
+    ):
+        original_apply_response_attributes(response, finish_reasons, invocation, *args, **kwargs)
+        try:
+            if (cost := _gateway_cost(response)) is not None:
+                invocation.attributes['operation.cost'] = cost
+        except Exception:  # pragma: no cover
+            pass
+
+    generate_content._apply_response_attributes = wrapped_apply_response_attributes  # pyright: ignore[reportPrivateUsage]
 except Exception:  # pragma: no cover
     pass
 
