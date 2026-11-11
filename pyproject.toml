@@ -113,7 +113,7 @@ dev = [
     "fastmcp-slim[server]>=4",
     "pydantic-ai-slim[mcp]>=2",
     "pydantic-evals>=2",
-    "pydantic-monty>=1.5.0",
+    "pydantic-monty>=1.6.0",
     # Serves the agent sandboxes gRPC stream in tests.
     "grpcio>=1.75",
     # >=1.3.9 fixes path traversal / sandbox escape in file-search middleware and loaders (GHSA-gr75-jv2w-4656).

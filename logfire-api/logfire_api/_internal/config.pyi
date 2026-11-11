@@ -11,7 +11,7 @@ from .exporters.console import ConsoleColorsValues as ConsoleColorsValues, Conso
 from .exporters.dynamic_batch import DynamicBatchSpanProcessor as DynamicBatchSpanProcessor
 from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper as CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper as MainLogProcessorWrapper
 from .exporters.otlp import BodySizeCheckingOTLPSpanExporter as BodySizeCheckingOTLPSpanExporter, OTLPExporterHttpSession as OTLPExporterHttpSession, QuietLogExporter as QuietLogExporter, QuietSpanExporter as QuietSpanExporter, RetryFewerSpansSpanExporter as RetryFewerSpansSpanExporter, cleanup_disk_retryers as cleanup_disk_retryers, zstd_compress as zstd_compress
-from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper as CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper as MainSpanProcessorWrapper
+from .exporters.processor_wrapper import BackgroundScrubbingSpanProcessor as BackgroundScrubbingSpanProcessor, CheckSuppressInstrumentationProcessorWrapper as CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper as MainSpanProcessorWrapper, ScrubbingSpanProcessor as ScrubbingSpanProcessor, SpanProcessorGroup as SpanProcessorGroup, make_scrubbing_queue as make_scrubbing_queue, scrub_span as scrub_span
 from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
 from .exporters.test import TestExporter as TestExporter
@@ -204,6 +204,8 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
 
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
+            Processors which have a custom `on_end` method (other than `BatchSpanProcessor`) will cause
+            span attribute scrubbing to happen on the calling thread, which may slow down your application.
         metrics: Set to `False` to disable sending all metrics,
             or provide a `MetricsOptions` object to configure metrics, e.g. additional metric readers.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
