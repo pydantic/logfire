@@ -5,7 +5,6 @@ import inspect
 import json
 import math
 import sys
-import traceback
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
@@ -68,8 +67,9 @@ from .tracer import (
     ProxyTracerProvider,
     _LogfireWrappedSpan,  # pyright: ignore[reportPrivateUsage]
     _ProxyTracer,  # pyright: ignore[reportPrivateUsage]
+    exception_log_record_attributes,
 )
-from .utils import get_version, handle_internal_errors, log_internal_error, safe_str, uniquify_sequence
+from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -874,12 +874,8 @@ class Logfire:
         exc_info: BaseException | bool | None,
     ) -> None:
         if isinstance(exc_info, BaseException):
-            # `Logger.emit(exception=...)` needs opentelemetry-sdk 1.40, so set the semconv attributes directly.
-            attributes['exception.type'] = type(exc_info).__qualname__
-            attributes['exception.message'] = safe_str(exc_info)
-            attributes['exception.stacktrace'] = ''.join(
-                traceback.format_exception(type(exc_info), exc_info, exc_info.__traceback__)
-            )
+            # `Logger.emit(exception=...)` needs opentelemetry-sdk 1.40, so set the attributes directly.
+            attributes.update(exception_log_record_attributes(exc_info, level_num))
         elif exc_info:  # pragma: no cover
             raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 

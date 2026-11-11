@@ -147,3 +147,48 @@ def test_exception_callback_without_active_exception(
 
     assert [log['body'] for log in logs_exporter.exported_logs_as_dicts()] == ['no exception']
     assert exporter.exported_spans_as_dict() == []
+
+
+def raise_value_error() -> None:
+    raise ValueError('boom')
+
+
+def test_exception_log_record_matches_span_enrichment(
+    exporter: TestExporter, logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]
+) -> None:
+    from pydantic import BaseModel, ValidationError
+
+    class Model(BaseModel):
+        x: int
+
+    logfire.configure(**config_kwargs)
+    try:
+        raise_value_error()
+    except ValueError:
+        logfire.exception('as span')
+    [span] = exporter.exported_spans_as_dict()
+    span_fingerprint = span['attributes']['logfire.exception.fingerprint']
+
+    config_kwargs['advanced'] = replace(config_kwargs['advanced'], logs_as_log_records=True)
+    logfire.configure(**config_kwargs)
+    try:
+        raise_value_error()
+    except ValueError:
+        logfire.exception('top level')
+    with logfire.span('outer'):
+        try:
+            raise_value_error()
+        except ValueError:
+            logfire.exception('nested')
+    try:
+        Model(x='not an int')  # type: ignore
+    except ValidationError:
+        logfire.warn('invalid', _exc_info=True)
+
+    top, nested, invalid = (log['attributes'] for log in logs_exporter.exported_logs_as_dicts())
+    assert top['logfire.exception.fingerprint'] == span_fingerprint
+    assert 'logfire.exception.fingerprint' not in nested
+    assert 'logfire.exception.fingerprint' not in invalid
+    assert invalid['exception.logfire.data'] == snapshot(
+        '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"not an int"}]'
+    )
