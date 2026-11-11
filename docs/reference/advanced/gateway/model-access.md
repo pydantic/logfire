@@ -79,7 +79,7 @@ To return to the catalog price, turn the override off and click **Save model**. 
 Open **Playground** from the sidebar, choose the provider and model, and send a short message. The Playground needs a project API key; if it shows **project key required**, click **Create project key** first.
 
 - An allowed model answers. A blocked model still appears in the model list, but the request returns the `403` error above.
-- For a custom price, send a request, then open [**AI Engineering → Gateway → API Keys**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/api-keys), select the key you used, and check **Usage & Spending Limits**. The cost should match your price, not the catalog price. The cost estimate shown in the Playground uses catalog prices, so don't use it to check a custom price.
+- For a custom price, send a request, then open [**AI Engineering → Gateway → API Keys**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/api-keys), select the key you used, and check **Usage & Spending Limits**. The cost should match your price, not the catalog price. The Playground shows the cost reported by Gateway when the response includes a valid cost, including a custom price. When the response has no valid Gateway cost, the Playground estimates it from catalog prices. Use **Usage & Spending Limits** to confirm the recorded cost.
 
 ## Troubleshooting
 
