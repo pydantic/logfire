@@ -44,6 +44,10 @@ def sample_rate(rate: float):
     Each span whose parent is the span active on entry is kept with probability `rate`.
     The descendants of each such span follow its decision, so a sub-tree is kept or dropped as a whole.
 
+    This relies on a head sampler that follows the parent's decision, which the default samplers do.
+    A head sampler that ignores the parent (for example plain `TraceIdRatioBased`) can keep spans below a
+    dropped sub-tree and export them without their parent.
+
     Args:
         rate: The probability, from 0 to 1, of keeping each sub-tree.
     """
@@ -75,28 +79,19 @@ class SubtreeSampler(Sampler):
         links: Sequence[Link] | None = None,
         trace_state: trace_api.TraceState | None = None,
     ) -> SamplingResult:
-        # The SDK passes the context explicitly given to `start_span`, or `None` for the current context.
-        ctx = parent_context if parent_context is not None else context_api.get_current()
-        settings = context_api.get_value(_SUBTREE_SAMPLING_KEY, ctx)
-        parent_span_context = trace_api.get_current_span(ctx).get_span_context()
-
-        # A delegate that ignores the parent (for example `ALWAYS_ON`) could keep a span below a dropped sub-tree,
-        # which would export it as an orphan. The check applies only inside `sample_rate`, so that it does not change
-        # how a custom delegate treats unsampled parents elsewhere. Remote parents stay the delegate's decision.
-        if (
-            isinstance(settings, _SubtreeSampling)
-            and parent_span_context.is_valid
-            and not parent_span_context.is_remote
-            and not parent_span_context.trace_flags.sampled
-        ):
-            return SamplingResult(Decision.DROP, None, parent_span_context.trace_state)
-
         delegate_result = self.delegate.should_sample(
             parent_context, trace_id, name, kind, attributes, links, trace_state
         )
-        if not delegate_result.decision.is_sampled() or not isinstance(settings, _SubtreeSampling):
+        if not delegate_result.decision.is_sampled():
             return delegate_result
 
+        # The SDK passes the context explicitly given to `start_span`, or `None` for the current context.
+        ctx = parent_context if parent_context is not None else context_api.get_current()
+        settings = context_api.get_value(_SUBTREE_SAMPLING_KEY, ctx)
+        if not isinstance(settings, _SubtreeSampling):
+            return delegate_result
+
+        parent_span_context = trace_api.get_current_span(ctx).get_span_context()
         parent_id = parent_span_context.span_id if parent_span_context.is_valid else None
         if parent_id != settings.anchor_span_id:
             return delegate_result

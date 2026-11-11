@@ -7,7 +7,7 @@ import pytest
 from opentelemetry.sdk.trace.sampling import ALWAYS_ON
 
 import logfire
-from logfire.sampling import SamplingOptions, SubtreeSampler
+from logfire.sampling import SubtreeSampler
 from logfire.testing import TestExporter
 
 
@@ -30,20 +30,6 @@ def test_sample_rate_keeps_whole_subtrees(exporter: TestExporter) -> None:
     # Each sub-tree is kept or dropped as a whole.
     assert kept_actions == kept_inner
     assert 60 < len(kept_actions) < 140
-
-
-def test_sample_rate_drops_descendants_with_non_parent_based_head(
-    exporter: TestExporter, config_kwargs: dict[str, Any]
-) -> None:
-    # `ALWAYS_ON` ignores the parent, so the descendants of a dropped sub-tree would be orphans without the guard.
-    logfire.configure(**config_kwargs, sampling=SamplingOptions(head=ALWAYS_ON))
-    with logfire.span('parent'):
-        with logfire.sample_rate(0.0):
-            with logfire.span('action'):
-                with logfire.span('child'):
-                    logfire.info('grandchild')
-
-    assert {s.name for s in exporter.exported_spans} == {'parent'}
 
 
 def test_otel_traces_sampler_env_still_applies(
