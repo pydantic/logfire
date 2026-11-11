@@ -62,7 +62,7 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 import logfire
 import logfire._internal.config as config_module
 from logfire import configure, propagate
-from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
+from logfire._internal.baggage import DirectBaggageAttributesLogProcessorWrapper, DirectBaggageAttributesSpanProcessor
 from logfire._internal.config import (
     GLOBAL_CONFIG,
     CodeSource,
@@ -82,7 +82,11 @@ from logfire._internal.exporters.console import (
     SimpleConsoleSpanExporter,
 )
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
-from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
+from logfire._internal.exporters.logs import (
+    BackgroundScrubbingLogProcessor,
+    CheckSuppressInstrumentationLogProcessorWrapper,
+    MainLogProcessorWrapper,
+)
 from logfire._internal.exporters.otlp import QuietLogExporter, QuietSpanExporter
 from logfire._internal.exporters.processor_wrapper import (
     BackgroundScrubbingSpanProcessor,
@@ -2711,6 +2715,14 @@ def get_log_record_processors() -> Iterable[LogRecordProcessor]:
     [processor] = get_logger_provider().provider._multi_log_record_processor._log_record_processors  # type: ignore
     assert isinstance(processor, CheckSuppressInstrumentationLogProcessorWrapper)
     processor = processor.processor
+    if isinstance(processor, DirectBaggageAttributesLogProcessorWrapper):
+        processor = processor.processor
+    if isinstance(processor, BackgroundScrubbingLogProcessor):
+        # The synchronous processors run first, then the queued ones.
+        return (
+            *processor.synchronous._log_record_processors,  # type: ignore
+            *processor.background._log_record_processors,  # type: ignore
+        )
     assert isinstance(processor, MainLogProcessorWrapper)
     processor = processor.processor
     assert isinstance(processor, SynchronousMultiLogRecordProcessor)

@@ -1,6 +1,9 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
+from time import monotonic_ns
 
-from opentelemetry.sdk._logs import ReadWriteLogRecord
+from opentelemetry.sdk._logs import LogRecordProcessor, ReadableLogRecord, ReadWriteLogRecord
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogRecordExporter, LogRecordExportResult
 
 import logfire
 from logfire._internal.exporters.wrapper import WrapperLogProcessor
@@ -28,3 +31,65 @@ class MainLogProcessorWrapper(WrapperLogProcessor):
     def on_emit(self, log_record: ReadWriteLogRecord):
         log_record.log_record = self.scrubber.scrub_log(log_record.log_record)
         return super().on_emit(log_record)
+
+
+@dataclass
+class _LogProcessorExporter(LogRecordExporter):
+    """Forward drained records to a processor's `on_emit` hook.
+
+    `BackgroundScrubbingLogProcessor` flushes and shuts down the destination processor.
+    """
+
+    processor: LogRecordProcessor
+
+    def export(self, batch: Sequence[ReadableLogRecord]) -> LogRecordExportResult:
+        with logfire.suppress_instrumentation():
+            for record in batch:
+                read_write = ReadWriteLogRecord(
+                    record.log_record, resource=record.resource, instrumentation_scope=record.instrumentation_scope
+                )
+                if record.limits is not None:
+                    read_write.limits = record.limits
+                self.processor.on_emit(read_write)
+        return LogRecordExportResult.SUCCESS
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return True
+
+    def shutdown(self) -> None:
+        pass
+
+
+@dataclass
+class BackgroundScrubbingLogProcessor(LogRecordProcessor):
+    """Send each record unscrubbed to `synchronous`, and to `background` after a queue thread scrubs it.
+
+    `synchronous` holds only processors that do not need scrubbed records, such as a console that hides attributes.
+    """
+
+    synchronous: LogRecordProcessor
+    background: LogRecordProcessor
+    scrubber: BaseScrubber
+
+    def __post_init__(self) -> None:
+        self._queue = BatchLogRecordProcessor(
+            _LogProcessorExporter(MainLogProcessorWrapper(self.background, self.scrubber)), max_export_batch_size=1
+        )
+
+    def on_emit(self, log_record: ReadWriteLogRecord) -> None:
+        self.synchronous.on_emit(log_record)
+        self._queue.on_emit(log_record)
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        # The queue drains into `background`, so it flushes first.
+        deadline = monotonic_ns() + timeout_millis * 1_000_000
+        for processor in (self._queue, self.background, self.synchronous):
+            remaining = (deadline - monotonic_ns()) // 1_000_000
+            if remaining <= 0 or processor.force_flush(remaining) is False:
+                return False
+        return True
+
+    def shutdown(self) -> None:
+        self._queue.shutdown()
+        self.background.shutdown()
+        self.synchronous.shutdown()
