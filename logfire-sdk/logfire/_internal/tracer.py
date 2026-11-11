@@ -548,8 +548,11 @@ original_format_exception = traceback.format_exception
 @functools.wraps(original_format_exception)
 def exception_log_record_attributes(exception: BaseException, level_num: int) -> dict[str, otel_types.AttributeValue]:
     """The exception attributes of a log record, with the same defaults as `record_exception` without a callback."""
+    # This matches the `exception.type` that the OTel SDK's `Span.record_exception` sets.
+    module = type(exception).__module__
+    qualname = type(exception).__qualname__
     attributes: dict[str, otel_types.AttributeValue] = {
-        'exception.type': type(exception).__qualname__,
+        'exception.type': f'{module}.{qualname}' if module and module != 'builtins' else qualname,
         'exception.message': safe_str(exception),
         'exception.stacktrace': ''.join(
             traceback.format_exception(type(exception), exception, exception.__traceback__)
