@@ -3,7 +3,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, cast
 
 from opentelemetry import baggage, context
 from opentelemetry.attributes import BoundedAttributes
@@ -122,10 +122,11 @@ class DirectBaggageAttributesLogProcessorWrapper(WrapperLogProcessor):
 
     def on_emit(self, log_record: ReadWriteLogRecord) -> None:
         record = log_record.log_record
-        # `Logger.emit` runs processors synchronously, so the current context is the caller's
-        # when the record carries none.
-        parent_context = record.context or context.get_current()
-        existing_attrs = record.attributes or {}
-        if attrs := baggage_attributes(parent_context, existing_attrs):
-            record.attributes = BoundedAttributes(attributes={**existing_attrs, **attrs})
+        # `Logger.emit` sets the context of every record, to the caller's context by default.
+        parent_context = record.context
+        # The SDK gives every record a mutable `BoundedAttributes`. Updating it in place keeps the
+        # record's attribute limits and dropped count.
+        attributes = cast(BoundedAttributes, record.attributes)
+        for key, value in baggage_attributes(parent_context, attributes).items():
+            attributes[key] = value
         super().on_emit(log_record)

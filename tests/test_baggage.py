@@ -5,6 +5,7 @@ from inline_snapshot import snapshot
 from inline_snapshot.extra import warns
 from opentelemetry import baggage as otel_baggage, context
 from opentelemetry._logs import get_logger
+from opentelemetry.attributes import BoundedAttributes
 
 import logfire
 from logfire.testing import TestExporter, TestLogExporter
@@ -299,3 +300,32 @@ def test_baggage_not_added_to_log_records_when_disabled(
 
     [log] = logs_exporter.exported_logs_as_dicts()
     assert log['attributes'] == {}
+
+
+def test_log_record_uses_its_own_context_for_baggage(
+    config_kwargs: dict[str, Any], logs_exporter: TestLogExporter
+) -> None:
+    config_kwargs['add_baggage_to_attributes'] = True
+    logfire.configure(**config_kwargs)
+    record_context = otel_baggage.set_baggage('from_record', 'yes', context.Context())
+    with logfire.set_baggage(ambient='ignored'):
+        get_logger('test').emit(body='hi', context=record_context)
+
+    [log] = logs_exporter.exported_logs_as_dicts()
+    assert log['attributes'] == {'from_record': 'yes'}
+
+
+def test_baggage_respects_log_record_attribute_limits(
+    config_kwargs: dict[str, Any], logs_exporter: TestLogExporter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv('OTEL_ATTRIBUTE_COUNT_LIMIT', '2')
+    config_kwargs['add_baggage_to_attributes'] = True
+    logfire.configure(**config_kwargs)
+    with logfire.set_baggage(a='1', b='2'):
+        get_logger('test').emit(body='hi', attributes={'existing': 'x'})
+
+    [record] = logs_exporter.get_finished_logs()
+    attributes = record.log_record.attributes
+    assert isinstance(attributes, BoundedAttributes)
+    assert len(attributes) == 2
+    assert attributes.dropped == 1
