@@ -3,6 +3,7 @@
 ## [v5.6.0] (2026-11-11)
 
 * **Breaking Change:** `logfire.agent_sandboxes()` returns a plain `pydantic_monty.AsyncMontyRemote` instead of the `AgentSandboxPool` wrapper, so it can be passed to code typed against Monty such as `CodeMode(monty_sandbox=logfire.agent_sandboxes)` by @dmontagu in [#2747](https://github.com/pydantic/logfire/pull/2747) and [#2756](https://github.com/pydantic/logfire/pull/2756)
+* `logfire[agent-sandboxes]` requires `pydantic-monty-client>=1.6.0`, which sends the first request without waiting for the `Configure` reply and raises typed connection and configuration errors
 * Log structlog critical events at the fatal level by @Fahmid-Arman in [#2719](https://github.com/pydantic/logfire/pull/2719)
 * Make the enum JSON schema type independent of the member set order by @Yasser-Ameur in [#2759](https://github.com/pydantic/logfire/pull/2759)
 * Reset the current OpenAI Agents trace and span when a generator is closed by @devjoinedthechat in [#2698](https://github.com/pydantic/logfire/pull/2698)
