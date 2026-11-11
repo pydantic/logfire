@@ -1789,7 +1789,9 @@ async def test_instrument_asynccontextmanager_exception(
     [span] = exporter.exported_spans_as_dict()
     assert span['name'] == 'manager'
     raw_span = exporter.exported_spans[-1]
-    assert raw_span.status.status_code == (StatusCode.UNSET if handling == 'suppress' else StatusCode.ERROR)
+    # GeneratorExit escaping the span means the generator was closed, which isn't recorded as an error.
+    is_error = handling == 'replace' or (handling == 'propagate' and exception_type is not GeneratorExit)
+    assert raw_span.status.status_code == (StatusCode.ERROR if is_error else StatusCode.UNSET)
 
 
 @pytest.mark.anyio
@@ -1838,6 +1840,29 @@ async def test_instrument_async_generator_close(exporter: TestExporter, replace:
     assert events == ['released']
     assert get_current_span() is INVALID_SPAN
     assert len(exporter.exported_spans_as_dict()) == 1
+
+
+def test_generator_closed_early_is_not_an_error(exporter: TestExporter):
+    @logfire.instrument('instrumented', allow_generator=True)
+    def instrumented():
+        yield 1
+        yield 2
+
+    def manual():
+        with logfire.span('manual'):
+            yield 1
+            yield 2
+
+    for make in (instrumented, manual):
+        items = make()
+        assert next(items) == 1
+        items.close()
+
+    spans = [span for span in exporter.exported_spans if span.attributes['logfire.span_type'] == 'span']
+    assert [span.name for span in spans] == ['instrumented', 'manual']
+    for span in spans:
+        assert span.status.status_code == StatusCode.UNSET
+        assert span.events == ()
 
 
 @pytest.mark.anyio
