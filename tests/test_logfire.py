@@ -1858,7 +1858,7 @@ def test_generator_closed_early_is_not_an_error(exporter: TestExporter):
         assert next(items) == 1
         items.close()
 
-    spans = [span for span in exporter.exported_spans if span.attributes['logfire.span_type'] == 'span']
+    spans = [span for span in exporter.exported_spans if (span.attributes or {}).get('logfire.span_type') == 'span']
     assert [span.name for span in spans] == ['instrumented', 'manual']
     for span in spans:
         assert span.status.status_code == StatusCode.UNSET
