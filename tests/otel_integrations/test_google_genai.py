@@ -499,3 +499,28 @@ def test_no_gateway_cost(exporter: TestExporter, stream: bool) -> None:
     logfire.instrument_google_genai()
     call_gemini(gateway_client([{'text': 'Hi!', 'partMetadata': {'other': 1}}], {}), stream, use_async=False)
     assert span_cost(exporter) is None
+
+
+@pytest.mark.parametrize('stream', [False, True], ids=['buffered', 'stream'])
+def test_internal_exception_in_gateway_cost_keeps_the_response(
+    exporter: TestExporter, caplog: pytest.LogCaptureFixture, stream: bool
+) -> None:
+    logfire.instrument_google_genai()
+    client = gateway_client([{'text': '!'}], {})
+    with patch(
+        'logfire._internal.integrations.google_genai._gateway_cost', side_effect=RuntimeError('cost lookup failed')
+    ):
+        if stream:
+            response_text = ''.join(
+                chunk.text for chunk in client.models.generate_content_stream(model='gemini-2.5-flash', contents='Hi')
+            )
+        else:
+            response_text = client.models.generate_content(model='gemini-2.5-flash', contents='Hi').text
+
+    assert response_text == ('Hi!' if stream else '!')
+    assert 'Caught an internal error in Logfire' in caplog.text
+    assert 'cost lookup failed' in caplog.text
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['gen_ai.usage.input_tokens'] == 7
+    assert span['attributes']['gen_ai.usage.output_tokens'] == 249
+    assert 'operation.cost' not in span['attributes']

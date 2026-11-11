@@ -5,7 +5,7 @@ from typing import Any
 
 import logfire
 from logfire._internal.integrations.llm_providers.usage import gateway_header_cost, gateway_reported_cost
-from logfire._internal.utils import safe_repr
+from logfire._internal.utils import handle_internal_errors, safe_repr
 
 CAPTURE_MESSAGE_CONTENT_ENV_VAR = 'OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'
 LEGACY_CAPTURE_MESSAGE_CONTENT_VALUES = {'true': 'SPAN_ONLY', 'false': 'NO_CONTENT'}
@@ -53,25 +53,24 @@ def _gateway_cost(response: Any) -> float | None:
     return gateway_header_cost(http_response.headers if http_response else None)
 
 
-try:
+with handle_internal_errors:
     from opentelemetry.instrumentation.google_genai import generate_content
 
-    # Every streamed chunk and non-streamed response, sync or async, goes through this function.
+    # Add the gateway cost while the SDK response and invocation attributes are both available.
+    # Every streamed chunk and non-streamed response, sync or async, goes through this private hook.
+    # Keep the original attribute extraction; an incompatible upstream hook is reported by Logfire's
+    # internal-error handler rather than silently disabling cost recording.
     original_apply_response_attributes = generate_content._apply_response_attributes  # pyright: ignore[reportPrivateUsage]
 
     def wrapped_apply_response_attributes(
         response: Any, finish_reasons: Any, invocation: Any, *args: Any, **kwargs: Any
     ):
         original_apply_response_attributes(response, finish_reasons, invocation, *args, **kwargs)
-        try:
+        with handle_internal_errors:
             if (cost := _gateway_cost(response)) is not None:
                 invocation.attributes['operation.cost'] = cost
-        except Exception:  # pragma: no cover
-            pass
 
     generate_content._apply_response_attributes = wrapped_apply_response_attributes  # pyright: ignore[reportPrivateUsage]
-except Exception:  # pragma: no cover
-    pass
 
 
 def instrument_google_genai(logfire_instance: logfire.Logfire, **kwargs: Any):
