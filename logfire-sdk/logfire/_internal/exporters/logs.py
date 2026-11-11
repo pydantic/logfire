@@ -1,8 +1,9 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from time import monotonic_ns
+from typing import cast
 
-from opentelemetry.sdk._logs import LogRecordProcessor, ReadableLogRecord, ReadWriteLogRecord
+from opentelemetry.sdk._logs import LogRecordLimits, LogRecordProcessor, ReadableLogRecord, ReadWriteLogRecord
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogRecordExporter, LogRecordExportResult
 
 import logfire
@@ -45,15 +46,20 @@ class _LogProcessorExporter(LogRecordExporter):
     def export(self, batch: Sequence[ReadableLogRecord]) -> LogRecordExportResult:
         with logfire.suppress_instrumentation():
             for record in batch:
-                read_write = ReadWriteLogRecord(
-                    record.log_record, resource=record.resource, instrumentation_scope=record.instrumentation_scope
+                # `BatchLogRecordProcessor` always copies the limits of the emitted record.
+                limits = cast(LogRecordLimits, record.limits)
+                self.processor.on_emit(
+                    ReadWriteLogRecord(
+                        record.log_record,
+                        resource=record.resource,
+                        instrumentation_scope=record.instrumentation_scope,
+                        limits=limits,
+                    )
                 )
-                if record.limits is not None:
-                    read_write.limits = record.limits
-                self.processor.on_emit(read_write)
         return LogRecordExportResult.SUCCESS
 
-    def force_flush(self, timeout_millis: int = 30000) -> bool:
+    def force_flush(self, timeout_millis: int = 30000) -> bool:  # pragma: no cover
+        # `BatchLogRecordProcessor.force_flush` drains the queue and does not call this.
         return True
 
     def shutdown(self) -> None:

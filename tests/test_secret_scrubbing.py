@@ -19,6 +19,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
+from logfire._internal.exporters.logs import BackgroundScrubbingLogProcessor
 from logfire._internal.exporters.processor_wrapper import SpanProcessorGroup
 from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
 from logfire.sampling import TailSamplingSpanInfo
@@ -81,6 +82,15 @@ def test_log_scrubbing_thread_depends_on_console(
     for exporter in exporters:
         [log] = exporter.exported_logs_as_dicts()
         assert log['attributes']['password'] == '[masked]'
+
+
+def test_background_log_scrubbing_flush_timeout(time_generator: Any) -> None:
+    exporter = TestLogExporter(time_generator)
+    processor = BackgroundScrubbingLogProcessor(BatchLogRecordProcessor(exporter), Scrubber(None))
+
+    assert processor.force_flush(timeout_millis=0) is False
+    assert processor.force_flush() is True
+    processor.shutdown()
 
 
 def test_log_scrubbing_stays_on_caller_thread_with_a_custom_processor(config_kwargs: dict[str, Any]) -> None:
