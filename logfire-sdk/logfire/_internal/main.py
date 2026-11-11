@@ -5,6 +5,7 @@ import inspect
 import json
 import math
 import sys
+import traceback
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
@@ -25,6 +26,7 @@ from urllib.parse import quote
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
+from opentelemetry._logs import SeverityNumber
 from opentelemetry.context import Context
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
@@ -46,6 +48,7 @@ from .constants import (
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     DISABLE_CONSOLE_KEY,
+    NUMBER_TO_LEVEL,
     OTLP_MAX_INT_SIZE,
     LevelName,
     log_level_attributes,
@@ -205,6 +208,10 @@ class Logfire:
     @cached_property
     def _logs_tracer(self) -> _ProxyTracer:
         return self._get_tracer(is_span_tracer=False)
+
+    @cached_property
+    def _logger(self):
+        return self._config.get_logger_provider().get_logger(self._otel_scope, VERSION)
 
     @cached_property
     def _spans_tracer(self) -> _ProxyTracer:
@@ -824,6 +831,10 @@ class Logfire:
                 otlp_attributes[DISABLE_CONSOLE_KEY] = True
             start_time = self._config.advanced.ns_timestamp_generator()
 
+            if self._config.advanced.logs_as_log_records:
+                self._emit_log_record(level_num, msg, otlp_attributes, start_time, exc_info)
+                return
+
             span = self._logs_tracer.start_span(
                 msg_template,
                 attributes=otlp_attributes,
@@ -846,6 +857,38 @@ class Logfire:
                     raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
 
             span.end(start_time)
+
+    def _emit_log_record(
+        self,
+        level_num: int,
+        msg: str,
+        attributes: dict[str, otel_types.AttributeValue],
+        timestamp: int,
+        exc_info: ExcInfo,
+    ) -> None:
+        if exc_info is True:
+            exc_info = sys.exc_info()
+        if isinstance(exc_info, tuple):
+            exc_info = exc_info[1]
+        if isinstance(exc_info, BaseException):
+            # `Logger.emit(exception=...)` needs opentelemetry-sdk 1.40, so set the semconv attributes directly.
+            attributes['exception.type'] = type(exc_info).__qualname__
+            attributes['exception.message'] = str(exc_info)
+            attributes['exception.stacktrace'] = ''.join(
+                traceback.format_exception(type(exc_info), exc_info, exc_info.__traceback__)
+            )
+        elif exc_info:  # pragma: no cover
+            raise TypeError(f'Invalid type for exc_info: {exc_info.__class__.__name__}')
+
+        # Logfire level numbers follow the OTel severity numbers.
+        self._logger.emit(
+            timestamp=timestamp,
+            observed_timestamp=timestamp,
+            severity_number=SeverityNumber(level_num),
+            severity_text=NUMBER_TO_LEVEL.get(level_num),
+            body=msg,
+            attributes=attributes,
+        )
 
     def with_tags(self, *tags: str) -> Logfire:
         """A new Logfire instance which always uses the given tags.
