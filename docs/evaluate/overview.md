@@ -39,7 +39,7 @@ Reach for a hosted dataset when teammates need to add or edit test cases, or whe
 The two modes use these pieces differently, and the easiest way to hold them apart is an analogy you already know:
 
 - **Offline eval**: running evals against a fixed dataset, like a test suite. You control the inputs, you run it on demand or in continuous integration (CI), and you compare experiments over time. Use this to catch regressions before you ship. See [Run an evaluation](evals-in-code.md).
-- **Online (live) eval**: scoring real production traffic as it happens, like monitoring. The inputs are whatever your real users sent; scorers run against live outputs and stream results in. Use this to catch quality drops in production that your test set never anticipated. See [Live Evaluations](live-evals.md).
+- **Online (live) eval**: scoring real production traffic as it happens, like monitoring. The inputs are whatever your real users sent; scorers run against live outputs and stream results in. Use this to catch quality drops in production that your test set never anticipated. See [Live Evaluations](live-evals.md). To have Logfire run the scorer for you on recorded traffic, without evaluator code in your application, use [hosted scorers](hosted-scorers.md) (Early Access).
 
 Offline is your test suite; online is your production monitoring. Most teams need both: the test suite proves a change is safe to ship, monitoring proves it stayed good once real traffic hit it.
 
@@ -77,4 +77,5 @@ When you design a scorer, choose the result type that matches the judgment:
 - **[Evals SDK](datasets-sdk.md)**: manage datasets and evaluations programmatically.
 - **[Review experiments](review-experiments.md)**: diagnose failed cases and compare a candidate with a baseline.
 - **[Live Evaluations](live-evals.md)**: score real production traffic as it happens.
+- **[Hosted scorers](hosted-scorers.md)**: have Logfire judge recorded traffic on a schedule with an AI judge or a SQL check (Early Access).
 - **[Human review](human-review.md)**: record editable judgments on agent runs and turn useful failures into regression cases.
