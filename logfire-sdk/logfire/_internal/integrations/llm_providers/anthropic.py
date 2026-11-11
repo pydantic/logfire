@@ -149,6 +149,9 @@ def _convert_content_part_or_parts(content: object) -> list[MessagePart]:
 
 def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
     """Convert a single Anthropic content part to semconv format."""
+    if isinstance(part, anthropic.BaseModel):
+        # Content blocks of an earlier response sent back as-is, e.g. `{'role': 'assistant', 'content': message.content}`.
+        part = part.model_dump()
     if not isinstance(part, dict):
         return TextPart(type='text', content=str(part))
 

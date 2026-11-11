@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import os
 from typing import Any
 
@@ -355,6 +356,42 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                     'logfire.span_type': 'span',
                 },
             },
+        ]
+    )
+
+
+def test_generator_close(exporter: TestExporter, caplog: pytest.LogCaptureFixture):
+    logfire.instrument_openai_agents()
+
+    def traced_generator(name: str):
+        with trace(name):
+            with custom_span('span_name'):
+                yield
+
+    # Closed from the context that advanced it, e.g. by breaking out of a loop over it.
+    generator = traced_generator('trace 1')
+    next(generator)
+    generator.close()
+    assert get_current_span() is None
+    assert get_current_trace() is None
+
+    # So starting the next trace doesn't make openai-agents warn that a trace already exists.
+    with trace('trace 2'):
+        pass
+    assert 'Trace already exists' not in caplog.text
+
+    # Finalized from another context, which can't reset the context the generator ran in: no error.
+    generator = traced_generator('trace 3')
+    contextvars.copy_context().run(next, generator)
+    generator.close()
+
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot(
+        [
+            'Custom span: {name}',
+            'OpenAI Agents trace: {name}',
+            'OpenAI Agents trace: {name}',
+            'Custom span: {name}',
+            'OpenAI Agents trace: {name}',
         ]
     )
 

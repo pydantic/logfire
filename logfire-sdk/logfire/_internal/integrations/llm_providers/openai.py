@@ -269,6 +269,16 @@ def convert_chat_completions_to_semconv(
                         )
                     )
 
+            # The legacy `function_call` field has no call id, as on the output side.
+            if function_call := msg.get('function_call'):
+                parts.append(
+                    make_tool_call_part(
+                        tool_call_id='',
+                        name=function_call.get('name', ''),
+                        arguments=function_call.get('arguments'),
+                    )
+                )
+
         # Build message structure
         message: ChatMessage = {
             'role': role,
@@ -634,6 +644,8 @@ try:
             self._stream_state = ChatCompletionStreamState()
 
         def record_chunk(self, chunk: ChatCompletionChunk) -> None:
+            if getattr(chunk, 'object', None) == '':
+                return
             try:
                 self._stream_state.handle_chunk(chunk)
             except Exception:

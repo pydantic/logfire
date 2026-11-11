@@ -4,7 +4,7 @@ import os
 import sys
 import typing
 import warnings
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -120,6 +120,8 @@ PENDING_SPANS = ConfigParam(
     env_vars=['LOGFIRE_PENDING_SPANS'], allow_file_config=True, default=True, tp=bool
 )
 """Whether to send pending spans (placeholders for spans that are still running) to Logfire."""
+FLEET = ConfigParam(env_vars=['LOGFIRE_FLEET'], allow_file_config=True, default=False, tp=bool)
+"""Whether to manage the SDK from Logfire Fleet (needs the `fleet` extra)."""
 COMPRESSION = ConfigParam(env_vars=['LOGFIRE_COMPRESSION'], allow_file_config=True, default='gzip', tp=CompressionValues)
 """Compression for data sent to Logfire: `gzip` (default) or `zstd`."""
 
@@ -161,6 +163,7 @@ CONFIG_PARAMS = {
     'emit_configuration_span': EMIT_CONFIGURATION_SPAN,
     'pending_spans': PENDING_SPANS,
     'compression': COMPRESSION,
+    'fleet': FLEET,
     # Instrumentation packages parameters
     'httpx_capture_all': HTTPX_CAPTURE_ALL,
     'aiohttp_client_capture_all': AIOHTTP_CLIENT_CAPTURE_ALL,
@@ -276,8 +279,10 @@ def _check_bool(value: Any, name: str) -> bool | None:
     raise LogfireConfigError(f'Expected {name} to be a boolean, got {value!r}')  # pragma: no cover
 
 
-def _extract_set_of_str(value: str | set[str]) -> set[str]:
-    return set(map(str.strip, value.split(','))) if isinstance(value, str) else value
+def _extract_set_of_str(value: str | Iterable[str]) -> set[str]:
+    """Extract a set of strings from a comma-separated string or a collection of strings, skipping empty items."""
+    items = value.split(',') if isinstance(value, str) else value
+    return {item.strip() for item in items if item.strip()}
 
 
 def _extract_dict_of_str(value: str | Mapping[str, str] | None) -> dict[str, str] | None:
