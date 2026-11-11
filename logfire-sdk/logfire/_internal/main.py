@@ -69,7 +69,7 @@ from .tracer import (
     _LogfireWrappedSpan,  # pyright: ignore[reportPrivateUsage]
     _ProxyTracer,  # pyright: ignore[reportPrivateUsage]
 )
-from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
+from .utils import get_version, handle_internal_errors, log_internal_error, safe_str, uniquify_sequence
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -873,7 +873,7 @@ class Logfire:
         if isinstance(exc_info, BaseException):
             # `Logger.emit(exception=...)` needs opentelemetry-sdk 1.40, so set the semconv attributes directly.
             attributes['exception.type'] = type(exc_info).__qualname__
-            attributes['exception.message'] = str(exc_info)
+            attributes['exception.message'] = safe_str(exc_info)
             attributes['exception.stacktrace'] = ''.join(
                 traceback.format_exception(type(exc_info), exc_info, exc_info.__traceback__)
             )
