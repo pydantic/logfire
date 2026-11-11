@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
+from typing import Any
 
 from opentelemetry import baggage, context
 from opentelemetry.sdk.trace import Span, SpanProcessor
@@ -84,26 +85,30 @@ class NoForceFlushSpanProcessor(SpanProcessor):
         return True
 
 
+def baggage_attributes(parent_context: context.Context | None, existing_attrs: Mapping[str, Any]) -> dict[str, str]:
+    """The baggage in `parent_context` as attributes to add to a record that already has `existing_attrs`."""
+    attrs: dict[str, str] = {}
+    for k, v in baggage.get_all(parent_context).items():
+        if not isinstance(v, str):
+            # Since this happens for every record, don't try converting to string, which could be expensive.
+            warnings.warn(
+                f'Baggage value for key "{k}" is of type "{type(v).__name__}", skipping setting as attribute.'
+            )
+            continue
+        if len(v) > MAX_BAGGAGE_VALUE_LENGTH:
+            # Truncating is cheap though.
+            warnings.warn(
+                f'Baggage value for key "{k}" is too long. Truncating to {MAX_BAGGAGE_VALUE_LENGTH} characters before setting as attribute.',
+            )
+            v = truncate_string(v, max_length=MAX_BAGGAGE_VALUE_LENGTH)
+        if k in existing_attrs:
+            if existing_attrs[k] == v:
+                continue
+            k = 'baggage_conflict.' + k
+        attrs[k] = v
+    return attrs
+
+
 class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
-        existing_attrs = span.attributes or {}
-        attrs: dict[str, str] = {}
-        for k, v in baggage.get_all(parent_context).items():
-            if not isinstance(v, str):
-                # Since this happens for every span, don't try converting to string, which could be expensive.
-                warnings.warn(
-                    f'Baggage value for key "{k}" is of type "{type(v).__name__}", skipping setting as attribute.'
-                )
-                continue
-            if len(v) > MAX_BAGGAGE_VALUE_LENGTH:
-                # Truncating is cheap though.
-                warnings.warn(
-                    f'Baggage value for key "{k}" is too long. Truncating to {MAX_BAGGAGE_VALUE_LENGTH} characters before setting as attribute.',
-                )
-                v = truncate_string(v, max_length=MAX_BAGGAGE_VALUE_LENGTH)
-            if k in existing_attrs:
-                if existing_attrs[k] == v:
-                    continue
-                k = 'baggage_conflict.' + k
-            attrs[k] = v
-        span.set_attributes(attrs)
+        span.set_attributes(baggage_attributes(parent_context, span.attributes or {}))
