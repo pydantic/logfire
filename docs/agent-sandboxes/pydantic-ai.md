@@ -29,7 +29,7 @@ records every run in Logfire. You add one argument.
 - Install Logfire with the `agent-sandboxes` extra, and Pydantic AI Harness with the `codemode` extra:
 
 ```bash
-pip install 'logfire[agent-sandboxes]>=5.5.0' 'pydantic-ai-harness[codemode]>=0.67.0'
+pip install 'logfire[agent-sandboxes]>=5.6.0' 'pydantic-ai-harness[codemode]>=0.67.0'
 ```
 
 ## Run the agent's code in Agent Sandboxes

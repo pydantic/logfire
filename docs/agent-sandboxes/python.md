@@ -240,8 +240,19 @@ No session existed when the server refused, so nothing ran, and you can safely r
 `status_code` is the gRPC status, such as `UNAUTHENTICATED`, `PERMISSION_DENIED`, or `RESOURCE_EXHAUSTED`.
 `cause` is the reason in `snake_case`, such as `unauthenticated`, `capacity`, or `caller_cap`.
 
-If the client cannot reach the server, `checkout()` raises `RuntimeError`.
-Examples are an unreachable address, a connection timeout, or a failed TLS handshake.
+`retryable` is `True` for `RESOURCE_EXHAUSTED` and `UNAVAILABLE`, and `False` for credential errors.
+`retry_after` is the delay in seconds that the server suggests, or `None`.
+
+If the client cannot reach the server, `checkout()` raises `MontyConnectError`.
+Examples are an unreachable address, a DNS failure, a connection timeout, or a failed TLS handshake.
+Nothing ran, and `transport_error` describes what failed.
+
+If the server rejects the session's settings, such as a `profile` that does not exist, the session's first call raises
+`MontyConfigurationError` with a message that starts with `session refused:`.
+The client sends the settings with the first call, so `checkout()` itself succeeds.
+The call did not run, and the session cannot be used.
+
+`MontyRefusedError`, `MontyConnectError`, and `MontyConfigurationError` are all subclasses of `MontyError`.
 
 Errors inside a checked-out session also come from Monty.
 These include exceptions from your sandbox code, `MontyCrashedError`, `MontyDisconnectError`, and `MontyShutdown`.
@@ -266,9 +277,11 @@ took.
 - **`MontyRefusedError` with `cause` `capacity` or `caller_cap`**: too many sessions are open.
   Lower `max_processes` to open fewer sessions at once, or retry after a delay.
   The SDK does not retry refusals for you.
-- **`RuntimeError: failed to spawn monty worker: ...`**: the client could not connect.
+- **`MontyConnectError`**: the client could not connect.
   Check the URL, network access, and TLS configuration.
   Use the server origin, such as `https://logfire-us.pydantic.dev`, without a path, query, or fragment.
+- **`MontyConfigurationError: session refused: ...`**: the server rejected the session's settings.
+  The message names the setting, such as a `profile` ID that does not exist in the project.
 - **`LogfireConfigError` about the URL path**: remove the old `/monty-ws/` path from the `url` you pass.
 - **`RuntimeError: logfire.agent_sandboxes() requires the pydantic-monty-client package`**: install Logfire with the
   extra: `pip install 'logfire[agent-sandboxes]'`.
