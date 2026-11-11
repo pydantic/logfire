@@ -838,7 +838,7 @@ class Logfire:
                     exc_info = sys.exc_info()
                 if isinstance(exc_info, tuple):
                     exc_info = exc_info[1]
-                if not (isinstance(exc_info, BaseException) and advanced.exception_callback):
+                if not (isinstance(exc_info, BaseException) and advanced.exception_callback is not None):
                     self._emit_log_record(level_num, msg, otlp_attributes, start_time, exc_info)
                     return
 
