@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable, Generator, Iterable
 from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime, timezone
 from functools import lru_cache, wraps
-from typing import Any
+from typing import Any, cast
 from weakref import WeakKeyDictionary
 
 import fastapi
@@ -14,7 +14,9 @@ import fastapi.routing
 from fastapi import BackgroundTasks, FastAPI
 from fastapi.routing import APIRoute, APIWebSocketRoute, Mount
 from fastapi.security import SecurityScopes
-from opentelemetry.trace import Span
+from opentelemetry import context as context_api, trace as trace_api
+from opentelemetry.trace import Span, SpanContext
+from starlette.background import BackgroundTask
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -202,6 +204,30 @@ class _FastAPIRegistry:
         return self.per_app.get(app) or self.global_instrumentation
 
 
+class _TracedBackgroundTasks(BackgroundTasks):
+    """Run a FastAPI background-task batch in a new trace linked to its request."""
+
+    def __init__(self, tasks: BackgroundTasks, logfire_instance: Logfire, request_context: SpanContext) -> None:
+        super().__init__()
+        self.tasks = tasks.tasks
+        self.original_tasks = tasks
+        self.logfire_instance = logfire_instance
+        self.request_context = request_context
+
+    async def __call__(self) -> None:
+        if not self.original_tasks.tasks:
+            return await self.original_tasks()
+
+        # Keep baggage, suppression, and FastAPI's own telemetry context so its
+        # background-operation spans become children of this new trace.
+        token = context_api.attach(trace_api.set_span_in_context(trace_api.INVALID_SPAN))
+        try:
+            with self.logfire_instance.span('FastAPI background tasks', _links=[(self.request_context, None)]):
+                return await self.original_tasks()
+        finally:
+            context_api.detach(token)
+
+
 @lru_cache  # only patch once
 def patch_fastapi() -> _FastAPIRegistry:
     """Globally monkeypatch fastapi functions and return their instrumentation registry."""
@@ -258,6 +284,22 @@ class FastAPIInstrumentation:
         self.request_attributes_mapper = request_attributes_mapper
         self.extra_spans = extra_spans
 
+    def wrap_background_tasks(
+        self, background: BackgroundTask | None, request_context: SpanContext
+    ) -> BackgroundTask | None:
+        if isinstance(background, BackgroundTasks) and not isinstance(background, _TracedBackgroundTasks):
+            return _TracedBackgroundTasks(background, self.logfire_instance, request_context)
+        return background
+
+    def wrap_solved_background_tasks(self, result: Any, request_context: SpanContext) -> Any:
+        background = cast(BackgroundTask | None, result[2] if isinstance(result, tuple) else result.background_tasks)
+        wrapped = self.wrap_background_tasks(background, request_context)
+        if wrapped is background:
+            return cast(Any, result)
+        if isinstance(result, tuple):  # pragma: no cover
+            return cast(Any, (*result[:2], wrapped, *result[3:]))
+        return dataclasses.replace(result, background_tasks=wrapped)
+
     @contextmanager
     def pseudo_span(self, namespace: str, root_span: Span):
         """Record start and end timestamps in the root span, and possibly exceptions."""
@@ -280,8 +322,21 @@ class FastAPIInstrumentation:
 
     async def solve_dependencies(self, request: Request | WebSocket, original: Awaitable[Any]) -> Any:
         root_span = request.scope.get(LOGFIRE_SPAN_SCOPE_KEY)
-        if not (root_span and root_span.is_recording()):
+        if not root_span or not root_span.get_span_context().is_valid:
             return await original
+
+        if not root_span.is_recording():
+            result = await original
+            if isinstance(request, Request):
+                result = self.wrap_solved_background_tasks(result, root_span.get_span_context())
+                values = cast(dict[str, Any], result[0] if isinstance(result, tuple) else result.values)
+                instrumented_values = _InstrumentedValues(values)
+                instrumented_values.request = request
+                if isinstance(result, tuple):  # pragma: no cover
+                    result = (instrumented_values, *result[1:])
+                else:
+                    result = dataclasses.replace(result, values=instrumented_values)
+            return result
 
         with self.logfire_instance.span('FastAPI arguments') if self.extra_spans else NoopSpan() as span:
             with handle_internal_errors:
@@ -298,6 +353,9 @@ class FastAPIInstrumentation:
 
             with self.pseudo_span('arguments', root_span):
                 result: Any = await original
+
+            if isinstance(request, Request):
+                result = self.wrap_solved_background_tasks(result, root_span.get_span_context())
 
             with handle_internal_errors:
                 solved_values: dict[str, Any]
@@ -366,10 +424,14 @@ class FastAPIInstrumentation:
     ) -> Any:
         original = original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
         root_span = request.scope.get(LOGFIRE_SPAN_SCOPE_KEY)
-        if not (root_span and root_span.is_recording()):  # pragma: no cover
-            # This should never happen because we only get to this function after solve_dependencies
-            # passes the same check, just being paranoid.
+        if not root_span or not root_span.get_span_context().is_valid:  # pragma: no cover
             return await original
+
+        if not root_span.is_recording():
+            result = await original
+            if isinstance(result, Response):
+                result.background = self.wrap_background_tasks(result.background, root_span.get_span_context())
+            return result
 
         if self.extra_spans:
             callback = inspect.unwrap(dependant.call)
@@ -387,7 +449,10 @@ class FastAPIInstrumentation:
         else:
             extra_span = NoopSpan()
         with extra_span, self.pseudo_span('endpoint_function', root_span):
-            return await original
+            result = await original
+            if isinstance(result, Response):
+                result.background = self.wrap_background_tasks(result.background, root_span.get_span_context())
+            return result
 
 
 def _default_request_attributes_mapper(
