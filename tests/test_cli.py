@@ -334,7 +334,7 @@ def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, caps
         assert capsys.readouterr().err.splitlines() == snapshot(
             [
                 'Not logged in. Run `logfire auth` to log in.',
-                IsStr(regex=rf'^Credentials loaded from data dir: {tmp_dir_cwd}'),
+                IsStr(regex=rf'^Credentials loaded from data dir: {re.escape(str(tmp_dir_cwd))}'),
                 '',
                 'Logfire project URL: https://dashboard.logfire.dev',
             ]
@@ -352,7 +352,7 @@ def test_whoami_without_data(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[st
         assert capsys.readouterr().err.splitlines() == snapshot(
             [
                 'Not logged in. Run `logfire auth` to log in.',
-                IsStr(regex=r'No Logfire credentials found in .*/\.logfire'),
+                IsStr(regex=r'No Logfire credentials found in .*[/\\]\.logfire'),
             ]
         )
     finally:
@@ -380,7 +380,7 @@ def test_whoami_logged_in(
     assert capsys.readouterr().err.splitlines() == snapshot(
         [
             'Logged in as: test-user',
-            IsStr(regex=rf'^Credentials loaded from data dir: {tmp_dir_cwd}'),
+            IsStr(regex=rf'^Credentials loaded from data dir: {re.escape(str(tmp_dir_cwd))}'),
             '',
             'Logfire project URL: https://dashboard.logfire.dev',
         ]
@@ -395,7 +395,7 @@ def test_whoami_default_dir(
     assert capsys.readouterr().err.splitlines() == snapshot(
         [
             'Not logged in. Run `logfire auth` to log in.',
-            IsStr(regex=r'^Credentials loaded from data dir: .*/\.logfire$'),
+            IsStr(regex=r'^Credentials loaded from data dir: .*[/\\]\.logfire$'),
             '',
             'Logfire project URL: https://dashboard.logfire.dev',
         ]
@@ -433,7 +433,7 @@ def test_clean(
     monkeypatch.setattr(logfire._internal.cli, 'LOGFIRE_LOG_FILE', log_file)
 
     logfire_credentials.write_creds_file(tmp_dir_cwd)
-    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)} --logs'))
+    main(['clean', '--data-dir', str(tmp_dir_cwd), '--logs'])
     out, err = capsys.readouterr()
     assert err == output
     assert out.splitlines() == [
@@ -455,7 +455,7 @@ def test_clean_then_write_creds_file_restores_gitignore(
     logfire_credentials.write_creds_file(data_dir)
     assert (data_dir / '.gitignore').read_text() == '*'
 
-    main(shlex.split(f'clean --data-dir {str(data_dir)}'))
+    main(['clean', '--data-dir', str(data_dir)])
     assert not (data_dir / '.gitignore').exists()
 
     logfire_credentials.write_creds_file(data_dir)
@@ -522,7 +522,7 @@ def test_clean_default_dir_is_not_a_directory(
     monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
     logfire_credentials.write_creds_file(tmp_dir_cwd)
     with pytest.raises(SystemExit) as exc:
-        main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}/logfire_credentials.json'))
+        main(['clean', '--data-dir', str(tmp_dir_cwd / 'logfire_credentials.json')])
     assert 'No Logfire data found in' in capsys.readouterr().err
     assert exc.value.code == 1
 
@@ -2657,7 +2657,7 @@ def test_read_token_save_writes_the_file_and_prints_nothing(
     assert timedelta(days=READ_TOKEN_TTL.days - 1) < expiry - datetime.now(tz=timezone.utc) <= READ_TOKEN_TTL
 
     # Owner-only: this file holds a credential that can read the whole project.
-    assert (data_dir / READ_TOKEN_FILENAME).stat().st_mode & 0o077 == 0
+    assert sys.platform == 'win32' or (data_dir / READ_TOKEN_FILENAME).stat().st_mode & 0o077 == 0
 
 
 def test_read_token_save_with_explicit_project_needs_no_linked_directory(tmp_dir_cwd: Path) -> None:
@@ -3173,6 +3173,7 @@ def test_is_git_tracked_fails_closed_when_git_exists_but_cannot_answer(tmp_dir_c
         _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME)
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='POSIX file modes are not enforced on Windows')
 def test_read_token_save_narrows_an_existing_permissive_file(tmp_dir_cwd: Path) -> None:
     """An existing world-readable file must be restricted BEFORE the token is written.
 
