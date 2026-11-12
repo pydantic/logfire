@@ -99,11 +99,16 @@ Your Logfire plan limits how many projects in your organization can have Agent S
 
 To free a slot, [disable Agent Sandboxes](index.md#disable-agent-sandboxes) in another project.
 
+## Pricing
+
+Agent Sandboxes is billed per invocation. One invocation is one call to `feed_run()` or `feed_start()`, however many
+times the script calls your functions. Every Logfire plan includes free invocations each month. For prices, paid tiers, and the limits of each tier,
+see [Agent Sandboxes pricing](https://pydantic.dev/pricing#addons).
+
 ## Coming soon
 
 These are not documented yet:
 
-- Pricing
 - Running sandboxes in a self-hosted Logfire deployment
 - Connecting sandboxes to Model Context Protocol (MCP) servers
 
