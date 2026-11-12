@@ -64,6 +64,27 @@ Here are the default scrubbing patterns:
 ]
 ```
 
+## Masking part of a string
+
+Use [`transform_string`][logfire.ScrubbingOptions.transform_string] to replace sensitive text while keeping the rest of a value. The callback receives the string and its path:
+
+```python
+import re
+
+import logfire
+from logfire.types import StringValue
+
+
+def mask_email(item: StringValue) -> str:
+    return re.sub(r'\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b', '[email]', item.value)
+
+
+logfire.configure(scrubbing=logfire.ScrubbingOptions(transform_string=mask_email))
+logfire.info('Contact {email}', email='alice@example.com')
+```
+
+The exported `email` attribute and formatted message contain `[email]`. The callback runs on string values inside JSON and under keys that are exempt from pattern matching. Pattern matching runs on the returned string where permitted. A transformation alone adds no scrubbed note. If the callback raises an exception, Logfire logs the error, keeps that string unchanged, and continues normal pattern matching.
+
 ## Scrubbing less with a callback
 
 On the other hand, if the scrubbing is too aggressive, you can pass a function to [`callback`][logfire.ScrubbingOptions.callback] to prevent certain data from being redacted.
