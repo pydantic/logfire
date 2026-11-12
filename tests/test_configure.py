@@ -62,7 +62,7 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 import logfire
 import logfire._internal.config as config_module
 from logfire import configure, propagate
-from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
+from logfire._internal.baggage import DirectBaggageAttributesLogProcessorWrapper, DirectBaggageAttributesSpanProcessor
 from logfire._internal.config import (
     GLOBAL_CONFIG,
     CodeSource,
@@ -2711,6 +2711,8 @@ def get_log_record_processors() -> Iterable[LogRecordProcessor]:
     [processor] = get_logger_provider().provider._multi_log_record_processor._log_record_processors  # type: ignore
     assert isinstance(processor, CheckSuppressInstrumentationLogProcessorWrapper)
     processor = processor.processor
+    if isinstance(processor, DirectBaggageAttributesLogProcessorWrapper):
+        processor = processor.processor
     assert isinstance(processor, MainLogProcessorWrapper)
     processor = processor.processor
     assert isinstance(processor, SynchronousMultiLogRecordProcessor)
