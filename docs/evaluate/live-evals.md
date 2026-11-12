@@ -7,7 +7,7 @@ description: "Use Live Evaluations to spot changes in online evaluation results,
 
 Use **Evals: Live Monitoring** to watch the results of [online evaluations](https://pydantic.dev/docs/ai/evals/online-evaluation/) running against real traffic. An online evaluation scores an agent or function after it runs, so it helps you notice a production regression, investigate an unexpected result, or follow a new evaluator rollout.
 
-This page is for monitoring results that already reach Logfire. To add an evaluator to your application, follow the [Pydantic AI online evaluation guide](https://pydantic.dev/docs/ai/evals/online-evaluation/). For a curated test set before deployment, use [offline evaluations](overview.md) instead.
+This page is for monitoring results that already reach Logfire. To add an evaluator to your application, follow the [Pydantic AI online evaluation guide](https://pydantic.dev/docs/ai/evals/online-evaluation/). To have Logfire judge recorded traffic without changing your application, use [hosted scorers](hosted-scorers.md) (Early Access); their results appear here too. For a curated test set before deployment, use [offline evaluations](overview.md) instead.
 
 Live Evaluations reads [`gen_ai.evaluation.result`](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-events.md#event-gen_aievaluationresult) OpenTelemetry log events that include a target and evaluation name. The [`@evaluate` decorator](https://pydantic.dev/docs/ai/evals/online-evaluation/#quick-start) for functions and the [`OnlineEvaluation` capability](https://pydantic.dev/docs/ai/evals/online-evaluation/#agent-integration) for Pydantic AI agents emit these events by default.
 
