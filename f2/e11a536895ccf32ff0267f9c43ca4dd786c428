@@ -1,0 +1,19 @@
+logfire-sdk/logfire/_internal/scrubbing.py
+  s_9b4283f109ace8::t_acccaaaf48244b 381-398
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f2e11a536895ccf32ff0267f9c43ca4dd786c428",
+  "prompts": {},
+  "sessions": {
+    "s_9b4283f109ace8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c5bc-ed91-7791-8d89-256c0ad11784",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
