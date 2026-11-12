@@ -33,7 +33,7 @@ The migration consists of three steps:
 - Admin access to your **Kubernetes** cluster.
 - The [Helm](https://helm.sh) CLI installed.
 - `pg_dump`, `pg_restore`, and `psql` with the same major version as the new instance.
-- A new PostgreSQL instance that meets the [PostgreSQL requirements](installation.md#postgresql). For dump and restore, it must run the same or a newer PostgreSQL major version than the old instance. A physical replica must run the same major version.
+- A new PostgreSQL instance that meets the [PostgreSQL requirements](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#postgresql) in the chart README. For dump and restore, it must run the same or a newer PostgreSQL major version than the old instance. A physical replica must run the same major version.
 - An empty `ff` database on the new instance, owned by the user in the new `postgresFFDsn`. That user must be able to create the `intarray` and `btree_gist` extensions.
 - Enough disk on the `logfire-ff-ingest` volumes to buffer incoming data for the length of the migration.
 - An estimate of how long the migration takes. Use a value that is longer than that estimate for `FF_INGEST_REMOTE_RETRY_MAX_DURATION` in Step 1.

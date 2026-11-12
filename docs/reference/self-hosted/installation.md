@@ -1,335 +1,75 @@
 ---
 title: Self-Hosted Logfire Production Requirements
-description: "Plan the production values required for self-hosted Pydantic Logfire, including PostgreSQL, object storage, authentication, and sizing."
+description: "Plan the external services that a production install of self-hosted Pydantic Logfire needs before you install the Helm chart."
 ---
 # Production Requirements
 
-Use this page to plan the production values you need before installing self-hosted Logfire. Use the [Logfire Helm chart README](https://github.com/pydantic/logfire-helm-chart) for the exact install commands, local evaluation flow, and chart-version-specific sizing preset details.
+Plan the services that self-hosted Logfire depends on, so that your first production install works. The Helm chart runs Logfire in Kubernetes. It does not create your production databases, object storage, Redis, or identity provider, so you provision these before you install.
 
-## Production Values Checklist
+This page explains what each service is for and what you decide about it. The exact requirements, such as minimum versions, permissions, and value names, can change between chart versions. The [Logfire Helm chart README](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire) states them for each release. Read the README of the chart version that you install: open its `logfire-<version>` tag from the [list of chart tags](https://github.com/pydantic/logfire-helm-chart/tags).
 
-Before installing the chart, decide how you will configure:
+Start your values file from the chart's [`values.prod.yaml`](https://github.com/pydantic/logfire-helm-chart/blob/main/charts/logfire/values.prod.yaml). It has a placeholder for each service on this page.
 
-* Image pull credentials.
-* PostgreSQL databases and credentials.
-* Object storage bucket/container and credentials.
-* Managed Redis endpoint and credentials.
-* Dex identity provider connector.
-* Production sizing preset: `standard`, `small`, or `tiny`.
-* Storage classes if your cluster does not have a default `StorageClass`.
+## Image pull secret
 
-## Starter Values Shape
-
-Your production values file should have this shape. Replace the placeholders with your environment details and load sensitive values from Kubernetes Secrets, External Secrets, or your secret manager where possible.
-
-```yaml
-imagePullSecrets:
-  - logfire-image-key
-
-sizingPreset: standard
-adminEmail: sre@example.com
-
-ingress:
-  enabled: true
-  tls: true
-  hostnames:
-    - logfire.example.com
-  ingressClassName: nginx
-
-objectStore:
-  uri: s3://logfire-prod
-  env:
-    AWS_DEFAULT_REGION: us-east-1
-
-postgresDsn: postgresql://logfire_crud:PASSWORD@postgres.example.com:5432/crud
-postgresFFDsn: postgresql://logfire_ff:PASSWORD@postgres.example.com:5432/ff
-
-logfire-redis:
-  enabled: false
-redisDsn: rediss://USER:PASSWORD@redis.example.com:6379
-
-logfire-dex:
-  config:
-    storage:
-      type: postgres
-      config:
-        host: postgres.example.com
-        port: 5432
-        user: logfire_dex
-        database: dex
-        password: PASSWORD
-        ssl:
-          mode: require
-    connectors:
-      - type: github
-        id: github
-        name: GitHub
-        config:
-          clientID: GITHUB_CLIENT_ID
-          clientSecret: GITHUB_CLIENT_SECRET
-          getUserInfo: true
-```
-
-## Image Pull Secret
-
-Logfire images are private. Contact [sales@pydantic.dev](mailto:sales@pydantic.dev) to get the `key.json` file used to create an image pull secret.
-
-Create the secret in the same namespace as the Helm release:
-
-```bash
-kubectl -n logfire create secret docker-registry logfire-image-key \
-  --docker-server=us-docker.pkg.dev \
-  --docker-username=_json_key \
-  --docker-password="$(cat key.json)" \
-  --docker-email=YOUR-EMAIL@example.com
-```
-
-Then reference it from your values file:
-
-```yaml
-imagePullSecrets:
-  - logfire-image-key
-```
-
-If you mirror Logfire images into your own registry, keep the chart version and mirrored image tags aligned.
+Logfire images are private. Contact [sales@pydantic.dev](mailto:sales@pydantic.dev) to get the `key.json` file for your image pull credentials. The chart README step [Create the image pull secret](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#2-create-the-image-pull-secret) shows how to make the Kubernetes Secret from it.
 
 ## PostgreSQL
 
-The Helm chart does not deploy production PostgreSQL. Use PostgreSQL 16 or later and make sure the `intarray` and `btree_gist` extensions can be enabled.
+Logfire keeps its metadata in three PostgreSQL databases:
 
-Create three databases. They can live on the same PostgreSQL instance:
+* `crud`: Logfire application data, such as organizations, projects, dashboards, and users.
+* `ff`: metadata for FusionFire, the Logfire engine that stores and queries telemetry. The metadata describes the telemetry files in object storage.
+* `dex`: data for Dex, the service that signs users in.
 
-* `crud`: Logfire application data such as organizations, projects, dashboards, and users.
-* `ff`: FusionFire metadata for files stored in object storage.
-* `dex`: Dex identity service storage.
+Telemetry payloads go to object storage, not PostgreSQL, so PostgreSQL stays small.
 
-Telemetry payloads are stored in object storage, not PostgreSQL.
-Each database user needs owner permissions so chart migrations can create and update schemas.
+Decide whether to use a managed PostgreSQL service, whether the three databases share one instance, and whether a connection pooler sits in front of it. A connection pooler, such as PgBouncer, shares a small number of database connections between many clients.
 
-An instance with 2 vCPU and 16 GB of memory is a good starting size. Resize it from the CPU and connection use that you see. FusionFire migrations set autovacuum settings on the `ff` tables that change most often, so do not override them.
+The chart README section [PostgreSQL](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#postgresql) states the supported versions, the required extensions, and the database owner requirement. [Connection poolers](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#connection-poolers) states what a pooler must support. To move the `ff` database to another instance later, see [FusionFire database migration](./ff-database-migration.md).
 
-Connect the Logfire services directly to PostgreSQL, or through a connection pooler in transaction mode. With a pooler, the migration jobs, the FusionFire maintenance scheduler, and Dex need a separate session-mode pool or direct connection. The [chart README](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#connection-poolers) lists what the pooler must support, the session DSN values, and the connections that each workload opens.
+## Object storage
 
-You can provide the two Logfire database DSNs directly:
+Logfire stores telemetry in a bucket on Amazon S3, Google Cloud Storage, Azure Storage, or an S3-compatible service.
 
-```yaml
-postgresDsn: postgresql://logfire_crud:PASSWORD@postgres.example.com:5432/crud
-postgresFFDsn: postgresql://logfire_ff:PASSWORD@postgres.example.com:5432/ff
-```
+Decide how Logfire gets access to the bucket. A cloud identity for the Kubernetes service account, such as IAM roles for service accounts on AWS, avoids long-lived keys. Static keys from a Kubernetes Secret also work.
 
-Or reference an existing Kubernetes Secret with `postgresDsn` and `postgresFFDsn` keys:
+The bucket settings affect cost and correctness. Logfire deletes the files that it no longer needs, so object versioning and soft delete keep deleted files that you pay for. A lifecycle rule that deletes files by age removes files that Logfire still reads.
 
-```yaml
-postgresSecret:
-  enabled: true
-  name: my-postgres-secret
-```
-
-Dex uses its own PostgreSQL configuration:
-
-```yaml
-logfire-dex:
-  config:
-    storage:
-      type: postgres
-      config:
-        host: postgres.example.com
-        port: 5432
-        user: logfire_dex
-        database: dex
-        password: PASSWORD
-        ssl:
-          mode: require
-```
-
-Dex configuration can reference environment variables. Use this pattern if the password is stored in a Secret:
-
-```yaml
-logfire-dex:
-  env:
-    - name: DEX_POSTGRES_PASSWORD
-      valueFrom:
-        secretKeyRef:
-          name: my-postgres-secret
-          key: dex-password
-  config:
-    storage:
-      type: postgres
-      config:
-        host: postgres.example.com
-        port: 5432
-        user: logfire_dex
-        database: dex
-        password: $DEX_POSTGRES_PASSWORD
-        ssl:
-          mode: require
-```
-
-## Object Storage
-
-Set `objectStore.uri` to your bucket or container:
-
-```yaml
-objectStore:
-  uri: s3://logfire-prod
-```
-
-Logfire deletes the objects it no longer needs. Compaction replaces small files with larger ones and deletes the old files a few minutes later. Retention deletes data older than each project's retention period. Configure the bucket so that it does not keep or move these objects:
-
-* Turn off object versioning.
-* Turn off soft delete. Google Cloud Storage turns on a 7-day soft delete for new buckets, and Azure Storage can keep deleted blobs for a period. Compaction deletes objects all the time, so soft-deleted objects can become a large part of the storage bill.
-* On Amazon S3 and Google Cloud Storage, add a lifecycle rule that aborts incomplete multipart uploads after 1 day. A worker that stops during an upload leaves parts behind. These parts are billed, but they do not appear in object listings.
-* Do not add lifecycle rules that delete objects or change their storage class by age. An age-based delete removes files that the `ff` database still references, and queries over those files then fail.
-
-On Google Cloud Storage, you can turn on Autoclass to lower the cost of data that is read less often.
-
-For Amazon S3, prefer workload identity such as IRSA, EKS Pod Identity, or your platform's equivalent. If you need static credentials, load them from a Secret:
-
-```yaml
-objectStore:
-  uri: s3://logfire-prod
-  env:
-    AWS_DEFAULT_REGION: us-east-1
-    AWS_ACCESS_KEY_ID:
-      valueFrom:
-        secretKeyRef:
-          name: logfire-object-storage
-          key: access-key-id
-    AWS_SECRET_ACCESS_KEY:
-      valueFrom:
-        secretKeyRef:
-          name: logfire-object-storage
-          key: secret-access-key
-```
-
-For Google Cloud Storage:
-
-```yaml
-objectStore:
-  uri: gs://logfire-prod
-  env:
-    GOOGLE_SERVICE_ACCOUNT_KEY:
-      valueFrom:
-        secretKeyRef:
-          name: logfire-object-storage
-          key: service-account-key
-```
-
-For Azure Storage:
-
-```yaml
-objectStore:
-  uri: az://logfire-prod
-  env:
-    AZURE_STORAGE_ACCOUNT_NAME: logfireprod
-    AZURE_STORAGE_ACCOUNT_KEY:
-      valueFrom:
-        secretKeyRef:
-          name: logfire-object-storage
-          key: account-key
-```
+The chart README sections [Object storage](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#object-storage) and [Bucket settings](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#bucket-settings) explain how to give Logfire access to the bucket, and which bucket settings to use. To move to another bucket later, see [Bucket migration](./bucket-migration.md).
 
 ## Redis
 
-The chart's bundled Redis is for evaluation. For production, turn it off and connect a managed Redis:
+Logfire uses Redis for live query streaming and for caches. The chart can deploy a Redis for evaluation. For production, use a managed Redis.
 
-* Use one Redis endpoint. It can be a standalone instance, or a primary with replicas behind one write endpoint. Logfire does not support Redis Cluster mode.
-* Redis 7.2 is the tested version.
-* Logfire accepts `redis://` and `rediss://` DSNs. Put the password, or the ACL user and password, in the DSN.
-* With `rediss://`, Logfire verifies the Redis server certificate. Memorystore with in-transit encryption, for example, signs it with a private CA for each instance. For a private CA, set `trustedCaBundle` as the [chart README](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#private-ca-certificates) describes.
+The chart README section [Redis](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#redis) states the supported version and topologies, the DSN format, and the TLS settings.
 
-You can provide the DSN directly:
+## Hostnames and exposure
 
-```yaml
-logfire-redis:
-  enabled: false
+Logfire needs one stable public hostname, for example `logfire.example.com`. Logfire uses it to make links and to allow browser requests from that origin.
 
-redisDsn: rediss://USER:PASSWORD@redis.example.com:6379
-```
+Decide how traffic reaches Logfire: a Kubernetes Ingress, Gateway API, or a routing layer that you manage outside the chart. Every proxy on the path must allow WebSocket connections.
 
-Or reference an existing Kubernetes Secret with the `sharedDsn`, `tailDsn`, `tokenDsn`, and `usageDsn` keys. All four keys can hold the same DSN:
+The chart README section [Hostnames and exposure](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#hostnames-and-exposure) gives the values for each option.
 
-```yaml
-logfire-redis:
-  enabled: false
+## Identity provider
 
-redisSecret:
-  enabled: true
-  name: logfire-redis-dsn
-```
+Users sign in through [Dex](https://dexidp.io/docs/connectors/), an identity service that the chart deploys. Dex connects to your identity provider, such as GitHub, Microsoft Entra ID (Azure AD), or Okta, through a connector. Users can also sign in with an email address and a password, which needs an SMTP server to send email.
 
-## Hostnames and Exposure
+Decide which identity provider you use, and create an OAuth app in it before you install. The chart README section [Authentication](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#authentication) gives the redirect URI and the sign-in settings. [SSO provider examples](./examples.md#sso-provider-examples) show complete connectors.
 
-Logfire needs a stable hostname so it can generate correct public URLs and CORS headers.
+## Sizing and storage
 
-For a standard Ingress:
+The chart has sizing presets that set the resources and the autoscaling of every workload. Pick a preset from your expected traffic.
 
-```yaml
-ingress:
-  enabled: true
-  tls: true
-  hostnames:
-    - logfire.example.com
-  ingressClassName: nginx
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt
-```
+The cluster needs two things for the presets:
 
-If you expose `logfire-service` directly instead of rendering an Ingress, keep `ingress.enabled: false` and still set the public hostname and TLS behavior:
+* HorizontalPodAutoscaler metrics, usually from metrics-server, so that workloads can scale.
+* A default StorageClass, or a StorageClass that you name in your values, for the volumes that the chart creates.
 
-```yaml
-ingress:
-  enabled: false
-  tls: true
-  hostnames:
-    - logfire.example.com
-```
+The chart README section [Sizing](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#sizing) lists the presets and the resources that each one sets.
 
-Gateway API is also supported. Use `gateway.hostnames` and `gateway.tls` to keep the public URL settings with the Gateway configuration. To have the chart create a Gateway and HTTPRoute:
+## Next steps
 
-```yaml
-ingress:
-  enabled: false
-
-gateway:
-  enabled: true
-  create: true
-  gatewayClassName: istio
-  hostnames:
-    - logfire.example.com
-  tls: true
-  tlsSecretName: logfire-tls-cert
-```
-
-## Identity Provider
-
-Logfire uses [Dex](https://dexidp.io/docs/connectors/) for user authentication. Dex connector examples belong in your values file under `logfire-dex.config.connectors`.
-
-For GitHub:
-
-```yaml
-logfire-dex:
-  config:
-    connectors:
-      - type: github
-        id: github
-        name: GitHub
-        config:
-          clientID: GITHUB_CLIENT_ID
-          clientSecret: GITHUB_CLIENT_SECRET
-          getUserInfo: true
-```
-
-For Azure AD, Okta, and more detailed GitHub steps, see the [SSO provider examples](./examples.md#sso-provider-examples).
-
-## Sizing and Storage
-
-Start production deployments with one of the chart's production sizing presets:
-
-```yaml
-sizingPreset: standard
-```
-
-Use `standard` for the default production starting point, `small` for lower-traffic production deployments, or `tiny` for the smallest production footprint. The [Helm chart README](https://github.com/pydantic/logfire-helm-chart#sizing) is the source of truth for preset behavior and any per-workload overrides.
-
-Production clusters should have working HorizontalPodAutoscaler metrics before relying on the built-in presets. If your cluster has no default `StorageClass`, set the required storage class values for scratch and ingest volumes.
+* [Install the chart](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#3b-production-starter) with your production values.
+* If the install fails, see [Troubleshooting](./troubleshooting.md).
