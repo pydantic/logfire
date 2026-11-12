@@ -442,6 +442,26 @@ def test_clean(
         str(tmp_dir_cwd / 'logfire_credentials.json'),
         'Are you sure? [N/y]',
     ]
+    # Declining must preserve the files; confirming must remove both.
+    assert log_file.exists() is (confirm == 'n')
+    assert (tmp_dir_cwd / 'logfire_credentials.json').exists() is (confirm == 'n')
+
+
+def test_clean_logs_does_not_open_its_own_log_file(tmp_dir_cwd: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The CLI must not lock the file that --logs removes on Windows."""
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    creds_file = data_dir / 'logfire_credentials.json'
+    creds_file.write_text('{}')
+    log_file = tmp_dir_cwd / 'logfire.log'
+    log_file.write_text('existing log')
+    monkeypatch.setattr(logfire._internal.cli, 'LOGFIRE_LOG_FILE', log_file)
+
+    with patch('logfire._internal.cli._cli_logging', side_effect=AssertionError('log file opened during clean')):
+        main(['clean', '--data-dir', str(data_dir), '--logs', '--yes'])
+
+    assert not log_file.exists()
+    assert not creds_file.exists()
 
 
 def test_clean_then_write_creds_file_restores_gitignore(

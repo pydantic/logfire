@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Generator, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
 from operator import itemgetter
 from pathlib import Path
@@ -1035,7 +1035,9 @@ def _main(args: list[str] | None = None) -> None:
     elif namespace.func in (parse_info, parse_run):
         namespace.func(namespace)
     else:
-        with _cli_logging(), tracer.start_as_current_span('logfire._internal.cli'), requests.Session() as session:
+        # Cleaning the logs must not open the file we are about to delete.
+        cli_logging = nullcontext() if namespace.func is parse_clean and namespace.logs else _cli_logging()
+        with cli_logging, tracer.start_as_current_span('logfire._internal.cli'), requests.Session() as session:
             install_connection_policy(session)
             context = get_context()
             session.hooks = {'response': [functools.partial(log_trace_id, context=context)]}
