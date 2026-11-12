@@ -294,7 +294,7 @@ class Scrubber(BaseScrubber):
     def transform_message(self, value: str) -> str | None:
         if self._transform_string is None:
             return None
-        value = truncate_string(value, max_length=16 * 1024)
+        value = value[: 16 * 1024]
         transformed = SpanScrubber(self).scrub(('attributes', ATTRIBUTES_MESSAGE_KEY), value, in_safe_key=True)
         return truncate_string(transformed, max_length=1024)
 
@@ -490,9 +490,9 @@ class MessageValueCleaner:
         self.check_keys = check_keys
 
     def clean_value(self, field_name: str, value: str) -> str:
-        # Keep the text passed to callbacks and patterns bounded, while retaining substantially
-        # more context than will be displayed in the final message.
-        value = truncate_string(value, max_length=16 * MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT)
+        # Keep the text passed to callbacks and patterns bounded. Retain only the prefix:
+        # keeping a distant suffix could expose a secret after cutting away its marker.
+        value = value[: 16 * MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT]
         if self.check_keys or field_name in self.scrubber.SAFE_KEYS:
             # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
             scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
