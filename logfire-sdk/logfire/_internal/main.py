@@ -3390,7 +3390,13 @@ class LogfireSpan(ReadableSpan):
     @handle_internal_errors
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         self._detach()
-        if self._span and self._span.is_recording() and isinstance(exc_value, BaseException):
+        if (
+            self._span
+            and self._span.is_recording()
+            and isinstance(exc_value, BaseException)
+            # GeneratorExit means a generator was closed early (e.g. `break`), which is not an error.
+            and not isinstance(exc_value, GeneratorExit)
+        ):
             self._span.record_exception(exc_value, escaped=True)
         self._end()
 
