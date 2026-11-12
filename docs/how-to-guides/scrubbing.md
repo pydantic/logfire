@@ -70,9 +70,9 @@ On the other hand, if the scrubbing is too aggressive, you can pass a function t
 
 The function will be called for each potential match found by the scrubber. If it returns `None`, the value is redacted. Otherwise, the returned value replaces the matched value. The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
 
-When a key matches and the callback returns its dictionary or list value unchanged (or returns an equal copy), Logfire continues scrubbing inside it. This lets you allow the key without allowing sensitive data nested under it. If the callback returns a different container, Logfire uses that replacement as the final value and does not scrub inside it.
+When a key matches and the callback returns its dictionary or list value unchanged (or returns an equal copy of the same type), Logfire continues scrubbing inside it. This lets you allow the key without allowing sensitive data nested under it. If the callback returns a different container, Logfire uses that replacement as the final value and does not scrub inside it.
 
-If the callback returns a string unchanged (or returns an equal string), Logfire checks later positions in the same key or string value for other matches. A different returned string is used as the final value. After 100 allowed matches in one string, Logfire redacts the value to limit the search cost.
+If the callback returns a string unchanged (or returns an equal string of the same type), Logfire checks later positions in the same key or string value for other matches. A different returned string is used as the final value. After 100 allowed matches in one string, Logfire redacts the value to limit the search cost.
 
 Here's an example:
 
