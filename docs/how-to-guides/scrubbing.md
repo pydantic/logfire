@@ -124,9 +124,11 @@ The exported `email` attribute and formatted message contain `[email]`. The call
 
 The callback runs for every string the scrubber reaches, including large values. Keep it fast, and test any regex you use against long inputs. The email regex above is illustrative and can be expensive on long strings.
 
-!!! warning "Keep values redacted if masking fails"
+!!! warning "Choose a fallback for masking errors"
 
-    If `transform_string` raises an exception, Logfire logs the error and keeps the original string. Pattern matching still runs where permitted, but a value such as an email address may be exported unchanged. To prevent that, catch errors inside your callback and return a redacted string such as `'[redacted]'`.
+    If `transform_string` raises an exception, Logfire logs the error and keeps the original string. Pattern matching still runs where permitted, but a value such as an email address may be exported unchanged.
+
+    If you handle errors inside your callback, redact only values you know are sensitive. A catch-all handler that returns `'[redacted]'` for every error could replace every string if the transformer breaks, leaving little usable telemetry.
 
 ## When Logfire scrubs spans
 
