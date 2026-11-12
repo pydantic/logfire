@@ -800,7 +800,9 @@ def test_llm_scope_scrubs_attributes_instead_of_skipping_span():
         ReadableSpanDict,
         {
             'instrumentation_scope': InstrumentationScope('logfire.openai'),
-            'attributes': {'request_data': {'messages': [{'password': 'hunter2', 'content': 'auth is a route'}]}},
+            'attributes': {
+                'request_data': json.dumps({'messages': [{'password': 'hunter2', 'content': 'auth is a route'}]})
+            },
             'events': [],
             'links': [],
         },
@@ -808,8 +810,10 @@ def test_llm_scope_scrubs_attributes_instead_of_skipping_span():
 
     Scrubber(None).scrub_span(span)
 
-    assert span['attributes']['request_data'] == {
-        'messages': ({'password': "[Scrubbed due to 'password']", 'content': 'auth is a route'},)
+    request_data = span['attributes']['request_data']
+    assert isinstance(request_data, str)
+    assert json.loads(request_data) == {
+        'messages': [{'password': "[Scrubbed due to 'password']", 'content': 'auth is a route'}]
     }
 
 
