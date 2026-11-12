@@ -19,7 +19,7 @@ from opentelemetry.trace.propagation import get_current_span
 
 import logfire
 from logfire._internal.exporters.processor_wrapper import SpanProcessorGroup
-from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
+from logfire._internal.scrubbing import DEFAULT_PATTERNS, MessageValueCleaner, NoopScrubber, Scrubber
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
 from logfire.types import StringValue
@@ -728,6 +728,36 @@ def test_transform_string_writes_attributes_without_scrubbed_note(
     (span,) = exporter.exported_spans_as_dict()
     assert span['attributes']['contact'] == '[email]'
     assert 'logfire.scrubbed' not in span['attributes']
+
+
+def test_formatted_value_is_bounded_before_scrubbing():
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    cleaner = MessageValueCleaner(Scrubber(None, transform_string=transform), check_keys=False)
+    result = cleaner.clean_value('contact', 'alice@example.com' + 'x' * 5000)
+
+    assert len(seen) == 1
+    assert seen[0].path == ('message', 'contact')
+    assert len(seen[0].value) <= 2048
+    assert result.startswith('[email]')
+    assert len(result) <= 128
+
+
+def test_safe_key_formatted_value_is_transformed_without_pattern_search():
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    cleaner = MessageValueCleaner(Scrubber(None, transform_string=transform), check_keys=False)
+    assert cleaner.clean_value('logfire.msg', 'secret=alice@example.com') == 'secret=[email]'
+    assert seen == [StringValue(('message', 'logfire.msg'), 'secret=alice@example.com')]
+    assert cleaner.extra_attrs() == {}
 
 
 @pytest.mark.parametrize('error_type', [ValueError, RecursionError])

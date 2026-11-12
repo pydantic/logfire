@@ -477,19 +477,18 @@ class MessageValueCleaner:
         self.check_keys = check_keys
 
     def clean_value(self, field_name: str, value: str) -> str:
-        # Scrub before truncating so that the scrubber can see the full value.
-        # For example, if the value contains 'password=123' and 'password' is replaced by '...'
-        # because of truncation, then that leaves '=123' in the message, which is not good.
-        if field_name not in self.scrubber.SAFE_KEYS:
-            if self.check_keys:
-                # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
-                scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
-                value = scrubbed_value[field_name]
-            else:
-                # Whereas having the key in the path doesn't affect the scrubbing result,
-                # so this only looks at `value` itself.
-                value, scrubbed_notes = self.scrubber.scrub_value(('message', field_name), value)
-            self.scrubbed.extend(scrubbed_notes)
+        # Keep the text passed to callbacks and patterns bounded, while retaining substantially
+        # more context than will be displayed in the final message.
+        value = truncate_string(value, max_length=16 * MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT)
+        if self.check_keys or field_name in self.scrubber.SAFE_KEYS:
+            # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
+            scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
+            value = scrubbed_value[field_name]
+        else:
+            # Whereas having the key in the path doesn't affect the scrubbing result,
+            # so this only looks at `value` itself.
+            value, scrubbed_notes = self.scrubber.scrub_value(('message', field_name), value)
+        self.scrubbed.extend(scrubbed_notes)
         return self.truncate(value)
 
     def truncate(self, value: str) -> str:
