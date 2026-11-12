@@ -34,7 +34,7 @@ from .constants import (
 from .integrations.llm_providers import semconv as gen_ai_semconv
 from .json_encoder import logfire_json_dumps
 from .stack_info import STACK_INFO_KEYS
-from .utils import ReadableSpanDict, truncate_string
+from .utils import ReadableSpanDict, handle_internal_errors, truncate_string
 
 DEFAULT_PATTERNS = [
     'password',
@@ -410,7 +410,11 @@ class SpanScrubber:
             match = next_match
 
     def _redact(self, match: ScrubMatch) -> Any:
-        if self._callback and (result := self._callback(match)) is not None:
+        result = None
+        if self._callback:
+            with handle_internal_errors:
+                result = self._callback(match)
+        if result is not None:
             if not _is_unchanged_value(match.value, result):
                 self.scrub_count += 1
             return result

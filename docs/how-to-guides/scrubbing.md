@@ -96,7 +96,7 @@ If the callback returns a string unchanged (or returns an equal string of the sa
     Request-local values, such as values stored in a Python `ContextVar`, may be unavailable on the background thread.
     The callback should not have side effects.
     Do not mutate `match.value` in place. Logfire may not detect the change, so the mutated value may not be written back.
-    If the callback raises an exception, span scrubbing may stop and the original attributes may be exported.
+    If the callback raises an exception, Logfire logs the error and redacts the matched value as though the callback returned `None`. Scrubbing then continues.
     It should return quickly, as it can get called many times.
 
 ## When Logfire scrubs spans

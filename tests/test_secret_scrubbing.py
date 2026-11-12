@@ -660,6 +660,26 @@ def test_scrub_json_containers_without_a_raw_pattern_match(exporter: TestExporte
     assert span['attributes']['unchanged'] == '{"amount":1e400}'
 
 
+def test_internal_exception_in_scrubbing_callback_does_not_export_secrets(
+    exporter: TestExporter, config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture
+):
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'password'):
+            raise RuntimeError('key callback failed')
+        if match.path == ('attributes', 'data', 'password'):
+            raise ValueError('JSON callback failed')
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
+    logfire.info('Example', password='hunter2', data=r'{"pass\u0077ord":"hunter2"}', other='secret=hunter2')
+
+    (span,) = exporter.exported_spans_as_dict()
+    attributes = span['attributes']
+    assert attributes['password'] == "[Scrubbed due to 'password']"
+    assert json.loads(attributes['data']) == {'password': "[Scrubbed due to 'password']"}
+    assert attributes['other'] == "[Scrubbed due to 'secret']"
+    assert [record.exc_info[0] for record in caplog.records if record.exc_info] == [RuntimeError, ValueError]
+
+
 @pytest.mark.parametrize('copy_container', [False, True])
 @pytest.mark.parametrize('container', [{'password': 'hunter2'}, [{'password': 'hunter2'}]])
 def test_callback_whitelists_container_key_but_scrubs_contents(container: Any, copy_container: bool):
