@@ -712,7 +712,9 @@ def test_callback_container_with_ambiguous_equality_is_final():
         if match.path == ('attributes', 'password_hint'):
             return replacement
 
-    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': {'password': 'hunter2'}})
+    result, notes = Scrubber(None, callback).scrub_value(
+        ('attributes',), {'password_hint': IncomparableDict(password='hunter2')}
+    )
 
     assert result['password_hint'] is replacement
     assert notes == []
