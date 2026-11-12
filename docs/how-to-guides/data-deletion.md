@@ -16,7 +16,7 @@ Use data deletion for targeted removals. To keep less data in general, shorten t
 
 ## Before you start
 
-- **Plan.** Data deletion is available on the Growth and Enterprise plans, including self-hosted deployments. On other plans, the **Data deletion** page shows an upgrade prompt. See [pricing](https://pydantic.dev/pricing).
+- **Plan.** On Logfire Cloud, data deletion is available on the Growth and Enterprise plans. On other Cloud plans, the **Data deletion** page shows an upgrade prompt. See [pricing](https://pydantic.dev/pricing). Self-hosted Logfire is part of the [Enterprise plan](../enterprise.md), and every self-hosted deployment includes data deletion.
 - **Permission.** You need the **Change project information** permission on the project, which project admins have. Without it, Logfire does not show the **Data deletion** page.
 - **Web UI only.** You schedule and follow deletion jobs in the Logfire web UI. There is no public API or CLI command for data deletion.
 - **Self-hosted.** Use chart 0.15.0 or later. See [Self-hosted deployments](#self-hosted-deployments).
@@ -40,16 +40,19 @@ Examples:
 -- Delete whole traces by ID. A long list of IDs is fine.
 DELETE FROM records WHERE trace_id IN ('0af7651916cd43dd8448eb211c80319c', '4bf92f3577b34da6a3ce929d0e0e4736')
 
--- Delete the spans and logs that recorded one user's email address.
-DELETE FROM records WHERE attributes->>'user.email' = 'alice@example.com'
+-- Delete the spans and logs of one user, by an internal user ID.
+DELETE FROM records WHERE attributes->>'user.id' = '8412'
 
--- Delete one service's data from before a date.
-DELETE FROM records WHERE service_name = 'checkout' AND start_timestamp < '2026-10-01'
+-- Delete one service's data in one environment, from before a date.
+DELETE FROM records WHERE service_name = 'checkout' AND deployment_environment = 'staging' AND start_timestamp < '2026-10-01'
 ```
 
-The job applies to all of the project's data in that table, across all environments and all time. If you want to limit the deletion to an environment or a time range, put that in the condition.
+The job applies to all of the project's data in that table, across all environments and all time. To limit the deletion to an environment, add a condition on the [`deployment_environment`](../reference/sql.md#deployment_environment) column, as in the last example. To limit it to a time range, add a condition on `start_timestamp`.
 
-If the condition evaluates to `NULL` for a row, Logfire keeps the row, like a standard SQL `DELETE`. For example, the second statement above keeps every row that has no `user.email` attribute.
+If the condition evaluates to `NULL` for a row, Logfire keeps the row, like a standard SQL `DELETE`. For example, the second statement above keeps every row that has no `user.id` attribute.
+
+!!! note "The statement stays visible"
+    Logfire stores the statement and shows it in the job list on the **Data deletion** page, to every member who can open that page. Do not put more personal data in the statement than you need. To erase data about a person, find the matching trace IDs with a query in the SQL Workbench, then delete by `trace_id`.
 
 ## Preview and schedule the deletion
 
