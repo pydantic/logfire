@@ -509,6 +509,70 @@ def test_scrub_json_containers_without_a_raw_pattern_match(exporter: TestExporte
     assert span['attributes']['unchanged'] == '{"amount":1e400}'
 
 
+@pytest.mark.parametrize('copy_container', [False, True])
+@pytest.mark.parametrize('container', [{'password': 'hunter2'}, [{'password': 'hunter2'}]])
+def test_callback_whitelists_container_key_but_scrubs_contents(container: Any, copy_container: bool):
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'password_hint'):
+            return container.copy() if copy_container else match.value
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': container})
+
+    expected = {'password': "[Scrubbed due to 'password']"}
+    assert result == {'password_hint': [expected] if isinstance(container, list) else expected}
+    expected_path = (
+        ('attributes', 'password_hint', 0, 'password')
+        if isinstance(container, list)
+        else ('attributes', 'password_hint', 'password')
+    )
+    assert notes == [{'path': expected_path, 'matched_substring': 'password'}]
+
+
+def test_callback_equal_container_copy_only_rewrites_json_when_nested_value_changes():
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'data', 'password_hint'):
+            return match.value.copy()
+
+    scrubber = Scrubber(None, callback)
+    unchanged = '{"password_hint":{"amount":1e400}}'
+    assert scrubber.scrub_value(('attributes', 'data'), unchanged) == (unchanged, [])
+
+    changed = '{"password_hint":{"password":"hunter2"}}'
+    result, notes = scrubber.scrub_value(('attributes', 'data'), changed)
+    assert json.loads(result) == {'password_hint': {'password': "[Scrubbed due to 'password']"}}
+    assert notes == [{'path': ('attributes', 'data', 'password_hint', 'password'), 'matched_substring': 'password'}]
+
+
+def test_callback_changed_container_is_final():
+    replacement = {'password': 'allowed'}
+
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'password_hint'):
+            return replacement
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': {'password': 'hunter2'}})
+
+    assert result == {'password_hint': replacement}
+    assert notes == []
+
+
+def test_callback_container_with_ambiguous_equality_is_final():
+    class IncomparableDict(dict[str, str]):
+        def __eq__(self, other: object) -> bool:
+            raise RuntimeError('cannot compare')
+
+    replacement = IncomparableDict(password='allowed')
+
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'password_hint'):
+            return replacement
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': {'password': 'hunter2'}})
+
+    assert result['password_hint'] is replacement
+    assert notes == []
+
+
 class PasswordError(Exception):
     pass
 
