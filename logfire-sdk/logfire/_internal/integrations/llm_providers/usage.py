@@ -13,7 +13,7 @@ def _parse_gateway_cost(value: object) -> float | None:
         return None
     try:
         cost = Decimal(str(value))
-    except InvalidOperation:
+    except (InvalidOperation, ValueError):
         return None
     # Validate before float conversion can round a tiny negative cost to zero.
     if not cost.is_finite() or cost < 0:

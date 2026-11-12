@@ -369,6 +369,7 @@ def test_gateway_cost_is_used(usage_fields: dict[str, Any], expected: float) -> 
         pytest.param({'cost': 'inf'}, id='inf'),
         pytest.param({'cost': '1e999'}, id='overflow'),
         pytest.param({'cost': 10**400}, id='huge-int'),
+        pytest.param({'cost': 10**5000}, id='int-string-overflow'),
         pytest.param({'cost': '-0.01'}, id='negative'),
         pytest.param({'cost': '-1e-400'}, id='negative-underflow'),
         pytest.param({'cost': True}, id='bool'),
