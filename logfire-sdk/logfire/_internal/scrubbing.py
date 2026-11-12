@@ -74,6 +74,7 @@ DEFAULT_PATTERNS = [
 # position in large strings. Custom patterns are not constrained by this prefix.
 _DEFAULT_PATTERN_START_CHARS = 'pmsacljx_rbih'
 _DEFAULT_PATTERN = rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(DEFAULT_PATTERNS)})'
+_MAX_UNCHANGED_MATCHES = 100
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
@@ -103,17 +104,15 @@ class ScrubbedNote(TypedDict):
     matched_substring: str
 
 
-def _is_unchanged_container(value: Any, result: Any) -> bool:
-    if not isinstance(value, (Mapping, Sequence)) or isinstance(value, (str, bytes, bytearray, memoryview)):
-        return False
+def _is_unchanged_value(value: Any, result: Any) -> bool:
     if result is value:
         return True
-    if not isinstance(result, (Mapping, Sequence)) or isinstance(result, (str, bytes, bytearray, memoryview)):
+    if type(result) is not type(value):
         return False
     try:
         return bool(result == value)
     except Exception:
-        # Some containers do not provide a single Boolean result for equality.
+        # Some values do not provide a single Boolean result for equality.
         return False
 
 
@@ -126,8 +125,11 @@ class ScrubbingOptions:
     A function that is called for each match found by the scrubber.
     If it returns `None`, the value is redacted.
     Otherwise, the returned value replaces the matched value.
-    If a key matches and its container value is returned unchanged or equal to the original,
+    If a key matches and its container value is returned unchanged or as an equal copy of the same type,
     Logfire continues scrubbing inside it. A different container is treated as the final value.
+    If a string value is returned unchanged or as an equal copy of the same type, Logfire checks for later matches
+    in that string. This applies to both matching keys and string values. After 100 allowed matches
+    in one string, Logfire redacts the value to bound the search cost.
     Do not mutate the original value in place: Logfire may not detect the change.
     The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
@@ -355,7 +357,7 @@ class SpanScrubber:
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
                     return value
-                return self._redact(ScrubMatch(path, value, match))
+                return self._scrub_matches(path, value, match)[0]
         elif isinstance(value, (bytes, bytearray, memoryview)):
             # Iterating over a binary value yields integers, so recursing into it would rewrite
             # the value into a sequence of ints. Decode it instead, so text hidden in bytes is
@@ -375,10 +377,14 @@ class SpanScrubber:
                 if k in BaseScrubber.SAFE_KEYS:
                     result[k] = v
                 elif match := self._pattern.search(k):
-                    redacted = self._redact(ScrubMatch(path + (k,), v, match))
-                    if _is_unchanged_container(v, redacted):
+                    redacted, unchanged = self._scrub_matches(path + (k,), v, match)
+                    if unchanged:
                         redacted = self.scrub(path + (k,), redacted)
-                    if isinstance(redacted, str) and isinstance(v, Sequence) and not isinstance(v, str):
+                    if (
+                        isinstance(redacted, str)
+                        and isinstance(v, Sequence)
+                        and not isinstance(v, (str, bytes, bytearray, memoryview))
+                    ):
                         redacted = [redacted]
                     result[k] = redacted
                 else:
@@ -386,13 +392,34 @@ class SpanScrubber:
             return result
         return value
 
+    def _scrub_matches(self, path: JsonPath, value: Any, match: re.Match[str]) -> tuple[Any, bool]:
+        """Return the value and whether every match was allowed."""
+        text = match.string
+        unchanged_matches = 0
+        while True:
+            result = self._redact(ScrubMatch(path, value, match))
+            if not _is_unchanged_value(value, result):
+                return result, False
+            unchanged_matches += 1
+            if unchanged_matches >= _MAX_UNCHANGED_MATCHES:
+                self.scrub_count += 1
+                return '[Scrubbed due to too many allowed matches]', False
+            # Keep overlapping matches at later starts visible, including after zero-width matches.
+            next_position = match.start() + 1
+            if next_position > len(text):
+                return result, True
+            next_match = self._pattern.search(text, next_position)
+            if next_match is None:
+                return result, True
+            match = next_match
+
     def _redact(self, match: ScrubMatch) -> Any:
         result = None
         if self._callback:
             with handle_internal_errors:
                 result = self._callback(match)
         if result is not None:
-            if result is not match.value and not _is_unchanged_container(match.value, result):
+            if not _is_unchanged_value(match.value, result):
                 self.scrub_count += 1
             return result
         self.scrub_count += 1
