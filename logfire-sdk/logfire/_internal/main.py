@@ -716,8 +716,10 @@ class Logfire:
             level: The log level for the span. If provided, the span will be tagged with this level
                 and suppressed if the level is below the configured `min_level`.
         """
-        if callable(msg_template):
-            return self.instrument()(msg_template)
+        # A classmethod object isn't callable, but it's still the decorated function here,
+        # e.g. with a bare `@logfire.instrument` above `@classmethod`.
+        if callable(msg_template) or isinstance(msg_template, classmethod):
+            return self.instrument()(cast('Callable[P, R]', msg_template))
         return instrument(
             self,
             tuple(self._tags),

@@ -6,7 +6,7 @@ import inspect
 import warnings
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import AbstractContextManager, asynccontextmanager, contextmanager
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from opentelemetry import trace
 from opentelemetry.util import types as otel_types
@@ -63,6 +63,12 @@ def instrument(
     from .main import set_user_attributes_on_raw_span
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        if isinstance(func, (classmethod, staticmethod)):
+            # `@logfire.instrument` above `@classmethod` or `@staticmethod`:
+            # instrument the underlying function and wrap the result the same way again.
+            method = cast(Any, func)
+            return type(method)(decorator(method.__func__))
+
         if getattr(func, '__code__', None) in (CONTEXTMANAGER_HELPER_CODE, ASYNCCONTEXTMANAGER_HELPER_CODE):
             warnings.warn(
                 '@logfire.instrument should be underneath @contextlib.[async]contextmanager so that it is applied first.',

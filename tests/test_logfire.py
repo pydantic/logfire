@@ -1452,6 +1452,86 @@ def test_instrument_other_callable(exporter: TestExporter):
     )
 
 
+def test_instrument_above_classmethod_and_staticmethod(exporter: TestExporter):
+    class Service:
+        @logfire.instrument
+        @classmethod
+        def bare_classmethod(cls, a: int) -> str:
+            return f'{cls.__name__} {a}'
+
+        @logfire.instrument('classmethod {a}')
+        @classmethod
+        def template_classmethod(cls, a: int) -> str:
+            return f'{cls.__name__} {a}'
+
+        @logfire.instrument('staticmethod {a}')
+        @staticmethod
+        def template_staticmethod(a: int) -> int:
+            return a * 2
+
+    assert Service.bare_classmethod(1) == 'Service 1'
+    assert Service().template_classmethod(2) == 'Service 2'
+    assert Service().template_staticmethod(3) == 6
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_above_classmethod_and_staticmethod.<locals>.Service.bare_classmethod',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_above_classmethod_and_staticmethod.<locals>.Service.bare_classmethod',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_above_classmethod_and_staticmethod.<locals>.Service.bare_classmethod',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_above_classmethod_and_staticmethod.<locals>.Service.bare_classmethod',
+                    'logfire.json_schema': '{"type":"object","properties":{"cls":{"type":"object","x-python-datatype":"unknown"},"a":{}}}',
+                    'cls': '"<class \'tests.test_logfire.test_instrument_above_classmethod_and_staticmethod.<locals>.Service\'>"',
+                    'a': 1,
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'classmethod {a}',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_above_classmethod_and_staticmethod.<locals>.Service.template_classmethod',
+                    'logfire.msg_template': 'classmethod {a}',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'classmethod 2',
+                    'logfire.json_schema': '{"type":"object","properties":{"cls":{"type":"object","x-python-datatype":"unknown"},"a":{}}}',
+                    'cls': '"<class \'tests.test_logfire.test_instrument_above_classmethod_and_staticmethod.<locals>.Service\'>"',
+                    'a': 2,
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'staticmethod {a}',
+                'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_above_classmethod_and_staticmethod.<locals>.Service.template_staticmethod',
+                    'logfire.msg_template': 'staticmethod {a}',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'staticmethod 3',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'a': 3,
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
 @pytest.mark.anyio
 async def test_instrument_async_generator_warning(exporter: TestExporter):
     async def foo():
