@@ -1,0 +1,19 @@
+docs/how-to-guides/scrubbing.md
+  s_60e3c23d493487::t_64c8fce5ca2f25 75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f69a4282827ba903458879b9ed79aedec32b498e",
+  "prompts": {},
+  "sessions": {
+    "s_60e3c23d493487": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c5fa-5e37-73c0-b6df-455251da8152",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
