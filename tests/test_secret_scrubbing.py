@@ -15,10 +15,11 @@ from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.sdk.trace import ConcurrentMultiSpanProcessor, ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
-from logfire._internal.exporters.processor_wrapper import SpanProcessorGroup
+from logfire._internal.exporters.processor_wrapper import MainSpanProcessorWrapper, SpanProcessorGroup
 from logfire._internal.scrubbing import DEFAULT_PATTERNS, MessageValueCleaner, NoopScrubber, Scrubber
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
@@ -810,6 +811,29 @@ def test_missing_message_defaults_to_span_name_before_console_transform(
     (span,) = exporter.exported_spans_as_dict()
     assert span['attributes']['logfire.msg'] == '[email]'
     assert span['name'] == 'alice@example.com'
+
+
+@pytest.mark.parametrize('scope_name', ['logfire.openai', 'logfire.anthropic'])
+def test_legacy_llm_message_remains_exempt_from_early_transform(scope_name: str):
+    spans: list[ReadableSpan] = []
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    processor = MainSpanProcessorWrapper(
+        RecordingProcessor(),
+        Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]')),
+    )
+    processor.on_end(
+        ReadableSpan(
+            name='call',
+            attributes={'logfire.msg': 'alice@example.com'},
+            instrumentation_scope=InstrumentationScope(scope_name),
+        )
+    )
+
+    assert spans[0].attributes == {'logfire.msg': 'alice@example.com'}
 
 
 @pytest.mark.parametrize('error_type', [ValueError, RecursionError])

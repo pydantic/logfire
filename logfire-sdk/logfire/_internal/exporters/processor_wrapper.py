@@ -85,7 +85,13 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _default_gen_ai_response_model(span_dict)
             attributes = span_dict['attributes']
             message = attributes.get(ATTRIBUTES_MESSAGE_KEY) or span_dict['name']
-            if isinstance(message, str) and (transformed := self.scrubber.transform_message(message)) is not None:
+            scope = span_dict['instrumentation_scope']
+            skip_scope = scope and scope.name in ('logfire.openai', 'logfire.anthropic')
+            if (
+                not skip_scope
+                and isinstance(message, str)
+                and (transformed := self.scrubber.transform_message(message)) is not None
+            ):
                 span_dict['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
             span = ReadableSpan(**span_dict)
         super().on_end(span)
