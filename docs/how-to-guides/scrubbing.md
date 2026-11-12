@@ -72,6 +72,8 @@ The function will be called for each potential match found by the scrubber. If i
 
 When a key matches and the callback returns its dictionary or list value unchanged (or returns an equal copy), Logfire continues scrubbing inside it. This lets you allow the key without allowing sensitive data nested under it. If the callback returns a different container, Logfire uses that replacement as the final value and does not scrub inside it.
 
+If the callback returns a string unchanged (or returns an equal string), Logfire checks later positions in the same key or string value for other matches. A different returned string is used as the final value.
+
 Here's an example:
 
 ```python
