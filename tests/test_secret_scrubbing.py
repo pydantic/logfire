@@ -686,7 +686,10 @@ def test_transform_string_in_safe_key_skips_all_nested_patterns():
 
     assert result == {'do_not_scrub': {'password': 'secret=[email]', 'data': '{"secret":"[email]"}'}}
     assert notes == []
-    assert Scrubber(None).scrub_value(('attributes',), original) == (original, [])
+    result_without_transform, notes_without_transform = Scrubber(None).scrub_value(('attributes',), original)
+    assert result_without_transform == original
+    assert result_without_transform['do_not_scrub'] is original['do_not_scrub']
+    assert notes_without_transform == []
 
 
 def test_internal_exception_in_transform_string_keeps_value_and_continues_pattern_search(
