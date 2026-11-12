@@ -14,6 +14,8 @@ from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.trace import Event
 from opentelemetry.trace import Link
 
+from logfire.types import StringValue
+
 from .constants import (
     ATTRIBUTES_CONFIG,
     ATTRIBUTES_JSON_SCHEMA_KEY,
@@ -142,6 +144,14 @@ class ScrubbingOptions:
     The specified patterns are combined with the default patterns.
     """
 
+    transform_string: Callable[[StringValue], str] | None = None
+    """Transform each string value before pattern matching, including values under safe keys.
+
+    The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
+    It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
+    A changed value creates no scrubbed note. If the callback raises, Logfire logs the error and keeps the input string.
+    """
+
 
 class BaseScrubber(ABC):
     # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
@@ -235,11 +245,17 @@ NOOP_SCRUBBER = NoopScrubber()
 class Scrubber(BaseScrubber):
     """Redacts potentially sensitive data."""
 
-    def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
+    def __init__(
+        self,
+        patterns: Sequence[str] | None,
+        callback: ScrubCallback | None = None,
+        transform_string: Callable[[StringValue], str] | None = None,
+    ):
         # See ScrubbingOptions for more info on these parameters.
         patterns = [_DEFAULT_PATTERN, *(patterns or [])]
         self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
         self._callback = callback
+        self._transform_string = transform_string
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
         span_scrubber = SpanScrubber(self)
@@ -280,6 +296,7 @@ class SpanScrubber:
     def __init__(self, parent: Scrubber):
         self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
+        self._transform_string = parent._transform_string  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
 
