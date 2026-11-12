@@ -731,6 +731,7 @@ def test_transformer_runs_in_definitions_but_not_span_type():
         ('attributes',),
         {
             'logfire.span_type': 'span',
+            'user_data': {'logfire.span_type': 'alice@example.com'},
             'gen_ai.tool.definitions': json.dumps(
                 [{'parameters': {'properties': {'password': {'description': 'alice@example.com'}}}}]
             ),
@@ -738,10 +739,14 @@ def test_transformer_runs_in_definitions_but_not_span_type():
     )
 
     assert result['logfire.span_type'] == 'span'
+    assert result['user_data'] == {'logfire.span_type': '[email]'}
     assert json.loads(result['gen_ai.tool.definitions']) == [
         {'parameters': {'properties': {'password': {'description': '[email]'}}}}
     ]
-    assert seen == [('attributes', 'gen_ai.tool.definitions', 0, 'parameters', 'properties', 'password', 'description')]
+    assert seen == [
+        ('attributes', 'user_data', 'logfire.span_type'),
+        ('attributes', 'gen_ai.tool.definitions', 0, 'parameters', 'properties', 'password', 'description'),
+    ]
     assert notes == []
 
 

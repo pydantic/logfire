@@ -425,7 +425,7 @@ class SpanScrubber:
                     and self.scope_name in ('logfire.openai', 'logfire.anthropic')
                     and k in ('tools', 'functions', 'response_format')
                 )
-                if k in BaseScrubber.NO_TRANSFORM_KEYS:
+                if path == ('attributes',) and k in BaseScrubber.NO_TRANSFORM_KEYS:
                     result[k] = v
                 elif legacy_definition or (k in BaseScrubber.SAFE_KEYS and k not in BaseScrubber.KEY_ONLY_KEYS):
                     result[k] = (
