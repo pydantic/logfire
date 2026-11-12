@@ -1,0 +1,16 @@
+logfire-sdk/logfire/_internal/exporters/processor_wrapper.py
+  h_d9dd17644dded9 88-94
+tests/test_secret_scrubbing.py
+  h_d9dd17644dded9 18,22,816-838
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "182b51192c9b0c253f184cb39e6f7ecff0e455ba",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
