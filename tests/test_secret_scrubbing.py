@@ -298,6 +298,14 @@ def test_callback_equal_value_with_different_type_is_final():
     assert notes == []
 
 
+@pytest.mark.parametrize('value', [b'hunter2', bytearray(b'hunter2'), memoryview(b'hunter2')])
+def test_callback_whitelisted_key_preserves_binary_value(value: bytes | bytearray | memoryview):
+    result, notes = Scrubber(None, lambda match: match.value).scrub_value(('attributes',), {'password': value})
+
+    assert result['password'] is value
+    assert notes == []
+
+
 def test_callback_whitelists_key_but_scrubs_string_value():
     def callback(match: logfire.ScrubMatch):
         if match.pattern_match.string == 'password_hint':

@@ -378,7 +378,7 @@ class SpanScrubber:
                     result[k] = v
                 elif match := self._pattern.search(k):
                     redacted, unchanged = self._scrub_matches(path + (k,), v, match)
-                    if unchanged:
+                    if unchanged and not isinstance(redacted, (bytes, bytearray, memoryview)):
                         redacted = self.scrub(path + (k,), redacted)
                     if isinstance(redacted, str) and isinstance(v, Sequence) and not isinstance(v, str):
                         redacted = [redacted]
