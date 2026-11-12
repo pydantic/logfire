@@ -1,0 +1,23 @@
+logfire-sdk/logfire/_internal/config.py
+  s_227bb371472b72::t_91d7b2fddf282b 1769,1787
+logfire-sdk/logfire/_internal/exporters/processor_wrapper.py
+  s_227bb371472b72::t_09489ce26a944b 63,71-72,86-89
+logfire-sdk/logfire/_internal/scrubbing.py
+  s_227bb371472b72::t_2698717872bbae 229-231,244-246,294-300
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a45bac36ac907a4fb8fa4122f8dc571119822885",
+  "prompts": {},
+  "sessions": {
+    "s_227bb371472b72": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d0f2-63af-7250-9014-783c5b45b759",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
