@@ -358,7 +358,7 @@ class SpanScrubber:
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
                     return value
-                return self._scrub_matches(path, value, match)[0]
+                return self._scrub_matches(path, value, match)
         elif isinstance(value, (bytes, bytearray, memoryview)):
             # Iterating over a binary value yields integers, so recursing into it would rewrite
             # the value into a sequence of ints. Decode it instead, so text hidden in bytes is
@@ -410,7 +410,7 @@ class SpanScrubber:
                         continue
                     raise
                 if match := self._pattern.search(k):
-                    redacted = self._scrub_matches(child_path, scrubbed, match)[0]
+                    redacted = self._scrub_matches(child_path, scrubbed, match)
                     if (
                         isinstance(redacted, str)
                         and isinstance(v, Sequence)
@@ -422,25 +422,24 @@ class SpanScrubber:
                     result[k] = scrubbed
         return result
 
-    def _scrub_matches(self, path: JsonPath, value: Any, match: re.Match[str]) -> tuple[Any, bool]:
-        """Return the value and whether every match was allowed."""
+    def _scrub_matches(self, path: JsonPath, value: Any, match: re.Match[str]) -> Any:
         text = match.string
         unchanged_matches = 0
         while True:
             result = self._redact(ScrubMatch(path, value, match))
             if not _is_unchanged_value(value, result):
-                return result, False
+                return result
             unchanged_matches += 1
             if unchanged_matches >= _MAX_UNCHANGED_MATCHES:
                 self.scrub_count += 1
-                return '[Scrubbed due to too many allowed matches]', False
+                return '[Scrubbed due to too many allowed matches]'
             # Keep overlapping matches at later starts visible, including after zero-width matches.
             next_position = match.start() + 1
             if next_position > len(text):
-                return result, True
+                return result
             next_match = self._pattern.search(text, next_position)
             if next_match is None:
-                return result, True
+                return result
             match = next_match
 
     def _redact(self, match: ScrubMatch) -> Any:
