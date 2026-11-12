@@ -140,7 +140,7 @@ except ImportError:
                 def decorator(func):
                     return func
 
-                if callable(msg_template):
+                if callable(msg_template) or isinstance(msg_template, classmethod):
                     return decorator(msg_template)
                 return decorator
 
