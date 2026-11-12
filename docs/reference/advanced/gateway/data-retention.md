@@ -163,6 +163,16 @@ The settings above control what the Gateway stores. They do not control what the
 | Custom provider | Yours | You, in your agreement with the provider. The Gateway does not change it. |
 | Built-in provider | Pydantic's | Pydantic. A built-in provider is ZDR only after Pydantic confirms it for that provider account. |
 
+Pydantic has confirmed these built-in providers as ZDR:
+
+| Built-in provider | ZDR |
+| --- | --- |
+| Google Vertex AI | Yes |
+| Groq | Yes |
+| Every other built-in provider | Not confirmed |
+
+You can use the ZDR built-in providers on every plan. Send your request to a route that uses one of them. Only [enforcing ZDR](#require-zero-data-retention-for-built-in-providers), so that a request cannot reach any other built-in provider, needs Enterprise.
+
 ### How request fields pass through
 
 The Gateway sends your request body to the provider with only the changes listed below. It never adds, removes, or changes a retention field. If you leave a field out, the provider applies its own default.
