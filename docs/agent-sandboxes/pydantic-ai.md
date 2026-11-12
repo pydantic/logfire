@@ -87,7 +87,7 @@ missed = []
 for c, rows in zip(customers, stats_lists):
     total = sum(r['requests'] for r in rows)
     errors = sum(r['errors'] for r in rows)
-    if (total - errors) / total < c['target']:
+    if total and (total - errors) / total < c['target']:
         missed.append(c)
 [c['name'] for c in missed]
 ```

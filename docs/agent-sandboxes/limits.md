@@ -106,8 +106,8 @@ To free a slot, [disable Agent Sandboxes](index.md#disable-agent-sandboxes) in a
 ## Pricing
 
 Agent Sandboxes is billed per invocation. One invocation is one call to `feed_run()` or `feed_start()`, however many
-times the script calls your functions. Every Logfire plan includes free invocations each month. For prices, paid tiers, and the limits of each tier,
-see [Agent Sandboxes pricing](https://pydantic.dev/pricing#addons).
+times the script calls your functions. Every Logfire plan includes free invocations each month.
+For prices, paid tiers, and the limits of each tier, see [Agent Sandboxes pricing](https://pydantic.dev/pricing#addons).
 
 ## Coming soon
 
