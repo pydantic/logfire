@@ -125,8 +125,8 @@ class ScrubbingOptions:
     A function that is called for each match found by the scrubber.
     If it returns `None`, the value is redacted.
     Otherwise, the returned value replaces the matched value.
-    If a key matches and its container value is returned unchanged or as an equal copy of the same type,
-    Logfire continues scrubbing inside it. A different container is treated as the final value.
+    Logfire scrubs each value before checking whether its key matches. A callback for a matching key
+    receives that scrubbed value. A different value returned by the callback is treated as final.
     If a string value is returned unchanged or as an equal copy of the same type, Logfire checks for later matches
     in that string. This applies to both matching keys and string values. After 100 allowed matches
     in one string, Logfire redacts the value to bound the search cost.
@@ -282,6 +282,7 @@ class SpanScrubber:
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
+        self._active_containers: set[int] = set()
 
     def scrub_span(self, span: ReadableSpanDict):
         # We need to use BoundedAttributes because:
@@ -370,28 +371,56 @@ class SpanScrubber:
             scrubbed = self.scrub(path, text)
             return binary if scrubbed == text else scrubbed
         elif isinstance(value, Sequence):
-            return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
+            sequence = cast('Sequence[Any]', value)
+            container_id = id(sequence)
+            if container_id in self._active_containers:
+                raise RecursionError('cyclic sequence in scrubbing value')
+            self._active_containers.add(container_id)
+            try:
+                return [self.scrub(path + (i,), x) for i, x in enumerate(sequence)]
+            finally:
+                self._active_containers.remove(container_id)
         elif isinstance(value, Mapping):
-            result: dict[str, Any] = {}
-            for k, v in cast('Mapping[str, Any]', value).items():
-                if k in BaseScrubber.SAFE_KEYS:
-                    result[k] = v
-                else:
-                    child_path = path + (k,)
-                    scrubbed = self.scrub(child_path, v)
-                    if match := self._pattern.search(k):
-                        redacted = self._scrub_matches(child_path, scrubbed, match)[0]
-                        if (
-                            isinstance(redacted, str)
-                            and isinstance(v, Sequence)
-                            and not isinstance(v, (str, bytes, bytearray, memoryview))
-                        ):
-                            redacted = [redacted]
-                        result[k] = redacted
-                    else:
-                        result[k] = scrubbed
-            return result
+            mapping = cast('Mapping[str, Any]', value)
+            container_id = id(mapping)
+            if container_id in self._active_containers:
+                raise RecursionError('cyclic mapping in scrubbing value')
+            self._active_containers.add(container_id)
+            try:
+                return self._scrub_mapping(path, mapping)
+            finally:
+                self._active_containers.remove(container_id)
         return value
+
+    def _scrub_mapping(self, path: JsonPath, value: Mapping[str, Any]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for k, v in value.items():
+            if k in BaseScrubber.SAFE_KEYS:
+                result[k] = v
+            else:
+                child_path = path + (k,)
+                try:
+                    scrubbed = self.scrub(child_path, v)
+                except RecursionError:
+                    if match := self._pattern.search(k):
+                        matched_substring = match.group(0)
+                        self.scrub_count += 1
+                        self.scrubbed.append(ScrubbedNote(path=child_path, matched_substring=matched_substring))
+                        result[k] = f'[Scrubbed due to {matched_substring!r}]'
+                        continue
+                    raise
+                if match := self._pattern.search(k):
+                    redacted = self._scrub_matches(child_path, scrubbed, match)[0]
+                    if (
+                        isinstance(redacted, str)
+                        and isinstance(v, Sequence)
+                        and not isinstance(v, (str, bytes, bytearray, memoryview))
+                    ):
+                        redacted = [redacted]
+                    result[k] = redacted
+                else:
+                    result[k] = scrubbed
+        return result
 
     def _scrub_matches(self, path: JsonPath, value: Any, match: re.Match[str]) -> tuple[Any, bool]:
         """Return the value and whether every match was allowed."""

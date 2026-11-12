@@ -725,6 +725,16 @@ def test_callback_receives_scrubbed_container_before_returning_subset():
     assert notes == [{'path': ('attributes', 'password_hint', 'password'), 'matched_substring': 'password'}]
 
 
+def test_matching_key_with_cyclic_value_is_redacted():
+    value: dict[str, Any] = {}
+    value['password_hint'] = value
+
+    result, notes = Scrubber(None).scrub_value(('attributes',), value)
+
+    assert result == {'password_hint': "[Scrubbed due to 'password']"}
+    assert notes == [{'path': ('attributes', 'password_hint'), 'matched_substring': 'password'}]
+
+
 def test_callback_receives_scrubbed_json_attribute(exporter: TestExporter, config_kwargs: dict[str, Any]):
     def callback(match: logfire.ScrubMatch):
         if match.path == ('attributes', 'password_hint'):
