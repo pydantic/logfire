@@ -64,27 +64,6 @@ Here are the default scrubbing patterns:
 ]
 ```
 
-## Masking part of a string
-
-Use [`transform_string`][logfire.ScrubbingOptions.transform_string] to replace sensitive text while keeping the rest of a value. The callback receives the string and its path:
-
-```python
-import re
-
-import logfire
-from logfire.types import StringValue
-
-
-def mask_email(item: StringValue) -> str:
-    return re.sub(r'\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b', '[email]', item.value)
-
-
-logfire.configure(scrubbing=logfire.ScrubbingOptions(transform_string=mask_email))
-logfire.info('Contact {email}', email='alice@example.com')
-```
-
-The exported `email` attribute and formatted message contain `[email]`. The callback runs on string values inside JSON and under keys that are exempt from pattern matching. Pattern matching runs on the returned string where permitted. If the callback raises an exception, Logfire logs the error, keeps that string unchanged, and continues normal pattern matching.
-
 ## Scrubbing less with a callback
 
 On the other hand, if the scrubbing is too aggressive, you can pass a function to [`callback`][logfire.ScrubbingOptions.callback] to prevent certain data from being redacted.
@@ -119,6 +98,27 @@ If the callback returns a string unchanged (or returns an equal string of the sa
     Do not mutate `match.value` in place. Logfire may not detect the change, so the mutated value may not be written back.
     If the callback raises an exception, Logfire logs the error and redacts the matched value as though the callback returned `None`. Scrubbing then continues.
     It should return quickly, as it can get called many times.
+
+## Masking part of a string
+
+Use [`transform_string`][logfire.ScrubbingOptions.transform_string] to replace sensitive text while keeping the rest of a value. The callback receives the string and its path:
+
+```python
+import re
+
+import logfire
+from logfire.types import StringValue
+
+
+def mask_email(item: StringValue) -> str:
+    return re.sub(r'\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b', '[email]', item.value)
+
+
+logfire.configure(scrubbing=logfire.ScrubbingOptions(transform_string=mask_email))
+logfire.info('Contact {email}', email='alice@example.com')
+```
+
+The exported `email` attribute and formatted message contain `[email]`. The callback runs on string values inside JSON and under keys that are exempt from pattern matching. Pattern matching runs on the returned string where permitted. If the callback raises an exception, Logfire logs the error, keeps that string unchanged, and continues normal pattern matching.
 
 ## When Logfire scrubs spans
 
