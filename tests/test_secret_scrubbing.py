@@ -6,6 +6,7 @@ from io import StringIO
 from pathlib import Path
 from threading import Event, get_ident
 from typing import Any
+from urllib.parse import parse_qsl, urlsplit
 
 import pytest
 from dirty_equals import IsJson, IsPartialDict
@@ -15,6 +16,7 @@ from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.sdk.trace import ConcurrentMultiSpanProcessor, ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from opentelemetry.trace import SpanKind, get_tracer
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
@@ -1038,3 +1040,100 @@ def test_aws_security_tokens_scrubbed(exporter: TestExporter):
             'security_level': 'high',
         }
     )
+
+
+@pytest.mark.parametrize('field', ['http.url', 'http.target', 'url.full', 'url.query'])
+@pytest.mark.parametrize('mode', ['enabled', 'callback', 'disabled'])
+def test_scrub_http_query_parameters(exporter: TestExporter, config_kwargs: dict[str, Any], field: str, mode: str):
+    def keep_session(match: logfire.ScrubMatch):
+        if match.path[-1] == 'session':
+            return match.value
+        return None
+
+    config_kwargs['scrubbing'] = (
+        False
+        if mode == 'disabled'
+        else logfire.ScrubbingOptions(extra_patterns=[r'^key$'], callback=keep_session if mode == 'callback' else None)
+    )
+    logfire.configure(**config_kwargs)
+
+    query = 'api%5Fkey=opaque-one&api_key=opaque-two&key=opaque-three&plain=a%20b&empty=&flag&session=visible-value'
+    attributes = {'server.address': 'example.test'}
+    if field in ('http.url', 'http.target'):
+        attributes['http.method'] = 'GET'
+    else:
+        attributes.update({'http.request.method': 'GET', 'url.path': '/items'})
+    attributes[field] = {
+        'http.url': f'https://example.test/items?{query}#anchor',
+        'http.target': f'/items?{query}',
+        'url.full': f'https://example.test/items?{query}#anchor',
+        'url.query': query,
+    }[field]
+
+    with get_tracer(__name__).start_as_current_span('GET', kind=SpanKind.CLIENT, attributes=attributes):
+        pass
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    exported = span['attributes']
+    exported_url = exported[field]
+    assert isinstance(exported_url, str)
+    assert 'plain=a%20b&empty=&flag' in exported_url
+    if field in ('http.url', 'url.full'):
+        assert urlsplit(exported_url).fragment == 'anchor'
+    exported_query = exported_url if field == 'url.query' else urlsplit(exported_url).query
+    pairs = parse_qsl(exported_query, keep_blank_values=True)
+    assert [key for key, _ in pairs] == ['api_key', 'api_key', 'key', 'plain', 'empty', 'flag', 'session']
+    assert [(key, value) for key, value in pairs if key in ('plain', 'empty', 'flag')] == [
+        ('plain', 'a b'),
+        ('empty', ''),
+        ('flag', ''),
+    ]
+
+    serialized = json.dumps(span)
+    for credential in ('opaque-one', 'opaque-two', 'opaque-three'):
+        assert (credential in serialized) is (mode == 'disabled')
+        assert (credential in exported['logfire.msg']) is (mode == 'disabled')
+    assert ('visible-value' in serialized) is (mode in ('callback', 'disabled'))
+    assert ('visible-value' in exported['logfire.msg']) is (mode in ('callback', 'disabled'))
+
+
+@pytest.mark.parametrize(
+    'field,value',
+    [
+        ('http.url', 'https://example.test/password-docs'),
+        ('http.url', 'https://example.test/items?'),
+        ('http.url', 'https://example.test/items#anchor?api_key=public-fragment'),
+        ('http.url', 123),
+        ('http.target', '/password-docs?plain=a%20b&empty=&flag'),
+        ('url.full', 'https://example.test/items?plain=a%20b&empty=&flag#anchor'),
+        ('url.query', 'plain=a%20b&empty=&flag'),
+        ('url.query', ''),
+    ],
+)
+def test_preserve_non_sensitive_url_values(exporter: TestExporter, field: str, value: str | int):
+    with logfire.span('transport') as active_span:
+        active_span.set_attribute(field, value)
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes'][field] == value
+
+
+@pytest.mark.parametrize('url_field', ['http.url', 'url.full'])
+def test_http_message_omits_empty_query_values(exporter: TestExporter, url_field: str):
+    url = 'https://example.test/items?flag&empty='
+    attributes = {url_field: url, 'http.route': '/items'}
+    if url_field == 'http.url':
+        attributes.update({'http.method': 'GET', 'http.target': '/items'})
+    else:
+        attributes.update({'http.request.method': 'GET', 'url.path': '/items', 'url.query': 'flag&empty='})
+
+    with get_tracer(__name__).start_as_current_span('GET', kind=SpanKind.CLIENT, attributes=attributes):
+        pass
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes'][url_field] == url
+    message = span['attributes']['logfire.msg']
+    assert message.endswith('/items')
+    assert '?' not in message
+    if url_field == 'url.full':
+        assert span['attributes']['url.query'] == 'flag&empty='

@@ -141,9 +141,31 @@ In short, don't format the message yourself. This is also a good practice in gen
 
 ### Keep sensitive data out of URLs
 
-The attribute `"http.url"` which is recorded by OpenTelemetry instrumentation libraries is considered safe so that URLs like `"http://example.com/users/123/authenticate"` are not redacted.
+Logfire checks URL query parameters, the key/value pairs after `?`, against your scrubbing patterns.
+It redacts matching values in both the recorded URL and the HTTP request message.
+Paths and fragments remain unchanged, so a path such as `/users/123/authenticate` stays visible.
 
-As a general rule, not just for Logfire, assume that URLs (including query parameters) will be logged, so sensitive data should be put in the request body or headers instead.
+!!! warning "Keep credentials out of URLs"
+
+    Patterns cannot identify every secret, and other systems may record the original URL.
+    Put sensitive data in request bodies or headers instead of URLs when possible.
+
+To redact a parameter named `key`, add a pattern for that name. This configuration keeps data on your machine:
+
+```python
+import logfire
+
+logfire.configure(
+    send_to_logfire=False,
+    scrubbing=logfire.ScrubbingOptions(extra_patterns=[r'^key$']),
+)
+```
+
+After a request with `?key=example-value&view=compact`, check the recorded URL and request message:
+`example-value` should be absent, while `view` keeps the value `compact`.
+If the value remains, check that the parameter name matches a pattern and that scrubbing is enabled.
+
+Callbacks receive decoded parameter values, and their paths include the parameter name.
 
 ### Use parameterized database queries
 

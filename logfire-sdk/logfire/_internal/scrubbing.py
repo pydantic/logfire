@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, TypedDict, cast
+from urllib.parse import quote_plus, unquote_plus
 
 import typing_extensions
 from opentelemetry._logs import LogRecord
@@ -125,6 +126,8 @@ class ScrubbingOptions:
 
 
 class BaseScrubber(ABC):
+    URL_KEYS = ('http.url', 'http.target', 'url.full', 'url.query')
+
     # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
     # Some of these are just here for performance.
     SAFE_KEYS = {
@@ -150,17 +153,13 @@ class BaseScrubber(ABC):
         'http.method',
         'http.status_code',
         'http.scheme',
-        'http.url',
-        'http.target',
         'http.route',
         'db.statement',
         'db.query.text',
         'db.plan',
         'fastapi.route.name',
         'fastapi.route.operation_id',
-        'url.full',
         'url.path',
-        'url.query',
         'event.name',
         'agent_session_id',
         'do_not_scrub',
@@ -355,7 +354,9 @@ class SpanScrubber:
         elif isinstance(value, Mapping):
             result: dict[str, Any] = {}
             for k, v in cast('Mapping[str, Any]', value).items():
-                if k in BaseScrubber.SAFE_KEYS:
+                if k in BaseScrubber.URL_KEYS and isinstance(v, str):
+                    result[k] = self._scrub_url(path + (k,), v)
+                elif k in BaseScrubber.SAFE_KEYS:
                     result[k] = v
                 elif match := self._pattern.search(k):
                     redacted = self._redact(ScrubMatch(path + (k,), v, match))
@@ -366,6 +367,39 @@ class SpanScrubber:
                     result[k] = self.scrub(path + (k,), v)
             return result
         return value
+
+    def _scrub_url(self, path: JsonPath, value: str) -> str:
+        """Scrub query parameter values without normalizing untouched URL encoding."""
+        if path[-1] == 'url.query':
+            prefix = suffix = ''
+            query = value
+        else:
+            before_fragment, fragment_separator, fragment = value.partition('#')
+            prefix, separator, query = before_fragment.partition('?')
+            if not separator:
+                return value
+            prefix += '?'
+            suffix = fragment_separator + fragment
+
+        if not query:
+            return value
+
+        pairs = query.split('&')
+        changed = False
+        for index, pair in enumerate(pairs):
+            key, _, encoded_value = pair.partition('=')
+            decoded_key = unquote_plus(key)
+            decoded_value = unquote_plus(encoded_value)
+            item_path = path + (decoded_key,)
+            if match := self._pattern.search(decoded_key):
+                scrubbed = self._redact(ScrubMatch(item_path, decoded_value, match))
+            else:
+                scrubbed = self.scrub(item_path, decoded_value)
+            if scrubbed != decoded_value:
+                pairs[index] = key + '=' + quote_plus(str(scrubbed))
+                changed = True
+
+        return prefix + '&'.join(pairs) + suffix if changed else value
 
     def _redact(self, match: ScrubMatch) -> Any:
         if self._callback and (result := self._callback(match)) is not None:
@@ -405,8 +439,8 @@ class MessageValueCleaner:
         # For example, if the value contains 'password=123' and 'password' is replaced by '...'
         # because of truncation, then that leaves '=123' in the message, which is not good.
         if field_name not in self.scrubber.SAFE_KEYS:
-            if self.check_keys:
-                # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
+            if self.check_keys or field_name in self.scrubber.URL_KEYS:
+                # Keep the field name for key-based scrubbing and structured URL handling.
                 scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
                 value = scrubbed_value[field_name]
             else:
