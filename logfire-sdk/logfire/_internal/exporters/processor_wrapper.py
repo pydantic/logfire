@@ -100,7 +100,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
 def scrub_span(span: ReadableSpan, scrubber: BaseScrubber) -> ReadableSpan:
     with handle_internal_errors:
         span_dict = span_to_dict(span)
-        scrubber.scrub_span(span_dict)
+        scrubber.scrub_span(span_dict, message_transformed=True)
         span = ReadableSpan(**span_dict)
     return span
 

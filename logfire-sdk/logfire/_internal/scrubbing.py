@@ -218,7 +218,7 @@ class BaseScrubber(ABC):
     }
 
     @abstractmethod
-    def scrub_span(self, span: ReadableSpanDict): ...
+    def scrub_span(self, span: ReadableSpanDict, *, message_transformed: bool = False): ...
 
     @abstractmethod
     def scrub_log(self, log: LogRecord) -> LogRecord: ...
@@ -231,7 +231,7 @@ class BaseScrubber(ABC):
 
 
 class NoopScrubber(BaseScrubber):
-    def scrub_span(self, span: ReadableSpanDict):  # pragma: no cover
+    def scrub_span(self, span: ReadableSpanDict, *, message_transformed: bool = False):  # pragma: no cover
         # The span processor graph omits scrubbing when it is disabled.
         pass
 
@@ -267,12 +267,12 @@ class Scrubber(BaseScrubber):
         span_scrubber = SpanScrubber(self)
         return span_scrubber.scrub_log(log)
 
-    def scrub_span(self, span: ReadableSpanDict):
+    def scrub_span(self, span: ReadableSpanDict, *, message_transformed: bool = False):
         scope = span['instrumentation_scope']
         if scope and scope.name in ['logfire.openai', 'logfire.anthropic']:
             return
 
-        span_scrubber = SpanScrubber(self)
+        span_scrubber = SpanScrubber(self, skip_message_transform=message_transformed)
         span_scrubber.scrub_span(span)
         if span_scrubber.scrubbed:
             attributes = span['attributes']
@@ -306,12 +306,13 @@ class SpanScrubber:
     and hold and mutate state about the span being scrubbed, specifically the scrubbed notes.
     """
 
-    def __init__(self, parent: Scrubber):
+    def __init__(self, parent: Scrubber, *, skip_message_transform: bool = False):
         self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self._transform_string = parent._transform_string  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
+        self._skip_message_transform = skip_message_transform
 
     def scrub_span(self, span: ReadableSpanDict):
         # We need to use BoundedAttributes because:
@@ -411,7 +412,9 @@ class SpanScrubber:
         elif isinstance(value, Mapping):
             result: dict[Any, Any] = {}
             for k, v in cast('Mapping[Any, Any]', value).items():
-                if k in BaseScrubber.SAFE_KEYS:
+                if self._skip_message_transform and path == ('attributes',) and k == ATTRIBUTES_MESSAGE_KEY:
+                    result[k] = v
+                elif k in BaseScrubber.SAFE_KEYS:
                     result[k] = (
                         self.scrub(path + (k,), v, in_safe_key=True) if self._transform_string is not None else v
                     )

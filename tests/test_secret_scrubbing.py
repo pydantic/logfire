@@ -836,6 +836,40 @@ def test_legacy_llm_message_remains_exempt_from_early_transform(scope_name: str)
     assert spans[0].attributes == {'logfire.msg': 'alice@example.com'}
 
 
+def test_absent_message_defaults_to_span_name_before_transform():
+    spans: list[ReadableSpan] = []
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    processor = MainSpanProcessorWrapper(
+        RecordingProcessor(),
+        Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]')),
+    )
+    processor.on_end(ReadableSpan(name='alice@example.com', attributes={}))
+
+    assert spans[0].attributes == {'logfire.msg': '[email]'}
+
+
+def test_whole_message_is_not_transformed_again_during_export(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    message_calls = 0
+
+    def transform(value: StringValue) -> str:
+        nonlocal message_calls
+        if value.path == ('attributes', 'logfire.msg'):
+            message_calls += 1
+            return value.value + 'z' * 5000
+        return value.value
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    logfire.info('hello')
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert len(span['attributes']['logfire.msg']) <= 1024
+    assert message_calls == 1
+
+
 @pytest.mark.parametrize('error_type', [ValueError, RecursionError])
 def test_scrub_json_that_cannot_be_parsed(monkeypatch: pytest.MonkeyPatch, error_type: type[Exception]):
     """A parse error must redact the text instead of aborting scrubbing of the whole span."""
