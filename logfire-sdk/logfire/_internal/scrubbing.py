@@ -282,7 +282,6 @@ class SpanScrubber:
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
-        self._active_containers: set[int] = set()
 
     def scrub_span(self, span: ReadableSpanDict):
         # We need to use BoundedAttributes because:
@@ -371,56 +370,28 @@ class SpanScrubber:
             scrubbed = self.scrub(path, text)
             return binary if scrubbed == text else scrubbed
         elif isinstance(value, Sequence):
-            sequence = cast('Sequence[Any]', value)
-            container_id = id(sequence)
-            if container_id in self._active_containers:
-                raise RecursionError('cyclic sequence in scrubbing value')
-            self._active_containers.add(container_id)
-            try:
-                return [self.scrub(path + (i,), x) for i, x in enumerate(sequence)]
-            finally:
-                self._active_containers.remove(container_id)
+            return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
         elif isinstance(value, Mapping):
-            mapping = cast('Mapping[str, Any]', value)
-            container_id = id(mapping)
-            if container_id in self._active_containers:
-                raise RecursionError('cyclic mapping in scrubbing value')
-            self._active_containers.add(container_id)
-            try:
-                return self._scrub_mapping(path, mapping)
-            finally:
-                self._active_containers.remove(container_id)
-        return value
-
-    def _scrub_mapping(self, path: JsonPath, value: Mapping[str, Any]) -> dict[str, Any]:
-        result: dict[str, Any] = {}
-        for k, v in value.items():
-            if k in BaseScrubber.SAFE_KEYS:
-                result[k] = v
-            else:
-                child_path = path + (k,)
-                try:
-                    scrubbed = self.scrub(child_path, v)
-                except RecursionError:
-                    if match := self._pattern.search(k):
-                        matched_substring = match.group(0)
-                        self.scrub_count += 1
-                        self.scrubbed.append(ScrubbedNote(path=child_path, matched_substring=matched_substring))
-                        result[k] = f'[Scrubbed due to {matched_substring!r}]'
-                        continue
-                    raise
-                if match := self._pattern.search(k):
-                    redacted = self._scrub_matches(child_path, scrubbed, match)
-                    if (
-                        isinstance(redacted, str)
-                        and isinstance(v, Sequence)
-                        and not isinstance(v, (str, bytes, bytearray, memoryview))
-                    ):
-                        redacted = [redacted]
-                    result[k] = redacted
+            result: dict[str, Any] = {}
+            for k, v in cast('Mapping[str, Any]', value).items():
+                if k in BaseScrubber.SAFE_KEYS:
+                    result[k] = v
                 else:
-                    result[k] = scrubbed
-        return result
+                    child_path = path + (k,)
+                    scrubbed = self.scrub(child_path, v)
+                    if match := self._pattern.search(k):
+                        redacted = self._scrub_matches(child_path, scrubbed, match)
+                        if (
+                            isinstance(redacted, str)
+                            and isinstance(v, Sequence)
+                            and not isinstance(v, (str, bytes, bytearray, memoryview))
+                        ):
+                            redacted = [redacted]
+                        result[k] = redacted
+                    else:
+                        result[k] = scrubbed
+            return result
+        return value
 
     def _scrub_matches(self, path: JsonPath, value: Any, match: re.Match[str]) -> Any:
         text = match.string
