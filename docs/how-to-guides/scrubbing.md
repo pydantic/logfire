@@ -83,7 +83,7 @@ logfire.configure(scrubbing=logfire.ScrubbingOptions(transform_string=mask_email
 logfire.info('Contact {email}', email='alice@example.com')
 ```
 
-The exported `email` attribute and formatted message contain `[email]`. The callback runs on string values inside JSON and under keys that are exempt from pattern matching. Pattern matching runs on the returned string where permitted. A transformation alone adds no scrubbed note. If the callback raises an exception, Logfire logs the error, keeps that string unchanged, and continues normal pattern matching.
+The exported `email` attribute and formatted message contain `[email]`. The callback runs on string values inside JSON and under keys that are exempt from pattern matching. Pattern matching runs on the returned string where permitted. If the callback raises an exception, Logfire logs the error, keeps that string unchanged, and continues normal pattern matching.
 
 ## Scrubbing less with a callback
 

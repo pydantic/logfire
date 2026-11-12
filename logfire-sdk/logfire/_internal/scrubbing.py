@@ -149,7 +149,7 @@ class ScrubbingOptions:
 
     The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
-    A changed value creates no scrubbed note. If the callback raises, Logfire logs the error and keeps the input string.
+    If the callback raises, Logfire logs the error and keeps the input string.
     """
 
 
