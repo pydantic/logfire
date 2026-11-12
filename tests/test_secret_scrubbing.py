@@ -304,14 +304,19 @@ def test_callback_value_with_ambiguous_equality_is_final():
             raise RuntimeError('cannot compare')
 
     replacement = IncomparableStr('allowed')
+    matches: list[str] = []
 
     def callback(match: logfire.ScrubMatch):
-        if match.path == ('attributes', 'password'):
+        matches.append(match.pattern_match.group(0))
+        if match.path == ('attributes', 'password_secret'):
             return replacement
 
-    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password': IncomparableStr('allowed')})
+    result, notes = Scrubber(None, callback).scrub_value(
+        ('attributes',), {'password_secret': IncomparableStr('allowed')}
+    )
 
-    assert result['password'] is replacement
+    assert result['password_secret'] is replacement
+    assert matches == ['password']
     assert notes == []
 
 
