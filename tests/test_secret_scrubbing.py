@@ -308,7 +308,7 @@ def test_callback_whitelisted_key_scrubs_binary_value(value: bytes | bytearray |
 
     result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': value})
 
-    assert result == {'password_hint': ["[Scrubbed due to 'password']"]}
+    assert result == {'password_hint': "[Scrubbed due to 'password']"}
     assert notes == [{'path': ('attributes', 'password_hint'), 'matched_substring': 'password'}]
 
 
