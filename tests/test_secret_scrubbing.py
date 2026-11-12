@@ -247,7 +247,158 @@ def test_optimized_default_patterns_preserve_extra_pattern_order(extra_pattern: 
 
     assert result == value
     assert scrubbed_notes == []
-    assert matches == [expected_match]
+    assert matches[0] == expected_match
+
+
+def test_callback_whitelists_string_match_but_scrubs_later_value_match():
+    matches: list[str] = []
+
+    def callback(match: logfire.ScrubMatch):
+        matched = match.pattern_match.group(0)
+        matches.append(matched)
+        if matched == 'password':
+            return match.value
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes', 'value'), 'password allowed; secret=hunter2')
+
+    assert result == "[Scrubbed due to 'secret']"
+    assert matches == ['password', 'secret']
+    assert notes == [{'path': ('attributes', 'value'), 'matched_substring': 'secret'}]
+
+
+def test_callback_whitelists_key_match_but_scrubs_later_key_match():
+    def callback(match: logfire.ScrubMatch):
+        if match.pattern_match.group(0) == 'password':
+            return match.value
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_secret': 'hunter2'})
+
+    assert result == {'password_secret': "[Scrubbed due to 'secret']"}
+    assert notes == [{'path': ('attributes', 'password_secret'), 'matched_substring': 'secret'}]
+
+
+def test_callback_whitelists_key_with_scalar_value_but_scrubs_later_key_match():
+    def callback(match: logfire.ScrubMatch):
+        if match.pattern_match.group(0) == 'password':
+            return match.value
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_secret': 1234})
+
+    assert result == {'password_secret': "[Scrubbed due to 'secret']"}
+    assert notes == [{'path': ('attributes', 'password_secret'), 'matched_substring': 'secret'}]
+
+
+def test_callback_equal_value_with_different_type_is_final():
+    def callback(match: logfire.ScrubMatch):
+        return True
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_secret': 1})
+
+    assert result == {'password_secret': True}
+    assert notes == []
+
+
+@pytest.mark.parametrize(
+    'value', [b'password=hunter2', bytearray(b'password=hunter2'), memoryview(b'password=hunter2')]
+)
+def test_callback_whitelisted_key_scrubs_binary_value(value: bytes | bytearray | memoryview):
+    def callback(match: logfire.ScrubMatch):
+        if match.pattern_match.string == 'password_hint':
+            return match.value
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': value})
+
+    assert result == {'password_hint': "[Scrubbed due to 'password']"}
+    assert notes == [{'path': ('attributes', 'password_hint'), 'matched_substring': 'password'}]
+
+
+def test_callback_whitelists_key_but_scrubs_string_value():
+    def callback(match: logfire.ScrubMatch):
+        if match.pattern_match.string == 'password_hint':
+            return match.value
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': 'secret=hunter2'})
+
+    assert result == {'password_hint': "[Scrubbed due to 'secret']"}
+    assert notes == [{'path': ('attributes', 'password_hint'), 'matched_substring': 'secret'}]
+
+
+def test_callback_whitelists_overlapping_later_start():
+    matches: list[str] = []
+
+    def callback(match: logfire.ScrubMatch):
+        matched = match.pattern_match.group(0)
+        matches.append(matched)
+        if matched != 'secret':
+            return match.value
+
+    result, notes = Scrubber(['assword'], callback).scrub_value(('attributes', 'value'), 'password secret=hunter2')
+
+    assert result == "[Scrubbed due to 'secret']"
+    assert matches == ['password', 'assword', 'secret']
+    assert notes == [{'path': ('attributes', 'value'), 'matched_substring': 'secret'}]
+
+
+def test_callback_whitelists_zero_width_match_at_end():
+    matches: list[tuple[int, int]] = []
+
+    def callback(match: logfire.ScrubMatch):
+        matches.append(match.pattern_match.span())
+        return match.value
+
+    result, notes = Scrubber(['$'], callback).scrub_value(('attributes', 'value'), 'plain')
+
+    assert result == 'plain'
+    assert notes == []
+    assert matches == [(5, 5)]
+
+
+def test_callback_whitelists_zero_width_match_before_later_secret():
+    def callback(match: logfire.ScrubMatch):
+        if match.pattern_match.group(0) == '':
+            return match.value
+
+    result, notes = Scrubber([r'(?=x)'], callback).scrub_value(('attributes', 'value'), 'x secret=hunter2')
+
+    assert result == "[Scrubbed due to 'secret']"
+    assert notes == [{'path': ('attributes', 'value'), 'matched_substring': 'secret'}]
+
+
+def test_callback_whitelists_zero_width_key_match_at_end():
+    result, notes = Scrubber(['$'], lambda match: match.value).scrub_value(('attributes',), {'plain': 'value'})
+
+    assert result == {'plain': 'value'}
+    assert notes == []
+
+
+def test_callback_changed_string_is_final():
+    def callback(match: logfire.ScrubMatch):
+        return 'replacement secret=visible'
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes', 'value'), 'password and secret=hunter2')
+
+    assert result == 'replacement secret=visible'
+    assert notes == []
+
+
+@pytest.mark.parametrize('in_key', [False, True])
+def test_callback_allowed_matches_have_a_limit(in_key: bool):
+    value = '1' * 40_000 + ' suffix'
+    data = {value: 'plain'} if in_key else {'plain': value}
+
+    result, notes = Scrubber([r'\d+'], lambda match: match.value).scrub_value(('attributes',), data)
+
+    assert result == {value if in_key else 'plain': '[Scrubbed due to too many allowed matches]'}
+    assert notes == []
+
+
+def test_callback_equal_string_copy_does_not_rewrite_json():
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'data', 'password_hint'):
+            return (' ' + match.value)[1:]
+
+    original = '{"password_hint":"allowed","amount":1e400}'
+    assert Scrubber(None, callback).scrub_value(('attributes', 'data'), original) == (original, [])
 
 
 def test_default_pattern_start_chars_cover_each_pattern():
@@ -507,6 +658,92 @@ def test_scrub_json_containers_without_a_raw_pattern_match(exporter: TestExporte
     (span,) = exporter.exported_spans_as_dict()
     assert json.loads(span['attributes']['data']) == {'password': "[Scrubbed due to 'password']"}
     assert span['attributes']['unchanged'] == '{"amount":1e400}'
+
+
+def test_internal_exception_in_scrubbing_callback_does_not_export_secrets(
+    exporter: TestExporter, config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture
+):
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'password'):
+            raise RuntimeError('key callback failed')
+        if match.path == ('attributes', 'data', 'password'):
+            raise ValueError('JSON callback failed')
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
+    logfire.info('Example', password='hunter2', data=r'{"pass\u0077ord":"hunter2"}', other='secret=hunter2')
+
+    (span,) = exporter.exported_spans_as_dict()
+    attributes = span['attributes']
+    assert attributes['password'] == "[Scrubbed due to 'password']"
+    assert json.loads(attributes['data']) == {'password': "[Scrubbed due to 'password']"}
+    assert attributes['other'] == "[Scrubbed due to 'secret']"
+    assert [record.exc_info[0] for record in caplog.records if record.exc_info] == [RuntimeError, ValueError]
+
+
+@pytest.mark.parametrize('copy_container', [False, True])
+@pytest.mark.parametrize('container', [{'password': 'hunter2'}, [{'password': 'hunter2'}]])
+def test_callback_whitelists_container_key_but_scrubs_contents(container: Any, copy_container: bool):
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'password_hint'):
+            return container.copy() if copy_container else match.value
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': container})
+
+    expected = {'password': "[Scrubbed due to 'password']"}
+    assert result == {'password_hint': [expected] if isinstance(container, list) else expected}
+    expected_path = (
+        ('attributes', 'password_hint', 0, 'password')
+        if isinstance(container, list)
+        else ('attributes', 'password_hint', 'password')
+    )
+    assert notes == [{'path': expected_path, 'matched_substring': 'password'}]
+
+
+def test_callback_equal_container_copy_only_rewrites_json_when_nested_value_changes():
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'data', 'password_hint'):
+            return match.value.copy()
+
+    scrubber = Scrubber(None, callback)
+    unchanged = '{"password_hint":{"amount":1e400}}'
+    assert scrubber.scrub_value(('attributes', 'data'), unchanged) == (unchanged, [])
+
+    changed = '{"password_hint":{"password":"hunter2"}}'
+    result, notes = scrubber.scrub_value(('attributes', 'data'), changed)
+    assert json.loads(result) == {'password_hint': {'password': "[Scrubbed due to 'password']"}}
+    assert notes == [{'path': ('attributes', 'data', 'password_hint', 'password'), 'matched_substring': 'password'}]
+
+
+def test_callback_changed_container_is_final():
+    replacement = {'password': 'allowed'}
+
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'password_hint'):
+            return replacement
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': {'password': 'hunter2'}})
+
+    assert result == {'password_hint': replacement}
+    assert notes == []
+
+
+def test_callback_container_with_ambiguous_equality_is_final():
+    class IncomparableDict(dict[str, str]):
+        def __eq__(self, other: object) -> bool:
+            raise RuntimeError('cannot compare')
+
+    replacement = IncomparableDict(password='allowed')
+
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'password_hint'):
+            return replacement
+
+    result, notes = Scrubber(None, callback).scrub_value(
+        ('attributes',), {'password_hint': IncomparableDict(password='hunter2')}
+    )
+
+    assert result['password_hint'] is replacement
+    assert notes == []
 
 
 class PasswordError(Exception):
