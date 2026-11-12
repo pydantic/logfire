@@ -1,0 +1,16 @@
+logfire-sdk/logfire/_internal/scrubbing.py
+  h_d9dd17644dded9 480-491
+tests/test_secret_scrubbing.py
+  h_d9dd17644dded9 22,733-762
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bc6e48d880d9e163056a93ff5cf5ddb57e78f2d2",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
