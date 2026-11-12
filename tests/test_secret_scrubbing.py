@@ -277,6 +277,27 @@ def test_callback_whitelists_key_match_but_scrubs_later_key_match():
     assert notes == [{'path': ('attributes', 'password_secret'), 'matched_substring': 'secret'}]
 
 
+def test_callback_whitelists_key_with_scalar_value_but_scrubs_later_key_match():
+    def callback(match: logfire.ScrubMatch):
+        if match.pattern_match.group(0) == 'password':
+            return match.value
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_secret': 1234})
+
+    assert result == {'password_secret': "[Scrubbed due to 'secret']"}
+    assert notes == [{'path': ('attributes', 'password_secret'), 'matched_substring': 'secret'}]
+
+
+def test_callback_equal_value_with_different_type_is_final():
+    def callback(match: logfire.ScrubMatch):
+        return True
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_secret': 1})
+
+    assert result == {'password_secret': True}
+    assert notes == []
+
+
 def test_callback_whitelists_key_but_scrubs_string_value():
     def callback(match: logfire.ScrubMatch):
         if match.pattern_match.string == 'password_hint':
