@@ -1,0 +1,21 @@
+logfire-sdk/logfire/_internal/scrubbing.py
+  s_60e3c23d493487::t_cc9b65e7d53e80 383-387
+tests/test_secret_scrubbing.py
+  s_60e3c23d493487::t_38d7fcf2275ce0 311
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b3ed509de12be3029e85e242655235d90d0ba900",
+  "prompts": {},
+  "sessions": {
+    "s_60e3c23d493487": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c5fa-5e37-73c0-b6df-455251da8152",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
