@@ -5,7 +5,7 @@ import re
 from io import StringIO
 from pathlib import Path
 from threading import Event, get_ident
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from dirty_equals import IsJson, IsPartialDict
@@ -15,11 +15,13 @@ from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.sdk.trace import ConcurrentMultiSpanProcessor, ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
 from logfire._internal.exporters.processor_wrapper import SpanProcessorGroup
-from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
+from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber, SpanScrubber
+from logfire._internal.utils import ReadableSpanDict
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
 from logfire.types import StringValue
@@ -693,6 +695,117 @@ def test_transform_string_in_safe_key_skips_all_nested_patterns():
     assert result_without_transform == original
     assert result_without_transform['do_not_scrub'] is original['do_not_scrub']
     assert notes_without_transform == []
+
+
+def test_gen_ai_messages_match_nested_keys_but_not_text_values():
+    scrubber = Scrubber(None)
+    value = {
+        'gen_ai.input.messages': json.dumps(
+            [{'parts': [{'content': 'The URL contains /auth'}, {'arguments': {'password': 'hunter2'}}]}]
+        ),
+        'gen_ai.tool.definitions': json.dumps([{'parameters': {'properties': {'password': {'type': 'string'}}}}]),
+    }
+
+    result, notes = scrubber.scrub_value(('attributes',), value)
+
+    assert json.loads(result['gen_ai.input.messages']) == [
+        {'parts': [{'content': 'The URL contains /auth'}, {'arguments': {'password': "[Scrubbed due to 'password']"}}]}
+    ]
+    assert result['gen_ai.tool.definitions'] == value['gen_ai.tool.definitions']
+    assert notes == [
+        {
+            'path': ('attributes', 'gen_ai.input.messages', 0, 'parts', 1, 'arguments', 'password'),
+            'matched_substring': 'password',
+        }
+    ]
+
+
+def test_transformer_runs_in_definitions_but_not_span_type():
+    seen: list[tuple[str | int, ...]] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value.path)
+        return value.value.replace('alice@example.com', '[email]')
+
+    result, notes = Scrubber(None, transform_string=transform).scrub_value(
+        ('attributes',),
+        {
+            'logfire.span_type': 'span',
+            'gen_ai.tool.definitions': json.dumps(
+                [{'parameters': {'properties': {'password': {'description': 'alice@example.com'}}}}]
+            ),
+        },
+    )
+
+    assert result['logfire.span_type'] == 'span'
+    assert json.loads(result['gen_ai.tool.definitions']) == [
+        {'parameters': {'properties': {'password': {'description': '[email]'}}}}
+    ]
+    assert seen == [('attributes', 'gen_ai.tool.definitions', 0, 'parameters', 'properties', 'password', 'description')]
+    assert notes == []
+
+
+@pytest.mark.parametrize('scope', ['logfire.openai', 'logfire.anthropic'])
+def test_legacy_llm_request_scrubs_message_keys_but_preserves_tool_definitions(scope: str):
+    scrubber = SpanScrubber(
+        Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]'))
+    )
+    scrubber.scope_name = scope
+    request = {
+        'messages': [{'content': 'The URL contains /auth', 'tool_call': {'password': 'alice@example.com'}}],
+        'tools': [{'input_schema': {'properties': {'password': {'description': 'alice@example.com'}}}}],
+    }
+
+    result = scrubber.scrub(('attributes',), {'request_data': request, 'ordinary': 'auth=bearer'})
+
+    assert result['request_data']['messages'] == [
+        {'content': 'The URL contains /auth', 'tool_call': {'password': "[Scrubbed due to 'password']"}}
+    ]
+    assert result['request_data']['tools'] == [
+        {'input_schema': {'properties': {'password': {'description': '[email]'}}}}
+    ]
+    assert result['ordinary'] == "[Scrubbed due to 'auth']"
+    assert [note['path'] for note in scrubber.scrubbed] == [
+        ('attributes', 'request_data', 'messages', 0, 'tool_call', 'password'),
+        ('attributes', 'ordinary'),
+    ]
+
+
+def test_legacy_openai_events_use_key_only_matching():
+    scrubber = SpanScrubber(Scrubber(None))
+    scrubber.scope_name = 'logfire.openai'
+
+    result = scrubber.scrub(
+        ('attributes',),
+        {
+            'events': [{'content': 'The URL contains /auth', 'tool_calls': [{'arguments': '{"password":"hunter2"}'}]}],
+            'response_data': {'output': {'password': 'hunter2', 'content': 'auth is a route'}},
+        },
+    )
+
+    assert result['events'][0]['content'] == 'The URL contains /auth'
+    assert json.loads(result['events'][0]['tool_calls'][0]['arguments']) == {'password': "[Scrubbed due to 'password']"}
+    assert result['response_data'] == {
+        'output': {'password': "[Scrubbed due to 'password']", 'content': 'auth is a route'}
+    }
+
+
+def test_llm_scope_scrubs_attributes_instead_of_skipping_span():
+    span = cast(
+        ReadableSpanDict,
+        {
+            'instrumentation_scope': InstrumentationScope('logfire.openai'),
+            'attributes': {'request_data': {'messages': [{'password': 'hunter2', 'content': 'auth is a route'}]}},
+            'events': [],
+            'links': [],
+        },
+    )
+
+    Scrubber(None).scrub_span(span)
+
+    assert span['attributes']['request_data'] == {
+        'messages': ({'password': "[Scrubbed due to 'password']", 'content': 'auth is a route'},)
+    }
 
 
 def test_internal_exception_in_transform_string_keeps_value_and_continues_pattern_search(
