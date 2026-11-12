@@ -1265,18 +1265,18 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                     'gen_ai.request.temperature': 0.7,
                     'gen_ai.request.top_p': 0.9,
                     'gen_ai.request.top_k': 40,
-                    'gen_ai.request.stop_sequences': ['END', 'STOP'],
-                    'gen_ai.tool.definitions': [
+                    'gen_ai.request.stop_sequences': ('END', 'STOP'),
+                    'gen_ai.tool.definitions': (
                         {
                             'name': 'get_weather',
                             'description': 'Get the current weather',
                             'input_schema': {
                                 'type': 'object',
                                 'properties': {'location': {'type': 'string'}},
-                                'required': ['location'],
+                                'required': ('location',),
                             },
-                        }
-                    ],
+                        },
+                    ),
                     'gen_ai.input.messages': (
                         {'role': 'user', 'parts': ({'type': 'text', 'content': 'What is four plus five?'},)},
                     ),

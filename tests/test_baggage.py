@@ -285,7 +285,7 @@ def test_baggage_on_log_records_is_scrubbed(config_kwargs: dict[str, Any], logs_
     assert log['attributes'] == snapshot(
         {
             'password': "[Scrubbed due to 'password']",
-            'logfire.scrubbed': '[{"path": ["attributes", "password"], "matched_substring": "password"}]',
+            'logfire.scrubbed': ({'path': ('attributes', 'password'), 'matched_substring': 'password'},),
         }
     )
 

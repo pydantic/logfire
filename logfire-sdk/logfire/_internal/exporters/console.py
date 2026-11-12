@@ -35,6 +35,7 @@ from ..constants import (
     ONE_SECOND_IN_NANOSECONDS,
     LevelName,
 )
+from ..json_encoder import load_json_attribute
 from ..json_formatter import json_args_value_formatter
 from ..json_types import JSONSchema
 from ..utils import truncate_string
@@ -263,7 +264,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
             return
 
         arguments: dict[str, Any] = {}
-        json_schema = cast('dict[str, Any]', json.loads(span.attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY, '{}')))  # pyright: ignore[reportArgumentType]
+        json_schema = cast('dict[str, Any]', load_json_attribute(span.attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY, '{}')))
         for key, schema in json_schema.get('properties', {}).items():
             value = span.attributes.get(key)
             if schema and isinstance(value, str):

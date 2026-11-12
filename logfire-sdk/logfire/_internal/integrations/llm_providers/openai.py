@@ -86,9 +86,9 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
 
     if (stop := json_data.get('stop')) is not None:
         if isinstance(stop, str):
-            span_data[REQUEST_STOP_SEQUENCES] = json.dumps([stop])
+            span_data[REQUEST_STOP_SEQUENCES] = [stop]
         else:
-            span_data[REQUEST_STOP_SEQUENCES] = json.dumps(stop)
+            span_data[REQUEST_STOP_SEQUENCES] = stop
 
     if (seed := json_data.get('seed')) is not None:
         span_data[REQUEST_SEED] = seed
@@ -100,7 +100,7 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
         span_data[REQUEST_PRESENCE_PENALTY] = presence_penalty
 
     if (tools := json_data.get('tools')) is not None:
-        span_data[TOOL_DEFINITIONS] = json.dumps(tools)
+        span_data[TOOL_DEFINITIONS] = tools
 
 
 def _versioned_stream_cls(

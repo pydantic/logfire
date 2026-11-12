@@ -214,7 +214,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Using `l
                             'logfire.print_args': {
                                 'type': 'array',
                                 'x-python-datatype': 'tuple',
-                                'prefixItems': [{}, {'type': 'array', 'x-python-datatype': 'set'}],
+                                'prefixItems': ({}, {'type': 'array', 'x-python-datatype': 'set'}),
                             }
                         },
                     },

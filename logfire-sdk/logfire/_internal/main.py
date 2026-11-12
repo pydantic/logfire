@@ -52,7 +52,7 @@ from .constants import (
 )
 from .formatter import logfire_format, logfire_format_with_magic
 from .instrument import instrument
-from .json_encoder import logfire_json_dumps, numpy_scalar_to_python, to_otlp_value
+from .json_encoder import load_json_attribute, logfire_json_dumps, numpy_scalar_to_python, to_otlp_value
 from .json_schema import (
     JsonSchemaProperties,
     attributes_json_schema,
@@ -3658,11 +3658,10 @@ def _set_attributes_on_raw_span(
 ) -> None:
     if json_schema_properties:  # pragma: no branch
         existing_properties = JsonSchemaProperties({})
-        existing_json_schema_str = (span.attributes or {}).get(ATTRIBUTES_JSON_SCHEMA_KEY)
-        if existing_json_schema_str and isinstance(existing_json_schema_str, str):
+        existing_json_schema = (span.attributes or {}).get(ATTRIBUTES_JSON_SCHEMA_KEY)
+        if existing_json_schema:
             with contextlib.suppress(json.JSONDecodeError):
-                existing_json_schema = json.loads(existing_json_schema_str)
-                existing_properties = existing_json_schema.get('properties', {})
+                existing_properties = load_json_attribute(existing_json_schema).get('properties', {})
         existing_properties.update(json_schema_properties)
         otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(existing_properties)
     span.set_attributes(otlp_attributes)

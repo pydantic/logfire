@@ -568,7 +568,7 @@ def test_sync_chat_completions_with_all_request_params(
                     'gen_ai.request.max_tokens': 100,
                     'gen_ai.request.temperature': 0.7,
                     'gen_ai.request.top_p': 0.9,
-                    'gen_ai.request.stop_sequences': ['END', 'STOP'],
+                    'gen_ai.request.stop_sequences': ('END', 'STOP'),
                     'gen_ai.request.seed': 42,
                     'gen_ai.request.frequency_penalty': 0.5,
                     'gen_ai.request.presence_penalty': 0.3,
@@ -688,7 +688,7 @@ def test_sync_chat_completions_with_stop_string(instrumented_client: openai.Clie
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.operation.name': 'chat',
-                    'gen_ai.request.stop_sequences': ['END'],
+                    'gen_ai.request.stop_sequences': ('END',),
                     'gen_ai.input.messages': (
                         {'role': 'user', 'parts': ({'type': 'text', 'content': 'What is four plus five?'},)},
                     ),
@@ -1235,7 +1235,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
-                    'gen_ai.tool.definitions': [
+                    'gen_ai.tool.definitions': (
                         {
                             'type': 'function',
                             'function': {
@@ -1248,13 +1248,13 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                                             'type': 'string',
                                             'description': 'The city and state, e.g. San Francisco, CA',
                                         },
-                                        'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                                        'unit': {'type': 'string', 'enum': ('celsius', 'fahrenheit')},
                                     },
-                                    'required': ['location'],
+                                    'required': ('location',),
                                 },
                             },
-                        }
-                    ],
+                        },
+                    ),
                     'gen_ai.input.messages': (
                         {'role': 'system', 'parts': ({'type': 'text', 'content': 'streamed tool call'},)},
                     ),
@@ -1325,7 +1325,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                     'gen_ai.provider.name': 'openai',
                     'async': False,
                     'gen_ai.operation.name': 'chat',
-                    'gen_ai.tool.definitions': [
+                    'gen_ai.tool.definitions': (
                         {
                             'type': 'function',
                             'function': {
@@ -1338,13 +1338,13 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                                             'type': 'string',
                                             'description': 'The city and state, e.g. San Francisco, CA',
                                         },
-                                        'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                                        'unit': {'type': 'string', 'enum': ('celsius', 'fahrenheit')},
                                     },
-                                    'required': ['location'],
+                                    'required': ('location',),
                                 },
                             },
-                        }
-                    ],
+                        },
+                    ),
                     'gen_ai.input.messages': (
                         {'role': 'system', 'parts': ({'type': 'text', 'content': 'streamed tool call'},)},
                     ),
@@ -1545,7 +1545,7 @@ async def test_async_chat_tool_call_stream(
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
-                    'gen_ai.tool.definitions': [
+                    'gen_ai.tool.definitions': (
                         {
                             'type': 'function',
                             'function': {
@@ -1558,13 +1558,13 @@ async def test_async_chat_tool_call_stream(
                                             'type': 'string',
                                             'description': 'The city and state, e.g. San Francisco, CA',
                                         },
-                                        'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                                        'unit': {'type': 'string', 'enum': ('celsius', 'fahrenheit')},
                                     },
-                                    'required': ['location'],
+                                    'required': ('location',),
                                 },
                             },
-                        }
-                    ],
+                        },
+                    ),
                     'gen_ai.input.messages': (
                         {'role': 'system', 'parts': ({'type': 'text', 'content': 'streamed tool call'},)},
                     ),
@@ -1635,7 +1635,7 @@ async def test_async_chat_tool_call_stream(
                     'gen_ai.provider.name': 'openai',
                     'async': True,
                     'gen_ai.operation.name': 'chat',
-                    'gen_ai.tool.definitions': [
+                    'gen_ai.tool.definitions': (
                         {
                             'type': 'function',
                             'function': {
@@ -1648,13 +1648,13 @@ async def test_async_chat_tool_call_stream(
                                             'type': 'string',
                                             'description': 'The city and state, e.g. San Francisco, CA',
                                         },
-                                        'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                                        'unit': {'type': 'string', 'enum': ('celsius', 'fahrenheit')},
                                     },
-                                    'required': ['location'],
+                                    'required': ('location',),
                                 },
                             },
-                        }
-                    ],
+                        },
+                    ),
                     'gen_ai.input.messages': (
                         {'role': 'system', 'parts': ({'type': 'text', 'content': 'streamed tool call'},)},
                     ),
@@ -3257,7 +3257,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'network.protocol.version': '1.1',
                     'logfire.metrics': {
                         'http.client.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.flavor': '1.1',
@@ -3268,12 +3268,12 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                                         'net.peer.name': 'api.openai.com',
                                     },
                                     'total': IsNumeric(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsNumeric(),
                         },
                         'http.client.request.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.request.method': 'POST',
@@ -3282,8 +3282,8 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                                         'server.address': 'api.openai.com',
                                     },
                                     'total': IsNumeric(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsNumeric(),
                         },
                     },
@@ -3363,7 +3363,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     },
                     'logfire.metrics': {
                         'http.client.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.flavor': '1.1',
@@ -3374,12 +3374,12 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                                         'net.peer.name': 'api.openai.com',
                                     },
                                     'total': IsNumeric(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsNumeric(),
                         },
                         'http.client.request.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.request.method': 'POST',
@@ -3388,8 +3388,8 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                                         'server.address': 'api.openai.com',
                                     },
                                     'total': IsNumeric(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsNumeric(),
                         },
                     },
@@ -3628,7 +3628,7 @@ def test_create_assistant(instrumented_client: openai.Client, exporter: TestExpo
                     'async': False,
                     'gen_ai.provider.name': 'openai',
                     'logfire.msg_template': 'OpenAI API call to {url!r}',
-                    'gen_ai.tool.definitions': [{'type': 'code_interpreter'}],
+                    'gen_ai.tool.definitions': ({'type': 'code_interpreter'},),
                     'logfire.msg': "OpenAI API call to '/assistants'",
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_create_assistant',
@@ -3745,7 +3745,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'async': False,
                     'request_data': {'model': 'gpt-4.1', 'stream': False},
                     'gen_ai.operation.name': 'chat',
-                    'gen_ai.tool.definitions': [
+                    'gen_ai.tool.definitions': (
                         {
                             'type': 'function',
                             'name': 'get_weather',
@@ -3758,11 +3758,11 @@ def test_responses_api(exporter: TestExporter) -> None:
                                         'description': 'City and country e.g. Bogotá, Colombia',
                                     }
                                 },
-                                'required': ['location'],
+                                'required': ('location',),
                                 'additionalProperties': False,
                             },
-                        }
-                    ],
+                        },
+                    ),
                     'gen_ai.input.messages': (
                         {
                             'role': 'user',
@@ -3957,7 +3957,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.system': {},
                             'events': {
                                 'type': 'array',
-                                'prefixItems': [
+                                'prefixItems': (
                                     {'type': 'object'},
                                     {
                                         'type': 'object',
@@ -3965,7 +3965,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                                     },
                                     {'type': 'object'},
                                     {'type': 'object'},
-                                ],
+                                ),
                             },
                             'gen_ai.input.messages': {},
                             'async': {},
@@ -4261,7 +4261,7 @@ def test_chat_completions_with_audio_input(exporter: TestExporter) -> None:
                                     {
                                         'type': 'input_audio',
                                         'input_audio': {
-                                            'data': 'UklGRiQZAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                                            'data': IsStr(),
                                             'format': 'wav',
                                         },
                                     },

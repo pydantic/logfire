@@ -47,7 +47,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                     'code.lineno': 32,
                     'duration': 2.0,
                     'name': 'callback mock_block',
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'duration': {}, 'name': {}}},
                 },
             },
             {
@@ -75,7 +75,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                             },
                         )
                     ),
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{},"stack":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'duration': {}, 'name': {}, 'stack': {}}},
                 },
             },
             {
@@ -108,7 +108,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                             },
                         )
                     ),
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{},"stack":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'duration': {}, 'name': {}, 'stack': {}}},
                 },
             },
             {
@@ -141,7 +141,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                             },
                         )
                     ),
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{},"stack":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'duration': {}, 'name': {}, 'stack': {}}},
                 },
             },
             {
@@ -169,7 +169,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                             },
                         )
                     ),
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{},"stack":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'duration': {}, 'name': {}, 'stack': {}}},
                 },
             },
             {
@@ -197,7 +197,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                             },
                         )
                     ),
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{},"stack":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'duration': {}, 'name': {}, 'stack': {}}},
                 },
             },
             {
@@ -240,7 +240,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                             },
                         )
                     ),
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{},"stack":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'duration': {}, 'name': {}, 'stack': {}}},
                 },
             },
         ]

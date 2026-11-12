@@ -620,7 +620,15 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'http.route': '/with_path_param/{param}',
                     'fastapi.route.operation_id': 'null',
                     'logfire.level_num': 5,
-                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'http.method': {},
+                            'http.route': {},
+                            'fastapi.route.name': {},
+                            'fastapi.route.operation_id': {'type': 'null'},
+                        },
+                    },
                 },
             },
             {
@@ -637,7 +645,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.span_type': 'pending_span',
-                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'method': {}, 'http.route': {}}},
                     'logfire.msg': 'GET /with_path_param/{param} (with_path_param)',
                     'logfire.pending_parent_id': '0000000000000001',
                 },
@@ -656,7 +664,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.span_type': 'span',
-                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'method': {}, 'http.route': {}}},
                     'logfire.msg': 'GET /with_path_param/{param} (with_path_param)',
                 },
             },
@@ -746,7 +754,10 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'http.route': '/with_path_param/{param}',
                     'fastapi.route.name': 'with_path_param',
                     'fastapi.route.operation_id': 'null',
-                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'fastapi.route.name': {}, 'fastapi.route.operation_id': {'type': 'null'}},
+                    },
                     'fastapi.arguments.start_timestamp': '1970-01-01T00:00:03.000000Z',
                     'fastapi.arguments.end_timestamp': '1970-01-01T00:00:04.000000Z',
                     'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:07.000000Z',
@@ -1024,7 +1035,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.span_type': 'span',
                     'logfire.metrics': {
                         'http.server.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.flavor': '1.1',
@@ -1037,12 +1048,12 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                                         'net.host.port': 80,
                                     },
                                     'total': IsInt(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsInt(),
                         },
                         'http.server.request.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.request.method': 'GET',
@@ -1052,12 +1063,12 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                                         'url.scheme': 'http',
                                     },
                                     'total': IsFloat(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsFloat(),
                         },
                         'http.server.response.size': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.flavor': '1.1',
@@ -1070,12 +1081,12 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                                         'net.host.port': 80,
                                     },
                                     'total': 15,
-                                }
-                            ],
+                                },
+                            ),
                             'total': 15,
                         },
                         'http.server.response.body.size': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.request.method': 'GET',
@@ -1085,8 +1096,8 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                                         'url.scheme': 'http',
                                     },
                                     'total': 15,
-                                }
-                            ],
+                                },
+                            ),
                             'total': 15,
                         },
                     },

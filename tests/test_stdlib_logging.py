@@ -47,7 +47,10 @@ def test_stdlib_logging(exporter: TestExporter, logger: Logger) -> None:
                     'code.lineno': IsPositiveInt(),
                     'first_name': 'Fred',
                     'logfire.logger_name': 'tests.test_stdlib_logging',
-                    'logfire.json_schema': '{"type":"object","properties":{"first_name":{},"logfire.logger_name":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'first_name': {}, 'logfire.logger_name': {}},
+                    },
                 },
             }
         ]
@@ -75,7 +78,13 @@ def test_stdlib_logging_with_positional_params(exporter: TestExporter, logger: L
                     'code.lineno': IsPositiveInt(),
                     'logfire.logger_name': 'tests.test_stdlib_logging',
                     'logfire.logging_args': ('with a parameter',),
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"logfire.logging_args":{"type":"array","x-python-datatype":"tuple"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'logfire.logger_name': {},
+                            'logfire.logging_args': {'type': 'array', 'x-python-datatype': 'tuple'},
+                        },
+                    },
                 },
             }
         ]
@@ -103,7 +112,13 @@ def test_stdlib_logging_with_positional_dict_param(exporter: TestExporter, logge
                     'code.lineno': 123,
                     'logfire.logger_name': 'tests.test_stdlib_logging',
                     'logfire.logging_args': ({'param': 'with a parameter'},),
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"logfire.logging_args":{"type":"array","x-python-datatype":"tuple"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'logfire.logger_name': {},
+                            'logfire.logging_args': {'type': 'array', 'x-python-datatype': 'tuple'},
+                        },
+                    },
                 },
             }
         ]
@@ -130,7 +145,7 @@ def test_stdlib_logging_with_parenthesis_params(exporter: TestExporter, logger: 
                     'code.function': 'test_stdlib_logging_with_parenthesis_params',
                     'code.lineno': IsPositiveInt(),
                     'logfire.logger_name': 'tests.test_stdlib_logging',
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'logfire.logger_name': {}}},
                 },
             }
         ]
@@ -158,7 +173,7 @@ def test_stdlib_logging_with_custom_parenthesis_params(exporter: TestExporter, l
                     'code.lineno': IsPositiveInt(),
                     'logfire.logger_name': 'tests.test_stdlib_logging',
                     'blah': 'blah',
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"blah":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'logfire.logger_name': {}, 'blah': {}}},
                 },
             }
         ]
@@ -186,7 +201,13 @@ def test_stdlib_logging_warning(exporter: TestExporter, logger: Logger) -> None:
                     'code.lineno': IsPositiveInt(),
                     'logfire.logger_name': 'tests.test_stdlib_logging',
                     'logfire.logging_args': ('Fred',),
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"logfire.logging_args":{"type":"array","x-python-datatype":"tuple"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'logfire.logger_name': {},
+                            'logfire.logging_args': {'type': 'array', 'x-python-datatype': 'tuple'},
+                        },
+                    },
                 },
             }
         ]
@@ -213,7 +234,7 @@ def test_stdlib_logging_tags(exporter: TestExporter, logger: Logger) -> None:
                     'code.function': 'test_stdlib_logging_tags',
                     'code.lineno': 123,
                     'logfire.logger_name': 'tests.test_stdlib_logging',
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'logfire.logger_name': {}}},
                     'logfire.tags': ('foo', 'bar'),
                 },
             }
@@ -381,7 +402,7 @@ def test_logging_from_opentelemetry(exporter: TestExporter) -> None:
                     'code.function': 'test_logging_from_opentelemetry',
                     'code.lineno': 123,
                     'logfire.logger_name': 'root',
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'logfire.logger_name': {}}},
                 },
             },
             {
@@ -399,7 +420,7 @@ def test_logging_from_opentelemetry(exporter: TestExporter) -> None:
                     'code.function': '__init__',
                     'code.lineno': 123,
                     'logfire.logger_name': 'opentelemetry.trace.status',
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'logfire.logger_name': {}}},
                 },
             },
         ]
@@ -429,7 +450,7 @@ def test_logging_non_string(exporter: TestExporter, logger: Logger):
                     'code.function': 'test_logging_non_string',
                     'code.lineno': 123,
                     'logfire.logger_name': 'tests.test_stdlib_logging',
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'logfire.logger_name': {}}},
                 },
             }
         ]

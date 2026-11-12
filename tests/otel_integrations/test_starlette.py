@@ -234,7 +234,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                     'logfire.metrics': {
                         'http.server.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.flavor': '1.1',
@@ -246,12 +246,12 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                                         'net.host.port': 80,
                                     },
                                     'total': IsInt(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsInt(),
                         },
                         'http.server.request.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.request.method': 'GET',
@@ -260,8 +260,8 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                                         'url.scheme': 'http',
                                     },
                                     'total': IsFloat(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsFloat(),
                         },
                     },

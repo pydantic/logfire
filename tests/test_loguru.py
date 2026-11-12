@@ -50,7 +50,13 @@ def test_loguru(exporter: TestExporter) -> None:
                     'code.lineno': 25,
                     'logfire.logger_name': 'tests.test_loguru',
                     'logfire.logging_args': ('positional',),
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"logfire.logging_args":{"type":"array","x-python-datatype":"tuple"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'logfire.logger_name': {},
+                            'logfire.logging_args': {'type': 'array', 'x-python-datatype': 'tuple'},
+                        },
+                    },
                 },
             },
             {
@@ -69,7 +75,7 @@ def test_loguru(exporter: TestExporter) -> None:
                     'code.lineno': 26,
                     'logfire.logger_name': 'tests.test_loguru',
                     'name': 'named',
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"name":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'logfire.logger_name': {}, 'name': {}}},
                 },
             },
             {
@@ -88,7 +94,7 @@ def test_loguru(exporter: TestExporter) -> None:
                     'code.lineno': 31,
                     'logfire.logger_name': 'tests.test_loguru',
                     'foo': 'bar',
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"foo":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'logfire.logger_name': {}, 'foo': {}}},
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
@@ -119,7 +125,7 @@ def test_loguru(exporter: TestExporter) -> None:
                     'code.function': 'test_loguru',
                     'code.lineno': 33,
                     'logfire.logger_name': 'tests.test_loguru',
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'logfire.logger_name': {}}},
                 },
             },
         ]
@@ -151,7 +157,7 @@ def test_loguru_tags(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'logfire.logger_name': 'tests.test_loguru',
                     'name': 'World',
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"name":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'logfire.logger_name': {}, 'name': {}}},
                     'logfire.tags': ('foo', 'bar'),
                 },
             },
@@ -170,7 +176,7 @@ def test_loguru_tags(exporter: TestExporter) -> None:
                     'code.function': 'test_loguru_tags',
                     'code.lineno': 123,
                     'logfire.logger_name': 'tests.test_loguru',
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'logfire.logger_name': {}}},
                     'logfire.tags': ('bound',),
                 },
             },
@@ -215,7 +221,7 @@ def test_loguru_console_log_false(exporter: TestExporter) -> None:
                     'code.function': 'test_loguru_console_log_false',
                     'code.lineno': 123,
                     'logfire.logger_name': 'tests.test_loguru',
-                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'logfire.logger_name': {}}},
                     'logfire.disable_console_log': True,
                 },
             }

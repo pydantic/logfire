@@ -356,6 +356,27 @@ def to_otlp_value(obj: Any) -> dict[str, Any] | list[Any] | str:
     return json.dumps(value, separators=(',', ':'), ensure_ascii=False, allow_nan=False)
 
 
+def load_json_attribute(value: Any) -> Any:
+    """Return the JSON value of an attribute that holds JSON as a string or as a structured OTLP value.
+
+    Logfire writes these attributes as structured values, but spans from other sources
+    or older SDK versions can hold them as JSON strings.
+    Raises `json.JSONDecodeError` for a string that is not valid JSON.
+    """
+    if isinstance(value, str):
+        return json.loads(value)
+    return _otlp_value_to_json(value)
+
+
+def _otlp_value_to_json(value: Any) -> Any:
+    # The OTel SDK stores structured arrays as tuples.
+    if isinstance(value, Mapping):
+        return {key: _otlp_value_to_json(item) for key, item in value.items()}  # pyright: ignore[reportUnknownVariableType]
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return [_otlp_value_to_json(item) for item in value]  # pyright: ignore[reportUnknownVariableType]
+    return value
+
+
 def _is_otlp_native_safe(value: JsonValue) -> bool:
     if isinstance(value, list):
         return all(item is not None and _is_otlp_native_safe(item) for item in value)

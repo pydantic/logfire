@@ -31,9 +31,9 @@ from types import GeneratorType
 from typing import Any, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
-from .json_encoder import is_attrs, is_sqlalchemy, pandas_display_slices, to_json_value
+from .json_encoder import is_attrs, is_sqlalchemy, pandas_display_slices, to_json_value, to_otlp_value
 from .stack_info import STACK_INFO_KEYS
-from .utils import JsonDict, dump_json, log_internal_error, safe_repr
+from .utils import JsonDict, log_internal_error, safe_repr
 
 __all__ = 'create_json_schema', 'attributes_json_schema_properties', 'attributes_json_schema', 'JsonSchemaProperties'
 
@@ -171,8 +171,8 @@ JsonSchemaProperties = NewType('JsonSchemaProperties', JsonDict)
 
 # The value of the span attribute with key ATTRIBUTES_JSON_SCHEMA_KEY,
 # representing the JSON schema of the user-defined attributes.
-def attributes_json_schema(properties: JsonSchemaProperties) -> str:
-    return dump_json({'type': 'object', 'properties': properties})
+def attributes_json_schema(properties: JsonSchemaProperties) -> dict[str, Any] | list[Any] | str:
+    return to_otlp_value({'type': 'object', 'properties': properties})
 
 
 # This becomes the value of `properties` above.

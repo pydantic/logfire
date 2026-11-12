@@ -936,9 +936,9 @@ class Variable(Generic[T_co]):
                     'reason': result.reason,
                 }
                 if result.composed_from:
-                    import json
+                    from logfire._internal.json_encoder import to_otlp_value
 
-                    attrs['composed_from'] = json.dumps(
+                    attrs['composed_from'] = to_otlp_value(
                         [_serialize_composed_reference(c) for c in result.composed_from]
                     )
                 span.set_attributes(attrs)

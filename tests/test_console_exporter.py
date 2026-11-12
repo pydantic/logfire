@@ -631,7 +631,7 @@ def test_verbose_attributes(exporter: TestExporter) -> None:
                     'code.function': 'test_verbose_attributes',
                     'name': 'world',
                     'd': {'a': 1, 'b': 2},
-                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"d":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'name': {}, 'd': {}}},
                 },
                 events=None,
                 resource=None,
@@ -966,7 +966,7 @@ def test_exception(exporter: TestExporter) -> None:
                     'code.function': 'test_exception',
                     'code.lineno': 123,
                     'a': 'test',
-                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'a': {}}},
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 events=[

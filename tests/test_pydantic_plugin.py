@@ -229,7 +229,21 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
                         },
                     ),
                     'input_data': {'x': 'a'},
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}},"input_data":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'error_count': {},
+                            'errors': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {'loc': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                                },
+                            },
+                            'input_data': {},
+                        },
+                    },
                 },
             }
         ]
@@ -351,7 +365,16 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
                     'code.function': 'test_pydantic_plugin_python_success',
                     'code.lineno': 123,
                     'result': {'x': 1},
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"result":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'validation_method': {},
+                            'input_data': {},
+                            'success': {},
+                            'result': {'type': 'object', 'title': 'MyModel', 'x-python-datatype': 'PydanticModel'},
+                        },
+                    },
                     'success': True,
                     'input_data': {'x': 1},
                     'schema_name': 'MyModel',
@@ -430,7 +453,21 @@ def test_pydantic_plugin_python_error_record_failure(
                         },
                     ),
                     'input_data': {'x': 'a'},
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}},"input_data":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'error_count': {},
+                            'errors': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {'loc': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                                },
+                            },
+                            'input_data': {},
+                        },
+                    },
                 },
             },
             {
@@ -458,7 +495,21 @@ def test_pydantic_plugin_python_error_record_failure(
                         },
                     ),
                     'input_data': {'x': 'a'},
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}},"input_data":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'error_count': {},
+                            'errors': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {'loc': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                                },
+                            },
+                            'input_data': {},
+                        },
+                    },
                 },
             },
         ]
@@ -525,7 +576,23 @@ def test_pydantic_plugin_python_error(exporter: TestExporter) -> None:
                             'input': 'a',
                         },
                     ),
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'validation_method': {},
+                            'input_data': {},
+                            'success': {},
+                            'error_count': {},
+                            'errors': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {'loc': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                                },
+                            },
+                        },
+                    },
                     'success': False,
                     'validation_method': 'validate_python',
                     'input_data': {'x': 'a'},
@@ -558,7 +625,16 @@ def test_pydantic_plugin_json_success(exporter: TestExporter) -> None:
                     'code.function': 'test_pydantic_plugin_json_success',
                     'code.lineno': 123,
                     'result': {'x': 1},
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"result":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'validation_method': {},
+                            'input_data': {},
+                            'success': {},
+                            'result': {'type': 'object', 'title': 'MyModel', 'x-python-datatype': 'PydanticModel'},
+                        },
+                    },
                     'success': True,
                     'input_data': '{"x":1}',
                     'schema_name': 'MyModel',
@@ -602,7 +678,23 @@ def test_pydantic_plugin_json_error(exporter: TestExporter) -> None:
                             'input': 'a',
                         },
                     ),
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'validation_method': {},
+                            'input_data': {},
+                            'success': {},
+                            'error_count': {},
+                            'errors': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {'loc': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                                },
+                            },
+                        },
+                    },
                     'success': False,
                     'validation_method': 'validate_python',
                     'input_data': {'x': 'a'},
@@ -635,7 +727,16 @@ def test_pydantic_plugin_strings_success(exporter: TestExporter) -> None:
                     'code.function': 'test_pydantic_plugin_strings_success',
                     'code.lineno': 123,
                     'result': {'x': 1},
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"result":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'validation_method': {},
+                            'input_data': {},
+                            'success': {},
+                            'result': {'type': 'object', 'title': 'MyModel', 'x-python-datatype': 'PydanticModel'},
+                        },
+                    },
                     'success': True,
                     'input_data': {'x': '1'},
                     'schema_name': 'MyModel',
@@ -679,7 +780,23 @@ def test_pydantic_plugin_strings_error(exporter: TestExporter) -> None:
                             'input': 'a',
                         },
                     ),
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'validation_method': {},
+                            'input_data': {},
+                            'success': {},
+                            'error_count': {},
+                            'errors': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {'loc': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                                },
+                            },
+                        },
+                    },
                     'success': False,
                     'validation_method': 'validate_strings',
                     'input_data': {'x': 'a'},
@@ -725,7 +842,24 @@ def test_pydantic_plugin_with_dataclass(exporter: TestExporter) -> None:
                         },
                     ),
                     'input_data': {'args': (), 'kwargs': {'x': 'a'}},
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}},"input_data":{"type":"object","properties":{"args":{"type":"array","x-python-datatype":"tuple"}}}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'error_count': {},
+                            'errors': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {'loc': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                                },
+                            },
+                            'input_data': {
+                                'type': 'object',
+                                'properties': {'args': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                            },
+                        },
+                    },
                 },
             }
         ]
@@ -840,7 +974,16 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'code.function': 'validate_m',
                     'code.lineno': 123,
                     'result': {'x': 10},
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"result":{"type":"object","title":"Model1","x-python-datatype":"PydanticModel"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'validation_method': {},
+                            'input_data': {},
+                            'success': {},
+                            'result': {'type': 'object', 'title': 'Model1', 'x-python-datatype': 'PydanticModel'},
+                        },
+                    },
                     'success': True,
                     'input_data': {'x': 10},
                     'schema_name': 'Model1',
@@ -860,7 +1003,23 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'code.lineno': 123,
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                     'logfire.msg': 'Pydantic Model2 validate_python succeeded',
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"result":{"type":"object","title":"Model2","x-python-datatype":"PydanticModel","properties":{"m":{"type":"object","title":"Model1","x-python-datatype":"PydanticModel"}}}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'validation_method': {},
+                            'input_data': {},
+                            'success': {},
+                            'result': {
+                                'type': 'object',
+                                'title': 'Model2',
+                                'x-python-datatype': 'PydanticModel',
+                                'properties': {
+                                    'm': {'type': 'object', 'title': 'Model1', 'x-python-datatype': 'PydanticModel'}
+                                },
+                            },
+                        },
+                    },
                     'logfire.span_type': 'span',
                     'schema_name': 'Model2',
                     'validation_method': 'validate_python',
@@ -868,7 +1027,21 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'result': {'m': {'x': 10}},
                     'success': True,
                     'logfire.level_num': 9,
-                    'logfire.metrics': '{"pydantic.validations": {"details": [{"attributes": {"schema_name": "Model1", "success": true, "validation_method": "validate_python"}, "total": 1}], "total": 1}}',
+                    'logfire.metrics': {
+                        'pydantic.validations': {
+                            'details': (
+                                {
+                                    'attributes': {
+                                        'schema_name': 'Model1',
+                                        'success': True,
+                                        'validation_method': 'validate_python',
+                                    },
+                                    'total': 1,
+                                },
+                            ),
+                            'total': 1,
+                        }
+                    },
                 },
             },
             {
@@ -884,7 +1057,23 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'code.filepath': 'test_pydantic_plugin.py',
                     'code.function': 'validate_m',
                     'code.lineno': 123,
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'validation_method': {},
+                            'input_data': {},
+                            'success': {},
+                            'error_count': {},
+                            'errors': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {'loc': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                                },
+                            },
+                        },
+                    },
                     'success': False,
                     'input_data': {'x': 'y'},
                     'schema_name': 'Model1',
@@ -914,7 +1103,23 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'schema_name': 'Model2',
                     'logfire.msg_template': 'Pydantic {schema_name} {validation_method}',
                     'logfire.msg': 'Pydantic Model2 validate_python failed',
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'validation_method': {},
+                            'input_data': {},
+                            'success': {},
+                            'error_count': {},
+                            'errors': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {'loc': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                                },
+                            },
+                        },
+                    },
                     'logfire.span_type': 'span',
                     'input_data': {'m': {'x': 'y'}},
                     'validation_method': 'validate_python',
@@ -929,7 +1134,21 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                         },
                     ),
                     'logfire.level_num': 13,
-                    'logfire.metrics': '{"pydantic.validations": {"details": [{"attributes": {"schema_name": "Model1", "success": false, "validation_method": "validate_python"}, "total": 1}], "total": 1}}',
+                    'logfire.metrics': {
+                        'pydantic.validations': {
+                            'details': (
+                                {
+                                    'attributes': {
+                                        'schema_name': 'Model1',
+                                        'success': False,
+                                        'validation_method': 'validate_python',
+                                    },
+                                    'total': 1,
+                                },
+                            ),
+                            'total': 1,
+                        }
+                    },
                 },
             },
         ]
@@ -964,7 +1183,10 @@ def test_pydantic_plugin_python_exception(exporter: TestExporter) -> None:
                     'code.function': 'test_pydantic_plugin_python_exception',
                     'code.lineno': 123,
                     'schema_name': 'MyModel',
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'schema_name': {}, 'validation_method': {}, 'input_data': {}, 'success': {}},
+                    },
                     'validation_method': 'validate_python',
                     'input_data': {'x': 1},
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
@@ -1015,7 +1237,10 @@ def test_pydantic_plugin_python_exception_record_failure(exporter: TestExporter)
                     'code.function': 'test_pydantic_plugin_python_exception_record_failure',
                     'code.lineno': 123,
                     'schema_name': 'MyModel',
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"exception_type":{},"input_data":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'schema_name': {}, 'exception_type': {}, 'input_data': {}},
+                    },
                     'input_data': {'x': 1},
                     'exception_type': 'TypeError',
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
@@ -1108,7 +1333,16 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
                         'success': True,
                         'result': {'x': 1},
                         'logfire.msg': 'Pydantic MyModel validate_python succeeded',
-                        'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"result":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel"}}}',
+                        'logfire.json_schema': {
+                            'type': 'object',
+                            'properties': {
+                                'schema_name': {},
+                                'validation_method': {},
+                                'input_data': {},
+                                'success': {},
+                                'result': {'type': 'object', 'title': 'MyModel', 'x-python-datatype': 'PydanticModel'},
+                            },
+                        },
                     },
                 },
                 {
@@ -1130,7 +1364,10 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
                         'logfire.msg': 'Pydantic MyModel validate_python raised TypeError',
                         'logfire.level_num': 17,
                         'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
-                        'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{}}}',
+                        'logfire.json_schema': {
+                            'type': 'object',
+                            'properties': {'schema_name': {}, 'validation_method': {}, 'input_data': {}, 'success': {}},
+                        },
                     },
                     'events': [
                         {
@@ -1172,7 +1409,23 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
                         ),
                         'logfire.msg': 'Pydantic MyModel validate_python failed',
                         'logfire.level_num': 13,
-                        'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                        'logfire.json_schema': {
+                            'type': 'object',
+                            'properties': {
+                                'schema_name': {},
+                                'validation_method': {},
+                                'input_data': {},
+                                'success': {},
+                                'error_count': {},
+                                'errors': {
+                                    'type': 'array',
+                                    'items': {
+                                        'type': 'object',
+                                        'properties': {'loc': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                                    },
+                                },
+                            },
+                        },
                     },
                 },
             ]
@@ -1214,7 +1467,16 @@ def test_function_validator(exporter: TestExporter):
                     'success': True,
                     'result': 6,
                     'logfire.msg': 'Pydantic int validate_python succeeded',
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"result":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'validation_method': {},
+                            'input_data': {},
+                            'success': {},
+                            'result': {},
+                        },
+                    },
                 },
             }
         ]
@@ -1260,7 +1522,16 @@ def test_record_all_env_var(exporter: TestExporter) -> None:
                         'success': True,
                         'result': {'x': 2},
                         'logfire.msg': 'Pydantic MyModel validate_python succeeded',
-                        'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"result":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel"}}}',
+                        'logfire.json_schema': {
+                            'type': 'object',
+                            'properties': {
+                                'schema_name': {},
+                                'validation_method': {},
+                                'input_data': {},
+                                'success': {},
+                                'result': {'type': 'object', 'title': 'MyModel', 'x-python-datatype': 'PydanticModel'},
+                            },
+                        },
                     },
                 }
             ]
@@ -1312,7 +1583,21 @@ def test_record_failure_env_var(exporter: TestExporter) -> None:
                         'logfire.span_type': 'log',
                         'logfire.msg': 'Validation on MyModel failed',
                         'input_data': {'x': 'b'},
-                        'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}},"input_data":{}}}',
+                        'logfire.json_schema': {
+                            'type': 'object',
+                            'properties': {
+                                'schema_name': {},
+                                'error_count': {},
+                                'errors': {
+                                    'type': 'array',
+                                    'items': {
+                                        'type': 'object',
+                                        'properties': {'loc': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                                    },
+                                },
+                                'input_data': {},
+                            },
+                        },
                     },
                 }
             ]
@@ -1400,7 +1685,16 @@ def test_sqlmodel_pydantic_plugin(exporter: TestExporter) -> None:
                     'success': True,
                     'result': {'id': 1},
                     'logfire.msg': 'Pydantic Hero validate_python succeeded',
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{},"success":{},"result":{"type":"object","title":"Hero","x-python-datatype":"PydanticModel"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'schema_name': {},
+                            'validation_method': {},
+                            'input_data': {},
+                            'success': {},
+                            'result': {'type': 'object', 'title': 'Hero', 'x-python-datatype': 'PydanticModel'},
+                        },
+                    },
                 },
             }
         ]

@@ -34,7 +34,7 @@ from .constants import (
     RESOURCE_ATTRIBUTES_VERSION,
 )
 from .integrations.llm_providers import semconv as gen_ai_semconv
-from .json_encoder import logfire_json_dumps
+from .json_encoder import load_json_attribute, logfire_json_dumps, to_otlp_value
 from .stack_info import STACK_INFO_KEYS
 from .utils import ReadableSpanDict, handle_internal_errors, truncate_string
 
@@ -270,14 +270,15 @@ class Scrubber(BaseScrubber):
         span_scrubber.scrub_span(span)
         if span_scrubber.scrubbed:
             attributes = span['attributes']
-            already_scrubbed = cast('str', attributes.get(ATTRIBUTES_SCRUBBED_KEY, '[]'))
             try:
-                already_scrubbed = cast('list[ScrubbedNote]', json.loads(already_scrubbed))
+                already_scrubbed = cast(
+                    'list[ScrubbedNote]', load_json_attribute(attributes.get(ATTRIBUTES_SCRUBBED_KEY, '[]'))
+                )
             except json.JSONDecodeError:  # pragma: no cover
                 already_scrubbed = []
             span['attributes'] = {
                 **attributes,
-                ATTRIBUTES_SCRUBBED_KEY: json.dumps(already_scrubbed + span_scrubber.scrubbed),
+                ATTRIBUTES_SCRUBBED_KEY: to_otlp_value(already_scrubbed + span_scrubber.scrubbed),
             }
 
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
@@ -338,7 +339,7 @@ class SpanScrubber:
 
         if self.scrubbed:
             new_attributes = new_attributes or {}
-            new_attributes[ATTRIBUTES_SCRUBBED_KEY] = json.dumps(self.scrubbed)
+            new_attributes[ATTRIBUTES_SCRUBBED_KEY] = to_otlp_value(self.scrubbed)
 
         result = copy.copy(log)
         result.attributes = BoundedAttributes(attributes=new_attributes)
@@ -497,5 +498,5 @@ class MessageValueCleaner:
 
     def extra_attrs(self) -> dict[str, Any]:
         if self.scrubbed:
-            return {ATTRIBUTES_SCRUBBED_KEY: json.dumps(self.scrubbed)}
+            return {ATTRIBUTES_SCRUBBED_KEY: to_otlp_value(self.scrubbed)}
         return {}
