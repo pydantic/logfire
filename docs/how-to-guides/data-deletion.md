@@ -92,7 +92,7 @@ The **Data deletion** page lists the project's jobs with their statement, status
 
 Data deletion works the same way on a self-hosted deployment, with these additions:
 
-- **Use chart 0.15.0 or later.** In earlier chart versions, background maintenance rewrites only the last 3 days of data. A job that matches older data stays at **Running** with a partial percentage and never finishes. The matching rows are still hidden from queries. Earlier chart versions also never finish a job whose condition uses the `day` or `project_id` column. After you upgrade to 0.15.0 or later, jobs that were stuck continue and finish without any action. See [Upgrades](../reference/self-hosted/overview.md#upgrades).
+- Use chart 0.15.0 or later.
 - **Do not delete data by hand.** Never delete rows from the `ff` database or objects from the object storage bucket to remove telemetry. The `ff` database records which objects in the bucket hold live data. A manual change breaks that record, and Logfire cannot repair it. Use a deletion job.
 
 ## Verify the deletion
@@ -106,5 +106,4 @@ Preview errors start with **Invalid deletion query**, followed by the reason.
 - **The reason says that `DELETE` requires a `WHERE` clause.** Add a `WHERE` clause. Logfire does not delete a whole table.
 - **The reason says that the statement is not a `DELETE` statement.** The statement must start with `DELETE FROM`. Logfire does not accept a `SELECT`.
 - **The reason names a subquery, a join, or an unknown column.** Remove the subquery or join and list the values directly, and check the column names against [SQL tables](../reference/sql.md#tables).
-- **A self-hosted job stays at Running with the same percentage.** Check the chart version. Earlier than 0.15.0, maintenance never reaches data older than 3 days. Upgrade the chart. The job then continues by itself.
 - **Matching rows appear again after the job.** These rows arrived after you scheduled the job. Schedule another job for them.

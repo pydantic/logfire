@@ -6,6 +6,8 @@ description: "Learn how to use Logfire to keep logs & sensitive data safe: Autom
 
 The **Logfire** SDK scans for and redacts potentially sensitive data from logs and spans before exporting them.
 
+Scrubbing applies only to data that the SDK has not sent yet. If sensitive data already reached Logfire, delete it with a [deletion job](data-deletion.md).
+
 ## Disabling scrubbing
 
 To disable scrubbing entirely, set [`scrubbing`][logfire.configure(scrubbing)] to `False`:
