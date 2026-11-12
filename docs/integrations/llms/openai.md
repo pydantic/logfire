@@ -180,7 +180,7 @@ async def main():
     console = Console()
     with logfire.span('Asking OpenAI to write some code'):
         response = await client.chat.completions.create(
-            model='gpt-4',
+            model='gpt-5-mini',
             messages=[
                 {'role': 'system', 'content': 'Reply in markdown.'},
                 {'role': 'user', 'content': 'Write Python to show a tree of files.'},

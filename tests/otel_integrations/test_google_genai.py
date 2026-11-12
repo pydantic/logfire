@@ -116,11 +116,8 @@ def test_instrument_google_genai(capfire: CaptureLogfire) -> None:
                     'gen_ai.tool.description': IsStr(),
                     'logfire.span_type': 'span',
                     'logfire.msg': 'execute_tool get_current_weather',
-                    'gen_ai.tool.call.arguments': {
-                        'code.function.parameters.location.type': 'str',
-                        'code.function.parameters.location.value': 'Boston, MA',
-                    },
-                    'gen_ai.tool.call.result': '"rainy"',
+                    'gen_ai.tool.call.arguments': {'location': 'Boston, MA'},
+                    'gen_ai.tool.call.result': 'rainy',
                 },
             },
             {

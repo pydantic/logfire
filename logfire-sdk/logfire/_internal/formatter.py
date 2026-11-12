@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import ast
+import os
 import types
 from collections.abc import Iterator
 from functools import lru_cache
+from pathlib import Path
 from string import Formatter
 from types import CodeType
 from typing import Any, Literal
@@ -164,7 +166,14 @@ class ChunksFormatter(Formatter):
         # We currently don't use positional arguments
         args = ()
         value_cleaner = MessageValueCleaner(scrubber, check_keys=False)
-        for literal_text, field_name, format_spec, conversion in self.parse(format_string):
+        try:
+            fields = list(self.parse(format_string))
+        except ValueError as exc:
+            # `str.Formatter.parse` raises for things like unbalanced braces,
+            # which are common in messages that aren't really templates, e.g. JSON fragments or code snippets.
+            # Just use the message as-is (with a nice warning) instead of reporting an internal error.
+            raise KnownFormattingError(str(exc)) from None
+        for literal_text, field_name, format_spec, conversion in fields:
             # output the literal text
             if literal_text:
                 result.append({'v': literal_text, 't': 'lit'})
@@ -244,7 +253,7 @@ def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: BaseScr
 
 
 def logfire_format_with_magic(
-    format_string: str,
+    format_string: Any,
     kwargs: dict[str, Any],
     scrubber: BaseScrubber,
     fstring_frame: types.FrameType | None = None,
@@ -254,6 +263,19 @@ def logfire_format_with_magic(
     # 2. A dictionary of extra attributes to add to the span/log.
     #      These can come from evaluating values in f-strings.
     # 3. The final message template, which may differ from `format_string` if it was an f-string.
+    # Lazy proxies can report __class__ as str without being real strings.
+    if not issubclass(type(format_string), str):
+        warn_formatting(f'The message template must be a string, not {type(format_string).__name__}.')
+        message = str(format_string)
+        return message, {}, message
+
+    if fstring_frame and fstring_frame.f_back and is_logfire_code(fstring_frame.f_back.f_code):
+        # Spans and logs opened by logfire itself (variables, integrations, etc.) never pass an f-string,
+        # so skip the magic. Otherwise `executing` parses the calling module on its first call.
+        if os.environ.get('PYTEST_CURRENT_TEST'):
+            _check_not_fstring(format_string, kwargs, scrubber, fstring_frame)
+        fstring_frame = None
+
     try:
         chunks, extra_attrs, new_template = chunks_formatter.chunks(
             format_string,
@@ -273,6 +295,31 @@ def logfire_format_with_magic(
 
     # Formatting failed, so just use the original format string as the message.
     return format_string, {}, format_string
+
+
+LOGFIRE_PACKAGE_DIR = Path(logfire.__file__).parent
+
+
+@lru_cache(maxsize=2048)
+def is_logfire_code(code: CodeType) -> bool:
+    return Path(code.co_filename).absolute().is_relative_to(LOGFIRE_PACKAGE_DIR)
+
+
+def _check_not_fstring(
+    format_string: str, kwargs: dict[str, Any], scrubber: BaseScrubber, fstring_frame: types.FrameType
+) -> None:
+    """Fail in tests if logfire passes itself an f-string, since the magic is skipped for its own calls."""
+    try:
+        _chunks, _extra_attrs, template = chunks_formatter.chunks(
+            format_string, kwargs, scrubber=scrubber, fstring_frame=fstring_frame
+        )
+    except KnownFormattingError:  # pragma: no cover
+        # Only raised when formatting a plain template, which the normal path in `logfire_format_with_magic`
+        # reports. Anything else, e.g. an error re-evaluating an f-string expression, should fail the test.
+        return
+    assert template == format_string, (
+        f'Logfire called itself with an f-string message template, {template!r}. Pass the values as attributes instead.'
+    )
 
 
 @lru_cache

@@ -150,6 +150,83 @@ localhost/LAN address (self-hosted or local dev), reach the host via
 in Compose), not `localhost` -- inside the container, `localhost` is the
 collector itself. A public cloud Logfire URL needs no change.
 
+### Container logs
+
+`docker_stats` sends metrics only. When the user also wants container stdout
+and stderr, tail the JSON log file Docker writes per container. Plain `filelog`
+over `/var/lib/docker/containers/*/*-json.log` only learns the container ID from
+the path, so the logs arrive without a container name. Use the `docker_observer`
+extension with `receiver_creator` instead: it starts one `filelog` receiver per
+running container and stamps the container's name, image, ID and Compose labels
+on its logs.
+
+```yaml
+extensions:
+  docker_observer:
+    include_all_containers: true
+    excluded_images: ["*opentelemetry-collector*"]   # skip the Collector's own logs
+
+receivers:
+  receiver_creator/docker_logs:
+    watch_observers: [docker_observer]
+    receivers:
+      filelog:
+        rule: type == "container" and port == 0
+        config:
+          include:
+            - /var/lib/docker/containers/`container_id`/`container_id`-json.log
+          operators:
+            - type: container
+              format: docker
+              add_metadata_from_filepath: false
+        resource_attributes:
+          container.id: '`container_id`'
+          compose.project: '`labels["com.docker.compose.project"]`'
+          compose.service: '`labels["com.docker.compose.service"]`'
+
+processors:
+  resource/docker_logs:
+    attributes:
+      - key: container.runtime
+        value: docker
+        action: upsert
+
+service:
+  extensions: [docker_observer]
+  pipelines:
+    logs:
+      receivers: [receiver_creator/docker_logs]
+      processors: [resourcedetection, resource/docker_logs]
+      exporters: [otlphttp/logfire]
+```
+
+Details that matter:
+
+- Keep `include_all_containers: true` and `port == 0` together. The observer
+  reports a container once per exposed port, and `include_all_containers` adds
+  one port-less endpoint per container. Matching only `port == 0` reads each
+  log file once. Without it, a container with three ports sends every line
+  three times, and containers with no exposed ports send nothing.
+- `add_metadata_from_filepath: false` is required. The `container` operator
+  defaults to parsing Kubernetes pod log paths and logs an error on every
+  Docker line otherwise.
+- `container.runtime: docker` is what the Docker view and Infrastructure logs
+  filter on. Logs without it do not show up there.
+- Add the same `resourcedetection` processor as the metrics pipeline so the logs
+  carry the same `host.name` as the container metrics.
+- Mount the log directory read-only next to the socket:
+  `-v /var/lib/docker/containers:/var/lib/docker/containers:ro`. Only root can
+  read that directory, so the Collector runs as `user: "0:0"`.
+- Only containers using Docker's default `json-file` logging driver write these
+  files. Containers on `journald`, `syslog` or another driver are skipped.
+- Readers start at the end of each file, so existing history is not sent, only
+  new lines. Every line sent is stored in Logfire and counts toward usage, so
+  add noisy images to `excluded_images` before enabling this.
+
+Verify by querying for `kind = 'log'` records with
+`otel_resource_attributes->>'container.name'` set to one of the user's
+containers within the last few minutes.
+
 Guide: https://pydantic.dev/docs/logfire/observe/docker/
 
 ## Kubernetes → Kubernetes page

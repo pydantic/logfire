@@ -5,12 +5,13 @@ import dataclasses
 import datetime
 import json
 import math
+import sys
 from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal
 from enum import Enum
 from functools import cache, lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
-from pathlib import PosixPath
+from pathlib import PurePath
 from re import Pattern
 from types import GeneratorType
 from typing import Any
@@ -98,8 +99,9 @@ def _pandas_data_frame_encoder(o: Any, seen: set[int]) -> JsonValue:
 
     rows: list[Any] = []
     for row_slice in row_slices:
-        for _, row in o.iloc[row_slice].iterrows():
-            rows.append([item for column_slice in column_slices for item in row.iloc[column_slice]])
+        # Including the index preserves rows when the frame has no columns.
+        for _, *row in o.iloc[row_slice].itertuples(name=None):
+            rows.append([item for column_slice in column_slices for item in row[column_slice]])
 
     return to_json_value(rows, seen)
 
@@ -148,6 +150,14 @@ def _numpy_array_encoder(o: Any, seen: set[int]) -> JsonValue:
         o = numpy.concatenate((front, end), axis=dimension)
 
     return to_json_value(o.tolist(), seen)
+
+
+def _repr_encoder(o: Any, seen: set[int]) -> JsonValue:
+    return safe_repr(o)
+
+
+def _numpy_scalar_encoder(o: Any, seen: set[int]) -> JsonValue:
+    return to_json_value(numpy_scalar_to_python(o), seen)
 
 
 def _pydantic_model_encoder(o: Any, seen: set[int]) -> JsonValue:
@@ -209,7 +219,7 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
         IPv6Address: _to_str,
         IPv6Interface: _to_str,
         IPv6Network: _to_str,
-        PosixPath: _to_str,
+        PurePath: _to_str,
         Pattern: lambda o, seen: to_json_value(o.pattern, seen),
         UUID: _to_str,
         Exception: _to_str,
@@ -236,9 +246,40 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
     with contextlib.suppress(ModuleNotFoundError):
         import numpy
 
-        lookup.update({numpy.ndarray: _numpy_array_encoder})
+        lookup.update(
+            {
+                numpy.ndarray: _numpy_array_encoder,
+                numpy.bool_: _numpy_scalar_encoder,
+                numpy.integer: _numpy_scalar_encoder,
+                numpy.floating: _numpy_scalar_encoder,
+                # `timedelta64` subclasses `numpy.integer`, but `int()` would drop its unit, so keep the repr.
+                numpy.timedelta64: _repr_encoder,
+            }
+        )
 
     return lookup
+
+
+def numpy_scalar_to_python(o: Any) -> Any:
+    """Convert a NumPy bool, integer or floating scalar to the equivalent Python value, and return anything else as is.
+
+    Without this, a value like `numpy.int64(42)` (e.g. from `df['col'].sum()`) would be recorded as its repr.
+    """
+    # If NumPy was never imported, `o` can't be a NumPy scalar.
+    if 'numpy' in sys.modules:  # pragma: no branch
+        import numpy
+
+        o_type: type[Any] = o.__class__
+
+        if issubclass(o_type, numpy.bool_):
+            return bool(o)
+        if issubclass(o_type, numpy.timedelta64):
+            return o
+        if issubclass(o_type, numpy.integer):
+            return int(o)
+        if issubclass(o_type, numpy.floating):
+            return float(o)
+    return o
 
 
 def to_json_value(o: Any, seen: set[int]) -> JsonValue:
@@ -269,7 +310,7 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
         sa_data = _get_sqlalchemy_data(o, seen)
         if sa_data is not None:
             return sa_data
-        elif dataclasses.is_dataclass(o):
+        elif dataclasses.is_dataclass(type(o)):  # pyright: ignore[reportUnknownArgumentType]
             return {f.name: to_json_value(getattr(o, f.name), seen) for f in dataclasses.fields(o) if f.repr}
         elif is_attrs(o.__class__):
             return _get_attrs_data(o, seen)

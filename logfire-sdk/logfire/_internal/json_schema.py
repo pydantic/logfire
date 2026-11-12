@@ -26,7 +26,7 @@ from decimal import Decimal
 from enum import Enum
 from functools import lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
-from pathlib import PosixPath
+from pathlib import PurePath
 from types import GeneratorType
 from typing import Any, NewType, cast
 
@@ -59,7 +59,7 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
         re.Pattern: {'type': 'string', 'format': 'regex'},
         uuid.UUID: {'type': 'string', 'format': 'uuid'},
         range: {'type': 'array', 'x-python-datatype': 'range'},
-        PosixPath: {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+        PurePath: {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
         Exception: _exception_schema,
     }
     with contextlib.suppress(ModuleNotFoundError):
@@ -84,7 +84,17 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
     with contextlib.suppress(ModuleNotFoundError):
         import numpy
 
-        lookup.update({numpy.ndarray: _numpy_schema})
+        # NumPy scalars are encoded as plain Python values, see `numpy_scalar_to_python`.
+        lookup.update(
+            {
+                numpy.ndarray: _numpy_schema,
+                numpy.bool_: {},
+                numpy.integer: {},
+                numpy.floating: {},
+                # `timedelta64` subclasses `numpy.integer` but is encoded as its repr.
+                numpy.timedelta64: {'type': 'object', 'x-python-datatype': 'unknown'},
+            }
+        )
 
     with contextlib.suppress(ModuleNotFoundError):
         import pandas
@@ -207,8 +217,10 @@ def _bytearray_schema(obj: bytearray, _seen: set[int]) -> JsonDict:
 def _enum_schema(obj: Enum, seen: set[int]) -> JsonDict:
     enum_values = [e.value for e in obj.__class__]
     enum_types = set(type(value).__name__ for value in enum_values)
-    if all(t in {'str', 'int', 'bool', 'float'} for t in enum_types):
-        type_ = {'str': 'string', 'int': 'integer', 'bool': 'boolean', 'float': 'number'}[enum_types.pop()]
+    if enum_types == {'int', 'float'}:
+        type_ = 'number'
+    elif len(enum_types) == 1 and enum_types <= {'str', 'int', 'bool', 'float'}:
+        type_ = {'str': 'string', 'int': 'integer', 'bool': 'boolean', 'float': 'number'}[next(iter(enum_types))]
     else:
         type_ = 'object'
 

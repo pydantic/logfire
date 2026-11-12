@@ -8,17 +8,17 @@ Use the <OpenInLogfire path="frontend" variant="inline" label="Frontend" /> page
 
 The page groups browser telemetry by frontend application. A frontend application gives browser data a stable service name and a restricted token that is safe to publish in a browser bundle. The token can send data only for that application. It cannot read project data or report as another service.
 
-!!! note "Early access"
+!!! note "Beta"
 
-    Frontend observability is available in early access on Growth, Enterprise, and self-hosted Logfire. To turn it on, enable **Frontend observability** under [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access). The choice applies to your account in this browser, not automatically to every member.
+    Frontend observability is in Beta and available to all Logfire users.
 
 {{ video("21dbd5dbf7d61fe58d7927f9c12633ef") }}
 
 ## Send browser data
 
-1. Open **Project settings → Frontend applications**.
-2. Select **New application** and give the application a stable name, such as `customer-portal`.
-3. Copy the generated setup into your browser application.
+1. Open **Frontend** in your project and select **Set up**.
+2. Create a frontend application with a stable name, such as `customer-portal`, or select an existing application.
+3. Copy the generated setup, including the frontend application token and regional trace URL, into your browser application. Use the generated values, not placeholders or a regular Logfire write token.
 4. Enable the browser signals you want to investigate. See the [browser SDK guide](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/) for automatic request tracing, Core Web Vitals, browser metrics, and framework-specific options.
 
 Browser telemetry is sent to and stored in your Logfire project. Review the attributes your application adds before sending sensitive values.

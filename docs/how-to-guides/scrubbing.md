@@ -55,6 +55,7 @@ Here are the default scrubbing patterns:
     'credit[._ -]?card',
     'logfire[._ -]?token',
     '(?:access|refresh|bearer|(?:\\b|_)id)[._ -]?token',
+    'security[._ -]?token',
     'pylf_v\\d+_',
     '(?:\\b|_)csrf(?:\\b|_)',
     '(?:\\b|_)xsrf(?:\\b|_)',
@@ -84,6 +85,23 @@ def scrubbing_callback(match: logfire.ScrubMatch):
 
 logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
 ```
+
+!!! warning "Keep scrubbing callbacks simple and pure"
+
+    Base your callback on the match and any configuration that is safe to share across threads.
+    Request-local values, such as values stored in a Python `ContextVar`, may be unavailable on the background thread.
+    The callback should not have side effects.
+    It should return quickly, as it can get called many times.
+
+## When Logfire scrubs spans
+
+Scrubbing span attributes is slow, so it happens in a background thread when possible.
+It will instead happen on the calling thread if any of the following are true:
+
+- Console logging is enabled and prints attributes, i.e. `include_attributes` is `True`, or it is unset and `verbose` is `True`.
+- A span processor is included in `additional_span_processors` that implements an `on_end` hook and isn't a `BatchSpanProcessor`.
+
+Message template fields are always scrubbed on the calling thread during message formatting.
 
 ## Security tips
 

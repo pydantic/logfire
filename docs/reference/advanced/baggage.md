@@ -85,6 +85,8 @@ or whether either service sets Baggage as span attributes. So it's important to 
 - **Don't put sensitive information in Baggage**, as it may be sent to third party services. While span attributes from baggage are still [scrubbed](../../how-to-guides/scrubbing.md) by default, the Baggage header itself is not scrubbed.
 - **Don't put large values in Baggage**, as this may add bloat to HTTP headers. Large values may also be dropped by servers instead of being propagated. This is one reason why Logfire truncates Baggage values longer than 1000 characters.
 
+The AI Gateway also reads the `Baggage` header and copies each entry onto the span it records. See [Gateway requests in your app's trace](gateway/telemetry.md).
+
 ### With other OpenTelemetry SDKs
 
 If all your services are using the Python Logfire SDK, then Baggage will be set as span attributes automatically by default,

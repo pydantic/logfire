@@ -38,6 +38,9 @@ class LogfireProcessor:
         """A middleware to process structlog event, and send it to **Logfire**."""
         attributes = {k: v for k, v in event_dict.items() if k not in RESERVED_ATTRS}
         level = event_dict.get('level', 'info').lower()
+        if level == 'critical':
+            # structlog's name for its top level, which is 'fatal' in Logfire, as with stdlib CRITICAL
+            level = 'fatal'
         # NOTE: An event can be `None` in structlog. We may want to create a default msg in those cases.
         msg_template = event_dict.get('event') or 'structlog event'
         attributes.setdefault(ATTRIBUTES_MESSAGE_KEY, msg_template)

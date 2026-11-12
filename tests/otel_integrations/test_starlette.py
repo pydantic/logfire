@@ -55,6 +55,19 @@ def client(app: Starlette) -> TestClient:
     return TestClient(app)
 
 
+def test_query_keys_are_printable(client: TestClient, exporter: TestExporter) -> None:
+    """Remote query keys must not inject control characters into span messages."""
+    with pytest.raises(ValueError, match='test exception'):
+        client.get('/secret/test', params={'foo': '1', 'café': '2', 'a\n\r\t\x00\x1b\x7f\x85\u200b\u2028z': '3'})
+
+    messages = [
+        span['attributes']['logfire.msg']
+        for span in exporter.exported_spans_as_dict()
+        if span['name'] == 'GET /secret/{path_param}'
+    ]
+    assert messages == ["GET /secret/test ? foo='1' & café='2' & a\\n\\r\\t\\x00\\x1b\\x7f\\x85\\u200b\\u2028z='3'"]
+
+
 def test_websocket(client: TestClient, exporter: TestExporter) -> None:
     with client.websocket_connect('/ws/foo') as websocket:
         websocket.send_text('ping')

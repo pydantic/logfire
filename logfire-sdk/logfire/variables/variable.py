@@ -32,6 +32,7 @@ else:
     from asyncio import to_thread  # pragma: no cover
 
 import logfire
+from logfire._internal.integrations.executors import THREAD_CONTEXTVARS
 from logfire.variables.abstract import ResolutionReason, ResolvedVariable
 
 __all__ = (
@@ -84,6 +85,9 @@ class _TargetingContextData:
 
 
 _TARGETING_CONTEXT: ContextVar[_TargetingContextData | None] = ContextVar('_TARGETING_CONTEXT', default=None)
+
+# Thread pool tasks see the overrides and targeting context of the code that submitted them.
+THREAD_CONTEXTVARS.extend([_VARIABLE_OVERRIDES, _TARGETING_CONTEXT])
 
 
 class ResolveFunction(Protocol[T_co]):

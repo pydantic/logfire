@@ -10,7 +10,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 from unittest.mock import MagicMock, Mock
 from uuid import UUID
@@ -43,8 +43,8 @@ else:  # pragma: no cover
     class IntEnum(int, Enum): ...
 
 
-pandas.set_option('display.max_columns', 10)  # type: ignore
-pandas.set_option('display.max_rows', 20)  # type: ignore
+pandas.set_option('display.max_columns', 10)
+pandas.set_option('display.max_rows', 20)
 
 pydantic_model_config = ConfigDict(plugin_settings={'logfire': {'record': 'off'}}, extra='allow')
 
@@ -74,6 +74,11 @@ class MyComplexDataclass:
 @pydantic_dataclass(config=pydantic_model_config)
 class MyPydanticComplexDataclass:
     t: MyPydanticDataclass
+
+
+@dataclass
+class MyDefaultsDataclass:
+    t: int = 1
 
 
 @dataclass
@@ -403,6 +408,30 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             id='enum_with_complex_values',
         ),
         pytest.param(
+            Enum('Color', {'RED': 1, 'GREEN': 'str'}).RED,
+            'Color.RED',
+            '1',
+            {
+                'type': 'object',
+                'title': 'Color',
+                'x-python-datatype': 'Enum',
+                'enum': [1, 'str'],
+            },
+            id='enum_with_int_and_str_values',
+        ),
+        pytest.param(
+            Enum('Color', {'RED': 1, 'GREEN': 1.5}).RED,
+            'Color.RED',
+            '1',
+            {
+                'type': 'number',
+                'title': 'Color',
+                'x-python-datatype': 'Enum',
+                'enum': [1, 1.5],
+            },
+            id='enum_with_int_and_float_values',
+        ),
+        pytest.param(
             deque([4, 5]),
             'deque([4, 5])',
             '[4,5]',
@@ -472,14 +501,28 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             Path('/tmp/test.py'),
             '/tmp/test.py',
             '"/tmp/test.py"',
-            {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
             id='path',
+        ),
+        pytest.param(
+            PurePosixPath('/tmp/test.py'),
+            '/tmp/test.py',
+            '"/tmp/test.py"',
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
+            id='pure-posix-path',
+        ),
+        pytest.param(
+            PureWindowsPath('C:/tmp/test.py'),
+            'C:\\tmp\\test.py',
+            '"C:\\\\tmp\\\\test.py"',
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
+            id='windows-path',
         ),
         pytest.param(
             FilePath(__file__),  # type: ignore
             __file__,
             f'"{__file__}"',
-            {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
+            {'type': 'string', 'format': 'path', 'x-python-datatype': 'Path'},
             id='pydantic_file_path',
         ),
         pytest.param(
@@ -870,6 +913,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             },
             id='list_of_dataclass_type',
         ),
+        pytest.param(
+            MyDefaultsDataclass,
+            "<class 'tests.test_json_args.MyDefaultsDataclass'>",
+            '"<class \'tests.test_json_args.MyDefaultsDataclass\'>"',
+            {'type': 'object', 'x-python-datatype': 'unknown'},
+            id='dataclass_type_with_defaults',
+        ),
     ],
 )
 def test_log_non_scalar_args(
@@ -928,6 +978,28 @@ def test_attrs_falsey_callable_repr(exporter: TestExporter) -> None:
     }
 
 
+@pytest.mark.parametrize('max_rows,row_positions', [(None, [0, 1, 2]), (2, [0, 2])])
+@pytest.mark.parametrize('max_columns,column_positions', [(None, [0, 1, 2]), (2, [0, 2])])
+def test_log_dataframe_preserves_integer_precision(
+    exporter: TestExporter,
+    max_rows: int | None,
+    row_positions: list[int],
+    max_columns: int | None,
+    column_positions: list[int],
+) -> None:
+    rows = [[2**53 + 1 + row * 2, row + 0.5, 2**64 - 1 - row] for row in range(3)]
+    frame = pandas.DataFrame(rows, columns=['integer', 'fraction', 'unsigned'])
+    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):
+        logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    assert isinstance(attributes['frame'], str)
+    assert json.loads(attributes['frame']) == [
+        [rows[row][column] for column in column_positions] for row in row_positions
+    ]
+
+
 @pytest.mark.parametrize(
     'row_count,row_positions', [(0, []), (1, [0]), (3, [0, 1, 2]), (4, [0, 1, 2, 3]), (5, [0, 1, 3, 4])]
 )
@@ -946,7 +1018,7 @@ def test_log_dataframe_labels_match_data(
         columns=[f'col{column}' for column in range(column_count)],
         index=[f'row{row}' for row in range(row_count)],
     )
-    with pandas.option_context('display.max_rows', 4, 'display.max_columns', 4):  # pyright: ignore[reportUnknownMemberType]
+    with pandas.option_context('display.max_rows', 4, 'display.max_columns', 4):
         logfire.info('frame', frame=frame)
 
     attributes = exporter.exported_spans[0].attributes
@@ -989,7 +1061,7 @@ def test_log_dataframe_with_unlimited_and_odd_display_limits(
         columns=[f'col{column}' for column in range(5)],
         index=[f'row{row}' for row in range(5)],
     )
-    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):  # pyright: ignore[reportUnknownMemberType]
+    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):
         logfire.info('frame', frame=frame)
 
     attributes = exporter.exported_spans[0].attributes
@@ -1029,7 +1101,7 @@ def test_log_dataframe_odd_display_limits_formatting(
         columns=[f'col{column}' for column in range(7)],
         index=[f'row{row}' for row in range(7)],
     )
-    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):  # pyright: ignore[reportUnknownMemberType]
+    with pandas.option_context('display.max_rows', max_rows, 'display.max_columns', max_columns):
         logfire.info('frame', frame=frame)
 
     attributes = exporter.exported_spans[0].attributes
@@ -1070,6 +1142,76 @@ def test_log_non_finite_scalar_float_args(exporter: TestExporter) -> None:
     assert attributes['pos_inf'] == 'inf'
     assert attributes['neg_inf'] == '-inf'
     assert attributes['finite'] == 1.5
+
+
+class NumpyIntSubclass(numpy.int64):
+    pass
+
+
+def test_log_numpy_scalar_args(exporter: TestExporter) -> None:
+    logfire.info(
+        'test message',
+        count=numpy.int64(42),
+        loss=numpy.float32(0.25),
+        acc=numpy.float64(0.5),
+        sub=NumpyIntSubclass(3),
+        ok=numpy.bool_(True),
+        nan=numpy.float32('nan'),
+        nested={'n': numpy.int32(7), 'f1': numpy.float32(0.5), 'ok': numpy.bool_(False), 'sub': NumpyIntSubclass(3)},
+    )
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    assert attributes['count'] == 42
+    assert attributes['loss'] == 0.25
+    assert attributes['acc'] == 0.5
+    assert attributes['sub'] == 3
+    assert attributes['ok'] is True
+    assert attributes['nan'] == 'nan'
+    assert attributes['nested'] == '{"n":7,"f1":0.5,"ok":false,"sub":3}'
+    assert attributes['logfire.json_schema'] == IsJson(
+        {
+            'type': 'object',
+            'properties': {
+                'count': {},
+                'loss': {},
+                'acc': {},
+                'sub': {},
+                'ok': {},
+                'nan': {},
+                'nested': {'type': 'object'},
+            },
+        }
+    )
+
+
+def test_log_numpy_timedelta_args(exporter: TestExporter) -> None:
+    # `numpy.timedelta64` subclasses `numpy.integer`, but is kept as its repr so the unit is not lost.
+    logfire.info('test message', td=numpy.timedelta64(5, 's'), nested={'td': numpy.timedelta64(5, 's')})
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    td_repr = repr(numpy.timedelta64(5, 's'))
+    assert attributes['td'] == json.dumps(td_repr)
+    assert attributes['nested'] == json.dumps({'td': td_repr}, separators=(',', ':'))
+    unknown = {'type': 'object', 'x-python-datatype': 'unknown'}
+    assert attributes['logfire.json_schema'] == IsJson(
+        {
+            'type': 'object',
+            'properties': {'td': unknown, 'nested': {'type': 'object', 'properties': {'td': unknown}}},
+        }
+    )
+
+
+def test_log_numpy_out_of_range_int_args(exporter: TestExporter) -> None:
+    # Same as a Python int outside the signed 64-bit range: a warning, and the value is sent as a string.
+    with pytest.warns(UserWarning, match='outside the range of OTLP integers'):
+        logfire.info('test message', big=numpy.uint64(2**64 - 1))
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    assert attributes['big'] == '18446744073709551615'
+    assert attributes['logfire.json_schema'] == IsJson({'type': 'object', 'properties': {'big': {}}})
 
 
 class SABase(MappedAsDataclass, DeclarativeBase):
@@ -1716,7 +1858,7 @@ def test_mock(exporter: TestExporter):
     class Bar(Mixin, MagicMock):
         pass
 
-    logfire.info('hi', foo=Foo(), bar=Bar(), mock=Mock(), magic_mock=MagicMock())
+    logfire.info('hi', foo=Foo(), bar=Bar(), mock=Mock(), magic_mock=MagicMock(), spec_mock=MagicMock(spec=MyDataclass))
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -1738,7 +1880,8 @@ def test_mock(exporter: TestExporter):
                     'bar': '"Bar()"',
                     'mock': IsStr(regex=r'^"<Mock id=\'\d+\'>"'),
                     'magic_mock': IsStr(regex=r'^"<MagicMock id=\'\d+\'>"'),
-                    'logfire.json_schema': '{"type":"object","properties":{"foo":{"type":"object","x-python-datatype":"unknown"},"bar":{"type":"object","x-python-datatype":"unknown"},"mock":{"type":"object","x-python-datatype":"unknown"},"magic_mock":{"type":"object","x-python-datatype":"unknown"}}}',
+                    'spec_mock': IsStr(regex=r'^"<MagicMock spec=\'MyDataclass\' id=\'\d+\'>"'),
+                    'logfire.json_schema': '{"type":"object","properties":{"foo":{"type":"object","x-python-datatype":"unknown"},"bar":{"type":"object","x-python-datatype":"unknown"},"mock":{"type":"object","x-python-datatype":"unknown"},"magic_mock":{"type":"object","x-python-datatype":"unknown"},"spec_mock":{"type":"object","x-python-datatype":"unknown"}}}',
                 },
             }
         ]
