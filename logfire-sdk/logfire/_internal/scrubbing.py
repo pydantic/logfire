@@ -117,6 +117,15 @@ def _is_unchanged_container(value: Any, result: Any) -> bool:
         return False
 
 
+def _is_unchanged_string(value: Any, result: Any) -> bool:
+    if not isinstance(value, str) or not isinstance(result, str):
+        return False
+    try:
+        return result is value or result == value
+    except Exception:
+        return False
+
+
 @dataclass
 class ScrubbingOptions:
     """Options for redacting sensitive data."""
@@ -128,6 +137,8 @@ class ScrubbingOptions:
     Otherwise, the returned value replaces the matched value.
     If a key matches and its container value is returned unchanged or equal to the original,
     Logfire continues scrubbing inside it. A different container is treated as the final value.
+    If a string value is returned unchanged or equal to the original, Logfire checks for later matches
+    in that string. This applies to both matching keys and string values.
     Do not mutate the original value in place: Logfire may not detect the change.
     The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
@@ -350,12 +361,20 @@ class SpanScrubber:
                     return logfire_json_dumps(scrubbed) if self.scrub_count != scrub_count_before else value
                 except (ValueError, RecursionError):
                     pass
-            if match := self._pattern.search(value):
+            match = self._pattern.search(value)
+            while match:
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
                     return value
-                return self._redact(ScrubMatch(path, value, match))
+                redacted = self._redact(ScrubMatch(path, value, match))
+                if not _is_unchanged_string(value, redacted):
+                    return redacted
+                # Keep overlapping matches at later starts visible, including after zero-width matches.
+                next_position = match.start() + 1
+                if next_position > len(value):
+                    break
+                match = self._pattern.search(value, next_position)
         elif isinstance(value, (bytes, bytearray, memoryview)):
             # Iterating over a binary value yields integers, so recursing into it would rewrite
             # the value into a sequence of ints. Decode it instead, so text hidden in bytes is
@@ -375,9 +394,15 @@ class SpanScrubber:
                 if k in BaseScrubber.SAFE_KEYS:
                     result[k] = v
                 elif match := self._pattern.search(k):
-                    redacted = self._redact(ScrubMatch(path + (k,), v, match))
-                    if _is_unchanged_container(v, redacted):
-                        redacted = self.scrub(path + (k,), redacted)
+                    while True:
+                        redacted = self._redact(ScrubMatch(path + (k,), v, match))
+                        if not (_is_unchanged_string(v, redacted) or _is_unchanged_container(v, redacted)):
+                            break
+                        # A different pattern can start inside the allowed match.
+                        next_position = match.start() + 1
+                        if next_position > len(k) or (match := self._pattern.search(k, next_position)) is None:
+                            redacted = self.scrub(path + (k,), redacted)
+                            break
                     if isinstance(redacted, str) and isinstance(v, Sequence) and not isinstance(v, str):
                         redacted = [redacted]
                     result[k] = redacted
@@ -388,7 +413,9 @@ class SpanScrubber:
 
     def _redact(self, match: ScrubMatch) -> Any:
         if self._callback and (result := self._callback(match)) is not None:
-            if result is not match.value and not _is_unchanged_container(match.value, result):
+            if result is not match.value and not (
+                _is_unchanged_string(match.value, result) or _is_unchanged_container(match.value, result)
+            ):
                 self.scrub_count += 1
             return result
         self.scrub_count += 1
