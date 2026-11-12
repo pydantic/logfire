@@ -171,7 +171,9 @@ Pydantic has confirmed these built-in providers as ZDR:
 | Groq | Yes |
 | Every other built-in provider | Not confirmed |
 
-You can use the ZDR built-in providers on every plan. Send your request to a route that uses one of them. Only [enforcing ZDR](#require-zero-data-retention-for-built-in-providers), so that a request cannot reach any other built-in provider, needs Enterprise.
+You can use the ZDR built-in providers on every plan. Send your request to a route whose only built-in providers are ZDR. A [Gateway endpoint](endpoints.md) that also includes another built-in provider can share traffic with it or fail over to it, so that route does not guarantee ZDR.
+
+Only [enforcing ZDR](#require-zero-data-retention-for-built-in-providers), so that a request cannot reach any other built-in provider, needs an Enterprise Cloud organization or a self-hosted deployment.
 
 ### How request fields pass through
 
