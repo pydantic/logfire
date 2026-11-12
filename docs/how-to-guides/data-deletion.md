@@ -19,7 +19,6 @@ Use data deletion for targeted removals. To keep less data in general, shorten t
 - **Plan.** On Logfire Cloud, data deletion is available on the Growth and Enterprise plans. On other Cloud plans, the **Data deletion** page shows an upgrade prompt. See [pricing](https://pydantic.dev/pricing). Self-hosted Logfire is part of the [Enterprise plan](../enterprise.md), and every self-hosted deployment includes data deletion.
 - **Permission.** You need the **Change project information** permission on the project, which project admins have. Without it, Logfire does not show the **Data deletion** page.
 - **Web UI only.** You schedule and follow deletion jobs in the Logfire web UI. There is no public API or CLI command for data deletion.
-- **Self-hosted.** Use chart 0.15.0 or later. See [Self-hosted deployments](#self-hosted-deployments).
 
 ## Write the `DELETE` statement
 
@@ -87,13 +86,7 @@ The **Data deletion** page lists the project's jobs with their statement, status
 - **Combine requests into one job.** Each job makes maintenance process all of the project's data in the table again. If you receive several erasure requests in a week, collect them and schedule one job per period. A long `trace_id IN (...)` list or several conditions joined with `OR` in one job is better than many small jobs.
 - **Let each job finish before you schedule the next one.** Jobs that overlap make maintenance do the same work more than once.
 - **Run the query first.** Before you write the statement, run the equivalent `SELECT` in the SQL Workbench and check the result.
-
-## Self-hosted deployments
-
-Data deletion works the same way on a self-hosted deployment, with these additions:
-
-- Use chart 0.15.0 or later.
-- **Do not delete data by hand.** Never delete rows from the `ff` database or objects from the object storage bucket to remove telemetry. The `ff` database records which objects in the bucket hold live data. A manual change breaks that record, and Logfire cannot repair it. Use a deletion job.
+- **On a self-hosted deployment, do not delete data by hand.** Never delete rows from the `ff` database or objects from the object storage bucket to remove telemetry. The `ff` database records which objects in the bucket hold live data. A manual change breaks that record, and Logfire cannot repair it. Use a deletion job.
 
 ## Verify the deletion
 
