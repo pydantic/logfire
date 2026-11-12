@@ -685,7 +685,7 @@ def test_internal_exception_in_scrubbing_callback_does_not_export_secrets(
 def test_callback_whitelists_container_key_but_scrubs_contents(container: Any, copy_container: bool):
     def callback(match: logfire.ScrubMatch):
         if match.path == ('attributes', 'password_hint'):
-            return container.copy() if copy_container else match.value
+            return match.value.copy() if copy_container else match.value
 
     result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': container})
 
@@ -714,6 +714,34 @@ def test_callback_equal_container_copy_only_rewrites_json_when_nested_value_chan
     assert notes == [{'path': ('attributes', 'data', 'password_hint', 'password'), 'matched_substring': 'password'}]
 
 
+def test_callback_receives_scrubbed_container_before_returning_subset():
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'password_hint'):
+            assert match.value == {'password': "[Scrubbed due to 'password']", 'keep': 'yes'}
+            return {'password': match.value['password']}
+
+    result, notes = Scrubber(None, callback).scrub_value(
+        ('attributes',), {'password_hint': {'password': 'hunter2', 'keep': 'yes'}}
+    )
+
+    assert result == {'password_hint': {'password': "[Scrubbed due to 'password']"}}
+    assert notes == [{'path': ('attributes', 'password_hint', 'password'), 'matched_substring': 'password'}]
+
+
+def test_callback_receives_scrubbed_json_attribute(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'password_hint'):
+            value = json.loads(match.value)
+            assert value == {'password': "[Scrubbed due to 'password']", 'keep': 'yes'}
+            return json.dumps({'password': value['password']})
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
+    logfire.info('Example', password_hint={'password': 'hunter2', 'keep': 'yes'})
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['password_hint'] == {'password': "[Scrubbed due to 'password']"}
+
+
 def test_callback_changed_container_is_final():
     replacement = {'password': 'allowed'}
 
@@ -724,7 +752,7 @@ def test_callback_changed_container_is_final():
     result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': {'password': 'hunter2'}})
 
     assert result == {'password_hint': replacement}
-    assert notes == []
+    assert notes == [{'path': ('attributes', 'password_hint', 'password'), 'matched_substring': 'password'}]
 
 
 def test_callback_container_with_ambiguous_equality_is_final():
@@ -743,7 +771,7 @@ def test_callback_container_with_ambiguous_equality_is_final():
     )
 
     assert result['password_hint'] is replacement
-    assert notes == []
+    assert notes == [{'path': ('attributes', 'password_hint', 'password'), 'matched_substring': 'password'}]
 
 
 class PasswordError(Exception):

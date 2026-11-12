@@ -377,9 +377,21 @@ class SpanScrubber:
                 if k in BaseScrubber.SAFE_KEYS:
                     result[k] = v
                 elif match := self._pattern.search(k):
-                    redacted, unchanged = self._scrub_matches(path + (k,), v, match)
-                    if unchanged:
-                        redacted = self.scrub(path + (k,), redacted)
+                    child_path = path + (k,)
+                    container = isinstance(v, (Mapping, Sequence)) and not isinstance(
+                        v, (str, bytes, bytearray, memoryview)
+                    )
+                    if self._callback and isinstance(v, str) and v.lstrip().startswith(('{', '[')):
+                        try:
+                            container = isinstance(json.loads(v), (dict, list))
+                        except (ValueError, RecursionError):
+                            pass
+                    pre_scrubbed = bool(self._callback and container)
+                    if pre_scrubbed:
+                        v = self.scrub(child_path, v)
+                    redacted, unchanged = self._scrub_matches(child_path, v, match)
+                    if unchanged and not pre_scrubbed:
+                        redacted = self.scrub(child_path, redacted)
                     if (
                         isinstance(redacted, str)
                         and isinstance(v, Sequence)
