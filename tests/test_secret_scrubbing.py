@@ -760,6 +760,50 @@ def test_safe_key_formatted_value_is_transformed_without_pattern_search():
     assert cleaner.extra_attrs() == {}
 
 
+def test_whole_message_is_transformed_before_console_and_bounded(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    seen: list[StringValue] = []
+    output = StringIO()
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(transform_string=transform),
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('alice@example.com' + 'x' * 20000)
+
+    assert 'alice@example.com' not in output.getvalue()
+    assert '[email]' in output.getvalue()
+    (span,) = exporter.exported_spans_as_dict()
+    assert len(span['attributes']['logfire.msg']) <= 1024
+    assert any(value.path == ('attributes', 'logfire.msg') and len(value.value) <= 16384 for value in seen)
+
+
+def test_missing_message_defaults_to_span_name_before_console_transform(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    from opentelemetry import trace
+
+    output = StringIO()
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(
+            transform_string=lambda value: value.value.replace('alice@example.com', '[email]')
+        ),
+    )
+    logfire.configure(**config_kwargs)
+    with trace.get_tracer('test').start_as_current_span('alice@example.com', attributes={'logfire.msg': ''}):
+        pass
+
+    assert '[email]' in output.getvalue()
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == '[email]'
+    assert span['name'] == 'alice@example.com'
+
+
 @pytest.mark.parametrize('error_type', [ValueError, RecursionError])
 def test_scrub_json_that_cannot_be_parsed(monkeypatch: pytest.MonkeyPatch, error_type: type[Exception]):
     """A parse error must redact the text instead of aborting scrubbing of the whole span."""

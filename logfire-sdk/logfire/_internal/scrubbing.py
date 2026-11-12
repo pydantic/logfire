@@ -226,6 +226,9 @@ class BaseScrubber(ABC):
     @abstractmethod
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...
 
+    @abstractmethod
+    def transform_message(self, value: str) -> str | None: ...
+
 
 class NoopScrubber(BaseScrubber):
     def scrub_span(self, span: ReadableSpanDict):  # pragma: no cover
@@ -237,6 +240,9 @@ class NoopScrubber(BaseScrubber):
 
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
         return value, []
+
+    def transform_message(self, value: str) -> str | None:
+        return None
 
 
 NOOP_SCRUBBER = NoopScrubber()
@@ -284,6 +290,13 @@ class Scrubber(BaseScrubber):
         span_scrubber = SpanScrubber(self)
         result = span_scrubber.scrub(path, value)
         return result, span_scrubber.scrubbed
+
+    def transform_message(self, value: str) -> str | None:
+        if self._transform_string is None:
+            return None
+        value = truncate_string(value, max_length=16 * 1024)
+        transformed = SpanScrubber(self).scrub(('attributes', ATTRIBUTES_MESSAGE_KEY), value, in_safe_key=True)
+        return truncate_string(transformed, max_length=1024)
 
 
 class SpanScrubber:
