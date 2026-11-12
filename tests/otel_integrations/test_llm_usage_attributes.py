@@ -355,17 +355,6 @@ def gateway_cost_attribute(response: Any = ESTIMATE_RESPONSE, **usage_fields: An
         pytest.param({'logfire_ai_gateway': {'cost': 2}}, 2.0, id='int'),
         pytest.param({'logfire_ai_gateway': {'cost': '0'}}, 0.0, id='zero-string'),
         pytest.param({'logfire_ai_gateway': {'cost': 0}}, 0.0, id='zero-int'),
-        pytest.param({'pydantic_ai_gateway': {'cost_estimate': '0.0038'}}, 0.0038, id='deprecated-block'),
-        pytest.param(
-            {'logfire_ai_gateway': {'cost': '0.0038'}, 'pydantic_ai_gateway': {'cost_estimate': '0.1'}},
-            0.0038,
-            id='current-block-wins',
-        ),
-        pytest.param(
-            {'logfire_ai_gateway': {'cost': 'nan'}, 'pydantic_ai_gateway': {'cost_estimate': '0.1'}},
-            0.1,
-            id='invalid-current-block-falls-through',
-        ),
     ],
 )
 def test_gateway_cost_is_used(usage_fields: dict[str, Any], expected: float) -> None:
@@ -381,6 +370,7 @@ def test_gateway_cost_is_used(usage_fields: dict[str, Any], expected: float) -> 
         pytest.param({'cost': '1e999'}, id='overflow'),
         pytest.param({'cost': 10**400}, id='huge-int'),
         pytest.param({'cost': '-0.01'}, id='negative'),
+        pytest.param({'cost': '-1e-400'}, id='negative-underflow'),
         pytest.param({'cost': True}, id='bool'),
         pytest.param({'cost': 'free'}, id='not-a-number'),
         pytest.param({'cost': ''}, id='empty'),
@@ -430,7 +420,8 @@ def test_anthropic_gateway_cost() -> None:
         pytest.param({'logfire-ai-gateway-cost': '0.0125'}, None, id='no-currency'),
         pytest.param({'logfire-ai-gateway-cost': 'nanUSD'}, None, id='nan'),
         pytest.param({'logfire-ai-gateway-cost': '-1USD'}, None, id='negative'),
-        pytest.param({'pydantic-ai-gateway-price-estimate': '0.0125USD'}, None, id='deprecated-header-is-rounded'),
+        pytest.param({'logfire-ai-gateway-cost': '-1e-400USD'}, None, id='negative-underflow'),
+        pytest.param({'logfire-ai-gateway-cost': '1e999USD'}, None, id='overflow'),
         pytest.param({}, None, id='no-header'),
         pytest.param(None, None, id='no-headers'),
     ],

@@ -2703,17 +2703,8 @@ def test_message_gateway_cost(cost: str, expected: float, exporter: TestExporter
 
 
 @pytest.mark.parametrize('beta', [False, True])
-@pytest.mark.parametrize(
-    'gateway_usage, expected',
-    [
-        pytest.param({'logfire_ai_gateway': {'cost': '0.5'}}, 0.5, id='current'),
-        pytest.param({'logfire_ai_gateway': {'cost': '0'}}, 0.0, id='zero'),
-        pytest.param({'pydantic_ai_gateway': {'cost_estimate': '0.5'}}, 0.5, id='deprecated'),
-    ],
-)
-def test_message_stream_gateway_cost(
-    beta: bool, gateway_usage: dict[str, Any], expected: float, exporter: TestExporter
-) -> None:
+@pytest.mark.parametrize('cost, expected', [('0.5', 0.5), ('0', 0.0)])
+def test_message_stream_gateway_cost(beta: bool, cost: str, expected: float, exporter: TestExporter) -> None:
     """The gateway writes the cost on `message_delta`, whose extra usage fields the SDK does not accumulate."""
     events: list[dict[str, Any]] = [
         {
@@ -2727,7 +2718,11 @@ def test_message_stream_gateway_cost(
                 'usage': {'input_tokens': 10, 'output_tokens': 1},
             },
         },
-        {'type': 'message_delta', 'delta': {'stop_reason': 'end_turn'}, 'usage': {'output_tokens': 5, **gateway_usage}},
+        {
+            'type': 'message_delta',
+            'delta': {'stop_reason': 'end_turn'},
+            'usage': {'output_tokens': 5, 'logfire_ai_gateway': {'cost': cost}},
+        },
         {'type': 'message_stop'},
     ]
     body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in events)

@@ -421,7 +421,7 @@ def test_instrument_google_genai_emit_event_opt_in(capfire: CaptureLogfire) -> N
     assert log['attributes']['gen_ai.operation.name'] == 'generate_content'
 
 
-GATEWAY_COST_BLOCK = {'logfire_ai_gateway': {'cost': '0.0256'}, 'pydantic_ai_gateway': {'cost_estimate': '0.0256'}}
+GATEWAY_COST_BLOCK = {'logfire_ai_gateway': {'cost': '0.0256'}}
 
 
 def gateway_client(final_parts: list[dict[str, Any]], headers: dict[str, str]) -> Any:

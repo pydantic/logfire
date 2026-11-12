@@ -2,45 +2,43 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from .semconv import CACHE_CREATION_INPUT_TOKENS, CACHE_READ_INPUT_TOKENS, INPUT_TOKENS, OUTPUT_TOKENS, USAGE_RAW
-
-# Where the AI Gateway writes the cost in the `usage` object: the current block, then the
-# deprecated one, which is all that older and self-hosted gateways send.
-GATEWAY_COST_FIELDS = (('logfire_ai_gateway', 'cost'), ('pydantic_ai_gateway', 'cost_estimate'))
 
 
 def _parse_gateway_cost(value: object) -> float | None:
     if not isinstance(value, (str, int, float)) or isinstance(value, bool):
         return None
     try:
-        # Going through `str` turns an int too large for a float into `inf` instead of raising.
-        cost = float(str(value))
-    except ValueError:
+        cost = Decimal(str(value))
+    except InvalidOperation:
         return None
-    return cost if math.isfinite(cost) and cost >= 0 else None
+    # Validate before float conversion can round a tiny negative cost to zero.
+    if not cost.is_finite() or cost < 0:
+        return None
+    float_cost = float(cost)
+    return float_cost if math.isfinite(float_cost) else None
 
 
 def gateway_reported_cost(usage: Any) -> float | None:
     """The cost the AI Gateway reported in the `usage` object, if any.
 
-    The gateway's blocks are extra fields on the usage object, or keys when it's a mapping (e.g. a
+    The gateway's block is an extra field on the usage object, or a key when it's a mapping (e.g. a
     Gemini `part_metadata`), so this needs neither genai_prices nor a dump of the response.
     A reported `0` (e.g. a gateway cache hit) is a real cost.
     """
-    for block_name, field_name in GATEWAY_COST_FIELDS:
-        block = usage.get(block_name) if isinstance(usage, Mapping) else getattr(usage, block_name, None)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-        if isinstance(block, dict) and (cost := _parse_gateway_cost(block.get(field_name))) is not None:  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
-            return cost
+    block = (  # pyright: ignore[reportUnknownVariableType]
+        usage.get('logfire_ai_gateway') if isinstance(usage, Mapping) else getattr(usage, 'logfire_ai_gateway', None)  # pyright: ignore[reportUnknownMemberType]
+    )
+    if isinstance(block, dict):
+        return _parse_gateway_cost(block.get('cost'))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
     return None
 
 
 def gateway_header_cost(headers: Mapping[str, str] | None) -> float | None:
-    """The cost in the AI Gateway's `logfire-ai-gateway-cost` response header, e.g. `0.0125USD`, if any.
-
-    The deprecated `pydantic-ai-gateway-price-estimate` header isn't read, because it's rounded to 4 decimals.
-    """
+    """The cost in the AI Gateway's `logfire-ai-gateway-cost` response header, e.g. `0.0125USD`, if any."""
     value = next((v for k, v in (headers or {}).items() if k.lower() == 'logfire-ai-gateway-cost'), None)
     if value is None or not value.endswith('USD'):
         return None

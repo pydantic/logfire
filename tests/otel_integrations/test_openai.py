@@ -5974,7 +5974,7 @@ def sse_response(events: list[dict[str, Any]]) -> httpx.Response:
     return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream'})
 
 
-GATEWAY_USAGE = {'logfire_ai_gateway': {'cost': '0.5'}, 'pydantic_ai_gateway': {'cost_estimate': '0.5'}}
+GATEWAY_USAGE = {'logfire_ai_gateway': {'cost': '0.5'}}
 
 
 @pytest.mark.parametrize('cost, expected', [('0.5', 0.5), ('0', 0.0)])
@@ -6090,7 +6090,6 @@ def test_chat_completion_stream_gateway_cost(exporter: TestExporter) -> None:
                         'prompt_tokens': 10,
                         'total_tokens': 15,
                         'logfire_ai_gateway': {'cost': '0.5'},
-                        'pydantic_ai_gateway': {'cost_estimate': '0.5'},
                     },
                     'operation.cost': 0.5,
                     'logfire.json_schema': {
@@ -6181,7 +6180,6 @@ def test_responses_gateway_cost(exporter: TestExporter) -> None:
                         'output_tokens_details': {'reasoning_tokens': 0},
                         'total_tokens': 15,
                         'logfire_ai_gateway': {'cost': '0.5'},
-                        'pydantic_ai_gateway': {'cost_estimate': '0.5'},
                     },
                     'operation.cost': 0.5,
                     'gen_ai.response.finish_reasons': ['stop'],
@@ -6277,7 +6275,6 @@ def test_embeddings_gateway_cost(exporter: TestExporter) -> None:
                         'prompt_tokens': 10,
                         'total_tokens': 10,
                         'logfire_ai_gateway': {'cost': '0.5'},
-                        'pydantic_ai_gateway': {'cost_estimate': '0.5'},
                     },
                     'operation.cost': 0.5,
                     'logfire.json_schema': {

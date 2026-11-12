@@ -44,7 +44,7 @@ from .semconv import (
     provider_attrs,
 )
 from .types import EndpointConfig, StreamState
-from .usage import GATEWAY_COST_FIELDS, get_usage_attributes
+from .usage import get_usage_attributes
 
 if TYPE_CHECKING:
     from anthropic._models import FinalRequestOptions
@@ -304,10 +304,8 @@ class AnthropicMessageStreamState(StreamState):
                 self._accumulate_kwargs['json_bufs'] = {}
         self._message = self._accumulate_event(event=chunk, current_snapshot=self._message, **self._accumulate_kwargs)
         # The AI Gateway writes its cost on `message_delta`, but the SDK only accumulates the known usage fields.
-        if (chunk_usage := getattr(chunk, 'usage', None)) is not None:
-            for block_name, _ in GATEWAY_COST_FIELDS:
-                if (block := getattr(chunk_usage, block_name, None)) is not None:
-                    setattr(self._message.usage, block_name, block)
+        if (gateway_usage := getattr(getattr(chunk, 'usage', None), 'logfire_ai_gateway', None)) is not None:
+            self._message.usage.logfire_ai_gateway = gateway_usage
         if isinstance(getattr(chunk, 'delta', None), (TextDelta, BetaTextDelta)):
             self._chunk_count += 1
 
