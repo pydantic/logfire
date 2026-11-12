@@ -2609,7 +2609,6 @@ def test_projects_status_displays_the_host_it_actually_queried(
     assert payload['project_url'] == 'https://logfire.example.com/test-org/orders'
 
 
-@pytest.mark.skipif(sys.platform == 'win32', reason='POSIX file modes are not enforced on Windows')
 def test_read_token_save_writes_the_file_and_prints_nothing(
     tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -2658,7 +2657,7 @@ def test_read_token_save_writes_the_file_and_prints_nothing(
     assert timedelta(days=READ_TOKEN_TTL.days - 1) < expiry - datetime.now(tz=timezone.utc) <= READ_TOKEN_TTL
 
     # Owner-only: this file holds a credential that can read the whole project.
-    assert (data_dir / READ_TOKEN_FILENAME).stat().st_mode & 0o077 == 0
+    assert sys.platform == 'win32' or (data_dir / READ_TOKEN_FILENAME).stat().st_mode & 0o077 == 0
 
 
 def test_read_token_save_with_explicit_project_needs_no_linked_directory(tmp_dir_cwd: Path) -> None:
