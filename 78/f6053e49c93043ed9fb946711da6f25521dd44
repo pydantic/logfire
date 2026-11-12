@@ -1,0 +1,19 @@
+tests/test_secret_scrubbing.py
+  s_9b4283f109ace8::t_30ef34cab7a185 307,310-311,314-316,318-319
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "78f6053e49c93043ed9fb946711da6f25521dd44",
+  "prompts": {},
+  "sessions": {
+    "s_9b4283f109ace8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c5bc-ed91-7791-8d89-256c0ad11784",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
