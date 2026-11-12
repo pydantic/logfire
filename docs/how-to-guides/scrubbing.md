@@ -111,6 +111,8 @@ from logfire.types import StringValue
 
 
 def mask_email(item: StringValue) -> str:
+    if '@' not in item.value:
+        return item.value
     return re.sub(r'\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b', '[email]', item.value)
 
 
@@ -119,6 +121,8 @@ logfire.info('Contact {email}', email='alice@example.com')
 ```
 
 The exported `email` attribute and formatted message contain `[email]`. The callback runs on string values inside JSON and under keys that are exempt from pattern matching. Pattern matching runs on the returned string where permitted.
+
+The callback runs for every string the scrubber reaches, including large values. Keep it fast, and test any regex you use against long inputs. The email regex above is illustrative and can be expensive on long strings.
 
 !!! warning "Keep values redacted if masking fails"
 
