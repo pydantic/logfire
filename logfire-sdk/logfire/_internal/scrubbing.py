@@ -74,6 +74,7 @@ DEFAULT_PATTERNS = [
 # position in large strings. Custom patterns are not constrained by this prefix.
 _DEFAULT_PATTERN_START_CHARS = 'pmsacljx_rbih'
 _DEFAULT_PATTERN = rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(DEFAULT_PATTERNS)})'
+_MAX_UNCHANGED_MATCHES = 100
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
@@ -138,7 +139,8 @@ class ScrubbingOptions:
     If a key matches and its container value is returned unchanged or equal to the original,
     Logfire continues scrubbing inside it. A different container is treated as the final value.
     If a string value is returned unchanged or equal to the original, Logfire checks for later matches
-    in that string. This applies to both matching keys and string values.
+    in that string. This applies to both matching keys and string values. After 100 allowed matches
+    in one string, Logfire redacts the value to bound the search cost.
     Do not mutate the original value in place: Logfire may not detect the change.
     The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
@@ -362,6 +364,7 @@ class SpanScrubber:
                 except (ValueError, RecursionError):
                     pass
             match = self._pattern.search(value)
+            unchanged_matches = 0
             while match:
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
@@ -370,6 +373,10 @@ class SpanScrubber:
                 redacted = self._redact(ScrubMatch(path, value, match))
                 if not _is_unchanged_string(value, redacted):
                     return redacted
+                unchanged_matches += 1
+                if unchanged_matches >= _MAX_UNCHANGED_MATCHES:
+                    self.scrub_count += 1
+                    return '[Scrubbed due to too many allowed matches]'
                 # Keep overlapping matches at later starts visible, including after zero-width matches.
                 next_position = match.start() + 1
                 if next_position > len(value):
@@ -394,9 +401,15 @@ class SpanScrubber:
                 if k in BaseScrubber.SAFE_KEYS:
                     result[k] = v
                 elif match := self._pattern.search(k):
+                    unchanged_matches = 0
                     while True:
                         redacted = self._redact(ScrubMatch(path + (k,), v, match))
                         if not (_is_unchanged_string(v, redacted) or _is_unchanged_container(v, redacted)):
+                            break
+                        unchanged_matches += 1
+                        if unchanged_matches >= _MAX_UNCHANGED_MATCHES:
+                            self.scrub_count += 1
+                            redacted = '[Scrubbed due to too many allowed matches]'
                             break
                         # A different pattern can start inside the allowed match.
                         next_position = match.start() + 1

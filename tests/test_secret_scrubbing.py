@@ -346,6 +346,17 @@ def test_callback_changed_string_is_final():
     assert notes == []
 
 
+@pytest.mark.parametrize('in_key', [False, True])
+def test_callback_allowed_matches_have_a_limit(in_key: bool):
+    value = '1' * 40_000 + ' suffix'
+    data = {value: 'plain'} if in_key else {'plain': value}
+
+    result, notes = Scrubber([r'\d+'], lambda match: match.value).scrub_value(('attributes',), data)
+
+    assert result == {value if in_key else 'plain': '[Scrubbed due to too many allowed matches]'}
+    assert notes == []
+
+
 def test_callback_equal_string_copy_does_not_rewrite_json():
     def callback(match: logfire.ScrubMatch):
         if match.path == ('attributes', 'data', 'password_hint'):
