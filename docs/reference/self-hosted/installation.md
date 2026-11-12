@@ -6,7 +6,10 @@ description: "Plan the external services that a production install of self-hoste
 
 Plan the services that self-hosted Logfire depends on, so that your first production install works. The Helm chart runs Logfire in Kubernetes. It does not create your production databases, object storage, Redis, or identity provider, so you provision these before you install.
 
-This page explains what each service is for and what you decide about it. The exact requirements, such as minimum versions, permissions, and value names, can change between chart versions. The [Logfire Helm chart README](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire) states them for each release. Read the README of the chart version that you install: open its `logfire-<version>` tag from the [list of chart tags](https://github.com/pydantic/logfire-helm-chart/tags).
+This page explains what each service is for and what you decide about it. The exact requirements, such as minimum versions, permissions, and value names, can change between chart versions. The [Logfire Helm chart README](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire) states them for each release. Read the README of the chart version that you install: open its `logfire-<version>` tag from the [list of chart tags](https://github.com/pydantic/logfire-helm-chart/tags). The chart links on this page open the `main` branch, which can describe a newer chart than the one you install.
+
+<span id="production-values-checklist"></span>
+<span id="starter-values-shape"></span>
 
 Start your values file from the chart's [`values.prod.yaml`](https://github.com/pydantic/logfire-helm-chart/blob/main/charts/logfire/values.prod.yaml). It has a placeholder for each service on this page.
 
@@ -54,9 +57,14 @@ The chart README section [Hostnames and exposure](https://github.com/pydantic/lo
 
 ## Identity provider
 
-Users sign in through [Dex](https://dexidp.io/docs/connectors/), an identity service that the chart deploys. Dex connects to your identity provider, such as GitHub, Microsoft Entra ID (Azure AD), or Okta, through a connector. Users can also sign in with an email address and a password, which needs an SMTP server to send email.
+Users sign in through [Dex](https://dexidp.io/docs/connectors/), an identity service that the chart deploys. Dex connects to your identity provider, such as GitHub, Microsoft Entra ID (Azure AD), or Okta, through a connector. Users can also sign in with an email address and a password.
 
-Decide which identity provider you use, and create an OAuth app in it before you install. The chart README section [Authentication](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#authentication) gives the redirect URI and the sign-in settings. [SSO provider examples](./examples.md#sso-provider-examples) show complete connectors.
+Decide how users sign in:
+
+* For single sign-on through your identity provider, create an OAuth app in that provider before you install, and configure a Dex connector for it.
+* For password sign-in, set `auth.passwordLogin: true`, because `values.prod.yaml` turns it off. Also configure an SMTP server in the `smtp.*` values, so that Logfire can send email.
+
+The chart README section [Authentication](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#authentication) gives the redirect URI and the sign-in settings. [SSO provider examples](./examples.md#sso-provider-examples) show complete connectors.
 
 ## Sizing and storage
 
