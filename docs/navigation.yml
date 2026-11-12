@@ -989,6 +989,9 @@ navigation:
           - page: "Data Regions"
             path: "reference/data-regions.md"
             slug: "manage/data-regions"
+          - page: "Data Deletion"
+            path: "how-to-guides/data-deletion.md"
+            slug: "manage/data-deletion"
       - section: "Security & Governance"
         contents:
           - page: "Email Code Sign-In"
