@@ -51,13 +51,16 @@ Hosted [volume mounts](volumes.md) can also expose files stored by Logfire.
 
 ## Resource limits
 
-The hosted service limits processing time for each run and memory for the session.
+The hosted service limits processing time for each run, memory and function calls for the session, and how often your
+organization starts sessions.
 Variables retained from earlier runs still count toward the memory limit.
 
 | Limit | Value | What happens when code goes over it |
 | ----- | ----- | ----------------------------------- |
 | Processing time per run | 50 milliseconds | `MontyRuntimeError: TimeoutError: feed time limit exceeded` |
 | Session memory | 20 MiB | `MontyRuntimeError: MemoryError: memory limit exceeded`, or `MemoryError: the worker exceeded its memory limit and was terminated` for one large allocation. The session is lost in the second case. |
+| Calls to your functions per session | 1,000 | The run that makes the next call fails. Check out a new session, or return more data from each call. |
+| Session starts per organization | 300 every 5 minutes | `checkout()` is refused until older starts leave the 5-minute window. |
 
 Time that the script spends waiting for your functions does not count toward the processing time. The calls can take longer than 50 milliseconds in total. But the Python work before, between, and after them still
 counts toward the processing limit. Do heavy computation in your own functions, or in your database query.
@@ -68,6 +71,7 @@ fields stayed inside the limit. 20,000 rows did not.
 Saved sessions and snapshots are kept for 7 days. They count toward your project's snapshot storage limit.
 Open [Snapshots](snapshots.md) to see the plan allowance, the enforced limit if it differs, and the snapshot count.
 The byte and snapshot-count limits apply separately to each project.
+Unless your organization has a different limit, each project can hold 2 GiB of snapshots and 128 snapshots.
 Pending uploads and objects awaiting cleanup also count until cleanup finishes.
 Use `checkout(ephemeral=True)` for sessions that nothing will load again. See [Persist, resume, and fork sessions](sessions.md).
 
