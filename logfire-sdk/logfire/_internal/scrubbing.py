@@ -378,17 +378,24 @@ class SpanScrubber:
                     result[k] = v
                 elif match := self._pattern.search(k):
                     child_path = path + (k,)
-                    container = isinstance(v, (Mapping, Sequence)) and not isinstance(
-                        v, (str, bytes, bytearray, memoryview)
-                    )
-                    if self._callback and isinstance(v, str) and v.lstrip().startswith(('{', '[')):
-                        try:
-                            container = isinstance(json.loads(v), (dict, list))
-                        except (ValueError, RecursionError):
-                            pass
-                    pre_scrubbed = bool(self._callback and container)
-                    if pre_scrubbed:
-                        v = self.scrub(child_path, v)
+                    pre_scrubbed = False
+                    if self._callback:
+                        if isinstance(v, (Mapping, Sequence)) and not isinstance(
+                            v, (str, bytes, bytearray, memoryview)
+                        ):
+                            v = self.scrub(child_path, v)
+                            pre_scrubbed = True
+                        elif isinstance(v, str) and v.lstrip().startswith(('{', '[')):
+                            try:
+                                decoded = json.loads(v)
+                            except (ValueError, RecursionError):
+                                pass
+                            else:
+                                if isinstance(decoded, (dict, list)):
+                                    scrub_count_before = self.scrub_count
+                                    scrubbed = self.scrub(child_path, decoded)
+                                    v = logfire_json_dumps(scrubbed) if self.scrub_count != scrub_count_before else v
+                                    pre_scrubbed = True
                     redacted, unchanged = self._scrub_matches(child_path, v, match)
                     if unchanged and not pre_scrubbed:
                         redacted = self.scrub(child_path, redacted)
