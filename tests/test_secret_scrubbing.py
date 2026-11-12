@@ -655,12 +655,14 @@ def test_scrub_binary_values(value: bytes, expected: bytes | str, expected_notes
 
 def test_transform_string_before_pattern_callback_and_inside_json():
     seen: list[StringValue] = []
+    matches: list[logfire.ScrubMatch] = []
 
     def transform(value: StringValue) -> str:
         seen.append(value)
         return value.value.replace('alice@example.com', '[email]')
 
     def callback(match: logfire.ScrubMatch):
+        matches.append(match)
         if match.path == ('attributes', 'password_hint'):
             assert match.value == '[email]'
             return match.value
@@ -675,6 +677,7 @@ def test_transform_string_before_pattern_callback_and_inside_json():
         (('attributes', 'password_hint'), 'alice@example.com'),
         (('attributes', 'data', 'contact'), 'alice@example.com'),
     ]
+    assert [(match.path, match.value) for match in matches] == [(('attributes', 'password_hint'), '[email]')]
 
 
 def test_transform_string_in_safe_key_skips_all_nested_patterns():
