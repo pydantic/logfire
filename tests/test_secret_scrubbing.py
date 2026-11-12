@@ -15,6 +15,7 @@ from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.sdk.trace import ConcurrentMultiSpanProcessor, ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from opentelemetry.trace import StatusCode
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
@@ -728,6 +729,42 @@ def test_transform_string_writes_attributes_without_scrubbed_note(
     (span,) = exporter.exported_spans_as_dict()
     assert span['attributes']['contact'] == '[email]'
     assert 'logfire.scrubbed' not in span['attributes']
+
+
+def test_transform_string_covers_span_metadata_without_pattern_scrubbing(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    seen: list[StringValue] = []
+    matches: list[logfire.ScrubMatch] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    def callback(match: logfire.ScrubMatch) -> None:
+        matches.append(match)
+
+    logfire.configure(
+        **config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback, transform_string=transform)
+    )
+    with logfire.span('secret alice@example.com'):
+        span = get_current_span()
+        span.set_status(StatusCode.ERROR, 'secret alice@example.com')
+        span.add_event('secret alice@example.com')
+
+    span = exporter.exported_spans[-1]
+    assert span.name == 'secret [email]'
+    assert span.status.description == 'secret [email]'
+    assert [event.name for event in span.events] == ['secret [email]']
+    metadata = [(value.path, value.value) for value in seen if value.path[0] != 'attributes']
+    assert (('name',), 'secret alice@example.com') in metadata
+    assert metadata[-3:] == [
+        (('name',), 'secret alice@example.com'),
+        (('status', 'description'), 'secret alice@example.com'),
+        (('otel_events', 0, 'name'), 'secret alice@example.com'),
+    ]
+    assert not [match for match in matches if match.path[0] != 'attributes']
+    assert 'logfire.scrubbed' not in (span.attributes or {})
 
 
 @pytest.mark.parametrize('error_type', [ValueError, RecursionError])
