@@ -874,7 +874,9 @@ class _LogfireConfigData:
             scrubbing = ScrubbingOptions()
         self.scrubbing: ScrubbingOptions | Literal[False] = scrubbing
         self.scrubber: BaseScrubber = (
-            Scrubber(scrubbing.extra_patterns, scrubbing.callback) if scrubbing else NOOP_SCRUBBER
+            Scrubber(scrubbing.extra_patterns, scrubbing.callback, scrubbing.transform_string)
+            if scrubbing
+            else NOOP_SCRUBBER
         )
 
         if isinstance(console, dict):

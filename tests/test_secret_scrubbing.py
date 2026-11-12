@@ -22,6 +22,7 @@ from logfire._internal.exporters.processor_wrapper import SpanProcessorGroup
 from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
+from logfire.types import StringValue
 
 
 def test_span_processor_group_flushes_after_failure():
@@ -650,6 +651,83 @@ def test_scrub_binary_values(value: bytes, expected: bytes | str, expected_notes
 
     assert result == expected
     assert [note['matched_substring'] for note in scrubbed_notes] == expected_notes
+
+
+def test_transform_string_before_pattern_callback_and_inside_json():
+    seen: list[StringValue] = []
+    matches: list[logfire.ScrubMatch] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    def callback(match: logfire.ScrubMatch):
+        matches.append(match)
+        if match.path == ('attributes', 'password_hint'):
+            assert match.value == '[email]'
+            return match.value
+
+    result, notes = Scrubber(None, callback, transform).scrub_value(
+        ('attributes',), {'password_hint': 'alice@example.com', 'data': '{ "contact": "alice@example.com" }'}
+    )
+
+    assert result == {'password_hint': '[email]', 'data': '{"contact":"[email]"}'}
+    assert notes == []
+    assert [(value.path, value.value) for value in seen] == [
+        (('attributes', 'password_hint'), 'alice@example.com'),
+        (('attributes', 'data', 'contact'), 'alice@example.com'),
+    ]
+    assert [(match.path, match.value) for match in matches] == [(('attributes', 'password_hint'), '[email]')]
+
+
+def test_transform_string_in_safe_key_skips_all_nested_patterns():
+    def transform(value: StringValue) -> str:
+        return value.value.replace('alice@example.com', '[email]')
+
+    original = {'do_not_scrub': {'password': 'secret=alice@example.com', 'data': '{"secret":"alice@example.com"}'}}
+    result, notes = Scrubber(None, transform_string=transform).scrub_value(('attributes',), original)
+
+    assert result == {'do_not_scrub': {'password': 'secret=[email]', 'data': '{"secret":"[email]"}'}}
+    assert notes == []
+    result_without_transform, notes_without_transform = Scrubber(None).scrub_value(('attributes',), original)
+    assert result_without_transform == original
+    assert result_without_transform['do_not_scrub'] is original['do_not_scrub']
+    assert notes_without_transform == []
+
+
+def test_internal_exception_in_transform_string_keeps_value_and_continues_pattern_search(
+    caplog: pytest.LogCaptureFixture,
+):
+    def transform(value: StringValue) -> str:
+        raise ValueError('transform failed')
+
+    result, notes = Scrubber(None, transform_string=transform).scrub_value(
+        ('attributes',), {'plain': 'alice@example.com', 'password': 'hunter2', 'do_not_scrub': 'secret=hunter2'}
+    )
+
+    assert result == {
+        'plain': 'alice@example.com',
+        'password': "[Scrubbed due to 'password']",
+        'do_not_scrub': 'secret=hunter2',
+    }
+    assert notes == [{'path': ('attributes', 'password'), 'matched_substring': 'password'}]
+    assert 'transform failed' in caplog.text
+
+
+def test_transform_string_writes_attributes_without_scrubbed_note(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    logfire.configure(
+        **config_kwargs,
+        scrubbing=logfire.ScrubbingOptions(
+            transform_string=lambda value: value.value.replace('alice@example.com', '[email]')
+        ),
+    )
+    logfire.info('Example', contact='alice@example.com')
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['contact'] == '[email]'
+    assert 'logfire.scrubbed' not in span['attributes']
 
 
 @pytest.mark.parametrize('error_type', [ValueError, RecursionError])

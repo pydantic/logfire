@@ -99,6 +99,37 @@ If the callback returns a string unchanged (or returns an equal string of the sa
     If the callback raises an exception, Logfire logs the error and redacts the matched value as though the callback returned `None`. Scrubbing then continues.
     It should return quickly, as it can get called many times.
 
+## Masking part of a string
+
+Use [`transform_string`][logfire.ScrubbingOptions.transform_string] to replace sensitive text while keeping the rest of a value. The callback receives the string and its path:
+
+```python
+import re
+
+import logfire
+from logfire.types import StringValue
+
+
+def mask_email(item: StringValue) -> str:
+    if '@' not in item.value:
+        return item.value
+    return re.sub(r'\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b', '[email]', item.value)
+
+
+logfire.configure(scrubbing=logfire.ScrubbingOptions(transform_string=mask_email))
+logfire.info('Contact {email}', email='alice@example.com')
+```
+
+The exported `email` attribute and formatted message contain `[email]`. The callback runs on string values inside JSON and under keys that are exempt from pattern matching. Pattern matching runs on the returned string where permitted.
+
+The callback runs for every string the scrubber reaches, including large values. The email regex above is illustrative and can take quadratic time on long strings containing `@`; the initial `@` check does not prevent that. Check the performance of your matcher on the longest values you expect to log.
+
+!!! warning "Choose a fallback for masking errors"
+
+    If `transform_string` raises an exception, Logfire logs the error and keeps the original string. Pattern matching still runs where permitted, but a value such as an email address may be exported unchanged.
+
+    If you handle errors inside your callback, redact only values you know are sensitive. A catch-all handler that returns `'[redacted]'` for every error could replace every string if the transformer breaks, leaving little usable telemetry.
+
 ## When Logfire scrubs spans
 
 Scrubbing span attributes is slow, so it happens in a background thread when possible.
