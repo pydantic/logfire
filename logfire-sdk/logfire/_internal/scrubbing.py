@@ -399,7 +399,9 @@ class SpanScrubber:
             result: dict[Any, Any] = {}
             for k, v in cast('Mapping[Any, Any]', value).items():
                 if k in BaseScrubber.SAFE_KEYS:
-                    result[k] = self.scrub(path + (k,), v, True) if self._transform_string is not None else v
+                    result[k] = (
+                        self.scrub(path + (k,), v, in_safe_key=True) if self._transform_string is not None else v
+                    )
                 else:
                     child_path = path + (k,)
                     scrubbed = self.scrub(child_path, v, in_safe_key)
