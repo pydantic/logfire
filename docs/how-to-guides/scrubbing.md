@@ -118,7 +118,11 @@ logfire.configure(scrubbing=logfire.ScrubbingOptions(transform_string=mask_email
 logfire.info('Contact {email}', email='alice@example.com')
 ```
 
-The exported `email` attribute and formatted message contain `[email]`. The callback runs on string values inside JSON and under keys that are exempt from pattern matching. Pattern matching runs on the returned string where permitted. If the callback raises an exception, Logfire logs the error, keeps that string unchanged, and continues normal pattern matching.
+The exported `email` attribute and formatted message contain `[email]`. The callback runs on string values inside JSON and under keys that are exempt from pattern matching. Pattern matching runs on the returned string where permitted.
+
+!!! warning "Keep values redacted if masking fails"
+
+    If `transform_string` raises an exception, Logfire logs the error and keeps the original string. Pattern matching still runs where permitted, but a value such as an email address may be exported unchanged. To prevent that, catch errors inside your callback and return a redacted string such as `'[redacted]'`.
 
 ## When Logfire scrubs spans
 
