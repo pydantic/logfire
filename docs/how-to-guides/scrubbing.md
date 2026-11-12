@@ -86,7 +86,7 @@ def scrubbing_callback(match: logfire.ScrubMatch):
 logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
 ```
 
-When a key matches and the callback returns its dictionary or list value unchanged (or returns an equal copy of the same type), Logfire continues scrubbing inside it. This lets you allow the key without allowing sensitive data nested under it. If the callback returns a different container, Logfire uses that replacement as the final value and does not scrub inside it.
+Logfire scrubs a value before checking whether its key matches a pattern. This includes strings and values inside dictionaries, lists, and JSON-encoded containers. Your callback for a matching key receives the scrubbed value, so it can return that value unchanged or return a subset of a container. If it returns a different value, Logfire uses that replacement without scrubbing it again. Values under safe keys remain exempt from scrubbing.
 
 If the callback returns a string unchanged (or returns an equal string of the same type), Logfire checks later positions in the same key or string value for other matches. A different returned string is used as the final value. After 100 allowed matches in one string, Logfire redacts the value to limit the search cost.
 

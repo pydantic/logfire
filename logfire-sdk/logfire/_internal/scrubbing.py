@@ -125,8 +125,8 @@ class ScrubbingOptions:
     A function that is called for each match found by the scrubber.
     If it returns `None`, the value is redacted.
     Otherwise, the returned value replaces the matched value.
-    If a key matches and its container value is returned unchanged or as an equal copy of the same type,
-    Logfire continues scrubbing inside it. A different container is treated as the final value.
+    Logfire scrubs each value before checking whether its key matches. A callback for a matching key
+    receives that scrubbed value. A different value returned by the callback is treated as final.
     If a string value is returned unchanged or as an equal copy of the same type, Logfire checks for later matches
     in that string. This applies to both matching keys and string values. After 100 allowed matches
     in one string, Logfire redacts the value to bound the search cost.
@@ -357,7 +357,7 @@ class SpanScrubber:
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
                     return value
-                return self._scrub_matches(path, value, match)[0]
+                return self._scrub_matches(path, value, match)
         elif isinstance(value, (bytes, bytearray, memoryview)):
             # Iterating over a binary value yields integers, so recursing into it would rewrite
             # the value into a sequence of ints. Decode it instead, so text hidden in bytes is
@@ -372,45 +372,45 @@ class SpanScrubber:
         elif isinstance(value, Sequence):
             return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
         elif isinstance(value, Mapping):
-            result: dict[str, Any] = {}
-            for k, v in cast('Mapping[str, Any]', value).items():
+            result: dict[Any, Any] = {}
+            for k, v in cast('Mapping[Any, Any]', value).items():
                 if k in BaseScrubber.SAFE_KEYS:
                     result[k] = v
-                elif match := self._pattern.search(k):
-                    redacted, unchanged = self._scrub_matches(path + (k,), v, match)
-                    if unchanged:
-                        redacted = self.scrub(path + (k,), redacted)
-                    if (
-                        isinstance(redacted, str)
-                        and isinstance(v, Sequence)
-                        and not isinstance(v, (str, bytes, bytearray, memoryview))
-                    ):
-                        redacted = [redacted]
-                    result[k] = redacted
                 else:
-                    result[k] = self.scrub(path + (k,), v)
+                    child_path = path + (k,)
+                    scrubbed = self.scrub(child_path, v)
+                    if isinstance(k, str) and (match := self._pattern.search(k)):
+                        redacted = self._scrub_matches(child_path, scrubbed, match)
+                        if (
+                            isinstance(redacted, str)
+                            and isinstance(v, Sequence)
+                            and not isinstance(v, (str, bytes, bytearray, memoryview))
+                        ):
+                            redacted = [redacted]
+                        result[k] = redacted
+                    else:
+                        result[k] = scrubbed
             return result
         return value
 
-    def _scrub_matches(self, path: JsonPath, value: Any, match: re.Match[str]) -> tuple[Any, bool]:
-        """Return the value and whether every match was allowed."""
+    def _scrub_matches(self, path: JsonPath, value: Any, match: re.Match[str]) -> Any:
         text = match.string
         unchanged_matches = 0
         while True:
             result = self._redact(ScrubMatch(path, value, match))
             if not _is_unchanged_value(value, result):
-                return result, False
+                return result
             unchanged_matches += 1
             if unchanged_matches >= _MAX_UNCHANGED_MATCHES:
                 self.scrub_count += 1
-                return '[Scrubbed due to too many allowed matches]', False
+                return '[Scrubbed due to too many allowed matches]'
             # Keep overlapping matches at later starts visible, including after zero-width matches.
             next_position = match.start() + 1
             if next_position > len(text):
-                return result, True
+                return result
             next_match = self._pattern.search(text, next_position)
             if next_match is None:
-                return result, True
+                return result
             match = next_match
 
     def _redact(self, match: ScrubMatch) -> Any:
