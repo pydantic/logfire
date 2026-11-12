@@ -1,0 +1,14 @@
+docs/how-to-guides/scrubbing.md
+  h_d9dd17644dded9 114-115,125-126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7248a95cb4db3c221496adcf5f49a4afde2dfd06",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
