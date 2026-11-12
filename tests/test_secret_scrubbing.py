@@ -298,6 +298,23 @@ def test_callback_equal_value_with_different_type_is_final():
     assert notes == []
 
 
+def test_callback_value_with_ambiguous_equality_is_final():
+    class IncomparableStr(str):
+        def __eq__(self, other: object) -> bool:
+            raise RuntimeError('cannot compare')
+
+    replacement = IncomparableStr('allowed')
+
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'password'):
+            return replacement
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password': IncomparableStr('allowed')})
+
+    assert result['password'] is replacement
+    assert notes == []
+
+
 @pytest.mark.parametrize(
     'value', [b'password=hunter2', bytearray(b'password=hunter2'), memoryview(b'password=hunter2')]
 )
