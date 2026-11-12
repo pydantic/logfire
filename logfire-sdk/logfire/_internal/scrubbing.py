@@ -352,7 +352,7 @@ class SpanScrubber:
         # We used to scrub exception messages here, git blame this line if you want to restore that logic.
         return new_attributes
 
-    def scrub(self, path: JsonPath, value: Any) -> Any:
+    def scrub(self, path: JsonPath, value: Any, in_safe_key: bool = False) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
 
         `path` is a list of keys and indices leading to `value` in the span.
@@ -365,11 +365,18 @@ class SpanScrubber:
                 try:
                     decoded = json.loads(value)
                     scrub_count_before = self.scrub_count
-                    scrubbed = self.scrub(path, decoded)
+                    scrubbed = self.scrub(path, decoded, in_safe_key)
                     return logfire_json_dumps(scrubbed) if self.scrub_count != scrub_count_before else value
                 except (ValueError, RecursionError):
                     pass
-            if match := self._pattern.search(value):
+            if self._transform_string is not None:
+                transformed = value
+                with handle_internal_errors:
+                    transformed = self._transform_string(StringValue(path, value))
+                if transformed != value:
+                    self.scrub_count += 1
+                    value = transformed
+            if not in_safe_key and (match := self._pattern.search(value)):
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
@@ -384,19 +391,19 @@ class SpanScrubber:
                 text = binary.decode()
             except UnicodeDecodeError:
                 return binary
-            scrubbed = self.scrub(path, text)
+            scrubbed = self.scrub(path, text, in_safe_key)
             return binary if scrubbed == text else scrubbed
         elif isinstance(value, Sequence):
-            return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
+            return [self.scrub(path + (i,), x, in_safe_key) for i, x in enumerate(cast('Sequence[Any]', value))]
         elif isinstance(value, Mapping):
             result: dict[Any, Any] = {}
             for k, v in cast('Mapping[Any, Any]', value).items():
                 if k in BaseScrubber.SAFE_KEYS:
-                    result[k] = v
+                    result[k] = self.scrub(path + (k,), v, True) if self._transform_string is not None else v
                 else:
                     child_path = path + (k,)
-                    scrubbed = self.scrub(child_path, v)
-                    if isinstance(k, str) and (match := self._pattern.search(k)):
+                    scrubbed = self.scrub(child_path, v, in_safe_key)
+                    if not in_safe_key and isinstance(k, str) and (match := self._pattern.search(k)):
                         redacted = self._scrub_matches(child_path, scrubbed, match)
                         if (
                             isinstance(redacted, str)
