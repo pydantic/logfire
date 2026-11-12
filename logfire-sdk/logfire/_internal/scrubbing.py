@@ -376,19 +376,20 @@ class SpanScrubber:
             for k, v in cast('Mapping[str, Any]', value).items():
                 if k in BaseScrubber.SAFE_KEYS:
                     result[k] = v
-                elif match := self._pattern.search(k):
-                    redacted, unchanged = self._scrub_matches(path + (k,), v, match)
-                    if unchanged:
-                        redacted = self.scrub(path + (k,), redacted)
-                    if (
-                        isinstance(redacted, str)
-                        and isinstance(v, Sequence)
-                        and not isinstance(v, (str, bytes, bytearray, memoryview))
-                    ):
-                        redacted = [redacted]
-                    result[k] = redacted
                 else:
-                    result[k] = self.scrub(path + (k,), v)
+                    child_path = path + (k,)
+                    scrubbed = self.scrub(child_path, v)
+                    if match := self._pattern.search(k):
+                        redacted = self._scrub_matches(child_path, scrubbed, match)[0]
+                        if (
+                            isinstance(redacted, str)
+                            and isinstance(v, Sequence)
+                            and not isinstance(v, (str, bytes, bytearray, memoryview))
+                        ):
+                            redacted = [redacted]
+                        result[k] = redacted
+                    else:
+                        result[k] = scrubbed
             return result
         return value
 
