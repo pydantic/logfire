@@ -372,14 +372,14 @@ class SpanScrubber:
         elif isinstance(value, Sequence):
             return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
         elif isinstance(value, Mapping):
-            result: dict[str, Any] = {}
-            for k, v in cast('Mapping[str, Any]', value).items():
+            result: dict[Any, Any] = {}
+            for k, v in cast('Mapping[Any, Any]', value).items():
                 if k in BaseScrubber.SAFE_KEYS:
                     result[k] = v
                 else:
                     child_path = path + (k,)
                     scrubbed = self.scrub(child_path, v)
-                    if match := self._pattern.search(k):
+                    if isinstance(k, str) and (match := self._pattern.search(k)):
                         redacted = self._scrub_matches(child_path, scrubbed, match)
                         if (
                             isinstance(redacted, str)

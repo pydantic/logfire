@@ -725,6 +725,13 @@ def test_callback_receives_scrubbed_container_before_returning_subset():
     assert notes == [{'path': ('attributes', 'password_hint', 'password'), 'matched_substring': 'password'}]
 
 
+def test_non_string_child_key_does_not_prevent_parent_redaction():
+    result, notes = Scrubber(None).scrub_value(('attributes',), {'credentials': {1: 'enabled'}})
+
+    assert result == {'credentials': "[Scrubbed due to 'credential']"}
+    assert notes == [{'path': ('attributes', 'credentials'), 'matched_substring': 'credential'}]
+
+
 def test_callback_receives_scrubbed_json_attribute(exporter: TestExporter, config_kwargs: dict[str, Any]):
     def callback(match: logfire.ScrubMatch):
         if match.path == ('attributes', 'password_hint'):
