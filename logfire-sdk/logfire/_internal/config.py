@@ -344,6 +344,18 @@ class AdvancedOptions:
     Defaults to the `LOGFIRE_PENDING_SPANS` environment variable, or `True`.
     """
 
+    logs_as_log_records: bool = False
+    """If `True`, `logfire.log()` and its level shortcuts emit OpenTelemetry log records.
+
+    The default emits each log as a zero-duration span. Log records go through `log_record_processors`
+    and the logs exporters, not through span processors or the head sampler.
+
+    When `exception_callback` is set, a log with an exception is still emitted as a span,
+    so that the callback can process it.
+
+    This option is experimental and may change or be removed.
+    """
+
     def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
         """Resolve the base API URL for `token`, honouring an explicitly configured `base_url`.
 
