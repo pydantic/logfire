@@ -15,9 +15,10 @@ you pass to it.
 
 ## Before you start
 
-You need a Logfire API key with the **Run code in this project's agent sandboxes** permission
-(`project:execute_agent_sandboxes`). In your project, go to **Settings → API Keys → New API Key**, select that
-permission, and create the key. Agent Sandboxes accept only project API keys that aren't personal.
+You need a Logfire project API key with the **Run code in this project's agent sandboxes** permission
+(`project:execute_agent_sandboxes`). In your project, open **Agent Sandboxes**, click **Setup**, and click
+**Create execution key** on the **Set up Agent Sandboxes** page. To use a key you already have, give it that permission
+under **Settings → API Keys** instead. Agent Sandboxes reject personal API keys.
 
 Set it as the `LOGFIRE_API_KEY` environment variable where your application runs:
 
@@ -180,8 +181,10 @@ options:
   go through `onToolError`.
 - A tool result is sent to the sandbox as JSON. A `Map` becomes a dict and a `Set` becomes a list.
 
-If you pass your own `sandboxes`, set its `requestTimeout`, which Monty takes in seconds, above `limits.timeout`, so that a long snippet gets the
-time-limit message instead of a dropped connection. `codeMode()` does this for the pool it creates.
+If you pass your own `sandboxes`, set its `requestTimeout` above `limits.timeout`, so that a long snippet gets the
+time-limit message instead of a dropped connection. `requestTimeout` is in seconds and `limits.timeout` is in
+milliseconds: with the default `limits.timeout` of 30,000, `requestTimeout` must be above 30. `codeMode()` sets
+`limits.timeout / 1000 + 10` for the pool it creates.
 
 [`examples/agent-sandboxes-ai-sdk`](https://github.com/pydantic/logfire-js/tree/main/examples/agent-sandboxes-ai-sdk)
 is a complete agent over a larger data set, with a smoke test.
