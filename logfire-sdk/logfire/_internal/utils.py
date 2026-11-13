@@ -266,13 +266,17 @@ def ensure_data_dir_exists(data_dir: Path) -> None:
     # before that file is rewritten. Skip a directory with any other contents: `--data-dir` can
     # point at a directory of the user's own, and a `.gitignore` of `*` there would ignore all of it.
     if {path.name for path in data_dir.iterdir()} <= DATA_DIR_FILENAMES:
-        try:
-            # Exclusive creation, so an existing .gitignore keeps its rules, and a symlink planted
-            # in a data directory that arrived from elsewhere is refused rather than followed.
-            with (data_dir / '.gitignore').open('x') as gitignore:
-                gitignore.write('*')
-        except FileExistsError:
-            pass
+        gitignore_path = data_dir / '.gitignore'
+        # A symlink planted in a data directory that arrived from elsewhere is left alone rather
+        # than followed. Exclusive creation refuses one on POSIX, but not on Windows, where
+        # creating a file through a dangling symlink creates its target.
+        if not gitignore_path.is_symlink():
+            try:
+                # Exclusive creation, so an existing .gitignore keeps its rules.
+                with gitignore_path.open('x') as gitignore:
+                    gitignore.write('*')
+            except FileExistsError:
+                pass
 
 
 def get_version(version: str) -> Version:

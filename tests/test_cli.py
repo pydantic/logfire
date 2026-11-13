@@ -528,9 +528,14 @@ def test_clean_default_dir_is_not_a_directory(
 
 
 def test_inspect(
-    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     os.environ['COLUMNS'] = '150'
+    # On Windows, Rich treats a captured stream as a legacy console and draws square box corners.
+    monkeypatch.setattr('rich.console.detect_legacy_windows', lambda: False)
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
     with pytest.raises(SystemExit):
         main(['inspect'])

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import functools
 import json
 import logging
@@ -389,9 +390,13 @@ def _save_read_token(
     # O_NOFOLLOW, because this path is inside the user's repository: someone who can get a
     # symlink committed there -- or who lands one any other way -- would otherwise have
     # O_TRUNC and the mode change below applied to whatever it points at.
-    # O_NOFOLLOW does not exist on Windows, where symlinks need a privilege to create.
+    # O_NOFOLLOW does not exist on Windows, where Developer Mode lets any user create symlinks,
+    # so a symlink is also refused up front. That check alone could race with a symlink created
+    # between it and `os.open`; O_NOFOLLOW closes that gap where it exists.
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, 'O_NOFOLLOW', 0)
     try:
+        if path.is_symlink():
+            raise OSError(errno.ELOOP, 'Refusing to follow a symlink', str(path))
         fd = os.open(path, flags, 0o600)
     except OSError as e:
         raise LogfireConfigError(f'Could not write the read token to {path}: {e}') from e
