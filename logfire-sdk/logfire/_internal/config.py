@@ -112,7 +112,11 @@ from .exporters.console import (
     SimpleConsoleSpanExporter,
 )
 from .exporters.dynamic_batch import DynamicBatchSpanProcessor
-from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
+from .exporters.logs import (
+    BackgroundScrubbingLogProcessor,
+    CheckSuppressInstrumentationLogProcessorWrapper,
+    MainLogProcessorWrapper,
+)
 from .exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
     OTLPExporterHttpSession,
@@ -1052,6 +1056,13 @@ def _span_processor_can_skip_scrubbing(processor: SpanProcessor) -> bool:
     return False
 
 
+def _multi_log_processor(processors: Sequence[LogRecordProcessor]) -> SynchronousMultiLogRecordProcessor:
+    multi = SynchronousMultiLogRecordProcessor()
+    for processor in processors:
+        multi.add_log_record_processor(processor)
+    return multi
+
+
 def _multi_span_processor(processors: Sequence[SpanProcessor]) -> SpanProcessorGroup:
     multi = SpanProcessorGroup()
     for processor in processors:
@@ -1631,10 +1642,7 @@ class LogfireConfig(_LogfireConfigData):
                     options=self.variables,
                     server_response_hook=self.advanced.server_response_hook,
                 )
-            multi_log_processor = SynchronousMultiLogRecordProcessor()
-            for processor in log_record_processors:
-                multi_log_processor.add_log_record_processor(processor)
-            main_log_processor: LogRecordProcessor = MainLogProcessorWrapper(multi_log_processor, self.scrubber)
+            main_log_processor = self._main_log_processor(log_record_processors)
             if self.add_baggage_to_attributes:
                 # Baggage goes in before scrubbing, as it does for spans.
                 main_log_processor = DirectBaggageAttributesLogProcessorWrapper(main_log_processor)
@@ -1703,6 +1711,19 @@ class LogfireConfig(_LogfireConfigData):
             set_global_textmap(new_textmap)
 
             self._ensure_flush_after_aws_lambda()
+
+    def _main_log_processor(self, processors: Sequence[LogRecordProcessor]) -> LogRecordProcessor:
+        """Scrub log records on a queue thread when every processor is a batch processor."""
+        # Unlike for spans, a console that hides attributes still needs scrubbed records:
+        # it prints the log body, or the attributes when there is no body.
+        if (
+            self.scrubber is not NOOP_SCRUBBER
+            and not platform_is_emscripten()
+            and processors
+            and all(type(p) is BatchLogRecordProcessor for p in processors)
+        ):
+            return BackgroundScrubbingLogProcessor(_multi_log_processor(processors), self.scrubber)
+        return MainLogProcessorWrapper(_multi_log_processor(processors), self.scrubber)
 
     def _build_span_processor(
         self,

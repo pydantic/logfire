@@ -82,7 +82,11 @@ from logfire._internal.exporters.console import (
     SimpleConsoleSpanExporter,
 )
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
-from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
+from logfire._internal.exporters.logs import (
+    BackgroundScrubbingLogProcessor,
+    CheckSuppressInstrumentationLogProcessorWrapper,
+    MainLogProcessorWrapper,
+)
 from logfire._internal.exporters.otlp import QuietLogExporter, QuietSpanExporter
 from logfire._internal.exporters.processor_wrapper import (
     BackgroundScrubbingSpanProcessor,
@@ -2713,6 +2717,8 @@ def get_log_record_processors() -> Iterable[LogRecordProcessor]:
     processor = processor.processor
     if isinstance(processor, DirectBaggageAttributesLogProcessorWrapper):
         processor = processor.processor
+    if isinstance(processor, BackgroundScrubbingLogProcessor):
+        return processor.processor._log_record_processors  # type: ignore
     assert isinstance(processor, MainLogProcessorWrapper)
     processor = processor.processor
     assert isinstance(processor, SynchronousMultiLogRecordProcessor)
