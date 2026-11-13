@@ -170,7 +170,7 @@ def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
                 content=source.get('data', ''),
             )
             if (media_type := source.get('media_type')) is not None:
-                blob_part['media_type'] = media_type
+                blob_part['mime_type'] = media_type
             return blob_part
         elif source_type == 'url':
             return UriPart(type='uri', uri=source.get('url', ''), modality=modality)
