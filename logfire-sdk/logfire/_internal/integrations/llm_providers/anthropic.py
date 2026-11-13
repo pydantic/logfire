@@ -4,7 +4,7 @@ import contextlib
 import json
 from collections.abc import Callable
 from inspect import signature
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import anthropic
 from anthropic._utils import is_given
@@ -31,6 +31,7 @@ from .semconv import (
     TOOL_DEFINITIONS,
     BlobPart,
     ChatMessage,
+    FilePart,
     InputMessages,
     MessagePart,
     NormalizedSemconvVersion,
@@ -148,6 +149,9 @@ def _convert_content_part_or_parts(content: object) -> list[MessagePart]:
 
 def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
     """Convert a single Anthropic content part to semconv format."""
+    if isinstance(part, anthropic.BaseModel):
+        # Content blocks of an earlier response sent back as-is, e.g. `{'role': 'assistant', 'content': message.content}`.
+        part = part.model_dump()
     if not isinstance(part, dict):
         return TextPart(type='text', content=str(part))
 
@@ -155,21 +159,25 @@ def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
     part_type = part.get('type', 'text')
     if part_type == 'text':
         return TextPart(type='text', content=part.get('text', ''))
-    elif part_type == 'image':  # pragma: no cover
+    elif part_type in ('image', 'document'):
+        modality: Literal['image', 'document'] = 'image' if part_type == 'image' else 'document'
         source = part.get('source', {})
-        if source.get('type') == 'base64':
+        source_type = source.get('type')
+        if source_type == 'base64':
             blob_part = BlobPart(
                 type='blob',
-                modality='image',
+                modality=modality,
                 content=source.get('data', ''),
             )
             if (media_type := source.get('media_type')) is not None:
                 blob_part['media_type'] = media_type
             return blob_part
-        elif source.get('type') == 'url':
-            return UriPart(type='uri', uri=source.get('url', ''), modality='image')
+        elif source_type == 'url':
+            return UriPart(type='uri', uri=source.get('url', ''), modality=modality)
+        elif source_type == 'file':
+            return FilePart(type='file', file_id=source.get('file_id', ''), modality=modality)
         else:
-            return {'type': 'image', **part}
+            return {'type': part_type, **part}
     elif part_type == 'tool_use':
         return make_tool_call_part(
             tool_call_id=part.get('id', ''),
@@ -179,20 +187,13 @@ def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
     elif part_type == 'tool_result':  # pragma: no cover
         result_content = part.get('content')
         if isinstance(result_content, list):
-            # Extract text from tool result content
-            text_parts: list[str] = []
-            for p in cast('list[dict[str, Any] | str]', result_content):
-                if isinstance(p, dict) and p.get('type') == 'text':
-                    text_parts.append(str(p.get('text', '')))
-                elif isinstance(p, str):
-                    text_parts.append(p)
-            result_text = ' '.join(text_parts)
+            response: str | list[MessagePart] = _convert_content_part_or_parts(cast(list[Any], result_content))
         else:
-            result_text = str(result_content) if result_content else ''
+            response = str(result_content) if result_content else ''
         return ToolCallResponsePart(
             type='tool_call_response',
             id=part.get('tool_use_id', ''),
-            response=result_text,
+            response=response,
         )
     else:  # pragma: no cover
         # Return as generic dict for unknown types
@@ -258,6 +259,10 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
             block_dict = block.model_dump() if hasattr(block, 'model_dump') else dict(block)
             parts.append(block_dict)
 
+    # A refused response has no content blocks; the reason is in `stop_details`.
+    if refusal_explanation := _refusal_explanation(message):
+        parts.append(TextPart(type='text', content=refusal_explanation))
+
     result = OutputMessage(
         role=message.role,
         parts=parts,
@@ -266,6 +271,13 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
         result['finish_reason'] = message.stop_reason
 
     return result
+
+
+def _refusal_explanation(message: Any) -> str | None:
+    if getattr(message, 'stop_reason', None) != 'refusal':
+        return None
+    explanation = getattr(getattr(message, 'stop_details', None), 'explanation', None)
+    return explanation if isinstance(explanation, str) and explanation else None
 
 
 class AnthropicMessageStreamState(StreamState):
@@ -309,7 +321,7 @@ class AnthropicMessageStreamState(StreamState):
         result = dict(**span_data)
         if 1 in versions:
             result['response_data'] = self.get_response_data()
-        if 2 in versions and self._message and self._message.content:
+        if 2 in versions and self._message and (self._message.content or _refusal_explanation(self._message)):
             result[OUTPUT_MESSAGES] = [convert_response_to_semconv(self._message)]
         if self._message is not None:
             result[RESPONSE_ID] = self._message.id

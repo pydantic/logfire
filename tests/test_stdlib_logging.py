@@ -16,6 +16,7 @@ from opentelemetry.trace import Status
 import logfire
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import TestExporter
+from logfire.types import SpanLevel
 
 
 @pytest.fixture(scope='module')
@@ -234,6 +235,25 @@ def test_stdlib_logging_tags_merged_with_instance_tags(exporter: TestExporter) -
     assert span['attributes']['logfire.tags'] == ('instance', 'foo')
 
 
+def test_stdlib_logging_console_log_false(
+    capsys: pytest.CaptureFixture[str], exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    config_kwargs['console'] = logfire.ConsoleOptions(colors='never', include_timestamps=False)
+    logfire.configure(**config_kwargs)
+    quiet_logger = getLogger(f'{__name__}.quiet')
+    quiet_logger.propagate = False
+    handler = LogfireLoggingHandler(console_log=False)
+    quiet_logger.addHandler(handler)
+    try:
+        quiet_logger.error('From logging')
+        logfire.info('From Logfire')
+    finally:
+        quiet_logger.removeHandler(handler)
+
+    assert capsys.readouterr().out.splitlines() == ['From Logfire']
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == ['From logging', 'From Logfire']
+
+
 def test_stdlib_logging_single_string_tag(exporter: TestExporter, logger: Logger) -> None:
     logger.error('tagged', extra={'logfire.tags': 'production'})
 
@@ -414,3 +434,64 @@ def test_logging_non_string(exporter: TestExporter, logger: Logger):
             }
         ]
     )
+
+
+class UnprintableArg:
+    def __str__(self) -> str:
+        raise RuntimeError('cannot be printed')
+
+
+def test_logging_with_bad_arguments_does_not_raise(exporter: TestExporter, capsys: pytest.CaptureFixture[str]) -> None:
+    # Like other handlers, `LogfireLoggingHandler` must report a log call that can't be formatted
+    # with `Handler.handleError` rather than raising from the application's `logger.info(...)` line.
+    bad_logger = getLogger('tests.test_stdlib_logging.bad_arguments')
+    bad_logger.propagate = False  # pytest's own handlers deliberately raise on badly formatted records
+    handler = LogfireLoggingHandler()
+    bad_logger.addHandler(handler)
+    try:
+        bad_logger.error('%d items', 'many')
+        bad_logger.error('value: %s', UnprintableArg())
+        bad_logger.error('fine: %s', 'ok')
+    finally:
+        bad_logger.removeHandler(handler)
+
+    errors = capsys.readouterr().err
+    assert errors.count('--- Logging error ---') == 2
+    assert 'TypeError: %d format' in errors
+    assert 'RuntimeError: cannot be printed' in errors
+    assert [span.attributes['logfire.msg'] for span in exporter.exported_spans] == ['fine: ok']  # type: ignore
+
+
+def test_logging_error_scrubs_arguments(exporter: TestExporter, capsys: pytest.CaptureFixture[str]) -> None:
+    # Preserve the message template in `handleError` diagnostics and scrub the arguments.
+    bad_logger = getLogger('tests.test_stdlib_logging.scrub_arguments')
+    bad_logger.propagate = False
+    handler = LogfireLoggingHandler()
+    bad_logger.addHandler(handler)
+    secret = 'hunter' + '2'  # not spelled out, as the printed call stack includes this file's source lines
+    try:
+        bad_logger.error('n=%(n)d', {'n': 'many', 'password': secret})
+        bad_logger.error('password check: %d', f'my password is {secret}')
+        # A mapping that `%y` can't format is treated as one positional argument, as when the record is exported.
+        bad_logger.error('%y', {'password': secret})
+        # A message that is not a string.
+        bad_logger.error(UnprintableArg())
+    finally:
+        bad_logger.removeHandler(handler)
+
+    errors = capsys.readouterr().err
+    assert errors.count('--- Logging error ---') == 4
+    assert "Message: 'password check: %d'" in errors
+    assert secret not in errors
+    assert "[Scrubbed due to 'password']" in errors
+    assert exporter.exported_spans == []
+
+
+@pytest.mark.parametrize('levelno', [logging.CRITICAL, logging.CRITICAL + 1, 60, 100])
+def test_stdlib_logging_levels_above_critical(exporter: TestExporter, logger: Logger, levelno: int) -> None:
+    logger.log(levelno, 'severe')
+
+    [span] = exporter.exported_spans
+    level = SpanLevel.from_span(span)
+    assert level.number == 21
+    assert level.name == 'fatal'

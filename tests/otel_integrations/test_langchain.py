@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Any
 
@@ -6,6 +7,7 @@ import pytest
 from dirty_equals import IsPartialDict
 from inline_snapshot import snapshot
 
+from logfire._internal.exporters.processor_wrapper import _transform_langsmith_span_attributes  # type: ignore
 from logfire._internal.exporters.test import TestExporter
 from logfire._internal.utils import get_version
 
@@ -13,14 +15,15 @@ os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
 os.environ['LANGSMITH_TRACING'] = 'true'
 os.environ['LANGSMITH_OTEL_ONLY'] = 'true'
 
-pytestmark = [
-    pytest.mark.skipif(
-        get_version(pydantic.__version__) < get_version('2.11.0'),
-        reason='Langgraph does not support older Pydantic versions',
-    ),
-]
+# Only the test below needs Langgraph. The rest of this module exercises the span
+# transform directly, which has to keep working on every supported Pydantic version.
+requires_langgraph = pytest.mark.skipif(
+    get_version(pydantic.__version__) < get_version('2.11.0'),
+    reason='Langgraph does not support older Pydantic versions',
+)
 
 
+@requires_langgraph
 @pytest.mark.vcr()
 def test_instrument_langchain(exporter: TestExporter) -> None:
     from langchain.agents import create_agent  # pyright: ignore[reportUnknownVariableType]
@@ -172,3 +175,76 @@ def test_instrument_langchain(exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+def _langsmith_assistant_message(content: list[dict[str, Any]]) -> dict[str, Any]:
+    """The parsed `gen_ai.completion` of a LangSmith span whose model made one tool call."""
+    return {
+        'generations': [
+            [
+                {
+                    'message': {
+                        'type': 'constructor',
+                        'kwargs': {
+                            'type': 'ai',
+                            'content': content,
+                            'tool_calls': [
+                                {'id': 'call_1', 'name': 'add', 'args': {'a': 123, 'b': 456}, 'type': 'tool_call'}
+                            ],
+                        },
+                    }
+                }
+            ]
+        ],
+        'llm_output': {'model_name': 'gpt-5'},
+    }
+
+
+FUNCTION_CALL_BLOCK = {
+    'arguments': '{"a":123,"b":456}',
+    'call_id': 'call_1',
+    'name': 'add',
+    'type': 'function_call',
+    'id': 'fc_1',
+    'status': 'completed',
+}
+REASONING_BLOCK = {
+    'type': 'reasoning',
+    'id': 'rs_1',
+    'summary': [{'text': '**Using the tool**', 'type': 'summary_text'}],
+}
+
+
+@pytest.mark.parametrize(
+    'content,expected_content',
+    [
+        # A model that returns only a tool call, i.e. any model not asked for a reasoning summary.
+        ([FUNCTION_CALL_BLOCK], []),
+        # The shape recorded in this module's cassette, which kept the dedup working by accident.
+        ([REASONING_BLOCK, FUNCTION_CALL_BLOCK], [{'type': 'reasoning', 'content': '**Using the tool**'}]),
+    ],
+    ids=['tool-call-only', 'reasoning-and-tool-call'],
+)
+def test_tool_call_is_not_duplicated_in_content(
+    content: list[dict[str, Any]], expected_content: list[dict[str, Any]]
+) -> None:
+    """A function call already listed in `tool_calls` is dropped from `content`.
+
+    The removal used to be skipped when it emptied `content`, so a message whose
+    only content was the tool call kept it and the call was rendered twice.
+    """
+    _, new_attributes = _transform_langsmith_span_attributes(
+        {'logfire.span_type': 'span', 'langsmith.metadata.ls_provider': 'openai'},
+        {
+            'gen_ai.prompt': {
+                'messages': [[{'type': 'constructor', 'kwargs': {'type': 'human', 'content': "what's 123 + 456?"}}]]
+            },
+            'gen_ai.completion': _langsmith_assistant_message(content),
+        },
+    )
+
+    assistant_message = json.loads(new_attributes['all_messages_events'])[-1]
+    assert assistant_message['content'] == expected_content
+    assert assistant_message['tool_calls'] == [
+        {'id': 'call_1', 'type': 'function', 'function': {'name': 'add', 'arguments': {'a': 123, 'b': 456}}}
+    ]

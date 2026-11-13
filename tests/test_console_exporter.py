@@ -122,6 +122,21 @@ def test_console_range_attributes(
     assert not caplog.records
 
 
+def test_console_generator_attribute(config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture) -> None:
+    # A generator is encoded as its repr() without being consumed, so the console prints that repr as is.
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    gen = (x for x in [1, 2])
+    logfire.info('loaded', values=gen, count=2)
+
+    assert output.getvalue() == f'loaded\n│ values={gen!r}\n│ count=2\n'
+    assert list(gen) == [1, 2]
+    assert not caplog.records
+
+
 def test_console_bytearray_attribute(config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture) -> None:
     output = io.StringIO()
     config_kwargs['console'] = ConsoleOptions(
@@ -131,6 +146,55 @@ def test_console_bytearray_attribute(config_kwargs: dict[str, Any], caplog: pyte
     logfire.info('loaded', data=bytearray(b'a\nb'), count=3)
 
     assert output.getvalue() == 'loaded\n│ data=bytearray(a\\nb)\n│ count=3\n'
+    assert not caplog.records
+
+
+@pytest.mark.parametrize(
+    'index,formatted',
+    [
+        (None, ['  | a', '--+--', '0 | 3', '1 | 4']),
+        ([1.5, 2.5], ['    | a', '----+--', '1.5 | 3', '2.5 | 4']),
+        ([True, False], ['      | a', '------+--', 'True  | 3', 'False | 4']),
+        ([('x', 1), ('y', 2)], ['         | a', '---------+--', "['x', 1] | 3", "['y', 2] | 4"]),
+    ],
+)
+def test_console_dataframe_non_string_index(
+    config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture, index: list[Any] | None, formatted: list[str]
+) -> None:
+    import pandas
+
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('loaded', df=pandas.DataFrame({'a': [3, 4]}, index=index), count=2)
+
+    header, separator, *rows = formatted
+    assert output.getvalue() == '\n'.join(
+        [
+            'loaded',
+            f'│ df={header}',
+            *(f'│    {line}' for line in [separator, *rows, '', '[2 rows x 1 columns]']),
+            '│ count=2',
+            '',
+        ]
+    )
+    assert not caplog.records
+
+
+@pytest.mark.parametrize('value', [b'', re.compile('')])
+def test_console_empty_formatted_attribute(
+    config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture, value: object
+) -> None:
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('loaded', data=value, count=0)
+
+    assert output.getvalue() == 'loaded\n│ data=\n│ count=0\n'
     assert not caplog.records
 
 

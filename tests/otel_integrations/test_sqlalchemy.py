@@ -239,6 +239,8 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
     )
 
 
+# Retain relative database names in spans while giving each case its own directory.
+@pytest.mark.usefixtures('tmp_dir_cwd')
 @pytest.mark.parametrize('parameter', ['engine', 'engines'])
 def test_sqlalchemy_instrumentation_commenter(parameter: str, exporter: TestExporter):
     with sqlite_engine(Path('example3.db')) as engine:

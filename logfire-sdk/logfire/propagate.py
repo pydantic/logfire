@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from opentelemetry import context as otel_context, propagate, trace
+from opentelemetry import context as otel_context, propagate
 from opentelemetry.propagators.textmap import TextMapPropagator
 
 import logfire
@@ -114,9 +114,10 @@ class WrapperPropagator(TextMapPropagator):
 
 
 class NoExtractTraceContextPropagator(WrapperPropagator):
-    """A propagator that ignores any trace context that was extracted by the wrapped propagator.
+    """A propagator that ignores all incoming context and preserves local context.
 
-    Used when `logfire.configure(distributed_tracing=False)` is called.
+    Used when `logfire.configure(distributed_tracing=False)` is called. Extraction returns the
+    supplied context, or the current context if none is supplied, without calling the wrapped propagator.
     """
 
     def extract(
@@ -126,16 +127,12 @@ class NoExtractTraceContextPropagator(WrapperPropagator):
         *args: Any,
         **kwargs: Any,
     ) -> otel_context.Context:
-        result = super().extract(carrier, context, *args, **kwargs)
-        if result == context:  # pragma: no cover
-            # Optimization: nothing was extracted by the wrapped propagator
-            return result
-        return trace.set_span_in_context(trace.get_current_span(context), result)
+        return otel_context.get_current() if context is None else context
 
 
 @dataclass
 class WarnOnExtractTraceContextPropagator(WrapperPropagator):
-    """A propagator that warns the first time that trace context is extracted by the wrapped propagator.
+    """A propagator that warns the first time that incoming context is extracted by the wrapped propagator.
 
     Used when `logfire.configure(distributed_tracing=None)` is called. This is the default behavior.
     """
@@ -149,11 +146,12 @@ class WarnOnExtractTraceContextPropagator(WrapperPropagator):
         *args: Any,
         **kwargs: Any,
     ) -> otel_context.Context:
+        original_context = context if context is not None else otel_context.Context()
         result = super().extract(carrier, context, *args, **kwargs)
-        if not self.warned and result != context and trace.get_current_span(context) != trace.get_current_span(result):
+        if not self.warned and result != original_context:
             self.warned = True
             message = (
-                'Found propagated trace context. See '
+                'Found propagated context. See '
                 'https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.'
             )
             warn_at_user_stacklevel(message, RuntimeWarning)

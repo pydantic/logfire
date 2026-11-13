@@ -23,6 +23,7 @@ from contextlib import ExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import IO, Any, cast
+from unittest import mock
 from unittest.mock import Mock, call, patch
 from urllib.parse import parse_qs, urlparse
 
@@ -33,6 +34,7 @@ import requests_mock
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry import trace
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 import logfire._internal.cli
@@ -332,7 +334,7 @@ def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, caps
         assert capsys.readouterr().err.splitlines() == snapshot(
             [
                 'Not logged in. Run `logfire auth` to log in.',
-                IsStr(regex=rf'^Credentials loaded from data dir: {tmp_dir_cwd}'),
+                IsStr(regex=rf'^Credentials loaded from data dir: {re.escape(str(tmp_dir_cwd))}'),
                 '',
                 'Logfire project URL: https://dashboard.logfire.dev',
             ]
@@ -350,7 +352,7 @@ def test_whoami_without_data(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[st
         assert capsys.readouterr().err.splitlines() == snapshot(
             [
                 'Not logged in. Run `logfire auth` to log in.',
-                IsStr(regex=r'No Logfire credentials found in .*/\.logfire'),
+                IsStr(regex=r'No Logfire credentials found in .*[/\\]\.logfire'),
             ]
         )
     finally:
@@ -378,7 +380,7 @@ def test_whoami_logged_in(
     assert capsys.readouterr().err.splitlines() == snapshot(
         [
             'Logged in as: test-user',
-            IsStr(regex=rf'^Credentials loaded from data dir: {tmp_dir_cwd}'),
+            IsStr(regex=rf'^Credentials loaded from data dir: {re.escape(str(tmp_dir_cwd))}'),
             '',
             'Logfire project URL: https://dashboard.logfire.dev',
         ]
@@ -393,7 +395,7 @@ def test_whoami_default_dir(
     assert capsys.readouterr().err.splitlines() == snapshot(
         [
             'Not logged in. Run `logfire auth` to log in.',
-            IsStr(regex=r'^Credentials loaded from data dir: .*/\.logfire$'),
+            IsStr(regex=r'^Credentials loaded from data dir: .*[/\\]\.logfire$'),
             '',
             'Logfire project URL: https://dashboard.logfire.dev',
         ]
@@ -431,7 +433,7 @@ def test_clean(
     monkeypatch.setattr(logfire._internal.cli, 'LOGFIRE_LOG_FILE', log_file)
 
     logfire_credentials.write_creds_file(tmp_dir_cwd)
-    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)} --logs'))
+    main(['clean', '--data-dir', str(tmp_dir_cwd), '--logs'])
     out, err = capsys.readouterr()
     assert err == output
     assert out.splitlines() == [
@@ -453,7 +455,7 @@ def test_clean_then_write_creds_file_restores_gitignore(
     logfire_credentials.write_creds_file(data_dir)
     assert (data_dir / '.gitignore').read_text() == '*'
 
-    main(shlex.split(f'clean --data-dir {str(data_dir)}'))
+    main(['clean', '--data-dir', str(data_dir)])
     assert not (data_dir / '.gitignore').exists()
 
     logfire_credentials.write_creds_file(data_dir)
@@ -520,7 +522,7 @@ def test_clean_default_dir_is_not_a_directory(
     monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
     logfire_credentials.write_creds_file(tmp_dir_cwd)
     with pytest.raises(SystemExit) as exc:
-        main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}/logfire_credentials.json'))
+        main(['clean', '--data-dir', str(tmp_dir_cwd / 'logfire_credentials.json')])
     assert 'No Logfire data found in' in capsys.readouterr().err
     assert exc.value.code == 1
 
@@ -537,7 +539,6 @@ def test_inspect(
 
 ╭───────────────────────────────────────────────────────────────── Logfire Summary ──────────────────────────────────────────────────────────────────╮
 │                                                                                                                                                    │
-│  ☐ botocore (need to install opentelemetry-instrumentation-botocore)                                                                               │
 │  ☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)                                                                                   │
 │  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)                                                                                 │
 │  ☐ urllib [*] (need to install opentelemetry-instrumentation-urllib)                                                                               │
@@ -547,7 +548,7 @@ def test_inspect(
 │                                                                                                                                                    │
 │  To install all recommended packages at once, run:                                                                                                 │
 │                                                                                                                                                    │
-│  uv add 'logfire[urllib]' opentelemetry-instrumentation-botocore opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql        │
+│  uv add 'logfire[urllib]' opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql                                               │
 │                                                                                                                                                    │
 │  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  │
 │                                                                                                                                                    │
@@ -1047,8 +1048,7 @@ def test_non_interactive_switch_is_restored_after_main_returns() -> None:
     """`main()` is importable, so the switch must not outlive the call.
 
     An application that shells through `logfire.cli.main([...])` would otherwise lose
-    prompting everywhere afterwards -- including in `logfire.configure()`, which this flag
-    does not govern at all.
+    prompting in later interactive CLI invocations.
     """
     from logfire._internal.interactive import is_non_interactive
 
@@ -2657,7 +2657,7 @@ def test_read_token_save_writes_the_file_and_prints_nothing(
     assert timedelta(days=READ_TOKEN_TTL.days - 1) < expiry - datetime.now(tz=timezone.utc) <= READ_TOKEN_TTL
 
     # Owner-only: this file holds a credential that can read the whole project.
-    assert (data_dir / READ_TOKEN_FILENAME).stat().st_mode & 0o077 == 0
+    assert sys.platform == 'win32' or (data_dir / READ_TOKEN_FILENAME).stat().st_mode & 0o077 == 0
 
 
 def test_read_token_save_with_explicit_project_needs_no_linked_directory(tmp_dir_cwd: Path) -> None:
@@ -3173,6 +3173,7 @@ def test_is_git_tracked_fails_closed_when_git_exists_but_cannot_answer(tmp_dir_c
         _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME)
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='POSIX file modes are not enforced on Windows')
 def test_read_token_save_narrows_an_existing_permissive_file(tmp_dir_cwd: Path) -> None:
     """An existing world-readable file must be restricted BEFORE the token is written.
 
@@ -3210,6 +3211,36 @@ def test_read_token_save_narrows_an_existing_permissive_file(tmp_dir_cwd: Path) 
 
     assert observed == [0o600], 'the token was written while the file was still permissive'
     assert path.stat().st_mode & 0o077 == 0
+
+
+def test_read_token_save_works_where_the_os_has_no_fchmod(tmp_dir_cwd: Path) -> None:
+    """`os.fchmod` does not exist on Windows, and saving a read token must not need it.
+
+    The mode passed to `os.open` is the only restriction Windows can apply, and it has no
+    POSIX mode bits to narrow anyway, so the call is skipped there instead of dying with an
+    `AttributeError` and losing the credential the user asked to save.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _read_token_backend(m)
+        # `create=True` because the attribute is genuinely absent on Windows.
+        stack.enter_context(patch('logfire._internal.cli.os.fchmod', None, create=True))
+
+        main(['read-tokens', 'create', '--save'])
+
+    saved = json.loads((data_dir / READ_TOKEN_FILENAME).read_text())
+    assert saved['token'] == 'saved_read_token'
+    assert saved['project_name'] == 'orders'
 
 
 def test_projects_status_rejects_a_non_200_response(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -4045,15 +4076,6 @@ def test_instrument_packages_calls_instrument(monkeypatch: pytest.MonkeyPatch):
     assert called['foo'] is True
 
 
-def test_instrument_packages_handles_missing(monkeypatch: pytest.MonkeyPatch):
-    fake_logfire = types.SimpleNamespace()
-    monkeypatch.setitem(sys.modules, 'logfire', fake_logfire)
-    installed_otel = {'opentelemetry-instrumentation-bar'}
-    instrument_pkg_map = {'opentelemetry-instrumentation-bar': 'bar'}
-    result = instrument_packages(installed_otel, instrument_pkg_map)
-    assert result == []
-
-
 def test_instrument_packages_with_only_httpx2(monkeypatch: pytest.MonkeyPatch) -> None:
     instrument_httpx = Mock()
     monkeypatch.setattr(logfire._internal.cli.run, 'logfire', types.SimpleNamespace(instrument_httpx=instrument_httpx))
@@ -4264,6 +4286,248 @@ async def test_instrument_packages_aiohttp_client() -> None:
         from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 
         AioHttpClientInstrumentor().uninstrument()
+
+
+def test_instrument_packages_falls_back_to_botocore_instrumentor(exporter: TestExporter) -> None:
+    import boto3
+    from botocore.stub import Stubber
+    from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
+
+    try:
+        result = instrument_packages(
+            {'opentelemetry-instrumentation-botocore'},
+            {'opentelemetry-instrumentation-botocore': 'botocore'},
+        )
+
+        # boto3 and botocore are only partially typed.
+        client = cast(Any, boto3).client(
+            's3', region_name='us-east-1', aws_access_key_id='test', aws_secret_access_key='test'
+        )
+        with cast(Any, Stubber(client)) as stubber:
+            stubber.add_response('list_buckets', {'Buckets': []})
+            client.list_buckets()
+    finally:
+        BotocoreInstrumentor().uninstrument()
+
+    assert result == snapshot(['botocore'])
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'S3.ListBuckets',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'rpc.system': 'aws-api',
+                    'rpc.service': 'S3',
+                    'rpc.method': 'ListBuckets',
+                    'cloud.region': 'us-east-1',
+                    'server.address': 's3.amazonaws.com',
+                    'server.port': 443,
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'S3.ListBuckets',
+                },
+            }
+        ]
+    )
+
+
+class _FakeInstrumentor(BaseInstrumentor):
+    """Records the keyword arguments it's instrumented with. Make subclasses with `_fake_instrumentor()`."""
+
+    dependencies: tuple[str, ...] = ()
+    instrument_calls: list[dict[str, Any]]
+
+    def instrumentation_dependencies(self) -> tuple[str, ...]:
+        return self.dependencies
+
+    def _instrument(self, **kwargs: Any) -> None:
+        self.instrument_calls.append(kwargs)
+
+    def _uninstrument(self, **kwargs: Any) -> None:
+        pass
+
+
+def _fake_instrumentor(*dependencies: str) -> type[_FakeInstrumentor]:
+    """Make a new instrumentor class, because instrumentors are singletons per class."""
+
+    class FakeInstrumentor(_FakeInstrumentor):
+        pass
+
+    FakeInstrumentor.dependencies = dependencies
+    FakeInstrumentor.instrument_calls = []
+    return FakeInstrumentor
+
+
+def _install_fake_package(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    package: str,
+    requires: tuple[str, ...] = (),
+    **instrumentors: object,
+) -> None:
+    """Install `opentelemetry-instrumentation-<package>` with `instrumentors` as its entry points, in that order.
+
+    `requires` are the libraries it instruments, i.e. its `instruments` extra.
+    """
+    module_name = f'logfire_test_instrumentors_{package}'
+    monkeypatch.setitem(sys.modules, module_name, types.SimpleNamespace(**instrumentors))
+    dist_info = tmp_path / f'opentelemetry_instrumentation_{package}-1.0.dist-info'
+    dist_info.mkdir()
+    requirements = ''.join(f'Requires-Dist: {requirement}; extra == "instruments"\n' for requirement in requires)
+    (dist_info / 'METADATA').write_text(f'Name: opentelemetry-instrumentation-{package}\nVersion: 1.0\n{requirements}')
+    entry_points = ''.join(f'{name} = {module_name}:{name}\n' for name in instrumentors)
+    (dist_info / 'entry_points.txt').write_text(f'[opentelemetry_instrumentor]\n{entry_points}')
+    monkeypatch.setattr(sys, 'path', [str(tmp_path), *sys.path])
+
+
+def _instrument_fallback_packages(*packages: str) -> list[str]:
+    """Call `instrument_packages()` for packages without a Logfire method, so they use the fallback."""
+    otel_packages = {f'opentelemetry-instrumentation-{package}': package for package in packages}
+    return instrument_packages(set(otel_packages), otel_packages)
+
+
+def test_instrument_packages_fallback_activates_every_usable_instrumentor_with_logfire_providers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    missing_library = _fake_instrumentor('logfire-test-missing-library')
+    first = _fake_instrumentor()
+    second = _fake_instrumentor()
+    # Like botocore's package, which registers the aiobotocore instrumentor before the botocore one.
+    _install_fake_package(tmp_path, monkeypatch, 'foo', missing_library=missing_library, first=first, second=second)
+
+    assert _instrument_fallback_packages('foo') == ['foo']
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    providers = {
+        'tracer_provider': config.get_tracer_provider(),
+        'meter_provider': config.get_meter_provider(),
+        'logger_provider': config.get_logger_provider(),
+    }
+    assert missing_library.instrument_calls == []
+    assert first.instrument_calls == [providers]
+    assert second.instrument_calls == [providers]
+
+
+def test_instrument_packages_fallback_skips_missing_libraries_quietly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # foo's package requires a library that isn't installed.
+    _install_fake_package(tmp_path, monkeypatch, 'foo', requires=('logfire-test-missing-library',))
+    # bar's package is usable, but this instrumentor needs a library that isn't installed.
+    _install_fake_package(
+        tmp_path, monkeypatch, 'bar', missing_library=_fake_instrumentor('logfire-test-missing-library')
+    )
+
+    # The test suite turns warnings into errors, so this also checks that nothing warns.
+    assert _instrument_fallback_packages('foo', 'bar') == []
+
+
+@pytest.mark.parametrize(
+    'error',
+    [
+        pytest.param(RuntimeError('broken instrumentor'), id='error'),
+        # Only a missing library is skipped quietly; a missing module warns like any other failure.
+        pytest.param(ModuleNotFoundError("No module named 'missing'"), id='missing-module'),
+    ],
+)
+def test_instrument_packages_fallback_warns_on_broken_instrumentor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: Exception
+) -> None:
+    _install_fake_package(tmp_path, monkeypatch, 'foo', broken=Mock(side_effect=error))
+
+    with pytest.warns(UserWarning) as warnings_record:
+        result = _instrument_fallback_packages('foo')
+
+    assert result == []
+    assert [str(w.message) for w in warnings_record] == [
+        f'Failed to instrument with logfire_test_instrumentors_foo:broken: {error!r}'
+    ]
+
+
+def test_instrument_packages_fallback_warns_when_package_requirements_cannot_be_checked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # OpenTelemetry can't parse this requirement, like old OpenTelemetry versions can't read any distribution.
+    _install_fake_package(tmp_path, monkeypatch, 'foo', requires=('not valid!',), foo=_fake_instrumentor())
+
+    with pytest.warns(UserWarning) as warnings_record:
+        result = _instrument_fallback_packages('foo')
+
+    assert result == []
+    # The explanation comes from `packaging`.
+    assert [str(w.message) for w in warnings_record] == [
+        IsStr(regex=r'Failed to instrument with opentelemetry-instrumentation-foo: InvalidRequirement\(.*')
+    ]
+
+
+def test_instrument_packages_fallback_warns_when_entry_points_cannot_be_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _install_fake_package(tmp_path, monkeypatch, 'foo')
+    # An entry point needs `name = module:attribute`, so a line without `=` is malformed.
+    (tmp_path / 'opentelemetry_instrumentation_foo-1.0.dist-info' / 'entry_points.txt').write_text(
+        '[opentelemetry_instrumentor]\nfoo\n'
+    )
+
+    with pytest.warns(UserWarning) as warnings_record:
+        result = _instrument_fallback_packages('foo')
+
+    assert result == []
+    # The explanation comes from `importlib.metadata`.
+    assert [str(w.message) for w in warnings_record] == [
+        IsStr(regex=r'Failed to instrument with opentelemetry-instrumentation-foo: TypeError\(.*')
+    ]
+
+
+@pytest.mark.parametrize(
+    'requires, dependencies, message',
+    [
+        pytest.param(
+            ('pytest>=999',),
+            (),
+            r'Failed to instrument with opentelemetry-instrumentation-foo: .*pytest>=999.*',
+            id='package',
+        ),
+        pytest.param(
+            (),
+            ('pytest>=999',),
+            r'Failed to instrument with logfire_test_instrumentors_foo:foo: .*pytest>=999.*',
+            id='instrumentor',
+        ),
+    ],
+)
+def test_instrument_packages_fallback_warns_on_unsupported_versions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    requires: tuple[str, ...],
+    dependencies: tuple[str, ...],
+    message: str,
+) -> None:
+    # pytest is installed, but no version of it satisfies `pytest>=999`.
+    _install_fake_package(tmp_path, monkeypatch, 'foo', requires=requires, foo=_fake_instrumentor(*dependencies))
+
+    with pytest.warns(UserWarning) as warnings_record:
+        result = _instrument_fallback_packages('foo')
+
+    assert result == []
+    # OpenTelemetry's explanation includes the installed pytest version.
+    assert [str(w.message) for w in warnings_record] == [IsStr(regex=message)]
+
+
+def test_instrument_packages_no_fallback_when_logfire_method_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    usable = _fake_instrumentor()
+    _install_fake_package(tmp_path, monkeypatch, 'foo', foo=usable)
+    fake_logfire = types.SimpleNamespace(instrument_foo=Mock(side_effect=RuntimeError('instrumentation failed')))
+    monkeypatch.setattr(logfire._internal.cli.run, 'logfire', fake_logfire)
+
+    result = instrument_packages({'opentelemetry-instrumentation-foo'}, {'opentelemetry-instrumentation-foo': 'foo'})
+
+    assert result == []
+    fake_logfire.instrument_foo.assert_called_once_with()
+    assert usable.instrument_calls == []
 
 
 def test_split_args_action() -> None:
@@ -6519,6 +6783,7 @@ def test_instrumented_packages_text_shows_starlette_without_fastapi_instrumentat
 def test_parse_run_no_script(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr('logfire.configure', configure_mock := Mock())
     monkeypatch.setattr('logfire._internal.cli.run.instrument_package', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.instrument_with_entry_points', Mock(return_value=False))
 
     with pytest.raises(SystemExit):
         main(['run', '--no-summary'])
@@ -6886,6 +7151,8 @@ def test_parse_run_instruments_packages_before_working_directory(
     monkeypatch.delitem(sys.modules, module_name, raising=False)
     context = Mock(installed_otel_pkgs={'opentelemetry-instrumentation-demo'})
     context.instrument_pkg_map = {'opentelemetry-instrumentation-demo': module_name}
+    # Give the fake package a Logfire method, so `logfire run` imports it through `instrument_package`.
+    monkeypatch.setattr(logfire, f'instrument_{module_name}', Mock(), raising=False)
     monkeypatch.setattr('logfire.configure', Mock())
     monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
     monkeypatch.setattr('logfire._internal.cli.run.instrument_package', importlib.import_module)
@@ -7457,3 +7724,413 @@ Logfire MCP server added to OpenCode.
 def test_main_module() -> None:
     """Test that logfire.__main__ is importable for coverage."""
     assert subprocess.run([sys.executable, '-m', 'logfire', '--help'], check=True).returncode == 0
+
+
+def test_projects_new_without_available_organizations(tmp_dir_cwd: Path, tmp_path: Path):
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        request_mocker = stack.enter_context(requests_mock.Mocker())
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/', json=[])
+
+        with pytest.raises(
+            LogfireConfigError,
+            match=(
+                'No organizations are available for project creation. '
+                'Create or join an organization in Logfire, then try again.'
+            ),
+        ):
+            main(['projects', 'new'])
+
+
+def test_projects_new_declines_organization_creation(tmp_path: Path) -> None:
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[False]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/writable-projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'fake_project'}],
+        )
+
+        with pytest.raises(SystemExit):
+            main(['projects', 'new'])
+
+        assert confirm_mock.mock_calls == [
+            call('The project will be created in the organization "fake_org". Continue?', default=True),
+        ]
+
+
+@pytest.mark.xdist_group(name='sequential')
+def test_projects_new_retries_rejected_names(tmp_dir_cwd: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True, True]))
+        prompt_mock = stack.enter_context(
+            mock.patch(
+                'rich.prompt.Prompt.ask',
+                side_effect=[
+                    'invalid project name',
+                    'existingprojectname',
+                    'reserved',
+                    'myproject',
+                    '',
+                ],
+            )
+        )
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
+
+        create_existing_project_request_json = {
+            'project_name': 'existingprojectname',
+        }
+        create_existing_project_response = {
+            'status_code': 409,
+        }
+
+        create_reserved_project_request_json = {
+            'project_name': 'reserved',
+        }
+        create_reserved_project_response = {
+            'status_code': 422,
+            'json': {
+                'detail': [
+                    {
+                        'loc': ['body', 'project_name'],
+                        'msg': 'This project name is reserved and cannot be used.',
+                    }
+                ],
+            },
+        }
+
+        create_project_request_json = {
+            'project_name': 'myproject',
+        }
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects',
+            [
+                create_existing_project_response,
+                create_reserved_project_response,
+                create_project_response,
+            ],
+        )
+
+        main(['projects', 'new'])
+        assert (
+            capsys.readouterr().err
+            == 'Project created successfully. You will be able to view it at: fake_project_url\n'
+        )
+
+        assert len(request_mocker.request_history) == 4
+        assert all(request.headers['Authorization'] == 'fake_user_token' for request in request_mocker.request_history)
+        assert request_mocker.request_history[1].json() == create_existing_project_request_json
+        assert request_mocker.request_history[2].json() == create_reserved_project_request_json
+        assert request_mocker.request_history[3].json() == create_project_request_json
+
+        assert confirm_mock.mock_calls == [
+            call('The project will be created in the organization "fake_org". Continue?', default=True),
+        ]
+        assert prompt_mock.mock_calls == [
+            call(
+                'Enter the project name',
+                default=sanitize_project_name(tmp_dir_cwd.name),
+            ),
+            call(
+                "\nThe project name you've entered is invalid. Valid project names:\n"
+                '  * may contain lowercase alphanumeric characters\n'
+                '  * may contain single hyphens\n'
+                '  * may not start or end with a hyphen\n\n'
+                'Enter the project name you want to use:',
+                default=sanitize_project_name(tmp_dir_cwd.name),
+            ),
+            call(
+                "\nA project with the name 'existingprojectname' already exists. Please enter a different project name",
+                default=...,
+            ),
+            call(
+                '\nThe project name you entered is invalid:\n'
+                'This project name is reserved and cannot be used.\n'
+                'Please enter a different project name',
+                default=...,
+            ),
+        ]
+
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
+@pytest.mark.xdist_group(name='sequential')
+@pytest.mark.parametrize(
+    ('default_organization', 'expected_prompt_default'),
+    [
+        ({'organization_name': 'fake_org1'}, 'fake_org1'),
+        (None, 'fake_org'),
+    ],
+)
+def test_projects_new_organization_prompt_defaults(
+    tmp_dir_cwd: Path,
+    tmp_path: Path,
+    default_organization: dict[str, str] | None,
+    expected_prompt_default: str,
+):
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        prompt_mock = stack.enter_context(
+            mock.patch('rich.prompt.Prompt.ask', side_effect=['fake_org', 'mytestproject1', ''])
+        )
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_org1'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/account/me',
+            json={'default_organization': default_organization},
+        )
+
+        create_project_response = {
+            'json': {
+                'project_name': 'mytestproject1',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects',
+            [create_project_response],
+        )
+
+        main(['projects', 'new'])
+
+        assert request_mocker.last_request is not None
+        assert request_mocker.last_request.json() == {'project_name': 'mytestproject1'}
+        assert prompt_mock.mock_calls == [
+            call(
+                '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
+                choices=['fake_org', 'fake_org1'],
+                default=expected_prompt_default,
+            ),
+            call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name)),
+        ]
+
+
+@pytest.mark.xdist_group(name='sequential')
+def test_projects_new_selects_organization_with_no_tty(tmp_dir_cwd: Path, tmp_path: Path):
+    """The organization-selection prompt already has `default=user_default_organization_name
+
+    or organizations[0]` -- the same outcome a person pressing Enter would get -- so an
+    exhausted stdin picks that organization instead of raising an `EOFError` traceback.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        prompt_mock = stack.enter_context(
+            mock.patch('rich.prompt.Prompt.ask', side_effect=[EOFError, 'mytestproject1', ''])
+        )
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_org1'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/account/me',
+            json={'default_organization': {'organization_name': 'fake_org1'}},
+        )
+
+        create_project_response = {
+            'json': {
+                'project_name': 'mytestproject1',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        # The default (`fake_org1`, from `account/me` above) is where the project must
+        # land -- if the EOF fallback picked the WRONG organization, this mock would 404
+        # instead of the create call succeeding.
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org1/projects',
+            [create_project_response],
+        )
+
+        main(['projects', 'new'])
+
+        assert request_mocker.last_request is not None
+        assert request_mocker.last_request.json() == {'project_name': 'mytestproject1'}
+        assert prompt_mock.mock_calls == [
+            call(
+                '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
+                choices=['fake_org', 'fake_org1'],
+                default='fake_org1',
+            ),
+            call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name)),
+        ]
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
+def test_projects_use_selects_project_with_no_tty(tmp_dir_cwd: Path, tmp_path: Path):
+    """An exhausted project-selection prompt uses its advertised first-project default."""
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=EOFError))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/writable-projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'fake_project'}],
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/fake_project/write-tokens/',
+            [create_project_response],
+        )
+
+        main(['projects', 'use'])
+
+        assert prompt_mock.mock_calls[0] == call(
+            "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/fake_project\n",
+            choices=['1'],
+            default='1',
+        )
+
+
+def test_projects_new_confirms_organization_with_no_tty(tmp_dir_cwd: Path, tmp_path: Path):
+    """Explicit project creation keeps its advertised organization-confirmation default on EOF."""
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=EOFError))
+        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['myproject', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects', [create_project_response]
+        )
+
+        main(['projects', 'new'])
+
+        assert confirm_mock.mock_calls == [
+            call('The project will be created in the organization "fake_org". Continue?', default=True),
+        ]
+        assert prompt_mock.mock_calls == [
+            call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name)),
+        ]
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
+def test_project_name_prompt_with_no_safe_default_and_no_tty_fails_with_guidance(
+    tmp_dir_cwd: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """A rejected project name has NO safe default left to fall back on ("Ellipsis" is a
+
+    sentinel meaning "an answer is required", not a suggestion -- see the comment beside
+    `project_name_default = ...`). So once the first name is rejected, an exhausted stdin
+    must raise the same guidance `--non-interactive` would rather than silently retrying
+    with a project literally named "Ellipsis".
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True]))
+        stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['existingprojectname', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects',
+            [{'status_code': 409}],
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['projects', 'new'])
+
+        assert exc_info.value.code == 1
+        message = capsys.readouterr().err
+        assert "A project with the name 'existingprojectname' already exists" in message
+        assert 'Cannot prompt because there is nothing left to read from stdin.' in message
+        assert 'logfire projects new PROJECT_NAME --org fake_org' in message
+
+        # No retry with the rejected name's sentinel default -- only the one doomed POST.
+        create_requests = [r for r in request_mocker.request_history if r.method == 'POST']
+        assert len(create_requests) == 1
+        assert not (tmp_dir_cwd / '.logfire/logfire_credentials.json').exists()

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from logging import NOTSET, Handler as LoggingHandler, LogRecord, StreamHandler
+from copy import copy
+from logging import CRITICAL, NOTSET, Handler as LoggingHandler, LogRecord, StreamHandler
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import logfire
@@ -59,6 +60,9 @@ class LogfireLoggingHandler(LoggingHandler):
         level: The threshold level for this handler. Logging messages which are less severe than *level* will be ignored.
         fallback: A fallback handler to use when [instrumentation is suppressed](../../how-to-guides/suppress.md#suppress-instrumentation).
         logfire_instance: The Logfire instance to use when emitting logs. Defaults to the default global instance.
+        console_log: Whether logs from this handler are also printed to the console by Logfire.
+            Set to `False` if another handler already prints them, to avoid duplicates.
+            Defaults to the setting of `logfire_instance`.
     """
 
     custom_scope_suffix: ClassVar[str] = 'stdlib.logging'
@@ -68,11 +72,12 @@ class LogfireLoggingHandler(LoggingHandler):
         level: int | str = NOTSET,
         fallback: LoggingHandler = StreamHandler(),
         logfire_instance: Logfire | None = None,
+        console_log: bool | None = None,
     ) -> None:
         super().__init__(level=level)
         self.fallback = fallback
         self.logfire_instance = (logfire_instance or logfire.DEFAULT_LOGFIRE_INSTANCE).with_settings(
-            custom_scope_suffix=self.custom_scope_suffix
+            custom_scope_suffix=self.custom_scope_suffix, console_log=console_log
         )
 
     def emit(self, record: LogRecord) -> None:
@@ -85,18 +90,41 @@ class LogfireLoggingHandler(LoggingHandler):
             self.fallback.handle(record)
             return
 
-        attributes = self.fill_attributes(record)
-        tags = attributes.pop(ATTRIBUTES_TAGS_KEY, None)
-        if isinstance(tags, str):
-            tags = (tags,)
+        # Like the handlers in the standard library, report a failure (e.g. a message that can't be formatted
+        # with its arguments) through `handleError` instead of raising from the application's logging call.
+        try:
+            attributes = self.fill_attributes(record)
+            tags = attributes.pop(ATTRIBUTES_TAGS_KEY, None)
+            if isinstance(tags, str):
+                tags = (tags,)
 
-        self.logfire_instance.log(
-            msg_template=attributes.pop(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, record.msg),
-            level=LOGGING_TO_OTEL_LEVEL_NUMBERS.get(record.levelno, record.levelno),
-            attributes=attributes,
-            tags=tags,
-            exc_info=record.exc_info,
-        )
+            self.logfire_instance.log(
+                msg_template=attributes.pop(ATTRIBUTES_MESSAGE_TEMPLATE_KEY, record.msg),
+                level=LOGGING_TO_OTEL_LEVEL_NUMBERS.get(min(record.levelno, CRITICAL), record.levelno),
+                attributes=attributes,
+                tags=tags,
+                exc_info=record.exc_info,
+            )
+        except Exception:
+            # Scrub the arguments that `handleError` prints to stderr, as we do for exported logs.
+            self.handleError(self._scrub_args(record))
+
+    def _scrub_args(self, record: LogRecord) -> LogRecord:
+        record = copy(record)
+        try:
+            scrub = self.logfire_instance.config.scrubber.scrub_value
+            args = record.args
+            # Scrub the values with the paths they have in the exported span, as a scrubbing callback can look at the path.
+            if not isinstance(args, Mapping):
+                record.args = tuple(scrub(('attributes', ATTRIBUTES_LOGGING_ARGS_KEY), args or ())[0])
+            elif _is_single_positional_argument(record.msg, args):
+                record.args = scrub(('attributes', ATTRIBUTES_LOGGING_ARGS_KEY), (args,))[0][0]
+            else:
+                record.args = scrub(('attributes',), dict(args))[0]
+        except Exception:  # pragma: no cover
+            # Never print arguments that couldn't be scrubbed.
+            record.args = None
+        return record
 
     def fill_attributes(self, record: LogRecord) -> dict[str, Any]:
         """Fill the attributes to send to Logfire.
@@ -119,6 +147,17 @@ class LogfireLoggingHandler(LoggingHandler):
         attributes.update(args)
 
         return attributes
+
+
+def _is_single_positional_argument(msg: Any, args: Mapping[str, Any]) -> bool:
+    """Whether `_format_message` treats the mapping `args` as one positional argument, not as keyword arguments."""
+    try:
+        _ = msg % (args,)
+    except TypeError:
+        return False
+    except Exception:
+        pass  # The message can't be formatted either way, and `_format_message` fails with this error too.
+    return True
 
 
 def _format_message(record: LogRecord) -> tuple[str, Mapping[str, Any]]:

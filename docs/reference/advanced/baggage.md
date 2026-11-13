@@ -52,7 +52,7 @@ Then you can update your query to
 
 ## Disabling
 
-If you don't want to add Baggage to span attributes, pass `add_baggage_to_attributes=False` to the
+If you do not want to add Baggage to span and log record attributes, pass `add_baggage_to_attributes=False` to the
 [`logfire.configure()`][logfire.configure] function. This may slightly improve performance.
 The [`set_baggage`][logfire.set_baggage] contextmanager will still update the OpenTelemetry Baggage and propagate it to other services.
 
@@ -84,6 +84,8 @@ or whether either service sets Baggage as span attributes. So it's important to 
 
 - **Don't put sensitive information in Baggage**, as it may be sent to third party services. While span attributes from baggage are still [scrubbed](../../how-to-guides/scrubbing.md) by default, the Baggage header itself is not scrubbed.
 - **Don't put large values in Baggage**, as this may add bloat to HTTP headers. Large values may also be dropped by servers instead of being propagated. This is one reason why Logfire truncates Baggage values longer than 1000 characters.
+
+The AI Gateway also reads the `Baggage` header and copies each entry onto the span it records. See [Gateway requests in your app's trace](gateway/telemetry.md).
 
 ### With other OpenTelemetry SDKs
 

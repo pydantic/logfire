@@ -105,7 +105,7 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
                 ToolCallResponsePart(
                     type='tool_call_response',
                     id=block.tool_use_id or '',
-                    response=block.content,  # type: ignore
+                    response=block.content,
                 )
             )
         else:
