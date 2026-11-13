@@ -190,6 +190,16 @@ navigation:
         aliases:
           - "how-to-guides/environments"
           - "get-started/environments"
+  - section: "Agent Sandboxes"
+    slug: ""
+    contents:
+      # The page source lives in pydantic/logfire-js/docs.
+      - page: "Agent Sandboxes"
+        path: "agent-sandboxes.md"
+        source: "typescript"
+        slug: "agent-sandboxes"
+        aliases:
+          - "instrument/typescript/agent-sandboxes"
   - section: "Integrations"
     slug: ""
     contents:
