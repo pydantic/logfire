@@ -42,7 +42,7 @@ asyncio.run(main())
 ```
 
 This prints `Tokyo`. The script made three tool calls, and the model reads one word.
-[Run code from Python](python.md) shows how to set this up. For Node.js, see
+[Run code from Python](python.md) shows how to set this up, including the project API key it needs. For Node.js, see
 [Run code from TypeScript](typescript.md).
 
 ## What this changes
@@ -88,12 +88,12 @@ With Agent Sandboxes, Logfire runs the sandboxes for you:
 - **A type check before the code runs**: the sandbox can check a script against your function signatures, and return
   the errors to the model before any of the script runs. See [Expose a typed module](typed-api.md).
 - **Tracing included**: Logfire records each session, code run, and tool call as a span inside your application's
-  trace. You can read the script an agent wrote and every value it used.
+  trace. You can read the script an agent wrote and the arguments and return values of its host function calls.
 
 ## How it works
 
 Your application opens a connection to the Agent Sandboxes server in your Logfire [data
-region](../reference/data-regions.md), using **gRPC** over one long-lived HTTP/2 connection between your application
+region](../reference/data-regions.md), using **gRPC** over a long-lived HTTP/2 connection between your application
 and the server.
 Each time you check out a session, the server gives you a dedicated sandbox.
 You send code to it, and it sends back the result, printed output, and any calls to your host functions.

@@ -52,7 +52,8 @@ You also need a non-personal project API key with permission to run code in your
 
 Only project administrators can create a key here.
 Keys created on the setup page expire after 30 days, or sooner if your organization limits key lifetime.
-These keys can also send telemetry, so the same `LOGFIRE_API_KEY` works for `logfire.configure()`.
+These keys also have the Send telemetry scope (`project:write_otlp`), so the same `LOGFIRE_API_KEY` works for
+`logfire.configure()`.
 
 <img src="/logfire/images/guide/agent-sandboxes/connect-key.webp" alt="Setup page with the Choose an execution key step, showing Create execution key, Use existing key, and View API keys" width="620" height="180" loading="lazy" />
 
@@ -78,7 +79,7 @@ See [Use API keys](../reference/advanced/use-api-keys.md) for more about keys an
 
 {{ install_logfire(extras=['agent-sandboxes']) }}
 
-The extra installs `pydantic-monty-client`, the client for Pydantic Monty sandboxes.
+The extra installs `pydantic-monty-client` 1.6.0 or later, the client for Pydantic Monty sandboxes.
 
 ## Run your first snippet
 

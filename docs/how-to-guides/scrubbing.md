@@ -6,6 +6,8 @@ description: "Learn how to use Logfire to keep logs & sensitive data safe: Autom
 
 The **Logfire** SDK scans for and redacts potentially sensitive data from logs and spans before exporting them.
 
+Scrubbing applies only to data that the SDK has not sent yet. If sensitive data already reached Logfire, delete it with a [deletion job](data-deletion.md).
+
 ## Disabling scrubbing
 
 To disable scrubbing entirely, set [`scrubbing`][logfire.configure(scrubbing)] to `False`:
@@ -86,12 +88,49 @@ def scrubbing_callback(match: logfire.ScrubMatch):
 logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
 ```
 
+Logfire scrubs a value before checking whether its key matches a pattern. This includes strings and values inside dictionaries, lists, and JSON-encoded containers. Your callback for a matching key receives the scrubbed value, so it can return that value unchanged or return a subset of a container. If it returns a different value, Logfire uses that replacement without scrubbing it again. Values under safe keys remain exempt from scrubbing.
+
+If the callback returns a string unchanged (or returns an equal string of the same type), Logfire checks later positions in the same key or string value for other matches. A different returned string is used as the final value. After 100 allowed matches in one string, Logfire redacts the value to limit the search cost.
+
 !!! warning "Keep scrubbing callbacks simple and pure"
 
     Base your callback on the match and any configuration that is safe to share across threads.
     Request-local values, such as values stored in a Python `ContextVar`, may be unavailable on the background thread.
     The callback should not have side effects.
+    Do not mutate `match.value` in place. Logfire may not detect the change, so the mutated value may not be written back.
+    If the callback raises an exception, Logfire logs the error and redacts the matched value as though the callback returned `None`. Scrubbing then continues.
     It should return quickly, as it can get called many times.
+
+## Masking part of a string
+
+Use [`transform_string`][logfire.ScrubbingOptions.transform_string] to replace sensitive text while keeping the rest of a value. The callback receives the string and its path:
+
+```python
+import re
+
+import logfire
+from logfire.types import StringValue
+
+
+def mask_email(item: StringValue) -> str:
+    if '@' not in item.value:
+        return item.value
+    return re.sub(r'\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b', '[email]', item.value)
+
+
+logfire.configure(scrubbing=logfire.ScrubbingOptions(transform_string=mask_email))
+logfire.info('Contact {email}', email='alice@example.com')
+```
+
+The exported `email` attribute and formatted message contain `[email]`. The callback runs on string values inside JSON and under keys that are exempt from pattern matching. Pattern matching runs on the returned string where permitted.
+
+The callback runs for every string the scrubber reaches, including large values. The email regex above is illustrative and can take quadratic time on long strings containing `@`; the initial `@` check does not prevent that. Check the performance of your matcher on the longest values you expect to log.
+
+!!! warning "Choose a fallback for masking errors"
+
+    If `transform_string` raises an exception, Logfire logs the error and keeps the original string. Pattern matching still runs where permitted, but a value such as an email address may be exported unchanged.
+
+    If you handle errors inside your callback, redact only values you know are sensitive. A catch-all handler that returns `'[redacted]'` for every error could replace every string if the transformer breaks, leaving little usable telemetry.
 
 ## When Logfire scrubs spans
 
