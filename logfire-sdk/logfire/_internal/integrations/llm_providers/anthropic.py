@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from inspect import signature
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -117,7 +117,7 @@ def get_endpoint_config(
 
         if 2 in versions:
             # Convert messages to semantic convention format
-            messages: list[dict[str, Any]] = json_data.get('messages', [])
+            messages: Iterable[dict[str, Any]] = json_data.get('messages', [])
             system: str | list[dict[str, Any]] | None = json_data.get('system')
             if messages or system:
                 # The Anthropic SDK accepts `messages` as any iterable. Materialize a
