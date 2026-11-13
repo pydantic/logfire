@@ -86,6 +86,7 @@ Available scopes depend on whether you're creating an organization or project AP
 | Query telemetry (`project:read_otlp`) | Specific project only | ✓              |
 | Read datasets (`project:read_datasets`) | ✓                  | ✓               |
 | Write datasets (`project:write_datasets`) | ✓                 | ✓               |
+| Run code in this project's agent sandboxes (`project:execute_agent_sandboxes`) | Specific project only | ✓ |
 | Project settings                     | ✓                    | ✓               |
 | Write tokens management              | ✓                    | ✓               |
 | Read tokens management               | ✓                    | ✓               |
@@ -94,6 +95,10 @@ Available scopes depend on whether you're creating an organization or project AP
 | Variables management                 | ✓                    | ✓               |
 
 Dataset permissions can be assigned to organization-wide keys, but the [datasets SDK](../../evaluate/datasets-sdk.md#creating-a-client) requires a key scoped to a specific project.
+
+[Agent Sandboxes](../../agent-sandboxes/index.md) need a key with the `project:execute_agent_sandboxes` scope that is
+limited to one project: a [project API key](#project-api-key), or an organization API key limited to one project.
+They reject [personal](#personal-api-keys) API keys, and organization API keys that have access to all projects.
 
 !!! info
     Select only the scopes your application needs to follow the principle of least privilege.
