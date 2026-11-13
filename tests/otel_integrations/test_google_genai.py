@@ -1,9 +1,13 @@
+import asyncio
+import json
 import os
 import warnings
 from importlib.metadata import version as package_version
+from typing import Any
 from unittest import mock
 from unittest.mock import patch
 
+import httpx
 import pydantic
 import pytest
 from dirty_equals import IsInt, IsPartialDict, IsStr
@@ -415,3 +419,108 @@ def test_instrument_google_genai_emit_event_opt_in(capfire: CaptureLogfire) -> N
 
     [log] = capfire.log_exporter.exported_logs_as_dicts()
     assert log['attributes']['gen_ai.operation.name'] == 'generate_content'
+
+
+GATEWAY_COST_BLOCK = {'logfire_ai_gateway': {'cost': '0.0256'}}
+
+
+def gateway_client(final_parts: list[dict[str, Any]], headers: dict[str, str]) -> Any:
+    """A client for a fake AI Gateway. A stream sends a first chunk, then the final chunk with `final_parts`."""
+    from google.genai import Client, types
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        final = {
+            'candidates': [{'content': {'role': 'model', 'parts': final_parts}, 'finishReason': 'STOP'}],
+            'usageMetadata': {'promptTokenCount': 7, 'candidatesTokenCount': 249, 'totalTokenCount': 256},
+            'modelVersion': 'gemini-2.5-flash',
+        }
+        if not request.url.path.endswith(':streamGenerateContent'):
+            return httpx.Response(200, json=final, headers=headers)
+        first = {
+            'candidates': [{'content': {'role': 'model', 'parts': [{'text': 'Hi'}]}}],
+            'modelVersion': 'gemini-2.5-flash',
+        }
+        body = ''.join(f'data: {json.dumps(chunk)}\r\n\r\n' for chunk in (first, final))
+        return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream', **headers})
+
+    transport = httpx.MockTransport(handler)
+    return Client(
+        http_options=types.HttpOptions(client_args={'transport': transport}, async_client_args={'transport': transport})
+    )
+
+
+def call_gemini(client: Any, stream: bool, use_async: bool) -> None:
+    kwargs: dict[str, Any] = {'model': 'gemini-2.5-flash', 'contents': 'Say hi'}
+    if not use_async:
+        if stream:
+            list(client.models.generate_content_stream(**kwargs))
+        else:
+            client.models.generate_content(**kwargs)
+        return
+
+    async def run() -> None:
+        if stream:
+            [chunk async for chunk in await client.aio.models.generate_content_stream(**kwargs)]
+        else:
+            await client.aio.models.generate_content(**kwargs)
+
+    asyncio.run(run())
+
+
+def span_cost(exporter: TestExporter) -> object:
+    [span] = exporter.exported_spans_as_dict()
+    return span['attributes'].get('operation.cost')
+
+
+@pytest.mark.parametrize('use_async', [False, True], ids=['sync', 'async'])
+@pytest.mark.parametrize('stream', [False, True], ids=['buffered', 'stream'])
+def test_gateway_cost(exporter: TestExporter, stream: bool, use_async: bool) -> None:
+    """A non-streamed response has the cost in a header, and a stream in `part_metadata` of its final part."""
+    logfire.instrument_google_genai()
+    if stream:
+        client = gateway_client([{'text': '!', 'thoughtSignature': 'c2ln', 'partMetadata': GATEWAY_COST_BLOCK}], {})
+    else:
+        client = gateway_client([{'text': 'Hi!'}], {'Logfire-AI-Gateway-Cost': '0.0125USD'})
+
+    call_gemini(client, stream, use_async)
+
+    assert span_cost(exporter) == (0.0256 if stream else 0.0125)
+
+
+def test_gateway_cost_on_added_empty_part(exporter: TestExporter) -> None:
+    """When the final chunk has no parts, the gateway adds an empty text part to carry the cost."""
+    logfire.instrument_google_genai()
+    call_gemini(gateway_client([{'text': '', 'partMetadata': GATEWAY_COST_BLOCK}], {}), stream=True, use_async=False)
+    assert span_cost(exporter) == 0.0256
+
+
+@pytest.mark.parametrize('stream', [False, True], ids=['buffered', 'stream'])
+def test_no_gateway_cost(exporter: TestExporter, stream: bool) -> None:
+    logfire.instrument_google_genai()
+    call_gemini(gateway_client([{'text': 'Hi!', 'partMetadata': {'other': 1}}], {}), stream, use_async=False)
+    assert span_cost(exporter) is None
+
+
+@pytest.mark.parametrize('stream', [False, True], ids=['buffered', 'stream'])
+def test_internal_exception_in_gateway_cost_keeps_the_response(
+    exporter: TestExporter, caplog: pytest.LogCaptureFixture, stream: bool
+) -> None:
+    logfire.instrument_google_genai()
+    client = gateway_client([{'text': '!'}], {})
+    with patch(
+        'logfire._internal.integrations.google_genai._gateway_cost', side_effect=RuntimeError('cost lookup failed')
+    ):
+        if stream:
+            response_text = ''.join(
+                chunk.text for chunk in client.models.generate_content_stream(model='gemini-2.5-flash', contents='Hi')
+            )
+        else:
+            response_text = client.models.generate_content(model='gemini-2.5-flash', contents='Hi').text
+
+    assert response_text == ('Hi!' if stream else '!')
+    assert 'Caught an internal error in Logfire' in caplog.text
+    assert 'cost lookup failed' in caplog.text
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['gen_ai.usage.input_tokens'] == 7
+    assert span['attributes']['gen_ai.usage.output_tokens'] == 249
+    assert 'operation.cost' not in span['attributes']
