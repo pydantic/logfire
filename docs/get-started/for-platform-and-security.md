@@ -13,17 +13,19 @@ Each link says why it's here.
 
 1. **[Scrub sensitive data](../how-to-guides/scrubbing.md)**: the SDK scans traces and logs and redacts likely-sensitive values (passwords, tokens, and personally identifiable information, or PII) *before* they're sent to Logfire. Start here to control exactly what leaves your machines and to add your own redaction rules. Note one gap the guide explains: LLM prompt and response content is not scrubbed by default, so use `include_content=False` when those messages may carry secrets.
 
-2. **[Choose your data region](../reference/data-regions.md)**: Logfire stores data in separate US and EU regions, and your region follows the URL you sign up at. Your account in each region is separate, with its own login and data, and nothing is shared between them, so choose up front for data residency and local regulations; a project's data stays in its region.
+2. **[Delete data that already reached Logfire](../how-to-guides/data-deletion.md)**: if sensitive data was sent before you scrubbed it, delete it with a deletion job. You write a SQL condition, preview the matching rows, and Logfire removes them. Available on the Growth and Enterprise Cloud plans and on self-hosted Enterprise deployments.
 
-3. **[Compliance](../compliance.md)**: Logfire is SOC 2 Type II certified and HIPAA compliant, offers business associate agreements (BAAs), and provides an EU region for GDPR. Use this page to request the SOC 2 report and other documentation.
+3. **[Choose your data region](../reference/data-regions.md)**: Logfire stores data in separate US and EU regions, and your region follows the URL you sign up at. Your account in each region is separate, with its own login and data, and nothing is shared between them, so choose up front for data residency and local regulations; a project's data stays in its region.
 
-4. **[Single sign-on (SSO) setup](../how-to-guides/sso-setup.md)**: let your team sign in through your existing identity provider (Microsoft Entra ID, Okta, or a Keycloak OpenID Connect (OIDC) provider) instead of separate Logfire logins. Available on Enterprise Cloud.
+4. **[Compliance](../compliance.md)**: Logfire is SOC 2 Type II certified and HIPAA compliant, offers business associate agreements (BAAs), and provides an EU region for GDPR. Use this page to request the SOC 2 report and other documentation.
 
-5. **[SCIM provisioning](../scim-provisioning.md)**: let your identity provider discover existing Logfire users and synchronize organization and project access through mapped groups, using the System for Cross-domain Identity Management (SCIM) standard. Available on Enterprise deployments.
+5. **[Single sign-on (SSO) setup](../how-to-guides/sso-setup.md)**: let your team sign in through your existing identity provider (Microsoft Entra ID, Okta, or a Keycloak OpenID Connect (OIDC) provider) instead of separate Logfire logins. Available on Enterprise Cloud.
 
-6. **[Self-hosted Logfire](../reference/self-hosted/overview.md)**: run the whole platform inside your own infrastructure when data can't leave your network at all. Covers production requirements, installation, and day-to-day operations.
+6. **[SCIM provisioning](../scim-provisioning.md)**: let your identity provider discover existing Logfire users and synchronize organization and project access through mapped groups, using the System for Cross-domain Identity Management (SCIM) standard. Available on Enterprise deployments.
 
-7. **[Billing and usage](../logfire-costs.md)**: understand what's metered (every span, log, and metric you send), the free monthly allowance, and the per-million rate above it, so cost holds no surprises.
+7. **[Self-hosted Logfire](../reference/self-hosted/overview.md)**: run the whole platform inside your own infrastructure when data can't leave your network at all. Covers production requirements, installation, and day-to-day operations.
+
+8. **[Billing and usage](../logfire-costs.md)**: understand what's metered (every span, log, and metric you send), the free monthly allowance, and the per-million rate above it, so cost holds no surprises.
 
 ## Related
 

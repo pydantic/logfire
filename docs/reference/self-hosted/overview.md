@@ -27,12 +27,13 @@ A production deployment needs:
 
 * A Kubernetes cluster with enough capacity for the selected sizing preset.
 * Image pull credentials for Logfire's private images.
-* PostgreSQL 16 or later.
-* Three PostgreSQL databases: one for Logfire application data, one for FusionFire metadata, and one for Dex.
+* PostgreSQL, with three databases: one for Logfire application data, one for FusionFire metadata, and one for Dex.
 * Object storage using Amazon S3, Google Cloud Storage, Azure Storage, or an S3-compatible provider.
-* A managed Redis instance. Redis Cluster mode is not supported.
+* A managed Redis instance.
 * An identity provider supported by [Dex](https://dexidp.io/docs/connectors/).
 * Kubernetes storage for scratch and ingest volumes, either through a default `StorageClass` or explicit storage class settings in values.
+
+[Production requirements](./installation.md) explains what to decide for each service. The [Logfire Helm chart README](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire) of your chart version states the supported versions and settings.
 
 ## Upgrades
 

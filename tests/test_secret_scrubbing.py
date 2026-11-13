@@ -22,6 +22,7 @@ from logfire._internal.exporters.processor_wrapper import SpanProcessorGroup
 from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
+from logfire.types import StringValue
 
 
 def test_span_processor_group_flushes_after_failure():
@@ -298,6 +299,28 @@ def test_callback_equal_value_with_different_type_is_final():
     assert notes == []
 
 
+def test_callback_value_with_ambiguous_equality_is_final():
+    class IncomparableStr(str):
+        def __eq__(self, other: object) -> bool:
+            raise RuntimeError('cannot compare')
+
+    replacement = IncomparableStr('allowed')
+    matches: list[str] = []
+
+    def callback(match: logfire.ScrubMatch):
+        matches.append(match.pattern_match.group(0))
+        if match.path == ('attributes', 'password_secret'):
+            return replacement
+
+    result, notes = Scrubber(None, callback).scrub_value(
+        ('attributes',), {'password_secret': IncomparableStr('allowed')}
+    )
+
+    assert result['password_secret'] is replacement
+    assert matches == ['password']
+    assert notes == []
+
+
 @pytest.mark.parametrize(
     'value', [b'password=hunter2', bytearray(b'password=hunter2'), memoryview(b'password=hunter2')]
 )
@@ -315,6 +338,18 @@ def test_callback_whitelisted_key_scrubs_binary_value(value: bytes | bytearray |
 def test_callback_whitelists_key_but_scrubs_string_value():
     def callback(match: logfire.ScrubMatch):
         if match.pattern_match.string == 'password_hint':
+            return match.value
+
+    result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': 'secret=hunter2'})
+
+    assert result == {'password_hint': "[Scrubbed due to 'secret']"}
+    assert notes == [{'path': ('attributes', 'password_hint'), 'matched_substring': 'secret'}]
+
+
+def test_callback_receives_scrubbed_string_before_key_match():
+    def callback(match: logfire.ScrubMatch):
+        if match.pattern_match.string == 'password_hint':
+            assert match.value == "[Scrubbed due to 'secret']"
             return match.value
 
     result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': 'secret=hunter2'})
@@ -618,6 +653,83 @@ def test_scrub_binary_values(value: bytes, expected: bytes | str, expected_notes
     assert [note['matched_substring'] for note in scrubbed_notes] == expected_notes
 
 
+def test_transform_string_before_pattern_callback_and_inside_json():
+    seen: list[StringValue] = []
+    matches: list[logfire.ScrubMatch] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    def callback(match: logfire.ScrubMatch):
+        matches.append(match)
+        if match.path == ('attributes', 'password_hint'):
+            assert match.value == '[email]'
+            return match.value
+
+    result, notes = Scrubber(None, callback, transform).scrub_value(
+        ('attributes',), {'password_hint': 'alice@example.com', 'data': '{ "contact": "alice@example.com" }'}
+    )
+
+    assert result == {'password_hint': '[email]', 'data': '{"contact":"[email]"}'}
+    assert notes == []
+    assert [(value.path, value.value) for value in seen] == [
+        (('attributes', 'password_hint'), 'alice@example.com'),
+        (('attributes', 'data', 'contact'), 'alice@example.com'),
+    ]
+    assert [(match.path, match.value) for match in matches] == [(('attributes', 'password_hint'), '[email]')]
+
+
+def test_transform_string_in_safe_key_skips_all_nested_patterns():
+    def transform(value: StringValue) -> str:
+        return value.value.replace('alice@example.com', '[email]')
+
+    original = {'do_not_scrub': {'password': 'secret=alice@example.com', 'data': '{"secret":"alice@example.com"}'}}
+    result, notes = Scrubber(None, transform_string=transform).scrub_value(('attributes',), original)
+
+    assert result == {'do_not_scrub': {'password': 'secret=[email]', 'data': '{"secret":"[email]"}'}}
+    assert notes == []
+    result_without_transform, notes_without_transform = Scrubber(None).scrub_value(('attributes',), original)
+    assert result_without_transform == original
+    assert result_without_transform['do_not_scrub'] is original['do_not_scrub']
+    assert notes_without_transform == []
+
+
+def test_internal_exception_in_transform_string_keeps_value_and_continues_pattern_search(
+    caplog: pytest.LogCaptureFixture,
+):
+    def transform(value: StringValue) -> str:
+        raise ValueError('transform failed')
+
+    result, notes = Scrubber(None, transform_string=transform).scrub_value(
+        ('attributes',), {'plain': 'alice@example.com', 'password': 'hunter2', 'do_not_scrub': 'secret=hunter2'}
+    )
+
+    assert result == {
+        'plain': 'alice@example.com',
+        'password': "[Scrubbed due to 'password']",
+        'do_not_scrub': 'secret=hunter2',
+    }
+    assert notes == [{'path': ('attributes', 'password'), 'matched_substring': 'password'}]
+    assert 'transform failed' in caplog.text
+
+
+def test_transform_string_writes_attributes_without_scrubbed_note(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    logfire.configure(
+        **config_kwargs,
+        scrubbing=logfire.ScrubbingOptions(
+            transform_string=lambda value: value.value.replace('alice@example.com', '[email]')
+        ),
+    )
+    logfire.info('Example', contact='alice@example.com')
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['contact'] == '[email]'
+    assert 'logfire.scrubbed' not in span['attributes']
+
+
 @pytest.mark.parametrize('error_type', [ValueError, RecursionError])
 def test_scrub_json_that_cannot_be_parsed(monkeypatch: pytest.MonkeyPatch, error_type: type[Exception]):
     """A parse error must redact the text instead of aborting scrubbing of the whole span."""
@@ -685,7 +797,7 @@ def test_internal_exception_in_scrubbing_callback_does_not_export_secrets(
 def test_callback_whitelists_container_key_but_scrubs_contents(container: Any, copy_container: bool):
     def callback(match: logfire.ScrubMatch):
         if match.path == ('attributes', 'password_hint'):
-            return container.copy() if copy_container else match.value
+            return match.value.copy() if copy_container else match.value
 
     result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': container})
 
@@ -697,6 +809,41 @@ def test_callback_whitelists_container_key_but_scrubs_contents(container: Any, c
         else ('attributes', 'password_hint', 'password')
     )
     assert notes == [{'path': expected_path, 'matched_substring': 'password'}]
+
+
+def test_callback_receives_scrubbed_container_before_returning_subset():
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'password_hint'):
+            assert match.value == {'password': "[Scrubbed due to 'password']", 'keep': 'yes'}
+            return {'password': match.value['password']}
+
+    result, notes = Scrubber(None, callback).scrub_value(
+        ('attributes',), {'password_hint': {'password': 'hunter2', 'keep': 'yes'}}
+    )
+
+    assert result == {'password_hint': {'password': "[Scrubbed due to 'password']"}}
+    assert notes == [{'path': ('attributes', 'password_hint', 'password'), 'matched_substring': 'password'}]
+
+
+def test_non_string_child_key_does_not_prevent_parent_redaction():
+    result, notes = Scrubber(None).scrub_value(('attributes',), {'credentials': {1: 'enabled'}})
+
+    assert result == {'credentials': "[Scrubbed due to 'credential']"}
+    assert notes == [{'path': ('attributes', 'credentials'), 'matched_substring': 'credential'}]
+
+
+def test_callback_receives_scrubbed_json_attribute(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'password_hint'):
+            value = json.loads(match.value)
+            assert value == {'password': "[Scrubbed due to 'password']", 'keep': 'yes'}
+            return json.dumps({'password': value['password']})
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
+    logfire.info('Example', password_hint={'password': 'hunter2', 'keep': 'yes'})
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['password_hint'] == {'password': "[Scrubbed due to 'password']"}
 
 
 def test_callback_equal_container_copy_only_rewrites_json_when_nested_value_changes():
@@ -724,7 +871,7 @@ def test_callback_changed_container_is_final():
     result, notes = Scrubber(None, callback).scrub_value(('attributes',), {'password_hint': {'password': 'hunter2'}})
 
     assert result == {'password_hint': replacement}
-    assert notes == []
+    assert notes == [{'path': ('attributes', 'password_hint', 'password'), 'matched_substring': 'password'}]
 
 
 def test_callback_container_with_ambiguous_equality_is_final():
@@ -743,7 +890,7 @@ def test_callback_container_with_ambiguous_equality_is_final():
     )
 
     assert result['password_hint'] is replacement
-    assert notes == []
+    assert notes == [{'path': ('attributes', 'password_hint', 'password'), 'matched_substring': 'password'}]
 
 
 class PasswordError(Exception):
@@ -1053,6 +1200,7 @@ def test_fstring_magic_scrubbing(exporter: TestExporter):
                     'logfire.scrubbed': IsJson(
                         [
                             {'path': ['message', 'password'], 'matched_substring': 'secret'},
+                            {'path': ['attributes', 'password'], 'matched_substring': 'secret'},
                             {'path': ['attributes', 'password'], 'matched_substring': 'password'},
                         ]
                     ),
