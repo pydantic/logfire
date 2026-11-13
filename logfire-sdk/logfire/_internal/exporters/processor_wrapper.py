@@ -28,6 +28,7 @@ from ..constants import (
 )
 from ..db_statement_summary import message_from_db_statement
 from ..integrations.llm_providers.semconv import PROVIDER_NAME
+from ..json_encoder import to_otlp_value
 from ..json_schema import JsonSchemaProperties, attributes_json_schema
 from ..scrubbing import BaseScrubber
 from ..utils import (
@@ -541,7 +542,7 @@ def _transform_langsmith_span_attributes(
                     except Exception:  # pragma: no cover
                         message_events += [_transform_langchain_message(output_value['output'])]
 
-        new_attributes['all_messages_events'] = json.dumps(message_events)
+        new_attributes['all_messages_events'] = to_otlp_value(message_events)
 
     return attributes, new_attributes
 
@@ -677,7 +678,7 @@ def _transform_litellm_span(span: ReadableSpanDict):
             if 'model' in parsed_output_value:  # pragma: no branch
                 new_attrs['gen_ai.response.model'] = parsed_output_value['model']
 
-        new_attrs['response_data'] = json.dumps({'message': message})
+        new_attrs['response_data'] = to_otlp_value({'message': message})
     except Exception:  # pragma: no cover
         return
 

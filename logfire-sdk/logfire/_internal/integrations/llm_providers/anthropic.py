@@ -73,10 +73,10 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
         span_data[REQUEST_TOP_K] = top_k
 
     if (stop_sequences := json_data.get('stop_sequences')) is not None:
-        span_data[REQUEST_STOP_SEQUENCES] = json.dumps(stop_sequences)
+        span_data[REQUEST_STOP_SEQUENCES] = stop_sequences
 
     if (tools := json_data.get('tools')) is not None:
-        span_data[TOOL_DEFINITIONS] = json.dumps(tools)
+        span_data[TOOL_DEFINITIONS] = tools
 
 
 def _versioned_stream_cls(

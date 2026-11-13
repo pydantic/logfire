@@ -161,8 +161,11 @@ def main() -> None:
         # wheel resolution and the meta-package's forwarding of SDK extras.
         # A reused development version needs an explicit reinstall to replace
         # the published monolith with the local split package.
+        # The SDK wheel is also passed as a direct URL: between releases its version can
+        # already exist on PyPI with different dependencies, and pip may otherwise pick that one.
         installer.install(
             f'logfire[sqlite3] @ {meta_wheel.as_uri()}',
+            f'logfire-sdk @ {sdk_wheel.as_uri()}',
             upgrade=True,
             force=args.from_version == target_version,
         )
