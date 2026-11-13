@@ -70,7 +70,7 @@ def make_client(model_id: str) -> Iterator[AnthropicBedrock]:
             aws_session_token='test-session-token',
             http_client=http_client,
         )
-        with logfire.instrument_anthropic(version=[1, 'latest']):
+        with logfire.instrument_anthropic(version=[1, 'latest'], suppress_other_instrumentation=True):
             yield client
 
 
@@ -254,7 +254,7 @@ def make_proxy_client(model_id: str) -> Iterator[Anthropic]:
         client = Anthropic(
             api_key='test-key', base_url='https://llm-proxy.internal.example/v1', http_client=http_client
         )
-        with logfire.instrument_anthropic(version=[1, 'latest']):
+        with logfire.instrument_anthropic(version=[1, 'latest'], suppress_other_instrumentation=True):
             yield client
 
 

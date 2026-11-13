@@ -97,6 +97,22 @@ Not seeing your model calls in Logfire? Check these first:
 
 ## Advanced
 
+### Control HTTPX spans in Logfire 6
+
+In Logfire 6, `instrument_anthropic()` no longer suppresses other OpenTelemetry instrumentation by default.
+If you also enable [HTTPX instrumentation](../http-clients/httpx.md), its request spans appear as descendants
+of the Logfire Anthropic span. Recent Anthropic SDKs also emit their own OpenTelemetry spans, which can appear
+between them. This can increase the number of spans you store; it does not enable HTTPX instrumentation for you.
+
+To keep the pre-v6 behavior, explicitly enable suppression:
+
+```python hl_lines="4"
+import logfire
+
+logfire.configure()
+logfire.instrument_anthropic(suppress_other_instrumentation=True)
+```
+
 ### Keep legacy attributes during migration
 
 Logfire uses semantic convention version 2 by default. If your queries or dashboards still depend

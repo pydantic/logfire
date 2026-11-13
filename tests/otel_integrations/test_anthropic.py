@@ -158,7 +158,7 @@ def instrumented_client() -> Iterator[anthropic.Anthropic]:
         # use a hardcoded API key to make sure one in the environment is never used
         anthropic_client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
 
-        with logfire.instrument_anthropic(anthropic_client, version=[1, 'latest']):
+        with logfire.instrument_anthropic(anthropic_client, version=[1, 'latest'], suppress_other_instrumentation=True):
             yield anthropic_client
 
 
@@ -169,8 +169,47 @@ async def instrumented_async_client() -> AsyncIterator[anthropic.AsyncAnthropic]
         anthropic_client = anthropic.AsyncAnthropic(api_key='foobar', http_client=httpx_client)
 
         # Test instrumenting EVERYTHING
-        with logfire.instrument_anthropic(version=[1, 'latest']):
+        with logfire.instrument_anthropic(version=[1, 'latest'], suppress_other_instrumentation=True):
             yield anthropic_client
+
+
+@pytest.mark.parametrize('suppress_httpx', [False, True], ids=['default', 'suppressed'])
+def test_httpx_spans_follow_suppression(exporter: TestExporter, suppress_httpx: bool) -> None:
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        logfire.instrument_httpx(httpx_client)
+        client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
+        instrumentation = (
+            logfire.instrument_anthropic(client, suppress_other_instrumentation=True)
+            if suppress_httpx
+            else logfire.instrument_anthropic(client)
+        )
+        with instrumentation:
+            response = client.messages.create(
+                max_tokens=1000,
+                model='claude-3-haiku-20240307',
+                system='You are a helpful assistant.',
+                messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+            )
+
+    assert isinstance(response.content[0], TextBlock)
+    assert response.content[0].text == 'Nine'
+    spans = exporter.exported_spans_as_dict(include_instrumentation_scope=True)
+    [llm_span] = [
+        span for span in spans if span['instrumentation_scope'].startswith('logfire') and span['parent'] is None
+    ]
+    if suppress_httpx:
+        assert spans == [llm_span]
+    else:
+        [httpx_span] = [
+            span for span in spans if span['instrumentation_scope'] == 'opentelemetry.instrumentation.httpx'
+        ]
+        parent = httpx_span['parent']
+        for _ in spans:
+            if parent == llm_span['context']:
+                break
+            parent = next((span['parent'] for span in spans if span['context'] == parent), None)
+        else:
+            pytest.fail('HTTPX span is not a descendant of the Logfire Anthropic span')
 
 
 def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
@@ -767,7 +806,7 @@ def test_streamed_tool_arguments(beta: bool, exporter: TestExporter) -> None:
         api_key='test',
         http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, text=body))),
     )
-    with logfire.instrument_anthropic(client):
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
         messages = client.beta.messages if beta else client.messages
         with messages.create(
             model='claude-haiku-4-5',
@@ -1470,7 +1509,7 @@ def test_get_endpoint_config_v2_messages_no_system() -> None:
 def test_sync_messages_version_latest(exporter: TestExporter) -> None:
     """Test that version='latest' uses semconv attributes with minimal request_data and no response_data."""
     client = anthropic.Anthropic(api_key='foobar')
-    logfire.instrument_anthropic(client, version='latest')
+    logfire.instrument_anthropic(client, version='latest', suppress_other_instrumentation=True)
     response = client.messages.create(
         max_tokens=1000,
         model='claude-sonnet-4-20250514',
@@ -1560,7 +1599,7 @@ def test_sync_messages_version_latest(exporter: TestExporter) -> None:
 def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
     """Test that version=1 does not emit gen_ai.input.messages or gen_ai.output.messages."""
     client = anthropic.Anthropic(api_key='foobar')
-    logfire.instrument_anthropic(client, version=1)
+    logfire.instrument_anthropic(client, version=1, suppress_other_instrumentation=True)
     response = client.messages.create(
         max_tokens=1000,
         model='claude-sonnet-4-20250514',
@@ -1676,7 +1715,7 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
 def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
     """Test that streaming with version='latest' emits semconv attributes without response_data."""
     client = anthropic.Anthropic(api_key='foobar')
-    logfire.instrument_anthropic(client, version='latest')
+    logfire.instrument_anthropic(client, version='latest', suppress_other_instrumentation=True)
     response = client.messages.create(
         max_tokens=1000,
         model='claude-sonnet-4-20250514',
@@ -1817,7 +1856,7 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
 def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
     """Test that streaming with version=1 emits response_data without semconv message attributes."""
     client = anthropic.Anthropic(api_key='foobar')
-    logfire.instrument_anthropic(client, version=1)
+    logfire.instrument_anthropic(client, version=1, suppress_other_instrumentation=True)
     response = client.messages.create(
         max_tokens=1000,
         model='claude-sonnet-4-20250514',
@@ -1952,7 +1991,7 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
 @pytest.mark.vcr(match_on=['method', 'scheme', 'host', 'port', 'path'])
 def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
     client = anthropic.Anthropic(api_key='foobar')
-    logfire.instrument_anthropic(client, version=['latest', 1])
+    logfire.instrument_anthropic(client, version=['latest', 1], suppress_other_instrumentation=True)
     response = client.beta.messages.create(
         max_tokens=1000,
         model='claude-sonnet-4-20250514',
@@ -2111,7 +2150,7 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
 @pytest.mark.vcr(match_on=['method', 'scheme', 'host', 'port', 'path'])
 async def test_async_beta_messages(exporter: TestExporter) -> None:
     client = anthropic.AsyncAnthropic()
-    logfire.instrument_anthropic(client, version=['latest', 1])
+    logfire.instrument_anthropic(client, version=['latest', 1], suppress_other_instrumentation=True)
     response = await client.beta.messages.create(
         max_tokens=1000,
         model='claude-3-haiku-20240307',
@@ -2241,7 +2280,7 @@ def test_stream_response_metadata(version: Any, complete: bool, exporter: TestEx
     client = anthropic.Anthropic(
         api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(request_handler))
     )
-    with logfire.instrument_anthropic(client, version=version):
+    with logfire.instrument_anthropic(client, version=version, suppress_other_instrumentation=True):
         list(
             client.messages.create(
                 model='claude-3-haiku-20240307',
@@ -2280,7 +2319,7 @@ def test_internal_exception_in_on_response_keeps_the_response(
         api_key='test',
         http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
     )
-    with logfire.instrument_anthropic(client):
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
         response = client.messages.create(
             max_tokens=1000,
             model='claude-haiku-4-5',
@@ -2331,7 +2370,7 @@ def test_internal_exception_in_stream_attributes_keeps_the_stream(
             )
         ),
     )
-    with logfire.instrument_anthropic(client):
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
         stream = client.messages.create(
             max_tokens=1000,
             model='claude-haiku-4-5',
@@ -2369,7 +2408,7 @@ def test_messages_records_cache_token_attributes(exporter: TestExporter) -> None
         api_key='test',
         http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
     )
-    with logfire.instrument_anthropic(client):
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
         client.messages.create(
             max_tokens=1000,
             model='claude-haiku-4-5',
@@ -2397,7 +2436,7 @@ def test_messages_without_cache_tokens_omits_cache_attributes(exporter: TestExpo
         api_key='test',
         http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
     )
-    with logfire.instrument_anthropic(client):
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
         client.messages.create(
             max_tokens=1000,
             model='claude-haiku-4-5',
