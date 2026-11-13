@@ -5,9 +5,6 @@ description: "Connect a Slack workspace to Logfire once, then send alerts and is
 
 # Slack App
 
-!!! info "Beta"
-    The Slack App is available to every organization and is marked **Beta** in the app. It delivers alerts and issue notifications today.
-
 The Logfire Slack app brings your observability notifications into Slack. Install it into your workspace once, connect it to your Logfire organization, and then send alerts and issues to an eligible channel by picking it from a list.
 
 ## What the app does in Slack

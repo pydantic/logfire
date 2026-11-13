@@ -135,7 +135,7 @@ jobs:
             from-version: "6.0.0b8"
             from-state: beta
             installer: uv
-          - os: macos-14
+          - os: macos-15
             python-version: "3.14"
             from-version: "5.1.0"
             installer: pip

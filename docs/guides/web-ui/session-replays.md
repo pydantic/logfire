@@ -10,16 +10,17 @@ A session replay records changes to the page's document structure and user inter
 
 !!! note "Early access"
 
-    Session Replay is available in early access on Growth, Enterprise, and self-hosted Logfire, as part of frontend observability. To turn it on, enable **Frontend observability** under [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access). The choice applies to your account in this browser, not automatically to every member.
+    Session Replay is available in early access. [Contact Pydantic](https://pydantic.dev/contact) if you are interested.
 
 {{ video("e49bf181d6a087689147e170f104b86a") }}
 
 ## Record sessions
 
-1. Create a frontend application under **Project settings → Frontend applications** and add its generated browser setup to your application.
-2. Install the optional `@pydantic/logfire-session-replay` package.
-3. Follow the [Session Replay setup](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#session-replay) to load the recorder and configure the replay endpoint.
-4. Deploy the change, open the application, and interact with more than one page or control.
+1. Open **Frontend → Session replays** in your project and select **Set up**. Create a frontend application or select an existing application.
+2. Copy the generated browser setup, including the frontend application token and regional trace URL, into your application. Use the generated values, not placeholders or a regular Logfire write token.
+3. Install the optional `@pydantic/logfire-session-replay` package.
+4. Follow the [Session Replay setup](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#session-replay) to load the recorder and configure the replay endpoint.
+5. Deploy the change, open the application, and interact with more than one page or control.
 
 Replay data is sent to and stored in your Logfire project. The recorder masks rendered text and input values by default, leaves console capture off, and removes query strings and fragments from captured URLs. Those defaults do not redact document attributes, CSS-generated content, resource URLs, or custom-event payloads. Review the [privacy controls](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#session-replay) before recording pages that contain sensitive data.
 

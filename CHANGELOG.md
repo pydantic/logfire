@@ -1,5 +1,77 @@
 # Release Notes
 
+## [v5.6.0] (2026-11-11)
+
+* **Breaking Change:** `logfire.agent_sandboxes()` returns a plain `pydantic_monty.AsyncMontyRemote` instead of the `AgentSandboxPool` wrapper, so it can be passed to code typed against Monty such as `CodeMode(monty_sandbox=logfire.agent_sandboxes)` by @dmontagu in [#2747](https://github.com/pydantic/logfire/pull/2747) and [#2756](https://github.com/pydantic/logfire/pull/2756)
+* `logfire[agent-sandboxes]` requires `pydantic-monty-client>=1.6.0`, which sends the first request without waiting for the `Configure` reply and raises typed connection and configuration errors
+* Log structlog critical events at the fatal level by @Fahmid-Arman in [#2719](https://github.com/pydantic/logfire/pull/2719)
+* Make the enum JSON schema type independent of the member set order by @Yasser-Ameur in [#2759](https://github.com/pydantic/logfire/pull/2759)
+* Reset the current OpenAI Agents trace and span when a generator is closed by @devjoinedthechat in [#2698](https://github.com/pydantic/logfire/pull/2698)
+* Record NumPy scalar attributes as numbers, not their repr by @Sonica-B in [#2757](https://github.com/pydantic/logfire/pull/2757)
+* Preserve integer precision in logged DataFrames by @Jinyong-Li in [#2753](https://github.com/pydantic/logfire/pull/2753)
+* Return success from the shim shutdown by @shayanxcyber in [#2740](https://github.com/pydantic/logfire/pull/2740)
+* Defer span scrubbing for batch exporters by @alexmojaki in [#2761](https://github.com/pydantic/logfire/pull/2761)
+* Keep disk retries with the process that queued them by @ska2704 in [#2762](https://github.com/pydantic/logfire/pull/2762)
+* Hash SpanLevel by name and warn that hashing it is discouraged by @chrikrah in [#2768](https://github.com/pydantic/logfire/pull/2768)
+* Format non-string DataFrame indices in the console exporter by @anubhavlal07 in [#2765](https://github.com/pydantic/logfire/pull/2765)
+* Map stdlib logging levels above CRITICAL to fatal by @anubhavlal07 in [#2766](https://github.com/pydantic/logfire/pull/2766)
+* Skip Azure content filter chunks in OpenAI streams by @anubhavlal07 in [#2763](https://github.com/pydantic/logfire/pull/2763)
+* Report LogfireLoggingHandler failures through handleError instead of raising by @JayPokale in [#2703](https://github.com/pydantic/logfire/pull/2703)
+* fix: preserve exceptions in instrumented async context managers by @peterolkhov in [#2767](https://github.com/pydantic/logfire/pull/2767)
+* Speed up scrubbing with fast path for simple types by @alexmojaki in [#2773](https://github.com/pydantic/logfire/pull/2773)
+* Scrub decoded JSON containers without a regex prefilter by @alexmojaki in [#2774](https://github.com/pydantic/logfire/pull/2774)
+* Skip f-string inspection for spans and logs that logfire opens itself by @ska2704 in [#2775](https://github.com/pydantic/logfire/pull/2775)
+* Return the connection from the logfire-api shim's instrument_sqlite3 and instrument_mysql by @anubhavlal07 in [#2777](https://github.com/pydantic/logfire/pull/2777)
+
+## New Contributors
+* @Yasser-Ameur made their first contribution in [#2759](https://github.com/pydantic/logfire/pull/2759)
+* @Sonica-B made their first contribution in [#2757](https://github.com/pydantic/logfire/pull/2757)
+* @Jinyong-Li made their first contribution in [#2753](https://github.com/pydantic/logfire/pull/2753)
+* @shayanxcyber made their first contribution in [#2740](https://github.com/pydantic/logfire/pull/2740)
+* @ska2704 made their first contribution in [#2762](https://github.com/pydantic/logfire/pull/2762)
+* @anubhavlal07 made their first contribution in [#2765](https://github.com/pydantic/logfire/pull/2765)
+* @JayPokale made their first contribution in [#2703](https://github.com/pydantic/logfire/pull/2703)
+* @peterolkhov made their first contribution in [#2767](https://github.com/pydantic/logfire/pull/2767)
+
+## [v5.5.0] (2026-11-06)
+
+* Drop all incoming context when distributed tracing is disabled by @dmontagu in [#2679](https://github.com/pydantic/logfire/pull/2679)
+* Carry variable overrides and targeting context into thread pools by @dmontagu in [#2680](https://github.com/pydantic/logfire/pull/2680)
+* Name the setting when LOGFIRE_TRACE_SAMPLE_RATE is not a number by @chrikrah in [#2685](https://github.com/pydantic/logfire/pull/2685)
+* Record audio responses and legacy function calls from OpenAI chat completions by @pcbeingused333 in [#2636](https://github.com/pydantic/logfire/pull/2636)
+* Avoid duplicate console output from Loguru by @imp-joshi in [#2690](https://github.com/pydantic/logfire/pull/2690)
+* Save a read token on Windows, where os.fchmod does not exist by @PRINCE2-AI in [#2696](https://github.com/pydantic/logfire/pull/2696)
+* Record the explanation of an Anthropic refusal as output text by @pcbeingused333 in [#2638](https://github.com/pydantic/logfire/pull/2638)
+* Record custom tool calls from the OpenAI Responses API by @michaelkillgta in [#2694](https://github.com/pydantic/logfire/pull/2694)
+* Scrub AWS security tokens (x-amz-security-token, aws_security_token) by default by @hsusul in [#2692](https://github.com/pydantic/logfire/pull/2692)
+* Let a span status set by the exception callback stand by @pedro-teixeira in [#2707](https://github.com/pydantic/logfire/pull/2707)
+* Record legacy function calls in OpenAI chat completion input messages by @chrikrah in [#2711](https://github.com/pydantic/logfire/pull/2711)
+* Return `Logfire` instance from `logfire-api` `configure()` when SDK is not installed by @PatrickRibbsaeter in [#2716](https://github.com/pydantic/logfire/pull/2716)
+* fix(datasets): serialize dictionary-valued case fields by @shuaiyafei in [#2713](https://github.com/pydantic/logfire/pull/2713)
+* Convert Anthropic SDK content blocks sent back as input messages by @jaeminbird in [#2718](https://github.com/pydantic/logfire/pull/2718)
+* Keep streamed LLM responses iterable when recording them fails by @jaeminbird in [#2721](https://github.com/pydantic/logfire/pull/2721)
+* Skip empty items in comma-separated Pydantic plugin include/exclude settings by @Fahmid-Arman in [#2720](https://github.com/pydantic/logfire/pull/2720)
+* Fall back to OpenTelemetry instrumentors in logfire run by @mekanbaymyradov in [#2609](https://github.com/pydantic/logfire/pull/2609)
+* **Breaking Change:** Require project credentials before SDK configuration by @strawgate in [#2683](https://github.com/pydantic/logfire/pull/2683)
+* Connect agent sandboxes over gRPC with pydantic-monty 1.5.0 by @dmontagu in [#2737](https://github.com/pydantic/logfire/pull/2737)
+* Make SpanLevel compare equal to 'warning' by @Fahmid-Arman in [#2732](https://github.com/pydantic/logfire/pull/2732)
+* Don't crash the console exporter on attributes that format to an empty string by @Fahmid-Arman in [#2731](https://github.com/pydantic/logfire/pull/2731)
+* Add configure(fleet=...) to manage the SDK from Logfire Fleet by @strawgate in [#2736](https://github.com/pydantic/logfire/pull/2736)
+* Add actionable Agent Sandboxes error hints by @dmontagu in [#2739](https://github.com/pydantic/logfire/pull/2739)
+* Send telemetry with the API key when no write token is configured by @dmontagu in [#2743](https://github.com/pydantic/logfire/pull/2743)
+
+## New Contributors
+* @pierrebrunelle made their first contribution in [#2644](https://github.com/pydantic/logfire/pull/2644)
+* @PRINCE2-AI made their first contribution in [#2696](https://github.com/pydantic/logfire/pull/2696)
+* @michaelkillgta made their first contribution in [#2694](https://github.com/pydantic/logfire/pull/2694)
+* @hsusul made their first contribution in [#2692](https://github.com/pydantic/logfire/pull/2692)
+* @pedro-teixeira made their first contribution in [#2707](https://github.com/pydantic/logfire/pull/2707)
+* @PatrickRibbsaeter made their first contribution in [#2716](https://github.com/pydantic/logfire/pull/2716)
+* @shuaiyafei made their first contribution in [#2713](https://github.com/pydantic/logfire/pull/2713)
+* @jaeminbird made their first contribution in [#2718](https://github.com/pydantic/logfire/pull/2718)
+* @Fahmid-Arman made their first contribution in [#2720](https://github.com/pydantic/logfire/pull/2720)
+* @mekanbaymyradov made their first contribution in [#2609](https://github.com/pydantic/logfire/pull/2609)
+
 ## [v5.4.0] (2026-10-26)
 
 * `logfire.agent_sandboxes()` by @samuelcolvin in [#2658](https://github.com/pydantic/logfire/pull/2658) and [#2672](https://github.com/pydantic/logfire/pull/2672)
@@ -1454,3 +1526,5 @@ First release from new repo!
 [v6.0.0b8]: https://github.com/pydantic/logfire/compare/v6.0.0b7...v6.0.0b8
 [v5.3.0]: https://github.com/pydantic/logfire/compare/v6.0.0b8...v5.3.0
 [v5.4.0]: https://github.com/pydantic/logfire/compare/v5.3.0...v5.4.0
+[v5.5.0]: https://github.com/pydantic/logfire/compare/v5.4.0...v5.5.0
+[v5.6.0]: https://github.com/pydantic/logfire/compare/v5.5.0...v5.6.0

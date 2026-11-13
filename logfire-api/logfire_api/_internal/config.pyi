@@ -6,14 +6,16 @@ from ..types import ExceptionCallback as ExceptionCallback
 from .client import InvalidProjectName as InvalidProjectName, LogfireClient as LogfireClient, ProjectAlreadyExists as ProjectAlreadyExists
 from .config_params import CompressionValues as CompressionValues, ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues, normalize_token as normalize_token
 from .constants import ATTRIBUTES_CONFIG as ATTRIBUTES_CONFIG, ATTRIBUTES_PACKAGE_VERSIONS as ATTRIBUTES_PACKAGE_VERSIONS, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH, RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR, RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL, RESOURCE_ATTRIBUTES_VERSION as RESOURCE_ATTRIBUTES_VERSION
+from .exporters.api_key_gate import ApiKeyGatedLogExporter as ApiKeyGatedLogExporter, ApiKeyGatedMetricExporter as ApiKeyGatedMetricExporter, ApiKeyGatedSpanExporter as ApiKeyGatedSpanExporter, ApiKeyWriteAccess as ApiKeyWriteAccess
 from .exporters.console import ConsoleColorsValues as ConsoleColorsValues, ConsoleLogExporter as ConsoleLogExporter, IndentedConsoleSpanExporter as IndentedConsoleSpanExporter, ShowParentsConsoleSpanExporter as ShowParentsConsoleSpanExporter, SimpleConsoleSpanExporter as SimpleConsoleSpanExporter
 from .exporters.dynamic_batch import DynamicBatchSpanProcessor as DynamicBatchSpanProcessor
 from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper as CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper as MainLogProcessorWrapper
 from .exporters.otlp import BodySizeCheckingOTLPSpanExporter as BodySizeCheckingOTLPSpanExporter, OTLPExporterHttpSession as OTLPExporterHttpSession, QuietLogExporter as QuietLogExporter, QuietSpanExporter as QuietSpanExporter, RetryFewerSpansSpanExporter as RetryFewerSpansSpanExporter, cleanup_disk_retryers as cleanup_disk_retryers, zstd_compress as zstd_compress
-from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper as CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper as MainSpanProcessorWrapper
+from .exporters.processor_wrapper import BackgroundScrubbingSpanProcessor as BackgroundScrubbingSpanProcessor, CheckSuppressInstrumentationProcessorWrapper as CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper as MainSpanProcessorWrapper, ScrubbingSpanProcessor as ScrubbingSpanProcessor, SpanProcessorGroup as SpanProcessorGroup, make_scrubbing_queue as make_scrubbing_queue, scrub_span as scrub_span
 from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
 from .exporters.test import TestExporter as TestExporter
+from .fleet import FleetOptions as FleetOptions, LogfireFleetWarning as LogfireFleetWarning, load_fleet as load_fleet
 from .forwarding import OTLPForwardingManager as OTLPForwardingManager
 from .http_transport import install_connection_policy as install_connection_policy
 from .integrations.executors import instrument_executors as instrument_executors
@@ -53,6 +55,7 @@ from typing_extensions import Self
 
 CREDENTIALS_FILENAME: str
 COMMON_REQUEST_HEADERS: Incomplete
+API_KEY_CANNOT_WRITE_HINT: str
 PROJECT_NAME_PATTERN: str
 METRICS_PREFERRED_TEMPORALITY: Incomplete
 
@@ -145,7 +148,7 @@ class LocalVariablesOptions:
     instrument: bool = ...
     template_mismatch_policy: TemplateMismatchPolicy = ...
 
-def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, resource_attributes: Mapping[str, Any] | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, code_source: CodeSource | None = None, variables: VariablesOptions | LocalVariablesOptions | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None) -> Logfire:
+def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, resource_attributes: Mapping[str, Any] | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, code_source: CodeSource | None = None, variables: VariablesOptions | LocalVariablesOptions | None = None, distributed_tracing: bool | None = None, fleet: bool | FleetOptions | None = None, advanced: AdvancedOptions | None = None) -> Logfire:
     """Configure the logfire SDK.
 
     Args:
@@ -164,6 +167,10 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
         api_key: API key for the Logfire API.
 
             If not provided, will be loaded from the `LOGFIRE_API_KEY` environment variable.
+
+            If no write token or project credentials file is found, the API key is also used to send
+            telemetry, unless `send_to_logfire` is `False`. This requires a project API key with the
+            `project:write_otlp` scope. Otherwise Logfire warns that the key cannot send telemetry.
 
         service_name: Name of this service.
 
@@ -197,6 +204,8 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
 
         data_dir: Directory to store credentials, and logs. If `None` uses the `LOGFIRE_CREDENTIALS_DIR` environment variable, otherwise defaults to `'.logfire'`.
         additional_span_processors: Span processors to use in addition to the default processor which exports spans to Logfire's API.
+            Processors which have a custom `on_end` method (other than `BatchSpanProcessor`) will cause
+            span attribute scrubbing to happen on the calling thread, which may slow down your application.
         metrics: Set to `False` to disable sending all metrics,
             or provide a `MetricsOptions` object to configure metrics, e.g. additional metric readers.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
@@ -227,6 +236,14 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.
+        fleet: Whether to manage this SDK from Logfire Fleet: the Fleet policy then applies to everything it sends
+            (sampling, which signals are sent, log levels, redaction and volume limits, the console included).
+            `True` takes the Fleet server from the `OTEL_OPAMP_*` environment variables; a
+            [`FleetOptions`][logfire.fleet.FleetOptions] gives it in code. Needs the 'fleet' extra.
+            It never blocks or raises: until Fleet answers, the last policy saved is in force, else the SDK's own
+            settings, and where Fleet can't be joined it warns and the SDK runs unmanaged.
+
+            Defaults to the `LOGFIRE_FLEET` environment variable, otherwise `False`.
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
 
@@ -259,17 +276,18 @@ class _LogfireConfigData:
     code_source: CodeSource | None
     variables: VariablesOptions | LocalVariablesOptions | None
     distributed_tracing: bool | None
+    fleet: FleetOptions | Literal[False]
     advanced: AdvancedOptions
 
 class LogfireConfig(_LogfireConfigData):
-    def __init__(self, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, resource_attributes: Mapping[str, Any] | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | None = None, data_dir: Path | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, variables: VariablesOptions | None = None, code_source: CodeSource | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None) -> None:
+    def __init__(self, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, resource_attributes: Mapping[str, Any] | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | None = None, data_dir: Path | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, variables: VariablesOptions | None = None, code_source: CodeSource | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None, fleet: bool | FleetOptions | None = None) -> None:
         """Create a new LogfireConfig.
 
         Users should never need to call this directly, instead use `logfire.configure`.
 
         See `_LogfireConfigData` for parameter documentation.
         """
-    def configure(self, send_to_logfire: bool | Literal['if-token-present'] | None, token: str | list[str] | None, api_key: str | None, service_name: str | None, service_version: str | None, environment: str | None, resource_attributes: Mapping[str, Any] | None, console: ConsoleOptions | Literal[False] | None, config_dir: Path | None, data_dir: Path | None, additional_span_processors: Sequence[SpanProcessor] | None, metrics: MetricsOptions | Literal[False] | None, scrubbing: ScrubbingOptions | Literal[False] | None, inspect_arguments: bool | None, sampling: SamplingOptions | None, min_level: int | LevelName | None, add_baggage_to_attributes: bool, code_source: CodeSource | None, variables: VariablesOptions | LocalVariablesOptions | None, distributed_tracing: bool | None, advanced: AdvancedOptions | None) -> None: ...
+    def configure(self, send_to_logfire: bool | Literal['if-token-present'] | None, token: str | list[str] | None, api_key: str | None, service_name: str | None, service_version: str | None, environment: str | None, resource_attributes: Mapping[str, Any] | None, console: ConsoleOptions | Literal[False] | None, config_dir: Path | None, data_dir: Path | None, additional_span_processors: Sequence[SpanProcessor] | None, metrics: MetricsOptions | Literal[False] | None, scrubbing: ScrubbingOptions | Literal[False] | None, inspect_arguments: bool | None, sampling: SamplingOptions | None, min_level: int | LevelName | None, add_baggage_to_attributes: bool, code_source: CodeSource | None, variables: VariablesOptions | LocalVariablesOptions | None, distributed_tracing: bool | None, fleet: bool | FleetOptions | None, advanced: AdvancedOptions | None) -> None: ...
     def initialize(self) -> None:
         """Configure internals to start exporting traces and metrics."""
     def force_flush(self, timeout_millis: int = 30000) -> bool:
@@ -359,12 +377,15 @@ class LogfireCredentials:
             LogfireConfigError: If the credentials file exists but is invalid.
         """
     @classmethod
-    def from_token(cls, token: str, session: requests.Session, base_url: str) -> Self | None:
+    def from_token(cls, token: str, session: requests.Session, base_url: str, *, rejected_hint: str | None = None, on_rejected: Callable[[], None] | None = None) -> Self | None:
         """Check that the token is valid.
 
         Issue a warning if the Logfire API is unreachable, or we get a response other than 200 or 401.
 
         We continue unless we get a 401. If something is wrong, we'll later store data locally for back-fill.
+
+        `rejected_hint` is appended to the warning when the API rejects the token with a 401.
+        `on_rejected` is called for that 401 too.
 
         Raises:
             LogfireConfigError: If the token is invalid.
@@ -406,19 +427,6 @@ class LogfireCredentials:
 
         Raises:
             LogfireConfigError: If there was an error creating projects.
-        """
-    @classmethod
-    def initialize_project(cls, *, client: LogfireClient) -> Self:
-        """Create a new project or use an existing project on logfire.dev requesting the given project name.
-
-        Args:
-            client: The Logfire client to use when making requests.
-
-        Returns:
-            The new credentials.
-
-        Raises:
-            LogfireConfigError: If there was an error on creating/configuring the project.
         """
     def write_creds_file(self, creds_dir: Path) -> None:
         """Write a credentials file to the given path."""

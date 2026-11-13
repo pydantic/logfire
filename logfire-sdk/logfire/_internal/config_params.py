@@ -120,6 +120,8 @@ PENDING_SPANS = ConfigParam(
     env_vars=['LOGFIRE_PENDING_SPANS'], allow_file_config=True, default=True, tp=bool
 )
 """Whether to send pending spans (placeholders for spans that are still running) to Logfire."""
+FLEET = ConfigParam(env_vars=['LOGFIRE_FLEET'], allow_file_config=True, default=False, tp=bool)
+"""Whether to manage the SDK from Logfire Fleet (needs the `fleet` extra)."""
 COMPRESSION = ConfigParam(env_vars=['LOGFIRE_COMPRESSION'], allow_file_config=True, default='gzip', tp=CompressionValues)
 """Compression for data sent to Logfire: `gzip` (default) or `zstd`."""
 
@@ -161,6 +163,7 @@ CONFIG_PARAMS = {
     'emit_configuration_span': EMIT_CONFIGURATION_SPAN,
     'pending_spans': PENDING_SPANS,
     'compression': COMPRESSION,
+    'fleet': FLEET,
     # Instrumentation packages parameters
     'httpx_capture_all': HTTPX_CAPTURE_ALL,
     'aiohttp_client_capture_all': AIOHTTP_CLIENT_CAPTURE_ALL,

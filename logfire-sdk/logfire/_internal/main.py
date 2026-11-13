@@ -52,7 +52,7 @@ from .constants import (
 )
 from .formatter import logfire_format, logfire_format_with_magic
 from .instrument import instrument
-from .json_encoder import logfire_json_dumps
+from .json_encoder import logfire_json_dumps, numpy_scalar_to_python
 from .json_schema import (
     JsonSchemaProperties,
     attributes_json_schema,
@@ -89,7 +89,7 @@ if TYPE_CHECKING:
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
     from pydantic_evals.reporting import EvaluationReport
-    from pydantic_monty import AsyncMontyWebsocket
+    from pydantic_monty import AsyncMontyRemote
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
     from snowflake.connector.connection import SnowflakeConnection
     from sqlalchemy import Engine
@@ -1241,18 +1241,19 @@ class Logfire:
         max_processes: int | None | _Unset = _UNSET,
         checkout_timeout: float | None | _Unset = _UNSET,
         request_timeout: float | None | _Unset = _UNSET,
+        metadata: Callable[[], Mapping[str, str]] | None | _Unset = _UNSET,
         connect_headers: Callable[[], Mapping[str, str]] | None | _Unset = _UNSET,
         feed_duration_limit_grace: float | None | _Unset = _UNSET,
         turn_duration_limit_grace: float | None | _Unset = _UNSET,
         auto_resume: bool | _Unset = _UNSET,
         **kwargs: Any,
-    ) -> AsyncMontyWebsocket:
+    ) -> AsyncMontyRemote:
         """Connect to Logfire Agent Sandboxes, remote Pydantic Monty workers hosted by Logfire.
 
         Requires the `agent-sandboxes` extra, e.g. `pip install 'logfire[agent-sandboxes]'`.
 
-        Returns a [`pydantic_monty.AsyncMontyWebsocket`][pydantic_monty.AsyncMontyWebsocket] pool;
-        use it as an async context manager and check out sessions from it:
+        Returns a [`pydantic_monty.AsyncMontyRemote`][pydantic_monty.AsyncMontyRemote] pool that
+        authenticates with your Logfire API key. Use it as an async context manager and check out sessions from it:
 
         ```py
         import logfire
@@ -1268,6 +1269,17 @@ class Logfire:
 
         No connection is made until a session is checked out.
 
+        Because the pool is a plain `AsyncMontyRemote`, you can pass this method wherever a Monty pool
+        factory is expected, for example `CodeMode(monty_sandbox=logfire.agent_sandboxes)` in Pydantic AI.
+
+        Checkout errors from the sandboxes server are Monty's own exceptions; this method does not wrap them.
+        An exception raised by your `metadata` callback propagates unchanged. A refused checkout raises
+        `MontyRefusedError`. For `UNAUTHENTICATED` or
+        `PERMISSION_DENIED`, check that the key is a project API key with the
+        `project:execute_agent_sandboxes` scope, that its region matches the server URL, and that Agent
+        Sandboxes are enabled for the project. For `RESOURCE_EXHAUSTED`, lower `max_processes` or retry
+        after a delay.
+
         The Logfire platform records sandbox usage itself. The current trace context is sent
         with each session so those spans join the caller's trace.
 
@@ -1275,27 +1287,32 @@ class Logfire:
         The defaults described below are the currently assumed defaults and may change in future versions.
 
         Args:
-            api_key: A Logfire API key with the `project:execute_agent_sandboxes` scope.
+            api_key: A Logfire project API key (not a personal key) with the
+                `project:execute_agent_sandboxes` scope. Agent Sandboxes must be enabled for the project.
                 Defaults to the `api_key` passed to [`configure()`][logfire.configure],
                 then the `LOGFIRE_API_KEY` environment variable.
-            url: The WebSocket URL of the sandboxes server.
-                Defaults to the Logfire region the API key belongs to.
-            max_processes: Cap on concurrent sandbox connections. Defaults to `None`, which uses
+            url: The `https://` URL of the sandboxes server.
+                Defaults to the Logfire region the API key belongs to. Must not contain a path,
+                query, or fragment. `/monty-ws/` was the old path and must be removed.
+            max_processes: Cap on concurrent sandbox sessions. Defaults to `None`, which uses
                 the CPU count; checkouts beyond it wait.
             checkout_timeout: Seconds `checkout()` waits for capacity before raising `TimeoutError`.
                 Defaults to `None`, which waits forever.
             request_timeout: Hard per-turn deadline in seconds. A sandbox that exceeds it has its
-                connection closed and the call raises `MontyCrashedError`. `None` waits indefinitely.
+                session closed and the call raises `MontyCrashedError`. Must be finite;
+                `None` raises `LogfireConfigError` because hosted sandboxes require a deadline.
                 Defaults to `10.0`. Raise this when installing dependencies in a sandbox.
-            connect_headers: Called once per session to produce extra headers for the WebSocket
-                connection. These are merged with the `Authorization` header and win on conflicts.
+            metadata: Called once per session to produce extra request metadata for its gRPC
+                stream. Names are lowercased and values must be ASCII. These are merged with the
+                `authorization` entry and win on conflicts.
+            connect_headers: The deprecated name of `metadata`.
                 Defaults to `None`, which adds no extra headers beyond Logfire authentication.
             feed_duration_limit_grace: Seconds to wait past a feed's `max_feed_duration_secs`
                 before closing the sandbox. Defaults to `1.0`; `None` disables this backstop.
             turn_duration_limit_grace: The same, for `max_turn_duration_secs`. Defaults to `1.0`.
             auto_resume: When the server drains a stored session, transparently resume it on
                 another server instead of raising `MontyShutdown`. Defaults to `True`.
-            kwargs: Additional keyword arguments passed to `AsyncMontyWebsocket` for future compatibility.
+            kwargs: Additional keyword arguments passed to `AsyncMontyRemote` for future compatibility.
         """
         from .agent_sandboxes import create_agent_sandboxes
 
@@ -1303,6 +1320,7 @@ class Logfire:
             'max_processes': max_processes,
             'checkout_timeout': checkout_timeout,
             'request_timeout': request_timeout,
+            'metadata': metadata,
             'connect_headers': connect_headers,
             'feed_duration_limit_grace': feed_duration_limit_grace,
             'turn_duration_limit_grace': turn_duration_limit_grace,
@@ -3372,7 +3390,13 @@ class LogfireSpan(ReadableSpan):
     @handle_internal_errors
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         self._detach()
-        if self._span and self._span.is_recording() and isinstance(exc_value, BaseException):
+        if (
+            self._span
+            and self._span.is_recording()
+            and isinstance(exc_value, BaseException)
+            # GeneratorExit means a generator was closed early (e.g. `break`), which is not an error.
+            and not isinstance(exc_value, GeneratorExit)
+        ):
             self._span.record_exception(exc_value, escaped=True)
         self._end()
 
@@ -3562,6 +3586,8 @@ def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
         return value
     elif isinstance(value, (str, bool)):
         return value
+    elif (python_value := numpy_scalar_to_python(value)) is not value:
+        return prepare_otlp_attribute(python_value)
     else:
         return logfire_json_dumps(value)
 
