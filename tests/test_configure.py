@@ -770,6 +770,27 @@ def test_force_flush_combines_provider_results(
     tracer_provider.force_flush.assert_called_once_with(123)
 
 
+def test_force_flush_with_exporter_reading_tracer_provider(config_kwargs: dict[str, Any]) -> None:
+    # The exporter runs inside force_flush and reads the global (proxy) tracer provider, which must not deadlock.
+    resources: list[Resource] = []
+
+    class ResourceReadingExporter(SpanExporter):
+        def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+            resources.append(get_tracer_provider().resource)  # type: ignore
+            return SpanExportResult.SUCCESS
+
+    config_kwargs['additional_span_processors'] = [BatchSpanProcessor(ResourceReadingExporter())]
+    logfire.configure(**config_kwargs)
+    with logfire.span('span'):
+        pass
+
+    flusher = threading.Thread(target=logfire.force_flush, daemon=True)
+    flusher.start()
+    flusher.join(5)
+    assert not flusher.is_alive()
+    assert len(resources) == 1
+
+
 def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
     assert isinstance(processor, BatchSpanProcessor)
     try:
