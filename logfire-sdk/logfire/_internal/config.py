@@ -78,6 +78,7 @@ from logfire._internal.baggage import DirectBaggageAttributesLogProcessorWrapper
 from logfire._internal.collect_system_info import collect_package_info
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
+from logfire.sampling._subtree import SubtreeSampler
 from logfire.sampling._tail_sampling import TailSamplingProcessor
 from logfire.variables.abstract import NoOpVariableProvider, VariableProvider
 from logfire.version import VERSION
@@ -1304,7 +1305,7 @@ class LogfireConfig(_LogfireConfigData):
                 # The live sampler: the SDK's own until the Fleet policy sets a sampling rate or rules.
                 sampler = fleet.head_sampler(sampler)
             tracer_provider = SDKTracerProvider(
-                sampler=sampler,
+                sampler=SubtreeSampler(sampler),
                 resource=resource,
                 id_generator=self.advanced.id_generator,
             )
