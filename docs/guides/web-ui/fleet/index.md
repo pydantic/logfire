@@ -26,8 +26,8 @@ Fleet is on for every plan. Open **Fleet management** in your project's sidebar.
 If you turned Fleet off on its settings page, it stays off for you in that browser. Opening any Fleet page offers **Turn on Fleet** to bring it back. Turning Fleet off doesn't stop your Collectors, applications or policies.
 
 <!-- ladle-screenshot story="docs--fleet--inventory--collectors" image="../../../images/fleet/collectors" alt="The Collectors tab of Fleet management, listing each Collector with its connection, health, policy status and policy" viewport="1280x1700" scale="2" selector="[data-logfire-rum-component='fleet-management']" padding="0" time="2026-09-26T12:00:00Z" -->
-<img class="only-light" src="../../../images/fleet/collectors-light.png" alt="The Collectors tab of Fleet management, listing each Collector with its connection, health, policy status and policy" width="1149" height="1568" loading="lazy" />
-<img class="only-dark" src="../../../images/fleet/collectors-dark.png" alt="The Collectors tab of Fleet management, listing each Collector with its connection, health, policy status and policy" width="1149" height="1568" loading="lazy" />
+<img class="only-light" src="../../../images/fleet/collectors-light.png" alt="The Collectors tab of Fleet management, listing each Collector with its connection, health, policy status and policy" width="1149" height="1558" loading="lazy" />
+<img class="only-dark" src="../../../images/fleet/collectors-dark.png" alt="The Collectors tab of Fleet management, listing each Collector with its connection, health, policy status and policy" width="1149" height="1558" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 The page has four tabs:
