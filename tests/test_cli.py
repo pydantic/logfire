@@ -3275,6 +3275,35 @@ def test_read_token_save_works_where_the_os_has_no_fchmod(tmp_dir_cwd: Path) -> 
     assert saved['project_name'] == 'orders'
 
 
+def test_read_token_save_reports_a_failed_truncate_cleanly(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The file is truncated through the descriptor, after the open, so that step needs the
+    same `LogfireConfigError` wrap the open has. Otherwise a truncate failure escapes as a raw
+    traceback after the token has already been minted.
+    """
+    _status_credentials(tmp_dir_cwd, read_token=False)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _read_token_backend(m)
+        stack.enter_context(patch('logfire._internal.cli.os.ftruncate', side_effect=OSError(5, 'I/O error')))
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['read-tokens', 'create', '--save'])
+
+    assert exc_info.value.code == 1
+    assert 'Could not write the read token' in capsys.readouterr().err
+
+
 def test_projects_status_rejects_a_non_200_response(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """204 is not an error by `response.ok`, but it has no body to parse.
 

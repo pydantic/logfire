@@ -396,7 +396,10 @@ def _save_read_token(
     except OSError as e:
         raise LogfireConfigError(f'Could not write the read token to {path}: {e}') from e
     try:
-        os.ftruncate(fd, 0)
+        try:
+            os.ftruncate(fd, 0)
+        except OSError as e:
+            raise LogfireConfigError(f'Could not write the read token to {path}: {e}') from e
         # BEFORE any bytes are written. The mode passed to `os.open` applies only when it
         # creates the file, so an existing file keeps whatever permissions it had and the
         # token would land in a world-readable one, restricted only afterwards.
