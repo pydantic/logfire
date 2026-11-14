@@ -15,11 +15,12 @@ from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.sdk.trace import ConcurrentMultiSpanProcessor, ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
-from logfire._internal.exporters.processor_wrapper import SpanProcessorGroup
-from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
+from logfire._internal.exporters.processor_wrapper import MainSpanProcessorWrapper, SpanProcessorGroup
+from logfire._internal.scrubbing import DEFAULT_PATTERNS, MessageValueCleaner, NoopScrubber, Scrubber
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
 from logfire.types import StringValue
@@ -728,6 +729,145 @@ def test_transform_string_writes_attributes_without_scrubbed_note(
     (span,) = exporter.exported_spans_as_dict()
     assert span['attributes']['contact'] == '[email]'
     assert 'logfire.scrubbed' not in span['attributes']
+
+
+def test_formatted_value_is_bounded_before_scrubbing():
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    cleaner = MessageValueCleaner(Scrubber(None, transform_string=transform), check_keys=False)
+    result = cleaner.clean_value('contact', 'alice@example.com' + 'x' * 5000)
+
+    assert len(seen) == 1
+    assert seen[0].path == ('message', 'contact')
+    assert len(seen[0].value) <= 2048
+    assert result.startswith('[email]')
+    assert len(result) <= 128
+
+
+def test_formatted_value_truncation_keeps_sensitive_marker():
+    cleaner = MessageValueCleaner(Scrubber(None), check_keys=False)
+    result = cleaner.clean_value('payload', 'a' * 1500 + 'password=' + 'b' * 1500)
+
+    assert result == "[Scrubbed due to 'password']"
+    assert cleaner.scrubbed == [{'path': ('message', 'payload'), 'matched_substring': 'password'}]
+
+
+def test_safe_key_formatted_value_is_transformed_without_pattern_search():
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    cleaner = MessageValueCleaner(Scrubber(None, transform_string=transform), check_keys=False)
+    assert cleaner.clean_value('logfire.msg', 'secret=alice@example.com') == 'secret=[email]'
+    assert seen == [StringValue(('message', 'logfire.msg'), 'secret=alice@example.com')]
+    assert cleaner.extra_attrs() == {}
+
+
+def test_whole_message_is_transformed_before_console_and_bounded(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    seen: list[StringValue] = []
+    output = StringIO()
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(transform_string=transform),
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('alice@example.com' + 'x' * 20000)
+
+    assert 'alice@example.com' not in output.getvalue()
+    assert '[email]' in output.getvalue()
+    (span,) = exporter.exported_spans_as_dict()
+    assert len(span['attributes']['logfire.msg']) <= 1024
+    assert any(value.path == ('attributes', 'logfire.msg') and len(value.value) <= 16384 for value in seen)
+
+
+def test_missing_message_defaults_to_span_name_before_console_transform(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    from opentelemetry import trace
+
+    output = StringIO()
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(
+            transform_string=lambda value: value.value.replace('alice@example.com', '[email]')
+        ),
+    )
+    logfire.configure(**config_kwargs)
+    with trace.get_tracer('test').start_as_current_span('alice@example.com', attributes={'logfire.msg': ''}):
+        pass
+
+    assert '[email]' in output.getvalue()
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == '[email]'
+    assert span['name'] == 'alice@example.com'
+
+
+@pytest.mark.parametrize('scope_name', ['logfire.openai', 'logfire.anthropic'])
+def test_legacy_llm_message_remains_exempt_from_early_transform(scope_name: str):
+    spans: list[ReadableSpan] = []
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    processor = MainSpanProcessorWrapper(
+        RecordingProcessor(),
+        Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]')),
+    )
+    processor.on_end(
+        ReadableSpan(
+            name='call',
+            attributes={'logfire.msg': 'alice@example.com'},
+            instrumentation_scope=InstrumentationScope(scope_name),
+        )
+    )
+
+    assert spans[0].attributes == {'logfire.msg': 'alice@example.com'}
+
+
+def test_absent_message_defaults_to_span_name_before_transform():
+    spans: list[ReadableSpan] = []
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    processor = MainSpanProcessorWrapper(
+        RecordingProcessor(),
+        Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]')),
+    )
+    processor.on_end(ReadableSpan(name='alice@example.com', attributes={}))
+
+    assert spans[0].attributes == {'logfire.msg': '[email]'}
+
+
+def test_whole_message_is_not_transformed_again_during_export(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    message_calls = 0
+
+    def transform(value: StringValue) -> str:
+        nonlocal message_calls
+        if value.path == ('attributes', 'logfire.msg'):
+            message_calls += 1
+            return value.value + 'z' * 5000
+        return value.value
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    logfire.info('hello')
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert len(span['attributes']['logfire.msg']) <= 1024
+    assert message_calls == 1
 
 
 @pytest.mark.parametrize('error_type', [ValueError, RecursionError])
