@@ -374,7 +374,7 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     assert isinstance(obj, pydantic.BaseModel)
 
     try:
-        fields = type(obj).model_fields
+        fields = [name for name, field in type(obj).model_fields.items() if field.repr]
         extra = obj.model_extra or {}
     except AttributeError:  # pragma: no cover
         # pydantic v1
