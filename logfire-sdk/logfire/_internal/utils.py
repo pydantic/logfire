@@ -275,7 +275,7 @@ def ensure_data_dir_exists(data_dir: Path) -> None:
             if isinstance(e, FileExistsError) or e.errno == errno.ELOOP:
                 return
             raise  # pragma: no cover
-        with os.fdopen(fd, 'w') as gitignore:
+        with open(fd, 'w') as gitignore:
             gitignore.write('*')
 
 
