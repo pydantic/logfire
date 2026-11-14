@@ -17,7 +17,10 @@ A **policy** is a versioned set of settings in Logfire. There are two types:
 
 Each client runs the policy it was connected with: the one you chose or created when you [added the Collector](collectors.md) or [connected the application](applications.md). The **Policies** tab lists every policy, its type, its published version, and how many instances use it.
 
-![The Policies tab listing Collector and SDK policies with their type, version, instance count and who manages them](../../../images/fleet/policies.png)
+<!-- ladle-screenshot story="docs--fleet--inventory--policies" image="../../../images/fleet/policies" alt="The Policies tab listing Collector and SDK policies with their type, version, instance count and who manages them" viewport="1280x1300" scale="2" selector="[data-logfire-rum-component='fleet-management']" padding="0" time="2026-09-26T12:00:00Z" -->
+<img class="only-light" src="../../../images/fleet/policies-light.png" alt="The Policies tab listing Collector and SDK policies with their type, version, instance count and who manages them" width="1149" height="928" loading="lazy" />
+<img class="only-dark" src="../../../images/fleet/policies-dark.png" alt="The Policies tab listing Collector and SDK policies with their type, version, instance count and who manages them" width="1149" height="928" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 A Collector that reports a configuration managed elsewhere, such as by Helm or GitOps, shows **External source** under **Managed by**. Fleet shows that configuration but doesn't change it.
 
@@ -27,7 +30,10 @@ A Collector that reports a configuration managed elsewhere, such as by Helm or G
 2. Choose **Host Collector**, **Kubernetes Collector** or **SDK policy**.
 3. Start from a template, import an existing Collector configuration, or build a custom policy.
 
-![Host policy templates: Linux, Windows and macOS host monitoring, file logs, Prometheus scraping and application telemetry](../../../images/fleet/create-host-policy.png)
+<!-- ladle-screenshot story="docs--fleet--policies--create-host-policy" image="../../../images/fleet/create-host-policy" alt="Host policy templates: Linux, Windows and macOS host monitoring, file logs, Prometheus scraping and application telemetry" viewport="1280x900" scale="2" selector="[role='dialog']:has(input[aria-label='Search policy templates'])" padding="0" time="2026-09-26T12:00:00Z" -->
+<img class="only-light" src="../../../images/fleet/create-host-policy-light.png" alt="Host policy templates: Linux, Windows and macOS host monitoring, file logs, Prometheus scraping and application telemetry" width="896" height="672" loading="lazy" />
+<img class="only-dark" src="../../../images/fleet/create-host-policy-dark.png" alt="Host policy templates: Linux, Windows and macOS host monitoring, file logs, Prometheus scraping and application telemetry" width="896" height="672" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 A new policy is a draft. Creating or saving a draft doesn't change any connected client.
 
@@ -35,7 +41,10 @@ A new policy is a draft. Creating or saving a draft doesn't change any connected
 
 Open a Collector policy to edit its pipeline. **Visual** shows each pipeline as sources, processing and destinations. **YAML** shows the same Collector configuration as text, and **Split** shows both. Add components from the library on the left, and select one to edit its settings.
 
-![The Collector policy editor showing a host metrics pipeline: host metrics, memory limiter and batch processing, sending to Logfire](../../../images/fleet/collector-editor.png)
+<!-- ladle-screenshot story="docs--fleet--policies--collector-editor" image="../../../images/fleet/collector-editor" alt="The Collector policy editor showing a host metrics pipeline: host metrics, memory limiter and batch processing, sending to Logfire" viewport="1280x900" scale="2" selector="[role='dialog']" padding="0" time="2026-09-26T12:00:00Z" -->
+<img class="only-light" src="../../../images/fleet/collector-editor-light.png" alt="The Collector policy editor showing a host metrics pipeline: host metrics, memory limiter and batch processing, sending to Logfire" width="1229" height="900" loading="lazy" />
+<img class="only-dark" src="../../../images/fleet/collector-editor-dark.png" alt="The Collector policy editor showing a host metrics pipeline: host metrics, memory limiter and batch processing, sending to Logfire" width="1229" height="900" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 The editor checks the configuration's structure and pipeline references. It can't prove that every Collector has every component you use: the review shows which Collectors would refuse a version, and why.
 
@@ -43,7 +52,10 @@ The editor checks the configuration's structure and pipeline references. It can'
 
 Open an SDK policy to change its sections: **Trace sampling**, **Sampling rules**, **Signal exports**, **Volume controls** (including **Minimum log level**), **Attribute redaction** and **Scrubbing**. Each section shows **Set by policy** or **Application controlled**.
 
-![An SDK policy with trace sampling set to 10% by the policy, and sampling rules and signal exports left to the application](../../../images/fleet/sdk-policy-editor.png)
+<!-- ladle-screenshot story="docs--fleet--policies--sdk-policy-editor" image="../../../images/fleet/sdk-policy-editor" alt="An SDK policy with trace sampling set to 10% by the policy, and sampling rules and signal exports left to the application" viewport="1280x900" scale="2" selector="[role='dialog']" padding="0" time="2026-09-26T12:00:00Z" -->
+<img class="only-light" src="../../../images/fleet/sdk-policy-editor-light.png" alt="An SDK policy with trace sampling set to 10% by the policy, and sampling rules and signal exports left to the application" width="672" height="900" loading="lazy" />
+<img class="only-dark" src="../../../images/fleet/sdk-policy-editor-dark.png" alt="An SDK policy with trace sampling set to 10% by the policy, and sampling rules and signal exports left to the application" width="672" height="900" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 Sampling (recording only a share of new traces) and exports change what reaches Logfire. Redaction and scrubbing (removing sensitive values before data leaves the application) change what Logfire stores.
 
@@ -84,7 +96,10 @@ Records emitted before a policy arrives can still be in an export batch when it 
 2. Select **Review version** for a Collector policy, or **Review policy** for an SDK policy. The review shows the change against the published version.
 3. Select **Publish and apply**.
 
-![The publish review showing a one-line change and a warning that three Collectors lack components this version uses](../../../images/fleet/publish-review.png)
+<!-- ladle-screenshot story="docs--fleet--policies--publish-review" image="../../../images/fleet/publish-review" alt="The publish review showing a one-line change and a warning that three Collectors lack components this version uses" viewport="1280x900" scale="2" selector="[role='dialog']:has([data-slot='dialog-footer'])" padding="0" time="2026-09-26T12:00:00Z" -->
+<img class="only-light" src="../../../images/fleet/publish-review-light.png" alt="The publish review showing a one-line change and a warning that three Collectors lack components this version uses" width="896" height="672" loading="lazy" />
+<img class="only-dark" src="../../../images/fleet/publish-review-dark.png" alt="The publish review showing a one-line change and a warning that three Collectors lack components this version uses" width="896" height="672" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 !!! warning "Publishing changes running clients"
 
@@ -112,7 +127,10 @@ Each policy lists its newest published versions. Open one to see it as a change 
 
 **Overview → Flows** draws where your published Collector policies receive data and where they send it, with the rate each Collector reported. **Overview → Traffic** totals what the Collectors sent per signal and compares it with the period before.
 
-![The Flows view: data received over OpenTelemetry Protocol (OTLP), sent to Logfire and to a file](../../../images/fleet/flows.png)
+<!-- ladle-screenshot story="docs--fleet--policies--flows" image="../../../images/fleet/flows" alt="The Flows view: data received over OpenTelemetry Protocol (OTLP), sent to Logfire and to a file" viewport="1280x1500" scale="2" selector="[role='group'][aria-label='Traces paths']" padding="0" time="2026-09-26T12:00:00Z" -->
+<img class="only-light" src="../../../images/fleet/flows-light.png" alt="The Flows view: data received over OpenTelemetry Protocol (OTLP), sent to Logfire and to a file" width="1149" height="570" loading="lazy" />
+<img class="only-dark" src="../../../images/fleet/flows-dark.png" alt="The Flows view: data received over OpenTelemetry Protocol (OTLP), sent to Logfire and to a file" width="1149" height="570" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 Flows and Traffic read the Collectors' own metrics, which Fleet's Collector templates send to Logfire. A Collector policy that doesn't send them shows as **Not reported**.
 

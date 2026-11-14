@@ -20,9 +20,9 @@ You need a project that receives exception data and permission to change its con
 
 A plain error-level message does not contain the exception data needed to create an issue. For Python examples, see [record exceptions](../onboarding-checklist/add-manual-tracing.md#exceptions).
 
-<!-- ladle-screenshot story="product--error-tracking--issues-route--enable-without-channels" image="../../images/guide/browser-error-tracking-enable" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." viewport="1140x400" scale="2" selector="form" aspect="2278:684" padding="16" -->
-<img class="only-light" src="../../images/guide/browser-error-tracking-enable-light.png" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." width="1106" height="332" loading="lazy" />
-<img class="only-dark" src="../../images/guide/browser-error-tracking-enable-dark.png" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." width="1106" height="332" loading="lazy" />
+<!-- ladle-screenshot story="docs--issues--issues-list--enable-without-channels" image="../../images/guide/browser-error-tracking-enable" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." viewport="1140x900" scale="2" selector="form" aspect="2278:684" padding="16" -->
+<img class="only-light" src="../../images/guide/browser-error-tracking-enable-light.png" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." width="975" height="293" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-error-tracking-enable-dark.png" alt="Issue tracking setup with optional notification channels, advanced options, and the Enable Issue Tracking button." width="975" height="293" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 To change filters or channels later, select **Configure**.
@@ -39,9 +39,9 @@ The list shows each issue's exception type and message, affected services and en
 
 Open an issue to inspect its comparison cards, matching spans, and exception details.
 
-<!-- ladle-screenshot story="product--error-tracking--issues-route--checkout-issues" image="../../images/guide/browser-error-tracking-list" alt="Three open checkout issues, each with four hits, alongside state tabs, search, and configuration controls." viewport="1173x800" scale="2" aspect="2346:1020" padding="0" time="2026-09-19T12:09:30Z" -->
-<img class="only-light" src="../../images/guide/browser-error-tracking-list-light.png" alt="Three open checkout issues, each with four hits, alongside state tabs, search, and configuration controls." width="1173" height="510" loading="lazy" />
-<img class="only-dark" src="../../images/guide/browser-error-tracking-list-dark.png" alt="Three open checkout issues, each with four hits, alongside state tabs, search, and configuration controls." width="1173" height="510" loading="lazy" />
+<!-- ladle-screenshot story="docs--issues--issues-list--checkout-issues" image="../../images/guide/browser-error-tracking-list" alt="Three open checkout issues, each with four hits, alongside state tabs, search, and configuration controls." viewport="1173x800" scale="2" selector="[data-scroll-restoration-container='true']" aspect="2346:1020" padding="0" time="2026-09-19T12:09:30Z" -->
+<img class="only-light" src="../../images/guide/browser-error-tracking-list-light.png" alt="Three open checkout issues, each with four hits, alongside state tabs, search, and configuration controls." width="1124" height="489" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-error-tracking-list-dark.png" alt="Three open checkout issues, each with four hits, alongside state tabs, search, and configuration controls." width="1124" height="489" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ## Investigate what stands out
@@ -65,9 +65,9 @@ These fields come from [attributes recorded by the sample app](../onboarding-che
 3. Select **Traces** to inspect individual occurrences and their surrounding trace.
 4. Select **Detail** for the first recorded exception message and traceback.
 
-<!-- ladle-screenshot story="product--error-tracking--issue-detail--checkout-timeout-standouts" image="../../images/guide/browser-error-tracking-standouts" alt="What stands out for CheckoutGatewayTimeout: error status, release, region, and provider each appear in four of four issue spans and zero of six similar spans." viewport="1173x900" scale="2" aspect="2346:1364" padding="0" time="2026-09-19T12:09:30Z" -->
-<img class="only-light" src="../../images/guide/browser-error-tracking-standouts-light.png" alt="What stands out for CheckoutGatewayTimeout: error status, release, region, and provider each appear in four of four issue spans and zero of six similar spans." width="1173" height="682" loading="lazy" />
-<img class="only-dark" src="../../images/guide/browser-error-tracking-standouts-dark.png" alt="What stands out for CheckoutGatewayTimeout: error status, release, region, and provider each appear in four of four issue spans and zero of six similar spans." width="1173" height="682" loading="lazy" />
+<!-- ladle-screenshot story="docs--issues--issue-detail--checkout-timeout-standouts" image="../../images/guide/browser-error-tracking-standouts" alt="What stands out for CheckoutGatewayTimeout: error status, release, region, and provider each appear in four of four issue spans and zero of six similar spans." viewport="1173x900" scale="2" selector="[data-scroll-restoration-container='true']" aspect="2346:1364" padding="0" time="2026-09-19T12:09:30Z" -->
+<img class="only-light" src="../../images/guide/browser-error-tracking-standouts-light.png" alt="What stands out for CheckoutGatewayTimeout: error status, release, region, and provider each appear in four of four issue spans and zero of six similar spans." width="1124" height="654" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-error-tracking-standouts-dark.png" alt="What stands out for CheckoutGatewayTimeout: error status, release, region, and provider each appear in four of four issue spans and zero of six similar spans." width="1124" height="654" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 The comparison sample contains completed spans from the same service and operation, excluding this issue's occurrences. It can include other failures.

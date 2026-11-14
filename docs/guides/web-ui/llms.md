@@ -12,9 +12,9 @@ You'll find this view in the project sidebar.
 
 ## The LLMs page
 
-<!-- ladle-screenshot story="product--llms-and-providers--models-page--inventory" image="../../images/llms/inventory" alt="LLMs page inventory" viewport="1450x700" scale="2" aspect="1231:557" padding="32" time="2026-08-13T12:00:00Z" -->
-<img class="only-light" src="../../images/llms/inventory-light.png" alt="LLMs page inventory" width="1450" height="656" loading="lazy" />
-<img class="only-dark" src="../../images/llms/inventory-dark.png" alt="LLMs page inventory" width="1450" height="656" loading="lazy" />
+<!-- ladle-screenshot story="docs--llms--models--inventory" image="../../images/llms/inventory" alt="LLMs page inventory" viewport="1450x700" scale="2" selector="[data-scroll-restoration-container='true']" aspect="1231:557" padding="0" time="2026-08-13T12:00:00Z" -->
+<img class="only-light" src="../../images/llms/inventory-light.png" alt="LLMs page inventory" width="1401" height="634" loading="lazy" />
+<img class="only-dark" src="../../images/llms/inventory-dark.png" alt="LLMs page inventory" width="1401" height="634" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 Each row is a model your application has called in the window. Columns:
@@ -35,9 +35,9 @@ Sort by cost to see which model is spending the most, by error rate to see which
 
 Click a row to open the LLM detail page.
 
-<!-- ladle-screenshot story="product--llms-and-providers--llm-detail--single-agent-model" image="../../images/llms/llm-detail" alt="LLM detail page with headline cards and trend charts" viewport="1230x800" scale="2" aspect="1230:586" padding="32" time="2026-08-13T18:53:00Z" -->
-<img class="only-light" src="../../images/llms/llm-detail-light.png" alt="LLM detail page with headline cards and trend charts" width="1230" height="586" loading="lazy" />
-<img class="only-dark" src="../../images/llms/llm-detail-dark.png" alt="LLM detail page with headline cards and trend charts" width="1230" height="586" loading="lazy" />
+<!-- ladle-screenshot story="docs--llms--models--single-agent-model" image="../../images/llms/llm-detail" alt="LLM detail page with headline cards and trend charts" viewport="1230x800" scale="2" selector="[data-scroll-restoration-container='true']" aspect="1230:586" padding="0" time="2026-08-13T18:53:00Z" -->
+<img class="only-light" src="../../images/llms/llm-detail-light.png" alt="LLM detail page with headline cards and trend charts" width="1181" height="563" loading="lazy" />
+<img class="only-dark" src="../../images/llms/llm-detail-dark.png" alt="LLM detail page with headline cards and trend charts" width="1181" height="563" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 You'll see five headline metric cards (Calls, Errors, Avg latency, Cost, Speed), a grid of trend charts (Calls over time, Error rate, Latency, Tokens, Cost, Truncated, Tool calls), and two tables:

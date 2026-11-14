@@ -23,9 +23,9 @@ You need organization-admin access to configure protections.
 
    <div align="center">
 
-   <!-- ladle-screenshot story="product--gateway--guardrails--create-form--open-ai-key-protection" image="../../../images/guide/ai-gateway/prebuilt-protection" alt="A prebuilt OpenAI API key protection with its endpoint targeting and action choices" viewport="1300x900" scale="2" aspect="1200:760" padding="16" -->
-   <img class="only-light" src="../../../images/guide/ai-gateway/prebuilt-protection-light.png" alt="A prebuilt OpenAI API key protection with its endpoint targeting and action choices" width="1300" height="823" loading="lazy" />
-   <img class="only-dark" src="../../../images/guide/ai-gateway/prebuilt-protection-dark.png" alt="A prebuilt OpenAI API key protection with its endpoint targeting and action choices" width="1300" height="823" loading="lazy" />
+   <!-- ladle-screenshot story="docs--gateway--guardrails--open-ai-key-protection" image="../../../images/guide/ai-gateway/prebuilt-protection" alt="A prebuilt OpenAI API key protection with its endpoint targeting and action choices" viewport="1300x900" scale="2" selector="[data-scroll-restoration-container='true']" aspect="1200:760" padding="0" -->
+   <img class="only-light" src="../../../images/guide/ai-gateway/prebuilt-protection-light.png" alt="A prebuilt OpenAI API key protection with its endpoint targeting and action choices" width="1044" height="661" loading="lazy" />
+   <img class="only-dark" src="../../../images/guide/ai-gateway/prebuilt-protection-dark.png" alt="A prebuilt OpenAI API key protection with its endpoint targeting and action choices" width="1044" height="661" loading="lazy" />
    <!-- /ladle-screenshot -->
 
    *A prebuilt API-key detector in Observe mode across all endpoints.*

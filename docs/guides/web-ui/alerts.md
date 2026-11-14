@@ -4,9 +4,9 @@ description: "Learn how to create alerts based on SQL query conditions (e.g., er
 ---
 With **Logfire**, use <OpenInLogfire path="alerts" variant="inline" label="Alerts" /> to notify you when certain conditions are met.
 
-<!-- ladle-screenshot story="product--alerts--alerts-overview--guide-overview" image="../../images/guide/browser-alerts-full" alt="Logfire alerts screen" viewport="1152x900" scale="2" aspect="1152:850" padding="32" time="2026-08-13T20:00:30Z" -->
-<img class="only-light" src="../../images/guide/browser-alerts-full-light.png" alt="Logfire alerts screen" width="1152" height="850" loading="lazy" />
-<img class="only-dark" src="../../images/guide/browser-alerts-full-dark.png" alt="Logfire alerts screen" width="1152" height="850" loading="lazy" />
+<!-- ladle-screenshot story="docs--alerts--overview--guide-overview" image="../../images/guide/browser-alerts-full" alt="Logfire alerts screen" viewport="1152x900" scale="2" selector="[data-scroll-restoration-container='true']" aspect="1152:850" padding="0" time="2026-08-13T20:00:30Z" -->
+<img class="only-light" src="../../images/guide/browser-alerts-full-light.png" alt="Logfire alerts screen" width="1103" height="814" loading="lazy" />
+<img class="only-dark" src="../../images/guide/browser-alerts-full-dark.png" alt="Logfire alerts screen" width="1103" height="814" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ## Create an alert

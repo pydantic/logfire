@@ -22,7 +22,10 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
 1. In **Fleet management**, open **SDKs** and select **Add application**.
 2. Enter the application's name, which becomes its `OTEL_SERVICE_NAME`, and choose what it uses. Select **Get setup instructions**.
 
-    ![The Connect an application dialog with an application name and a choice of setup](../../../images/fleet/connect-application.png)
+    <!-- ladle-screenshot story="docs--fleet--setup--connect-application" image="../../../images/fleet/connect-application" alt="The Connect an application dialog with an application name and a choice of setup" viewport="1280x900" scale="2" selector="[role='dialog']" padding="0" time="2026-09-26T12:00:00Z" -->
+    <img class="only-light" src="../../../images/fleet/connect-application-light.png" alt="The Connect an application dialog with an application name and a choice of setup" width="672" height="366" loading="lazy" />
+    <img class="only-dark" src="../../../images/fleet/connect-application-dark.png" alt="The Connect an application dialog with an application name and a choice of setup" width="672" height="366" loading="lazy" />
+    <!-- /ladle-screenshot -->
 
 3. Install Fleet support and load it, as Logfire shows for your setup:
 
@@ -181,11 +184,17 @@ The connection still comes from `OTEL_OPAMP_ENDPOINT` and `OTEL_OPAMP_HEADERS`. 
 
 Within a few seconds of starting, the setup shows the application as connected and its policy as applied:
 
-![The setup's last step, showing the application connected and its policy applied on one instance](../../../images/fleet/application-connected.png)
+<!-- ladle-screenshot story="docs--fleet--setup--application-connected" image="../../../images/fleet/application-connected" alt="The setup's last step, showing the application connected and its policy applied on one instance" viewport="1280x900" scale="2" selector="[data-slot='dialog-body']" padding="0" time="2026-09-26T12:00:00Z" -->
+<img class="only-light" src="../../../images/fleet/application-connected-light.png" alt="The setup's last step, showing the application connected and its policy applied on one instance" width="670" height="402" loading="lazy" />
+<img class="only-dark" src="../../../images/fleet/application-connected-dark.png" alt="The setup's last step, showing the application connected and its policy applied on one instance" width="670" height="402" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 The **SDKs** tab then lists the application with its connection, health, policy status and SDK policy. One row covers every running instance of the application.
 
-![The SDKs tab listing one connected application with its SDK policy applied](../../../images/fleet/sdks.png)
+<!-- ladle-screenshot story="docs--fleet--inventory--sdks" image="../../../images/fleet/sdks" alt="The SDKs tab listing one connected application with its SDK policy applied" viewport="1280x1100" scale="2" selector="[data-logfire-rum-component='fleet-management']" padding="0" time="2026-09-26T12:00:00Z" -->
+<img class="only-light" src="../../../images/fleet/sdks-light.png" alt="The SDKs tab listing one connected application with its SDK policy applied" width="1149" height="876" loading="lazy" />
+<img class="only-dark" src="../../../images/fleet/sdks-dark.png" alt="The SDKs tab listing one connected application with its SDK policy applied" width="1149" height="876" loading="lazy" />
+<!-- /ladle-screenshot -->
 
 ## Try a policy change
 

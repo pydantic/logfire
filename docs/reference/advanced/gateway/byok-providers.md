@@ -18,9 +18,9 @@ You need organization-admin access and a credential for a supported provider. Se
 
 1. Open [**AI Engineering → Gateway → Providers**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/providers), check the selected organization, and click **New BYOK provider** (or **Create BYOK provider** if the list is empty). From an empty **Connect** tab, you can also click **Add your own provider**.
 
-<!-- ladle-screenshot story="product--gateway--providers--add-provider--add-provider-page" image="../../../images/guide/ai-gateway/provider-types" alt="The provider type choices in the Add BYOK provider flow" viewport="1200x700" scale="2" focus="[role=radio][value=openai]" aspect="1200:550" padding="16" time="2026-08-01T12:00:00Z" -->
-<img class="only-light" src="../../../images/guide/ai-gateway/provider-types-light.png" alt="The provider type choices in the Add BYOK provider flow" width="1200" height="550" loading="lazy" />
-<img class="only-dark" src="../../../images/guide/ai-gateway/provider-types-dark.png" alt="The provider type choices in the Add BYOK provider flow" width="1200" height="550" loading="lazy" />
+<!-- ladle-screenshot story="docs--gateway--providers--add-provider-page" image="../../../images/guide/ai-gateway/provider-types" alt="The provider type choices in the Add BYOK provider flow" viewport="1200x700" scale="2" selector="[data-scroll-restoration-container='true']" focus="[role=radio][value=openai]" aspect="1200:550" padding="0" time="2026-08-01T12:00:00Z" -->
+<img class="only-light" src="../../../images/guide/ai-gateway/provider-types-light.png" alt="The provider type choices in the Add BYOK provider flow" width="944" height="433" loading="lazy" />
+<img class="only-dark" src="../../../images/guide/ai-gateway/provider-types-dark.png" alt="The provider type choices in the Add BYOK provider flow" width="944" height="433" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 *The picker also has a search field for other provider types.*

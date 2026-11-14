@@ -16,9 +16,9 @@ You need permission to manage billing for the personal account. You will choose 
 3. Select **Team** or **Growth** to compare what it adds to your Personal plan.
 4. Select **Upgrade to Team** or **Upgrade to Growth**.
 
-<!-- ladle-screenshot story="product--organization-settings--billing-and-usage--billing-route--personal-plan" image="../images/guide/convert-to-org-plan-selection" alt="Choose Team or Growth and compare what the plan adds" viewport="1510x1040" scale="2" aspect="1328:872" padding="0" time="2026-08-01T12:00:00Z" -->
-<img class="only-light" src="../images/guide/convert-to-org-plan-selection-light.png" alt="Choose Team or Growth and compare what the plan adds" width="1510" height="992" loading="lazy" />
-<img class="only-dark" src="../images/guide/convert-to-org-plan-selection-dark.png" alt="Choose Team or Growth and compare what the plan adds" width="1510" height="992" loading="lazy" />
+<!-- ladle-screenshot story="docs--settings--billing--personal-plan" image="../images/guide/convert-to-org-plan-selection" alt="Choose Team or Growth and compare what the plan adds" viewport="1510x1040" scale="2" selector="[data-scroll-restoration-container='true']" aspect="1328:872" padding="0" time="2026-08-01T12:00:00Z" -->
+<img class="only-light" src="../images/guide/convert-to-org-plan-selection-light.png" alt="Choose Team or Growth and compare what the plan adds" width="1461" height="959" loading="lazy" />
+<img class="only-dark" src="../images/guide/convert-to-org-plan-selection-dark.png" alt="Choose Team or Growth and compare what the plan adds" width="1461" height="959" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 ## Name the team

@@ -32,9 +32,9 @@ The **Containers** tab summarizes recent findings. Select **With findings** to s
 - **High memory**: at least three readings spanning 2 minutes stayed at or above 90% memory usage.
 - **Restarted recently**: the container's restart counter increased during the final 15 minutes of the selected range. Logfire needs at least two readings to detect an increase.
 
-<!-- ladle-screenshot story="product--infrastructure--resource-findings--docker-container-findings-summary" image="../../images/docker/findings" alt="Docker container findings summary and filter" viewport="1264x800" scale="2" selector="[cmdk-root]" aspect="1248:357" padding="0" time="2026-09-03T12:00:00Z" -->
-<img class="only-light" src="../../images/docker/findings-light.png" alt="Docker container findings summary and filter" width="1264" height="362" loading="lazy" />
-<img class="only-dark" src="../../images/docker/findings-dark.png" alt="Docker container findings summary and filter" width="1264" height="362" loading="lazy" />
+<!-- ladle-screenshot story="docs--infrastructure--docker--docker-container-findings-summary" image="../../images/docker/findings" alt="Docker container findings summary and filter" viewport="1264x800" scale="2" selector="[cmdk-root]" aspect="1248:357" padding="0" time="2026-09-03T12:00:00Z" -->
+<img class="only-light" src="../../images/docker/findings-light.png" alt="Docker container findings summary and filter" width="1107" height="317" loading="lazy" />
+<img class="only-dark" src="../../images/docker/findings-dark.png" alt="Docker container findings summary and filter" width="1107" height="317" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 Restart findings require the optional `container.restarts` metric described below. Findings cover the containers loaded into the inventory. A missing metric means Logfire cannot evaluate that condition, not that the container is healthy.

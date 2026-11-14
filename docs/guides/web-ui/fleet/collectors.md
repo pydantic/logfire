@@ -42,7 +42,10 @@ In a cluster, Fleet manages Collectors through the [OpenTelemetry Operator](http
 1. In **Fleet management**, open **Collectors**, select **Add Collector**, then **Kubernetes**.
 2. Name the cluster and choose what to collect: application telemetry sent to the cluster's Collectors, Kubernetes cluster metrics, and container logs.
 
-    ![The Connect Kubernetes dialog with a cluster name and three kinds of telemetry to collect](../../../images/fleet/connect-kubernetes.png)
+    <!-- ladle-screenshot story="docs--fleet--setup--connect-kubernetes" image="../../../images/fleet/connect-kubernetes" alt="The Connect Kubernetes dialog with a cluster name and three kinds of telemetry to collect" viewport="1280x900" scale="2" selector="[role='dialog']" padding="0" time="2026-09-26T12:00:00Z" -->
+    <img class="only-light" src="../../../images/fleet/connect-kubernetes-light.png" alt="The Connect Kubernetes dialog with a cluster name and three kinds of telemetry to collect" width="672" height="510" loading="lazy" />
+    <img class="only-dark" src="../../../images/fleet/connect-kubernetes-dark.png" alt="The Connect Kubernetes dialog with a cluster name and three kinds of telemetry to collect" width="672" height="510" loading="lazy" />
+    <!-- /ladle-screenshot -->
 
 3. Under **Advanced**, set the **Collector namespaces** Fleet may run Collectors in. Turn on **Limit the bridge to this policy's components** to make the bridge refuse a later policy that uses any other receiver, processor or exporter.
 4. Select **Get setup instructions**, save the connection key Logfire shows, and follow the steps:

@@ -105,7 +105,10 @@ Open the [Live view](../../guides/web-ui/live.md). You should see a `pixeltable.
 The example above looks like this in Logfire:
 
 <figure markdown="span">
-  ![Pixeltable insert trace with a nested OpenAI chat completion](../../images/logfire-screenshot-pixeltable-trace.png)
+  <!-- ladle-screenshot story="docs--live--llm-integrations--pixeltable-insert" image="../../images/logfire-screenshot-pixeltable-trace" alt="Pixeltable insert trace with a nested OpenAI chat completion" viewport="1920x900" scale="2" selector="#live-view-details-panel-group" padding="0" time="2026-08-01T15:05:00Z" -->
+  <img class="only-light" src="../../images/logfire-screenshot-pixeltable-trace-light.png" alt="Pixeltable insert trace with a nested OpenAI chat completion" width="1797" height="657" loading="lazy" />
+  <img class="only-dark" src="../../images/logfire-screenshot-pixeltable-trace-dark.png" alt="Pixeltable insert trace with a nested OpenAI chat completion" width="1797" height="657" loading="lazy" />
+  <!-- /ladle-screenshot -->
   <figcaption>The `pixeltable.insert` trace. The OpenAI chat completion is nested under `pixeltable.udf.chat_completions`, with the model, token counts, and cost.</figcaption>
 </figure>
 

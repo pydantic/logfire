@@ -61,7 +61,7 @@ The agent only records work your app actually does. Send it a request (open a pa
 
 Open the [**Live view**](../guides/web-ui/live.md) in Logfire. Traces arrive under the service name `hello-java` as your app handles work:
 
-<!-- ladle-screenshot story="product--live--docs-traces--web-apps--checkout-webhook-trace" image="../images/logfire-live-view" alt="Traces arriving in the Logfire Live view" viewport="1280x720" scale="2" aspect="1280:720" padding="0" time="2026-08-01T13:52:00Z" -->
+<!-- ladle-screenshot story="docs--live--web-apps--checkout-webhook-trace" image="../images/logfire-live-view" alt="Traces arriving in the Logfire Live view" viewport="1280x720" scale="2" aspect="1280:720" padding="0" time="2026-08-01T13:52:00Z" -->
 <img class="only-light" src="../images/logfire-live-view-light.png" alt="Traces arriving in the Logfire Live view" width="1280" height="720" loading="lazy" />
 <img class="only-dark" src="../images/logfire-live-view-dark.png" alt="Traces arriving in the Logfire Live view" width="1280" height="720" loading="lazy" />
 <!-- /ladle-screenshot -->

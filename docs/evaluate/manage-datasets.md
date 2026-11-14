@@ -31,9 +31,9 @@ Use the controls above the list to narrow a large project:
 
 Choose stable, descriptive names. Hosted dataset names must start with a letter or number and can contain only letters, numbers, dots, underscores, and hyphens. Code-defined names can contain `/` for path-prefix grouping, but a name containing `/` cannot currently be reused by a hosted dataset.
 
-<!-- ladle-screenshot story="product--evals--unified-evals-landing--project-datasets" image="../images/guide/evals/datasets-list" alt="Find datasets by name, type, or path prefix" viewport="1221x800" scale="2" aspect="1221:715" padding="48" time="2026-08-01T12:00:00Z" -->
-<img class="only-light" src="../images/guide/evals/datasets-list-light.png" alt="Find datasets by name, type, or path prefix" width="1221" height="715" loading="lazy" />
-<img class="only-dark" src="../images/guide/evals/datasets-list-dark.png" alt="Find datasets by name, type, or path prefix" width="1221" height="715" loading="lazy" />
+<!-- ladle-screenshot story="docs--evals--datasets--project-datasets" image="../images/guide/evals/datasets-list" alt="Find datasets by name, type, or path prefix" viewport="1221x800" scale="2" selector="[data-scroll-restoration-container='true']" aspect="1221:715" padding="0" time="2026-08-01T12:00:00Z" -->
+<img class="only-light" src="../images/guide/evals/datasets-list-light.png" alt="Find datasets by name, type, or path prefix" width="1172" height="686" loading="lazy" />
+<img class="only-dark" src="../images/guide/evals/datasets-list-dark.png" alt="Find datasets by name, type, or path prefix" width="1172" height="686" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 Each row shows the actions available for that dataset. **Edit cases** is available when cases are hosted in Logfire. **Review experiments** opens the runs associated with that dataset.
@@ -49,7 +49,7 @@ Select **New dataset**, then choose where the source of truth should live:
 
 If you manage the dataset in code, choose whether to **Sync cases to Logfire** or **Keep cases in code**. Experiment results can appear in Logfire with either choice when you configure Logfire for the run. Syncing also makes the cases available to browse and edit in Logfire.
 
-<!-- ladle-screenshot story="product--evals--datasets-route--new-dataset" image="../images/guide/evals/new-dataset" alt="Choose how to manage a new dataset" viewport="1221x800" scale="2" selector="[role='dialog']" aspect="913:372" padding="8" time="2026-08-01T12:00:00Z" -->
+<!-- ladle-screenshot story="docs--evals--datasets--new-dataset" image="../images/guide/evals/new-dataset" alt="Choose how to manage a new dataset" viewport="1221x800" scale="2" selector="[role='dialog']" aspect="913:372" padding="8" time="2026-08-01T12:00:00Z" -->
 <img class="only-light" src="../images/guide/evals/new-dataset-light.png" alt="Choose how to manage a new dataset" width="913" height="372" loading="lazy" />
 <img class="only-dark" src="../images/guide/evals/new-dataset-dark.png" alt="Choose how to manage a new dataset" width="913" height="372" loading="lazy" />
 <!-- /ladle-screenshot -->
@@ -69,9 +69,9 @@ After creation, use these controls to maintain the dataset:
 - On the **Cases** tab, **Add case** creates a case in the web UI and **Add cases from code** opens a prefilled `add_cases(...)` snippet.
 - In the dataset header, **Sync cases from code** opens a prefilled `push_dataset(...)` snippet, **Export** downloads the cases, and **Edit** changes the dataset name, description, or schemas.
 
-<!-- ladle-screenshot story="product--evals--dataset-detail-workspace-layout--hosted-dataset-with-one-case" image="../images/guide/evals/hosted-dataset-cases" alt="Edit the cases in a hosted dataset" viewport="1221x600" scale="2" aspect="1221:331" padding="0" time="2026-08-01T12:00:00Z" -->
-<img class="only-light" src="../images/guide/evals/hosted-dataset-cases-light.png" alt="Edit the cases in a hosted dataset" width="1221" height="331" loading="lazy" />
-<img class="only-dark" src="../images/guide/evals/hosted-dataset-cases-dark.png" alt="Edit the cases in a hosted dataset" width="1221" height="331" loading="lazy" />
+<!-- ladle-screenshot story="docs--evals--dataset-detail--hosted-dataset-with-one-case" image="../images/guide/evals/hosted-dataset-cases" alt="Edit the cases in a hosted dataset" viewport="1221x600" scale="2" selector="[data-scroll-restoration-container='true']" aspect="1221:331" padding="0" time="2026-08-01T12:00:00Z" -->
+<img class="only-light" src="../images/guide/evals/hosted-dataset-cases-light.png" alt="Edit the cases in a hosted dataset" width="1172" height="318" loading="lazy" />
+<img class="only-dark" src="../images/guide/evals/hosted-dataset-cases-dark.png" alt="Edit the cases in a hosted dataset" width="1172" height="318" loading="lazy" />
 <!-- /ladle-screenshot -->
 
 **Add cases from code** and **Sync cases from code** both open a code snippet for you to run. Neither transfers anything on its own. Both arrive prefilled with the dataset's name and the type names taken from its schemas. `add_cases(...)` sends the cases you pass in one import request, updating any that match an existing case name. A named update replaces that case's stored content with the submitted case rather than merging individual fields. `push_dataset(...)` first creates or updates the hosted dataset, then calls the same case-import path. On an existing dataset, it updates schemas for the non-`None` generic types in the local `Dataset` and replaces the dataset-level evaluator lists.
