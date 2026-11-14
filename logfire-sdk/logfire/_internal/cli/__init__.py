@@ -34,7 +34,7 @@ from ..http_transport import install_connection_policy
 from ..interactive import NonInteractiveError, is_non_interactive, require_answer, set_non_interactive
 from ..server_response import install_logfire_response_hook
 from ..tracer import SDKTracerProvider
-from ..utils import READ_TOKEN_FILENAME, ensure_data_dir_exists
+from ..utils import READ_TOKEN_FILENAME, ensure_data_dir_exists, open_no_follow
 from .auth import parse_auth, parse_logout
 from .prompt import parse_prompt
 from .run import collect_instrumentation_context, parse_run, print_otel_summary
@@ -386,16 +386,17 @@ def _save_read_token(
         'project_name': project_name,
         'expires_at': expires_at.isoformat(),
     }
-    # O_NOFOLLOW, because this path is inside the user's repository: someone who can get a
-    # symlink committed there -- or who lands one any other way -- would otherwise have
-    # O_TRUNC and the mode change below applied to whatever it points at.
-    # O_NOFOLLOW does not exist on Windows, where symlinks need a privilege to create.
-    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, 'O_NOFOLLOW', 0)
+    # Refuse a symlink, because this path is inside the user's repository: someone who can get
+    # a symlink committed there -- or who lands one any other way -- would otherwise have the
+    # truncation and the mode change below applied to whatever it points at. No O_TRUNC here:
+    # `open_no_follow` confirms the descriptor is not a symlink's target only after opening
+    # (on Windows), so the file is truncated through the descriptor once that has passed.
     try:
-        fd = os.open(path, flags, 0o600)
+        fd = open_no_follow(path, os.O_WRONLY | os.O_CREAT, 0o600)
     except OSError as e:
         raise LogfireConfigError(f'Could not write the read token to {path}: {e}') from e
     try:
+        os.ftruncate(fd, 0)
         # BEFORE any bytes are written. The mode passed to `os.open` applies only when it
         # creates the file, so an existing file keeps whatever permissions it had and the
         # token would land in a world-readable one, restricted only afterwards.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import functools
 import hashlib
 import inspect
@@ -266,13 +267,40 @@ def ensure_data_dir_exists(data_dir: Path) -> None:
     # before that file is rewritten. Skip a directory with any other contents: `--data-dir` can
     # point at a directory of the user's own, and a `.gitignore` of `*` there would ignore all of it.
     if {path.name for path in data_dir.iterdir()} <= DATA_DIR_FILENAMES:
+        # Exclusive creation, so an existing .gitignore keeps its rules. A symlink planted in a
+        # data directory that arrived from elsewhere is left alone rather than written through.
         try:
-            # Exclusive creation, so an existing .gitignore keeps its rules, and a symlink planted
-            # in a data directory that arrived from elsewhere is refused rather than followed.
-            with (data_dir / '.gitignore').open('x') as gitignore:
-                gitignore.write('*')
-        except FileExistsError:
-            pass
+            fd = open_no_follow(data_dir / '.gitignore', os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        except OSError as e:
+            if isinstance(e, FileExistsError) or e.errno == errno.ELOOP:
+                return
+            raise  # pragma: no cover
+        with open(fd, 'w') as gitignore:
+            gitignore.write('*')
+
+
+def open_no_follow(path: Path, flags: int, mode: int = 0o666) -> int:
+    """`os.open` that refuses to act on a file reached through a symlink at `path`.
+
+    Use it without `O_TRUNC` and truncate through the returned descriptor: the check runs after
+    the open, so a truncation passed to `os.open` would already have hit a symlink's target.
+
+    On POSIX `O_NOFOLLOW` refuses the symlink atomically. Windows has no `O_NOFOLLOW`, Developer
+    Mode lets any user create symlinks there, and creating a file through a dangling symlink
+    creates its target. So after opening, the descriptor must be the very file at `path` itself
+    (not a link): a symlink swapped in before the open shows up as a different file, and one
+    swapped in after it leaves the descriptor on the original file.
+    """
+    if path.is_symlink():
+        raise OSError(errno.ELOOP, 'Refusing to follow a symlink', str(path))
+    fd = os.open(path, flags | getattr(os, 'O_NOFOLLOW', 0), mode)
+    try:
+        if not os.path.samestat(os.fstat(fd), os.lstat(path)):
+            raise OSError(errno.ELOOP, 'Refusing to follow a symlink', str(path))
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd
 
 
 def get_version(version: str) -> Version:
