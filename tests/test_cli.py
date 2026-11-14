@@ -483,6 +483,33 @@ def test_write_creds_file_does_not_follow_gitignore_symlink(
     assert not outside.exists()
 
 
+@pytest.mark.parametrize('flags', [os.O_WRONLY | os.O_CREAT, os.O_WRONLY | os.O_CREAT | os.O_EXCL])
+def test_open_no_follow_refuses_a_symlink_swapped_in_before_the_open(tmp_path: Path, flags: int) -> None:
+    """A symlink created between the up-front check and `os.open` must not be written through.
+
+    Windows has no O_NOFOLLOW, so `os.open` there follows such a symlink. This simulates that
+    open on every platform: the fake swaps a symlink in and opens what it points at.
+    """
+    from logfire._internal.utils import open_no_follow
+
+    victim = tmp_path / 'victim.txt'
+    victim.write_text('important')
+    path = tmp_path / 'read_token.json'
+    real_open = os.open
+
+    def racing_open(target: Any, open_flags: int, mode: int = 0o777) -> int:
+        if Path(target) == path:
+            path.symlink_to(victim)
+            return real_open(victim, open_flags & ~getattr(os, 'O_NOFOLLOW', 0) & ~getattr(os, 'O_EXCL', 0), mode)
+        return real_open(target, open_flags, mode)  # pragma: no cover
+
+    with patch('logfire._internal.utils.os.open', side_effect=racing_open):
+        with pytest.raises(OSError, match='Refusing to follow a symlink'):
+            open_no_follow(path, flags)
+
+    assert victim.read_text() == 'important'
+
+
 @pytest.mark.parametrize(
     'existing_files,gitignored',
     [

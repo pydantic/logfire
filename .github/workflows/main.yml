@@ -274,7 +274,8 @@ jobs:
           enable-cache: true  # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
 
       - run: uv sync --python 3.14 --frozen
-      - run: uv run --no-sync pytest tests/test_cli.py
+      # test_clean holds logfire.log open on Windows; #2803 fixes that. Drop the deselect once it lands.
+      - run: uv run --no-sync pytest tests/test_cli.py --deselect tests/test_cli.py::test_clean
 
   coverage:
     runs-on: ubuntu-latest
