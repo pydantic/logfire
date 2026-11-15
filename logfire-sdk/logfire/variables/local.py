@@ -146,7 +146,7 @@ class LocalVariableProvider(VariableProvider):
             # Execute on self so subclass write overrides continue to run.
             # The reentrant lock prevents readers from observing staging.
             original_config = self._config
-            staged_config = original_config.model_copy(update={'variables': original_config.variables.copy()})
+            staged_config = original_config.model_copy(deep=True)
             self._config = staged_config
             try:
                 VariableProvider.batch_update(self, updates)

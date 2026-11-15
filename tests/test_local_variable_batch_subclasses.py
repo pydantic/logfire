@@ -42,3 +42,25 @@ def test_subclass_batch_writes_use_overrides_and_remain_atomic() -> None:
     assert provider.operations[-2:] == [('delete', 'created'), ('delete', 'missing')]
     assert provider.get_all_variables_config() == before
     assert config == before
+
+
+def test_subclass_in_place_mutation_is_rolled_back() -> None:
+    class InPlaceMutatingLocalProvider(LocalVariableProvider):
+        def update_variable(self, name: str, config: VariableConfig) -> VariableConfig:
+            self._config.variables[name].description = 'mutated in place'
+            return super().update_variable(name, config)
+
+    existing = VariableConfig(
+        name='existing', description='original', rollout=Rollout(labels={}), overrides=[]
+    )
+    config = VariablesConfig(variables={'existing': existing})
+    provider = InPlaceMutatingLocalProvider(config)
+    before = provider.get_all_variables_config()
+    replacement = existing.model_copy(update={'description': 'replacement'})
+
+    with pytest.raises(VariableNotFoundError, match="Variable 'missing' not found"):
+        provider.batch_update({'existing': replacement, 'missing': None})
+
+    assert config == before
+    assert config.variables['existing'] is existing
+    assert existing.description == 'original'
