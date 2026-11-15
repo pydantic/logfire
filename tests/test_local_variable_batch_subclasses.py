@@ -50,9 +50,7 @@ def test_subclass_in_place_mutation_is_rolled_back() -> None:
             self._config.variables[name].description = 'mutated in place'
             return super().update_variable(name, config)
 
-    existing = VariableConfig(
-        name='existing', description='original', rollout=Rollout(labels={}), overrides=[]
-    )
+    existing = VariableConfig(name='existing', description='original', rollout=Rollout(labels={}), overrides=[])
     config = VariablesConfig(variables={'existing': existing})
     provider = InPlaceMutatingLocalProvider(config)
     before = provider.get_all_variables_config()
