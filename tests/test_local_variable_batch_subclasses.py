@@ -110,7 +110,6 @@ def test_batch_does_not_copy_opaque_values() -> None:
     assert existing.json_schema['metadata']['opaque'] is opaque
 
 
-
 def test_batch_preserves_any_value_identity_inside_subclass_hook() -> None:
     opaque_mapping = {'identity': object()}
     existing = VariableConfig(
