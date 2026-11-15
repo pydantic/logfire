@@ -108,3 +108,29 @@ def test_batch_does_not_copy_opaque_values() -> None:
     assert condition.value is opaque
     assert existing.json_schema is not None
     assert existing.json_schema['metadata']['opaque'] is opaque
+
+
+
+def test_batch_preserves_any_value_identity_inside_subclass_hook() -> None:
+    opaque_mapping = {'identity': object()}
+    existing = VariableConfig(
+        name='existing',
+        rollout=Rollout(labels={}),
+        overrides=[
+            RolloutOverride(
+                conditions=[ValueEquals(attribute='key', value=opaque_mapping)],
+                rollout=Rollout(labels={}),
+            )
+        ],
+    )
+
+    class IdentityCheckingProvider(LocalVariableProvider):
+        def create_variable(self, config: VariableConfig) -> VariableConfig:
+            condition = self._config.variables['existing'].overrides[0].conditions[0]
+            assert isinstance(condition, ValueEquals)
+            assert condition.value is opaque_mapping
+            return super().create_variable(config)
+
+    provider = IdentityCheckingProvider(VariablesConfig(variables={'existing': existing}))
+    provider.batch_update({'created': VariableConfig(name='created', rollout=Rollout(labels={}), overrides=[])})
+    assert provider.get_variable_config('existing') is existing
