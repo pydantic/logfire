@@ -4,6 +4,8 @@ import threading
 from collections.abc import Mapping
 from typing import Any
 
+from pydantic import BaseModel
+
 from logfire.variables.abstract import (
     ResolvedVariable,
     VariableAlreadyExistsError,
@@ -13,6 +15,38 @@ from logfire.variables.abstract import (
 from logfire.variables.config import VariableConfig, VariablesConfig
 
 __all__ = ('LocalVariableProvider',)
+
+
+def _stage_config_structure(value: Any) -> Any:
+    """Copy mutable configuration containers without deep-copying opaque payloads.
+
+    A condition's Any value or a schema entry may contain a non-copyable object
+    whose identity matters to matching. Only Logfire configuration models and
+    built-in containers are copied; other values remain shared.
+    """
+    if isinstance(value, BaseModel) and any(
+        cls.__module__ == VariableConfig.__module__ for cls in type(value).__mro__
+    ):
+        copied = value.model_copy(
+            update={
+                name: _stage_config_structure(getattr(value, name))
+                for name in type(value).model_fields
+            }
+        )
+        # Do not carry cached lookups that may reference the original graph.
+        for name in set(copied.__dict__) - set(type(value).model_fields):
+            copied.__dict__.pop(name, None)
+        return copied
+    if isinstance(value, dict):
+        return {key: _stage_config_structure(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_stage_config_structure(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_stage_config_structure(item) for item in value)
+    if isinstance(value, set):
+        return {_stage_config_structure(item) for item in value}
+    return value
+
 
 
 class LocalVariableProvider(VariableProvider):
@@ -139,18 +173,23 @@ class LocalVariableProvider(VariableProvider):
         If any operation fails, the configuration is left unchanged. Readers and
         other writes cannot observe or interleave with a partially applied batch.
         """
+        if not updates:
+            return
+
         with self._lock:
-            # Stage writes in a separate mapping, using the same create/update/delete
-            # semantics as individual operations. Those replace entries, so the
-            # existing VariableConfig objects do not need to be copied.
-            # Execute on self so subclass write overrides continue to run.
-            # The reentrant lock prevents readers from observing staging.
+            # Run subclass overrides against an isolated model graph, while keeping
+            # opaque values (e.g. objects in condition.value) identity-stable.
             original_config = self._config
-            staged_config = original_config.model_copy(deep=True)
+            staged_config = _stage_config_structure(original_config)
             self._config = staged_config
             try:
                 VariableProvider.batch_update(self, updates)
-                original_config.variables = staged_config.variables
+                # A batch must not replace unrelated objects returned earlier by
+                # get_variable_config(). Only explicitly updated entries are staged.
+                original_config.variables = {
+                    name: staged_value if name in updates else original_config.variables.get(name, staged_value)
+                    for name, staged_value in staged_config.variables.items()
+                }
                 original_config._invalidate_alias_map()  # pyright: ignore[reportPrivateUsage]
             finally:
                 self._config = original_config
