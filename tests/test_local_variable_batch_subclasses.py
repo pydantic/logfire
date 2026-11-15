@@ -1,7 +1,7 @@
 import pytest
 
 from logfire.variables.abstract import VariableNotFoundError
-from logfire.variables.config import Rollout, VariableConfig, VariablesConfig
+from logfire.variables.config import Rollout, RolloutOverride, ValueEquals, VariableConfig, VariablesConfig
 from logfire.variables.local import LocalVariableProvider
 
 
@@ -62,3 +62,46 @@ def test_subclass_in_place_mutation_is_rolled_back() -> None:
     assert config == before
     assert config.variables['existing'] is existing
     assert existing.description == 'original'
+
+
+def test_batch_keeps_untouched_variable_identity() -> None:
+    existing = VariableConfig(name='existing', rollout=Rollout(labels={}), overrides=[])
+    config = VariablesConfig(variables={'existing': existing})
+    provider = LocalVariableProvider(config)
+    held = provider.get_variable_config('existing')
+    assert held is existing
+
+    provider.batch_update({})
+    assert provider.get_variable_config('existing') is held
+
+    created = VariableConfig(name='created', rollout=Rollout(labels={}), overrides=[])
+    provider.batch_update({'created': created})
+    assert provider.get_variable_config('existing') is held
+    held.description = 'still live'
+    assert provider.get_variable_config('existing').description == 'still live'
+
+
+def test_batch_does_not_copy_opaque_values() -> None:
+    class IdentitySensitive:
+        def __deepcopy__(self, memo: object) -> None:
+            raise AssertionError('must not copy an opaque condition or schema value')
+
+    opaque = IdentitySensitive()
+    existing = VariableConfig(
+        name='existing',
+        rollout=Rollout(labels={}),
+        overrides=[
+            RolloutOverride(
+                conditions=[ValueEquals(attribute='key', value=opaque)],
+                rollout=Rollout(labels={}),
+            )
+        ],
+        json_schema={'metadata': {'opaque': opaque}},
+    )
+    provider = LocalVariableProvider(VariablesConfig(variables={'existing': existing}))
+
+    provider.batch_update({'created': VariableConfig(name='created', rollout=Rollout(labels={}), overrides=[])})
+    assert provider.get_variable_config('existing') is existing
+    assert existing.overrides[0].conditions[0].value is opaque
+    assert existing.json_schema is not None
+    assert existing.json_schema['metadata']['opaque'] is opaque
