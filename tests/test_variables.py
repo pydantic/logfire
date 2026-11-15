@@ -3022,6 +3022,67 @@ class TestLocalVariableProviderWriteOperations:
         with pytest.raises(VariableNotFoundError, match="Variable 'nonexistent' not found"):
             provider.delete_variable('nonexistent')
 
+    def test_batch_update_failure_is_atomic(self, config_with_var: VariablesConfig):
+        from logfire.variables.abstract import VariableNotFoundError
+
+        provider = LocalVariableProvider(config_with_var)
+        before = provider.get_all_variables_config()
+        promoted = config_with_var.variables['existing_var'].model_copy(
+            update={'labels': {'v1': LabeledValue(version=2, serialized_value='"promoted"')}}
+        )
+        with pytest.raises(VariableNotFoundError, match="Variable 'missing' not found"):
+            provider.batch_update({'existing_var': promoted, 'missing': None})
+
+        assert provider.get_serialized_value_for_label('existing_var', 'v1').version == 1
+        assert provider.get_all_variables_config() == before
+
+    @pytest.mark.parametrize('operation', ['create', 'delete'])
+    def test_batch_update_discards_staged_changes(self, config_with_var: VariablesConfig, operation: str):
+        from logfire.variables.abstract import VariableNotFoundError
+
+        provider = LocalVariableProvider(config_with_var)
+        before = provider.get_all_variables_config()
+        updates: dict[str, VariableConfig | None]
+        if operation == 'create':
+            updates = {'new_var': VariableConfig(name='new_var', rollout=Rollout(labels={}), overrides=[])}
+        else:
+            updates = {'existing_var': None}
+        updates['missing'] = None
+
+        with pytest.raises(VariableNotFoundError, match="Variable 'missing' not found"):
+            provider.batch_update(updates)
+
+        assert provider.get_all_variables_config() == before
+        assert config_with_var == before
+
+    def test_batch_update_success_and_aliases(self, config_with_var: VariablesConfig):
+        provider = LocalVariableProvider(config_with_var)
+        original = config_with_var.variables['existing_var']
+        provider.update_variable('existing_var', original.model_copy(update={'aliases': ['old_alias']}))
+        provider.create_variable(original.model_copy(update={'name': 'to_delete', 'aliases': ['deleted_alias']}))
+        # Populate the alias cache before the batch changes it.
+        assert provider.get_variable_config('old_alias') is not None
+        assert provider.get_variable_config('deleted_alias') is not None
+
+        updated = original.model_copy(update={'aliases': ['new_alias']})
+        created = original.model_copy(update={'name': 'created', 'aliases': ['created_alias']})
+        provider.batch_update({'existing_var': updated, 'created': created, 'to_delete': None})
+
+        assert provider.get_all_variables_config().variables == {'existing_var': updated, 'created': created}
+        assert provider.get_variable_config('old_alias') is None
+        assert provider.get_variable_config('deleted_alias') is None
+        assert provider.get_variable_config('new_alias') == updated
+        assert provider.get_variable_config('created_alias') == created
+        assert provider.get_serialized_value('new_alias').value == '"value"'
+        # Keep the configuration supplied to the provider in sync, as individual writes do.
+        assert config_with_var.variables == {'existing_var': updated, 'created': created}
+
+    def test_batch_update_empty(self, config_with_var: VariablesConfig):
+        provider = LocalVariableProvider(config_with_var)
+        before = provider.get_all_variables_config()
+        provider.batch_update({})
+        assert provider.get_all_variables_config() == before
+
 
 # =============================================================================
 # Test LogfireRemoteVariableProvider Write Operations

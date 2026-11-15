@@ -132,3 +132,18 @@ class LocalVariableProvider(VariableProvider):
                 raise VariableNotFoundError(f"Variable '{name}' not found")
             del self._config.variables[name]
             self._config._invalidate_alias_map()  # pyright: ignore[reportPrivateUsage]
+
+    def batch_update(self, updates: dict[str, VariableConfig | None]) -> None:
+        """Apply a batch atomically to the local configuration.
+
+        If any operation fails, the configuration is left unchanged. Readers and
+        other writes cannot observe or interleave with a partially applied batch.
+        """
+        with self._lock:
+            # Stage writes in a separate mapping, using the same create/update/delete
+            # semantics as individual operations. Those replace entries, so the
+            # existing VariableConfig objects do not need to be copied.
+            staged = LocalVariableProvider(self._config.model_copy(update={'variables': self._config.variables.copy()}))
+            VariableProvider.batch_update(staged, updates)
+            self._config.variables = staged._config.variables
+            self._config._invalidate_alias_map()  # pyright: ignore[reportPrivateUsage]

@@ -1312,11 +1312,13 @@ class VariableProvider(ABC):
         )
 
     def batch_update(self, updates: dict[str, VariableConfig | None]) -> None:
-        """Update multiple variables atomically.
+        """Update multiple variables.
 
-        This default implementation processes updates sequentially. Subclasses
-        (especially remote providers) may override this to batch operations
-        into a single API call for better performance.
+        This default implementation processes updates sequentially, without atomicity
+        or rollback. If an operation fails, earlier writes remain applied and later
+        operations are not attempted. This also applies to the remote provider,
+        which uses this implementation. Subclasses may override this method to
+        provide atomic updates.
 
         Args:
             updates: A mapping of variable names to their new configurations.
