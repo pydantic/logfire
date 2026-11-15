@@ -2,7 +2,7 @@ from __future__ import annotations as _annotations
 
 import threading
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel
 
@@ -24,27 +24,24 @@ def _stage_config_structure(value: Any) -> Any:
     whose identity matters to matching. Only Logfire configuration models and
     built-in containers are copied; other values remain shared.
     """
-    if isinstance(value, BaseModel) and any(
-        cls.__module__ == VariableConfig.__module__ for cls in type(value).__mro__
-    ):
+    if isinstance(value, BaseModel) and any(cls.__module__ == VariableConfig.__module__ for cls in type(value).__mro__):
         copied = value.model_copy(
-            update={
-                name: _stage_config_structure(getattr(value, name))
-                for name in type(value).model_fields
-            }
+            update={name: _stage_config_structure(getattr(value, name)) for name in type(value).model_fields}
         )
         # Do not carry cached lookups that may reference the original graph.
-        for name in set(copied.__dict__) - set(type(value).model_fields):
-            copied.__dict__.pop(name, None)
+        copied_dict = cast('dict[str, Any]', copied.__dict__)
+        for name in set(copied_dict) - set(type(value).model_fields):
+            copied_dict.pop(name, None)
         return copied
     if isinstance(value, dict):
-        return {key: _stage_config_structure(item) for key, item in value.items()}
+        mapping = cast('dict[Any, Any]', value)
+        return {key: _stage_config_structure(item) for key, item in mapping.items()}
     if isinstance(value, list):
-        return [_stage_config_structure(item) for item in value]
+        return [_stage_config_structure(item) for item in cast('list[Any]', value)]
     if isinstance(value, tuple):
-        return tuple(_stage_config_structure(item) for item in value)
+        return tuple(_stage_config_structure(item) for item in cast('tuple[Any, ...]', value))
     if isinstance(value, set):
-        return {_stage_config_structure(item) for item in value}
+        return {_stage_config_structure(item) for item in cast('set[Any]', value)}
     return value
 
 
@@ -179,7 +176,7 @@ class LocalVariableProvider(VariableProvider):
             # Run subclass overrides against an isolated model graph, while keeping
             # opaque values (e.g. objects in condition.value) identity-stable.
             original_config = self._config
-            staged_config = _stage_config_structure(original_config)
+            staged_config = cast(VariablesConfig, _stage_config_structure(original_config))
             self._config = staged_config
             try:
                 VariableProvider.batch_update(self, updates)
