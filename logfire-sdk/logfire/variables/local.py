@@ -25,9 +25,11 @@ def _stage_config_structure(value: Any) -> Any:
     built-in containers are copied; other values remain shared.
     """
     if isinstance(value, BaseModel) and any(cls.__module__ == VariableConfig.__module__ for cls in type(value).__mro__):
-        copied = value.model_copy(
-            update={name: _stage_config_structure(getattr(value, name)) for name in type(value).model_fields}
-        )
+        updates = {
+            name: getattr(value, name) if field.annotation is Any else _stage_config_structure(getattr(value, name))
+            for name, field in type(value).model_fields.items()
+        }
+        copied = value.model_copy(update=updates)
         # Do not carry cached lookups that may reference the original graph.
         copied_dict = cast('dict[str, Any]', copied.__dict__)
         for name in set(copied_dict) - set(type(value).model_fields):
@@ -38,10 +40,6 @@ def _stage_config_structure(value: Any) -> Any:
         return {key: _stage_config_structure(item) for key, item in mapping.items()}
     if isinstance(value, list):
         return [_stage_config_structure(item) for item in cast('list[Any]', value)]
-    if isinstance(value, tuple):
-        return tuple(_stage_config_structure(item) for item in cast('tuple[Any, ...]', value))
-    if isinstance(value, set):
-        return {_stage_config_structure(item) for item in cast('set[Any]', value)}
     return value
 
 
