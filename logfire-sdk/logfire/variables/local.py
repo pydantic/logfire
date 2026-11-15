@@ -48,7 +48,6 @@ def _stage_config_structure(value: Any) -> Any:
     return value
 
 
-
 class LocalVariableProvider(VariableProvider):
     """Variable provider that resolves values from a local in-memory configuration.
 
