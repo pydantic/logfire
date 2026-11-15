@@ -70,6 +70,7 @@ def test_batch_keeps_untouched_variable_identity() -> None:
     provider = LocalVariableProvider(config)
     held = provider.get_variable_config('existing')
     assert held is existing
+    assert held is not None
 
     provider.batch_update({})
     assert provider.get_variable_config('existing') is held
@@ -78,7 +79,7 @@ def test_batch_keeps_untouched_variable_identity() -> None:
     provider.batch_update({'created': created})
     assert provider.get_variable_config('existing') is held
     held.description = 'still live'
-    assert provider.get_variable_config('existing').description == 'still live'
+    assert held.description == 'still live'
 
 
 def test_batch_does_not_copy_opaque_values() -> None:
@@ -102,6 +103,8 @@ def test_batch_does_not_copy_opaque_values() -> None:
 
     provider.batch_update({'created': VariableConfig(name='created', rollout=Rollout(labels={}), overrides=[])})
     assert provider.get_variable_config('existing') is existing
-    assert existing.overrides[0].conditions[0].value is opaque
+    condition = existing.overrides[0].conditions[0]
+    assert isinstance(condition, ValueEquals)
+    assert condition.value is opaque
     assert existing.json_schema is not None
     assert existing.json_schema['metadata']['opaque'] is opaque
