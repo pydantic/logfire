@@ -105,9 +105,7 @@ def _transform_span_message(span: ReadableSpanDict, scrubber: BaseScrubber) -> b
 def scrub_span(span: ReadableSpan, scrubber: BaseScrubber) -> ReadableSpan:
     with handle_internal_errors:
         span_dict = span_to_dict(span)
-        scrubber.scrub_span(
-            span_dict, message_transformed=isinstance(span_dict['attributes'].get(ATTRIBUTES_MESSAGE_KEY), str)
-        )
+        scrubber.scrub_span(span_dict)
         span = ReadableSpan(**span_dict)
     return span
 

@@ -889,6 +889,14 @@ def test_non_string_message_still_transforms_nested_strings():
     assert spans[0].attributes['logfire.msg'] == ('[email]',)
 
 
+def test_log_message_attribute_still_transforms():
+    scrubber = Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]'))
+    log = scrubber.scrub_log(LogRecord(attributes={'logfire.msg': 'alice@example.com'}))
+
+    assert log.attributes is not None
+    assert log.attributes['logfire.msg'] == '[email]'
+
+
 @pytest.mark.parametrize(
     ('failing_step', 'expected_message'),
     [('normalization', '[email]'), ('message_transform', 'alice@example.com')],
