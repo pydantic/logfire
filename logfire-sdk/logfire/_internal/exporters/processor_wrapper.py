@@ -83,22 +83,31 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _transform_google_genai_span(span_dict)
             _transform_litellm_span(span_dict)
             _default_gen_ai_response_model(span_dict)
-            _transform_span_message(span_dict, self.scrubber)
             span = ReadableSpan(**span_dict)
+        # A normalization failure must not prevent the message from reaching the console masked.
+        with handle_internal_errors:
+            span_dict = span_to_dict(span)
+            transformed = _transform_span_message(span_dict, self.scrubber)
+            new_span = ReadableSpan(**span_dict)
+            if transformed:
+                setattr(new_span, '_logfire_message_transformed', True)
+            span = new_span
         super().on_end(span)
 
 
-def _transform_span_message(span: ReadableSpanDict, scrubber: BaseScrubber) -> None:
+def _transform_span_message(span: ReadableSpanDict, scrubber: BaseScrubber) -> bool:
     attributes = span['attributes']
     message = attributes.get(ATTRIBUTES_MESSAGE_KEY) or span['name']
     if isinstance(message, str) and (transformed := scrubber.transform_message(message)) is not None:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
+        return True
+    return False
 
 
 def scrub_span(span: ReadableSpan, scrubber: BaseScrubber) -> ReadableSpan:
     with handle_internal_errors:
         span_dict = span_to_dict(span)
-        scrubber.scrub_span(span_dict, message_transformed=True)
+        scrubber.scrub_span(span_dict, message_transformed=getattr(span, '_logfire_message_transformed', False))
         span = ReadableSpan(**span_dict)
     return span
 

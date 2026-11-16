@@ -19,7 +19,13 @@ from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
-from logfire._internal.exporters.processor_wrapper import MainSpanProcessorWrapper, SpanProcessorGroup
+from logfire._internal import utils
+from logfire._internal.exporters import processor_wrapper
+from logfire._internal.exporters.processor_wrapper import (
+    MainSpanProcessorWrapper,
+    ScrubbingSpanProcessor,
+    SpanProcessorGroup,
+)
 from logfire._internal.scrubbing import DEFAULT_PATTERNS, MessageValueCleaner, NoopScrubber, Scrubber
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
@@ -868,6 +874,30 @@ def test_whole_message_is_not_transformed_again_during_export(exporter: TestExpo
     (span,) = exporter.exported_spans_as_dict()
     assert len(span['attributes']['logfire.msg']) <= 1024
     assert message_calls == 1
+
+
+@pytest.mark.parametrize('failing_step', ['normalization', 'message_transform'])
+def test_message_is_transformed_when_main_processor_fails(monkeypatch: pytest.MonkeyPatch, failing_step: str):
+    spans: list[ReadableSpan] = []
+    monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    def fail(*_args: Any) -> None:
+        raise ValueError('processing failed')
+
+    scrubber = Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]'))
+    processor = MainSpanProcessorWrapper(ScrubbingSpanProcessor(RecordingProcessor(), scrubber), scrubber)
+    if failing_step == 'normalization':
+        monkeypatch.setattr(processor_wrapper, '_transform_langchain_span', fail)
+    else:
+        monkeypatch.setattr(processor_wrapper, '_transform_span_message', fail)
+
+    processor.on_end(ReadableSpan(name='call', attributes={'logfire.msg': 'alice@example.com'}))
+
+    assert spans[0].attributes == {'logfire.msg': '[email]'}
 
 
 @pytest.mark.parametrize('error_type', [ValueError, RecursionError])
