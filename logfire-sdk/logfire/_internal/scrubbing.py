@@ -154,7 +154,8 @@ class ScrubbingOptions:
     An empty result stays empty in the span, and the console displays `<empty message>`.
     Whole-message input is capped at 16,384 characters before this call, and its result at 1,024 characters.
     Nested strings in a nonempty, non-string message use the ordinary span scrubbing path instead.
-    If the callback raises, Logfire logs the error and keeps the input string.
+    If the callback raises, Logfire logs the error and keeps that call's input string.
+    Other strings, including JSON leaves, may still be transformed.
     """
 
 

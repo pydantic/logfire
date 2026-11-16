@@ -794,6 +794,23 @@ def test_whole_message_transforms_json_text_and_leaves():
     ]
 
 
+def test_failed_whole_json_transform_still_transforms_leaves(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
+    seen: list[tuple[str | int, ...]] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value.path)
+        if value.path == ('attributes', 'logfire.msg'):
+            raise ValueError('cannot transform whole message')
+        return value.value.replace('alice@example.com', '[email]')
+
+    result = Scrubber(None, transform_string=transform).transform_message(json.dumps({'contact': 'alice@example.com'}))
+
+    assert result is not None
+    assert json.loads(result) == {'contact': '[email]'}
+    assert seen == [('attributes', 'logfire.msg'), ('attributes', 'logfire.msg', 'contact')]
+
+
 def test_missing_message_defaults_to_span_name_before_console_transform(
     exporter: TestExporter, config_kwargs: dict[str, Any]
 ):
