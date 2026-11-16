@@ -730,6 +730,37 @@ def test_transform_string_writes_attributes_without_scrubbed_note(
     assert 'logfire.scrubbed' not in span['attributes']
 
 
+def test_formatted_value_is_bounded_before_scrubbing():
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    cleaner = MessageValueCleaner(Scrubber(None, transform_string=transform), check_keys=False)
+    result = cleaner.clean_value('contact', 'alice@example.com' + 'x' * 5000)
+
+    assert len(seen) == 1
+    assert seen[0].path == ('message', 'contact')
+    assert len(seen[0].value) <= 2048
+    assert result.startswith('[email]')
+    assert len(result) <= 128
+
+
+def test_formatted_value_truncation_keeps_both_ends():
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value
+
+    cleaner = MessageValueCleaner(Scrubber(None, transform_string=transform), check_keys=False)
+    result = cleaner.clean_value('payload', 'a' * 1500 + 'middle' + 'b' * 1500)
+
+    assert seen == [StringValue(('message', 'payload'), 'a' * 1022 + '...' + 'b' * 1022)]
+    assert result.startswith('a') and result.endswith('b')
+
+
 def test_safe_key_formatted_value_is_transformed_without_pattern_search():
     seen: list[StringValue] = []
 
