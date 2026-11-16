@@ -794,9 +794,7 @@ def test_missing_message_defaults_to_span_name_before_console_transform(
     assert span['name'] == 'alice@example.com'
 
 
-def test_empty_transformed_message_does_not_fall_back_to_span_name(
-    exporter: TestExporter, config_kwargs: dict[str, Any]
-):
+def test_empty_transformed_message_does_not_expose_span_name(exporter: TestExporter, config_kwargs: dict[str, Any]):
     from opentelemetry import trace
 
     output = StringIO()
@@ -814,7 +812,7 @@ def test_empty_transformed_message_does_not_fall_back_to_span_name(
 
     assert 'alice@example.com' not in output.getvalue()
     (span,) = exporter.exported_spans_as_dict()
-    assert span['attributes']['logfire.msg'] == ''
+    assert span['attributes']['logfire.msg'] == '[Redacted]'
 
 
 @pytest.mark.parametrize('scope_name', ['logfire.openai', 'logfire.anthropic'])
@@ -872,6 +870,21 @@ def test_whole_message_is_not_transformed_again_during_export(exporter: TestExpo
     (span,) = exporter.exported_spans_as_dict()
     assert len(span['attributes']['logfire.msg']) <= 1024
     assert message_calls == 1
+
+
+def test_non_string_message_still_transforms_nested_strings():
+    spans: list[ReadableSpan] = []
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    scrubber = Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]'))
+    processor = MainSpanProcessorWrapper(ScrubbingSpanProcessor(RecordingProcessor(), scrubber), scrubber)
+    processor.on_end(ReadableSpan(name='call', attributes={'logfire.msg': ['alice@example.com']}))
+
+    assert spans[0].attributes is not None
+    assert spans[0].attributes['logfire.msg'] == ('[email]',)
 
 
 @pytest.mark.parametrize(
