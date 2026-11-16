@@ -158,12 +158,10 @@ class ScrubbingOptions:
 class BaseScrubber(ABC):
     # Similar to SAFE_KEYS below but also shouldn't be passed through transform_string
     NO_TRANSFORM_KEYS = {
-        ATTRIBUTES_JSON_SCHEMA_KEY,
         ATTRIBUTES_LOG_LEVEL_NUM_KEY,
         ATTRIBUTES_SPAN_TYPE_KEY,
         ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
         ATTRIBUTES_SAMPLE_RATE_KEY,
-        ATTRIBUTES_SCRUBBED_KEY,
         *STACK_INFO_KEYS,
     }
 
@@ -173,8 +171,10 @@ class BaseScrubber(ABC):
         *NO_TRANSFORM_KEYS,
         ATTRIBUTES_MESSAGE_KEY,  # Formatted field values are scrubbed separately
         ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+        ATTRIBUTES_JSON_SCHEMA_KEY,
         ATTRIBUTES_TAGS_KEY,
         ATTRIBUTES_LOGGING_NAME,
+        ATTRIBUTES_SCRUBBED_KEY,
         ATTRIBUTES_CONFIG,
         ATTRIBUTES_PACKAGE_VERSIONS,
         RESOURCE_ATTRIBUTES_VERSION,

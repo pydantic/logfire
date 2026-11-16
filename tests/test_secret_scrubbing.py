@@ -714,8 +714,17 @@ def test_transform_string_skips_control_attributes():
     }
     result, notes = Scrubber(None, transform_string=transform).scrub_value(('attributes',), original)
 
-    assert result == {**original, 'payload': {'contact': '[email]'}}
-    assert seen == [('attributes', 'payload', 'contact')]
+    assert result == {
+        **original,
+        'logfire.json_schema': '{"description":"[email]"}',
+        'logfire.scrubbed': '[{"matched_substring":"[email]"}]',
+        'payload': {'contact': '[email]'},
+    }
+    assert seen == [
+        ('attributes', 'logfire.json_schema', 'description'),
+        ('attributes', 'logfire.scrubbed', 0, 'matched_substring'),
+        ('attributes', 'payload', 'contact'),
+    ]
     assert notes == []
 
 
