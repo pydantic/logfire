@@ -480,8 +480,11 @@ class MessageValueCleaner:
         # Bound the text passed to callbacks and patterns before the final 128-character limit.
         # Retain both ends to match the final display and preserve useful trailing context.
         # A sensitive marker in the omitted middle may be lost while its value survives
-        # in the suffix, so pattern matching can miss that value. This is the trade-off
-        # accepted for using middle truncation here.
+        # in the suffix, so pattern matching can miss that value. For it to reach the
+        # final message, the input must exceed 2,048 characters, the marker must fall
+        # outside the 1,022 characters retained at either end, and sensitive text must
+        # survive in the outer 62 characters kept by the final truncation. These
+        # conditions constrain the risk, but do not eliminate it.
         value = truncate_string(value, max_length=16 * MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT)
         if self.check_keys or field_name in self.scrubber.SAFE_KEYS:
             # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
