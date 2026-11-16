@@ -567,6 +567,18 @@ def test_inspect_distribution_names_share_run_recommendations(
     assert exc_info.value.code == 1
     assert f'{target} (need to install {package})' in capsys.readouterr().err
 
+    script = tmp_path / 'application.py'
+    script.write_text("print('application completed')\n")
+    monkeypatch.setattr(sys, 'path', sys.path.copy())
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    monkeypatch.setenv('LANGSMITH_TRACING_ENABLED', 'false')
+    monkeypatch.setenv('LANGSMITH_OTEL_ENABLED', 'false')
+    main(['run', '--summary', '--exclude', 'sqlite3,urllib', str(script)])
+    output = capsys.readouterr()
+    assert 'application completed' in output.out
+    assert f'{target} (need to install {package})' in output.err
+
     for ignored in (target, distribution):
         context = collect_instrumentation_context({ignored})
         assert package not in context.instrument_pkg_map
@@ -578,6 +590,42 @@ def test_inspect_distribution_names_share_run_recommendations(
     context = collect_instrumentation_context(())
     assert package in context.installed_otel_pkgs
     assert recommendation not in context.recommendations
+
+
+@pytest.mark.parametrize('metadata', ['Version: 1.0\n', 'Name:\nVersion: 1.0\n'])
+@pytest.mark.parametrize('command', ['inspect', 'run'])
+def test_inspection_skips_distributions_without_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], metadata: str, command: str
+) -> None:
+    for name, contents in [
+        ('unnamed', metadata),
+        ('grpcio', 'Name: grpcio\nVersion: 1.0\n'),
+    ]:
+        metadata_dir = tmp_path / f'{name}-1.0.dist-info'
+        metadata_dir.mkdir()
+        (metadata_dir / 'METADATA').write_text(contents)
+    monkeypatch.setattr(
+        importlib.metadata, 'distributions', lambda: importlib.metadata.Distribution.discover(path=[str(tmp_path)])
+    )
+    monkeypatch.setenv('COLUMNS', '200')
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    monkeypatch.setenv('LANGSMITH_TRACING_ENABLED', 'false')
+    monkeypatch.setenv('LANGSMITH_OTEL_ENABLED', 'false')
+    if command == 'inspect':
+        with pytest.raises(SystemExit) as exc_info:
+            main(['inspect', '--ignore', 'sqlite3,urllib'])
+        assert exc_info.value.code == 1
+    else:
+        script = tmp_path / 'application.py'
+        script.write_text("print('application completed')\n")
+        monkeypatch.setattr(sys, 'path', sys.path.copy())
+        main(['run', '--summary', '--exclude', 'sqlite3,urllib', str(script)])
+    output = capsys.readouterr()
+    assert 'grpc (need to install opentelemetry-instrumentation-grpc)' in output.err
+    if command == 'run':
+        assert 'application completed' in output.out
+    assert collect_instrumentation_context(()).installed_pkgs == {'grpcio'}
 
 
 @pytest.mark.parametrize(

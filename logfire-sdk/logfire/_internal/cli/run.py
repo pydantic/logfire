@@ -561,10 +561,14 @@ def _normalize_package_name(name: str) -> str:
 
 
 def installed_packages() -> set[str]:
-    """Get a set of all installed packages."""
+    """Get normalized installed distribution names, skipping incomplete metadata."""
     try:
         # Try using importlib.metadata first (it's available in Python >=3.10)
-        return {_normalize_package_name(dist.metadata['Name']) for dist in importlib.metadata.distributions()}
+        return {
+            _normalize_package_name(name)
+            for dist in importlib.metadata.distributions()
+            if (name := dist.metadata.get('Name'))
+        }
     except (ImportError, AttributeError):  # pragma: no cover
         # Fall back to pkg_resources
         with warnings.catch_warnings():
