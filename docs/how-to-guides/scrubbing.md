@@ -124,7 +124,7 @@ logfire.info('Contact {email}', email='alice@example.com')
 
 The exported `email` attribute and formatted message contain `[email]`. The callback runs on string values inside JSON and under keys that are exempt from pattern matching. Pattern matching runs on the returned string where permitted.
 
-The callback runs for every string the scrubber reaches, including large values. The email regex above is illustrative and can take quadratic time on long strings containing `@`; the initial `@` check does not prevent that. Check the performance of your matcher on the longest values you expect to log.
+The callback runs for every string the scrubber reaches, including large values. Logfire excludes control and source metadata such as `logfire.span_type` and `code.filepath`. The email regex above is illustrative and can take quadratic time on long strings containing `@`; the initial `@` check does not prevent that. Check the performance of your matcher on the longest values you expect to log.
 
 !!! warning "Choose a fallback for masking errors"
 

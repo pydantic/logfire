@@ -56,6 +56,50 @@ def test_semconv_version_defaults() -> None:
     ]
 
 
+def test_get_endpoint_config_materializes_generator_messages() -> None:
+    from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
+
+    def as_generator():
+        yield {'role': 'user', 'content': 'Hello'}
+
+    class MockOptions:
+        url = '/v1/messages'
+        json_data = {'model': 'claude-haiku-4-5', 'messages': as_generator()}
+
+    options = MockOptions()
+    config = get_endpoint_config(options)  # type: ignore
+
+    # The generator must be materialized into a list and written back so the SDK
+    # serializes the messages instead of sending an empty request body.
+    assert isinstance(options.json_data['messages'], list)
+    assert options.json_data['messages'] == [{'role': 'user', 'content': 'Hello'}]
+    assert config.span_data['gen_ai.input.messages'] == [
+        {'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}
+    ]
+
+
+def test_get_endpoint_config_materializes_generator_for_legacy_request_data() -> None:
+    from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
+
+    def as_generator():
+        yield {'role': 'user', 'content': 'Hello'}
+
+    class MockOptions:
+        url = '/v1/messages'
+        json_data = {'model': 'claude-haiku-4-5', 'messages': as_generator()}
+
+    options = MockOptions()
+    # Combined semconv versions (v1 + v2): the legacy `request_data` attribute backs
+    # onto the filtered `json_data` copy, so it must also hold the materialized list.
+    config = get_endpoint_config(options, version=frozenset({1, 2}))  # type: ignore
+
+    assert options.json_data['messages'] == [{'role': 'user', 'content': 'Hello'}]
+    assert config.span_data['request_data']['messages'] == [{'role': 'user', 'content': 'Hello'}]
+    assert config.span_data['gen_ai.input.messages'] == [
+        {'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}
+    ]
+
+
 def request_handler(request: httpx.Request) -> httpx.Response:
     """Used to mock httpx requests
 
