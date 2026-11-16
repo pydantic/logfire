@@ -477,15 +477,9 @@ class MessageValueCleaner:
         self.check_keys = check_keys
 
     def clean_value(self, field_name: str, value: str) -> str:
-        # Bound the text passed to callbacks and patterns before the final 128-character limit.
-        # Retain both ends to match the final display and preserve useful trailing context.
-        # A sensitive marker in the omitted middle may be lost while its value survives
-        # in the suffix, so pattern matching can miss that value. For it to reach the
-        # final message, the input must exceed 2,048 characters, the marker must fall
-        # outside the 1,022 characters retained at either end, and sensitive text must
-        # survive in the outer 62 characters kept by the final truncation. These
-        # conditions constrain the risk, but do not eliminate it.
-        value = truncate_string(value, max_length=16 * MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT)
+        # Scrub before truncating so that the scrubber can see the full value.
+        # For example, if the value contains 'password=123' and 'password' is replaced by '...'
+        # because of truncation, then that leaves '=123' in the message, which is not good.
         if self.check_keys or field_name in self.scrubber.SAFE_KEYS:
             # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
             scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
