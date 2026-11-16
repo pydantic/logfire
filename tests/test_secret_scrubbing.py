@@ -814,7 +814,7 @@ def test_missing_message_defaults_to_span_name_before_console_transform(
 
 
 @pytest.mark.parametrize('scope_name', ['logfire.openai', 'logfire.anthropic'])
-def test_legacy_llm_message_remains_exempt_from_early_transform(scope_name: str):
+def test_legacy_llm_message_is_transformed_early(scope_name: str):
     spans: list[ReadableSpan] = []
 
     class RecordingProcessor(SpanProcessor):
@@ -833,7 +833,7 @@ def test_legacy_llm_message_remains_exempt_from_early_transform(scope_name: str)
         )
     )
 
-    assert spans[0].attributes == {'logfire.msg': 'alice@example.com'}
+    assert spans[0].attributes == {'logfire.msg': '[email]'}
 
 
 def test_absent_message_defaults_to_span_name_before_transform():
