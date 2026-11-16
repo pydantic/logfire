@@ -80,7 +80,9 @@ class Record:
     def from_log(cls, log: LogRecord) -> Record:
         attributes = log.attributes or {}
         message: str = attributes.get(ATTRIBUTES_MESSAGE_KEY)  # pyright: ignore[reportAssignmentType]
-        if not message:
+        if message == '':
+            message = '<empty message>'
+        elif not message:
             # TODO: this message could be better, for now we just want to have *something*
             # TODO: this message should be constructed in a wrapper processor so that it's also used in the UI
             parts: list[str] = []

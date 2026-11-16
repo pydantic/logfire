@@ -168,7 +168,7 @@ class BaseScrubber(ABC):
         ATTRIBUTES_SAMPLE_RATE_KEY,
         *STACK_INFO_KEYS,
         # Formatted field values are scrubbed separately,
-        # and then the message is transformed by MainSpanProcessorWrapper
+        # and then the span or log processor transforms the whole message
         ATTRIBUTES_MESSAGE_KEY,
     }
 
