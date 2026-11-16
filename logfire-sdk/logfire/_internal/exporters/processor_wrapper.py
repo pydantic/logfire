@@ -84,14 +84,12 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _transform_litellm_span(span_dict)
             _default_gen_ai_response_model(span_dict)
             span = ReadableSpan(**span_dict)
-        # A normalization failure must not prevent the message from reaching the console masked.
+        span_dict = span_to_dict(span)
+        transformed = False
         with handle_internal_errors:
-            span_dict = span_to_dict(span)
             transformed = _transform_span_message(span_dict, self.scrubber)
-            new_span = ReadableSpan(**span_dict)
-            if transformed:
-                setattr(new_span, '_logfire_message_transformed', True)
-            span = new_span
+        if transformed:
+            span = ReadableSpan(**span_dict)
         super().on_end(span)
 
 
@@ -107,7 +105,7 @@ def _transform_span_message(span: ReadableSpanDict, scrubber: BaseScrubber) -> b
 def scrub_span(span: ReadableSpan, scrubber: BaseScrubber) -> ReadableSpan:
     with handle_internal_errors:
         span_dict = span_to_dict(span)
-        scrubber.scrub_span(span_dict, message_transformed=getattr(span, '_logfire_message_transformed', False))
+        scrubber.scrub_span(span_dict, message_transformed=True)
         span = ReadableSpan(**span_dict)
     return span
 

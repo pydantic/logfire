@@ -882,8 +882,13 @@ def test_whole_message_is_not_transformed_again_during_export(exporter: TestExpo
     assert message_calls == 1
 
 
-@pytest.mark.parametrize('failing_step', ['normalization', 'message_transform'])
-def test_message_is_transformed_when_main_processor_fails(monkeypatch: pytest.MonkeyPatch, failing_step: str):
+@pytest.mark.parametrize(
+    ('failing_step', 'expected_message'),
+    [('normalization', '[email]'), ('message_transform', 'alice@example.com')],
+)
+def test_message_handling_after_main_processor_errors(
+    monkeypatch: pytest.MonkeyPatch, failing_step: str, expected_message: str
+):
     spans: list[ReadableSpan] = []
     monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
 
@@ -903,7 +908,7 @@ def test_message_is_transformed_when_main_processor_fails(monkeypatch: pytest.Mo
 
     processor.on_end(ReadableSpan(name='call', attributes={'logfire.msg': 'alice@example.com'}))
 
-    assert spans[0].attributes == {'logfire.msg': '[email]'}
+    assert spans[0].attributes == {'logfire.msg': expected_message}
 
 
 @pytest.mark.parametrize('error_type', [ValueError, RecursionError])
