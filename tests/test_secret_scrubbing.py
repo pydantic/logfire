@@ -756,7 +756,9 @@ def test_whole_message_is_transformed_before_console_and_bounded(exporter: TestE
     assert '[email]' in output.getvalue()
     (span,) = exporter.exported_spans_as_dict()
     assert len(span['attributes']['logfire.msg']) <= 1024
-    assert any(value.path == ('attributes', 'logfire.msg') and len(value.value) <= 16384 for value in seen)
+    message_values = [value.value for value in seen if value.path == ('attributes', 'logfire.msg')]
+    assert len(message_values) == 1
+    assert len(message_values[0]) == 16383
 
 
 def test_whole_message_truncation_keeps_both_ends():
