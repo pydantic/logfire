@@ -144,9 +144,10 @@ class ScrubbingOptions:
     """
 
     transform_string: Callable[[StringValue], str] | None = None
-    """Transform each string value before pattern matching, including values under safe keys.
+    """Transform string values before pattern matching, including values under safe keys.
 
     Span names, status descriptions, and event names are also transformed, without pattern matching.
+    Logfire control and source metadata, such as `logfire.span_type` and `code.filepath`, are excluded.
 
     The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
