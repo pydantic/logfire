@@ -16,6 +16,7 @@ from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.sdk.trace import ConcurrentMultiSpanProcessor, ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
+from opentelemetry.trace import StatusCode
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
@@ -774,43 +775,6 @@ def test_whole_message_truncation_keeps_both_ends():
     assert result is not None and result.startswith('a') and result.endswith('b')
 
 
-def test_whole_message_transforms_json_text_and_leaves():
-    seen: list[StringValue] = []
-
-    def transform(value: StringValue) -> str:
-        seen.append(value)
-        if value.path == ('attributes', 'logfire.msg'):
-            return value.value.replace('"alice@example.com":', '"[email]":')
-        return value.value.replace('alice@example.com', '[email]')
-
-    message = json.dumps({'alice@example.com': 123, 'contact': 'alice@example.com'})
-    result = Scrubber(None, transform_string=transform).transform_message(message)
-
-    assert result is not None
-    assert json.loads(result) == {'[email]': 123, 'contact': '[email]'}
-    assert [value.path for value in seen] == [
-        ('attributes', 'logfire.msg'),
-        ('attributes', 'logfire.msg', 'contact'),
-    ]
-
-
-def test_failed_whole_json_transform_still_transforms_leaves(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
-    seen: list[tuple[str | int, ...]] = []
-
-    def transform(value: StringValue) -> str:
-        seen.append(value.path)
-        if value.path == ('attributes', 'logfire.msg'):
-            raise ValueError('cannot transform whole message')
-        return value.value.replace('alice@example.com', '[email]')
-
-    result = Scrubber(None, transform_string=transform).transform_message(json.dumps({'contact': 'alice@example.com'}))
-
-    assert result is not None
-    assert json.loads(result) == {'contact': '[email]'}
-    assert seen == [('attributes', 'logfire.msg'), ('attributes', 'logfire.msg', 'contact')]
-
-
 def test_missing_message_defaults_to_span_name_before_console_transform(
     exporter: TestExporter, config_kwargs: dict[str, Any]
 ):
@@ -830,7 +794,7 @@ def test_missing_message_defaults_to_span_name_before_console_transform(
     assert '[email]' in output.getvalue()
     (span,) = exporter.exported_spans_as_dict()
     assert span['attributes']['logfire.msg'] == '[email]'
-    assert span['name'] == 'alice@example.com'
+    assert span['name'] == '[email]'
 
 
 def test_empty_transformed_message_does_not_expose_span_name(exporter: TestExporter, config_kwargs: dict[str, Any]):
@@ -975,6 +939,44 @@ def test_message_handling_after_main_processor_errors(
     processor.on_end(ReadableSpan(name='call', attributes={'logfire.msg': 'alice@example.com'}))
 
     assert spans[0].attributes == {'logfire.msg': expected_message}
+
+
+def test_transform_string_covers_span_metadata_without_pattern_scrubbing(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    seen: list[StringValue] = []
+    matches: list[logfire.ScrubMatch] = []
+
+    def transform(value: StringValue) -> str:
+        if value.path[0] != 'attributes':
+            seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    def callback(match: logfire.ScrubMatch) -> None:
+        matches.append(match)
+
+    logfire.configure(
+        **config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback, transform_string=transform)
+    )
+    with logfire.span('secret alice@example.com'):
+        span = get_current_span()
+        span.set_status(StatusCode.ERROR, 'secret alice@example.com')
+        span.add_event('secret alice@example.com')
+
+    span = exporter.exported_spans[-1]
+    assert span.name == 'secret [email]'
+    assert span.status.description == 'secret [email]'
+    assert [event.name for event in span.events] == ['secret [email]']
+    assert seen == snapshot(
+        [
+            # span_name also gets transformed for the pending span, which doesn't have the status or event.
+            StringValue(path=('span_name',), value='secret alice@example.com'),
+            StringValue(path=('span_name',), value='secret alice@example.com'),
+            StringValue(path=('otel_status_message',), value='secret alice@example.com'),
+            StringValue(path=('otel_events', 0, 'name'), value='secret alice@example.com'),
+        ]
+    )
+    assert 'logfire.scrubbed' not in (span.attributes or {})
 
 
 @pytest.mark.parametrize('error_type', [ValueError, RecursionError])

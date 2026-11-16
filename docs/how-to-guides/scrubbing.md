@@ -128,7 +128,7 @@ The callback runs for every string the scrubber reaches, including large values.
 
 !!! warning "Choose a fallback for masking errors"
 
-    If a call to `transform_string` raises an exception, Logfire logs the error and keeps that call's input string. It continues with other strings, including strings inside a JSON message. Pattern matching still runs where permitted, but a value such as an email address may be exported unchanged.
+    If a call to `transform_string` raises an exception, Logfire logs the error and keeps that call's input string. It continues with other strings. Pattern matching still runs where permitted, but a value such as an email address may be exported unchanged.
 
     If you handle errors inside your callback, redact only values you know are sensitive. A catch-all handler that returns `'[redacted]'` for every error could replace every string if the transformer breaks, leaving little usable telemetry.
 

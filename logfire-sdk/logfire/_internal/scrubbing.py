@@ -12,7 +12,7 @@ import typing_extensions
 from opentelemetry._logs import LogRecord
 from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.trace import Event
-from opentelemetry.trace import Link
+from opentelemetry.trace import Link, Status
 
 from logfire.types import StringValue
 
@@ -147,6 +147,8 @@ class ScrubbingOptions:
     transform_string: Callable[[StringValue], str] | None = None
     """Transform each string value before pattern matching, including values under safe keys.
 
+    Span names, status descriptions, and event names are also transformed, without pattern matching.
+
     The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
     String span messages also call it when a span ends, on the calling thread even if console output is disabled.
@@ -154,8 +156,7 @@ class ScrubbingOptions:
     An empty result stays empty in the span, and the console displays `<empty message>`.
     Whole-message input is capped at 16,384 characters before this call, and its result at 1,024 characters.
     Nested strings in a nonempty, non-string message use the ordinary span scrubbing path instead.
-    If the callback raises, Logfire logs the error and keeps that call's input string.
-    Other strings, including JSON leaves, may still be transformed.
+    If the callback raises, Logfire logs the error and keeps the input string.
     """
 
 
@@ -301,19 +302,9 @@ class Scrubber(BaseScrubber):
         if self._transform_string is None:
             return None
         value = truncate_string(value, max_length=16 * 1024)
-        path = ('attributes', ATTRIBUTES_MESSAGE_KEY)
-        transformed = value
-        with handle_internal_errors:
-            transformed = self._transform_string(StringValue(path, value))
-        if transformed.lstrip().startswith(('{', '[')):
-            try:
-                decoded = json.loads(transformed)
-                span_scrubber = SpanScrubber(self)
-                scrubbed = span_scrubber.scrub(path, decoded, in_safe_key=True)
-                if span_scrubber.scrub_count:
-                    transformed = logfire_json_dumps(scrubbed)
-            except (ValueError, RecursionError):
-                pass
+        transformed = SpanScrubber(self)._safely_transform_string(  # pyright: ignore[reportPrivateUsage]
+            ('attributes', ATTRIBUTES_MESSAGE_KEY), value
+        )
         return truncate_string(transformed, max_length=1024)
 
 
@@ -331,7 +322,23 @@ class SpanScrubber:
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
 
+    def _safely_transform_string(self, path: JsonPath, value: str) -> str:
+        if self._transform_string is None:
+            return value
+        transformed = value
+        with handle_internal_errors:
+            transformed = self._transform_string(StringValue(path, value))
+        return transformed
+
     def scrub_span(self, span: ReadableSpanDict):
+        span['name'] = self._safely_transform_string(('span_name',), span['name'])
+        status = span['status']
+        if status.description is not None and self._transform_string is not None:
+            span['status'] = Status(
+                status_code=status.status_code,
+                description=self._safely_transform_string(('otel_status_message',), status.description),
+            )
+
         # We need to use BoundedAttributes because:
         # 1. For events and links, we get an error otherwise:
         #      https://github.com/open-telemetry/opentelemetry-python/issues/3761
@@ -341,9 +348,9 @@ class SpanScrubber:
         attributes = span['attributes']
         message = attributes.get(ATTRIBUTES_MESSAGE_KEY)
         if self._transform_string is not None and isinstance(message, str):
-            # The main processor already transformed this string. Keep its position in
-            # the mapping while scrubbing the other attributes, then restore its value.
-            new_attributes = self.scrub(('attributes',), {**attributes, ATTRIBUTES_MESSAGE_KEY: None})
+            # The main processor already transformed this string.
+            other_attributes = {key: value for key, value in attributes.items() if key != ATTRIBUTES_MESSAGE_KEY}
+            new_attributes = self.scrub(('attributes',), other_attributes)
             new_attributes[ATTRIBUTES_MESSAGE_KEY] = message
         else:
             new_attributes = self.scrub(('attributes',), attributes)
@@ -352,9 +359,7 @@ class SpanScrubber:
 
         span['events'] = [
             Event(
-                # We don't scrub the event name because in theory it should be a low-cardinality general description,
-                # not containing actual data. The same applies to the span name, which just isn't mentioned here.
-                name=event.name,
+                name=self._safely_transform_string(('otel_events', i, 'name'), event.name),
                 attributes=BoundedAttributes(attributes=self.scrub_event_attributes(event, i)),
                 timestamp=event.timestamp,
             )
@@ -408,13 +413,10 @@ class SpanScrubber:
                     return logfire_json_dumps(scrubbed) if self.scrub_count != scrub_count_before else value
                 except (ValueError, RecursionError):
                     pass
-            if self._transform_string is not None:
-                transformed = value
-                with handle_internal_errors:
-                    transformed = self._transform_string(StringValue(path, value))
-                if transformed != value:
-                    self.scrub_count += 1
-                    value = transformed
+            transformed = self._safely_transform_string(path, value)
+            if transformed != value:
+                self.scrub_count += 1
+                value = transformed
             if not in_safe_key and (match := self._pattern.search(value)):
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
