@@ -53,7 +53,8 @@ nested under it, showing which passed or failed and how long each took.
 ## Troubleshooting
 
 Not seeing your test runs in Logfire? Check that you passed `--logfire` (or enabled the plugin another
-way), that your write token is set (in local development, run `uvx logfire-cli wizard`; in
+way), that your write token is set (in local development, run `uvx logfire-cli auth` if needed, then
+`uvx logfire-cli init use`; in
 CI, set the `LOGFIRE_TOKEN` environment variable), and that the plugin wasn't disabled with
 `--no-logfire`.
 

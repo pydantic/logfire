@@ -73,7 +73,8 @@ Not seeing your requests in Logfire? Check these first:
   then wrap the app.
 - **You serve the wrapped app.** `instrument_wsgi()` returns a new app object; make sure that's the
   one your server runs.
-- **Your write token is set.** In local development, run `uvx logfire-cli wizard`; in
+- **Your write token is set.** In local development, run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use`; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **You actually sent a request.** Spans appear only after the app is hit; reload the URL above.
 

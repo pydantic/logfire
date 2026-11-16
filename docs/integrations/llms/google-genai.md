@@ -81,7 +81,8 @@ Not seeing your model calls in Logfire? Check these first:
 - **`logfire.configure()` runs before `logfire.instrument_google_genai()`.** Configure the connection
   first, then instrument.
 - **You called `instrument_google_genai()` exactly once.**
-- **Your Logfire write token is set.** In local development, run `uvx logfire-cli wizard`;
+- **Your Logfire write token is set.** In local development, run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use`;
   in production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **Prompts and completions show as `<elided>`?** Set
   `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=SPAN_ONLY` before your app runs, as shown above.

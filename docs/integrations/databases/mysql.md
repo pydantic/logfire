@@ -94,7 +94,8 @@ Not seeing your queries in Logfire? Check these first:
   then instrument.
 - **You call `instrument_mysql()` exactly once.** With no argument it instruments the whole module;
   pass a connection to instrument just that one.
-- **Your write token is set.** In local development, run `uvx logfire-cli wizard`; in
+- **Your write token is set.** In local development, run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use`; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **You actually ran a query.** Spans appear only after a statement executes.
 

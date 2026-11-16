@@ -65,7 +65,8 @@ Not seeing your requests in Logfire? Check these first:
 - **`logfire.configure()` runs before `logfire.instrument_flask()`.** Configure the connection
   first, then instrument the app.
 - **You call `instrument_flask(app)` exactly once**, on the same `app` object you serve.
-- **Your write token is set.** In local development, run `uvx logfire-cli wizard`; in
+- **Your write token is set.** In local development, run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use`; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **You actually sent a request.** Spans appear only after a route is hit; reload the URL above.
 

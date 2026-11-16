@@ -91,7 +91,8 @@ Not seeing your DSPy steps in Logfire? Check these first:
 - **`logfire.configure()` runs before `logfire.instrument_dspy()`.** Configure the connection first,
   then instrument.
 - **You called `instrument_dspy()` exactly once.**
-- **Your Logfire write token is set.** In local development, run `uvx logfire-cli wizard`;
+- **Your Logfire write token is set.** In local development, run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use`;
   in production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 
 ## Reference

@@ -7,13 +7,21 @@ description: "Reference for the Python CLI shipped with Logfire 5.x, with equiva
 This page documents the **Python CLI shipped with Logfire 5.x**, not the standalone
 Rust CLI distributed as `logfire-cli`.
 
-For new projects, run `uvx logfire-cli wizard` for guided setup. To sign in and
-connect a project without a coding agent, run these commands from your project directory:
+For full guided onboarding with optional coding-agent assistance, run
+`uvx logfire-cli wizard`. To connect an existing project without instrumentation
+setup, run these commands from your application's directory:
 
 ```bash
 uvx logfire-cli auth
-uvx logfire-cli init
+uvx logfire-cli init use
 ```
+
+Skip `auth` if you are already signed in. `init use` lets you choose an existing
+project, creates a write token, and saves it locally; it does not create a project
+or launch a coding agent. Pass `--name my-project` to select the project by name.
+Use `init new --name my-project` to create a project, or bare `init` to choose
+between creating and connecting one. If you work with multiple organizations,
+add `--org` with the real organization name to `auth` and `init`.
 
 The two CLIs use different command names for some tasks:
 

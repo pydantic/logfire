@@ -69,7 +69,8 @@ Not seeing your queries in Logfire? Check these first:
 - **You run queries through a cursor, not the connection.** The `execute` method on
   [`sqlite3.Connection`][sqlite3.Connection] is *not* instrumented; use the `execute` method on a
   [`Cursor`][sqlite3.Cursor] instead (see the note below).
-- **Your write token is set.** In local development, run `uvx logfire-cli wizard`; in
+- **Your write token is set.** In local development, run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use`; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 
 ## Advanced

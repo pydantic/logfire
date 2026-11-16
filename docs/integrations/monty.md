@@ -99,5 +99,6 @@ Custom metric aggregation and collection settings in [`MetricsOptions`][logfire.
 - **Spans appear but pool metrics do not:** create the Monty pool after calling
   `logfire.instrument_monty()`. Pool-wide metrics are connected when the pool is created.
 - **No data appears in Logfire:** check that your write token is set. Run
-  `uvx logfire-cli wizard` locally, or set the `LOGFIRE_TOKEN` environment variable in
+  `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use` locally, or set the `LOGFIRE_TOKEN` environment variable in
   production. See [Getting Started](../index.md).

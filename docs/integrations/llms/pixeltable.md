@@ -117,7 +117,8 @@ The example above looks like this in Logfire:
   results are stored, so `collect()` doesn't call the model again. OpenAI spans appear on `insert`, `update`, and
   when `add_computed_column` fills existing rows.
 - **No data appears in Logfire:** check that your write token (the credential your deployed app uses to send
-  data to a Logfire project) is set. Run `uvx logfire-cli wizard` locally, or set the
+  data to a Logfire project) is set. Run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use` locally, or set the
   `LOGFIRE_TOKEN` environment variable in production.
 
 ## Next steps

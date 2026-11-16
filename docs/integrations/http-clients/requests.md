@@ -55,7 +55,8 @@ Not seeing your requests in Logfire? Check these first:
 - **`logfire.configure()` runs before `logfire.instrument_requests()`.** Configure the connection
   first, then instrument.
 - **You call `instrument_requests()` exactly once.**
-- **Your write token is set.** In local development, run `uvx logfire-cli wizard`; in
+- **Your write token is set.** In local development, run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use`; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **You actually made a request.** Spans appear only after a request completes.
 
