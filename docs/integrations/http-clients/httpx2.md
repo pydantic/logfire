@@ -120,7 +120,7 @@ Not seeing your requests in Logfire? Check these first:
   then instrument.
 - **You instrument the client you actually call.** `instrument_httpx()` with no argument covers every
   installed client library; if you pass a specific client, make sure it's the one making the request.
-- **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
+- **Your write token is set.** In local development, run `uvx logfire-cli wizard`; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **You actually made a request.** Spans appear only after a request completes.
 

@@ -137,7 +137,7 @@ cursor.execute('select current_version()')
   `snowflake.connector.connect()` rather than a `connect` name imported earlier. For one connection,
   connect first, then call `logfire.instrument_snowflake(conn)`.
 - **No data appears in Logfire:** check that your write token is set. Run
-  `logfire projects use <your-project>` locally, or set the `LOGFIRE_TOKEN` environment variable in
+  `uvx logfire-cli wizard` locally, or set the `LOGFIRE_TOKEN` environment variable in
   production. See [Getting Started](../../index.md).
 
 [snowflake]: https://www.snowflake.com/

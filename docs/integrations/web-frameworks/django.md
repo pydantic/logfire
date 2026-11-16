@@ -83,7 +83,7 @@ Not seeing your requests in Logfire? Check these first:
   first, then instrument.
 - **You call `instrument_django()` exactly once**, at the very end of your settings file so nothing
   else runs after it.
-- **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
+- **Your write token is set.** In local development, run `uvx logfire-cli wizard`; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **You actually sent a request.** Spans appear only after a view is hit; reload a page.
 

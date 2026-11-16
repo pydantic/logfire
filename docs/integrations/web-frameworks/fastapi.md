@@ -79,7 +79,7 @@ Not seeing your requests in Logfire? Check these first:
 - **`logfire.configure()` runs before `logfire.instrument_fastapi()`.** Configure the connection
   first, then instrument the app.
 - **You call `instrument_fastapi(app)` exactly once**, on the same `app` object you serve.
-- **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
+- **Your write token is set.** In local development, run `uvx logfire-cli wizard`; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **You actually sent a request.** Spans appear only after the endpoint is hit; reload the URL above.
 

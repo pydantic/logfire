@@ -1,10 +1,35 @@
 ---
 title: "Logfire SDK CLI: SDK Command Line Interface Guide"
-description: "Use the Logfire CLI to simplify project management. Use commands to authenticate, create new projects, and manage read/write tokens."
+description: "Reference for the Python CLI shipped with Logfire 5.x, with equivalents for the standalone Rust CLI."
 ---
 # SDK Command Line Interface
 
-**Logfire** comes with a CLI used for authentication and project management:
+This page documents the **Python CLI shipped with Logfire 5.x**, not the standalone
+Rust CLI distributed as `logfire-cli`.
+
+For new projects, run `uvx logfire-cli wizard` for guided setup. To sign in and
+connect a project without a coding agent, run these commands from your project directory:
+
+```bash
+uvx logfire-cli auth
+uvx logfire-cli init
+```
+
+The two CLIs use different command names for some tasks:
+
+| Task | Python CLI (this page) | Standalone Rust CLI |
+| --- | --- | --- |
+| Connect an existing project | `logfire projects use my-project` | `uvx logfire-cli init use --name my-project` |
+| Create and connect a project | `logfire projects new my-project` | `uvx logfire-cli init new --name my-project` |
+| Show Python and SDK versions | `logfire info` | `uvx logfire-cli doctor python` |
+
+The Rust CLI keeps browser sign-in in the OS credential store and writes an SDK
+write token to `.logfire/logfire_credentials.json` when you run `init`.
+The SDK reads that project file; browser sign-in alone does not configure your app.
+See [project configuration](configuration.md#programmatically-via-configure) for
+custom credential directories and deployed applications.
+
+The remaining commands and generated help below apply to the Python CLI:
 
 ```
 {{ logfire_help }}

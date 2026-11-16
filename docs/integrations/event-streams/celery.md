@@ -88,7 +88,7 @@ with.
 ## Troubleshooting
 
 Not seeing your tasks? Check that `logfire.configure()` ran before `instrument_celery()`, that your
-write token is set (run `logfire projects use <your-project>` locally, or set the `LOGFIRE_TOKEN`
+write token is set (run `uvx logfire-cli wizard` locally, or set the `LOGFIRE_TOKEN`
 environment variable in production; see [Getting Started](../../index.md)), and that you called
 `instrument_celery()` exactly once per worker process.
 

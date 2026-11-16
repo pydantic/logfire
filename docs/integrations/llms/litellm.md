@@ -81,7 +81,7 @@ Not seeing your model calls in Logfire? Check these first:
   first, then instrument.
 - **You called `instrument_litellm()` exactly once.**
 - **You passed arguments as keywords**, as noted in the warning above.
-- **Your Logfire write token is set.** In local development, run `logfire projects use <your-project>`;
+- **Your Logfire write token is set.** In local development, run `uvx logfire-cli wizard`;
   in production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 
 !!! note

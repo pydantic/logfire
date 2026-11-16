@@ -84,7 +84,7 @@ Not seeing your LlamaIndex steps in Logfire? Check these first:
 - **`logfire.configure()` runs before `LlamaIndexInstrumentor().instrument()`.** Configure the
   connection first, then instrument.
 - **You called `.instrument()` exactly once**, before running your query.
-- **Your Logfire write token is set.** In local development, run `logfire projects use <your-project>`;
+- **Your Logfire write token is set.** In local development, run `uvx logfire-cli wizard`;
   in production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 
 ## Advanced
