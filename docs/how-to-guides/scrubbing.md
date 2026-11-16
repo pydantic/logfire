@@ -143,9 +143,8 @@ It will instead happen on the calling thread if any of the following are true:
 Message template fields are always scrubbed on the calling thread during message formatting. If you configure
 `transform_string`, Logfire also calls it on each string span message when the span ends, even when console output is
 disabled. If `logfire.msg` is absent or empty, Logfire passes the span name to the callback and uses the result for
-the new message. An empty result stays empty in the span, and the console displays `<empty message>`. Logfire limits
-that input to 16,384 characters before the callback and limits its result to 1,024 characters. Nested strings in a
-nonempty, non-string `logfire.msg` use ordinary span scrubbing instead.
+the new message. An empty result stays empty in the span, and the console displays `<empty message>`. Nested strings
+in a nonempty, non-string `logfire.msg` use ordinary span scrubbing instead.
 
 ## Security tips
 
