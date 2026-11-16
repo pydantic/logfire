@@ -83,12 +83,16 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _transform_google_genai_span(span_dict)
             _transform_litellm_span(span_dict)
             _default_gen_ai_response_model(span_dict)
-            attributes = span_dict['attributes']
-            message = attributes.get(ATTRIBUTES_MESSAGE_KEY) or span_dict['name']
-            if isinstance(message, str) and (transformed := self.scrubber.transform_message(message)) is not None:
-                span_dict['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
+            _transform_span_message(span_dict, self.scrubber)
             span = ReadableSpan(**span_dict)
         super().on_end(span)
+
+
+def _transform_span_message(span: ReadableSpanDict, scrubber: BaseScrubber) -> None:
+    attributes = span['attributes']
+    message = attributes.get(ATTRIBUTES_MESSAGE_KEY) or span['name']
+    if isinstance(message, str) and (transformed := scrubber.transform_message(message)) is not None:
+        span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
 
 
 def scrub_span(span: ReadableSpan, scrubber: BaseScrubber) -> ReadableSpan:
