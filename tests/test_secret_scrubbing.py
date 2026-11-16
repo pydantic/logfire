@@ -754,12 +754,18 @@ def test_formatted_value_is_bounded_before_scrubbing():
     assert len(result) <= 128
 
 
-def test_formatted_value_truncation_keeps_sensitive_marker():
-    cleaner = MessageValueCleaner(Scrubber(None), check_keys=False)
-    result = cleaner.clean_value('payload', 'a' * 1500 + 'password=' + 'b' * 1500)
+def test_formatted_value_truncation_keeps_both_ends():
+    seen: list[StringValue] = []
 
-    assert result == "[Scrubbed due to 'password']"
-    assert cleaner.scrubbed == [{'path': ('message', 'payload'), 'matched_substring': 'password'}]
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value
+
+    cleaner = MessageValueCleaner(Scrubber(None, transform_string=transform), check_keys=False)
+    result = cleaner.clean_value('payload', 'a' * 1500 + 'middle' + 'b' * 1500)
+
+    assert seen == [StringValue(('message', 'payload'), 'a' * 1022 + '...' + 'b' * 1022)]
+    assert result.startswith('a') and result.endswith('b')
 
 
 def test_safe_key_formatted_value_is_transformed_without_pattern_search():
