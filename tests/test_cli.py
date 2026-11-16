@@ -1044,6 +1044,71 @@ def test_clean_yes_deletes_without_prompting(tmp_dir_cwd: Path) -> None:
     assert not (data_dir / 'logfire_credentials.json').exists()
 
 
+def test_clean_logs_does_not_open_the_log_file(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`clean --logs` must not hold the file it is about to delete open (#2797)."""
+    data_dir = tmp_dir_cwd / '.logfire'
+    logfire_credentials.write_creds_file(data_dir)
+    log_file = data_dir / 'log.txt'
+    log_file.touch()
+    monkeypatch.setattr(logfire._internal.cli, 'LOGFIRE_LOG_FILE', log_file)
+
+    opened: list[str] = []
+    real_file_handler = logging.FileHandler
+
+    def file_handler(*args: Any, **kwargs: Any) -> logging.FileHandler:
+        opened.append(str(args[0]))
+        return real_file_handler(*args, **kwargs)
+
+    monkeypatch.setattr(logging, 'FileHandler', file_handler)
+
+    main(['clean', '--data-dir', str(data_dir), '--logs', '--yes'])
+
+    assert str(log_file) not in opened
+    assert not (data_dir / 'logfire_credentials.json').exists()
+
+
+def test_clean_continues_when_the_log_file_cannot_be_deleted(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Windows refuses to unlink a log file that a handler still holds open (#2797).
+
+    The log file is first in the deletion list, so failing there must not leave the
+    credentials and the read token behind.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    logfire_credentials.write_creds_file(data_dir)
+    read_token = data_dir / 'read_token.json'
+    read_token.write_text('{}')
+    log_file = data_dir / 'log.txt'
+    log_file.touch()
+    monkeypatch.setattr(logfire._internal.cli, 'LOGFIRE_LOG_FILE', log_file)
+
+    real_unlink = Path.unlink
+
+    def unlink(self: Path, missing_ok: bool = False) -> None:
+        if self == log_file:
+            raise PermissionError(32, 'The process cannot access the file', str(self))
+        real_unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, 'unlink', unlink)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(['clean', '--data-dir', str(data_dir), '--logs', '--yes'])
+
+    assert exc_info.value.code == 1
+    err = capsys.readouterr().err
+    assert f'Could not delete {log_file}' in err
+    assert not (data_dir / 'logfire_credentials.json').exists()
+    assert not read_token.exists()
+
+
 def test_non_interactive_switch_is_restored_after_main_returns() -> None:
     """`main()` is importable, so the switch must not outlive the call.
 

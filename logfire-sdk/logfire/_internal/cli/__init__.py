@@ -128,8 +128,18 @@ def parse_clean(args: argparse.Namespace) -> None:
         'y' if args.yes else input(f'The following files will be deleted:\n{files_to_display}\nAre you sure? [N/y]')
     )
     if confirm.lower() in ('yes', 'y'):
+        failed: list[Path] = []
         for file in files_to_delete:
-            file.unlink(missing_ok=True)
+            try:
+                file.unlink(missing_ok=True)
+            except OSError as e:
+                # Windows refuses to delete a file another handle still has open, and one
+                # locked file must not leave the credentials and read token behind (#2797).
+                failed.append(file)
+                sys.stderr.write(f'Could not delete {file}: {e}\n')
+        if failed:
+            sys.stderr.write(f'Cleaned the remaining Logfire data, but {len(failed)} file(s) could not be deleted.\n')
+            sys.exit(1)
         sys.stderr.write('Cleaned Logfire data.\n')
     else:
         sys.stderr.write('Clean aborted.\n')
@@ -1035,7 +1045,13 @@ def _main(args: list[str] | None = None) -> None:
     elif namespace.func in (parse_info, parse_run):
         namespace.func(namespace)
     else:
-        with _cli_logging(), tracer.start_as_current_span('logfire._internal.cli'), requests.Session() as session:
+        # `clean --logs` deletes the file the CLI log handler would hold open (#2797).
+        log_to_file = not (namespace.func is parse_clean and namespace.logs)
+        with (
+            _cli_logging(log_to_file=log_to_file),
+            tracer.start_as_current_span('logfire._internal.cli'),
+            requests.Session() as session,
+        ):
             install_connection_policy(session)
             context = get_context()
             session.hooks = {'response': [functools.partial(log_trace_id, context=context)]}
@@ -1046,8 +1062,15 @@ def _main(args: list[str] | None = None) -> None:
 
 
 @contextmanager
-def _cli_logging() -> Generator[None]:
-    """Keep CLI HTTP diagnostics without configuring application logging."""
+def _cli_logging(*, log_to_file: bool = True) -> Generator[None]:
+    """Keep CLI HTTP diagnostics without configuring application logging.
+
+    ``log_to_file=False`` is for ``clean --logs``: that command deletes the log file, and
+    Windows refuses to unlink a file that a ``FileHandler`` still holds open (#2797).
+    """
+    if not log_to_file:
+        yield
+        return
     HOME_LOGFIRE.mkdir(exist_ok=True)
     file_handler = logging.FileHandler(LOGFIRE_LOG_FILE)
     file_handler.setLevel(logging.DEBUG)
