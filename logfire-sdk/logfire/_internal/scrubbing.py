@@ -19,7 +19,6 @@ from logfire.types import StringValue
 from .constants import (
     ATTRIBUTES_CONFIG,
     ATTRIBUTES_JSON_SCHEMA_KEY,
-    ATTRIBUTES_LOG_LEVEL_NAME_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_LOGGING_NAME,
     ATTRIBUTES_MESSAGE_KEY,
@@ -145,9 +144,10 @@ class ScrubbingOptions:
     """
 
     transform_string: Callable[[StringValue], str] | None = None
-    """Transform each string value before pattern matching, including values under safe keys.
+    """Transform string values before pattern matching, including values under safe keys.
 
     Span names, status descriptions, and event names are also transformed, without pattern matching.
+    Logfire control and source metadata, such as `logfire.span_type` and `code.filepath`, are excluded.
 
     The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
@@ -160,24 +160,28 @@ class ScrubbingOptions:
 
 
 class BaseScrubber(ABC):
-    # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
-    # Some of these are just here for performance.
-    SAFE_KEYS = {
-        ATTRIBUTES_MESSAGE_KEY,  # Formatted field values are scrubbed separately
-        ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
-        ATTRIBUTES_JSON_SCHEMA_KEY,
-        ATTRIBUTES_TAGS_KEY,
-        ATTRIBUTES_LOG_LEVEL_NAME_KEY,
+    # Similar to SAFE_KEYS below but also shouldn't be passed through transform_string
+    NO_TRANSFORM_KEYS = {
         ATTRIBUTES_LOG_LEVEL_NUM_KEY,
         ATTRIBUTES_SPAN_TYPE_KEY,
         ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
         ATTRIBUTES_SAMPLE_RATE_KEY,
+        *STACK_INFO_KEYS,
+    }
+
+    # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
+    # Some of these are just here for performance.
+    SAFE_KEYS = {
+        *NO_TRANSFORM_KEYS,
+        ATTRIBUTES_MESSAGE_KEY,  # Formatted field values are scrubbed separately
+        ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+        ATTRIBUTES_JSON_SCHEMA_KEY,
+        ATTRIBUTES_TAGS_KEY,
         ATTRIBUTES_LOGGING_NAME,
         ATTRIBUTES_SCRUBBED_KEY,
         ATTRIBUTES_CONFIG,
         ATTRIBUTES_PACKAGE_VERSIONS,
         RESOURCE_ATTRIBUTES_VERSION,
-        *STACK_INFO_KEYS,
         'exception.stacktrace',
         'exception.type',
         'exception.message',
@@ -436,7 +440,9 @@ class SpanScrubber:
         elif isinstance(value, Mapping):
             result: dict[Any, Any] = {}
             for k, v in cast('Mapping[Any, Any]', value).items():
-                if k in BaseScrubber.SAFE_KEYS:
+                if k in BaseScrubber.NO_TRANSFORM_KEYS:
+                    result[k] = v
+                elif k in BaseScrubber.SAFE_KEYS:
                     result[k] = (
                         self.scrub(path + (k,), v, in_safe_key=True) if self._transform_string is not None else v
                     )
