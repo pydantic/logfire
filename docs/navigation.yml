@@ -161,6 +161,10 @@ navigation:
               - "guides/otel-collector/otel-collector-scrubbing"
       # The TypeScript subtree is owned by pydantic/logfire-js/docs/navigation.yml.
       - include: typescript
+      - page: "Browser Source Maps"
+        path: "how-to-guides/browser-source-maps.md"
+        slug: "instrument/browser-source-maps"
+        hidden: true
       - page: "Rust"
         path: "languages/rust.md"
         slug: "instrument/rust"
