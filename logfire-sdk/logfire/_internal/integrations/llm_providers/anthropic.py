@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from inspect import signature
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -117,9 +117,21 @@ def get_endpoint_config(
 
         if 2 in versions:
             # Convert messages to semantic convention format
-            messages: list[dict[str, Any]] = json_data.get('messages', [])
+            messages: Iterable[dict[str, Any]] = json_data.get('messages', [])
             system: str | list[dict[str, Any]] | None = json_data.get('system')
             if messages or system:
+                # The Anthropic SDK accepts `messages` as any iterable. Materialize a
+                # generator (or any non-list iterable) into a list and store it back on
+                # the request options, so recording the input here doesn't consume the
+                # generator before the SDK serializes the request body (which would
+                # otherwise send an empty request).
+                if not isinstance(messages, list):
+                    messages = list(messages)
+                    # Write back to `options.json_data` (not the filtered copy above),
+                    # so the SDK serializes the materialized list instead of the now
+                    # consumed generator.
+                    cast('dict[str, Any]', raw_json_data)['messages'] = messages
+                    json_data['messages'] = messages
                 input_messages, system_instructions = convert_messages_to_semconv(messages, system)
                 span_data[INPUT_MESSAGES] = input_messages
                 if system_instructions:
