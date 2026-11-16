@@ -696,7 +696,7 @@ def test_transform_string_in_safe_key_skips_all_nested_patterns():
     assert notes_without_transform == []
 
 
-def test_transform_string_skips_root_control_attributes_but_not_nested_user_data():
+def test_transform_string_skips_control_attributes():
     seen: list[tuple[str | int, ...]] = []
 
     def transform(value: StringValue) -> str:
@@ -707,15 +707,15 @@ def test_transform_string_skips_root_control_attributes_but_not_nested_user_data
         'logfire.span_type': 'span',
         'logfire.json_schema': '{"description":"alice@example.com"}',
         'logfire.scrubbed': '[{"matched_substring":"alice@example.com"}]',
-        'payload': {'logfire.span_type': {'contact': 'alice@example.com'}},
+        'payload': {'contact': 'alice@example.com'},
     }
     result, notes = Scrubber(None, transform_string=transform).scrub_value(('attributes',), original)
 
     assert result == {
         **{key: original[key] for key in ('logfire.span_type', 'logfire.json_schema', 'logfire.scrubbed')},
-        'payload': {'logfire.span_type': {'contact': '[email]'}},
+        'payload': {'contact': '[email]'},
     }
-    assert seen == [('attributes', 'payload', 'logfire.span_type', 'contact')]
+    assert seen == [('attributes', 'payload', 'contact')]
     assert notes == []
 
 

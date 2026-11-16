@@ -414,7 +414,7 @@ class SpanScrubber:
         elif isinstance(value, Mapping):
             result: dict[Any, Any] = {}
             for k, v in cast('Mapping[Any, Any]', value).items():
-                if path == ('attributes',) and k in BaseScrubber.NO_TRANSFORM_KEYS:
+                if k in BaseScrubber.NO_TRANSFORM_KEYS:
                     result[k] = v
                 elif k in BaseScrubber.SAFE_KEYS:
                     result[k] = (
