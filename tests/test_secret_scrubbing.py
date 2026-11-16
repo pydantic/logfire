@@ -838,6 +838,29 @@ def test_missing_message_defaults_to_span_name_before_console_transform(
     assert span['name'] == 'alice@example.com'
 
 
+def test_empty_transformed_message_does_not_fall_back_to_span_name(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    from opentelemetry import trace
+
+    output = StringIO()
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(
+            transform_string=lambda value: '' if value.path == ('attributes', 'logfire.msg') else value.value
+        ),
+    )
+    logfire.configure(**config_kwargs)
+    with trace.get_tracer('test').start_as_current_span(
+        'alice@example.com', attributes={'logfire.msg': 'alice@example.com'}
+    ):
+        pass
+
+    assert 'alice@example.com' not in output.getvalue()
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == ''
+
+
 @pytest.mark.parametrize('scope_name', ['logfire.openai', 'logfire.anthropic'])
 def test_legacy_llm_message_is_transformed_early(scope_name: str):
     spans: list[ReadableSpan] = []
