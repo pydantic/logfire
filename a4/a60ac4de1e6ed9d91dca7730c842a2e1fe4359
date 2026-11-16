@@ -1,0 +1,30 @@
+logfire-sdk/logfire/_internal/scrubbing.py
+  s_7c2454978ac93a::t_0b7fc2b8769262 166
+  s_7c2454978ac93a::t_61a41ea32675de 161-163
+  s_7c2454978ac93a::t_8443f267696ad3 165
+  h_d9dd17644dded9 158-159,168,172,417-419
+  s_7c2454978ac93a::t_24007077bd6a14 164
+  s_7c2454978ac93a::t_ca31259f7154a4 160
+  h_d9dd17644dded9 167
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a4a60ac4de1e6ed9d91dca7730c842a2e1fe4359",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_7c2454978ac93a": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1794833796487",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
