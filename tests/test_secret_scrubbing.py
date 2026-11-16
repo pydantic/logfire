@@ -738,7 +738,8 @@ def test_transform_string_covers_span_metadata_without_pattern_scrubbing(
     matches: list[logfire.ScrubMatch] = []
 
     def transform(value: StringValue) -> str:
-        seen.append(value)
+        if value.path[0] != 'attributes':
+            seen.append(value)
         return value.value.replace('alice@example.com', '[email]')
 
     def callback(match: logfire.ScrubMatch) -> None:
@@ -756,14 +757,15 @@ def test_transform_string_covers_span_metadata_without_pattern_scrubbing(
     assert span.name == 'secret [email]'
     assert span.status.description == 'secret [email]'
     assert [event.name for event in span.events] == ['secret [email]']
-    metadata = [(value.path, value.value) for value in seen if value.path[0] != 'attributes']
-    assert (('name',), 'secret alice@example.com') in metadata
-    assert metadata[-3:] == [
-        (('name',), 'secret alice@example.com'),
-        (('status', 'description'), 'secret alice@example.com'),
-        (('otel_events', 0, 'name'), 'secret alice@example.com'),
-    ]
-    assert not [match for match in matches if match.path[0] != 'attributes']
+    assert seen == snapshot(
+        [
+            # span_name also gets transformed for the pending span, which doesn't have the status or event.
+            StringValue(path=('span_name',), value='secret alice@example.com'),
+            StringValue(path=('span_name',), value='secret alice@example.com'),
+            StringValue(path=('otel_status_message',), value='secret alice@example.com'),
+            StringValue(path=('otel_events', 0, 'name'), value='secret alice@example.com'),
+        ]
+    )
     assert 'logfire.scrubbed' not in (span.attributes or {})
 
 
