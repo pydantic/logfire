@@ -1,0 +1,87 @@
+docs/agent-sandboxes/snapshots.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-83
+docs/agent-sandboxes/any-framework.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-170
+docs/agent-sandboxes/pydantic-ai.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-133
+docs/agent-sandboxes/approval.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-315
+docs/agent-sandboxes/limits.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-122
+docs/navigation.yml
+  s_c0e10b978d818c::t_e1bd0df50ae19c 725-781,1049-1051
+docs/agent-sandboxes/volumes.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-95
+docs/get-started/for-platform-and-security.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 16,18,20,22,24,26-28
+docs/integrations/monty.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 8,16-19
+  s_c0e10b978d818c::t_b2068059a9c11b 20
+logfire-sdk/logfire/_internal/scrubbing.py
+  s_c0e10b978d818c::t_e1bd0df50ae19c 15,150-151,305-312,314-321,334,388-391
+logfire-sdk/logfire/_internal/integrations/llm_providers/anthropic.py
+  s_c0e10b978d818c::t_e1bd0df50ae19c 5,120,123-134
+docs/reference/self-hosted/ff-database-migration.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 36
+docs/agent-sandboxes/index.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-170
+docs/reference/self-hosted/bucket-migration.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 140
+docs/how-to-guides/scrubbing.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 9-10
+tests/test_secret_scrubbing.py
+  s_c0e10b978d818c::t_e1bd0df50ae19c 18,747-782
+  s_c0e10b978d818c::t_462e913fad7d42 783-784
+docs/agent-sandboxes/many-tool-calls.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-218
+docs/agent-sandboxes/sessions.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-277
+docs/agent-sandboxes/inspect.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-92
+docs/agent-sandboxes/profiles.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-88
+docs/compliance.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 38-39
+docs/reference/self-hosted/installation.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 3,7-18,22,24-26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62,64-65,67,69,71,73,75-76,78,80,82-83
+docs/reference/self-hosted/overview.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 30,32,36
+  s_c0e10b978d818c::t_c771bad71db1c9 37
+docs/agent-sandboxes/python.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-301
+tests/otel_integrations/test_anthropic.py
+  s_c0e10b978d818c::t_e1bd0df50ae19c 59-102
+docs/agent-sandboxes/typed-api.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-170
+docs/agent-sandboxes/workbench.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-134
+docs/how-to-guides/data-deletion.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-102
+docs/reference/advanced/use-api-keys.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 89,99-101
+  s_c0e10b978d818c::t_6c3131a9558fde 102
+docs/agent-sandboxes/large-results.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-184
+docs/reference/api/logfire.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 28
+docs/agent-sandboxes/conversations.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 1-178
+docs/reference/self-hosted/troubleshooting.md
+  s_c0e10b978d818c::t_e1bd0df50ae19c 56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cc0e74e6eaafe0713941c150c0a6fa45f1cce437",
+  "prompts": {},
+  "sessions": {
+    "s_c0e10b978d818c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d095-ee37-77e2-ab95-a5d577077ae0",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
