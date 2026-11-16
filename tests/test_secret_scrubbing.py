@@ -707,14 +707,14 @@ def test_transform_string_skips_control_attributes():
         'logfire.span_type': 'span',
         'logfire.json_schema': '{"description":"alice@example.com"}',
         'logfire.scrubbed': '[{"matched_substring":"alice@example.com"}]',
+        'code.filepath': 'alice@example.com',
+        'code.function': 'alice@example.com',
+        'code.lineno': 42,
         'payload': {'contact': 'alice@example.com'},
     }
     result, notes = Scrubber(None, transform_string=transform).scrub_value(('attributes',), original)
 
-    assert result == {
-        **{key: original[key] for key in ('logfire.span_type', 'logfire.json_schema', 'logfire.scrubbed')},
-        'payload': {'contact': '[email]'},
-    }
+    assert result == {**original, 'payload': {'contact': '[email]'}}
     assert seen == [('attributes', 'payload', 'contact')]
     assert notes == []
 
