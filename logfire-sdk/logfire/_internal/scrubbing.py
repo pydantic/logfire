@@ -294,7 +294,7 @@ class Scrubber(BaseScrubber):
     def transform_message(self, value: str) -> str | None:
         if self._transform_string is None:
             return None
-        value = value[: 16 * 1024]
+        value = truncate_string(value, max_length=16 * 1024)
         transformed = SpanScrubber(self).scrub(('attributes', ATTRIBUTES_MESSAGE_KEY), value, in_safe_key=True)
         return truncate_string(transformed, max_length=1024)
 

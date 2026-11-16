@@ -803,6 +803,19 @@ def test_whole_message_is_transformed_before_console_and_bounded(exporter: TestE
     assert any(value.path == ('attributes', 'logfire.msg') and len(value.value) <= 16384 for value in seen)
 
 
+def test_whole_message_truncation_keeps_both_ends():
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value
+
+    result = Scrubber(None, transform_string=transform).transform_message('a' * 10000 + 'middle' + 'b' * 10000)
+
+    assert seen == [StringValue(('attributes', 'logfire.msg'), 'a' * 8190 + '...' + 'b' * 8190)]
+    assert result is not None and result.startswith('a') and result.endswith('b')
+
+
 def test_missing_message_defaults_to_span_name_before_console_transform(
     exporter: TestExporter, config_kwargs: dict[str, Any]
 ):
