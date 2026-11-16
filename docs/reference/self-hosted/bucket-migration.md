@@ -137,7 +137,7 @@ Use the equivalent command for your provider as shown in Step 1.
 
 ## Step 3: Deploy Updated Configuration & Scale Up
 
-Update your `values.yaml` with the new object storage configuration. Refer to the [Object Storage section of the installation guide](installation.md#object-storage) for full details on configuring credentials for each provider.
+Update your `values.yaml` with the new object storage configuration. The chart README section [Object storage](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#object-storage) explains how to give Logfire access to the bucket.
 
 For example, if migrating to a new S3 bucket:
 

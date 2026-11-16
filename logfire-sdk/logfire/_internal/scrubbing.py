@@ -12,7 +12,7 @@ import typing_extensions
 from opentelemetry._logs import LogRecord
 from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.trace import Event
-from opentelemetry.trace import Link
+from opentelemetry.trace import Link, Status
 
 from logfire.types import StringValue
 
@@ -146,6 +146,8 @@ class ScrubbingOptions:
 
     transform_string: Callable[[StringValue], str] | None = None
     """Transform each string value before pattern matching, including values under safe keys.
+
+    Span names, status descriptions, and event names are also transformed, without pattern matching.
 
     The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
@@ -300,7 +302,23 @@ class SpanScrubber:
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
 
+    def _safely_transform_string(self, path: JsonPath, value: str) -> str:
+        if self._transform_string is None:
+            return value
+        transformed = value
+        with handle_internal_errors:
+            transformed = self._transform_string(StringValue(path, value))
+        return transformed
+
     def scrub_span(self, span: ReadableSpanDict):
+        span['name'] = self._safely_transform_string(('span_name',), span['name'])
+        status = span['status']
+        if status.description is not None and self._transform_string is not None:
+            span['status'] = Status(
+                status_code=status.status_code,
+                description=self._safely_transform_string(('otel_status_message',), status.description),
+            )
+
         # We need to use BoundedAttributes because:
         # 1. For events and links, we get an error otherwise:
         #      https://github.com/open-telemetry/opentelemetry-python/issues/3761
@@ -313,9 +331,7 @@ class SpanScrubber:
 
         span['events'] = [
             Event(
-                # We don't scrub the event name because in theory it should be a low-cardinality general description,
-                # not containing actual data. The same applies to the span name, which just isn't mentioned here.
-                name=event.name,
+                name=self._safely_transform_string(('otel_events', i, 'name'), event.name),
                 attributes=BoundedAttributes(attributes=self.scrub_event_attributes(event, i)),
                 timestamp=event.timestamp,
             )
@@ -369,13 +385,10 @@ class SpanScrubber:
                     return logfire_json_dumps(scrubbed) if self.scrub_count != scrub_count_before else value
                 except (ValueError, RecursionError):
                     pass
-            if self._transform_string is not None:
-                transformed = value
-                with handle_internal_errors:
-                    transformed = self._transform_string(StringValue(path, value))
-                if transformed != value:
-                    self.scrub_count += 1
-                    value = transformed
+            transformed = self._safely_transform_string(path, value)
+            if transformed != value:
+                self.scrub_count += 1
+                value = transformed
             if not in_safe_key and (match := self._pattern.search(value)):
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
