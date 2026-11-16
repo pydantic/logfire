@@ -774,6 +774,26 @@ def test_whole_message_truncation_keeps_both_ends():
     assert result is not None and result.startswith('a') and result.endswith('b')
 
 
+def test_whole_message_transforms_json_text_and_leaves():
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        if value.path == ('attributes', 'logfire.msg'):
+            return value.value.replace('"alice@example.com":', '"[email]":')
+        return value.value.replace('alice@example.com', '[email]')
+
+    message = json.dumps({'alice@example.com': 123, 'contact': 'alice@example.com'})
+    result = Scrubber(None, transform_string=transform).transform_message(message)
+
+    assert result is not None
+    assert json.loads(result) == {'[email]': 123, 'contact': '[email]'}
+    assert [value.path for value in seen] == [
+        ('attributes', 'logfire.msg'),
+        ('attributes', 'logfire.msg', 'contact'),
+    ]
+
+
 def test_missing_message_defaults_to_span_name_before_console_transform(
     exporter: TestExporter, config_kwargs: dict[str, Any]
 ):

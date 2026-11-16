@@ -300,7 +300,19 @@ class Scrubber(BaseScrubber):
         if self._transform_string is None:
             return None
         value = truncate_string(value, max_length=16 * 1024)
-        transformed = SpanScrubber(self).scrub(('attributes', ATTRIBUTES_MESSAGE_KEY), value, in_safe_key=True)
+        path = ('attributes', ATTRIBUTES_MESSAGE_KEY)
+        transformed = value
+        with handle_internal_errors:
+            transformed = self._transform_string(StringValue(path, value))
+        if transformed.lstrip().startswith(('{', '[')):
+            try:
+                decoded = json.loads(transformed)
+                span_scrubber = SpanScrubber(self)
+                scrubbed = span_scrubber.scrub(path, decoded, in_safe_key=True)
+                if span_scrubber.scrub_count:
+                    transformed = logfire_json_dumps(scrubbed)
+            except (ValueError, RecursionError):
+                pass
         return truncate_string(transformed, max_length=1024)
 
 
