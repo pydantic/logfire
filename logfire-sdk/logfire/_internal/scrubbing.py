@@ -167,13 +167,15 @@ class BaseScrubber(ABC):
         ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
         ATTRIBUTES_SAMPLE_RATE_KEY,
         *STACK_INFO_KEYS,
+        # Formatted field values are scrubbed separately,
+        # and then the message is transformed by MainSpanProcessorWrapper
+        ATTRIBUTES_MESSAGE_KEY,
     }
 
     # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
     # Some of these are just here for performance.
     SAFE_KEYS = {
         *NO_TRANSFORM_KEYS,
-        ATTRIBUTES_MESSAGE_KEY,  # Formatted field values are scrubbed separately
         ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
         ATTRIBUTES_JSON_SCHEMA_KEY,
         ATTRIBUTES_TAGS_KEY,
@@ -346,15 +348,7 @@ class SpanScrubber:
         # 2. The callback might return a value that isn't of the type required by OTEL;
         #      BoundedAttributes handles it according to the installed OTEL version.
         # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
-        attributes = span['attributes']
-        message = attributes.get(ATTRIBUTES_MESSAGE_KEY)
-        if self._transform_string is not None and isinstance(message, str):
-            # The main processor already transformed this string.
-            other_attributes = {key: value for key, value in attributes.items() if key != ATTRIBUTES_MESSAGE_KEY}
-            new_attributes = self.scrub(('attributes',), other_attributes)
-            new_attributes[ATTRIBUTES_MESSAGE_KEY] = message
-        else:
-            new_attributes = self.scrub(('attributes',), attributes)
+        new_attributes = self.scrub(('attributes',), span['attributes'])
         if self.scrub_count:
             span['attributes'] = BoundedAttributes(attributes=new_attributes)
 

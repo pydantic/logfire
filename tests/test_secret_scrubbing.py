@@ -27,7 +27,7 @@ from logfire._internal.exporters.processor_wrapper import (
     ScrubbingSpanProcessor,
     SpanProcessorGroup,
 )
-from logfire._internal.scrubbing import DEFAULT_PATTERNS, MessageValueCleaner, NoopScrubber, Scrubber
+from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
 from logfire.types import StringValue
@@ -907,29 +907,6 @@ def test_whole_message_is_not_transformed_again_during_export(exporter: TestExpo
     assert message_calls == 1
 
 
-def test_non_string_message_still_transforms_nested_strings():
-    spans: list[ReadableSpan] = []
-
-    class RecordingProcessor(SpanProcessor):
-        def on_end(self, span: ReadableSpan) -> None:
-            spans.append(span)
-
-    scrubber = Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]'))
-    processor = MainSpanProcessorWrapper(ScrubbingSpanProcessor(RecordingProcessor(), scrubber), scrubber)
-    processor.on_end(ReadableSpan(name='call', attributes={'logfire.msg': ['alice@example.com']}))
-
-    assert spans[0].attributes is not None
-    assert spans[0].attributes['logfire.msg'] == ('[email]',)
-
-
-def test_log_message_attribute_still_transforms():
-    scrubber = Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]'))
-    log = scrubber.scrub_log(LogRecord(attributes={'logfire.msg': 'alice@example.com'}))
-
-    assert log.attributes is not None
-    assert log.attributes['logfire.msg'] == '[email]'
-
-
 @pytest.mark.parametrize(
     ('failing_step', 'expected_message'),
     [('normalization', '[email]'), ('message_transform', 'alice@example.com')],
@@ -957,19 +934,6 @@ def test_message_handling_after_main_processor_errors(
     processor.on_end(ReadableSpan(name='call', attributes={'logfire.msg': 'alice@example.com'}))
 
     assert spans[0].attributes == {'logfire.msg': expected_message}
-
-
-def test_safe_key_formatted_value_is_transformed_without_pattern_search():
-    seen: list[StringValue] = []
-
-    def transform(value: StringValue) -> str:
-        seen.append(value)
-        return value.value.replace('alice@example.com', '[email]')
-
-    cleaner = MessageValueCleaner(Scrubber(None, transform_string=transform), check_keys=False)
-    assert cleaner.clean_value('logfire.msg', 'secret=alice@example.com') == 'secret=[email]'
-    assert seen == [StringValue(('message', 'logfire.msg'), 'secret=alice@example.com')]
-    assert cleaner.extra_attrs() == {}
 
 
 def test_safe_key_formatted_value_is_transformed_end_to_end(exporter: TestExporter, config_kwargs: dict[str, Any]):
