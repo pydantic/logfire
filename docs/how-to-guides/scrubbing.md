@@ -141,16 +141,18 @@ It will instead happen on the calling thread if any of the following are true:
 - A span processor is included in `additional_span_processors` that implements an `on_end` hook and isn't a `BatchSpanProcessor`.
 
 Message template fields are always scrubbed on the calling thread during message formatting. If you configure
-`transform_string`, Logfire also calls it on each assembled span message when the span ends, even when console output
-is disabled. Logfire limits that message to 16,384 characters before the callback and limits its result to 1,024
-characters.
+`transform_string`, Logfire also calls it on each string span message when the span ends, even when console output is
+disabled. If `logfire.msg` is absent or empty, Logfire passes the span name to the callback and uses the result for
+the new message. An empty result becomes `[Redacted]` so the console cannot show the original span name. Logfire limits
+that input to 16,384 characters before the callback and limits its result to 1,024 characters. Nested strings in a
+nonempty, non-string `logfire.msg` use ordinary span scrubbing instead.
 
 ## Security tips
 
 ### Use message templates
 
 Default pattern matching checks message fields rather than the assembled span message. A configured
-`transform_string` callback also runs on the assembled span message. For example, this:
+`transform_string` callback also runs on string span messages. For example, this:
 
 ```python skip="true" skip-reason="incomplete"
 logfire.info('User details: {user}', user=User(id=123, password='secret'))
