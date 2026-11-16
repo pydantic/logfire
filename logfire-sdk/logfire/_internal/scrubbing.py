@@ -518,16 +518,15 @@ class MessageValueCleaner:
         # Scrub before truncating so that the scrubber can see the full value.
         # For example, if the value contains 'password=123' and 'password' is replaced by '...'
         # because of truncation, then that leaves '=123' in the message, which is not good.
-        if field_name not in self.scrubber.SAFE_KEYS:
-            if self.check_keys:
-                # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
-                scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
-                value = scrubbed_value[field_name]
-            else:
-                # Whereas having the key in the path doesn't affect the scrubbing result,
-                # so this only looks at `value` itself.
-                value, scrubbed_notes = self.scrubber.scrub_value(('message', field_name), value)
-            self.scrubbed.extend(scrubbed_notes)
+        if self.check_keys or field_name in self.scrubber.SAFE_KEYS:
+            # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
+            scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
+            value = scrubbed_value[field_name]
+        else:
+            # Whereas having the key in the path doesn't affect the scrubbing result,
+            # so this only looks at `value` itself.
+            value, scrubbed_notes = self.scrubber.scrub_value(('message', field_name), value)
+        self.scrubbed.extend(scrubbed_notes)
         return self.truncate(value)
 
     def truncate(self, value: str) -> str:
