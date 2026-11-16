@@ -149,6 +149,8 @@ class ScrubbingOptions:
 
     The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
+    Whole span messages also call it when a span ends, on the calling thread even if console output is disabled.
+    Whole-message input is capped at 16,384 characters before this call, and its result at 1,024 characters.
     If the callback raises, Logfire logs the error and keeps the input string.
     """
 
