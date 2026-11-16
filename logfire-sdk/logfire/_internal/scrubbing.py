@@ -152,6 +152,7 @@ class ScrubbingOptions:
     String span messages also call it when a span ends, on the calling thread even if console output is disabled.
     If the message is absent or empty, Logfire uses the span name as the input for the new message.
     An empty result stays empty in the span, and the console displays `<empty message>`.
+    Whole-message input is capped at 16,384 characters before this call, and its result at 1,024 characters.
     Nested strings in a nonempty, non-string message use the ordinary span scrubbing path instead.
     If the callback raises, Logfire logs the error and keeps that call's input string.
     Other strings, including JSON leaves, may still be transformed.
@@ -299,6 +300,7 @@ class Scrubber(BaseScrubber):
     def transform_message(self, value: str) -> str | None:
         if self._transform_string is None:
             return None
+        value = truncate_string(value, max_length=16 * 1024)
         path = ('attributes', ATTRIBUTES_MESSAGE_KEY)
         transformed = value
         with handle_internal_errors:
@@ -312,7 +314,7 @@ class Scrubber(BaseScrubber):
                     transformed = logfire_json_dumps(scrubbed)
             except (ValueError, RecursionError):
                 pass
-        return transformed
+        return truncate_string(transformed, max_length=1024)
 
 
 class SpanScrubber:

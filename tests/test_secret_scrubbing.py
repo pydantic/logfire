@@ -737,7 +737,7 @@ def test_transform_string_writes_attributes_without_scrubbed_note(
     assert 'logfire.scrubbed' not in span['attributes']
 
 
-def test_whole_message_is_transformed_before_console(exporter: TestExporter, config_kwargs: dict[str, Any]):
+def test_whole_message_is_transformed_before_console_and_bounded(exporter: TestExporter, config_kwargs: dict[str, Any]):
     seen: list[StringValue] = []
     output = StringIO()
 
@@ -750,14 +750,28 @@ def test_whole_message_is_transformed_before_console(exporter: TestExporter, con
         scrubbing=logfire.ScrubbingOptions(transform_string=transform),
     )
     logfire.configure(**config_kwargs)
-    logfire.info('alice@example.com')
+    logfire.info('alice@example.com' + 'x' * 20000)
 
     assert 'alice@example.com' not in output.getvalue()
     assert '[email]' in output.getvalue()
     (span,) = exporter.exported_spans_as_dict()
-    assert span['attributes']['logfire.msg'] == '[email]'
+    assert len(span['attributes']['logfire.msg']) <= 1024
     message_values = [value.value for value in seen if value.path == ('attributes', 'logfire.msg')]
-    assert message_values == ['alice@example.com']
+    assert len(message_values) == 1
+    assert len(message_values[0]) == 16383
+
+
+def test_whole_message_truncation_keeps_both_ends():
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value
+
+    result = Scrubber(None, transform_string=transform).transform_message('a' * 10000 + 'middle' + 'b' * 10000)
+
+    assert seen == [StringValue(('attributes', 'logfire.msg'), 'a' * 8190 + '...' + 'b' * 8190)]
+    assert result is not None and result.startswith('a') and result.endswith('b')
 
 
 def test_whole_message_transforms_json_text_and_leaves():
@@ -907,7 +921,7 @@ def test_whole_message_is_not_transformed_again_during_export(exporter: TestExpo
     logfire.info('hello')
 
     (span,) = exporter.exported_spans_as_dict()
-    assert span['attributes']['logfire.msg'] == 'hello' + 'z' * 5000
+    assert len(span['attributes']['logfire.msg']) <= 1024
     assert message_calls == 1
 
 
