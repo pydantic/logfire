@@ -813,8 +813,22 @@ def test_empty_transformed_message_does_not_expose_span_name(exporter: TestExpor
         pass
 
     assert 'alice@example.com' not in output.getvalue()
+    assert '<empty message>' in output.getvalue()
     (span,) = exporter.exported_spans_as_dict()
-    assert span['attributes']['logfire.msg'] == '[Redacted]'
+    assert span['attributes']['logfire.msg'] == ''
+
+
+def test_empty_span_message_displays_placeholder(config_kwargs: dict[str, Any]):
+    from opentelemetry import trace
+
+    output = StringIO()
+    config_kwargs['console'] = logfire.ConsoleOptions(output=output)
+    logfire.configure(**config_kwargs)
+    with trace.get_tracer('test').start_as_current_span('operation', attributes={'logfire.msg': ''}):
+        pass
+
+    assert '<empty message>' in output.getvalue()
+    assert 'operation' not in output.getvalue()
 
 
 @pytest.mark.parametrize('scope_name', ['logfire.openai', 'logfire.anthropic'])

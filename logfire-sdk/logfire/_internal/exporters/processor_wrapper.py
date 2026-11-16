@@ -97,7 +97,7 @@ def _transform_span_message(span: ReadableSpanDict, scrubber: BaseScrubber) -> b
     attributes = span['attributes']
     message = attributes.get(ATTRIBUTES_MESSAGE_KEY) or span['name']
     if isinstance(message, str) and (transformed := scrubber.transform_message(message)) is not None:
-        span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: transformed or '[Redacted]'}
+        span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
         return True
     return False
 
