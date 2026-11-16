@@ -96,7 +96,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
 def _transform_span_message(span: ReadableSpanDict, scrubber: BaseScrubber) -> bool:
     attributes = span['attributes']
     message = attributes.get(ATTRIBUTES_MESSAGE_KEY) or span['name']
-    if isinstance(message, str) and (transformed := scrubber.transform_message(message)) is not None:
+    if isinstance(message, str) and (transformed := scrubber.transform_message(message)) != message:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
         return True
     return False
