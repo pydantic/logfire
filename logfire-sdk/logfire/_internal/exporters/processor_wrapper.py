@@ -71,8 +71,8 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
     scrubber: BaseScrubber
 
     def on_end(self, span: ReadableSpan) -> None:
+        span_dict = span_to_dict(span)
         with handle_internal_errors:
-            span_dict = span_to_dict(span)
             _tweak_asgi_send_receive_spans(span_dict)
             _tweak_sqlalchemy_connect_spans(span_dict)
             _tweak_http_spans(span_dict)
@@ -83,23 +83,17 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _transform_google_genai_span(span_dict)
             _transform_litellm_span(span_dict)
             _default_gen_ai_response_model(span_dict)
-            span = ReadableSpan(**span_dict)
-        span_dict = span_to_dict(span)
-        transformed = False
         with handle_internal_errors:
-            transformed = _transform_span_message(span_dict, self.scrubber)
-        if transformed:
-            span = ReadableSpan(**span_dict)
+            _transform_span_message(span_dict, self.scrubber)
+        span = ReadableSpan(**span_dict)
         super().on_end(span)
 
 
-def _transform_span_message(span: ReadableSpanDict, scrubber: BaseScrubber) -> bool:
+def _transform_span_message(span: ReadableSpanDict, scrubber: BaseScrubber):
     attributes = span['attributes']
     message = attributes.get(ATTRIBUTES_MESSAGE_KEY) or span['name']
     if isinstance(message, str) and (transformed := scrubber.transform_message(message)) != message:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
-        return True
-    return False
 
 
 def scrub_span(span: ReadableSpan, scrubber: BaseScrubber) -> ReadableSpan:
