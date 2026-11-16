@@ -1,0 +1,35 @@
+logfire-sdk/logfire/_internal/exporters/processor_wrapper.py
+  s_c0e10b978d818c::t_24431f00f7409d 100
+tests/test_secret_scrubbing.py
+  s_c0e10b978d818c::t_24431f00f7409d 816,818
+  s_c0e10b978d818c::t_b4ba1d27e5fb5d 821-824,827-831
+  s_c0e10b978d818c::t_677fb47a85b055 825-826
+  s_c0e10b978d818c::t_cf7ea3d8d5a617 819-820
+logfire-sdk/logfire/_internal/scrubbing.py
+  s_c0e10b978d818c::t_7fa8cd0fb8d5e4 154
+logfire-sdk/logfire/_internal/exporters/console.py
+  s_c0e10b978d818c::t_24431f00f7409d 65-67,71
+docs/how-to-guides/scrubbing.md
+  s_c0e10b978d818c::t_7fa8cd0fb8d5e4 146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fb253c7426e86bb39e7561875c810ba868141488",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_c0e10b978d818c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d095-ee37-77e2-ab95-a5d577077ae0",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
