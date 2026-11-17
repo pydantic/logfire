@@ -48,6 +48,26 @@ def test_citation_counts():
     }
 
 
+@pytest.mark.parametrize('invalid_url', ['not a URL', 'https:docs.python.org'])
+def test_citation_counts_preserve_exact_urls_and_ignore_malformed_ones(invalid_url: str):
+    source_with_port = 'https://docs.python.org:443/3/library/asyncio-task.html'
+    answer = Answer(answer='An answer.', citations=[source_with_port, invalid_url])
+    messages = [
+        ModelRequest(
+            parts=[
+                ToolReturnPart('web_search', {'results': [{'url': source_with_port}]}),
+                ToolReturnPart('web_search', {'results': [{'url': invalid_url}]}),
+            ]
+        )
+    ]
+    assert citation_counts(answer, messages) == {
+        'retrieved_url_count': 1,
+        'citation_count': 2,
+        'matched_citation_count': 1,
+        'unmatched_citation_count': 1,
+    }
+
+
 @pytest.mark.anyio
 async def test_search_agent_counts_on_trace(exporter: TestExporter):
     server = FastMCP()

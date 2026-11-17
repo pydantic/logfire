@@ -42,7 +42,7 @@ from collections.abc import Sequence
 
 from opentelemetry.propagate import set_global_textmap
 from opentelemetry.propagators.composite import CompositePropagator
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import AnyHttpUrl, BaseModel, Field, TypeAdapter, ValidationError, field_validator
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPToolset
 from pydantic_ai.messages import ModelMessage, ModelRequest, ToolReturnPart
@@ -53,6 +53,7 @@ import logfire
 MCP_URL = 'https://mcp.parallel.ai/mcp?tools=web_search'
 USER_AGENT = 'logfire-public-search-example/1.0'
 DEFAULT_QUESTION = 'According to the Python documentation, when does asyncio.TaskGroup wait for its tasks?'
+HTTP_URL = TypeAdapter(AnyHttpUrl)
 
 
 class Answer(BaseModel):
@@ -66,6 +67,13 @@ class SearchResult(BaseModel):
     """A source URL in the search tool's response."""
 
     url: str
+
+    @field_validator('url')
+    @classmethod
+    def validate_url(cls, value: str) -> str:
+        """Validate the URL while keeping its original string for exact comparisons."""
+        HTTP_URL.validate_python(value, strict=True)
+        return value
 
 
 class SearchResults(BaseModel):
