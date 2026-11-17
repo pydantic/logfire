@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 
 pytest.importorskip('pydantic', minversion='2.12')
 
 from fastmcp import FastMCP
+from opentelemetry import baggage, context, propagate
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPToolset
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, ToolCallPart, ToolReturnPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 import logfire
-from examples.python.public_search_citations import Answer, answer_question, citation_counts
+from examples.python.public_search_citations import Answer, LocalOnlyPropagator, answer_question, citation_counts
 from logfire.testing import TestExporter
 
 SOURCE = 'https://docs.python.org/3/library/asyncio-task.html'
@@ -55,8 +58,9 @@ def test_citation_counts_preserve_exact_urls_and_ignore_malformed_ones(invalid_u
     messages = [
         ModelRequest(
             parts=[
-                ToolReturnPart('web_search', {'results': [{'url': source_with_port}]}),
-                ToolReturnPart('web_search', {'results': [{'url': invalid_url}]}),
+                ToolReturnPart(
+                    'web_search', {'results': [{'url': source_with_port}, {'url': invalid_url}, {'url': None}]}
+                ),
             ]
         )
     ]
@@ -66,6 +70,24 @@ def test_citation_counts_preserve_exact_urls_and_ignore_malformed_ones(invalid_u
         'matched_citation_count': 1,
         'unmatched_citation_count': 1,
     }
+
+
+def test_local_only_propagator_preserves_valid_context():
+    original = propagate.get_global_textmap()
+    propagator = LocalOnlyPropagator()
+    propagate.set_global_textmap(propagator)
+    try:
+        with logfire.span('local operation'):
+            local_context = baggage.set_baggage('example', 'local')
+            carrier: dict[str, str] = {}
+            propagate.inject(carrier, context=local_context)
+            assert carrier == {}
+            assert propagate.extract(carrier, context=local_context) is local_context
+            with ThreadPoolExecutor() as executor:
+                assert isinstance(executor.submit(context.get_current).result(), context.Context)
+                assert executor.submit(baggage.get_all).result() == {}
+    finally:
+        propagate.set_global_textmap(original)
 
 
 @pytest.mark.anyio

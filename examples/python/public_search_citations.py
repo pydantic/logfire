@@ -28,10 +28,12 @@ Write tokens, set LOGFIRE_TOKEN, and add --send-to-logfire. Open the 'public web
 search' span in Live view to inspect the counts alongside the agent's model and
 tool calls.
 
-Counts use distinct citation URLs and exact string equality. A matching URL
-shows that the search returned it, not that its content supports the answer.
-No citations means zero counts, not a passing quality score. Provider and MCP
-errors propagate normally; an incomplete run does not get citation counts.
+Counts use distinct citation URLs and exact string equality. Only valid source
+URLs from successful search results count as retrieved. A matching URL shows
+that the search returned it, not that its content supports the answer.
+The citation counts are zero when the answer has no citations, even if search
+retrieved URLs. Provider and MCP errors propagate normally. Counts are added
+only after a completed run.
 """
 
 from __future__ import annotations
@@ -40,8 +42,16 @@ import argparse
 import asyncio
 from collections.abc import Sequence
 
+from opentelemetry.context import Context
 from opentelemetry.propagate import set_global_textmap
-from opentelemetry.propagators.composite import CompositePropagator
+from opentelemetry.propagators.textmap import (
+    CarrierT,
+    Getter,
+    Setter,
+    TextMapPropagator,
+    default_getter,
+    default_setter,
+)
 from pydantic import AnyHttpUrl, BaseModel, Field, TypeAdapter, ValidationError, field_validator
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPToolset
@@ -54,6 +64,26 @@ MCP_URL = 'https://mcp.parallel.ai/mcp?tools=web_search'
 USER_AGENT = 'logfire-public-search-example/1.0'
 DEFAULT_QUESTION = 'According to the Python documentation, when does asyncio.TaskGroup wait for its tasks?'
 HTTP_URL = TypeAdapter(AnyHttpUrl)
+
+
+class LocalOnlyPropagator(TextMapPropagator):
+    """Disable propagation across the example's network requests."""
+
+    def inject(
+        self, carrier: CarrierT, context: Context | None = None, setter: Setter[CarrierT] = default_setter
+    ) -> None:
+        """Leave the carrier unchanged."""
+
+    def extract(
+        self, carrier: CarrierT, context: Context | None = None, getter: Getter[CarrierT] = default_getter
+    ) -> Context:
+        """Ignore the carrier and return a valid context."""
+        return Context() if context is None else context
+
+    @property
+    def fields(self) -> set[str]:
+        """There are no propagation fields."""
+        return set()
 
 
 class Answer(BaseModel):
@@ -79,7 +109,7 @@ class SearchResult(BaseModel):
 class SearchResults(BaseModel):
     """The structured results returned by web_search."""
 
-    results: list[SearchResult]
+    results: list[object]
 
 
 def citation_counts(answer: Answer, messages: Sequence[ModelMessage]) -> dict[str, int]:
@@ -95,7 +125,11 @@ def citation_counts(answer: Answer, messages: Sequence[ModelMessage]) -> dict[st
                 results = SearchResults.model_validate(part.content)
             except ValidationError:
                 continue
-            retrieved_urls.update(result.url for result in results.results)
+            for entry in results.results:
+                try:
+                    retrieved_urls.add(SearchResult.model_validate(entry).url)
+                except ValidationError:
+                    continue
 
     citations = set(answer.citations)
     return {
@@ -137,7 +171,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     # Keep local trace context out of outbound requests, including FastMCP tool calls.
-    set_global_textmap(CompositePropagator([]))
+    set_global_textmap(LocalOnlyPropagator())
     if args.send_to_logfire:
         logfire.configure()
     else:
