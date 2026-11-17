@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import sys
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any
+from unittest.mock import Mock
 
 import pytest
 
 pytest.importorskip('pydantic', minversion='2.12')
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 from opentelemetry import baggage, context, propagate
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPToolset
@@ -14,6 +18,7 @@ from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, Tool
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 import logfire
+from examples.python import public_search_citations
 from examples.python.public_search_citations import Answer, LocalOnlyPropagator, answer_question, citation_counts
 from logfire.testing import TestExporter
 
@@ -147,3 +152,43 @@ async def test_provider_error_has_no_citation_counts(exporter: TestExporter):
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
     parent = next(span for span in spans if span['name'] == 'public web search')
     assert 'citation_count' not in parent['attributes']
+
+
+def test_main_propagates_search_tool_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], exporter: TestExporter
+):
+    server = FastMCP()
+
+    @server.tool
+    def web_search(objective: str) -> dict[str, object]:
+        """Find public documentation."""
+        raise ToolError('Search unavailable')
+
+    def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        if len(messages) == 1:
+            return ModelResponse(parts=[ToolCallPart('web_search', {'objective': 'Python TaskGroup documentation'})])
+        assert info.output_tools
+        return ModelResponse(
+            parts=[ToolCallPart(info.output_tools[0].name, {'answer': 'No evidence.', 'citations': []})]
+        )
+
+    def local_agent(_model: str, **kwargs: Any) -> Agent[None, Answer]:
+        return Agent(FunctionModel(respond), **kwargs)
+
+    def local_toolset(_url: str, *, headers: dict[str, str], **kwargs: Any) -> MCPToolset[None]:
+        return MCPToolset(server, **kwargs)
+
+    monkeypatch.setattr(sys, 'argv', ['public_search_citations.py', '--model', 'local'])
+    monkeypatch.setattr(public_search_citations, 'set_global_textmap', Mock())
+    monkeypatch.setattr(logfire, 'configure', Mock())
+    monkeypatch.setattr(logfire, 'instrument_mcp', Mock())
+    monkeypatch.setattr(logfire, 'instrument_pydantic_ai', Mock())
+    monkeypatch.setattr(public_search_citations, 'Agent', local_agent)
+    monkeypatch.setattr(public_search_citations, 'MCPToolset', local_toolset)
+
+    with pytest.raises(ToolError, match='Search unavailable'):
+        public_search_citations.main()
+    assert 'retrieved_url_count' not in capsys.readouterr().out
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    parent = next(span for span in spans if span['name'] == 'public web search')
+    assert 'retrieved_url_count' not in parent['attributes']

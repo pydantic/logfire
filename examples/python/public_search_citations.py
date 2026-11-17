@@ -178,7 +178,7 @@ def main() -> None:
         logfire.configure(send_to_logfire=False)
     logfire.instrument_pydantic_ai()
     logfire.instrument_mcp()
-    search_tools = MCPToolset(MCP_URL, headers={'User-Agent': USER_AGENT})
+    search_tools = MCPToolset(MCP_URL, headers={'User-Agent': USER_AGENT}, tool_error_behavior='error')
     answer, counts = asyncio.run(answer_question(args.question, args.model, search_tools))
     print(answer.answer)
     for url in dict.fromkeys(answer.citations):
