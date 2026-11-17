@@ -77,7 +77,9 @@ logfire.suppress_scopes('google.cloud.bigquery.opentelemetry_tracing')
 ## Troubleshooting
 
 Not seeing your queries? Check that `logfire.configure()` ran before you created the BigQuery client,
-that your write token is set (run `logfire projects use <your-project>` locally, or set the
+that your write token is set (install [uv](https://docs.astral.sh/uv/getting-started/installation/)
+if needed, then run `uvx logfire-cli auth` if needed, then
+`uvx logfire-cli init use` from your application's directory, or set the
 `LOGFIRE_TOKEN` environment variable in production; see [Getting Started](../../index.md)), and that
 you haven't suppressed the `google.cloud.bigquery.opentelemetry_tracing` scope.
 
