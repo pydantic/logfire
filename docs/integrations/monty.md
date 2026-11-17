@@ -98,7 +98,7 @@ Custom metric aggregation and collection settings in [`MetricsOptions`][logfire.
   these spans with those releases.
 - **Spans appear but pool metrics do not:** create the Monty pool after calling
   `logfire.instrument_monty()`. Pool-wide metrics are connected when the pool is created.
-- **No data appears in Logfire:** check that your write token is set. Run
-  `uvx logfire-cli auth` if needed, then
-  `uvx logfire-cli init use` locally, or set the `LOGFIRE_TOKEN` environment variable in
+- **No data appears in Logfire:** check that your write token is set. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
+  if needed, then run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use` from your application's directory, or set the `LOGFIRE_TOKEN` environment variable in
   production. See [Getting Started](../index.md).

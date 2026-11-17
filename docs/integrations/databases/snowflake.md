@@ -136,9 +136,9 @@ cursor.execute('select current_version()')
   `logfire.instrument_snowflake()` before connecting, and connect through
   `snowflake.connector.connect()` rather than a `connect` name imported earlier. For one connection,
   connect first, then call `logfire.instrument_snowflake(conn)`.
-- **No data appears in Logfire:** check that your write token is set. Run
-  `uvx logfire-cli auth` if needed, then
-  `uvx logfire-cli init use` locally, or set the `LOGFIRE_TOKEN` environment variable in
+- **No data appears in Logfire:** check that your write token is set. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
+  if needed, then run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use` from your application's directory, or set the `LOGFIRE_TOKEN` environment variable in
   production. See [Getting Started](../../index.md).
 
 [snowflake]: https://www.snowflake.com/

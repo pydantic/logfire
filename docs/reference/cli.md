@@ -8,7 +8,9 @@ This page documents the **Python CLI shipped with Logfire 5.x**, not the standal
 Rust CLI distributed as `logfire-cli`.
 
 For full guided onboarding with optional coding-agent assistance, run
-`uvx logfire-cli wizard`. To connect an existing project without instrumentation
+`uvx logfire-cli wizard`. These `uvx` commands require
+[uv](https://docs.astral.sh/uv/getting-started/installation/) to be installed.
+To connect an existing project without instrumentation
 setup, run these commands from your application's directory:
 
 ```bash
@@ -33,7 +35,9 @@ The two CLIs use different command names for some tasks:
 
 The Rust CLI keeps browser sign-in in the OS credential store and writes an SDK
 write token to `.logfire/logfire_credentials.json` when you run `init`.
-The SDK reads that project file; browser sign-in alone does not configure your app.
+The Python SDK reads that project file by default. A token passed to
+`logfire.configure(token=...)` or set in `LOGFIRE_TOKEN` takes priority over the file.
+Browser sign-in alone does not configure your app.
 See [project configuration](configuration.md#programmatically-via-configure) for
 custom credential directories and deployed applications.
 
