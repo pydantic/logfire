@@ -22,11 +22,15 @@ anonymous requests have lower rate limits. See Parallel MCP setup:
 https://docs.parallel.ai/integrations/mcp/quickstart
 
 Traces (the journey of a request, made of nested operations called spans) stay
-local by default. Search requests omit trace context. To send inputs, outputs,
-and counts to your Logfire project, copy a write token from Project > Settings >
-Write tokens, set LOGFIRE_TOKEN, and add --send-to-logfire. Open the 'public web
-search' span in Live view to inspect the counts alongside the agent's model and
-tool calls.
+local with the default SDK settings. Collector settings such as
+OTEL_EXPORTER_OTLP_ENDPOINT enable OpenTelemetry export independently of
+--send-to-logfire. Search requests omit trace context.
+
+To send inputs, outputs, and counts to your Logfire project, copy a write token
+from Project > Settings > Write tokens, set LOGFIRE_TOKEN, and add
+--send-to-logfire. The flag respects the SDK's LOGFIRE_SEND_TO_LOGFIRE setting.
+Open the 'public web search' span in Live view to inspect the counts alongside
+the agent's model and tool calls.
 
 Counts use distinct citation URLs and exact string equality. Only valid source
 URLs from successful search results count as retrieved. A matching URL shows
@@ -167,7 +171,7 @@ def main() -> None:
     parser.add_argument('--model', required=True, help='A Pydantic AI model identifier; set its provider API key.')
     parser.add_argument('--question', default=DEFAULT_QUESTION)
     parser.add_argument(
-        '--send-to-logfire', action='store_true', help='Send traces to your configured Logfire project.'
+        '--send-to-logfire', action='store_true', help='Allow trace export to Logfire according to your SDK settings.'
     )
     args = parser.parse_args()
     # Keep local trace context out of outbound requests, including FastMCP tool calls.
