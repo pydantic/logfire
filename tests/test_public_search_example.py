@@ -23,6 +23,7 @@ def test_citation_counts():
     messages = [
         ModelRequest(
             parts=[
+                ToolReturnPart('web_search', {'unexpected': [{'url': UNRETURNED}]}),
                 ToolReturnPart(
                     'web_search',
                     {'results': [{'url': SOURCE}, {'url': SOURCE}], 'note': UNRETURNED},
