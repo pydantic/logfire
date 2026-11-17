@@ -83,7 +83,7 @@ The judge's input contains recorded content from your telemetry, such as the use
 
 ### What the judge reads
 
-**Context scope** decides how much the judge sees: **Selected record** (the scored span or log on its own) or **Surrounding trace** (also the related spans in the same trace, such as tool calls). Clear **Include recorded inputs** to judge only the selected record's AI response.
+**Context scope** decides how much the judge sees: **Selected record** (the scored span or log on its own) or **Surrounding trace** (also the related spans in the same trace, such as tool calls; a trace is the full record of one request, made up of the spans for each step). Clear **Include recorded inputs** to judge only the selected record's AI response.
 
 The judge's input has a size budget, about 16,000 tokens (a token is the unit models read and bill by, a few characters of text). When the input is larger, Logfire shortens it to fit. It shortens the agent's instructions and long tool calls and results, and reduces the surrounding trace to a one-line outline per record. It keeps the final answer, the user's request, and error information, and shortens those only as a last resort. **Inspect judge input** marks a shortened input with a **Condensed** badge, shows the estimated size of the full input, and puts a marker at each cut. If the judge needs a detail that was cut, set **Context scope** to **Selected record**.
 
@@ -99,6 +99,8 @@ The judge's input has a size budget, about 16,000 tokens (a token is the unit mo
 | **Look back** | How far back each pass looks for records it has not judged yet: 1 minute, 5 minutes, 15 minutes, 1 hour, or 1 day. | 5 minutes |
 | **Environments** | Which deployment environments to score. Empty means every environment. | All |
 
+Keep **Look back** at least as long as **Run every**. Each pass looks at the records that arrived in its **Look back** period and no further. With **Run every** set to 1 hour and **Look back** set to 5 minutes, each pass sees only the last 5 minutes, and the records from the other 55 minutes are never judged. A longer **Look back** is safe, because a pass skips records that the scorer already judged.
+
 When more records match in one pass than **Most runs judged per pass** allows, the pass judges up to that number and then reports that it stopped early (see [Troubleshooting](#troubleshooting)). Lower **Share of runs judged**, narrow the filter, or raise the setting.
 
 With the defaults, one scorer judges at most 50 records every 5 minutes, which is 14,400 a day. Check the **Estimate** in the editor before you raise these settings on an AI judge, because every judgment is a paid model request.
@@ -108,6 +110,8 @@ With the defaults, one scorer judges at most 50 records every 5 minutes, which i
 Each scorer keeps its own position within its schedule, so your scorers do not all run in the same minute. A scorer that runs every 5 minutes always runs at the same point of each 5-minute period, and that point differs from scorer to scorer.
 
 For this reason, a new scorer does not run the moment you save it. Its first pass runs when its position next comes around, plus one minute that Logfire waits so that recently received records are available to query. With the default schedule, the first pass runs 1 to 6 minutes after you create or enable the scorer. With **Run every** set to 1 hour, it can take up to about an hour.
+
+A scorer judges only records that arrive after you create or enable it. It never reaches back to records from before that moment, whatever **Look back** is.
 
 ### Limits
 
@@ -142,7 +146,7 @@ Logfire staff can pause hosted scoring for one organization or for a whole regio
 - Scorers do not judge new records, and tests that use an AI judge are turned off.
 - Your scorers and the scores they already wrote are kept. You can still edit a scorer and test a SQL check.
 - A scorer that you create is saved with scoring off.
-- You can't enable a scorer. A request to enable one is refused with a message that Logfire has paused hosted scoring. This also applies to the [MCP tools](#manage-scorers-from-a-coding-agent).
+- You can't enable a scorer. A request to enable one is refused with a message that Logfire has paused hosted scoring. This also applies when a [coding agent manages your scorers](#manage-scorers-from-a-coding-agent).
 
 A pause is not caused by your settings, and you can't lift it yourself. If it lasts longer than you expect, contact [support](../help.md).
 
@@ -213,7 +217,22 @@ GROUP BY x, scorer
 ORDER BY x
 ```
 
-To be notified when quality drops, use a query like this in an [alert](../guides/web-ui/alerts.md). In rare cases, a retried delivery writes the same result twice. Both copies share the same `gen_ai.evaluation.id`, so count distinct IDs when you need exact numbers.
+To be notified when quality drops, create an [alert](../guides/web-ui/alerts.md) whose query returns a row only when there is a problem. This query returns each pass/fail scorer whose pass rate is below 80% in the alert's **Look at rows from** window. Set that window to a period with enough results, such as the last hour, and change the threshold to suit the scorer:
+
+```sql
+SELECT
+  attributes->>'logfire.scorer.name' AS scorer,
+  AVG(json_get_float(attributes, 'gen_ai.evaluation.score.value')) AS pass_rate,
+  COUNT(*) AS results
+FROM records
+WHERE span_name = 'gen_ai.evaluation.result'
+  AND kind = 'log'
+  AND attributes->>'logfire.scorer.score_type' = 'pass_fail'
+GROUP BY scorer
+HAVING AVG(json_get_float(attributes, 'gen_ai.evaluation.score.value')) < 0.8
+```
+
+In rare cases, a retried delivery writes the same result twice. Both copies share the same `gen_ai.evaluation.id`, so count distinct IDs when you need exact numbers.
 
 ## What it costs
 
@@ -234,7 +253,7 @@ The budget covers AI inference only, and it is separate from your organization a
 
 ## Manage scorers from a coding agent
 
-The [Logfire MCP server](../how-to-guides/mcp-server.md) includes tools to manage hosted scorers, so a coding agent such as Claude Code can set up scorers for you:
+The [Logfire MCP server](../how-to-guides/mcp-server.md) (MCP is the Model Context Protocol, a standard way for AI tools to call external services) includes tools to manage hosted scorers, so a coding agent such as Claude Code can set up scorers for you:
 
 | Tool | What it does |
 | --- | --- |
@@ -266,7 +285,7 @@ When automatic scoring fails, the scorer's page shows **Scoring needs attention*
 | Message | What to do |
 | --- | --- |
 | Your AI Gateway is disabled. Ask an organization admin to enable it. | An organization admin must [enable the AI Gateway](../reference/advanced/gateway/index.md#enable-the-gateway). |
-| Spending limit reached: the hosted scorer daily budget, or a project or organization AI Gateway limit. ... | Wait for the daily limits to reset at 00:00 UTC, or raise the [daily budget](#set-a-daily-budget-for-ai-judges) on the **Hosted scorers** page or the [spending limit](../reference/advanced/gateway/spending-policies.md) in the AI Gateway settings. |
+| Spending limit reached: the hosted scorer daily budget, or a project or organization AI Gateway limit. ... | The hosted scorer daily budget resets at 00:00 UTC. A project or organization limit resets at the end of its own period (daily, weekly, or monthly), and a total limit does not reset. Wait for the reset, or raise the [daily budget](#set-a-daily-budget-for-ai-judges) on the **Hosted scorers** page or the [spending limit](../reference/advanced/gateway/spending-policies.md) in the AI Gateway settings. |
 | Gateway spending limit reached. Check your organization, project and provider spending settings. ... | A spending policy blocked the request, or the gateway has no credit left. Raise the [spending limit](../reference/advanced/gateway/spending-policies.md) or add credit. Scoring resumes after that. |
 | This scorer is not connected to your AI Gateway yet. A project admin needs to save it to connect it. | A project or organization admin opens the scorer, selects **Edit scorer**, and saves it. This creates the project's managed gateway key. |
 | Your AI Gateway rejected the hosted scorer credentials. Check the provider credentials, then ask a project admin to save the scorer. | Fix the provider credentials on the gateway route, then have an admin save the scorer again. |
