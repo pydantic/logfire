@@ -33,6 +33,8 @@ Logfire keeps the stack trace as the browser sent it in `logfire.source_map.orig
 
 ## Give your bundles debug IDs
 
+The commands on this page come from the Logfire CLI for JavaScript projects, the `logfire-cli` npm package. Run them with `npx logfire-cli`. The `logfire` command that the Python package installs has no `sourcemap` command.
+
 ### Next.js
 
 Turbopack writes debug IDs itself. Turn them on in `next.config.js`:
@@ -56,7 +58,7 @@ module.exports = {
 For Vite, webpack, esbuild, Rollup and other bundlers, build with source maps on, then run `logfire sourcemap inject` on the build output directory:
 
 ```bash
-logfire --beta sourcemap inject dist
+npx logfire-cli --beta sourcemap inject dist
 ```
 
 The command processes every `.js`, `.mjs` and `.cjs` file that has a source map. For each file, it:
@@ -74,13 +76,18 @@ Running `inject` again on the same directory is safe. It reports each file as `u
 Upload the maps in CI, after the build and **before you deploy**. Logfire resolves an exception only if its source map is already stored when the exception arrives (see [Late uploads](#late-uploads)).
 
 ```bash
-logfire --beta --region us sourcemap upload dist --frontend-application-id <frontend-application-id>
+npx logfire-cli --beta --region us sourcemap upload dist --frontend-application-id <frontend-application-id> --delete
 ```
+
+`--delete` removes the `.map` files after the upload, so the deploy does not serve your source maps to browsers. Leave it out only if you want the maps to be public.
+
+!!! note "Source text in maps"
+    Most bundlers embed your original source code in each map, in the `sourcesContent` field. By default, `upload` sends it to Logfire, which uses it to show the source lines around each frame. Pass `--strip-sources` to send the maps without the source text. Resolved frames then show the original file, function and line, but no source lines.
 
 For a Next.js app, upload the browser chunks under `.next/static`, which Next.js serves from `/_next/static`:
 
 ```bash
-logfire --beta --region us sourcemap upload .next/static \
+npx logfire-cli --beta --region us sourcemap upload .next/static \
   --frontend-application-id <frontend-application-id> \
   --base-url-path /_next/static \
   --delete
