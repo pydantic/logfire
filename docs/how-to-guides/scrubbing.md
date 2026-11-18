@@ -126,6 +126,8 @@ The exported `email` attribute and formatted message contain `[email]`. The call
 
 The callback runs for every string the scrubber reaches, including large values. Logfire excludes control and source metadata such as `logfire.span_type` and `code.filepath`. The email regex above is illustrative and can take quadratic time on long strings containing `@`; the initial `@` check does not prevent that. Check the performance of your matcher on the longest values you expect to log.
 
+Logfire transforms `logfire.msg` when it is a string. If this attribute contains a nonempty, non-string value, Logfire leaves the value and any strings inside it unchanged.
+
 !!! warning "Choose a fallback for masking errors"
 
     If a call to `transform_string` raises an exception, Logfire logs the error and keeps that call's input string. It continues with other strings. Pattern matching still runs where permitted, but a value such as an email address may be exported unchanged.
@@ -140,8 +142,9 @@ It will instead happen on the calling thread if any of the following are true:
 - Console logging is enabled and prints attributes, i.e. `include_attributes` is `True`, or it is unset and `verbose` is `True`.
 - A span processor is included in `additional_span_processors` that implements an `on_end` hook and isn't a `BatchSpanProcessor`.
 
-Message template fields and the message as a whole are always scrubbed on the calling thread,
-so keep objects with large string representations out of messages.
+Message template fields are scrubbed on the calling thread. If `transform_string` is configured,
+Logfire also transforms the assembled message, tags, and displayed exception details on that thread.
+Keep objects with large string representations out of messages.
 If you need to log large objects, use a span attribute instead.
 
 ## Security tips
