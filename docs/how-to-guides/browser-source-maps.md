@@ -52,8 +52,8 @@ module.exports = {
 
 `productionBrowserSourceMaps` makes `next build` write source maps for browser code. `debugIds` makes Turbopack add the debug ID to each chunk and its map. You do not need `logfire sourcemap inject` for these chunks.
 
-!!! note "Edge runtime and middleware"
-    Turbopack does not add debug IDs to code for the Next.js edge runtime or to middleware. Exceptions from that code stay minified. Run `logfire sourcemap inject` on those chunks if you need them resolved.
+!!! note "Browser exceptions only"
+    This page covers exceptions that `@pydantic/logfire-browser` records in the browser. Next.js middleware and edge runtime code run on the server, so the browser SDK does not send their exceptions.
 
 ### Other bundlers
 
@@ -153,7 +153,7 @@ A result other than stored or already uploaded shows as `failed`, with the reaso
 
 ## Late uploads
 
-Logfire resolves stack traces when it receives the data, not when you view it. An exception that arrives before its source map is uploaded stays minified, and a later upload does not change it. Exceptions that arrive after the upload resolve normally. So upload in CI before the deploy starts serving the new bundles.
+Logfire resolves stack traces when it receives the data, not when you view it. An exception that arrives before its source map is uploaded stays minified, and a later upload does not change it. Logfire does not process a stored exception again. Exceptions that arrive after the upload resolve normally. So upload in CI before the deploy starts serving the new bundles.
 
 ## Retention
 
@@ -166,19 +166,19 @@ Logfire writes the `logfire.source_map.status` attribute on each exception that 
 | Status | Meaning |
 | --- | --- |
 | `ok` | Every frame with a debug ID resolved to original source. |
-| `partial` | Some frames resolved, and others did not. |
-| `missing` | Logfire has no source map for the debug IDs. |
-| `error` | Logfire could not use the source map. |
-| `pending` | Logfire did not finish loading the source map in time. |
+| `partial` | At least one frame resolved, and at least one frame did not. The unresolved frames stay minified. |
+| `missing` | No frame resolved. Logfire has no source map for the debug IDs. |
+| `error` | No frame resolved. Logfire could not load or use the source map. |
+| `pending` | No frame resolved. Logfire did not finish loading the source map in time. |
 
 For `missing`, `error` and `pending`, the stack trace stays as the browser sent it.
 
-To find exceptions that did not resolve, query for the status:
+To find exceptions with at least one frame that did not resolve, query for every status other than `ok`:
 
 ```sql
 SELECT start_timestamp, exception_type, attributes->>'logfire.source_map.status' AS status
 FROM records
-WHERE attributes->>'logfire.source_map.status' NOT IN ('ok', 'partial')
+WHERE attributes->>'logfire.source_map.status' != 'ok'
 ORDER BY start_timestamp DESC
 ```
 
@@ -190,10 +190,11 @@ Start from what you see on the exception.
 
 The exception carries no debug IDs, so Logfire did not try to resolve it. Do these two checks in order.
 
-**1. The built bundle contains the debug ID snippet.** Run this command on the build output directory:
+**1. The built bundle contains the debug ID snippet.** Run this command on the build output directory. Use `dist`, or `.next/static` for a Next.js app:
 
 ```bash
 grep -rlE '_debugIds|_logfireDebugIds' dist --include='*.js' --include='*.mjs' --include='*.cjs'
+grep -rlE '_debugIds|_logfireDebugIds' .next/static --include='*.js'
 ```
 
 The command lists each bundle that registers a debug ID. Turbopack writes `_debugIds`, and `logfire sourcemap inject` writes `_logfireDebugIds`. If a bundle is not in the list, turn on `turbopack.debugIds` or run `inject` (see [Give your bundles debug IDs](#give-your-bundles-debug-ids)). Then do the same check on the file that the browser downloads, to make sure that the deploy serves the new build.
@@ -219,7 +220,7 @@ If the bundle has the snippet but the attribute is empty, check these causes:
 | `missing` | The upload did not run for this build, or it ran after the exception arrived. A second cause is that the deployed files are not the uploaded files. | Do the two checks below. |
 | `partial` | Some frames resolved. The other frames have one of the causes in this table. For example, the upload covered only a part of the build output, or one file failed. | Read the upload log for skipped and failed files. Upload the full build output directory. |
 | `error` | Logfire could not read or use the stored source map. For example, the bundler wrote a map that does not follow the source map format. | Check that the `.map` file from the build is valid. Fix the build, then build, `inject` and upload again. If the map is valid, contact support. |
-| `pending` | Logfire did not load the source map in time. This can occur for the first exceptions of a new build, or when many new builds arrive together. | Nothing. Logfire tries again on the next exception for the same build. If the status stays `pending`, contact support. |
+| `pending` | Logfire did not load the source map in time. This can occur for the first exceptions of a new build, or when many new builds arrive together. | The exceptions that already have `pending` stay minified for good. Logfire tries again on the next exception for the same build. If new exceptions keep the status `pending`, contact support. |
 
 **The upload ran before the deploy.** Compare the time of the upload step in the CI log with the time of the deploy. The upload must finish first, and it must exit with code 0. An exception that arrives before the upload stays minified (see [Late uploads](#late-uploads)).
 
