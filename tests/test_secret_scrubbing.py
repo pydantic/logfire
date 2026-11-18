@@ -1199,6 +1199,25 @@ def test_early_console_transform_stops_at_empty_first_exception():
     assert seen == [('attributes', 'logfire.msg')]
 
 
+def test_early_console_transform_leaves_unchanged_fields_alone():
+    spans: list[ReadableSpan] = []
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    processor = MainSpanProcessorWrapper(
+        RecordingProcessor(), Scrubber(None, transform_string=lambda value: value.value)
+    )
+    tags = ('ordinary',)
+    event = SpanEvent('exception', {'exception.type': 123, 'exception.message': 'ordinary'})
+    processor.on_end(ReadableSpan(name='hello', attributes={'logfire.tags': tags}, events=[event]))
+
+    assert spans[0].attributes is not None
+    assert spans[0].attributes['logfire.tags'] is tags
+    assert spans[0].events[0] is event
+
+
 def test_early_console_transform_continues_after_callback_error(monkeypatch: pytest.MonkeyPatch):
     spans: list[ReadableSpan] = []
     monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
