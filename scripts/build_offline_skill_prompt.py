@@ -223,7 +223,7 @@ def _preamble(*, include_references: bool) -> str:
         'This bundle includes the `logfire-setup` hub and its SDK specialists:\n'
         '`logfire-instrumentation`, `logfire-infrastructure`, and `logfire-evals`.\n'
         'Their bundled references resolve without a network fetch.\n\n'
-        'Frontend, Gateway, coding-agent, and MCP query/UI specialists are not bundled.\n'
+        'Frontend, Gateway, coding-agent, dataset, and MCP query/UI specialists are not bundled.\n'
         'If fetching them is unavailable, report that limitation; do not substitute SDK setup.\n\n'
         'A pointer to "the `logfire-infrastructure` skill" (or any other skill named\n'
         'above) means the section below headed `# Skill: logfire-infrastructure` --\n'

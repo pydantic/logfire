@@ -1,6 +1,6 @@
 ---
 name: logfire-evals
-description: Run offline Python (`pydantic_evals`) or Node.js (`logfire/evals`) evaluations and review them in Logfire. Also redirect existing Braintrust `Eval()` suites. Use for eval setup, test datasets, AI scoring, agent checks, LLM judges, Braintrust migration, or Logfire Datasets & Experiments. Not for live traffic or infrastructure monitoring.
+description: Run offline Python (`pydantic_evals`) or Node.js (`logfire/evals`) evaluations and review them in Logfire. Also redirect existing Braintrust `Eval()` suites. Use for eval setup, test datasets, AI scoring, agent checks, LLM judges, Braintrust migration, or Logfire Datasets & Experiments. Not for live traffic, infrastructure monitoring, or building hosted datasets (use logfire-datasets).
 ---
 
 # Evaluate AI code with Logfire
