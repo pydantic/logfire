@@ -35,7 +35,13 @@ class MainLogProcessorWrapper(WrapperLogProcessor):
                 transformed = self.scrubber.transform_message(message)
                 if transformed != message:
                     if isinstance(attributes, BoundedAttributes):
-                        attributes[ATTRIBUTES_MESSAGE_KEY] = transformed
+                        # Older OTel versions need extended_attributes for structured log attributes.
+                        log_record.log_record.attributes = BoundedAttributes(  # pyright: ignore[reportDeprecated]
+                            attributes={**attributes, ATTRIBUTES_MESSAGE_KEY: transformed},
+                            maxlen=attributes.maxlen,
+                            max_value_len=attributes.max_value_len,
+                            extended_attributes=True,
+                        )
                     else:
                         log_record.log_record.attributes = BoundedAttributes(
                             attributes={**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
