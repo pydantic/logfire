@@ -88,7 +88,7 @@ def scrubbing_callback(match: logfire.ScrubMatch):
 logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
 ```
 
-Logfire scrubs a value before checking whether its key matches a pattern. This includes strings and values inside dictionaries, lists, and JSON-encoded containers. Your callback for a matching key receives the scrubbed value, so it can return that value unchanged or return a subset of a container. If it returns a different value, Logfire uses that replacement without scrubbing it again. Values under safe keys remain exempt from scrubbing.
+Logfire scrubs a value before checking whether its key matches a pattern. This includes strings and values inside dictionaries, lists, and JSON-encoded containers. Your callback for a matching key receives the scrubbed value, so it can return that value unchanged or return a subset of a container. If it returns a different value, Logfire uses that replacement without scrubbing it again. For most safe keys, Logfire skips pattern matching inside their values; structured message attributes are treated differently, as described below.
 
 If the callback returns a string unchanged (or returns an equal string of the same type), Logfire checks later positions in the same key or string value for other matches. A different returned string is used as the final value. After 100 allowed matches in one string, Logfire redacts the value to limit the search cost.
 
@@ -197,12 +197,11 @@ you use an interpolation method that's safe from SQL injection.
 
 ### LLM and AI messages
 
-Scrubbing is **disabled** for LLM message attributes such as `gen_ai.input.messages`, `gen_ai.output.messages`, and `pydantic_ai.all_messages`. This is intentional because:
+For `gen_ai.input.messages`, `gen_ai.output.messages`, `gen_ai.system_instructions`, and `pydantic_ai.all_messages`, Logfire checks nested field names for sensitive patterns. For example, it redacts the value of a `password` field inside a tool call. It does not check the message's string values for patterns, so ordinary text containing words such as "password" or "secret" remains visible. A configured `transform_string` callback still runs on those strings.
 
-1. **False positives**: LLMs frequently produce content containing words like "password" or "secret" in normal conversation (e.g., "Your password has been reset" or "The secret to success is..."), which would trigger false positives.
-2. **Ineffective detection**: LLMs might output sensitive data without using any keywords that regex-based scrubbing could detect.
+This avoids false positives in ordinary conversation while catching some structured tool arguments and responses. It does not detect sensitive content in prose or under an innocuous field name.
 
-Because of these limitations, if your LLM interactions might contain sensitive data, the recommended approach is to **exclude message content from logging entirely** rather than relying on scrubbing. For example, with [Pydantic AI](../integrations/llms/pydanticai.md):
+If your LLM interactions might contain sensitive data, **exclude message content from logging entirely** rather than relying on pattern scrubbing. For example, with [Pydantic AI](../integrations/llms/pydanticai.md):
 
 ```python skip-run="true" skip-reason="external-connection"
 import logfire

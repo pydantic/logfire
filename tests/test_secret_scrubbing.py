@@ -749,6 +749,64 @@ def test_transform_string_in_safe_key_skips_all_nested_patterns():
     assert notes_without_transform == []
 
 
+@pytest.mark.parametrize(
+    'key',
+    [
+        'pydantic_ai.all_messages',
+        'gen_ai.input.messages',
+        'gen_ai.output.messages',
+        'gen_ai.system_instructions',
+    ],
+)
+def test_gen_ai_content_matches_nested_keys_but_not_string_values(key: str):
+    value = json.dumps({'content': 'The URL contains /auth', 'arguments': {'password': 'hunter2'}})
+
+    result, notes = Scrubber(None).scrub_value(('attributes',), {key: value})
+
+    assert json.loads(result[key]) == {
+        'content': 'The URL contains /auth',
+        'arguments': {'password': "[Scrubbed due to 'password']"},
+    }
+    assert notes == [{'path': ('attributes', key, 'arguments', 'password'), 'matched_substring': 'password'}]
+
+
+def test_custom_pattern_can_match_gen_ai_attribute_name():
+    result, notes = Scrubber([r'gen_ai[.]input[.]messages']).scrub_value(
+        ('attributes',), {'gen_ai.input.messages': '{"content":"ordinary text"}'}
+    )
+
+    assert result == {'gen_ai.input.messages': "[Scrubbed due to 'gen_ai.input.messages']"}
+    assert notes == [{'path': ('attributes', 'gen_ai.input.messages'), 'matched_substring': 'gen_ai.input.messages'}]
+
+
+@pytest.mark.parametrize('key', ['gen_ai.tool.call.arguments', 'gen_ai.tool.call.result'])
+def test_standalone_gen_ai_tool_payloads_still_match_string_values(key: str):
+    result, notes = Scrubber(None).scrub_value(('attributes',), {key: '{"stdout":"password=hunter2"}'})
+
+    assert json.loads(result[key]) == {'stdout': "[Scrubbed due to 'password']"}
+    assert notes == [{'path': ('attributes', key, 'stdout'), 'matched_substring': 'password'}]
+
+
+def test_gen_ai_definition_keeps_schema_keys_and_transforms_values():
+    def transform(value: StringValue) -> str:
+        return value.value.replace('alice@example.com', '[email]')
+
+    value = {
+        'gen_ai.tool.definitions': json.dumps(
+            [{'parameters': {'properties': {'password': {'description': 'alice@example.com'}}}}]
+        ),
+        'gen_ai.input.messages': json.dumps({'content': 'alice@example.com and /auth'}),
+    }
+
+    result, notes = Scrubber(None, transform_string=transform).scrub_value(('attributes',), value)
+
+    assert json.loads(result['gen_ai.tool.definitions']) == [
+        {'parameters': {'properties': {'password': {'description': '[email]'}}}}
+    ]
+    assert json.loads(result['gen_ai.input.messages']) == {'content': '[email] and /auth'}
+    assert notes == []
+
+
 def test_transform_string_skips_control_attributes():
     seen: list[tuple[str | int, ...]] = []
 
