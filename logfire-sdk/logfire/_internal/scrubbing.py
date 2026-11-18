@@ -153,7 +153,8 @@ class ScrubbingOptions:
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
     String span messages also call it when a span ends, on the calling thread even if console output is disabled.
     Tag values and the exception details printed by the console are also transformed when a span ends,
-    before any background span scrubbing. A later scrub pass may transform those values again.
+    on the calling thread even if console output is disabled, before any background span scrubbing.
+    A later scrub pass may transform those values again.
     If the message is absent or empty, Logfire uses the span name as the input for the new message.
     An empty result stays empty in the span, and the console displays `<empty message>`.
     Nested strings in a nonempty, non-string message use the ordinary span scrubbing path instead.
