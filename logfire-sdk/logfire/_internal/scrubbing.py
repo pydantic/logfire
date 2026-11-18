@@ -330,6 +330,12 @@ class Scrubber(BaseScrubber):
         if self._transform_string is None:
             return
 
+        with handle_internal_errors:
+            attributes = span['attributes']
+            message = attributes.get(ATTRIBUTES_MESSAGE_KEY) or span['name']
+            if isinstance(message, str) and (transformed := self.transform_message(message)) != message:
+                span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
+
         transformer = SpanScrubber(self)
         attributes = span['attributes']
         tags = attributes.get(ATTRIBUTES_TAGS_KEY)

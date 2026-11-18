@@ -1280,7 +1280,7 @@ def test_message_handling_after_main_processor_errors(
     if failing_step == 'normalization':
         monkeypatch.setattr(processor_wrapper, '_transform_langchain_span', fail)
     else:
-        monkeypatch.setattr(processor_wrapper, '_transform_span_message', fail)
+        monkeypatch.setattr(scrubber, 'transform_message', fail)
 
     processor.on_end(ReadableSpan(name='call', attributes={'logfire.msg': 'alice@example.com'}))
 
@@ -1300,7 +1300,7 @@ def test_console_fields_still_transform_after_message_error(monkeypatch: pytest.
 
     scrubber = Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]'))
     processor = MainSpanProcessorWrapper(RecordingProcessor(), scrubber)
-    monkeypatch.setattr(processor_wrapper, '_transform_span_message', fail)
+    monkeypatch.setattr(scrubber, 'transform_message', fail)
     processor.on_end(ReadableSpan(name='hello', attributes={'logfire.tags': ('alice@example.com',)}))
 
     assert spans[0].attributes == {'logfire.tags': ('[email]',)}

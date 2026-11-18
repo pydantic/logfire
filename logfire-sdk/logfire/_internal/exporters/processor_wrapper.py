@@ -84,18 +84,9 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _transform_litellm_span(span_dict)
             _default_gen_ai_response_model(span_dict)
         with handle_internal_errors:
-            _transform_span_message(span_dict, self.scrubber)
-        with handle_internal_errors:
             self.scrubber.transform_console_fields(span_dict)
         span = ReadableSpan(**span_dict)
         super().on_end(span)
-
-
-def _transform_span_message(span: ReadableSpanDict, scrubber: BaseScrubber):
-    attributes = span['attributes']
-    message = attributes.get(ATTRIBUTES_MESSAGE_KEY) or span['name']
-    if isinstance(message, str) and (transformed := scrubber.transform_message(message)) != message:
-        span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
 
 
 def scrub_span(span: ReadableSpan, scrubber: BaseScrubber) -> ReadableSpan:
