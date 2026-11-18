@@ -1,0 +1,89 @@
+docs/integrations/http-clients/httpx2.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 123-125
+docs/integrations/databases/snowflake.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 139-141
+docs/integrations/llms/openai.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 89-91
+docs/integrations/http-clients/requests.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 58-60
+docs/reference/cli.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 3,7-44
+logfire-sdk/logfire/_internal/scrubbing.py
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 163-164,176-188,191,403,416,424,439,442-444,450,456
+tests/test_secret_scrubbing.py
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 752-809
+docs/integrations/databases/sqlite3.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 72-74
+docs/integrations/llms/llamaindex.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 87-89
+docs/integrations/web-frameworks/wsgi.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 76-78
+docs/integrations/llms/litellm.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 84-86
+docs/integrations/monty.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 101-103
+docs/integrations/pytest.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 56-58
+docs/integrations/databases/surrealdb.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 119-121
+docs/integrations/event-streams/celery.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 91-93
+docs/integrations/databases/pymongo.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 100-102
+docs/integrations/web-frameworks/flask.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 68-70
+docs/integrations/web-frameworks/starlette.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 78-80
+docs/integrations/http-clients/httpx.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 112-114
+docs/integrations/llms/dspy.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 94-96
+docs/integrations/llms/langchain.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 134-136
+docs/integrations/llms/pixeltable.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 120-122
+docs/integrations/web-frameworks/fastapi.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 82-84
+docs/integrations/event-streams/faststream.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 86-88
+docs/integrations/web-frameworks/django.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 86-88
+docs/integrations/llms/google-genai.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 84-86
+docs/integrations/web-frameworks/aiohttp.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 80-82
+docs/integrations/databases/redis.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 77-79
+docs/integrations/databases/asyncpg.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 93-95
+docs/integrations/databases/mysql.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 97-99
+docs/integrations/databases/psycopg.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 90-92
+docs/integrations/http-clients/aiohttp.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 72-74
+docs/integrations/web-frameworks/asgi.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 88-90
+docs/integrations/databases/bigquery.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 80-82
+docs/integrations/llms/anthropic.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 93-95
+docs/how-to-guides/scrubbing.md
+  s_c0e10b978d818c::t_de3fdb20e1b1c2 91,200,202,204
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "99e7194767cd6a1936360128f123a4cd4a46e855",
+  "prompts": {},
+  "sessions": {
+    "s_c0e10b978d818c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d095-ee37-77e2-ab95-a5d577077ae0",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
