@@ -37,6 +37,11 @@ logfire.info(
 )
 ```
 
+!!! warning "Do not match secret text with `extra_patterns`"
+
+    Use `extra_patterns` to recognize field names such as `customer_pin`, not to match the secret value itself. By default, Logfire copies the matched text into both the `[Scrubbed due to ...]` replacement and the `logfire.scrubbed` attribute.
+    To mask sensitive text inside a string, use [a string transformer](#masking-part-of-a-string).
+
 Here are the default scrubbing patterns:
 
 ```python
