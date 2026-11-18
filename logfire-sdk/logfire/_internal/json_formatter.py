@@ -320,7 +320,7 @@ class JsonArgsValueFormatter:
             # add index at the beginning of row
             if column_count < real_column_count:
                 row = insert_into_list_middle(row, '...')
-            row = [indices[i]] + [str(x) for x in row]
+            row = [str(indices[i])] + [str(x) for x in row]
             converted_rows.append(row)
 
         if len(rows) < real_row_count:

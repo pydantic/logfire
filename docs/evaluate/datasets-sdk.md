@@ -184,7 +184,7 @@ You can also pass plain dicts instead of `Case` objects:
 client.add_cases(
     'qa-golden-set',
     cases=[
-        {'inputs': {'question': 'What color is the sky?'}, 'expected_output': {'answer': 'Blue'}},
+        {'inputs': {'question': 'What color is the sky?'}, 'expected_output': {'answer': 'Blue', 'confidence': 1.0}},
     ],
 )
 ```

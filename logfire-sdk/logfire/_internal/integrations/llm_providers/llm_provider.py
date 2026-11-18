@@ -249,7 +249,12 @@ def record_streaming(
     finally:
         duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
         with attach_context(original_context):
-            attributes = stream_state.get_attributes(span_data)
+            try:
+                attributes = stream_state.get_attributes(span_data)
+            except Exception:
+                # Raising here would end the user's iteration over the stream.
+                log_internal_error()
+                attributes = dict(span_data)
             if stream_error is not None:
                 attributes['error.type'] = type(stream_error).__name__
             logire_llm.log(

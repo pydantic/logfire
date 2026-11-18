@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import logging
 import sys
 from collections.abc import Sequence
 from contextlib import AbstractContextManager, contextmanager, nullcontext
@@ -17,7 +18,10 @@ except ImportError:
         VERSION = '0.0.0'
         METRICS_PREFERRED_TEMPORALITY = {}
 
-        def configure(*args, **kwargs): ...
+        def configure(*args, **kwargs) -> Logfire:
+            if kwargs.get('local'):
+                return Logfire()
+            return DEFAULT_LOGFIRE_INSTANCE
 
         class LogfireSpan:
             def __getattr__(self, attr):
@@ -164,7 +168,11 @@ except ImportError:
 
             def instrument_sqlalchemy(self, *args, **kwargs) -> None: ...
 
-            def instrument_sqlite3(self, *args, **kwargs) -> None: ...
+            def instrument_sqlite3(self, conn=None, *args, **kwargs):
+                return conn
+
+            def instrument_mysql(self, conn=None, *args, **kwargs):
+                return conn
 
             def instrument_aws_lambda(self, *args, **kwargs) -> None: ...
 
@@ -227,7 +235,8 @@ except ImportError:
             async def forward_export_request_starlette(self, *args, **kwargs) -> MagicMock:
                 return MagicMock()
 
-            def shutdown(self, *args, **kwargs) -> None: ...
+            def shutdown(self, *args, **kwargs) -> bool:
+                return True
 
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span
@@ -290,7 +299,7 @@ except ImportError:
         forward_export_request_starlette = DEFAULT_LOGFIRE_INSTANCE.forward_export_request_starlette
 
         def loguru_handler(*, console_log: bool = True) -> dict[str, Any]:
-            return {}
+            return {'sink': lambda message: None, 'format': '{message}'}
 
         def no_auto_trace(x):
             return x
@@ -331,8 +340,12 @@ except ImportError:
         class StructlogProcessor:
             def __init__(self, *args, **kwargs) -> None: ...
 
-        class LogfireLoggingHandler:
-            def __init__(self, *args, **kwargs) -> None: ...
+            def __call__(self, logger, name, event_dict):
+                return event_dict
+
+        class LogfireLoggingHandler(logging.NullHandler):
+            def __init__(self, level=logging.NOTSET, *args, **kwargs) -> None:
+                super().__init__(level)
 
         def logfire_info() -> str:
             """Show versions of logfire, OS and related packages."""

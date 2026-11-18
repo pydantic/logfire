@@ -116,8 +116,9 @@ factory to `logfire.instrument_surrealdb()`.
   `logfire.instrument_surrealdb()`, then instrument before the first database operation.
 - **Only some connections appear:** call `logfire.instrument_surrealdb()` with no argument to record
   all connection classes. If you pass an instance or class, Logfire records only that target.
-- **No data appears in Logfire:** check that your write token is set. Run
-  `logfire projects use <your-project>` locally, or set the `LOGFIRE_TOKEN` environment variable in
+- **No data appears in Logfire:** check that your write token is set. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
+  if needed, then run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use` from your application's directory, or set the `LOGFIRE_TOKEN` environment variable in
   production. See [Getting Started](../../index.md).
 
 [surrealdb]: https://surrealdb.com/

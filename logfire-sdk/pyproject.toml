@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire-sdk"
-version = "5.4.0"
+version = "5.6.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.10"
 authors = [
@@ -62,7 +62,7 @@ dependencies = [
 
 [project.optional-dependencies]
 gateway = ["httpx>=0.27.0", "starlette>=0.37.0", "uvicorn>=0.30.0"]
-agent-sandboxes = ["pydantic-monty-client>=1.0.0"]
+agent-sandboxes = ["pydantic-monty-client>=1.6.0"]
 system-metrics = ["opentelemetry-instrumentation-system-metrics >= 0.42b0"]
 asgi = ["opentelemetry-instrumentation-asgi >= 0.42b0"]
 wsgi = ["opentelemetry-instrumentation-wsgi >= 0.42b0"]
@@ -92,6 +92,8 @@ litellm = ["openinference-instrumentation-litellm >= 0"]
 dspy = ["openinference-instrumentation-dspy >= 0"]
 datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0"]
 variables = ["pydantic>=2", "pydantic-handlebars>=0.2.1"]
+# Logfire Fleet: `configure(fleet=True)`. The Fleet client ships a native core (about 1 MB a platform).
+fleet = ["logfire-fleet-otel>=0.2.1,<0.3; python_version >= '3.11'"]
 
 [project.urls]
 Homepage = "https://pydantic.dev/logfire"

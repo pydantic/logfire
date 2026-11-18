@@ -62,10 +62,13 @@ class Record:
     @classmethod
     def from_span(cls, span: ReadableSpan) -> Record:
         attributes = span.attributes or {}
+        message = attributes.get(ATTRIBUTES_MESSAGE_KEY)
+        if message == '':
+            message = '<empty message>'
         return cls(
             attributes=attributes,
             timestamp=span.start_time or 0,
-            message=attributes.get(ATTRIBUTES_MESSAGE_KEY) or span.name,  # pyright: ignore[reportArgumentType]
+            message=message or span.name,  # pyright: ignore[reportArgumentType]
             events=span.events,
             span_id=span.context and span.context.span_id,
             parent_span_id=span.parent and span.parent.span_id,
@@ -77,7 +80,9 @@ class Record:
     def from_log(cls, log: LogRecord) -> Record:
         attributes = log.attributes or {}
         message: str = attributes.get(ATTRIBUTES_MESSAGE_KEY)  # pyright: ignore[reportAssignmentType]
-        if not message:
+        if message == '':
+            message = '<empty message>'
+        elif not message:
             # TODO: this message could be better, for now we just want to have *something*
             # TODO: this message should be constructed in a wrapper processor so that it's also used in the UI
             parts: list[str] = []
@@ -311,7 +316,8 @@ class SimpleConsoleSpanExporter(SpanExporter):
         """Print logfire arguments without color using the built-in `print` function."""
         out: list[str] = []
         for k, value_code in arguments.items():
-            value_lines = value_code.splitlines()
+            # An empty value, e.g. b'', has no lines but still gets its `k=` line
+            value_lines = value_code.splitlines() or ['']
             out += [f'{indent_str}│ {k}={value_lines[0]}']
             prefix = f'{indent_str}│ {" " * len(k)} '
             for line in value_lines[1:]:

@@ -19,7 +19,7 @@ from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
 from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig, TemplateMismatchPolicy as TemplateMismatchPolicy
 from .config_params import PydanticPluginRecordValues as PydanticPluginRecordValues
-from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
+from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LevelName as LevelName, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
 from .forwarding import ForwardExportRequestResponse as ForwardExportRequestResponse
 from .instrument import instrument as instrument
@@ -30,11 +30,11 @@ from .integrations.mysql import MySQLConnection as MySQLConnection
 from .integrations.psycopg import Psycopg2Connection as Psycopg2Connection, PsycopgConnection as PsycopgConnection
 from .integrations.sqlite3 import SQLite3Connection as SQLite3Connection
 from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
-from .json_encoder import logfire_json_dumps as logfire_json_dumps
+from .json_encoder import logfire_json_dumps as logfire_json_dumps, numpy_scalar_to_python as numpy_scalar_to_python
 from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
-from .tracer import ProxyTracerProvider as ProxyTracerProvider, _ProxyTracer, set_exception_status as set_exception_status
+from .tracer import ProxyTracerProvider as ProxyTracerProvider, _ProxyTracer
 from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
 from anthropic.lib.bedrock import AnthropicBedrock as _AnthropicBedrock, AsyncAnthropicBedrock as _AsyncAnthropicBedrock
 from collections.abc import Iterable, Mapping, Sequence
@@ -51,7 +51,7 @@ from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
 from pydantic_evals.reporting import EvaluationReport
-from pydantic_monty import AsyncMontyWebsocket
+from pydantic_monty import AsyncMontyRemote
 from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
 from snowflake.connector.connection import SnowflakeConnection
 from sqlalchemy import Engine
@@ -527,13 +527,13 @@ class Logfire:
         It records Monty sessions, executed code, inputs, outputs, external calls,
         exceptions, printed text, and pool metrics. Recorded values are subject to Logfire's configured scrubbing.
         """
-    def agent_sandboxes(self, *, api_key: str | None = None, url: str | None = None, max_processes: int | None | _Unset = ..., checkout_timeout: float | None | _Unset = ..., request_timeout: float | None | _Unset = ..., connect_headers: Callable[[], Mapping[str, str]] | None | _Unset = ..., feed_duration_limit_grace: float | None | _Unset = ..., turn_duration_limit_grace: float | None | _Unset = ..., auto_resume: bool | _Unset = ..., **kwargs: Any) -> AsyncMontyWebsocket:
+    def agent_sandboxes(self, *, api_key: str | None = None, url: str | None = None, max_processes: int | None | _Unset = ..., checkout_timeout: float | None | _Unset = ..., request_timeout: float | None | _Unset = ..., metadata: Callable[[], Mapping[str, str]] | None | _Unset = ..., connect_headers: Callable[[], Mapping[str, str]] | None | _Unset = ..., feed_duration_limit_grace: float | None | _Unset = ..., turn_duration_limit_grace: float | None | _Unset = ..., auto_resume: bool | _Unset = ..., **kwargs: Any) -> AsyncMontyRemote:
         """Connect to Logfire Agent Sandboxes, remote Pydantic Monty workers hosted by Logfire.
 
         Requires the `agent-sandboxes` extra, e.g. `pip install 'logfire[agent-sandboxes]'`.
 
-        Returns a [`pydantic_monty.AsyncMontyWebsocket`][pydantic_monty.AsyncMontyWebsocket] pool;
-        use it as an async context manager and check out sessions from it:
+        Returns a [`pydantic_monty.AsyncMontyRemote`][pydantic_monty.AsyncMontyRemote] pool that
+        authenticates with your Logfire API key. Use it as an async context manager and check out sessions from it:
 
         ```py
         import logfire
@@ -549,6 +549,17 @@ class Logfire:
 
         No connection is made until a session is checked out.
 
+        Because the pool is a plain `AsyncMontyRemote`, you can pass this method wherever a Monty pool
+        factory is expected, for example `CodeMode(monty_sandbox=logfire.agent_sandboxes)` in Pydantic AI.
+
+        Checkout errors from the sandboxes server are Monty's own exceptions; this method does not wrap them.
+        An exception raised by your `metadata` callback propagates unchanged. A refused checkout raises
+        `MontyRefusedError`. For `UNAUTHENTICATED` or
+        `PERMISSION_DENIED`, check that the key is a project API key with the
+        `project:execute_agent_sandboxes` scope, that its region matches the server URL, and that Agent
+        Sandboxes are enabled for the project. For `RESOURCE_EXHAUSTED`, lower `max_processes` or retry
+        after a delay.
+
         The Logfire platform records sandbox usage itself. The current trace context is sent
         with each session so those spans join the caller's trace.
 
@@ -556,27 +567,32 @@ class Logfire:
         The defaults described below are the currently assumed defaults and may change in future versions.
 
         Args:
-            api_key: A Logfire API key with the `project:execute_agent_sandboxes` scope.
+            api_key: A Logfire project API key (not a personal key) with the
+                `project:execute_agent_sandboxes` scope. Agent Sandboxes must be enabled for the project.
                 Defaults to the `api_key` passed to [`configure()`][logfire.configure],
                 then the `LOGFIRE_API_KEY` environment variable.
-            url: The WebSocket URL of the sandboxes server.
-                Defaults to the Logfire region the API key belongs to.
-            max_processes: Cap on concurrent sandbox connections. Defaults to `None`, which uses
+            url: The `https://` URL of the sandboxes server.
+                Defaults to the Logfire region the API key belongs to. Must not contain a path,
+                query, or fragment. `/monty-ws/` was the old path and must be removed.
+            max_processes: Cap on concurrent sandbox sessions. Defaults to `None`, which uses
                 the CPU count; checkouts beyond it wait.
             checkout_timeout: Seconds `checkout()` waits for capacity before raising `TimeoutError`.
                 Defaults to `None`, which waits forever.
             request_timeout: Hard per-turn deadline in seconds. A sandbox that exceeds it has its
-                connection closed and the call raises `MontyCrashedError`. `None` waits indefinitely.
+                session closed and the call raises `MontyCrashedError`. Must be finite;
+                `None` raises `LogfireConfigError` because hosted sandboxes require a deadline.
                 Defaults to `10.0`. Raise this when installing dependencies in a sandbox.
-            connect_headers: Called once per session to produce extra headers for the WebSocket
-                connection. These are merged with the `Authorization` header and win on conflicts.
+            metadata: Called once per session to produce extra request metadata for its gRPC
+                stream. Names are lowercased and values must be ASCII. These are merged with the
+                `authorization` entry and win on conflicts.
+            connect_headers: The deprecated name of `metadata`.
                 Defaults to `None`, which adds no extra headers beyond Logfire authentication.
             feed_duration_limit_grace: Seconds to wait past a feed's `max_feed_duration_secs`
                 before closing the sandbox. Defaults to `1.0`; `None` disables this backstop.
             turn_duration_limit_grace: The same, for `max_turn_duration_secs`. Defaults to `1.0`.
             auto_resume: When the server drains a stored session, transparently resume it on
                 another server instead of raising `MontyShutdown`. Defaults to `True`.
-            kwargs: Additional keyword arguments passed to `AsyncMontyWebsocket` for future compatibility.
+            kwargs: Additional keyword arguments passed to `AsyncMontyRemote` for future compatibility.
         """
     def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
