@@ -25,7 +25,7 @@ logfire sourcemap upload ──────────────────�
                                    debug IDs of the frames ───────► resolves the frames at ingest
 ```
 
-1. A snippet at the top of each bundle registers the bundle's debug ID in `globalThis._debugIds` when the bundle loads. This registry is a shared convention that Turbopack and other tools also write.
+1. A snippet at the top of each bundle registers the bundle's debug ID when the bundle loads. `logfire sourcemap inject` writes the ID to `globalThis._logfireDebugIds`. Turbopack and other tools write it to `globalThis._debugIds`, which is a shared convention. The SDK reads both registries.
 2. When the Logfire browser SDK records an exception, it looks up the files in the stack trace in that registry. It adds the matches to the exception span as the `logfire.debug_ids` attribute: a JSON map from file URL to debug ID. The SDK removes the query string, the fragment and any credentials from each URL.
 3. When the span reaches Logfire, Logfire finds the uploaded source map for each debug ID and rewrites the stack trace to the original source. This happens once, at ingest (when Logfire receives and stores the data). The stored record holds the resolved stack trace.
 
