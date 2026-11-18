@@ -1011,6 +1011,49 @@ def test_gen_ai_definition_keeps_schema_keys_and_transforms_values():
     assert notes == []
 
 
+@pytest.mark.parametrize(
+    'path',
+    [
+        ('attributes',),
+        ('attributes', 'payload'),
+        ('attributes', 'payload', 'attributes'),
+        ('otel_events', 0, 'attributes'),
+        ('links', 0, 'attributes'),
+        ('log_body',),
+        ('message',),
+    ],
+)
+def test_transform_string_control_keys_only_skip_root_attributes(path: tuple[str | int, ...]):
+    original = {key: 'alice@example.com' for key in Scrubber.NO_TRANSFORM_KEYS}
+    result, notes = Scrubber(
+        None, transform_string=lambda item: item.value.replace('alice@example.com', '[email]')
+    ).scrub_value(path, original)
+
+    assert result == (original if path == ('attributes',) else dict.fromkeys(original, '[email]'))
+    assert notes == []
+
+
+def test_transform_string_nested_control_keys_in_span_and_log(
+    exporter: TestExporter, logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]
+):
+    logfire.configure(
+        **config_kwargs,
+        scrubbing=logfire.ScrubbingOptions(
+            transform_string=lambda item: item.value.replace('alice@example.com', '[email]')
+        ),
+    )
+    payload = {'logfire.msg': 'alice@example.com', 'code.filepath': 'alice@example.com'}
+    logfire.info('example', payload=payload)
+    get_logger(__name__).emit(LogRecord(body=payload, attributes={'payload': json.dumps(payload)}))
+
+    expected = dict.fromkeys(payload, '[email]')
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['payload'] == expected
+    (record,) = logs_exporter.exported_logs_as_dicts(parse_json_attributes=True)
+    assert record['body'] == expected
+    assert record['attributes']['payload'] == expected
+
+
 def test_transform_string_skips_control_attributes():
     seen: list[tuple[str | int, ...]] = []
 
