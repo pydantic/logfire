@@ -20,7 +20,7 @@ from opentelemetry.trace.propagation import get_current_span
 
 import logfire
 from logfire._internal.exporters.processor_wrapper import SpanProcessorGroup
-from logfire._internal.scrubbing import DEFAULT_PATTERNS, MessageValueCleaner, NoopScrubber, Scrubber
+from logfire._internal.scrubbing import DEFAULT_PATTERNS, BaseScrubber, MessageValueCleaner, NoopScrubber, Scrubber
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
 from logfire.types import StringValue
@@ -699,6 +699,7 @@ def test_transform_string_in_safe_key_skips_all_nested_patterns():
 @pytest.mark.parametrize(
     'key',
     [
+        'pydantic_ai.all_messages',
         'gen_ai.input.messages',
         'gen_ai.output.messages',
         'gen_ai.system_instructions',
@@ -714,6 +715,18 @@ def test_gen_ai_content_matches_nested_keys_but_not_string_values(key: str):
         'arguments': {'password': "[Scrubbed due to 'password']"},
     }
     assert notes == [{'path': ('attributes', key, 'arguments', 'password'), 'matched_substring': 'password'}]
+
+
+def test_removing_key_only_safe_key_restores_value_matching(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(BaseScrubber, 'SAFE_KEYS', set(BaseScrubber.SAFE_KEYS))
+    BaseScrubber.SAFE_KEYS.remove('pydantic_ai.all_messages')
+
+    result, notes = Scrubber(None).scrub_value(
+        ('attributes',), {'pydantic_ai.all_messages': '{"content":"the /auth route"}'}
+    )
+
+    assert json.loads(result['pydantic_ai.all_messages']) == {'content': "[Scrubbed due to 'auth']"}
+    assert notes == [{'path': ('attributes', 'pydantic_ai.all_messages', 'content'), 'matched_substring': 'auth'}]
 
 
 @pytest.mark.parametrize('key', ['gen_ai.tool.call.arguments', 'gen_ai.tool.call.result'])

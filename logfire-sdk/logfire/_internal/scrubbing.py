@@ -169,6 +169,7 @@ class BaseScrubber(ABC):
     # Structured content with prose: transform strings and match nested keys,
     # but do not pattern-match string values. This is a subset of SAFE_KEYS.
     KEY_ONLY_KEYS = {
+        'pydantic_ai.all_messages',
         gen_ai_semconv.INPUT_MESSAGES,
         gen_ai_semconv.OUTPUT_MESSAGES,
         gen_ai_semconv.SYSTEM_INSTRUCTIONS,
@@ -212,7 +213,6 @@ class BaseScrubber(ABC):
         'agent_session_id',
         'do_not_scrub',
         'binary_content',
-        'pydantic_ai.all_messages',
         'rpc.method',
         'model_request_parameters',
         'langsmith.metadata.session_id',
@@ -426,15 +426,16 @@ class SpanScrubber:
         elif isinstance(value, Mapping):
             result: dict[Any, Any] = {}
             for k, v in cast('Mapping[Any, Any]', value).items():
+                key_only_key = k in BaseScrubber.SAFE_KEYS and k in BaseScrubber.KEY_ONLY_KEYS
                 if k in BaseScrubber.NO_TRANSFORM_KEYS:
                     result[k] = v
-                elif k in BaseScrubber.SAFE_KEYS and k not in BaseScrubber.KEY_ONLY_KEYS:
+                elif k in BaseScrubber.SAFE_KEYS and not key_only_key:
                     result[k] = (
                         self.scrub(path + (k,), v, in_safe_key=True) if self._transform_string is not None else v
                     )
                 else:
                     child_path = path + (k,)
-                    scrubbed = self.scrub(child_path, v, in_safe_key, key_only or k in BaseScrubber.KEY_ONLY_KEYS)
+                    scrubbed = self.scrub(child_path, v, in_safe_key, key_only or key_only_key)
                     if not in_safe_key and isinstance(k, str) and (match := self._pattern.search(k)):
                         redacted = self._scrub_matches(child_path, scrubbed, match)
                         if (
