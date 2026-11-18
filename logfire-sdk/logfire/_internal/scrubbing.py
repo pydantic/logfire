@@ -250,6 +250,9 @@ class BaseScrubber(ABC):
     @abstractmethod
     def transform_message(self, value: str) -> str: ...
 
+    @abstractmethod
+    def transform_log_event_name(self, value: str) -> str: ...
+
 
 class NoopScrubber(BaseScrubber):
     def scrub_span(self, span: ReadableSpanDict):  # pragma: no cover
@@ -263,6 +266,9 @@ class NoopScrubber(BaseScrubber):
         return value, []
 
     def transform_message(self, value: str) -> str:
+        return value
+
+    def transform_log_event_name(self, value: str) -> str:
         return value
 
 
@@ -315,6 +321,11 @@ class Scrubber(BaseScrubber):
         return SpanScrubber(self)._safely_transform_string(  # pyright: ignore[reportPrivateUsage]
             ('attributes', ATTRIBUTES_MESSAGE_KEY), value
         )
+
+    def transform_log_event_name(self, value: str) -> str:
+        if self._transform_string is None:
+            return value
+        return SpanScrubber(self)._safely_transform_string(('otel_log_event_name',), value)  # pyright: ignore[reportPrivateUsage]
 
 
 class SpanScrubber:
