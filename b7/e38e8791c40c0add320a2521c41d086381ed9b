@@ -1,0 +1,26 @@
+.github/workflows/scripts/upgrade_install_e2e.py
+  s_111da07cce6d34::t_59477505521aa9 169,175,196
+.github/workflows/scripts/upgrade_install_smoke.py
+  s_111da07cce6d34::t_59477505521aa9 36,46,80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b7e38e8791c40c0add320a2521c41d086381ed9b",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_111da07cce6d34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ef5f-5d6e-71a0-b7f1-e17f18cfe890",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
