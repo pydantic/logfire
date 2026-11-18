@@ -148,7 +148,8 @@ class ScrubbingOptions:
 
     Span names, status descriptions, span event names, and OpenTelemetry log-record event names are also transformed,
     without pattern matching.
-    Logfire control and source metadata, such as `logfire.span_type` and `code.filepath`, are excluded.
+    Root Logfire control and source attributes, such as `logfire.span_type` and `code.filepath`, are excluded.
+    Nested fields with the same names are transformed.
 
     The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
