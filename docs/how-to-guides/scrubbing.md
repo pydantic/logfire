@@ -39,7 +39,7 @@ logfire.info(
 
 !!! warning "Do not match secret text with `extra_patterns`"
 
-    Use `extra_patterns` to recognize field names or non-sensitive words such as `password`, not to match the secret itself. By default, Logfire copies the matched text into both the `[Scrubbed due to ...]` replacement and the `logfire.scrubbed` attribute. A pattern matching credentials inside a database URL can therefore export those credentials in the scrub marker.
+    Use `extra_patterns` to recognize field names such as `customer_pin`, not to match the secret value itself. By default, Logfire copies the matched text into both the `[Scrubbed due to ...]` replacement and the `logfire.scrubbed` attribute. A pattern matching credentials inside a database URL can therefore export those credentials in the scrub marker.
 
     A pattern that matches an entire string value leaves that value unchanged. Pattern matching is also skipped in values under keys such as `http.url`. To mask sensitive text inside a string, use [a string transformer](#masking-part-of-a-string). Avoid logging credentials in URLs in the first place.
 
