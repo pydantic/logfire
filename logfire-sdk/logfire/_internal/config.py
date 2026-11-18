@@ -907,7 +907,9 @@ class _LogfireConfigData:
             )
         head = sampling.head
         if isinstance(head, (int, float)) and not 0.0 <= head <= 1.0:
-            raise LogfireConfigError(f'Expected trace_sample_rate to be between 0.0 and 1.0, got {head!r}')
+            raise LogfireConfigError(
+                f'Expected sampling.head (LOGFIRE_TRACE_SAMPLE_RATE) to be between 0.0 and 1.0, got {head!r}'
+            )
         self.sampling = sampling
 
         if isinstance(code_source, dict):

@@ -590,7 +590,7 @@ def test_trace_sample_rate_too_large_for_float_names_the_setting(tmp_path: Path)
     ('rate', 'printed'), [('nan', 'nan'), ('inf', 'inf'), ('-inf', '-inf'), ('1.5', '1.5'), ('-1', '-1.0')]
 )
 def test_trace_sample_rate_out_of_range_names_the_setting(rate: str, printed: str) -> None:
-    message = f'Expected trace_sample_rate to be between 0.0 and 1.0, got {printed}'
+    message = f'Expected sampling.head (LOGFIRE_TRACE_SAMPLE_RATE) to be between 0.0 and 1.0, got {printed}'
     with patch.dict(os.environ, {'LOGFIRE_TRACE_SAMPLE_RATE': rate}):
         with pytest.raises(LogfireConfigError, match=f'^{re.escape(message)}$'):
             configure(send_to_logfire=False)
@@ -598,7 +598,7 @@ def test_trace_sample_rate_out_of_range_names_the_setting(rate: str, printed: st
 
 @pytest.mark.parametrize('rate', [math.nan, math.inf, 1.5, -0.1])
 def test_sampling_options_head_out_of_range_names_the_setting(rate: float) -> None:
-    message = f'Expected trace_sample_rate to be between 0.0 and 1.0, got {rate!r}'
+    message = f'Expected sampling.head (LOGFIRE_TRACE_SAMPLE_RATE) to be between 0.0 and 1.0, got {rate!r}'
     with pytest.raises(LogfireConfigError, match=f'^{re.escape(message)}$'):
         configure(send_to_logfire=False, sampling=logfire.SamplingOptions(head=rate))
 
