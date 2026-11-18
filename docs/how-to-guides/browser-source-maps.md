@@ -44,6 +44,9 @@ The SDK sends `logfire.debug_ids` from `@pydantic/logfire-browser` version 0.34.
 
 The commands on this page come from the Logfire CLI for JavaScript projects, the `logfire-cli` npm package. Run them with `npx logfire-cli`. The `logfire` command that the Python package installs has no `sourcemap` command.
 
+The `sourcemap` commands are in beta in the CLI, so they can change. The CLI refuses to run a beta command unless you pass `--beta` or set `LOGFIRE_CLI_BETA=true`.
+<!-- TODO: say when `--beta` is no longer needed. The CLI code does not state when the `sourcemap` command leaves beta. -->
+
 ### Next.js
 
 Turbopack writes debug IDs itself. Turn them on in `next.config.js`:
@@ -107,8 +110,12 @@ npx logfire-cli --beta --region us sourcemap upload dist --frontend-application-
 
 Each source map and each bundle can be at most 60 MiB, measured before compression. The CLI reports a larger file as failed, and the server answers `413`. Split the bundle into smaller chunks to get under the limit.
 
-!!! note "Source text in maps"
-    Most bundlers embed your original source code in each map, in the `sourcesContent` field. By default, `upload` sends it to Logfire, which uses it to show the source lines around each frame. Pass `--strip-sources` to send the maps without the source text. Resolved frames then show the original file, function and line, but no source lines.
+!!! warning "Your source code is in the maps"
+    Most bundlers embed your original source code in each map, in the `sourcesContent` field. By default, `upload` sends it to Logfire, and Logfire stores it with the map. Pass `--strip-sources` to send the maps without the source text. Frames still resolve to the original file, function, line and column.
+
+    Logfire has no page and no API that returns an uploaded map or its source text. Everyone who can read the project's data sees the resolved stack traces, which contain your original file and function names. You cannot delete an uploaded map yourself. Logfire deletes it at the end of its [retention](#retention).
+    <!-- TODO: confirm whether Logfire shows source lines from `sourcesContent`. The ingest step does not use the source text today. -->
+    <!-- TODO: document how to delete an uploaded map before the retention ends. No delete route exists yet. -->
 
 For a Next.js app, upload the browser chunks under `.next/static`, which Next.js serves from `/_next/static`:
 
@@ -119,9 +126,18 @@ npx logfire-cli --beta --region us sourcemap upload .next/static \
   --delete
 ```
 
+`--base-url-path` records the URL path of each bundle with its map. Logfire matches by debug ID only, so a wrong path does not stop resolution. For the same reason, a CDN (content delivery network) that serves the bundles from another origin changes nothing.
+<!-- TODO: the CLI describes this path as a fallback identity for frames without a debug ID. The ingest step does not use that fallback today. Update this paragraph if it ships. -->
+
+On Vercel, the build and the deploy are one step. Add the upload to the build command, after `next build`, and set `LOGFIRE_API_KEY` as an environment variable for the build:
+
+```bash
+next build && npx logfire-cli --beta --region us sourcemap upload .next/static --frontend-application-id <frontend-application-id> --base-url-path /_next/static --delete
+```
+
 ### Authentication
 
-`upload` reads the credential from `LOGFIRE_API_KEY`. Use a project API key with the `project:write_sourcemaps` scope. Create it on the project's API keys page in Logfire. The project comes from the key, so you do not pass it on the command line. Also pass `--region` (or `--base-url` for a self-hosted Logfire) so the CLI knows which Logfire instance to call.
+`upload` reads the credential from `LOGFIRE_API_KEY`. Use a project API key with the `project:write_sourcemaps` scope. Create it on the project's API keys page in Logfire. The project comes from the key, so you do not pass it on the command line. Also pass `--region` so the CLI knows which Logfire instance to call. The valid values are `us` and `eu`. For a self-hosted Logfire, pass `--base-url` with the URL of your instance.
 
 In GitHub Actions, store the key as a repository secret:
 
@@ -132,6 +148,20 @@ In GitHub Actions, store the key as a repository secret:
   env:
     LOGFIRE_API_KEY: ${{ secrets.LOGFIRE_API_KEY }}
 ```
+
+In GitLab CI, store the key as a masked CI/CD variable named `LOGFIRE_API_KEY`:
+
+```yaml
+build:
+  variables:
+    LOGFIRE_RELEASE: $CI_COMMIT_SHA
+  script:
+    - npm ci && npm run build
+    - npx logfire-cli --beta sourcemap inject dist
+    - npx logfire-cli --beta --region us sourcemap upload dist --frontend-application-id <frontend-application-id> --delete
+```
+
+`LOGFIRE_RELEASE` names the build. In GitHub Actions and on Vercel, the CLI reads the commit SHA from the environment.
 
 ### Options
 
@@ -144,7 +174,7 @@ These are the flags that this page uses:
 | `--base-url-path <PATH>` | The URL path that the directory is served from. The default is `/`. |
 | `--strip-sources` | Remove the embedded source text (`sourcesContent`) from the uploaded maps. Logfire then shows no source lines around a frame. |
 | `--delete` | Delete each `.map` file and the bundle's `sourceMappingURL` comment after the upload succeeds, so the maps do not ship to browsers. |
-| `--region <REGION>`, `--base-url <URL>` | The Logfire instance that the API key belongs to. |
+| `--region <REGION>`, `--base-url <URL>` | The Logfire instance that the API key belongs to: `us`, `eu`, or the URL of a self-hosted instance. |
 
 <!-- TODO: link to the public `logfire-cli` reference page for `sourcemap` when it is published. -->
 For the other flags, run `npx logfire-cli --beta sourcemap upload --help`.
@@ -164,6 +194,17 @@ The CLI prints one line per bundle with its debug ID and the result, then a summ
 
 A result other than stored or already uploaded shows as `failed`, with the reason from the server. If a file fails, the command exits with a non-zero code, so the CI job fails before the deploy.
 
+## Several apps and environments
+
+Logfire stores a map in the project that the API key belongs to. `inject` derives the debug ID from the bundle's bytes, so the same build output always has the same debug ID.
+
+| Setup | What to do |
+| --- | --- |
+| Staging and production deploy the same build output and send to one project. | Upload one time. The map resolves exceptions from both environments. |
+| Staging and production send to different projects. | Run `upload` one time for each project, with the API key of that project. Pass `--delete` only on the last run, because it removes the `.map` files. |
+| Each environment has its own build. | Run `inject` and `upload` for each build. |
+| A monorepo (one repository with several apps) | Run `inject` and `upload` for each app, on the build output directory of that app, with the `--frontend-application-id` of that app. |
+
 ## Late uploads
 
 Logfire resolves stack traces when it receives the data, not when you view it. An exception that arrives before its source map is uploaded stays minified, and a later upload does not change it. Logfire does not process a stored exception again. Exceptions that arrive after the upload resolve normally. So upload in CI before the deploy starts serving the new bundles.
@@ -171,6 +212,11 @@ Logfire resolves stack traces when it receives the data, not when you view it. A
 ## Retention
 
 Logfire deletes an uploaded source map 90 days after it was last used to resolve an exception. A map that no exception uses is deleted 90 days after its upload. This retention is separate from your data retention. Exceptions that were already resolved keep their resolved stack trace.
+
+## Quotas and billing
+
+Logfire limits how fast one organization uploads. When an upload reaches the limit, the CLI waits and tries again (see [Upload results](#upload-results)).
+<!-- TODO: state the storage quota for uploaded source maps, how Logfire bills them, and where to see usage. The platform code does not define these yet. -->
 
 ## Check the result
 
