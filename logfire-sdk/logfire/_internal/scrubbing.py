@@ -152,6 +152,8 @@ class ScrubbingOptions:
     The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
     String span messages also call it when a span ends, on the calling thread even if console output is disabled.
+    Tag values and the exception details printed by the console are also transformed when a span ends,
+    before any background span scrubbing. A later scrub pass may transform those values again.
     If the message is absent or empty, Logfire uses the span name as the input for the new message.
     An empty result stays empty in the span, and the console displays `<empty message>`.
     Nested strings in a nonempty, non-string message use the ordinary span scrubbing path instead.
@@ -250,6 +252,9 @@ class BaseScrubber(ABC):
     @abstractmethod
     def transform_message(self, value: str) -> str: ...
 
+    @abstractmethod
+    def transform_console_fields(self, span: ReadableSpanDict) -> None: ...
+
 
 class NoopScrubber(BaseScrubber):
     def scrub_span(self, span: ReadableSpanDict):  # pragma: no cover
@@ -264,6 +269,9 @@ class NoopScrubber(BaseScrubber):
 
     def transform_message(self, value: str) -> str:
         return value
+
+    def transform_console_fields(self, span: ReadableSpanDict) -> None:
+        pass
 
 
 NOOP_SCRUBBER = NoopScrubber()
@@ -315,6 +323,41 @@ class Scrubber(BaseScrubber):
         return SpanScrubber(self)._safely_transform_string(  # pyright: ignore[reportPrivateUsage]
             ('attributes', ATTRIBUTES_MESSAGE_KEY), value
         )
+
+    def transform_console_fields(self, span: ReadableSpanDict) -> None:
+        """Transform the fields printed by the console before background scrubbing."""
+        if self._transform_string is None:
+            return
+
+        transformer = SpanScrubber(self)
+        attributes = span['attributes']
+        tags = attributes.get(ATTRIBUTES_TAGS_KEY)
+        if isinstance(tags, (list, tuple)):
+            transformed_tags = tuple(
+                transformer._safely_transform_string(('attributes', ATTRIBUTES_TAGS_KEY, i), tag)  # pyright: ignore[reportPrivateUsage]
+                if isinstance(tag, str)
+                else tag
+                for i, tag in enumerate(tags)
+            )
+            if transformed_tags != tags:
+                span['attributes'] = {**attributes, ATTRIBUTES_TAGS_KEY: transformed_tags}
+
+        for i, event in enumerate(span['events']):
+            if event.name != 'exception' or not event.attributes:
+                continue
+            event_attributes = event.attributes
+            transformed_attributes = dict(event_attributes)
+            for key in ('exception.type', 'exception.message', 'exception.stacktrace'):
+                value = event_attributes.get(key)
+                if isinstance(value, str):
+                    transformed_attributes[key] = transformer._safely_transform_string(  # pyright: ignore[reportPrivateUsage]
+                        ('otel_events', i, 'attributes', key), value
+                    )
+            if transformed_attributes != event_attributes:
+                events = list(span['events'])
+                events[i] = Event(name=event.name, attributes=transformed_attributes, timestamp=event.timestamp)
+                span['events'] = events
+            break
 
 
 class SpanScrubber:

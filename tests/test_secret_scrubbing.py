@@ -14,7 +14,7 @@ from opentelemetry._logs import LogRecord, get_logger
 from opentelemetry.sdk._logs import ReadWriteLogRecord
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
-from opentelemetry.sdk.trace import ConcurrentMultiSpanProcessor, ReadableSpan, Span, SpanProcessor
+from opentelemetry.sdk.trace import ConcurrentMultiSpanProcessor, Event as SpanEvent, ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace import Status, StatusCode
@@ -1057,6 +1057,143 @@ def test_absent_message_defaults_to_span_name_before_transform():
     processor.on_end(ReadableSpan(name='alice@example.com', attributes={}))
 
     assert spans[0].attributes == {'logfire.msg': '[email]'}
+
+
+@pytest.mark.parametrize('background', [False, True])
+def test_console_tags_are_transformed_before_background_scrubbing(
+    exporter: TestExporter, config_kwargs: dict[str, Any], background: bool
+):
+    output = StringIO()
+    seen: list[StringValue] = []
+    caller = get_ident()
+    threads: list[tuple[tuple[str | int, ...], int]] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        threads.append((value.path, get_ident()))
+        return value.value.replace('alice@example.com', '[email]')
+
+    processor: SpanProcessor = BatchSpanProcessor(exporter) if background else SimpleSpanProcessor(exporter)
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output, colors='never', include_timestamps=False),
+        additional_span_processors=[processor],
+    )
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    logfire.with_tags('alice@example.com').info('hello')
+
+    assert logfire.force_flush()
+    assert 'alice@example.com' not in output.getvalue()
+    assert '[email]' in output.getvalue()
+    exported_attributes = exporter.exported_spans[-1].attributes
+    assert exported_attributes is not None
+    assert exported_attributes['logfire.tags'] == ('[email]',)
+    assert (('attributes', 'logfire.tags', 0), caller) in threads
+    assert StringValue(('attributes', 'logfire.tags', 0), 'alice@example.com') in seen
+
+
+@pytest.mark.parametrize('background', [False, True])
+def test_console_exception_is_transformed_before_background_scrubbing(
+    exporter: TestExporter, config_kwargs: dict[str, Any], background: bool
+):
+    output = StringIO()
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    processor: SpanProcessor = BatchSpanProcessor(exporter) if background else SimpleSpanProcessor(exporter)
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output, colors='never', include_timestamps=False),
+        additional_span_processors=[processor],
+    )
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    try:
+        raise ValueError('alice@example.com')
+    except ValueError:
+        logfire.exception('failed')
+
+    assert logfire.force_flush()
+    assert 'alice@example.com' not in output.getvalue()
+    assert '[email]' in output.getvalue()
+    event = exporter.exported_spans[-1].events[-1]
+    assert event.name == 'exception'
+    assert event.attributes is not None
+    assert event.attributes['exception.message'] == '[email]'
+    for key in ('exception.type', 'exception.message', 'exception.stacktrace'):
+        assert any(value.path == ('otel_events', 0, 'attributes', key) for value in seen)
+
+
+def test_early_console_transform_only_visits_printed_fields():
+    spans: list[ReadableSpan] = []
+    seen: list[tuple[str | int, ...]] = []
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    def transform(value: StringValue) -> str:
+        seen.append(value.path)
+        return value.value.replace('alice@example.com', '[email]')
+
+    processor = MainSpanProcessorWrapper(RecordingProcessor(), Scrubber(None, transform_string=transform))
+    processor.on_end(
+        ReadableSpan(
+            name='hello',
+            attributes={'logfire.tags': ('alice@example.com',), 'unrelated': 'alice@example.com'},
+            events=[
+                SpanEvent('other', {'value': 'alice@example.com'}),
+                SpanEvent(
+                    'exception',
+                    {
+                        'exception.type': 'ValueError',
+                        'exception.message': 'alice@example.com',
+                        'exception.stacktrace': 'alice@example.com',
+                        'other': 'alice@example.com',
+                    },
+                ),
+                SpanEvent('exception', {'exception.message': 'alice@example.com'}),
+            ],
+        )
+    )
+
+    assert seen == [
+        ('attributes', 'logfire.msg'),
+        ('attributes', 'logfire.tags', 0),
+        ('otel_events', 1, 'attributes', 'exception.type'),
+        ('otel_events', 1, 'attributes', 'exception.message'),
+        ('otel_events', 1, 'attributes', 'exception.stacktrace'),
+    ]
+    assert spans[0].attributes is not None
+    assert spans[0].attributes['unrelated'] == 'alice@example.com'
+    assert spans[0].events[0].attributes is not None
+    assert spans[0].events[0].attributes['value'] == 'alice@example.com'
+    assert spans[0].events[1].attributes is not None
+    assert spans[0].events[1].attributes['other'] == 'alice@example.com'
+    assert spans[0].events[2].attributes is not None
+    assert spans[0].events[2].attributes['exception.message'] == 'alice@example.com'
+
+
+def test_early_console_transform_continues_after_callback_error(monkeypatch: pytest.MonkeyPatch):
+    spans: list[ReadableSpan] = []
+    monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    def transform(value: StringValue) -> str:
+        if value.path == ('attributes', 'logfire.tags', 0):
+            raise ValueError('transform failed')
+        return value.value.replace('alice@example.com', '[email]')
+
+    processor = MainSpanProcessorWrapper(RecordingProcessor(), Scrubber(None, transform_string=transform))
+    processor.on_end(
+        ReadableSpan(name='hello', attributes={'logfire.tags': ('alice@example.com', 'alice@example.com')})
+    )
+
+    assert spans[0].attributes is not None
+    assert spans[0].attributes['logfire.tags'] == ('alice@example.com', '[email]')
 
 
 def test_whole_message_is_not_transformed_again_during_export(exporter: TestExporter, config_kwargs: dict[str, Any]):
