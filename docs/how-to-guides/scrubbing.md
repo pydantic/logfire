@@ -145,7 +145,7 @@ It will instead happen on the calling thread if any of the following are true:
 Message template fields are scrubbed on the calling thread. If `transform_string` is configured,
 Logfire also transforms the assembled message, tags, and displayed exception details on that thread.
 Keep objects with large string representations out of messages.
-If you need to log large objects, use a span attribute instead.
+If neither condition above applies, log large objects as span attributes so they can be scrubbed in the background.
 
 ## Security tips
 
