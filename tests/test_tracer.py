@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from typing import Any, cast
 
 from opentelemetry.sdk.trace import TracerProvider as SDKTracerProvider
 
@@ -66,17 +67,25 @@ def test_shutdown_waits_for_an_in_flight_flush() -> None:
     flush_thread.start()
     assert flush_started.wait(2)
 
-    shutdown_entered = threading.Event()
+    operation_lock = proxy.operation_lock
+    shutdown_attempted = threading.Event()
 
-    def shutdown() -> None:
-        shutdown_entered.set()
-        proxy.shutdown()
+    class NotifyingLock:
+        def __enter__(self) -> None:
+            shutdown_attempted.set()
+            operation_lock.acquire()
 
-    shutdown_thread = threading.Thread(target=shutdown, daemon=True)
+        def __exit__(self, *args: object) -> None:
+            operation_lock.release()
+
+    proxy.operation_lock = cast(Any, NotifyingLock())
+    shutdown_thread = threading.Thread(target=proxy.shutdown, daemon=True)
     shutdown_thread.start()
-    assert shutdown_entered.wait(2)
-    # The thread is inside proxy.shutdown, so the provider's shutdown must not run yet.
-    assert not shutdown_started.wait(0.5)
+
+    # Wait until shutdown actually tries to take the operation lock. A version without
+    # serialization never sets this event, so the test fails instead of passing by luck.
+    assert shutdown_attempted.wait(2)
+    assert not shutdown_started.is_set()
 
     release_flush.set()
     flush_thread.join(5)
