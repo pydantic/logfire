@@ -424,6 +424,8 @@ class SpanScrubber:
         elif isinstance(value, Mapping):
             result: dict[Any, Any] = {}
             for k, v in cast('Mapping[Any, Any]', value).items():
+                # Legacy provider payloads can contain user text. Match nested keys such as
+                # tool-call "password", but do not treat words in message text as secrets.
                 scoped_content = (
                     path == ('attributes',)
                     and self._scope_name in ('logfire.openai', 'logfire.anthropic')
@@ -432,6 +434,8 @@ class SpanScrubber:
                         or (k == 'events' and self._scope_name == 'logfire.openai')
                     )
                 )
+                # Tool and response schemas describe argument names. Preserve those keys,
+                # while still allowing transform_string to change their string values.
                 legacy_definition = (
                     path == ('attributes', 'request_data')
                     and self._scope_name in ('logfire.openai', 'logfire.anthropic')
