@@ -148,7 +148,8 @@ class ScrubbingOptions:
 
     Span names, status descriptions, span event names, and OpenTelemetry log-record event names are also transformed,
     without pattern matching.
-    Logfire control and source metadata, such as `logfire.span_type` and `code.filepath`, are excluded.
+    Root Logfire control and source attributes, such as `logfire.span_type` and `code.filepath`, are excluded.
+    Nested fields with the same names are transformed.
 
     The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
@@ -161,7 +162,7 @@ class ScrubbingOptions:
 
 
 class BaseScrubber(ABC):
-    # SDK control and source metadata: skip pattern matching and transform_string.
+    # Root SDK control and source attributes: skip pattern matching and transform_string.
     # This is a subset of SAFE_KEYS.
     NO_TRANSFORM_KEYS = {
         ATTRIBUTES_LOG_LEVEL_NUM_KEY,
@@ -185,7 +186,7 @@ class BaseScrubber(ABC):
 
     # All keys whose own names are exempt from pattern matching. By default,
     # their entire subtree also skips patterns but still transforms strings.
-    # NO_TRANSFORM_KEYS also skip transformation; KEY_ONLY_KEYS instead match
+    # NO_TRANSFORM_KEYS also skip transformation at the attribute root; KEY_ONLY_KEYS instead match
     # nested keys while leaving string values exempt from pattern matching.
     SAFE_KEYS = {
         *NO_TRANSFORM_KEYS,
@@ -470,7 +471,7 @@ class SpanScrubber:
                 # Tool and response schemas describe argument names. Preserve those keys,
                 # while still allowing transform_string to change their string values.
                 legacy_definition = legacy_request and k in ('tools', 'functions', 'response_format')
-                if k in BaseScrubber.NO_TRANSFORM_KEYS:
+                if path == ('attributes',) and k in BaseScrubber.NO_TRANSFORM_KEYS:
                     result[k] = v
                 elif legacy_definition or (k in BaseScrubber.SAFE_KEYS and k not in BaseScrubber.KEY_ONLY_KEYS):
                     result[k] = (
