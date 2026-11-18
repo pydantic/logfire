@@ -159,7 +159,7 @@ class ScrubbingOptions:
     A later scrub pass may transform those values again.
     If the message is absent or empty, Logfire uses the span name as the input for the new message.
     An empty result stays empty in the span, and the console displays `<empty message>`.
-    Nested strings in a nonempty, non-string message use the ordinary span scrubbing path instead.
+    A nonempty, non-string `logfire.msg` attribute is left unchanged, including any strings nested inside it.
     If the callback raises, Logfire logs the error and keeps the input string.
     """
 
