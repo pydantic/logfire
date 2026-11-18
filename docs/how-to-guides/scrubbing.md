@@ -142,7 +142,8 @@ It will instead happen on the calling thread if any of the following are true:
 
 Message template fields and the message as a whole are always scrubbed on the calling thread,
 so keep objects with large string representations out of messages.
-If you need to log large objects, use a span attribute instead.
+If you need to log large objects, use a span attribute so scrubbing can run in the background
+when neither of the conditions above applies.
 
 ## Security tips
 
