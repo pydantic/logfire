@@ -367,12 +367,7 @@ class SpanScrubber:
         attributes = span['attributes']
         tags = attributes.get(ATTRIBUTES_TAGS_KEY)
         if isinstance(tags, (list, tuple)):
-            transformed_tags = tuple(
-                self._safely_transform_string(('attributes', ATTRIBUTES_TAGS_KEY, i), tag)
-                if isinstance(tag, str)
-                else tag
-                for i, tag in enumerate(tags)
-            )
+            transformed_tags = tuple(self.scrub(('attributes', ATTRIBUTES_TAGS_KEY), tags, in_safe_key=True))
             if transformed_tags != tags:
                 span['attributes'] = {**attributes, ATTRIBUTES_TAGS_KEY: transformed_tags}
 
