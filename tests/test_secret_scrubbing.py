@@ -1174,6 +1174,31 @@ def test_early_console_transform_only_visits_printed_fields():
     assert spans[0].events[2].attributes['exception.message'] == 'alice@example.com'
 
 
+def test_early_console_transform_stops_at_empty_first_exception():
+    seen: list[tuple[str | int, ...]] = []
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            pass
+
+    def transform(value: StringValue) -> str:
+        seen.append(value.path)
+        return value.value
+
+    processor = MainSpanProcessorWrapper(RecordingProcessor(), Scrubber(None, transform_string=transform))
+    processor.on_end(
+        ReadableSpan(
+            name='hello',
+            events=[
+                SpanEvent('exception', {}),
+                SpanEvent('exception', {'exception.message': 'alice@example.com'}),
+            ],
+        )
+    )
+
+    assert seen == [('attributes', 'logfire.msg')]
+
+
 def test_early_console_transform_continues_after_callback_error(monkeypatch: pytest.MonkeyPatch):
     spans: list[ReadableSpan] = []
     monkeypatch.setattr(utils, 'log_internal_error', lambda: None)

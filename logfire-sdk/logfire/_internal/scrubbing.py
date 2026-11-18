@@ -343,8 +343,10 @@ class Scrubber(BaseScrubber):
                 span['attributes'] = {**attributes, ATTRIBUTES_TAGS_KEY: transformed_tags}
 
         for i, event in enumerate(span['events']):
-            if event.name != 'exception' or not event.attributes:
+            if event.name != 'exception':
                 continue
+            if not event.attributes:
+                break
             event_attributes = event.attributes
             transformed_attributes = dict(event_attributes)
             for key in ('exception.type', 'exception.message', 'exception.stacktrace'):
