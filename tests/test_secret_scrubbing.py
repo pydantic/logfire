@@ -577,6 +577,7 @@ def test_log_message_transforms_before_console_and_export(
     assert calls == ['alice@example.com']
     (log,) = logs_exporter.exported_logs_as_dicts()
     assert log['attributes']['logfire.msg'] == replacement
+    assert log['body'] == body.replace('alice@example.com', '[email]')
     assert (replacement or '<empty message>') in output.getvalue()
     assert 'alice@example.com' not in output.getvalue()
     assert 'fallback' not in output.getvalue()
