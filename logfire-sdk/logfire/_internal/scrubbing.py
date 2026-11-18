@@ -278,10 +278,7 @@ class Scrubber(BaseScrubber):
 
     def scrub_span(self, span: ReadableSpanDict):
         scope = span['instrumentation_scope']
-        if scope and scope.name in ['logfire.openai', 'logfire.anthropic']:
-            return
-
-        span_scrubber = SpanScrubber(self)
+        span_scrubber = SpanScrubber(self, scope_name=scope.name if scope else None)
         span_scrubber.scrub_span(span)
         if span_scrubber.scrubbed:
             attributes = span['attributes']
@@ -308,12 +305,13 @@ class SpanScrubber:
     and hold and mutate state about the span being scrubbed, specifically the scrubbed notes.
     """
 
-    def __init__(self, parent: Scrubber):
+    def __init__(self, parent: Scrubber, *, scope_name: str | None = None):
         self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self._transform_string = parent._transform_string  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
+        self._scope_name = scope_name
 
     def _safely_transform_string(self, path: JsonPath, value: str) -> str:
         if self._transform_string is None:
@@ -426,15 +424,30 @@ class SpanScrubber:
         elif isinstance(value, Mapping):
             result: dict[Any, Any] = {}
             for k, v in cast('Mapping[Any, Any]', value).items():
+                scoped_content = (
+                    path == ('attributes',)
+                    and self._scope_name in ('logfire.openai', 'logfire.anthropic')
+                    and (
+                        k in ('request_data', 'response_data')
+                        or (k == 'events' and self._scope_name == 'logfire.openai')
+                    )
+                )
+                legacy_definition = (
+                    path == ('attributes', 'request_data')
+                    and self._scope_name in ('logfire.openai', 'logfire.anthropic')
+                    and k in ('tools', 'functions', 'response_format')
+                )
                 if k in BaseScrubber.NO_TRANSFORM_KEYS:
                     result[k] = v
-                elif k in BaseScrubber.SAFE_KEYS and k not in BaseScrubber.KEY_ONLY_KEYS:
+                elif legacy_definition or (k in BaseScrubber.SAFE_KEYS and k not in BaseScrubber.KEY_ONLY_KEYS):
                     result[k] = (
                         self.scrub(path + (k,), v, in_safe_key=True) if self._transform_string is not None else v
                     )
                 else:
                     child_path = path + (k,)
-                    scrubbed = self.scrub(child_path, v, in_safe_key, key_only or k in BaseScrubber.KEY_ONLY_KEYS)
+                    scrubbed = self.scrub(
+                        child_path, v, in_safe_key, key_only or scoped_content or k in BaseScrubber.KEY_ONLY_KEYS
+                    )
                     if not in_safe_key and isinstance(k, str) and (match := self._pattern.search(k)):
                         redacted = self._scrub_matches(child_path, scrubbed, match)
                         if (
