@@ -169,7 +169,15 @@ def _pydantic_model_encoder(o: Any, seen: set[int]) -> JsonValue:
         return to_json_value(o.root, seen)  # pyright: ignore[reportUnknownMemberType]
 
     try:
-        dump = o.model_dump()
+        # Like dataclass and attrs fields, fields with repr=False are left out.
+        cls = type(o)
+        computed_fields = cls.model_computed_fields
+        if isinstance(computed_fields, property):  # pragma: no cover
+            # pydantic 2.4 and 2.5 only have it on instances.
+            computed_fields = o.model_computed_fields  # pyright: ignore[reportDeprecated]
+        fields = {**cls.model_fields, **computed_fields}
+        hidden = {name for name, field in fields.items() if not field.repr}
+        dump = o.model_dump(exclude=hidden or None)
     except AttributeError:  # pragma: no cover
         # pydantic v1
         dump = o.dict()  # pyright: ignore[reportDeprecated]
