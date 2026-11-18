@@ -11,6 +11,7 @@ import pytest
 from dirty_equals import IsJson, IsPartialDict
 from inline_snapshot import snapshot
 from opentelemetry._logs import LogRecord, get_logger
+from opentelemetry.sdk._logs import ReadWriteLogRecord
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.sdk.trace import ConcurrentMultiSpanProcessor, ReadableSpan, Span, SpanProcessor
@@ -22,6 +23,7 @@ from opentelemetry.trace.propagation import get_current_span
 import logfire
 from logfire._internal import utils
 from logfire._internal.exporters import processor_wrapper
+from logfire._internal.exporters.logs import MainLogProcessorWrapper
 from logfire._internal.exporters.processor_wrapper import (
     MainSpanProcessorWrapper,
     ScrubbingSpanProcessor,
@@ -581,6 +583,20 @@ def test_log_message_transforms_before_console_and_export(
     assert (replacement or '<empty message>') in output.getvalue()
     assert 'alice@example.com' not in output.getvalue()
     assert 'fallback' not in output.getvalue()
+
+
+def test_log_message_transform_with_plain_attributes(logs_exporter: TestLogExporter):
+    record = ReadWriteLogRecord(log_record=LogRecord())
+    record.log_record.attributes = {'logfire.msg': 'alice@example.com'}
+    processor = MainLogProcessorWrapper(
+        SimpleLogRecordProcessor(logs_exporter),
+        Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]')),
+    )
+
+    processor.on_emit(record)
+
+    (log,) = logs_exporter.exported_logs_as_dicts()
+    assert log['attributes']['logfire.msg'] == '[email]'
 
 
 def test_scrub_log_event_attribute(logs_exporter: TestLogExporter):
