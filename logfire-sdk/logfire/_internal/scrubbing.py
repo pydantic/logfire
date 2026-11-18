@@ -12,12 +12,13 @@ import typing_extensions
 from opentelemetry._logs import LogRecord
 from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.trace import Event
-from opentelemetry.trace import Link
+from opentelemetry.trace import Link, Status
+
+from logfire.types import StringValue
 
 from .constants import (
     ATTRIBUTES_CONFIG,
     ATTRIBUTES_JSON_SCHEMA_KEY,
-    ATTRIBUTES_LOG_LEVEL_NAME_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_LOGGING_NAME,
     ATTRIBUTES_MESSAGE_KEY,
@@ -142,26 +143,60 @@ class ScrubbingOptions:
     The specified patterns are combined with the default patterns.
     """
 
+    transform_string: Callable[[StringValue], str] | None = None
+    """Transform string values before pattern matching, including values under safe keys.
+
+    Span names, status descriptions, and event names are also transformed, without pattern matching.
+    Logfire control and source metadata, such as `logfire.span_type` and `code.filepath`, are excluded.
+
+    The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
+    It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
+    String span messages also call it when a span ends, on the calling thread even if console output is disabled.
+    If the message is absent or empty, Logfire uses the span name as the input for the new message.
+    An empty result stays empty in the span, and the console displays `<empty message>`.
+    Nested strings in a nonempty, non-string message use the ordinary span scrubbing path instead.
+    If the callback raises, Logfire logs the error and keeps the input string.
+    """
+
 
 class BaseScrubber(ABC):
-    # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
-    # Some of these are just here for performance.
-    SAFE_KEYS = {
-        ATTRIBUTES_MESSAGE_KEY,  # Formatted field values are scrubbed separately
-        ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
-        ATTRIBUTES_JSON_SCHEMA_KEY,
-        ATTRIBUTES_TAGS_KEY,
-        ATTRIBUTES_LOG_LEVEL_NAME_KEY,
+    # SDK control and source metadata: skip pattern matching and transform_string.
+    # This is a subset of SAFE_KEYS.
+    NO_TRANSFORM_KEYS = {
         ATTRIBUTES_LOG_LEVEL_NUM_KEY,
         ATTRIBUTES_SPAN_TYPE_KEY,
         ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
         ATTRIBUTES_SAMPLE_RATE_KEY,
+        *STACK_INFO_KEYS,
+        # Formatted field values are scrubbed separately,
+        # and then the span or log processor transforms the whole message
+        ATTRIBUTES_MESSAGE_KEY,
+    }
+
+    # Structured content with prose: transform strings and match nested keys,
+    # but do not pattern-match string values. This is a subset of SAFE_KEYS.
+    KEY_ONLY_KEYS = {
+        'pydantic_ai.all_messages',
+        gen_ai_semconv.INPUT_MESSAGES,
+        gen_ai_semconv.OUTPUT_MESSAGES,
+        gen_ai_semconv.SYSTEM_INSTRUCTIONS,
+    }
+
+    # All keys whose own names are exempt from pattern matching. By default,
+    # their entire subtree also skips patterns but still transforms strings.
+    # NO_TRANSFORM_KEYS also skip transformation; KEY_ONLY_KEYS instead match
+    # nested keys while leaving string values exempt from pattern matching.
+    SAFE_KEYS = {
+        *NO_TRANSFORM_KEYS,
+        *KEY_ONLY_KEYS,
+        ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+        ATTRIBUTES_JSON_SCHEMA_KEY,
+        ATTRIBUTES_TAGS_KEY,
         ATTRIBUTES_LOGGING_NAME,
         ATTRIBUTES_SCRUBBED_KEY,
         ATTRIBUTES_CONFIG,
         ATTRIBUTES_PACKAGE_VERSIONS,
         RESOURCE_ATTRIBUTES_VERSION,
-        *STACK_INFO_KEYS,
         'exception.stacktrace',
         'exception.type',
         'exception.message',
@@ -184,14 +219,10 @@ class BaseScrubber(ABC):
         'agent_session_id',
         'do_not_scrub',
         'binary_content',
-        'pydantic_ai.all_messages',
         'rpc.method',
         'model_request_parameters',
         'langsmith.metadata.session_id',
         'langsmith.trace.session_name',
-        gen_ai_semconv.INPUT_MESSAGES,
-        gen_ai_semconv.OUTPUT_MESSAGES,
-        gen_ai_semconv.SYSTEM_INSTRUCTIONS,
         gen_ai_semconv.TOOL_DEFINITIONS,
         gen_ai_semconv.TOOL_NAME,
         gen_ai_semconv.TOOL_CALL_ID,
@@ -216,6 +247,9 @@ class BaseScrubber(ABC):
     @abstractmethod
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...
 
+    @abstractmethod
+    def transform_message(self, value: str) -> str: ...
+
 
 class NoopScrubber(BaseScrubber):
     def scrub_span(self, span: ReadableSpanDict):  # pragma: no cover
@@ -228,6 +262,9 @@ class NoopScrubber(BaseScrubber):
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
         return value, []
 
+    def transform_message(self, value: str) -> str:
+        return value
+
 
 NOOP_SCRUBBER = NoopScrubber()
 
@@ -235,11 +272,17 @@ NOOP_SCRUBBER = NoopScrubber()
 class Scrubber(BaseScrubber):
     """Redacts potentially sensitive data."""
 
-    def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
+    def __init__(
+        self,
+        patterns: Sequence[str] | None,
+        callback: ScrubCallback | None = None,
+        transform_string: Callable[[StringValue], str] | None = None,
+    ):
         # See ScrubbingOptions for more info on these parameters.
         patterns = [_DEFAULT_PATTERN, *(patterns or [])]
         self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
         self._callback = callback
+        self._transform_string = transform_string
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
         span_scrubber = SpanScrubber(self)
@@ -269,6 +312,13 @@ class Scrubber(BaseScrubber):
         result = span_scrubber.scrub(path, value)
         return result, span_scrubber.scrubbed
 
+    def transform_message(self, value: str) -> str:
+        if self._transform_string is None:
+            return value
+        return SpanScrubber(self)._safely_transform_string(  # pyright: ignore[reportPrivateUsage]
+            ('attributes', ATTRIBUTES_MESSAGE_KEY), value
+        )
+
 
 class SpanScrubber:
     """Does the actual scrubbing work.
@@ -280,10 +330,27 @@ class SpanScrubber:
     def __init__(self, parent: Scrubber):
         self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
+        self._transform_string = parent._transform_string  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
 
+    def _safely_transform_string(self, path: JsonPath, value: str) -> str:
+        if self._transform_string is None:
+            return value
+        transformed = value
+        with handle_internal_errors:
+            transformed = self._transform_string(StringValue(path, value))
+        return transformed
+
     def scrub_span(self, span: ReadableSpanDict):
+        span['name'] = self._safely_transform_string(('span_name',), span['name'])
+        status = span['status']
+        if status.description is not None and self._transform_string is not None:
+            span['status'] = Status(
+                status_code=status.status_code,
+                description=self._safely_transform_string(('otel_status_message',), status.description),
+            )
+
         # We need to use BoundedAttributes because:
         # 1. For events and links, we get an error otherwise:
         #      https://github.com/open-telemetry/opentelemetry-python/issues/3761
@@ -296,9 +363,7 @@ class SpanScrubber:
 
         span['events'] = [
             Event(
-                # We don't scrub the event name because in theory it should be a low-cardinality general description,
-                # not containing actual data. The same applies to the span name, which just isn't mentioned here.
-                name=event.name,
+                name=self._safely_transform_string(('otel_events', i, 'name'), event.name),
                 attributes=BoundedAttributes(attributes=self.scrub_event_attributes(event, i)),
                 timestamp=event.timestamp,
             )
@@ -335,7 +400,7 @@ class SpanScrubber:
         # We used to scrub exception messages here, git blame this line if you want to restore that logic.
         return new_attributes
 
-    def scrub(self, path: JsonPath, value: Any) -> Any:
+    def scrub(self, path: JsonPath, value: Any, in_safe_key: bool = False, key_only: bool = False) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
 
         `path` is a list of keys and indices leading to `value` in the span.
@@ -348,11 +413,15 @@ class SpanScrubber:
                 try:
                     decoded = json.loads(value)
                     scrub_count_before = self.scrub_count
-                    scrubbed = self.scrub(path, decoded)
+                    scrubbed = self.scrub(path, decoded, in_safe_key, key_only)
                     return logfire_json_dumps(scrubbed) if self.scrub_count != scrub_count_before else value
                 except (ValueError, RecursionError):
                     pass
-            if match := self._pattern.search(value):
+            transformed = self._safely_transform_string(path, value)
+            if transformed != value:
+                self.scrub_count += 1
+                value = transformed
+            if not in_safe_key and not key_only and (match := self._pattern.search(value)):
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
@@ -367,19 +436,25 @@ class SpanScrubber:
                 text = binary.decode()
             except UnicodeDecodeError:
                 return binary
-            scrubbed = self.scrub(path, text)
+            scrubbed = self.scrub(path, text, in_safe_key, key_only)
             return binary if scrubbed == text else scrubbed
         elif isinstance(value, Sequence):
-            return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
+            return [
+                self.scrub(path + (i,), x, in_safe_key, key_only) for i, x in enumerate(cast('Sequence[Any]', value))
+            ]
         elif isinstance(value, Mapping):
             result: dict[Any, Any] = {}
             for k, v in cast('Mapping[Any, Any]', value).items():
-                if k in BaseScrubber.SAFE_KEYS:
+                if k in BaseScrubber.NO_TRANSFORM_KEYS:
                     result[k] = v
+                elif k in BaseScrubber.SAFE_KEYS and k not in BaseScrubber.KEY_ONLY_KEYS:
+                    result[k] = (
+                        self.scrub(path + (k,), v, in_safe_key=True) if self._transform_string is not None else v
+                    )
                 else:
                     child_path = path + (k,)
-                    scrubbed = self.scrub(child_path, v)
-                    if isinstance(k, str) and (match := self._pattern.search(k)):
+                    scrubbed = self.scrub(child_path, v, in_safe_key, key_only or k in BaseScrubber.KEY_ONLY_KEYS)
+                    if not in_safe_key and isinstance(k, str) and (match := self._pattern.search(k)):
                         redacted = self._scrub_matches(child_path, scrubbed, match)
                         if (
                             isinstance(redacted, str)
@@ -454,16 +529,15 @@ class MessageValueCleaner:
         # Scrub before truncating so that the scrubber can see the full value.
         # For example, if the value contains 'password=123' and 'password' is replaced by '...'
         # because of truncation, then that leaves '=123' in the message, which is not good.
-        if field_name not in self.scrubber.SAFE_KEYS:
-            if self.check_keys:
-                # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
-                scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
-                value = scrubbed_value[field_name]
-            else:
-                # Whereas having the key in the path doesn't affect the scrubbing result,
-                # so this only looks at `value` itself.
-                value, scrubbed_notes = self.scrubber.scrub_value(('message', field_name), value)
-            self.scrubbed.extend(scrubbed_notes)
+        if self.check_keys or field_name in self.scrubber.SAFE_KEYS:
+            # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
+            scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
+            value = scrubbed_value[field_name]
+        else:
+            # Whereas having the key in the path doesn't affect the scrubbing result,
+            # so this only looks at `value` itself.
+            value, scrubbed_notes = self.scrubber.scrub_value(('message', field_name), value)
+        self.scrubbed.extend(scrubbed_notes)
         return self.truncate(value)
 
     def truncate(self, value: str) -> str:

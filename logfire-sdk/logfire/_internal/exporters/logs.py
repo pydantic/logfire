@@ -3,13 +3,15 @@ from dataclasses import dataclass
 from time import monotonic_ns
 from typing import cast
 
+from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk._logs import LogRecordLimits, LogRecordProcessor, ReadableLogRecord, ReadWriteLogRecord
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogRecordExporter, LogRecordExportResult
 
 import logfire
+from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.exporters.wrapper import WrapperLogProcessor
 from logfire._internal.scrubbing import BaseScrubber
-from logfire._internal.utils import is_instrumentation_suppressed
+from logfire._internal.utils import handle_internal_errors, is_instrumentation_suppressed
 
 
 class CheckSuppressInstrumentationLogProcessorWrapper(WrapperLogProcessor):
@@ -31,6 +33,23 @@ class MainLogProcessorWrapper(WrapperLogProcessor):
 
     def on_emit(self, log_record: ReadWriteLogRecord):
         log_record.log_record = self.scrubber.scrub_log(log_record.log_record)
+        with handle_internal_errors:
+            attributes = log_record.log_record.attributes
+            if attributes is not None and isinstance(message := attributes.get(ATTRIBUTES_MESSAGE_KEY), str):
+                transformed = self.scrubber.transform_message(message)
+                if transformed != message:
+                    if isinstance(attributes, BoundedAttributes):
+                        # Older OTel versions need extended_attributes for structured log attributes.
+                        log_record.log_record.attributes = BoundedAttributes(  # pyright: ignore[reportDeprecated]
+                            attributes={**attributes, ATTRIBUTES_MESSAGE_KEY: transformed},
+                            maxlen=attributes.maxlen,
+                            max_value_len=attributes.max_value_len,
+                            extended_attributes=True,
+                        )
+                    else:
+                        log_record.log_record.attributes = BoundedAttributes(
+                            attributes={**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
+                        )
         return super().on_emit(log_record)
 
 

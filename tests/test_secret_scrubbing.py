@@ -12,18 +12,28 @@ import pytest
 from dirty_equals import IsJson, IsPartialDict
 from inline_snapshot import snapshot
 from opentelemetry._logs import LogRecord, get_logger
+from opentelemetry.sdk._logs import ReadWriteLogRecord
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.sdk.trace import ConcurrentMultiSpanProcessor, ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from opentelemetry.sdk.util.instrumentation import InstrumentationScope
+from opentelemetry.trace import StatusCode
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
-from logfire._internal.exporters.logs import BackgroundScrubbingLogProcessor
-from logfire._internal.exporters.processor_wrapper import SpanProcessorGroup
+from logfire._internal import utils
+from logfire._internal.exporters import processor_wrapper
+from logfire._internal.exporters.logs import BackgroundScrubbingLogProcessor, MainLogProcessorWrapper
+from logfire._internal.exporters.processor_wrapper import (
+    MainSpanProcessorWrapper,
+    ScrubbingSpanProcessor,
+    SpanProcessorGroup,
+)
 from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
+from logfire.types import StringValue
 
 
 def test_span_processor_group_flushes_after_failure():
@@ -607,6 +617,50 @@ def test_scrub_attribute(exporter: TestExporter):
     )
 
 
+@pytest.mark.parametrize('replacement', ['[email]', ''])
+@pytest.mark.parametrize('body', ['fallback', 'alice@example.com'])
+def test_log_message_transforms_before_console_and_export(
+    logs_exporter: TestLogExporter, config_kwargs: dict[str, Any], replacement: str, body: str
+):
+    output = StringIO()
+    calls: list[str] = []
+
+    def transform(value: StringValue) -> str:
+        if value.path == ('attributes', 'logfire.msg'):
+            calls.append(value.value)
+            return replacement
+        return value.value.replace('alice@example.com', '[email]')
+
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(transform_string=transform),
+    )
+    logfire.configure(**config_kwargs)
+    get_logger(__name__).emit(LogRecord(body=body, attributes={'logfire.msg': 'alice@example.com'}))
+
+    assert calls == ['alice@example.com']
+    (log,) = logs_exporter.exported_logs_as_dicts()
+    assert log['attributes']['logfire.msg'] == replacement
+    assert log['body'] == body.replace('alice@example.com', '[email]')
+    assert (replacement or '<empty message>') in output.getvalue()
+    assert 'alice@example.com' not in output.getvalue()
+    assert 'fallback' not in output.getvalue()
+
+
+def test_log_message_transform_with_plain_attributes(logs_exporter: TestLogExporter):
+    record = ReadWriteLogRecord(log_record=LogRecord())
+    record.log_record.attributes = {'logfire.msg': 'alice@example.com'}
+    processor = MainLogProcessorWrapper(
+        SimpleLogRecordProcessor(logs_exporter),
+        Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]')),
+    )
+
+    processor.on_emit(record)
+
+    (log,) = logs_exporter.exported_logs_as_dicts()
+    assert log['attributes']['logfire.msg'] == '[email]'
+
+
 def test_scrub_log_event_attribute(logs_exporter: TestLogExporter):
     get_logger(__name__).emit(
         LogRecord(
@@ -713,6 +767,393 @@ def test_scrub_binary_values(value: bytes, expected: bytes | str, expected_notes
 
     assert result == expected
     assert [note['matched_substring'] for note in scrubbed_notes] == expected_notes
+
+
+def test_transform_string_before_pattern_callback_and_inside_json():
+    seen: list[StringValue] = []
+    matches: list[logfire.ScrubMatch] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    def callback(match: logfire.ScrubMatch):
+        matches.append(match)
+        if match.path == ('attributes', 'password_hint'):
+            assert match.value == '[email]'
+            return match.value
+
+    result, notes = Scrubber(None, callback, transform).scrub_value(
+        ('attributes',), {'password_hint': 'alice@example.com', 'data': '{ "contact": "alice@example.com" }'}
+    )
+
+    assert result == {'password_hint': '[email]', 'data': '{"contact":"[email]"}'}
+    assert notes == []
+    assert [(value.path, value.value) for value in seen] == [
+        (('attributes', 'password_hint'), 'alice@example.com'),
+        (('attributes', 'data', 'contact'), 'alice@example.com'),
+    ]
+    assert [(match.path, match.value) for match in matches] == [(('attributes', 'password_hint'), '[email]')]
+
+
+def test_transform_string_in_safe_key_skips_all_nested_patterns():
+    def transform(value: StringValue) -> str:
+        return value.value.replace('alice@example.com', '[email]')
+
+    original = {'do_not_scrub': {'password': 'secret=alice@example.com', 'data': '{"secret":"alice@example.com"}'}}
+    result, notes = Scrubber(None, transform_string=transform).scrub_value(('attributes',), original)
+
+    assert result == {'do_not_scrub': {'password': 'secret=[email]', 'data': '{"secret":"[email]"}'}}
+    assert notes == []
+    result_without_transform, notes_without_transform = Scrubber(None).scrub_value(('attributes',), original)
+    assert result_without_transform == original
+    assert result_without_transform['do_not_scrub'] is original['do_not_scrub']
+    assert notes_without_transform == []
+
+
+@pytest.mark.parametrize(
+    'key',
+    [
+        'pydantic_ai.all_messages',
+        'gen_ai.input.messages',
+        'gen_ai.output.messages',
+        'gen_ai.system_instructions',
+    ],
+)
+def test_gen_ai_content_matches_nested_keys_but_not_string_values(key: str):
+    value = json.dumps({'content': 'The URL contains /auth', 'arguments': {'password': 'hunter2'}})
+
+    result, notes = Scrubber(None).scrub_value(('attributes',), {key: value})
+
+    assert json.loads(result[key]) == {
+        'content': 'The URL contains /auth',
+        'arguments': {'password': "[Scrubbed due to 'password']"},
+    }
+    assert notes == [{'path': ('attributes', key, 'arguments', 'password'), 'matched_substring': 'password'}]
+
+
+def test_custom_pattern_can_match_gen_ai_attribute_name():
+    result, notes = Scrubber([r'gen_ai[.]input[.]messages']).scrub_value(
+        ('attributes',), {'gen_ai.input.messages': '{"content":"ordinary text"}'}
+    )
+
+    assert result == {'gen_ai.input.messages': "[Scrubbed due to 'gen_ai.input.messages']"}
+    assert notes == [{'path': ('attributes', 'gen_ai.input.messages'), 'matched_substring': 'gen_ai.input.messages'}]
+
+
+@pytest.mark.parametrize('key', ['gen_ai.tool.call.arguments', 'gen_ai.tool.call.result'])
+def test_standalone_gen_ai_tool_payloads_still_match_string_values(key: str):
+    result, notes = Scrubber(None).scrub_value(('attributes',), {key: '{"stdout":"password=hunter2"}'})
+
+    assert json.loads(result[key]) == {'stdout': "[Scrubbed due to 'password']"}
+    assert notes == [{'path': ('attributes', key, 'stdout'), 'matched_substring': 'password'}]
+
+
+def test_gen_ai_definition_keeps_schema_keys_and_transforms_values():
+    def transform(value: StringValue) -> str:
+        return value.value.replace('alice@example.com', '[email]')
+
+    value = {
+        'gen_ai.tool.definitions': json.dumps(
+            [{'parameters': {'properties': {'password': {'description': 'alice@example.com'}}}}]
+        ),
+        'gen_ai.input.messages': json.dumps({'content': 'alice@example.com and /auth'}),
+    }
+
+    result, notes = Scrubber(None, transform_string=transform).scrub_value(('attributes',), value)
+
+    assert json.loads(result['gen_ai.tool.definitions']) == [
+        {'parameters': {'properties': {'password': {'description': '[email]'}}}}
+    ]
+    assert json.loads(result['gen_ai.input.messages']) == {'content': '[email] and /auth'}
+    assert notes == []
+
+
+def test_transform_string_skips_control_attributes():
+    seen: list[tuple[str | int, ...]] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value.path)
+        return value.value.replace('alice@example.com', '[email]')
+
+    original = {
+        'logfire.span_type': 'span',
+        'logfire.json_schema': '{"description":"alice@example.com"}',
+        'logfire.scrubbed': '[{"matched_substring":"alice@example.com"}]',
+        'code.filepath': 'alice@example.com',
+        'code.function': 'alice@example.com',
+        'code.lineno': 42,
+        'payload': {'contact': 'alice@example.com'},
+    }
+    result, notes = Scrubber(None, transform_string=transform).scrub_value(('attributes',), original)
+
+    assert result == {
+        **original,
+        'logfire.json_schema': '{"description":"[email]"}',
+        'logfire.scrubbed': '[{"matched_substring":"[email]"}]',
+        'payload': {'contact': '[email]'},
+    }
+    assert seen == [
+        ('attributes', 'logfire.json_schema', 'description'),
+        ('attributes', 'logfire.scrubbed', 0, 'matched_substring'),
+        ('attributes', 'payload', 'contact'),
+    ]
+    assert notes == []
+
+
+def test_internal_exception_in_transform_string_keeps_value_and_continues_pattern_search(
+    caplog: pytest.LogCaptureFixture,
+):
+    def transform(value: StringValue) -> str:
+        raise ValueError('transform failed')
+
+    result, notes = Scrubber(None, transform_string=transform).scrub_value(
+        ('attributes',), {'plain': 'alice@example.com', 'password': 'hunter2', 'do_not_scrub': 'secret=hunter2'}
+    )
+
+    assert result == {
+        'plain': 'alice@example.com',
+        'password': "[Scrubbed due to 'password']",
+        'do_not_scrub': 'secret=hunter2',
+    }
+    assert notes == [{'path': ('attributes', 'password'), 'matched_substring': 'password'}]
+    assert 'transform failed' in caplog.text
+
+
+def test_transform_string_writes_attributes_without_scrubbed_note(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    logfire.configure(
+        **config_kwargs,
+        scrubbing=logfire.ScrubbingOptions(
+            transform_string=lambda value: value.value.replace('alice@example.com', '[email]')
+        ),
+    )
+    logfire.info('Example', contact='alice@example.com')
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['contact'] == '[email]'
+    assert 'logfire.scrubbed' not in span['attributes']
+
+
+def test_whole_message_is_transformed_before_console(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    seen: list[StringValue] = []
+    output = StringIO()
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(transform_string=transform),
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('alice@example.com')
+
+    assert 'alice@example.com' not in output.getvalue()
+    assert '[email]' in output.getvalue()
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == '[email]'
+    message_values = [value.value for value in seen if value.path == ('attributes', 'logfire.msg')]
+    assert message_values == ['alice@example.com']
+
+
+def test_missing_message_defaults_to_span_name_before_console_transform(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    from opentelemetry import trace
+
+    output = StringIO()
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(
+            transform_string=lambda value: value.value.replace('alice@example.com', '[email]')
+        ),
+    )
+    logfire.configure(**config_kwargs)
+    with trace.get_tracer('test').start_as_current_span('alice@example.com', attributes={'logfire.msg': ''}):
+        pass
+
+    assert '[email]' in output.getvalue()
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == '[email]'
+    assert span['name'] == '[email]'
+
+
+def test_empty_transformed_message_does_not_expose_span_name(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    from opentelemetry import trace
+
+    output = StringIO()
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(
+            transform_string=lambda value: '' if value.path == ('attributes', 'logfire.msg') else value.value
+        ),
+    )
+    logfire.configure(**config_kwargs)
+    with trace.get_tracer('test').start_as_current_span(
+        'alice@example.com', attributes={'logfire.msg': 'alice@example.com'}
+    ):
+        pass
+
+    assert 'alice@example.com' not in output.getvalue()
+    assert '<empty message>' in output.getvalue()
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == ''
+
+
+def test_empty_span_message_displays_placeholder(config_kwargs: dict[str, Any]):
+    from opentelemetry import trace
+
+    output = StringIO()
+    config_kwargs['console'] = logfire.ConsoleOptions(output=output)
+    logfire.configure(**config_kwargs)
+    with trace.get_tracer('test').start_as_current_span('operation', attributes={'logfire.msg': ''}):
+        pass
+
+    assert '<empty message>' in output.getvalue()
+    assert 'operation' not in output.getvalue()
+
+
+@pytest.mark.parametrize('scope_name', ['logfire.openai', 'logfire.anthropic'])
+def test_legacy_llm_message_is_transformed_early(scope_name: str):
+    spans: list[ReadableSpan] = []
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    processor = MainSpanProcessorWrapper(
+        RecordingProcessor(),
+        Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]')),
+    )
+    processor.on_end(
+        ReadableSpan(
+            name='call',
+            attributes={'logfire.msg': 'alice@example.com'},
+            instrumentation_scope=InstrumentationScope(scope_name),
+        )
+    )
+
+    assert spans[0].attributes == {'logfire.msg': '[email]'}
+
+
+def test_absent_message_defaults_to_span_name_before_transform():
+    spans: list[ReadableSpan] = []
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    processor = MainSpanProcessorWrapper(
+        RecordingProcessor(),
+        Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]')),
+    )
+    processor.on_end(ReadableSpan(name='alice@example.com', attributes={}))
+
+    assert spans[0].attributes == {'logfire.msg': '[email]'}
+
+
+def test_whole_message_is_not_transformed_again_during_export(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    message_calls = 0
+
+    def transform(value: StringValue) -> str:
+        nonlocal message_calls
+        if value.path == ('attributes', 'logfire.msg'):
+            message_calls += 1
+            return value.value + 'z' * 5000
+        return value.value
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    logfire.info('hello')
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == 'hello' + 'z' * 5000
+    assert message_calls == 1
+
+
+@pytest.mark.parametrize(
+    ('failing_step', 'expected_message'),
+    [('normalization', '[email]'), ('message_transform', 'alice@example.com')],
+)
+def test_message_handling_after_main_processor_errors(
+    monkeypatch: pytest.MonkeyPatch, failing_step: str, expected_message: str
+):
+    spans: list[ReadableSpan] = []
+    monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    def fail(*_args: Any) -> None:
+        raise ValueError('processing failed')
+
+    scrubber = Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]'))
+    processor = MainSpanProcessorWrapper(ScrubbingSpanProcessor(RecordingProcessor(), scrubber), scrubber)
+    if failing_step == 'normalization':
+        monkeypatch.setattr(processor_wrapper, '_transform_langchain_span', fail)
+    else:
+        monkeypatch.setattr(processor_wrapper, '_transform_span_message', fail)
+
+    processor.on_end(ReadableSpan(name='call', attributes={'logfire.msg': 'alice@example.com'}))
+
+    assert spans[0].attributes == {'logfire.msg': expected_message}
+
+
+def test_safe_key_formatted_value_is_transformed_end_to_end(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    logfire.info('{do_not_scrub}', do_not_scrub='password=alice@example.com')
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == 'password=[email]'
+    assert 'logfire.scrubbed' not in span['attributes']
+    assert StringValue(('message', 'do_not_scrub'), 'password=alice@example.com') in seen
+
+
+def test_transform_string_covers_span_metadata_without_pattern_scrubbing(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    seen: list[StringValue] = []
+    matches: list[logfire.ScrubMatch] = []
+
+    def transform(value: StringValue) -> str:
+        if value.path[0] != 'attributes':
+            seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    def callback(match: logfire.ScrubMatch) -> None:
+        matches.append(match)
+
+    logfire.configure(
+        **config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback, transform_string=transform)
+    )
+    with logfire.span('secret alice@example.com'):
+        span = get_current_span()
+        span.set_status(StatusCode.ERROR, 'secret alice@example.com')
+        span.add_event('secret alice@example.com')
+
+    span = exporter.exported_spans[-1]
+    assert span.name == 'secret [email]'
+    assert span.status.description == 'secret [email]'
+    assert [event.name for event in span.events] == ['secret [email]']
+    assert seen == snapshot(
+        [
+            # span_name also gets transformed for the pending span, which doesn't have the status or event.
+            StringValue(path=('span_name',), value='secret alice@example.com'),
+            StringValue(path=('span_name',), value='secret alice@example.com'),
+            StringValue(path=('otel_status_message',), value='secret alice@example.com'),
+            StringValue(path=('otel_events', 0, 'name'), value='secret alice@example.com'),
+        ]
+    )
+    assert 'logfire.scrubbed' not in (span.attributes or {})
 
 
 @pytest.mark.parametrize('error_type', [ValueError, RecursionError])

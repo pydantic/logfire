@@ -35,6 +35,8 @@ The DPA covers the EU GDPR, the UK GDPR, and the Swiss Federal Act on Data Prote
 
 Our <a href="https://pydantic.dev/legal/cloud-subprocessors" target="_blank" rel="noopener">subprocessors page</a> lists the third parties that process data on our behalf. We give 14 days' notice of changes to that list, and you can subscribe to those notices by email. To keep your data in the EU, use our [EU Data Region](reference/data-regions.md). Enterprise customers can negotiate custom DPA terms: email [sales@pydantic.dev](mailto:sales@pydantic.dev).
 
+To erase personal data on request, see [Delete data from a project](how-to-guides/data-deletion.md).
+
 ## EU Region
 
 For customers who need data to be kept in the EU, we offer an [EU Data Region](reference/data-regions.md).
