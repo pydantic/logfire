@@ -1243,6 +1243,25 @@ def test_message_handling_after_main_processor_errors(
     assert spans[0].attributes == {'logfire.msg': expected_message}
 
 
+def test_console_fields_still_transform_after_message_error(monkeypatch: pytest.MonkeyPatch):
+    spans: list[ReadableSpan] = []
+    monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    def fail(*_args: Any) -> None:
+        raise ValueError('message transform failed')
+
+    scrubber = Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]'))
+    processor = MainSpanProcessorWrapper(RecordingProcessor(), scrubber)
+    monkeypatch.setattr(processor_wrapper, '_transform_span_message', fail)
+    processor.on_end(ReadableSpan(name='hello', attributes={'logfire.tags': ('alice@example.com',)}))
+
+    assert spans[0].attributes == {'logfire.tags': ('[email]',)}
+
+
 def test_safe_key_formatted_value_is_transformed_end_to_end(exporter: TestExporter, config_kwargs: dict[str, Any]):
     seen: list[StringValue] = []
 

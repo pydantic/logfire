@@ -85,6 +85,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _default_gen_ai_response_model(span_dict)
         with handle_internal_errors:
             _transform_span_message(span_dict, self.scrubber)
+        with handle_internal_errors:
             self.scrubber.transform_console_fields(span_dict)
         span = ReadableSpan(**span_dict)
         super().on_end(span)
