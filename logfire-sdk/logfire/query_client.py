@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import platform
 import sys
+from collections.abc import AsyncIterator, Iterator
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from types import TracebackType
@@ -166,6 +167,49 @@ T = TypeVar('T', bound=BaseClient)
 _ACCEPT = Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv']
 _PROBLEM_JSON = 'application/problem+json'
 _USER_AGENT = f'logfire-sdk-python/{VERSION} (Python {platform.python_version()}, os {platform.platform()}, arch {platform.machine()})'
+
+
+_RECORD_CURSOR_COLUMNS = ('start_timestamp', 'trace_id', 'span_id', 'kind')
+
+
+def _validate_records_pagination(min_timestamp: datetime, max_timestamp: datetime, page_size: int) -> None:
+    if not 1 <= page_size <= 10_000:
+        raise ValueError('page_size must be between 1 and 10,000')
+    minimum = min_timestamp if min_timestamp.tzinfo is not None else min_timestamp.replace(tzinfo=UTC)
+    maximum = max_timestamp if max_timestamp.tzinfo is not None else max_timestamp.replace(tzinfo=UTC)
+    if minimum > maximum:
+        raise ValueError('min_timestamp must not be after max_timestamp')
+
+
+def _records_page_sql(where: str | None, cursor: tuple[str, ...] | None) -> str:
+    conditions = [f'({where}\n)'] if where else []
+    if cursor is not None:
+        # Preserve timestamp precision from the server and escape values before putting them in SQL.
+        values = ["'" + value.replace("'", "''") + "'" for value in cursor]
+        values[0] = f'to_timestamp({values[0]})'
+        # DataFusion does not support function calls such as to_timestamp inside tuples.
+        # Expand the lexicographic comparison into scalar comparisons instead.
+        comparisons: list[str] = []
+        equalities: list[str] = []
+        for column, value in zip(_RECORD_CURSOR_COLUMNS, values):
+            comparisons.append('(' + ' AND '.join([*equalities, f'{column} > {value}']) + ')')
+            equalities.append(f'{column} = {value}')
+        conditions.append('(' + ' OR '.join(comparisons) + ')')
+    sql = 'SELECT * FROM records'
+    if conditions:
+        sql += '\nWHERE ' + ' AND '.join(conditions)
+    return sql + '\nORDER BY ' + ', '.join(_RECORD_CURSOR_COLUMNS)
+
+
+def _records_cursor(row: dict[str, Any], previous: tuple[str, ...] | None) -> tuple[str, ...]:
+    values = tuple(row.get(column) for column in _RECORD_CURSOR_COLUMNS)
+    if not all(isinstance(value, str) and value for value in values):
+        raise UnexpectedResponseError(
+            'Records pagination requires non-empty start_timestamp, trace_id, span_id and kind'
+        )
+    if values == previous:
+        raise UnexpectedResponseError('Records pagination cursor did not advance')
+    return cast('tuple[str, ...]', values)
 
 
 class _BaseLogfireQueryClient(Generic[T]):
@@ -383,6 +427,58 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         )
         return _map_v2_result(response.json())
 
+    def iter_records(
+        self,
+        *,
+        min_timestamp: datetime,
+        max_timestamp: datetime,
+        where: str | None = None,
+        page_size: int = 1000,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """Iterate over records in a fixed historical time window, fetching one page at a time.
+
+        Records are ordered by `start_timestamp`, `trace_id`, `span_id`, and `kind`.
+        The iterator returns all columns from the `records` table. It does not create a
+        database snapshot: use a time window whose records have finished arriving and
+        changing. Late arrivals or updates during iteration can otherwise be missed.
+
+        Args:
+            min_timestamp: The minimum timestamp to query. Naive datetimes are assumed to be UTC.
+            max_timestamp: The maximum timestamp to query, held fixed across all pages.
+                Naive datetimes are assumed to be UTC.
+            where: An optional SQL predicate, without the `WHERE` keyword. As with `sql`
+                in `query_json_rows`, this must be trusted SQL, not unescaped user input.
+            page_size: The maximum number of records fetched per request, from 1 to 10,000.
+            timezone: The timezone to use for the query execution context.
+            environment: Restrict rows to the provided environment(s). Use `''` for rows
+                where no environment is set.
+
+        Yields:
+            Each matching record as a dictionary. The next page is fetched only after
+            the current page is consumed. Query errors propagate to the caller.
+        """
+        _validate_records_pagination(min_timestamp, max_timestamp, page_size)
+        cursor: tuple[str, ...] | None = None
+        while True:
+            result = self.query_json_rows(
+                _records_page_sql(where, cursor),
+                min_timestamp=min_timestamp,
+                max_timestamp=max_timestamp,
+                limit=page_size,
+                timezone=timezone,
+                environment=environment,
+            )
+            rows = result['rows']
+            if not rows:
+                return
+            # Capture the cursor before yielding mutable records to the caller.
+            cursor = _records_cursor(rows[-1], cursor)
+            yield from rows
+            if len(rows) < page_size:
+                return
+
     def query_arrow(
         self,
         sql: str,
@@ -582,6 +678,59 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             explain=False,  # Note: we can expose this in the future
         )
         return _map_v2_result(response.json())
+
+    async def iter_records(
+        self,
+        *,
+        min_timestamp: datetime,
+        max_timestamp: datetime,
+        where: str | None = None,
+        page_size: int = 1000,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Iterate over records in a fixed historical time window, fetching one page at a time.
+
+        Records are ordered by `start_timestamp`, `trace_id`, `span_id`, and `kind`.
+        The iterator returns all columns from the `records` table. It does not create a
+        database snapshot: use a time window whose records have finished arriving and
+        changing. Late arrivals or updates during iteration can otherwise be missed.
+
+        Args:
+            min_timestamp: The minimum timestamp to query. Naive datetimes are assumed to be UTC.
+            max_timestamp: The maximum timestamp to query, held fixed across all pages.
+                Naive datetimes are assumed to be UTC.
+            where: An optional SQL predicate, without the `WHERE` keyword. As with `sql`
+                in `query_json_rows`, this must be trusted SQL, not unescaped user input.
+            page_size: The maximum number of records fetched per request, from 1 to 10,000.
+            timezone: The timezone to use for the query execution context.
+            environment: Restrict rows to the provided environment(s). Use `''` for rows
+                where no environment is set.
+
+        Yields:
+            Each matching record as a dictionary. The next page is fetched only after
+            the current page is consumed. Query errors propagate to the caller.
+        """
+        _validate_records_pagination(min_timestamp, max_timestamp, page_size)
+        cursor: tuple[str, ...] | None = None
+        while True:
+            result = await self.query_json_rows(
+                _records_page_sql(where, cursor),
+                min_timestamp=min_timestamp,
+                max_timestamp=max_timestamp,
+                limit=page_size,
+                timezone=timezone,
+                environment=environment,
+            )
+            rows = result['rows']
+            if not rows:
+                return
+            # Capture the cursor before yielding mutable records to the caller.
+            cursor = _records_cursor(rows[-1], cursor)
+            for row in rows:
+                yield row
+            if len(rows) < page_size:
+                return
 
     async def query_arrow(
         self,

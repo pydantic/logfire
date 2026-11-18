@@ -3,6 +3,7 @@
         members:
           - info
           - query_json_rows
+          - iter_records
           - query_arrow
           - query_csv
 
@@ -11,6 +12,7 @@
         members:
           - info
           - query_json_rows
+          - iter_records
           - query_arrow
           - query_csv
 
