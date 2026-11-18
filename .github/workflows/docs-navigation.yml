@@ -33,6 +33,7 @@ jobs:
 
     steps:
       - name: Verify a maintainer triggered the check
+        id: verify
         env:
           ACTOR: ${{ github.actor }}
           GH_TOKEN: ${{ github.token }}
@@ -102,19 +103,35 @@ jobs:
           fi
 
       - name: Comment failure on PR
-        if: failure() && (steps.app-token.outcome == 'failure' || steps.dispatch.outcome == 'failure')
+        if: failure() && (steps.verify.outcome == 'failure' || steps.app-token.outcome == 'failure' || steps.dispatch.outcome == 'failure')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          APP_TOKEN_OUTCOME: ${{ steps.app-token.outcome }}
         run: |
+          if [ "$VERIFY_OUTCOME" = failure ]; then
+            heading='## Docs Navigation Check — permission denied'
+            detail='Only a repository maintainer can request this check. Ask a maintainer to add the `trigger:docs` label.'
+            retry=''
+          elif [ "$APP_TOKEN_OUTCOME" = failure ]; then
+            heading='## Docs Navigation Check — authentication failed'
+            detail='The documentation app token could not be generated.'
+            retry='<sub>Re-add the `trigger:docs` label after the app credentials are fixed.</sub>'
+          else
+            heading='## Docs Navigation Check — dispatch failed'
+            detail='The navigation check could not be queued.'
+            retry='<sub>Re-add the `trigger:docs` label to retry.</sub>'
+          fi
+
           body=$(cat <<EOF
-          ## Docs Navigation Check — dispatch failed
+          ${heading}
 
-          The navigation check could not be queued. See [the workflow run](${RUN_URL}) for details.
+          ${detail} See [the workflow run](${RUN_URL}) for details.
 
-          <sub>Re-add the \`trigger:docs\` label to retry.</sub>
+          ${retry}
           EOF
           )
           gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" -f body="$body"
