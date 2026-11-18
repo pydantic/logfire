@@ -156,7 +156,8 @@ class ScrubbingOptions:
 
 
 class BaseScrubber(ABC):
-    # Similar to SAFE_KEYS below but also shouldn't be passed through transform_string
+    # SDK control and source metadata: skip pattern matching and transform_string.
+    # This is a subset of SAFE_KEYS.
     NO_TRANSFORM_KEYS = {
         ATTRIBUTES_LOG_LEVEL_NUM_KEY,
         ATTRIBUTES_SPAN_TYPE_KEY,
@@ -165,10 +166,21 @@ class BaseScrubber(ABC):
         *STACK_INFO_KEYS,
     }
 
-    # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
-    # Some of these are just here for performance.
+    # Structured content with prose: transform strings and match nested keys,
+    # but do not pattern-match string values. This is a subset of SAFE_KEYS.
+    KEY_ONLY_KEYS = {
+        gen_ai_semconv.INPUT_MESSAGES,
+        gen_ai_semconv.OUTPUT_MESSAGES,
+        gen_ai_semconv.SYSTEM_INSTRUCTIONS,
+    }
+
+    # All keys whose own names are exempt from pattern matching. By default,
+    # their entire subtree also skips patterns but still transforms strings.
+    # NO_TRANSFORM_KEYS also skip transformation; KEY_ONLY_KEYS instead match
+    # nested keys while leaving string values exempt from pattern matching.
     SAFE_KEYS = {
         *NO_TRANSFORM_KEYS,
+        *KEY_ONLY_KEYS,
         ATTRIBUTES_MESSAGE_KEY,  # Formatted field values are scrubbed separately
         ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
         ATTRIBUTES_JSON_SCHEMA_KEY,
@@ -205,9 +217,6 @@ class BaseScrubber(ABC):
         'model_request_parameters',
         'langsmith.metadata.session_id',
         'langsmith.trace.session_name',
-        gen_ai_semconv.INPUT_MESSAGES,
-        gen_ai_semconv.OUTPUT_MESSAGES,
-        gen_ai_semconv.SYSTEM_INSTRUCTIONS,
         gen_ai_semconv.TOOL_DEFINITIONS,
         gen_ai_semconv.TOOL_NAME,
         gen_ai_semconv.TOOL_CALL_ID,
@@ -221,14 +230,6 @@ class BaseScrubber(ABC):
         gen_ai_semconv.PROVIDER_NAME,
         gen_ai_semconv.REQUEST_MODEL,
         gen_ai_semconv.RESPONSE_MODEL,
-    }
-
-    # Message content can contain sensitive named fields alongside prose where
-    # matching the string value would produce false positives.
-    KEY_ONLY_KEYS = {
-        gen_ai_semconv.INPUT_MESSAGES,
-        gen_ai_semconv.OUTPUT_MESSAGES,
-        gen_ai_semconv.SYSTEM_INSTRUCTIONS,
     }
 
     @abstractmethod
