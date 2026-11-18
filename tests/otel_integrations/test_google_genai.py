@@ -1,9 +1,11 @@
+import json
 import os
 import warnings
 from importlib.metadata import version as package_version
 from unittest import mock
 from unittest.mock import patch
 
+import httpx
 import pydantic
 import pytest
 from dirty_equals import IsInt, IsPartialDict, IsStr
@@ -171,6 +173,7 @@ def test_instrument_google_genai(capfire: CaptureLogfire) -> None:
                     'logfire.metrics': IsPartialDict(),
                     'gen_ai.response.model': 'gemini-2.0-flash-001',
                     'gen_ai.system': 'gemini',
+                    'operation.cost': 9.4e-06,
                 },
             },
         ]
@@ -247,6 +250,7 @@ def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
                     'logfire.metrics': IsPartialDict(),
                     'gen_ai.response.model': 'gemini-2.0-flash-001',
                     'gen_ai.system': 'gemini',
+                    'operation.cost': 6.7e-06,
                 },
             },
         ]
@@ -311,6 +315,7 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
                     ],
                     'gen_ai.response.model': 'gemini-2.5-flash',
                     'gen_ai.system': 'gemini',
+                    'operation.cost': 0.0001781,
                 },
             }
         ]
@@ -340,6 +345,109 @@ def test_legacy_google_genai_scope(exporter: TestExporter) -> None:
     assert exporter.exported_spans[0].instrumentation_scope == InstrumentationScope(
         'opentelemetry.instrumentation.google_genai', '1.1b0', 'https://example.com/schema', {'source': 'legacy'}
     )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('async_client', [False, True])
+@pytest.mark.parametrize('stream', [False, True])
+async def test_google_genai_estimated_cost(exporter: TestExporter, async_client: bool, stream: bool) -> None:
+    pytest.importorskip('genai_prices')
+    from google.genai import Client, types
+
+    usage = {
+        'promptTokenCount': 1000,
+        'cachedContentTokenCount': 400,
+        'candidatesTokenCount': 100,
+        'thoughtsTokenCount': 200,
+    }
+
+    def respond(_request: httpx.Request) -> httpx.Response:
+        if stream:
+            # Gemini reports cumulative usage on successive chunks.
+            chunks = [
+                {'candidates': [{'content': {'parts': [{'text': 'hello'}]}}], 'usageMetadata': usage},
+                {'modelVersion': 'gemini-2.5-flash', 'usageMetadata': usage},
+            ]
+            return httpx.Response(
+                200,
+                headers={'content-type': 'text/event-stream'},
+                text=''.join(f'data: {json.dumps(chunk)}\n\n' for chunk in chunks),
+            )
+        return httpx.Response(
+            200,
+            json={
+                'modelVersion': 'gemini-2.5-flash',
+                'candidates': [{'content': {'parts': [{'text': 'hello'}]}}],
+                'usageMetadata': usage,
+            },
+        )
+
+    logfire.instrument_google_genai()
+    client = Client(
+        api_key='test',
+        http_options=types.HttpOptions(
+            client_args={'transport': httpx.MockTransport(respond)},
+            async_client_args={'transport': httpx.MockTransport(respond)},
+        ),
+    )
+    model = 'unpriced-model-alias'
+    if async_client:
+        async with client.aio as aio:
+            if stream:
+                responses = await aio.models.generate_content_stream(model=model, contents='Hi')  # pyright: ignore[reportUnknownMemberType]
+                parts = [part async for part in responses]
+                assert parts[0].text == 'hello'
+            else:
+                response = await aio.models.generate_content(model=model, contents='Hi')  # pyright: ignore[reportUnknownMemberType]
+                assert response.text == 'hello'
+    else:
+        with client:
+            if stream:
+                responses = client.models.generate_content_stream(model=model, contents='Hi')  # pyright: ignore[reportUnknownMemberType]
+                assert list(responses)[0].text == 'hello'
+            else:
+                response = client.models.generate_content(model=model, contents='Hi')  # pyright: ignore[reportUnknownMemberType]
+                assert response.text == 'hello'
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attrs = span['attributes']
+    assert attrs['gen_ai.usage.input_tokens'] == 1000
+    assert attrs['gen_ai.usage.output_tokens'] == 300
+    # 600 uncached input tokens, 400 cached input tokens, and 300 output tokens including thinking.
+    assert attrs['operation.cost'] == pytest.approx(0.000942)
+
+
+@pytest.mark.parametrize('case', ['known_cost', 'request_model', 'unknown_model', 'missing_pricing', 'missing_usage'])
+def test_google_genai_cost_is_optional(exporter: TestExporter, case: str) -> None:
+    from opentelemetry.trace import get_tracer
+
+    attributes: dict[str, str | int | float] = {
+        'gen_ai.provider.name': 'gemini',
+        'gen_ai.operation.name': 'generate_content',
+        'gen_ai.request.model': 'gemini-2.5-flash',
+    }
+    if case != 'missing_usage':
+        attributes.update({'gen_ai.usage.input_tokens': 1000, 'gen_ai.usage.output_tokens': 300})
+    if case == 'unknown_model':
+        attributes['gen_ai.request.model'] = 'unpriced-test-model'
+    if case == 'known_cost':
+        attributes['operation.cost'] = 0.0
+
+    tracer = get_tracer('opentelemetry.instrumentation.google_genai')
+    with mock.patch.dict('sys.modules', {'genai_prices': None} if case == 'missing_pricing' else {}):
+        with tracer.start_as_current_span('generate_content', attributes=attributes):
+            pass
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    if case == 'known_cost':
+        assert span['attributes']['operation.cost'] == 0.0
+    elif case == 'request_model':
+        assert span['attributes']['operation.cost'] == pytest.approx(0.00105)
+    else:
+        assert 'operation.cost' not in span['attributes']
+    if case != 'missing_usage':
+        assert span['attributes']['gen_ai.usage.input_tokens'] == 1000
+        assert span['attributes']['gen_ai.usage.output_tokens'] == 300
 
 
 def test_non_gemini_util_genai_span_not_transformed(exporter: TestExporter) -> None:
