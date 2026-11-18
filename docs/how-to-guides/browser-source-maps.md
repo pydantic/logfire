@@ -12,6 +12,13 @@ Production JavaScript is usually *minified*: the bundler (the build tool that co
 
 A *source map* is a JSON file that the bundler writes next to each bundle. It maps every position in the minified file back to the original file, line and function. When you upload your source maps to Logfire, Logfire shows browser exceptions with your original code.
 
+## Before you begin
+
+You need these two things:
+
+- An app that sends browser exceptions to Logfire with `@pydantic/logfire-browser` version 0.34.0 or later. See the [browser SDK setup](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/).
+- The ID of your *frontend application*. A frontend application is the entry in a Logfire project that gives the browser data of one web app a stable name and a restricted token. Find it under **Project settings → Frontend applications** (see [Frontend](../guides/web-ui/frontend.md)).
+
 ## How it works
 
 Logfire matches a stack frame to its source map by *debug ID*. A debug ID is a unique ID (a UUID) for one built file. The build writes the same ID into the bundle and into its source map.
@@ -51,6 +58,12 @@ module.exports = {
 ```
 
 `productionBrowserSourceMaps` makes `next build` write source maps for browser code. `debugIds` makes Turbopack add the debug ID to each chunk and its map. You do not need `logfire sourcemap inject` for these chunks.
+
+`turbopack.debugIds` needs Next.js 16.0.0 or later. On an earlier version, or when you build with webpack (`next build --webpack`), keep `productionBrowserSourceMaps` and run `inject` after `next build`:
+
+```bash
+npx logfire-cli --beta sourcemap inject .next
+```
 
 !!! note "Browser exceptions only"
     This page covers exceptions that `@pydantic/logfire-browser` records in the browser. Next.js middleware and edge runtime code run on the server, so the browser SDK does not send their exceptions.
@@ -160,6 +173,22 @@ Logfire resolves stack traces when it receives the data, not when you view it. A
 Logfire deletes an uploaded source map 90 days after it was last used to resolve an exception. A map that no exception uses is deleted 90 days after its upload. This retention is separate from your data retention. Exceptions that were already resolved keep their resolved stack trace.
 
 ## Check the result
+
+A resolved exception shows the original file, function, line and column in its stack trace, in the `exception.stacktrace` attribute:
+
+```text
+Error: checkout failed
+    at submitOrder (src/checkout.ts:42:5)
+    at HTMLButtonElement.<anonymous> (src/checkout.ts:88:3)
+```
+
+The `logfire.source_map.original_stacktrace` attribute on the same exception holds the minified stack trace as the browser sent it:
+
+```text
+Error: checkout failed
+    at o (https://app.example.com/assets/index-a1b2.js:1:48213)
+    at HTMLButtonElement.<anonymous> (https://app.example.com/assets/index-a1b2.js:1:48392)
+```
 
 Logfire writes the `logfire.source_map.status` attribute on each exception that carries debug IDs:
 
