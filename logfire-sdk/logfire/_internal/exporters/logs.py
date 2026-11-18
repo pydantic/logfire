@@ -34,7 +34,10 @@ class MainLogProcessorWrapper(WrapperLogProcessor):
             if attributes is not None and isinstance(message := attributes.get(ATTRIBUTES_MESSAGE_KEY), str):
                 transformed = self.scrubber.transform_message(message)
                 if transformed != message:
-                    log_record.log_record.attributes = BoundedAttributes(
-                        attributes={**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
-                    )
+                    if isinstance(attributes, BoundedAttributes):
+                        attributes[ATTRIBUTES_MESSAGE_KEY] = transformed
+                    else:
+                        log_record.log_record.attributes = BoundedAttributes(
+                            attributes={**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
+                        )
         return super().on_emit(log_record)
