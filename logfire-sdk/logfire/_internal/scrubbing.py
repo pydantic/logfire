@@ -311,7 +311,8 @@ class SpanScrubber:
         self._transform_string = parent._transform_string  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
-        self._scope_name = scope_name
+        self._is_legacy_llm_scope = scope_name in ('logfire.openai', 'logfire.anthropic')
+        self._is_legacy_openai_scope = scope_name == 'logfire.openai'
 
     def _safely_transform_string(self, path: JsonPath, value: str) -> str:
         if self._transform_string is None:
@@ -423,24 +424,17 @@ class SpanScrubber:
             ]
         elif isinstance(value, Mapping):
             result: dict[Any, Any] = {}
+            legacy_attributes = self._is_legacy_llm_scope and path == ('attributes',)
+            legacy_request = self._is_legacy_llm_scope and path == ('attributes', 'request_data')
             for k, v in cast('Mapping[Any, Any]', value).items():
                 # Legacy provider payloads can contain user text. Match nested keys such as
                 # tool-call "password", but do not treat words in message text as secrets.
-                scoped_content = (
-                    path == ('attributes',)
-                    and self._scope_name in ('logfire.openai', 'logfire.anthropic')
-                    and (
-                        k in ('request_data', 'response_data')
-                        or (k == 'events' and self._scope_name == 'logfire.openai')
-                    )
+                scoped_content = legacy_attributes and (
+                    k in ('request_data', 'response_data') or (k == 'events' and self._is_legacy_openai_scope)
                 )
                 # Tool and response schemas describe argument names. Preserve those keys,
                 # while still allowing transform_string to change their string values.
-                legacy_definition = (
-                    path == ('attributes', 'request_data')
-                    and self._scope_name in ('logfire.openai', 'logfire.anthropic')
-                    and k in ('tools', 'functions', 'response_format')
-                )
+                legacy_definition = legacy_request and k in ('tools', 'functions', 'response_format')
                 if k in BaseScrubber.NO_TRANSFORM_KEYS:
                     result[k] = v
                 elif legacy_definition or (k in BaseScrubber.SAFE_KEYS and k not in BaseScrubber.KEY_ONLY_KEYS):
