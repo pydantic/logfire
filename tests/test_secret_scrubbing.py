@@ -683,6 +683,61 @@ def test_log_message_transform_with_plain_attributes(logs_exporter: TestLogExpor
     assert log['attributes']['logfire.msg'] == '[email]'
 
 
+def test_otel_log_event_name_transforms_before_console_and_export(
+    logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]
+) -> None:
+    output = StringIO()
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(transform_string=transform),
+    )
+    logfire.configure(**config_kwargs)
+    get_logger(__name__).emit(
+        LogRecord(
+            event_name='alice@example.com',
+            body='hello',
+            attributes={'event.name': 'alice@example.com'},
+        )
+    )
+
+    (record,) = logs_exporter.get_finished_logs()
+    assert record.log_record.event_name == '[email]'
+    assert record.log_record.attributes is not None
+    assert record.log_record.attributes['event.name'] == '[email]'
+    assert '[email]: hello' in output.getvalue()
+    assert 'alice@example.com' not in output.getvalue()
+    assert [value.path for value in seen if value.value == 'alice@example.com'] == [
+        ('attributes', 'event.name'),
+        ('otel_log_event_name',),
+    ]
+
+
+def test_otel_log_event_name_transform_failure_preserves_input(
+    logs_exporter: TestLogExporter, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    errors: list[str] = []
+    monkeypatch.setattr(utils, 'log_internal_error', lambda: errors.append('transform failed'))
+
+    def transform(value: StringValue) -> str:
+        if value.path == ('otel_log_event_name',):
+            raise ValueError('transform failed')
+        return value.value
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    get_logger(__name__).emit(LogRecord(event_name='alice@example.com', body='hello'))
+
+    (record,) = logs_exporter.get_finished_logs()
+    assert record.log_record.event_name == 'alice@example.com'
+    assert record.log_record.body == 'hello'
+    assert errors == ['transform failed']
+
+
 def test_scrub_log_event_attribute(logs_exporter: TestLogExporter):
     get_logger(__name__).emit(
         LogRecord(
@@ -1599,8 +1654,12 @@ def test_disable_scrubbing(exporter: TestExporter, logs_exporter: TestLogExporte
 
     logfire.info('Password: {user_password}', user_password='my secret password')
     get_logger(__name__).emit(
-        LogRecord(attributes={'user_password': 'my secret password', 'event.name': 'Password: {user_password}'})
+        LogRecord(
+            event_name='Password: {user_password}',
+            attributes={'user_password': 'my secret password', 'event.name': 'Password: {user_password}'},
+        )
     )
+    assert logs_exporter.get_finished_logs()[0].log_record.event_name == 'Password: {user_password}'
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {

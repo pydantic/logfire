@@ -146,7 +146,8 @@ class ScrubbingOptions:
     transform_string: Callable[[StringValue], str] | None = None
     """Transform string values before pattern matching, including values under safe keys.
 
-    Span names, status descriptions, and event names are also transformed, without pattern matching.
+    Span names, status descriptions, span event names, and OpenTelemetry log-record event names are also transformed,
+    without pattern matching.
     Logfire control and source metadata, such as `logfire.span_type` and `code.filepath`, are excluded.
 
     The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
@@ -250,6 +251,9 @@ class BaseScrubber(ABC):
     @abstractmethod
     def transform_message(self, value: str) -> str: ...
 
+    @abstractmethod
+    def transform_log_event_name(self, value: str) -> str: ...
+
 
 class NoopScrubber(BaseScrubber):
     def scrub_span(self, span: ReadableSpanDict):  # pragma: no cover
@@ -263,6 +267,9 @@ class NoopScrubber(BaseScrubber):
         return value, []
 
     def transform_message(self, value: str) -> str:
+        return value
+
+    def transform_log_event_name(self, value: str) -> str:
         return value
 
 
@@ -318,6 +325,11 @@ class Scrubber(BaseScrubber):
         return SpanScrubber(self)._safely_transform_string(  # pyright: ignore[reportPrivateUsage]
             ('attributes', ATTRIBUTES_MESSAGE_KEY), value
         )
+
+    def transform_log_event_name(self, value: str) -> str:
+        if self._transform_string is None:
+            return value
+        return SpanScrubber(self)._safely_transform_string(('otel_log_event_name',), value)  # pyright: ignore[reportPrivateUsage]
 
 
 class SpanScrubber:
