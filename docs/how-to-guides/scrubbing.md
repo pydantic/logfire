@@ -128,7 +128,7 @@ The callback runs for every string the scrubber reaches, including large values.
 
 !!! warning "Choose a fallback for masking errors"
 
-    If `transform_string` raises an exception, Logfire logs the error and keeps the original string. Pattern matching still runs where permitted, but a value such as an email address may be exported unchanged.
+    If a call to `transform_string` raises an exception, Logfire logs the error and keeps that call's input string. It continues with other strings. Pattern matching still runs where permitted, but a value such as an email address may be exported unchanged.
 
     If you handle errors inside your callback, redact only values you know are sensitive. A catch-all handler that returns `'[redacted]'` for every error could replace every string if the transformer breaks, leaving little usable telemetry.
 
@@ -140,13 +140,15 @@ It will instead happen on the calling thread if any of the following are true:
 - Console logging is enabled and prints attributes, i.e. `include_attributes` is `True`, or it is unset and `verbose` is `True`.
 - A span processor is included in `additional_span_processors` that implements an `on_end` hook and isn't a `BatchSpanProcessor`.
 
-Message template fields are always scrubbed on the calling thread during message formatting.
+Message template fields and the message as a whole are always scrubbed on the calling thread,
+so keep objects with large string representations out of messages.
+If you need to log large objects, use a span attribute instead.
 
 ## Security tips
 
 ### Use message templates
 
-The full span/log message is not scrubbed, only the fields within. For example, this:
+Pattern matching checks message fields rather than the assembled message. For example, this:
 
 ```python skip="true" skip-reason="incomplete"
 logfire.info('User details: {user}', user=User(id=123, password='secret'))
@@ -177,6 +179,8 @@ Using f-strings (e.g. `logfire.info(f'User details: {user}')`) *is* safe if `ins
 [See here](../guides/onboarding-checklist/add-manual-tracing.md#f-strings) for more information.
 
 In short, don't format the message yourself. This is also a good practice in general for [other reasons](../guides/onboarding-checklist/add-manual-tracing.md#messages-and-span-names).
+
+The `transform_string` callback *will* run on the assembled message.
 
 ### Keep sensitive data out of URLs
 

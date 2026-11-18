@@ -151,6 +151,10 @@ class ScrubbingOptions:
 
     The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
+    String span messages also call it when a span ends, on the calling thread even if console output is disabled.
+    If the message is absent or empty, Logfire uses the span name as the input for the new message.
+    An empty result stays empty in the span, and the console displays `<empty message>`.
+    Nested strings in a nonempty, non-string message use the ordinary span scrubbing path instead.
     If the callback raises, Logfire logs the error and keeps the input string.
     """
 
@@ -164,6 +168,9 @@ class BaseScrubber(ABC):
         ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
         ATTRIBUTES_SAMPLE_RATE_KEY,
         *STACK_INFO_KEYS,
+        # Formatted field values are scrubbed separately,
+        # and then the span or log processor transforms the whole message
+        ATTRIBUTES_MESSAGE_KEY,
     }
 
     # Structured content with prose: transform strings and match nested keys,
@@ -182,7 +189,6 @@ class BaseScrubber(ABC):
     SAFE_KEYS = {
         *NO_TRANSFORM_KEYS,
         *KEY_ONLY_KEYS,
-        ATTRIBUTES_MESSAGE_KEY,  # Formatted field values are scrubbed separately
         ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
         ATTRIBUTES_JSON_SCHEMA_KEY,
         ATTRIBUTES_TAGS_KEY,
@@ -241,6 +247,9 @@ class BaseScrubber(ABC):
     @abstractmethod
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...
 
+    @abstractmethod
+    def transform_message(self, value: str) -> str: ...
+
 
 class NoopScrubber(BaseScrubber):
     def scrub_span(self, span: ReadableSpanDict):  # pragma: no cover
@@ -252,6 +261,9 @@ class NoopScrubber(BaseScrubber):
 
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
         return value, []
+
+    def transform_message(self, value: str) -> str:
+        return value
 
 
 NOOP_SCRUBBER = NoopScrubber()
@@ -299,6 +311,13 @@ class Scrubber(BaseScrubber):
         span_scrubber = SpanScrubber(self)
         result = span_scrubber.scrub(path, value)
         return result, span_scrubber.scrubbed
+
+    def transform_message(self, value: str) -> str:
+        if self._transform_string is None:
+            return value
+        return SpanScrubber(self)._safely_transform_string(  # pyright: ignore[reportPrivateUsage]
+            ('attributes', ATTRIBUTES_MESSAGE_KEY), value
+        )
 
 
 class SpanScrubber:
