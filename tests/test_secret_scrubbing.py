@@ -1238,6 +1238,29 @@ def test_early_console_tag_transform_uses_safe_key_scrubbing_for_json():
     assert StringValue(('attributes', 'logfire.tags', 0, 'contact'), 'alice@example.com') in seen
 
 
+def test_console_exception_json_uses_nested_transform_path(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    output = StringIO()
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return '[email]' if value.path[-1] == 'contact' else value.value
+
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output, colors='never', include_timestamps=False),
+        additional_span_processors=[BatchSpanProcessor(exporter)],
+    )
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    try:
+        raise ValueError('{"contact":"alice@example.com"}')
+    except ValueError:
+        logfire.exception('failed')
+
+    assert logfire.force_flush()
+    assert '│ ValueError: {"contact":"[email]"}' in output.getvalue()
+    assert StringValue(('otel_events', 0, 'attributes', 'exception.message', 'contact'), 'alice@example.com') in seen
+
+
 def test_early_console_transform_continues_after_callback_error(monkeypatch: pytest.MonkeyPatch):
     spans: list[ReadableSpan] = []
     monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
@@ -1258,6 +1281,24 @@ def test_early_console_transform_continues_after_callback_error(monkeypatch: pyt
 
     assert spans[0].attributes is not None
     assert spans[0].attributes['logfire.tags'] == ('alice@example.com', '[email]')
+
+
+def test_noop_scrubber_keeps_console_fields_unmodified():
+    spans: list[ReadableSpan] = []
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    original = ReadableSpan(
+        name='hello',
+        attributes={'logfire.tags': ('alice@example.com',)},
+        events=[SpanEvent('exception', {'exception.message': 'alice@example.com'})],
+    )
+    MainSpanProcessorWrapper(RecordingProcessor(), NoopScrubber()).on_end(original)
+
+    assert spans[0].attributes == original.attributes
+    assert spans[0].events == original.events
 
 
 def test_whole_message_is_not_transformed_again_during_export(exporter: TestExporter, config_kwargs: dict[str, Any]):

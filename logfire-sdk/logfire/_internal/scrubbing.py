@@ -381,8 +381,8 @@ class SpanScrubber:
             for key in ('exception.type', 'exception.message', 'exception.stacktrace'):
                 value = event_attributes.get(key)
                 if isinstance(value, str):
-                    transformed_attributes[key] = self._safely_transform_string(
-                        ('otel_events', i, 'attributes', key), value
+                    transformed_attributes[key] = self.scrub(
+                        ('otel_events', i, 'attributes', key), value, in_safe_key=True
                     )
             if transformed_attributes != event_attributes:
                 events = list(span['events'])
