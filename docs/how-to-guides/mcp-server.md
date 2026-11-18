@@ -491,7 +491,7 @@ The table below lists the full tool set for the `/mcp` endpoint.
 | Notification schedules | Create and manage schedule windows that gate alert notification delivery. | `schedule_create`, `schedule_list`, `schedule_get`, `schedule_update`, `schedule_delete` |
 | Issue tracking | List tracked exception issues and triage them by state. | `issue_list`, `issue_set_states` |
 | Managed variables (feature flags) | Create and manage variables, versions, labels, and rollout behavior. | `variable_list`, `variable_get`, `variable_resolve`, `variable_manage`, `variable_delete` |
-| Hosted scorers (Early Access) | List, fetch, create, update, and delete [hosted scorers](../evaluate/hosted-scorers.md#manage-scorers-from-a-coding-agent), which judge recorded spans on a schedule. | `scorer_list`, `scorer_get`, `scorer_apply`, `scorer_update`, `scorer_delete` |
+| Hosted scorers (Early Access) | List, fetch, create, update, and delete [hosted scorers](../evaluate/hosted-scorers.md#manage-scorers-from-a-coding-agent), which judge recorded spans and logs on a schedule. | `scorer_list`, `scorer_get`, `scorer_apply`, `scorer_update`, `scorer_delete` |
 | Local development bootstrap | Create a local dev session (including token/env setup) for sending telemetry. | `local_dev_session` |
 
 ### Managed variable tools
