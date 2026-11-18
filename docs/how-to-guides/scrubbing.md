@@ -140,18 +140,15 @@ It will instead happen on the calling thread if any of the following are true:
 - Console logging is enabled and prints attributes, i.e. `include_attributes` is `True`, or it is unset and `verbose` is `True`.
 - A span processor is included in `additional_span_processors` that implements an `on_end` hook and isn't a `BatchSpanProcessor`.
 
-Message template fields are always scrubbed on the calling thread during message formatting. If you configure
-`transform_string`, Logfire also calls it on each string span message when the span ends, even when console output is
-disabled. If `logfire.msg` is absent or empty, Logfire passes the span name to the callback and uses the result for
-the new message. An empty result stays empty in the span, and the console displays `<empty message>`. Nested strings
-in a nonempty, non-string `logfire.msg` use ordinary span scrubbing instead.
+Message template fields and the message as a whole are always scrubbed on the calling thread,
+so keep objects with large string representations out of messages.
+If you need to log large objects, use a span attribute instead.
 
 ## Security tips
 
 ### Use message templates
 
-Default pattern matching checks message fields rather than the assembled span message. A configured
-`transform_string` callback also runs on string span messages. For example, this:
+Pattern matching checks message fields rather than the assembled message. For example, this:
 
 ```python skip="true" skip-reason="incomplete"
 logfire.info('User details: {user}', user=User(id=123, password='secret'))
@@ -182,6 +179,8 @@ Using f-strings (e.g. `logfire.info(f'User details: {user}')`) *is* safe if `ins
 [See here](../guides/onboarding-checklist/add-manual-tracing.md#f-strings) for more information.
 
 In short, don't format the message yourself. This is also a good practice in general for [other reasons](../guides/onboarding-checklist/add-manual-tracing.md#messages-and-span-names).
+
+The `transform_string` callback *will* run on the assembled message.
 
 ### Keep sensitive data out of URLs
 
