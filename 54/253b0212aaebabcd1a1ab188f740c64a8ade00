@@ -1,0 +1,30 @@
+logfire-sdk/logfire/_internal/scrubbing.py
+  s_f20a6154f59e2d::t_3758749710cedd 155-156
+  s_f20a6154f59e2d::t_c562105151a029 255-257,273-275,327-360
+  s_f20a6154f59e2d::t_b5a8d3d9d98e0c 361
+tests/test_secret_scrubbing.py
+  s_f20a6154f59e2d::t_b2b1a56793a61a 1062-1068,1070-1072,1074-1081,1083-1086,1091-1120,1122-1124,1197-1198
+  s_f20a6154f59e2d::t_e3ea30ebf62ae5 1069,1073,1090
+  s_f20a6154f59e2d::t_f95f6a08bc7a56 1087-1089,1121,1167,1169,1171,1173,1195
+  s_f20a6154f59e2d::t_85e48201710c3a 17,1125-1166,1168,1170,1172,1174-1190,1194,1196
+  s_f20a6154f59e2d::t_ffadd48802d1c9 1082
+  s_f20a6154f59e2d::t_83537dcf85e37d 1191-1193
+logfire-sdk/logfire/_internal/exporters/processor_wrapper.py
+  s_f20a6154f59e2d::t_c562105151a029 88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "54253b0212aaebabcd1a1ab188f740c64a8ade00",
+  "prompts": {},
+  "sessions": {
+    "s_f20a6154f59e2d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1eee4-14d0-7ec2-89f6-f07d19e50e63",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
