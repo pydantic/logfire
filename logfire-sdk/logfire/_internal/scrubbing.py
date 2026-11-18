@@ -336,37 +336,7 @@ class Scrubber(BaseScrubber):
             if isinstance(message, str) and (transformed := self.transform_message(message)) != message:
                 span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
 
-        transformer = SpanScrubber(self)
-        attributes = span['attributes']
-        tags = attributes.get(ATTRIBUTES_TAGS_KEY)
-        if isinstance(tags, (list, tuple)):
-            transformed_tags = tuple(
-                transformer._safely_transform_string(('attributes', ATTRIBUTES_TAGS_KEY, i), tag)  # pyright: ignore[reportPrivateUsage]
-                if isinstance(tag, str)
-                else tag
-                for i, tag in enumerate(tags)
-            )
-            if transformed_tags != tags:
-                span['attributes'] = {**attributes, ATTRIBUTES_TAGS_KEY: transformed_tags}
-
-        for i, event in enumerate(span['events']):
-            if event.name != 'exception':
-                continue
-            if not event.attributes:
-                break
-            event_attributes = event.attributes
-            transformed_attributes = dict(event_attributes)
-            for key in ('exception.type', 'exception.message', 'exception.stacktrace'):
-                value = event_attributes.get(key)
-                if isinstance(value, str):
-                    transformed_attributes[key] = transformer._safely_transform_string(  # pyright: ignore[reportPrivateUsage]
-                        ('otel_events', i, 'attributes', key), value
-                    )
-            if transformed_attributes != event_attributes:
-                events = list(span['events'])
-                events[i] = Event(name=event.name, attributes=transformed_attributes, timestamp=event.timestamp)
-                span['events'] = events
-            break
+        SpanScrubber(self).transform_console_fields(span)
 
 
 class SpanScrubber:
@@ -392,6 +362,38 @@ class SpanScrubber:
         with handle_internal_errors:
             transformed = self._transform_string(StringValue(path, value))
         return transformed
+
+    def transform_console_fields(self, span: ReadableSpanDict) -> None:
+        attributes = span['attributes']
+        tags = attributes.get(ATTRIBUTES_TAGS_KEY)
+        if isinstance(tags, (list, tuple)):
+            transformed_tags = tuple(
+                self._safely_transform_string(('attributes', ATTRIBUTES_TAGS_KEY, i), tag)
+                if isinstance(tag, str)
+                else tag
+                for i, tag in enumerate(tags)
+            )
+            if transformed_tags != tags:
+                span['attributes'] = {**attributes, ATTRIBUTES_TAGS_KEY: transformed_tags}
+
+        for i, event in enumerate(span['events']):
+            if event.name != 'exception':
+                continue
+            if not event.attributes:
+                break
+            event_attributes = event.attributes
+            transformed_attributes = dict(event_attributes)
+            for key in ('exception.type', 'exception.message', 'exception.stacktrace'):
+                value = event_attributes.get(key)
+                if isinstance(value, str):
+                    transformed_attributes[key] = self._safely_transform_string(
+                        ('otel_events', i, 'attributes', key), value
+                    )
+            if transformed_attributes != event_attributes:
+                events = list(span['events'])
+                events[i] = Event(name=event.name, attributes=transformed_attributes, timestamp=event.timestamp)
+                span['events'] = events
+            break
 
     def scrub_span(self, span: ReadableSpanDict):
         span['name'] = self._safely_transform_string(('span_name',), span['name'])
