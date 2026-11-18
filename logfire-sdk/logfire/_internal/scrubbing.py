@@ -223,14 +223,12 @@ class BaseScrubber(ABC):
         gen_ai_semconv.RESPONSE_MODEL,
     }
 
-    # Message content and tool payloads can contain sensitive named fields alongside
-    # prose where matching the string value would produce false positives.
+    # Message content can contain sensitive named fields alongside prose where
+    # matching the string value would produce false positives.
     KEY_ONLY_KEYS = {
         gen_ai_semconv.INPUT_MESSAGES,
         gen_ai_semconv.OUTPUT_MESSAGES,
         gen_ai_semconv.SYSTEM_INSTRUCTIONS,
-        gen_ai_semconv.TOOL_CALL_ARGUMENTS,
-        gen_ai_semconv.TOOL_CALL_RESULT,
     }
 
     @abstractmethod

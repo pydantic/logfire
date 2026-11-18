@@ -702,8 +702,6 @@ def test_transform_string_in_safe_key_skips_all_nested_patterns():
         'gen_ai.input.messages',
         'gen_ai.output.messages',
         'gen_ai.system_instructions',
-        'gen_ai.tool.call.arguments',
-        'gen_ai.tool.call.result',
     ],
 )
 def test_gen_ai_content_matches_nested_keys_but_not_string_values(key: str):
@@ -716,6 +714,14 @@ def test_gen_ai_content_matches_nested_keys_but_not_string_values(key: str):
         'arguments': {'password': "[Scrubbed due to 'password']"},
     }
     assert notes == [{'path': ('attributes', key, 'arguments', 'password'), 'matched_substring': 'password'}]
+
+
+@pytest.mark.parametrize('key', ['gen_ai.tool.call.arguments', 'gen_ai.tool.call.result'])
+def test_standalone_gen_ai_tool_payloads_still_match_string_values(key: str):
+    result, notes = Scrubber(None).scrub_value(('attributes',), {key: '{"stdout":"password=hunter2"}'})
+
+    assert json.loads(result[key]) == {'stdout': "[Scrubbed due to 'password']"}
+    assert notes == [{'path': ('attributes', key, 'stdout'), 'matched_substring': 'password'}]
 
 
 def test_gen_ai_definition_keeps_schema_keys_and_transforms_values():
