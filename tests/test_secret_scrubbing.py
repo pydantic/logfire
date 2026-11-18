@@ -1062,6 +1062,43 @@ def test_internal_exception_in_transform_string_keeps_value_and_continues_patter
     assert 'transform failed' in caplog.text
 
 
+@pytest.mark.parametrize('invalid_result', [None, 42])
+def test_non_string_transform_result_keeps_value_and_scrubs_other_values(invalid_result: Any):
+    def transform(value: StringValue) -> str:
+        if value.value == 'alice@example.com':
+            return cast(str, invalid_result)
+        return value.value
+
+    result, notes = Scrubber(None, transform_string=transform).scrub_value(
+        ('attributes',),
+        {'contact': 'alice@example.com', 'password_contact': 'alice@example.com', 'password': 'hunter2'},
+    )
+
+    assert result == {
+        'contact': invalid_result,
+        'password_contact': "[Scrubbed due to 'password']",
+        'password': "[Scrubbed due to 'password']",
+    }
+    assert notes == [
+        {'path': ('attributes', 'password_contact'), 'matched_substring': 'password'},
+        {'path': ('attributes', 'password'), 'matched_substring': 'password'},
+    ]
+
+
+def test_non_string_transform_result_does_not_expose_other_span_attributes(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    def transform(value: StringValue) -> str:
+        return cast(str, 42) if value.value == 'alice@example.com' else value.value
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    logfire.info('Example', contact='alice@example.com', password='hunter2')
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['contact'] == 42
+    assert span['attributes']['password'] == "[Scrubbed due to 'password']"
+
+
 def test_transform_string_writes_attributes_without_scrubbed_note(
     exporter: TestExporter, config_kwargs: dict[str, Any]
 ):

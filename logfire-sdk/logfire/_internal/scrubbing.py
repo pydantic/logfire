@@ -436,7 +436,7 @@ class SpanScrubber:
             if transformed != value:
                 self.scrub_count += 1
                 value = transformed
-            if not in_safe_key and not key_only and (match := self._pattern.search(value)):
+            if isinstance(value, str) and not in_safe_key and not key_only and (match := self._pattern.search(value)):
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
