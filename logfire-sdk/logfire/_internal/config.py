@@ -1766,7 +1766,7 @@ class LogfireConfig(_LogfireConfigData):
             # PendingSpanProcessor creates the record from on_start. The wrapper normalizes it
             # before sending it to pending.on_end.
             deferred_processors.append(
-                PendingSpanProcessor(self.advanced.id_generator, MainSpanProcessorWrapper(pending))
+                PendingSpanProcessor(self.advanced.id_generator, MainSpanProcessorWrapper(pending, self.scrubber))
             )
         deferred_processors.extend(user_deferred_processors)
 
@@ -1784,7 +1784,7 @@ class LogfireConfig(_LogfireConfigData):
                 main.add_span_processor(processor)
 
         # Skip suppressed instrumentation and normalize completed spans before routing them.
-        return CheckSuppressInstrumentationProcessorWrapper(MainSpanProcessorWrapper(completed))
+        return CheckSuppressInstrumentationProcessorWrapper(MainSpanProcessorWrapper(completed, self.scrubber))
 
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
         """Force flush all telemetry and forwarding pipelines.

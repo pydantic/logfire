@@ -11,6 +11,7 @@ import pytest
 from dirty_equals import IsJson, IsPartialDict
 from inline_snapshot import snapshot
 from opentelemetry._logs import LogRecord, get_logger
+from opentelemetry.sdk._logs import ReadWriteLogRecord
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.sdk.trace import ConcurrentMultiSpanProcessor, ReadableSpan, Span, SpanProcessor
@@ -20,8 +21,15 @@ from opentelemetry.trace import Status, StatusCode
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
-from logfire._internal.exporters.processor_wrapper import SpanProcessorGroup
-from logfire._internal.scrubbing import DEFAULT_PATTERNS, MessageValueCleaner, NoopScrubber, Scrubber
+from logfire._internal import utils
+from logfire._internal.exporters import processor_wrapper
+from logfire._internal.exporters.logs import MainLogProcessorWrapper
+from logfire._internal.exporters.processor_wrapper import (
+    MainSpanProcessorWrapper,
+    ScrubbingSpanProcessor,
+    SpanProcessorGroup,
+)
+from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
 from logfire._internal.utils import ReadableSpanDict
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
@@ -548,6 +556,50 @@ def test_scrub_attribute(exporter: TestExporter):
     )
 
 
+@pytest.mark.parametrize('replacement', ['[email]', ''])
+@pytest.mark.parametrize('body', ['fallback', 'alice@example.com'])
+def test_log_message_transforms_before_console_and_export(
+    logs_exporter: TestLogExporter, config_kwargs: dict[str, Any], replacement: str, body: str
+):
+    output = StringIO()
+    calls: list[str] = []
+
+    def transform(value: StringValue) -> str:
+        if value.path == ('attributes', 'logfire.msg'):
+            calls.append(value.value)
+            return replacement
+        return value.value.replace('alice@example.com', '[email]')
+
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(transform_string=transform),
+    )
+    logfire.configure(**config_kwargs)
+    get_logger(__name__).emit(LogRecord(body=body, attributes={'logfire.msg': 'alice@example.com'}))
+
+    assert calls == ['alice@example.com']
+    (log,) = logs_exporter.exported_logs_as_dicts()
+    assert log['attributes']['logfire.msg'] == replacement
+    assert log['body'] == body.replace('alice@example.com', '[email]')
+    assert (replacement or '<empty message>') in output.getvalue()
+    assert 'alice@example.com' not in output.getvalue()
+    assert 'fallback' not in output.getvalue()
+
+
+def test_log_message_transform_with_plain_attributes(logs_exporter: TestLogExporter):
+    record = ReadWriteLogRecord(log_record=LogRecord())
+    record.log_record.attributes = {'logfire.msg': 'alice@example.com'}
+    processor = MainLogProcessorWrapper(
+        SimpleLogRecordProcessor(logs_exporter),
+        Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]')),
+    )
+
+    processor.on_emit(record)
+
+    (log,) = logs_exporter.exported_logs_as_dicts()
+    assert log['attributes']['logfire.msg'] == '[email]'
+
+
 def test_scrub_log_event_attribute(logs_exporter: TestLogExporter):
     get_logger(__name__).emit(
         LogRecord(
@@ -888,17 +940,170 @@ def test_transform_string_writes_attributes_without_scrubbed_note(
     assert 'logfire.scrubbed' not in span['attributes']
 
 
-def test_safe_key_formatted_value_is_transformed_without_pattern_search():
+def test_whole_message_is_transformed_before_console(exporter: TestExporter, config_kwargs: dict[str, Any]):
     seen: list[StringValue] = []
+    output = StringIO()
 
     def transform(value: StringValue) -> str:
         seen.append(value)
         return value.value.replace('alice@example.com', '[email]')
 
-    cleaner = MessageValueCleaner(Scrubber(None, transform_string=transform), check_keys=False)
-    assert cleaner.clean_value('logfire.msg', 'secret=alice@example.com') == 'secret=[email]'
-    assert seen == [StringValue(('message', 'logfire.msg'), 'secret=alice@example.com')]
-    assert cleaner.extra_attrs() == {}
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(transform_string=transform),
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('alice@example.com')
+
+    assert 'alice@example.com' not in output.getvalue()
+    assert '[email]' in output.getvalue()
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == '[email]'
+    message_values = [value.value for value in seen if value.path == ('attributes', 'logfire.msg')]
+    assert message_values == ['alice@example.com']
+
+
+def test_missing_message_defaults_to_span_name_before_console_transform(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    from opentelemetry import trace
+
+    output = StringIO()
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(
+            transform_string=lambda value: value.value.replace('alice@example.com', '[email]')
+        ),
+    )
+    logfire.configure(**config_kwargs)
+    with trace.get_tracer('test').start_as_current_span('alice@example.com', attributes={'logfire.msg': ''}):
+        pass
+
+    assert '[email]' in output.getvalue()
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == '[email]'
+    assert span['name'] == '[email]'
+
+
+def test_empty_transformed_message_does_not_expose_span_name(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    from opentelemetry import trace
+
+    output = StringIO()
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(
+            transform_string=lambda value: '' if value.path == ('attributes', 'logfire.msg') else value.value
+        ),
+    )
+    logfire.configure(**config_kwargs)
+    with trace.get_tracer('test').start_as_current_span(
+        'alice@example.com', attributes={'logfire.msg': 'alice@example.com'}
+    ):
+        pass
+
+    assert 'alice@example.com' not in output.getvalue()
+    assert '<empty message>' in output.getvalue()
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == ''
+
+
+def test_empty_span_message_displays_placeholder(config_kwargs: dict[str, Any]):
+    from opentelemetry import trace
+
+    output = StringIO()
+    config_kwargs['console'] = logfire.ConsoleOptions(output=output)
+    logfire.configure(**config_kwargs)
+    with trace.get_tracer('test').start_as_current_span('operation', attributes={'logfire.msg': ''}):
+        pass
+
+    assert '<empty message>' in output.getvalue()
+    assert 'operation' not in output.getvalue()
+
+
+@pytest.mark.parametrize('scope_name', ['logfire.openai', 'logfire.anthropic'])
+def test_legacy_llm_message_is_transformed_early(scope_name: str):
+    spans: list[ReadableSpan] = []
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    processor = MainSpanProcessorWrapper(
+        RecordingProcessor(),
+        Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]')),
+    )
+    processor.on_end(
+        ReadableSpan(
+            name='call',
+            attributes={'logfire.msg': 'alice@example.com'},
+            instrumentation_scope=InstrumentationScope(scope_name),
+        )
+    )
+
+    assert spans[0].attributes == {'logfire.msg': '[email]'}
+
+
+def test_absent_message_defaults_to_span_name_before_transform():
+    spans: list[ReadableSpan] = []
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    processor = MainSpanProcessorWrapper(
+        RecordingProcessor(),
+        Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]')),
+    )
+    processor.on_end(ReadableSpan(name='alice@example.com', attributes={}))
+
+    assert spans[0].attributes == {'logfire.msg': '[email]'}
+
+
+def test_whole_message_is_not_transformed_again_during_export(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    message_calls = 0
+
+    def transform(value: StringValue) -> str:
+        nonlocal message_calls
+        if value.path == ('attributes', 'logfire.msg'):
+            message_calls += 1
+            return value.value + 'z' * 5000
+        return value.value
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    logfire.info('hello')
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == 'hello' + 'z' * 5000
+    assert message_calls == 1
+
+
+@pytest.mark.parametrize(
+    ('failing_step', 'expected_message'),
+    [('normalization', '[email]'), ('message_transform', 'alice@example.com')],
+)
+def test_message_handling_after_main_processor_errors(
+    monkeypatch: pytest.MonkeyPatch, failing_step: str, expected_message: str
+):
+    spans: list[ReadableSpan] = []
+    monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
+
+    class RecordingProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            spans.append(span)
+
+    def fail(*_args: Any) -> None:
+        raise ValueError('processing failed')
+
+    scrubber = Scrubber(None, transform_string=lambda value: value.value.replace('alice@example.com', '[email]'))
+    processor = MainSpanProcessorWrapper(ScrubbingSpanProcessor(RecordingProcessor(), scrubber), scrubber)
+    if failing_step == 'normalization':
+        monkeypatch.setattr(processor_wrapper, '_transform_langchain_span', fail)
+    else:
+        monkeypatch.setattr(processor_wrapper, '_transform_span_message', fail)
+
+    processor.on_end(ReadableSpan(name='call', attributes={'logfire.msg': 'alice@example.com'}))
+
+    assert spans[0].attributes == {'logfire.msg': expected_message}
 
 
 def test_safe_key_formatted_value_is_transformed_end_to_end(exporter: TestExporter, config_kwargs: dict[str, Any]):
