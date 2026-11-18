@@ -733,6 +733,8 @@ def test_llm_scopes_scrub_legacy_request_without_scrubbing_definitions(scope_nam
     request = {
         'messages': [{'content': 'The URL contains /auth', 'arguments': {'password': 'hunter2'}}],
         'tools': [{'parameters': {'properties': {'password': {'description': 'alice@example.com'}}}}],
+        'functions': [{'parameters': {'properties': {'password': {'description': 'alice@example.com'}}}}],
+        'response_format': {'json_schema': {'properties': {'password': {'description': 'alice@example.com'}}}},
     }
     span = cast(
         ReadableSpanDict,
@@ -754,6 +756,8 @@ def test_llm_scopes_scrub_legacy_request_without_scrubbing_definitions(scope_nam
     assert json.loads(request_data) == {
         'messages': [{'content': 'The URL contains /auth', 'arguments': {'password': "[Scrubbed due to 'password']"}}],
         'tools': [{'parameters': {'properties': {'password': {'description': '[email]'}}}}],
+        'functions': [{'parameters': {'properties': {'password': {'description': '[email]'}}}}],
+        'response_format': {'json_schema': {'properties': {'password': {'description': '[email]'}}}},
     }
     assert span['attributes']['ordinary'] == "[Scrubbed due to 'auth']"
 
