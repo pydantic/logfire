@@ -385,6 +385,89 @@ def test_callback_whitelists_overlapping_later_start():
     assert notes == [{'path': ('attributes', 'value'), 'matched_substring': 'secret'}]
 
 
+@pytest.mark.parametrize('in_key', [False, True])
+@pytest.mark.parametrize('value', ['plain', 42, {'nested': 'plain'}])
+def test_callback_checks_custom_pattern_at_same_start(in_key: bool, value: Any):
+    seen: list[str] = []
+
+    def callback(match: logfire.ScrubMatch):
+        matched = match.pattern_match.group()
+        seen.append(matched)
+        return match.value if matched == 'password' else '[redacted]'
+
+    text = 'password=hunter2'
+    input_value = {text: value} if in_key else text
+    result, notes = Scrubber([r'password=\w+'], callback).scrub_value(('attributes',), input_value)
+
+    assert result == ({text: '[redacted]'} if in_key else '[redacted]')
+    assert notes == []
+    assert seen == ['password', text]
+
+
+def test_callback_checks_custom_patterns_at_same_start_with_original_context():
+    seen: list[str] = []
+
+    def callback(match: logfire.ScrubMatch):
+        seen.append(match.pattern_match.group())
+        return (' ' + match.value)[1:] if match.pattern_match.group() == 'foo' else '[redacted]'
+
+    result, notes = Scrubber([r'foo', r'(?<= )foo=bar'], callback).scrub_value(('attributes', 'value'), 'a foo=bar!')
+
+    assert result == '[redacted]'
+    assert notes == []
+    assert seen == ['foo', 'foo=bar']
+
+
+def test_callback_changed_same_start_result_is_final():
+    seen: list[str] = []
+
+    def callback(match: logfire.ScrubMatch):
+        seen.append(match.pattern_match.group())
+        return 'replacement secret=visible'
+
+    result, notes = Scrubber([r'password=\w+'], callback).scrub_value(('attributes', 'value'), 'password=hunter2')
+
+    assert result == 'replacement secret=visible'
+    assert notes == []
+    assert seen == ['password']
+
+
+def test_callback_whitelists_same_start_zero_width_then_checks_later_match():
+    seen: list[tuple[int, int]] = []
+
+    def callback(match: logfire.ScrubMatch):
+        seen.append(match.pattern_match.span())
+        return match.value if match.pattern_match.group() == '' else '[redacted]'
+
+    result, notes = Scrubber([r'(?=x)', r'x', r'(?=y)', r'y'], callback).scrub_value(('attributes', 'value'), 'xy')
+
+    assert result == '[redacted]'
+    assert notes == []
+    assert seen == [(0, 0), (0, 1)]
+
+
+def test_callback_same_start_matches_count_toward_limit():
+    patterns = [r'(?=x)'] * 100
+    result, notes = Scrubber(patterns, lambda match: match.value).scrub_value(('attributes', 'value'), 'x')
+
+    assert result == '[Scrubbed due to too many allowed matches]'
+    assert notes == []
+
+
+def test_non_whitelisted_match_skips_individual_patterns(monkeypatch: pytest.MonkeyPatch):
+    scrubber = Scrubber([r'password=\w+'])
+
+    class NoIteration:
+        def __iter__(self):
+            raise AssertionError('individual rules should not be searched')
+
+    monkeypatch.setattr(scrubber, '_individual_patterns', NoIteration())
+    result, notes = scrubber.scrub_value(('attributes', 'value'), 'password=hunter2')
+
+    assert result == "[Scrubbed due to 'password']"
+    assert notes == [{'path': ('attributes', 'value'), 'matched_substring': 'password'}]
+
+
 def test_callback_whitelists_zero_width_match_at_end():
     matches: list[tuple[int, int]] = []
 
@@ -598,6 +681,61 @@ def test_log_message_transform_with_plain_attributes(logs_exporter: TestLogExpor
 
     (log,) = logs_exporter.exported_logs_as_dicts()
     assert log['attributes']['logfire.msg'] == '[email]'
+
+
+def test_otel_log_event_name_transforms_before_console_and_export(
+    logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]
+) -> None:
+    output = StringIO()
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    config_kwargs.update(
+        console=logfire.ConsoleOptions(output=output),
+        scrubbing=logfire.ScrubbingOptions(transform_string=transform),
+    )
+    logfire.configure(**config_kwargs)
+    get_logger(__name__).emit(
+        LogRecord(
+            event_name='alice@example.com',
+            body='hello',
+            attributes={'event.name': 'alice@example.com'},
+        )
+    )
+
+    (record,) = logs_exporter.get_finished_logs()
+    assert record.log_record.event_name == '[email]'
+    assert record.log_record.attributes is not None
+    assert record.log_record.attributes['event.name'] == '[email]'
+    assert '[email]: hello' in output.getvalue()
+    assert 'alice@example.com' not in output.getvalue()
+    assert [value.path for value in seen if value.value == 'alice@example.com'] == [
+        ('attributes', 'event.name'),
+        ('otel_log_event_name',),
+    ]
+
+
+def test_otel_log_event_name_transform_failure_preserves_input(
+    logs_exporter: TestLogExporter, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    errors: list[str] = []
+    monkeypatch.setattr(utils, 'log_internal_error', lambda: errors.append('transform failed'))
+
+    def transform(value: StringValue) -> str:
+        if value.path == ('otel_log_event_name',):
+            raise ValueError('transform failed')
+        return value.value
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    get_logger(__name__).emit(LogRecord(event_name='alice@example.com', body='hello'))
+
+    (record,) = logs_exporter.get_finished_logs()
+    assert record.log_record.event_name == 'alice@example.com'
+    assert record.log_record.body == 'hello'
+    assert errors == ['transform failed']
 
 
 def test_scrub_log_event_attribute(logs_exporter: TestLogExporter):
@@ -1777,8 +1915,12 @@ def test_disable_scrubbing(exporter: TestExporter, logs_exporter: TestLogExporte
 
     logfire.info('Password: {user_password}', user_password='my secret password')
     get_logger(__name__).emit(
-        LogRecord(attributes={'user_password': 'my secret password', 'event.name': 'Password: {user_password}'})
+        LogRecord(
+            event_name='Password: {user_password}',
+            attributes={'user_password': 'my secret password', 'event.name': 'Password: {user_password}'},
+        )
     )
+    assert logs_exporter.get_finished_logs()[0].log_record.event_name == 'Password: {user_password}'
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {

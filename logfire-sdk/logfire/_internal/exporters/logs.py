@@ -30,6 +30,9 @@ class MainLogProcessorWrapper(WrapperLogProcessor):
     def on_emit(self, log_record: ReadWriteLogRecord):
         log_record.log_record = self.scrubber.scrub_log(log_record.log_record)
         with handle_internal_errors:
+            event_name = getattr(log_record.log_record, 'event_name', None)
+            if isinstance(event_name, str):
+                log_record.log_record.event_name = self.scrubber.transform_log_event_name(event_name)
             attributes = log_record.log_record.attributes
             if attributes is not None and isinstance(message := attributes.get(ATTRIBUTES_MESSAGE_KEY), str):
                 transformed = self.scrubber.transform_message(message)
