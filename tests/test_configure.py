@@ -5,8 +5,10 @@ import dataclasses
 import getpass
 import inspect
 import json
+import math
 import os
 import pickle
+import re
 import signal
 import subprocess
 import sys
@@ -582,6 +584,30 @@ def test_trace_sample_rate_too_large_for_float_names_the_setting(tmp_path: Path)
     (tmp_path / 'pyproject.toml').write_text(f'[tool.logfire]\ntrace_sample_rate = 1{"0" * 400}\n')
     with pytest.raises(LogfireConfigError, match='Expected trace_sample_rate to be a number, got 1000'):
         configure(send_to_logfire=False, config_dir=tmp_path)
+
+
+@pytest.mark.parametrize(
+    ('rate', 'printed'), [('nan', 'nan'), ('inf', 'inf'), ('-inf', '-inf'), ('1.5', '1.5'), ('-1', '-1.0')]
+)
+def test_trace_sample_rate_out_of_range_names_the_setting(rate: str, printed: str) -> None:
+    message = f'Expected sampling.head (LOGFIRE_TRACE_SAMPLE_RATE) to be between 0.0 and 1.0, got {printed}'
+    with patch.dict(os.environ, {'LOGFIRE_TRACE_SAMPLE_RATE': rate}):
+        with pytest.raises(LogfireConfigError, match=f'^{re.escape(message)}$'):
+            configure(send_to_logfire=False)
+
+
+@pytest.mark.parametrize('rate', [math.nan, math.inf, 1.5, -0.1])
+def test_sampling_options_head_out_of_range_names_the_setting(rate: float) -> None:
+    message = f'Expected sampling.head (LOGFIRE_TRACE_SAMPLE_RATE) to be between 0.0 and 1.0, got {rate!r}'
+    with pytest.raises(LogfireConfigError, match=f'^{re.escape(message)}$'):
+        configure(send_to_logfire=False, sampling=logfire.SamplingOptions(head=rate))
+
+
+@pytest.mark.parametrize('rate', ['0', '0.5', '1'])
+def test_trace_sample_rate_in_range_is_accepted(rate: str) -> None:
+    with patch.dict(os.environ, {'LOGFIRE_TRACE_SAMPLE_RATE': rate}):
+        configure(send_to_logfire=False)
+    assert GLOBAL_CONFIG.sampling.head == float(rate)
 
 
 def test_logfire_invalid_config_dir(tmp_path: Path):
