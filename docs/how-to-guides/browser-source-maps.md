@@ -103,8 +103,10 @@ The files you upload must be exactly the files you deploy. If a later step chang
 Upload the maps in CI, after the build and **before you deploy**. Logfire resolves an exception only if its source map is already stored when the exception arrives (see [Late uploads](#late-uploads)).
 
 ```bash
-npx logfire-cli --beta --region us sourcemap upload dist --frontend-application-id <frontend-application-id> --delete
+npx logfire-cli --beta --region us sourcemap upload dist --frontend-application-id "$FRONTEND_APPLICATION_ID" --delete
 ```
+
+Set `FRONTEND_APPLICATION_ID` to the ID on the project's Frontend page. The examples on this page read it from that variable.
 
 `--delete` removes the `.map` files after the upload, so the deploy does not serve your source maps to browsers. Leave it out only if you want the maps to be public.
 
@@ -121,7 +123,7 @@ For a Next.js app, upload the browser chunks under `.next/static`, which Next.js
 
 ```bash
 npx logfire-cli --beta --region us sourcemap upload .next/static \
-  --frontend-application-id <frontend-application-id> \
+  --frontend-application-id "$FRONTEND_APPLICATION_ID" \
   --base-url-path /_next/static \
   --delete
 ```
@@ -131,8 +133,16 @@ npx logfire-cli --beta --region us sourcemap upload .next/static \
 
 On Vercel, the build and the deploy are one step. Add the upload to the build command, after `next build`, and set `LOGFIRE_API_KEY` as an environment variable for the build:
 
+With `turbopack.debugIds`:
+
 ```bash
-next build && npx logfire-cli --beta --region us sourcemap upload .next/static --frontend-application-id <frontend-application-id> --base-url-path /_next/static --delete
+next build && npx logfire-cli --beta --region us sourcemap upload .next/static --frontend-application-id "$FRONTEND_APPLICATION_ID" --base-url-path /_next/static --delete
+```
+
+With webpack, or on Next.js earlier than 16.0.0, run `inject` between the build and the upload:
+
+```bash
+next build && npx logfire-cli --beta sourcemap inject .next && npx logfire-cli --beta --region us sourcemap upload .next/static --frontend-application-id "$FRONTEND_APPLICATION_ID" --base-url-path /_next/static --delete
 ```
 
 ### Authentication
@@ -144,7 +154,7 @@ In GitHub Actions, store the key as a repository secret:
 ```yaml
 - run: npm ci && npm run build
 - run: npx logfire-cli --beta sourcemap inject dist
-- run: npx logfire-cli --beta --region us sourcemap upload dist --frontend-application-id <frontend-application-id> --delete
+- run: npx logfire-cli --beta --region us sourcemap upload dist --frontend-application-id "$FRONTEND_APPLICATION_ID" --delete
   env:
     LOGFIRE_API_KEY: ${{ secrets.LOGFIRE_API_KEY }}
 ```
@@ -158,7 +168,7 @@ build:
   script:
     - npm ci && npm run build
     - npx logfire-cli --beta sourcemap inject dist
-    - npx logfire-cli --beta --region us sourcemap upload dist --frontend-application-id <frontend-application-id> --delete
+    - npx logfire-cli --beta --region us sourcemap upload dist --frontend-application-id "$FRONTEND_APPLICATION_ID" --delete
 ```
 
 `LOGFIRE_RELEASE` names the build. In GitHub Actions and on Vercel, the CLI reads the commit SHA from the environment.
@@ -265,10 +275,15 @@ Start from what you see on the exception.
 
 The exception carries no debug IDs, so Logfire did not try to resolve it. Do these two checks in order.
 
-**1. The built bundle contains the debug ID snippet.** Run this command on the build output directory. Use `dist`, or `.next/static` for a Next.js app:
+**1. The built bundle contains the debug ID snippet.** Run the command for your build output directory. For a `dist` directory:
 
 ```bash
 grep -rlE '_debugIds|_logfireDebugIds' dist --include='*.js' --include='*.mjs' --include='*.cjs'
+```
+
+For a Next.js app:
+
+```bash
 grep -rlE '_debugIds|_logfireDebugIds' .next/static --include='*.js'
 ```
 
