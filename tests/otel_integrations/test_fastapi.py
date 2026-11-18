@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import os
 from typing import Annotated, Any
 from unittest import mock
@@ -9,6 +10,7 @@ import pytest
 from dirty_equals import IsFloat, IsInt
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
+from pydantic import BaseModel, Field
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
@@ -73,6 +75,15 @@ async def get_secret(path_param: str, foo: str, password: str, testauthorization
     return {'foo': foo, 'password': password, 'testauthorization': testauthorization, 'path_param': path_param}
 
 
+class Signup(BaseModel):
+    username: str
+    password: str = Field(min_length=12)
+
+
+async def signup(body: Signup) -> Signup:  # pragma: no cover
+    return body
+
+
 async def echo_body(request: Request):
     return await request.body()
 
@@ -115,6 +126,7 @@ def app():
     app.get('/http_exception/{code}')(http_exception)
     app.get('/with_path_param/{param}')(with_path_param)
     app.get('/secret/{path_param}', name='secret')(get_secret)
+    app.post('/signup', name='signup')(signup)
     app.get('/bad_dependency_route/{good}')(bad_dependency_route)
     app.websocket('/ws/{name}')(websocket_endpoint)
     first_lvl_app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
@@ -125,7 +137,7 @@ def app():
 @pytest.fixture(autouse=True)  # only applies within this module
 def auto_instrument_fastapi(app: FastAPI):
     def request_attributes_mapper(request: Request | WebSocket, attributes: dict[str, Any]) -> dict[str, Any] | None:
-        if request.scope['route'].name in ('other_route_name', 'secret'):
+        if request.scope['route'].name in ('other_route_name', 'secret', 'signup'):
             attributes['custom_attr'] = 'custom_value'
             return attributes
 
@@ -2174,6 +2186,32 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+def test_scrubbing_validation_error_input(client: TestClient, exporter: TestExporter) -> None:
+    response = client.post('/signup', json={'username': 'alice', 'password': 'hunter2'})
+    assert response.status_code == 422
+
+    [attributes] = [
+        span['attributes']
+        for span in exporter.exported_spans_as_dict(parse_json_attributes=True)
+        if 'fastapi.arguments.errors' in span['attributes']
+    ]
+    assert attributes['fastapi.arguments.errors'] == snapshot(
+        [
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'password'],
+                'msg': 'String should have at least 12 characters',
+                'input': "[Scrubbed due to 'password']",
+                'ctx': {'min_length': 12},
+            }
+        ]
+    )
+    assert attributes['logfire.scrubbed'] == snapshot(
+        [{'path': ['attributes', 'fastapi.arguments.errors', 0, 'input'], 'matched_substring': 'password'}]
+    )
+    assert 'hunter2' not in json.dumps(exporter.exported_spans_as_dict())
 
 
 def make_request_hook_spans(record_send_receive: bool):
