@@ -90,7 +90,7 @@ logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback
 
 Logfire scrubs a value before checking whether its key matches a pattern. This includes strings and values inside dictionaries, lists, and JSON-encoded containers. Your callback for a matching key receives the scrubbed value, so it can return that value unchanged or return a subset of a container. If it returns a different value, Logfire uses that replacement without scrubbing it again. For most safe keys, Logfire skips pattern matching inside their values; structured message attributes are treated differently, as described below.
 
-If the callback returns a string unchanged (or returns an equal string of the same type), Logfire checks later positions in the same key or string value for other matches. A different returned string is used as the final value. After 100 allowed matches in one string, Logfire redacts the value to limit the search cost.
+If the callback returns a value unchanged (or returns an equal copy of the same type), Logfire checks other patterns that match at the same position, then later positions in the same key or string value. The callback may run more than once for one key or value. A different returned value is used as the final value. After 100 allowed matches in one string, Logfire redacts the value to limit the search cost.
 
 !!! warning "Keep scrubbing callbacks simple and pure"
 

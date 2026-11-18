@@ -128,9 +128,9 @@ class ScrubbingOptions:
     Otherwise, the returned value replaces the matched value.
     Logfire scrubs each value before checking whether its key matches. A callback for a matching key
     receives that scrubbed value. A different value returned by the callback is treated as final.
-    If a string value is returned unchanged or as an equal copy of the same type, Logfire checks for later matches
-    in that string. This applies to both matching keys and string values. After 100 allowed matches
-    in one string, Logfire redacts the value to bound the search cost.
+    If a value is returned unchanged or as an equal copy of the same type, Logfire checks other patterns at the
+    same position, then later matches in the string. This applies to both matching keys and string values.
+    After 100 allowed matches in one string, Logfire redacts the value to bound the search cost.
     Do not mutate the original value in place: Logfire may not detect the change.
     The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
     It may run on a background thread when scrubbing spans. Message formatting calls it on the calling thread.
@@ -281,6 +281,9 @@ class Scrubber(BaseScrubber):
         # See ScrubbingOptions for more info on these parameters.
         patterns = [_DEFAULT_PATTERN, *(patterns or [])]
         self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
+        self._individual_patterns = tuple(
+            re.compile(pattern, re.IGNORECASE | re.DOTALL) for pattern in [*DEFAULT_PATTERNS, *patterns[1:]]
+        )
         self._callback = callback
         self._transform_string = transform_string
 
@@ -326,6 +329,7 @@ class SpanScrubber:
 
     def __init__(self, parent: Scrubber, *, scope_name: str | None = None):
         self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
+        self._individual_patterns = parent._individual_patterns  # pyright: ignore[reportPrivateUsage]
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self._transform_string = parent._transform_string  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
@@ -490,6 +494,23 @@ class SpanScrubber:
             if unchanged_matches >= _MAX_UNCHANGED_MATCHES:
                 self.scrub_count += 1
                 return '[Scrubbed due to too many allowed matches]'
+            # The combined regex reports only its first alternative at a position.
+            # Inspect the other rules only after that match was allowed.
+            first_candidate = True
+            for pattern in self._individual_patterns:
+                candidate = pattern.match(text, match.start())
+                if candidate is None:
+                    continue
+                if first_candidate:
+                    first_candidate = False
+                    continue
+                result = self._redact(ScrubMatch(path, value, candidate))
+                if not _is_unchanged_value(value, result):
+                    return result
+                unchanged_matches += 1
+                if unchanged_matches >= _MAX_UNCHANGED_MATCHES:
+                    self.scrub_count += 1
+                    return '[Scrubbed due to too many allowed matches]'
             # Keep overlapping matches at later starts visible, including after zero-width matches.
             next_position = match.start() + 1
             if next_position > len(text):
