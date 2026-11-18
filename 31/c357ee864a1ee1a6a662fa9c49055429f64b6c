@@ -1,0 +1,19 @@
+tests/test_secret_scrubbing.py
+  s_129b2957423c22::t_4af22d3caa1db5 1574-1577,1579
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "31c357ee864a1ee1a6a662fa9c49055429f64b6c",
+  "prompts": {},
+  "sessions": {
+    "s_129b2957423c22": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1eee4-6c7e-7423-b4ac-5d558555425f",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
