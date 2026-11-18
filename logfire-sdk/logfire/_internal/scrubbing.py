@@ -156,7 +156,8 @@ class ScrubbingOptions:
 
 
 class BaseScrubber(ABC):
-    # Similar to SAFE_KEYS below but also shouldn't be passed through transform_string
+    # SDK control and source metadata: skip pattern matching and transform_string.
+    # This is a subset of SAFE_KEYS.
     NO_TRANSFORM_KEYS = {
         ATTRIBUTES_LOG_LEVEL_NUM_KEY,
         ATTRIBUTES_SPAN_TYPE_KEY,
@@ -165,10 +166,22 @@ class BaseScrubber(ABC):
         *STACK_INFO_KEYS,
     }
 
-    # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
-    # Some of these are just here for performance.
+    # Structured content with prose: transform strings and match nested keys,
+    # but do not pattern-match string values. This is a subset of SAFE_KEYS.
+    KEY_ONLY_KEYS = {
+        'pydantic_ai.all_messages',
+        gen_ai_semconv.INPUT_MESSAGES,
+        gen_ai_semconv.OUTPUT_MESSAGES,
+        gen_ai_semconv.SYSTEM_INSTRUCTIONS,
+    }
+
+    # All keys whose own names are exempt from pattern matching. By default,
+    # their entire subtree also skips patterns but still transforms strings.
+    # NO_TRANSFORM_KEYS also skip transformation; KEY_ONLY_KEYS instead match
+    # nested keys while leaving string values exempt from pattern matching.
     SAFE_KEYS = {
         *NO_TRANSFORM_KEYS,
+        *KEY_ONLY_KEYS,
         ATTRIBUTES_MESSAGE_KEY,  # Formatted field values are scrubbed separately
         ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
         ATTRIBUTES_JSON_SCHEMA_KEY,
@@ -200,14 +213,10 @@ class BaseScrubber(ABC):
         'agent_session_id',
         'do_not_scrub',
         'binary_content',
-        'pydantic_ai.all_messages',
         'rpc.method',
         'model_request_parameters',
         'langsmith.metadata.session_id',
         'langsmith.trace.session_name',
-        gen_ai_semconv.INPUT_MESSAGES,
-        gen_ai_semconv.OUTPUT_MESSAGES,
-        gen_ai_semconv.SYSTEM_INSTRUCTIONS,
         gen_ai_semconv.TOOL_DEFINITIONS,
         gen_ai_semconv.TOOL_NAME,
         gen_ai_semconv.TOOL_CALL_ID,
@@ -372,7 +381,7 @@ class SpanScrubber:
         # We used to scrub exception messages here, git blame this line if you want to restore that logic.
         return new_attributes
 
-    def scrub(self, path: JsonPath, value: Any, in_safe_key: bool = False) -> Any:
+    def scrub(self, path: JsonPath, value: Any, in_safe_key: bool = False, key_only: bool = False) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
 
         `path` is a list of keys and indices leading to `value` in the span.
@@ -385,7 +394,7 @@ class SpanScrubber:
                 try:
                     decoded = json.loads(value)
                     scrub_count_before = self.scrub_count
-                    scrubbed = self.scrub(path, decoded, in_safe_key)
+                    scrubbed = self.scrub(path, decoded, in_safe_key, key_only)
                     return logfire_json_dumps(scrubbed) if self.scrub_count != scrub_count_before else value
                 except (ValueError, RecursionError):
                     pass
@@ -393,7 +402,7 @@ class SpanScrubber:
             if transformed != value:
                 self.scrub_count += 1
                 value = transformed
-            if not in_safe_key and (match := self._pattern.search(value)):
+            if not in_safe_key and not key_only and (match := self._pattern.search(value)):
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
@@ -408,22 +417,24 @@ class SpanScrubber:
                 text = binary.decode()
             except UnicodeDecodeError:
                 return binary
-            scrubbed = self.scrub(path, text, in_safe_key)
+            scrubbed = self.scrub(path, text, in_safe_key, key_only)
             return binary if scrubbed == text else scrubbed
         elif isinstance(value, Sequence):
-            return [self.scrub(path + (i,), x, in_safe_key) for i, x in enumerate(cast('Sequence[Any]', value))]
+            return [
+                self.scrub(path + (i,), x, in_safe_key, key_only) for i, x in enumerate(cast('Sequence[Any]', value))
+            ]
         elif isinstance(value, Mapping):
             result: dict[Any, Any] = {}
             for k, v in cast('Mapping[Any, Any]', value).items():
                 if k in BaseScrubber.NO_TRANSFORM_KEYS:
                     result[k] = v
-                elif k in BaseScrubber.SAFE_KEYS:
+                elif k in BaseScrubber.SAFE_KEYS and k not in BaseScrubber.KEY_ONLY_KEYS:
                     result[k] = (
                         self.scrub(path + (k,), v, in_safe_key=True) if self._transform_string is not None else v
                     )
                 else:
                     child_path = path + (k,)
-                    scrubbed = self.scrub(child_path, v, in_safe_key)
+                    scrubbed = self.scrub(child_path, v, in_safe_key, key_only or k in BaseScrubber.KEY_ONLY_KEYS)
                     if not in_safe_key and isinstance(k, str) and (match := self._pattern.search(k)):
                         redacted = self._scrub_matches(child_path, scrubbed, match)
                         if (
