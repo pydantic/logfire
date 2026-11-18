@@ -1,0 +1,30 @@
+logfire/pyproject.toml
+  s_111da07cce6d34::t_12f1fc0ad60df4 48,50,54
+.github/workflows/scripts/meta_package_smoke.py
+  s_111da07cce6d34::t_59477505521aa9 8,12,17-18
+tests/test_distribution_metadata.py
+  s_111da07cce6d34::t_59477505521aa9 47-48,73,78
+uv.lock
+  s_111da07cce6d34::t_f74490f834cd51 3585,3689,3736-3759
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e10ad9c8edf46a84833df486cee808a069ae8d26",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_111da07cce6d34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ef5f-5d6e-71a0-b7f1-e17f18cfe890",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
