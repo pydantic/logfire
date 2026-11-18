@@ -147,6 +147,8 @@ class ScrubbingOptions:
     Otherwise, the returned value replaces the matched value.
     Logfire scrubs each value before checking whether its key matches. A callback for a matching key
     receives that scrubbed value. A different value returned by the callback is treated as final.
+    For a dict with a `loc` list and an `input` key, such as a Pydantic validation error, each string in `loc`
+    is checked like a key for `input`.
     If a value is returned unchanged or as an equal copy of the same type, Logfire checks other patterns at the
     same position, then later matches in the string. This applies to both matching keys and string values.
     After 100 allowed matches in one string, Logfire redacts the value to bound the search cost.
@@ -564,7 +566,30 @@ class SpanScrubber:
                         result[k] = redacted
                     else:
                         result[k] = scrubbed
+            if not in_safe_key and 'input' in value:
+                loc = cast('Mapping[Any, Any]', value).get('loc')
+                result['input'] = self._scrub_validation_error_input(path + ('input',), loc, result['input'])
             return result
+        return value
+
+    def _scrub_validation_error_input(self, path: JsonPath, loc: Any, value: Any) -> Any:
+        """Redacts the `input` of a Pydantic validation error when a field name in its `loc` matches.
+
+        For example, in `{'loc': ['body', 'password'], 'input': 'hunter2'}` the field name and the rejected value
+        are separate entries, so checking each key and value on its own never connects them.
+        Each string in `loc` counts as a key for `input`, even when it's exactly a pattern such as 'password'.
+        `value` is the already scrubbed `input`.
+        """
+        if not isinstance(loc, (list, tuple)):
+            return value
+        for part in cast('list[Any] | tuple[Any, ...]', loc):
+            if isinstance(part, str) and (match := self._pattern.search(part)):
+                redacted = self._scrub_matches(path, value, match)
+                if not _is_unchanged_value(value, redacted):
+                    # Like the key rule, keep a sequence a sequence. `scrub` returns every sequence as a list.
+                    if isinstance(redacted, str) and isinstance(value, list):
+                        redacted = [redacted]
+                    return redacted
         return value
 
     def _scrub_matches(self, path: JsonPath, value: Any, match: re.Match[str]) -> Any:
