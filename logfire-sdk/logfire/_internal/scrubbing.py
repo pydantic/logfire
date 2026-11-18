@@ -146,7 +146,8 @@ class ScrubbingOptions:
     transform_string: Callable[[StringValue], str] | None = None
     """Transform string values before pattern matching, including values under safe keys.
 
-    Span names, status descriptions, and event names are also transformed, without pattern matching.
+    Span names, status descriptions, span event names, and OpenTelemetry log-record event names are also transformed,
+    without pattern matching. Log-record event names use the path `('otel_log_event_name',)`.
     Logfire control and source metadata, such as `logfire.span_type` and `code.filepath`, are excluded.
 
     The callback receives a [`logfire.types.StringValue`][logfire.types.StringValue] with the path and string value.
