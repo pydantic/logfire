@@ -1,0 +1,25 @@
+docs/how-to-guides/scrubbing.md
+  s_2b2aa796021bf2::t_e7b3d202cce50a 43
+  s_2b2aa796021bf2::t_5341412e9de637 42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9fb25e41baedbdd55e88e0dd6e3a8bdc5bf247c1",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_2b2aa796021bf2": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1794994376097",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
