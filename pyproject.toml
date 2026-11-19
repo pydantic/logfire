@@ -151,6 +151,10 @@ logfire-sdk = { workspace = true }
 package = false
 default-groups = ["dev"]
 exclude-newer = "4 days"
+# LiteLLM caps filelock below 4, but only uses the compatible FileLock API.
+# 4.0.3 fixes thread startup failures under coverage on Python 3.10/3.11:
+# https://github.com/tox-dev/filelock/pull/747
+override-dependencies = ["filelock>=4.0.3,<5"]
 
 [tool.uv.exclude-newer-package]
 # Allow the security update that removes trust in compromised eMudhra certificate chains.
