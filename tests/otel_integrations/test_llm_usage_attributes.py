@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pydantic
+import pytest
 from anthropic.types import Message as AnthropicMessage, Usage as AnthropicUsage
 from inline_snapshot import snapshot
 from openai.types.create_embedding_response import CreateEmbeddingResponse, Usage as EmbeddingUsage
@@ -11,7 +12,7 @@ from openai.types.responses.response_usage import InputTokensDetails, OutputToke
 
 from logfire._internal.integrations.llm_providers.anthropic import get_anthropic_usage_attributes
 from logfire._internal.integrations.llm_providers.openai import get_openai_usage_attributes
-from logfire._internal.integrations.llm_providers.usage import get_usage_attributes
+from logfire._internal.integrations.llm_providers.usage import gateway_header_cost, get_usage_attributes
 
 try:
     import genai_prices  # noqa: F401  # pyright: ignore[reportUnusedImport]
@@ -326,3 +327,105 @@ def test_non_embedding_flavors_use_plain_model_dump() -> None:
         if GENAI_PRICES_AVAILABLE:
             assert len(dump_calls) == 1, f'expected exactly one model_dump call for {provider_id}/{flavor}'
             assert dump_calls[0] == {}, f'expected no kwargs for {provider_id}/{flavor}'
+
+
+# --- Tests for the cost reported by the AI Gateway ---
+
+
+class FakeGatewayUsage(pydantic.BaseModel, extra='allow'):
+    prompt_tokens: int = 10
+    completion_tokens: int = 5
+
+
+# The estimate for these tokens is 0.0006, or nothing without genai-prices.
+ESTIMATE_RESPONSE = FakeResponse(model='gpt-4', usage={'prompt_tokens': 10, 'completion_tokens': 5})
+
+
+def gateway_cost_attribute(response: Any = ESTIMATE_RESPONSE, **usage_fields: Any) -> object:
+    usage = FakeGatewayUsage(**usage_fields)
+    result = get_usage_attributes(response, usage, 10, 5, provider_id='openai', api_flavor='chat')
+    return result.get('operation.cost')
+
+
+@pytest.mark.parametrize(
+    'usage_fields, expected',
+    [
+        pytest.param({'logfire_ai_gateway': {'cost': '0.0038'}}, 0.0038, id='decimal-string'),
+        pytest.param({'logfire_ai_gateway': {'cost': 0.0038}}, 0.0038, id='float'),
+        pytest.param({'logfire_ai_gateway': {'cost': 2}}, 2.0, id='int'),
+        pytest.param({'logfire_ai_gateway': {'cost': '0'}}, 0.0, id='zero-string'),
+        pytest.param({'logfire_ai_gateway': {'cost': 0}}, 0.0, id='zero-int'),
+    ],
+)
+def test_gateway_cost_is_used(usage_fields: dict[str, Any], expected: float) -> None:
+    assert gateway_cost_attribute(**usage_fields) == expected
+
+
+@pytest.mark.parametrize(
+    'block',
+    [
+        pytest.param({'cost': 'nan'}, id='nan'),
+        pytest.param({'cost': float('nan')}, id='float-nan'),
+        pytest.param({'cost': 'inf'}, id='inf'),
+        pytest.param({'cost': '1e999'}, id='overflow'),
+        pytest.param({'cost': 10**400}, id='huge-int'),
+        pytest.param({'cost': 10**5000}, id='int-string-overflow'),
+        pytest.param({'cost': '-0.01'}, id='negative'),
+        pytest.param({'cost': '-1e-400'}, id='negative-underflow'),
+        pytest.param({'cost': True}, id='bool'),
+        pytest.param({'cost': 'free'}, id='not-a-number'),
+        pytest.param({'cost': ''}, id='empty'),
+        pytest.param({'cost': None}, id='none'),
+        pytest.param({'cost': ['0.01']}, id='list'),
+        pytest.param({}, id='no-cost'),
+        pytest.param('0.01', id='block-not-a-dict'),
+    ],
+)
+def test_invalid_gateway_cost_falls_back_to_the_estimate(block: Any) -> None:
+    cost = gateway_cost_attribute(logfire_ai_gateway=block)
+    assert cost == (0.0006 if GENAI_PRICES_AVAILABLE else None)
+
+
+def test_gateway_cost_does_not_need_the_estimate() -> None:
+    """The response is only needed to estimate a cost, so a reported cost survives a failing estimate."""
+
+    class BadResponse:
+        def model_dump(self) -> dict[str, object]:
+            raise RuntimeError('model_dump exploded')
+
+    assert gateway_cost_attribute(BadResponse(), logfire_ai_gateway={'cost': '0.0038'}) == 0.0038
+
+
+def test_openai_embeddings_gateway_cost() -> None:
+    usage = EmbeddingUsage.model_validate(
+        {'prompt_tokens': 15, 'total_tokens': 15, 'logfire_ai_gateway': {'cost': '0.5'}}
+    )
+    response = CreateEmbeddingResponse(data=[], model='text-embedding-3-small', object='list', usage=usage)
+    assert get_openai_usage_attributes(response)['operation.cost'] == 0.5
+
+
+def test_anthropic_gateway_cost() -> None:
+    usage = AnthropicUsage.model_validate(
+        {'input_tokens': 10, 'output_tokens': 5, 'logfire_ai_gateway': {'cost': '0.5'}}
+    )
+    response = AnthropicMessage.model_construct(model='claude-3-haiku-20240307', usage=usage)
+    assert get_anthropic_usage_attributes(response)['operation.cost'] == 0.5
+
+
+@pytest.mark.parametrize(
+    'headers, expected',
+    [
+        pytest.param({'logfire-ai-gateway-cost': '0.0125USD'}, 0.0125, id='lowercase'),
+        pytest.param({'Logfire-AI-Gateway-Cost': '0.0125USD'}, 0.0125, id='any-case'),
+        pytest.param({'logfire-ai-gateway-cost': '0USD'}, 0.0, id='zero'),
+        pytest.param({'logfire-ai-gateway-cost': '0.0125'}, None, id='no-currency'),
+        pytest.param({'logfire-ai-gateway-cost': 'nanUSD'}, None, id='nan'),
+        pytest.param({'logfire-ai-gateway-cost': '-1USD'}, None, id='negative'),
+        pytest.param({'logfire-ai-gateway-cost': '-1e-400USD'}, None, id='negative-underflow'),
+        pytest.param({'logfire-ai-gateway-cost': '1e999USD'}, None, id='overflow'),
+        pytest.param({}, None, id='no-header'),
+        pytest.param(None, None, id='no-headers'),
+    ],
+)
+def test_gateway_header_cost(headers: dict[str, str] | None, expected: float | None) -> None:
+    assert gateway_header_cost(headers) == expected

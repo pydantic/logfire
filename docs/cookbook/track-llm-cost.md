@@ -25,7 +25,7 @@ You'll need:
 
 Add Logfire to the app that makes the model calls. Two lines do it: `logfire.configure()` connects to your project, and `logfire.instrument_openai()` records every OpenAI call your app makes, capturing the token counts and cost of each one automatically.
 
-Install Logfire, the OpenAI SDK, and [`genai-prices`](https://github.com/pydantic/genai-prices), the open-source dataset Logfire prices calls from. `genai-prices` isn't a hard dependency of Logfire, so install it alongside; without it, calls are still traced but `operation.cost` is omitted (it ships with Pydantic AI, so you already have it there):
+Install Logfire and the OpenAI SDK. To calculate costs in your app, also install [`genai-prices`](https://github.com/pydantic/genai-prices). If the [AI Gateway](../reference/advanced/gateway/index.md) reports a valid cost for a request, Logfire saves that cost without using `genai-prices`. When no valid gateway cost is available, OpenAI and Anthropic use `genai-prices` to estimate one. Pydantic AI already includes `genai-prices`.
 
 ```bash
 pip install logfire openai genai-prices
@@ -77,6 +77,8 @@ The [Explore](../guides/web-ui/explore.md) page lets you ask any question of you
 - `attributes->'gen_ai.system'`: the provider (e.g. `openai`). Some newer SDKs emit `attributes->'gen_ai.provider.name'` instead.
 - `attributes->'gen_ai.usage.input_tokens'` and `attributes->'gen_ai.usage.output_tokens'`: token counts.
 - `attributes->'operation.cost'`: the cost in US dollars, attached by the instrumentation for supported providers (OpenAI, Anthropic, and Pydantic AI), priced with the [`genai-prices`](https://github.com/pydantic/genai-prices) dataset (installed alongside Logfire, as above).
+
+If you send model requests through the [AI Gateway](../reference/advanced/gateway/index.md), the gateway calculates each request's cost, including any [custom prices](../reference/advanced/gateway/model-access.md#set-custom-prices-on-a-byok-provider) you set. Logfire saves that cost in `operation.cost`. You don't need `genai-prices` for this.
 
 This query sums cost and tokens per model per day. Paste it into the query editor, pick a **Time window** (say *Last 7 days*), raise the **Limit** if you have many models, and click **Run** (or press ⌘↵):
 
