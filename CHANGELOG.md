@@ -2,7 +2,6 @@
 
 ## [v6.0.0] (2026-11-19)
 
-* Use the cost reported by the AI Gateway, including custom prices, for OpenAI, Anthropic, and Google GenAI calls by @ddanielcruzz in [#2702](https://github.com/pydantic/logfire/pull/2702)
 * Switch the CLI to use the new `logfire-cli` package @alexmojaki in [#2833](https://github.com/pydantic/logfire/pull/2833)
 * Allow some scrubbing in GenAI attributes (especially OpenAI and Anthropic), particularly tool calls and their results with sensitive-looking keys, rather than the broad whitelist from before, by @alexmojaki in [#2823](https://github.com/pydantic/logfire/pull/2823) and [#2824](https://github.com/pydantic/logfire/pull/2824).
 * Add `ScrubbingOptions.transform_string` to mask strings more generally than keyword pattern matching, especially for finding structural patterns like email addresses and sensitive URLs, by @alexmojaki in [#2800](https://github.com/pydantic/logfire/pull/2800), [#2802](https://github.com/pydantic/logfire/pull/2802), [#2804](https://github.com/pydantic/logfire/pull/2804), [#2816](https://github.com/pydantic/logfire/pull/2816), [#2812](https://github.com/pydantic/logfire/pull/2812), [#2827](https://github.com/pydantic/logfire/pull/2827), and [#2828](https://github.com/pydantic/logfire/pull/2828).
@@ -14,6 +13,7 @@
 * Anthropic: Use the semconv `mime_type key` in blob and file parts instead of `media_type` by @jaeminbird in [#2722](https://github.com/pydantic/logfire/pull/2722)
 * Reject a trace sample rate outside 0.0 to 1.0 instead of keeping every trace by @Yasser-Ameur in [#2818](https://github.com/pydantic/logfire/pull/2818)
 * Don't record GeneratorExit as an error when a generator is closed early by @astroknot-sheep in [#2785](https://github.com/pydantic/logfire/pull/2785)
+* Use the cost reported by the AI Gateway for OpenAI, Anthropic, and Google GenAI calls by @ddanielcruzz in [#2702](https://github.com/pydantic/logfire/pull/2702)
 * Add baggage to log record attributes by @adriangb in [#2788](https://github.com/pydantic/logfire/pull/2788)
 * fix: materialize generator messages in instrument_anthropic by @fxia0018 in [#2714](https://github.com/pydantic/logfire/pull/2714)
 * Let the logfire-api shim's StructlogProcessor, LogfireLoggingHandler and loguru_handler be used without logfire by @Ishkirat-Singh in [#2786](https://github.com/pydantic/logfire/pull/2786)
