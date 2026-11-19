@@ -3580,7 +3580,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "5.6.0"
+version = "6.0.0"
 source = { editable = "logfire" }
 dependencies = [
     { name = "logfire-cli" },
@@ -3687,7 +3687,7 @@ wsgi = [
 
 [package.metadata]
 requires-dist = [
-    { name = "logfire-cli", specifier = ">=0.1.8" },
+    { name = "logfire-cli", specifier = ">=0.1.20" },
     { name = "logfire-sdk", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["agent-sandboxes"], marker = "extra == 'agent-sandboxes'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["aiohttp"], marker = "extra == 'aiohttp'", editable = "logfire-sdk" },
@@ -3726,7 +3726,7 @@ provides-extras = ["gateway", "agent-sandboxes", "system-metrics", "asgi", "wsgi
 
 [[package]]
 name = "logfire-api"
-version = "5.6.0"
+version = "6.0.0"
 source = { editable = "logfire-api" }
 
 [package.metadata]
@@ -3736,26 +3736,26 @@ dev = []
 
 [[package]]
 name = "logfire-cli"
-version = "0.1.19"
+version = "0.1.20"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b3/c2/a837c8ff36f21c88aa61857579ac22a0ba69f756b2a801ded7b8aa1632f1/logfire_cli-0.1.19-py3-none-linux_armv6l.whl", hash = "sha256:e49918c9cec9805641b0992a051515d4ff8a36598df3acbb4c90066481a61f39", size = 3417734, upload-time = "2026-11-07T17:37:49.368Z" },
-    { url = "https://files.pythonhosted.org/packages/83/0d/2b116710450208614cea4834244cdd6c3ae80eee51f48a03a2610e26da45/logfire_cli-0.1.19-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:69fab7cfd3f0241c2135ea587b174a0f886ba3893db6ab9d6e435724ed4cae47", size = 3278437, upload-time = "2026-11-07T17:37:50.88Z" },
-    { url = "https://files.pythonhosted.org/packages/c8/b1/3c7b46cd3ed3b97a44104bdf7a9e86c9ee45ae7ff40242bad55dae21b0f4/logfire_cli-0.1.19-py3-none-macosx_11_0_arm64.whl", hash = "sha256:84d82c8206a31463133beb73d8e927495ee8aa321427c670e2b08c2ddd3744e9", size = 3054634, upload-time = "2026-11-07T17:37:52.089Z" },
-    { url = "https://files.pythonhosted.org/packages/2a/06/afed2f5c7d71b6680afcb5b2ff7de8895165c1242faad568cd7530484fdd/logfire_cli-0.1.19-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:484d3d8f8b103fcdbb82aa3bb351a8cdcba976c67eaacf3e8868a5aa5ce50644", size = 3620111, upload-time = "2026-11-07T17:37:53.424Z" },
-    { url = "https://files.pythonhosted.org/packages/ab/14/10363889bb88672982200c6717a12d3ac3b854e82f5e9d55673ed9cb783b/logfire_cli-0.1.19-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:c7b3f9ff598719769fa2b212d8905f30afa6c9d0d6ccb53f6bfa1b750cfe7b79", size = 3355990, upload-time = "2026-11-07T17:37:55.065Z" },
-    { url = "https://files.pythonhosted.org/packages/3d/f7/13082bf413d8acdf3607efef3230826489e0fb40f95ffb656d47f7d77756/logfire_cli-0.1.19-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:7551f0b328165a6da079ba8552dcfb541711f71e43752b1df2cf52861547f1c0", size = 3716205, upload-time = "2026-11-07T17:37:56.675Z" },
-    { url = "https://files.pythonhosted.org/packages/cd/4e/8eca3d736c3842ccb57611cbb4d9e8ee7a80bd06d0cdf47f90b85a0bb834/logfire_cli-0.1.19-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:b3ea9286299de6838088dcf1b8669866935cd815411add3bf63fe1ba27ed7adf", size = 3761784, upload-time = "2026-11-07T17:37:57.876Z" },
-    { url = "https://files.pythonhosted.org/packages/a3/95/0f858084a7355ef3298e8ee22167d4c4121d33428aea23dcd239e9f9e55e/logfire_cli-0.1.19-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:c6ece725915551875535e63303b01194bafae33a464335da042f0403a858bf2b", size = 3538624, upload-time = "2026-11-07T17:37:59.019Z" },
-    { url = "https://files.pythonhosted.org/packages/d8/0a/d5c19a1036ef703e6c53ac2a869cc88bc44c249d579a033e347a87a89cf9/logfire_cli-0.1.19-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d760e2d26dddbdd0ad104e9b334e786f0e15b062fc80d20b3d94e61376e2eb5a", size = 3760096, upload-time = "2026-11-07T17:38:00.316Z" },
-    { url = "https://files.pythonhosted.org/packages/3d/3d/a1b6fbb8e4b4af49fa6ffab7ca61373f0a3d59cd4c571d7e8a8c07208fb5/logfire_cli-0.1.19-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:42655150a193762b4a7af6425abe4a35a90d6f6467c7b4a64ae716ef9f971a6d", size = 3498967, upload-time = "2026-11-07T17:38:01.724Z" },
-    { url = "https://files.pythonhosted.org/packages/ef/a5/ee23aee06edc51097bb843fcd0f784c71e900764ded0741141a4d36b0e27/logfire_cli-0.1.19-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:ad04d65d0ea194780d5af2a423c0fdf9dcdb36e90be32747698dfdcd74329704", size = 3654065, upload-time = "2026-11-07T17:38:03.656Z" },
-    { url = "https://files.pythonhosted.org/packages/7e/1a/98799398c297d20b882b77a319280c7011caf3081aed7f4b6eb0a94e393c/logfire_cli-0.1.19-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:22d829106b61c1e794e5ffd6f164aef126e978b7a6503c924bd2d6254d69dfc6", size = 3389997, upload-time = "2026-11-07T17:38:05.263Z" },
-    { url = "https://files.pythonhosted.org/packages/df/44/e829fe24e23f22d0ed8a5724401593692bcbd3e0dc65af920b7138bec8b0/logfire_cli-0.1.19-py3-none-musllinux_1_2_i686.whl", hash = "sha256:c69f1f76cdb847519501a1e8a3c87a0baf7475af83676a574d83aa09fd6cee6d", size = 3548347, upload-time = "2026-11-07T17:38:06.606Z" },
-    { url = "https://files.pythonhosted.org/packages/e6/7d/472292800a7bfa57dacda913f45f9e40e9f415be10fe94df128677ba9a96/logfire_cli-0.1.19-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:0b4ff84019dcfd72f613a46b5709c67d083ca04b5c521a23cd8676c6780360a9", size = 3849647, upload-time = "2026-11-07T17:38:08.232Z" },
-    { url = "https://files.pythonhosted.org/packages/15/45/d13a0e2e8242f86f001a7745be7303eb1f3fe01d4286d90936895506d1d5/logfire_cli-0.1.19-py3-none-win32.whl", hash = "sha256:788d520e038c64d5d5bbf64abd5c3d5612369e0a57091ae986f3cdb97ff656d4", size = 3009217, upload-time = "2026-11-07T17:38:09.489Z" },
-    { url = "https://files.pythonhosted.org/packages/66/08/8c776266fcc55fe9166cad36fe3d61c34d940a50a84ea9ab5746c528f504/logfire_cli-0.1.19-py3-none-win_amd64.whl", hash = "sha256:08a56c200b2250a41cabca95ebf0b0d12727361471949c387536bb2a0d5aac95", size = 3236678, upload-time = "2026-11-07T17:38:10.748Z" },
-    { url = "https://files.pythonhosted.org/packages/ba/3a/0c719ff60d80ac61d74e9c306d3031a106b01a8935090204996556b83399/logfire_cli-0.1.19-py3-none-win_arm64.whl", hash = "sha256:125ac6bce08efd405741ecf93cb397cb46ac6bfb1e5f865ac972d39f2138c3a3", size = 3050823, upload-time = "2026-11-07T17:38:12.076Z" },
+    { url = "https://files.pythonhosted.org/packages/62/13/7d37a5fb76b800619d33a49f9de09e2569c36f66a2bd1c8ae5459d15e9c3/logfire_cli-0.1.20-py3-none-linux_armv6l.whl", hash = "sha256:1e7cb9b155832a4b572a7cdb97c7c103c2c733e42f77985e695261a637bc12e3", size = 3491951, upload-time = "2026-11-19T15:16:17.33Z" },
+    { url = "https://files.pythonhosted.org/packages/fb/7e/d6854cac2fe3ea9222b0524d44d1ea2598de87433c8d6b68c99e62ff5d28/logfire_cli-0.1.20-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:27a9ed4b72ecf9833c9b2b42a3c43e73bf9b06ce3d8c05380d4fb446eea09816", size = 3349696, upload-time = "2026-11-19T15:16:18.909Z" },
+    { url = "https://files.pythonhosted.org/packages/94/91/7f50754046af49953750877b7e2fb06fa6570619261f0719935cc37dda99/logfire_cli-0.1.20-py3-none-macosx_11_0_arm64.whl", hash = "sha256:59406700b7e528ea2aa46e5a1bc307558b60060649ffd2c093e05b91a55984a7", size = 3119127, upload-time = "2026-11-19T15:16:20.461Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/b1/89a8f5dc0f3f657ec9718059b16090b169c5c03bfe60119387674b3241d6/logfire_cli-0.1.20-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0c5b60ea18fcb2c08cb76fe1f61c6a072281c18c1ddb802fd8398ac7b9ebb936", size = 3695251, upload-time = "2026-11-19T15:16:21.827Z" },
+    { url = "https://files.pythonhosted.org/packages/90/f5/a47ef2e3a8cd22d35ef2f7dbd9436e73183862eaa75b67990b66e363cad8/logfire_cli-0.1.20-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:1efdf25006f2c0c419ca1dd654fa832f1e85f97cf95e8f30ffa3f65a50f4926f", size = 3439188, upload-time = "2026-11-19T15:16:23.356Z" },
+    { url = "https://files.pythonhosted.org/packages/ee/24/f5445ad2c017d328872ce6381f736020d4176c5ef75217eee28c1d1de570/logfire_cli-0.1.20-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:8cf7a354028016649e21742d7c8cda625bf8b574726702dba31467332550cf76", size = 3785058, upload-time = "2026-11-19T15:16:25.013Z" },
+    { url = "https://files.pythonhosted.org/packages/57/3f/4c87ebabd285bea5eb9148f38eb7ab01a12dac4b10d709925906ed777acc/logfire_cli-0.1.20-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:a066eec4c6f9d953f88de1a684b3082f1d3da1df2545790b518d9b49acc64e63", size = 3842256, upload-time = "2026-11-19T15:16:26.424Z" },
+    { url = "https://files.pythonhosted.org/packages/10/b4/0c51ef341c5b7cef124d029a1ef66e97ceb31601953a449c38eee324e1c3/logfire_cli-0.1.20-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:48aa9716565de02cf9c84f0c1fc725e2e4f3b6275674d1cabd61e2bf66043fc9", size = 3608048, upload-time = "2026-11-19T15:16:28.067Z" },
+    { url = "https://files.pythonhosted.org/packages/92/f8/3c200c36ce36e5b126f2ac440ca67aa31a0aa58cbbb52a84825c8792d0b5/logfire_cli-0.1.20-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b766ba6f6db4b404022a34d0d836d81aba2559a4fb43814cd51e84c39b893115", size = 3832828, upload-time = "2026-11-19T15:16:29.553Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/50/ead5d8518335cd7e09f5e1151657b54436104a38d19c4c334d60102e6852/logfire_cli-0.1.20-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:17479cc59d59ab9507596a44f0d82602837264c27e062624b20b9d7ebd69284d", size = 3573314, upload-time = "2026-11-19T15:16:30.967Z" },
+    { url = "https://files.pythonhosted.org/packages/39/29/3053975c2c9df0498c9fe7d6af9ef6dec496970a54762d04af2ed97c219c/logfire_cli-0.1.20-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:500c17016675e275a160c2e15992132a3e4a1305507dcf70e172c944cc004689", size = 3716483, upload-time = "2026-11-19T15:16:32.419Z" },
+    { url = "https://files.pythonhosted.org/packages/f0/20/41fd20183c08791a4c9f8b262f7e2cf3d1c017408dee638bb37b19c289d7/logfire_cli-0.1.20-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:a7847c989ffc5f98d7b47b059fe196b34b2048e79c54ba074f6891d8dc1de260", size = 3463722, upload-time = "2026-11-19T15:16:33.739Z" },
+    { url = "https://files.pythonhosted.org/packages/c7/56/2de72affd4859558ca42c40504dd8924c4213fca325aa22ad783f99747a3/logfire_cli-0.1.20-py3-none-musllinux_1_2_i686.whl", hash = "sha256:faef1fd273f7ccca63c58655401843bb3e63d7ec0eb7d5f411d0f7534f61d71d", size = 3617552, upload-time = "2026-11-19T15:16:35.162Z" },
+    { url = "https://files.pythonhosted.org/packages/95/f5/f1a134403eafe00895476f270466b3d06352d77c03b87058071717e0eccb/logfire_cli-0.1.20-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:54b645c9556f094eb73bc84c8e0621ea6f676723c98fdf64273f7ccfe3218030", size = 3923847, upload-time = "2026-11-19T15:16:36.579Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/7c/a3b9811a15238b090bfa24135b47790a5e1ae610fd16cf6f47da01faefe7/logfire_cli-0.1.20-py3-none-win32.whl", hash = "sha256:ab3c7eb83d7a067d96083e87659848e2dd27f1b7bf3ad103310d057cec29e8bf", size = 3069836, upload-time = "2026-11-19T15:16:38.732Z" },
+    { url = "https://files.pythonhosted.org/packages/31/a5/fc4daf4d08a0a988db3cbc09ea917d88f3472388f3456a5e1f944903c568/logfire_cli-0.1.20-py3-none-win_amd64.whl", hash = "sha256:d5b3e5bc8d7efe5d3fe3543b763ce4fbf8515f825390126319dbb6cd08dfff4c", size = 3289118, upload-time = "2026-11-19T15:16:40.041Z" },
+    { url = "https://files.pythonhosted.org/packages/ab/8a/8b8b444a86996a14994894e08cba46ef11dd55c87b9dadf870bfb1446407/logfire_cli-0.1.20-py3-none-win_arm64.whl", hash = "sha256:76cfe225c27ead2e97178a68ac23ddb4ec1b7b731b90649f8f2e2d80f0a6c8da", size = 3118143, upload-time = "2026-11-19T15:16:41.458Z" },
 ]
 
 [[package]]
@@ -4056,7 +4056,7 @@ editor-tests = [
 
 [[package]]
 name = "logfire-sdk"
-version = "5.6.0"
+version = "6.0.0"
 source = { editable = "logfire-sdk" }
 dependencies = [
     { name = "certifi" },
