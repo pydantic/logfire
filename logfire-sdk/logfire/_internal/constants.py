@@ -118,6 +118,9 @@ ATTRIBUTES_MESSAGE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.msg'
 DISABLE_CONSOLE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.disable_console_log'
 """special attribute to disable console logging, on a per span basis."""
 
+DISABLE_PENDING_SPAN_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.disable_pending_span'
+"""special attribute to disable the pending span, on a per span basis."""
+
 ATTRIBUTES_JSON_SCHEMA_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.json_schema'
 """Key in OTEL attributes that collects the JSON schema."""
 
