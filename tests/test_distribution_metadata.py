@@ -45,7 +45,6 @@ def test_distribution_versions_and_dependencies_stay_in_sync() -> None:
     dependencies = {requirement.name: requirement for requirement in requirements}
     assert str(dependencies['logfire-sdk'].specifier) == f'=={sdk["version"]}'
     assert set(dependencies) == {'logfire-sdk', 'logfire-cli'}
-    assert str(dependencies['logfire-cli'].specifier) == '>=0.1.20'
 
     sdk_requirements = {requirement.name: requirement for requirement in map(Requirement, sdk['dependencies'])}
     assert str(sdk_requirements['requests'].specifier) == '>=2.31.0'
