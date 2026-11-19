@@ -50,7 +50,8 @@ logfire.instrument_openai()  # records every OpenAI call, with its tokens and co
 
 client = openai.OpenAI()
 response = client.chat.completions.create(
-    model='gpt-4o-mini',
+    model='gpt-6-luna',
+    reasoning_effort='none',
     messages=[{'role': 'user', 'content': 'Please write me a limerick about Python logging.'}],
 )
 print(response.choices[0].message.content)
@@ -72,7 +73,7 @@ This is the fastest way to answer "where is the money going?". When you need to 
 
 The [Explore](../guides/web-ui/explore.md) page lets you ask any question of your data in SQL. Your model calls live in the `records` table (one row per span) and each span's model-specific detail sits in an `attributes` column, stored as JSON. The token and cost figures follow the OpenTelemetry conventions for GenAI (generative AI) spans:
 
-- `attributes->'gen_ai.request.model'`: the model name (e.g. `gpt-4o-mini`).
+- `attributes->'gen_ai.request.model'`: the model name (e.g. `gpt-6-luna`).
 - `attributes->'gen_ai.system'`: the provider (e.g. `openai`). Some newer SDKs emit `attributes->'gen_ai.provider.name'` instead.
 - `attributes->'gen_ai.usage.input_tokens'` and `attributes->'gen_ai.usage.output_tokens'`: token counts.
 - `attributes->'operation.cost'`: the cost in US dollars, attached by the instrumentation for supported providers (OpenAI, Anthropic, and Pydantic AI), priced with the [`genai-prices`](https://github.com/pydantic/genai-prices) dataset (installed alongside Logfire, as above).
