@@ -2,6 +2,7 @@
 
 ## [v6.0.0] (2026-11-19)
 
+* Use the cost reported by the AI Gateway, including custom prices, for OpenAI, Anthropic, and Google GenAI calls by @ddanielcruzz in [#2702](https://github.com/pydantic/logfire/pull/2702)
 * Switch the CLI to use the new `logfire-cli` package @alexmojaki in [#2833](https://github.com/pydantic/logfire/pull/2833)
 * Allow some scrubbing in GenAI attributes (especially OpenAI and Anthropic), particularly tool calls and their results with sensitive-looking keys, rather than the broad whitelist from before, by @alexmojaki in [#2823](https://github.com/pydantic/logfire/pull/2823) and [#2824](https://github.com/pydantic/logfire/pull/2824).
 * Add `ScrubbingOptions.transform_string` to mask strings more generally than keyword pattern matching, especially for finding structural patterns like email addresses and sensitive URLs, by @alexmojaki in [#2800](https://github.com/pydantic/logfire/pull/2800), [#2802](https://github.com/pydantic/logfire/pull/2802), [#2804](https://github.com/pydantic/logfire/pull/2804), [#2816](https://github.com/pydantic/logfire/pull/2816), [#2812](https://github.com/pydantic/logfire/pull/2812), [#2827](https://github.com/pydantic/logfire/pull/2827), and [#2828](https://github.com/pydantic/logfire/pull/2828).
