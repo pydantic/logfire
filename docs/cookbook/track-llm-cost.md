@@ -25,7 +25,7 @@ You'll need:
 
 Add Logfire to the app that makes the model calls. Two lines do it: `logfire.configure()` connects to your project, and `logfire.instrument_openai()` records every OpenAI call your app makes, capturing the token counts and cost of each one automatically.
 
-Install Logfire and the OpenAI SDK. To calculate costs in your app, also install [`genai-prices`](https://github.com/pydantic/genai-prices). If you use the [AI Gateway](../reference/advanced/gateway/index.md), Logfire records the cost the gateway reports, so you don't need `genai-prices`. Pydantic AI already includes `genai-prices`.
+Install Logfire and the OpenAI SDK. To calculate costs in your app, also install [`genai-prices`](https://github.com/pydantic/genai-prices). If the [AI Gateway](../reference/advanced/gateway/index.md) reports a valid cost for a request, Logfire saves that cost without using `genai-prices`. When no valid gateway cost is available, OpenAI and Anthropic use `genai-prices` to estimate one. Pydantic AI already includes `genai-prices`.
 
 ```bash
 pip install logfire openai genai-prices
