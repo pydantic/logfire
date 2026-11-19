@@ -78,6 +78,10 @@ def test_my_thing(exporter: TestExporter):
 
 Then run `uv run pytest -k test_my_thing --inline-snapshot=fix` to automatically fill in `snapshot()` with a list of dicts and check that the results are sane.
 If the output changes, running again will automatically update the snapshot in the code.
+
+For verification runs, pass `--inline-snapshot=disable` explicitly so existing snapshots are not rewritten.
+The developer shell may set `INLINE_SNAPSHOT_DEFAULT_FLAGS=create,fix`, overriding the default in `pyproject.toml`.
+
 `TestExporter` normalizes common things. If some remaining fields are non-deterministic (e.g., IDs, timestamps), use `dirty_equals` matchers, e.g:
 
 ```python
