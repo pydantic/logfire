@@ -19,21 +19,23 @@ Already run a Collector whose configuration you manage yourself? Add the Collect
 One command installs a Collector as a service and connects it to Fleet. It works on Linux, macOS and Windows.
 
 1. In **Fleet management**, open **Collectors**, select **Add Collector**, then **Host**.
-2. Under **What to collect**, choose a starting point, such as host monitoring for the host's operating system or file logs. Fleet creates a host policy from it, or uses an existing policy you pick. You can change the policy later.
+2. Under **What to collect**, choose a starting point, such as host monitoring for the host's operating system or file logs. Fleet creates a host policy from it. To use a policy you already have, choose **Use an existing policy** instead. You can change the policy later.
 3. Select **Get install command**, then choose the host's operating system.
-4. Copy the **enrollment key**. Logfire shows it once. It lets a host join your project, and you can revoke it in your project's Fleet settings.
+4. Copy the **enrollment key**. Logfire shows it once, and it expires after 24 hours. It lets a host join your project, and you can revoke it in your project's Fleet settings.
 5. Run the command Logfire shows on the host, and paste the key when it asks. On Linux, for a project in the US region:
 
     ```bash
-    uvx --from 'logfire-cli>=0.1.19' logfire-cli --beta --region us --org <your-org> collector install \
-      --project <your-project> --token-stdin --yes
+    uvx --from 'logfire-cli>=0.1.19' logfire-cli --beta \
+      --base-url 'https://logfire-us.pydantic.dev' \
+      --org '<your-org>' collector install \
+      --project '<your-project>' --token-stdin --yes
     ```
 
-    `--token-stdin` makes the installer ask for the key without showing it as you type, which keeps it out of your shell history. Use `--region eu` for the EU region. The command needs [uv](https://docs.astral.sh/uv/getting-started/installation/), and the installer asks for administrator access. The host does not need to sign in to Logfire: the enrollment key places it in your project.
+    `--token-stdin` makes the installer ask for the key without showing it as you type, which keeps it out of your shell history. For the EU region, the base URL is `https://logfire-eu.pydantic.dev`. The command needs [uv](https://docs.astral.sh/uv/getting-started/installation/), and the installer asks for administrator access. On Linux it installs the Collector as a systemd service, so the host needs systemd 250 or later. The host does not need to sign in to Logfire: the enrollment key places it in your project.
 
 6. Keep the setup open. It shows when the host's first data arrives.
 
-To install on many hosts, pipe the key from your secret store into `--token-stdin`, or set `LOGFIRE_COLLECTOR_ENROLLMENT_TOKEN` and leave `--token-stdin` out. Install on each host separately: don't copy one host's Collector state into a machine image, because it holds that host's identity and connection key.
+To add more hosts, repeat these steps and choose **Use an existing policy**: each install command comes with its own enrollment key. In automation, pipe the key from your secret store into `--token-stdin`, or set `LOGFIRE_COLLECTOR_ENROLLMENT_TOKEN` and leave `--token-stdin` out. Install on each host separately: don't copy one host's Collector state into a machine image, because it holds that host's identity and connection key.
 
 ## Connect a Kubernetes cluster
 
@@ -42,7 +44,7 @@ In a cluster, Fleet manages Collectors through the [OpenTelemetry Operator](http
 1. In **Fleet management**, open **Collectors**, select **Add Collector**, then **Kubernetes**.
 2. Name the cluster and choose what to collect: application telemetry sent to the cluster's Collectors, Kubernetes cluster metrics, and container logs.
 
-    ![The Connect Kubernetes dialog with a cluster name and three kinds of telemetry to collect](../../../images/fleet/connect-kubernetes.png)
+    ![The Add Kubernetes Collectors dialog with a cluster name and three kinds of telemetry to collect](../../../images/fleet/connect-kubernetes.png)
 
 3. Under **Advanced**, set the **Collector namespaces** Fleet may run Collectors in. Turn on **Limit the bridge to this policy's components** to make the bridge refuse a later policy that uses any other receiver, processor or exporter.
 4. Select **Get setup instructions**, save the connection key Logfire shows, and follow the steps:
@@ -65,10 +67,11 @@ The **Collectors** tab lists one row per Collector, named by the host name or po
 
 - **Connection**: whether the Collector is connected to Fleet now.
 - **Health**: what the Collector reports about itself.
-- **Policy status**: **Applied** when it runs the policy's current version, **Pending** while a new version is on its way, and **Failed** when it refused the version.
+- **Policy status**: **Applied** when it runs the policy's current version, **Pending** while a new version is on its way, **Failed** when it refused the version, **Unknown** while it is disconnected, and **Report only** for an [existing Collector](existing-collectors.md).
 - **Policy** and **Environment**.
+- **Sent**: how much it sent to Logfire in the selected time range.
 
-Select **Needs attention** to show only Collectors that are disconnected, unhealthy or failed to apply their policy. By default the list shows Collectors that reported in the last hour.
+Select **Needs attention** to show only Collectors that are disconnected, unhealthy or failed to apply their policy. By default the list shows Collectors that reported in the last hour; select **Show inactive** to see the rest. Fleet removes a host after it has been disconnected for 90 days; you can change this in **Settings**.
 
 Select a Collector to see what it reported: its health per component, the configuration it runs, the components it has, and its warnings and errors from the last hour with a link to the Live view. From there you can restart it, or remove a disconnected Collector's record.
 
@@ -87,5 +90,5 @@ Select a Collector to see what it reported: its health per component, the config
 ## Next steps
 
 - [Connect an existing Collector](existing-collectors.md): see a Collector you configure yourself in Fleet.
-- [Change policies](policies.md): edit what your Collectors collect and roll out the change.
+- [Change policies](policies.md): edit what your Collectors collect, review the change, and publish it.
 - [Hosts](../hosts.md) and [Kubernetes](../kubernetes.md): see the metrics your Collectors send.

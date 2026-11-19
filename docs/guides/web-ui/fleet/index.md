@@ -15,7 +15,7 @@ Your telemetry reaches Logfire from two kinds of software, and Fleet manages bot
 - **Collectors**: an OpenTelemetry Collector is a program that runs on your machines, receives or gathers telemetry (host metrics, log files, data from your applications), processes it, and sends it on. Fleet manages Collectors on hosts (servers, virtual machines, laptops) and in Kubernetes clusters. See [Manage Collectors](collectors.md).
 - **Applications**: the SDK inside your application decides what it records and exports. Fleet changes its settings while it runs: sampling, minimum log level, redaction and scrubbing, and which signals to export. See [Manage applications](applications.md).
 
-Each Collector and application takes its settings from a **policy**: a versioned set of settings you edit and publish in Logfire. A Collector policy holds the Collector's whole pipeline. An SDK policy holds the SDK settings it sets, and leaves the rest to the application. A Collector whose configuration is managed elsewhere, such as by Helm or GitOps, can [show in Fleet](existing-collectors.md) and keep that configuration. See [Change policies](policies.md).
+Each Collector and application takes its settings from a **policy**: a versioned set of settings you edit and publish in Logfire. A Collector policy holds the Collector's whole pipeline. An application's settings change only what you choose, and leave the rest to the application. A Collector whose configuration is managed elsewhere, such as by Helm or GitOps, can [show in Fleet](existing-collectors.md) and keep that configuration. See [Change policies](policies.md).
 
 Clients connect to Fleet over the Open Agent Management Protocol ([OpAMP](https://opentelemetry.io/docs/specs/opamp/)), the OpenTelemetry standard for managing telemetry software remotely. Each client reports its health and the settings it is running, so Fleet also shows what runs where.
 
@@ -23,18 +23,17 @@ Clients connect to Fleet over the Open Agent Management Protocol ([OpAMP](https:
 
 Fleet is on for every plan. Open **Fleet management** in your project's sidebar. The **Hosts**, **Kubernetes** and **Services** pages also link to it.
 
-If you turned Fleet off on its settings page, it stays off for you in that browser. Opening any Fleet page offers **Turn on Fleet** to bring it back. Turning Fleet off doesn't stop your Collectors, applications or policies.
-
 ![The Collectors tab of Fleet management, listing each Collector with its connection, health, policy status and policy](../../../images/fleet/collectors.png)
 
-The page has four tabs:
+The page has five tabs:
 
-- **Overview**: **Flows** draws where your Collectors receive data and where they send it. **Traffic** compares how much each Collector and policy sent with the period before.
-- **Collectors**: every Collector on your hosts and in your clusters, with its connection, health, the policy it runs and whether that policy applied. **Add Collector** connects a host or a cluster.
+- **Overview**: clients that need attention, how much data was sent compared with the period before, and recent changes.
+- **Flows**: where your Collectors receive data and where they send it.
 - **SDKs**: every application connected to Fleet. **Add application** connects one.
-- **Policies**: every Collector and SDK policy. **Add policy** creates one, and **Rollouts** appears here when you turn rollouts on.
+- **Collectors**: every Collector on your hosts and in your clusters, with its connection, health, the policy it runs and whether that policy applied. **Add Collector** connects a host or a cluster.
+- **Policies**: every Collector policy. **Add policy** creates one.
 
-**How Fleet works** opens a short tour of these ideas in the product. **Settings** opens your project's Fleet settings: connection keys and the **Use rollouts** switch.
+**How this works** opens a short tour of these ideas in the product. **Settings** opens your project's Fleet settings: connection keys and how long to keep disconnected hosts.
 
 ## When to use Fleet
 
@@ -44,11 +43,11 @@ You don't need Fleet to send data to Logfire. An application that calls `logfire
 
 ## Limits
 
-Your plan sets how many applications and Collector policies your organization can manage. Fleet shows your usage and the limit when you reach it.
+Your plan sets how many applications and Collector policies your organization can manage, across all its projects. Fleet shows your usage and the limit when you reach it.
 
 ## Next steps
 
 - [Manage Collectors](collectors.md): install a Collector on a host, or connect a Kubernetes cluster.
 - [Connect an existing Collector](existing-collectors.md): see a Collector you already run, without handing over its configuration.
 - [Manage applications](applications.md): connect a Python, Node.js, Java, .NET or Go application.
-- [Change policies](policies.md): edit a policy, publish it, and roll it out.
+- [Change policies](policies.md): edit a policy, review the change, and publish it.

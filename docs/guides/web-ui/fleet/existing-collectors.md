@@ -19,8 +19,8 @@ The extension reports to Fleet, but Fleet can't change the Collector.
 | Listed under **Collectors**, connected or disconnected | Yes | Yes |
 | Health of each component | Yes | Yes |
 | The configuration it runs, and its components | Yes | Yes |
-| Collector policies, rollouts and **Restart** | No | Yes |
-| Connection key renewed automatically | No: replace it before it expires | Yes |
+| Collector policies and **Restart** | No | Yes |
+| Connection key renewed automatically | No: replace it yourself | Yes |
 | Setup | Edit your Collector's configuration | One command, or the Kubernetes bridge |
 
 Fleet shows such a Collector with the **Policy status** **Report only**, and doesn't list it under **Needs attention**: its configuration stays in your files. To let Fleet manage a Collector's configuration, [install it with Fleet](collectors.md) instead.
@@ -36,7 +36,7 @@ Fleet shows such a Collector with the **Policy status** **Report only**, and doe
 2. Enter a **Name** for this installation, such as the Collector's role (`gateway`), and an **Environment** to filter by in Fleet.
 3. Select **Get connection key**.
 
-Logfire shows the **connection key** once, with the `opamp` extension block for the next step. Copy the key to your secret store. It lasts 90 days.
+Logfire shows the **connection key** once, with the `opamp` extension block for the next step. Copy the key to your secret store. Fleet settings show when it expires.
 
 The connection key isn't a Logfire API key or write token. It only lets Collectors report to Fleet, as this one installation.
 
@@ -91,12 +91,12 @@ If the Collector doesn't appear, look for `opamp` in the Collector's own logs:
 
 ## Replace the connection key
 
-The extension can't take a new connection key from Fleet, so it stops connecting when its key expires. Before then:
+The extension can't take a new connection key from Fleet. To replace the key before it expires, or to rotate it:
 
 1. In **Fleet management**, select **Settings** and open the connection key. It has the **Name** you entered in step 1.
-2. Select **Issue a replacement key**. It lasts 90 days.
+2. Select **Issue a replacement key**, and copy it: Logfire shows it once.
 3. Set `LOGFIRE_OPAMP_TOKEN` to the new key on your Collectors and restart them.
-4. Once they all show as connected, revoke the old key.
+4. Once they all show as connected, select **Revoke key** on the old key.
 
 ## Next steps
 
