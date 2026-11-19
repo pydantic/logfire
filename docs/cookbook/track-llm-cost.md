@@ -141,7 +141,7 @@ Under **When this alert fires**, set **Fire when** to **the query starts having 
 **What you'll see in Logfire:** the alert appears on the Alerts list showing its recent status. When a run's total crosses your threshold, the query returns its row and every channel you attached gets pinged.
 
 !!! tip "Cap per-model spend"
-    To alert on one specific model instead of the total, add `attributes->>'gen_ai.request.model' = 'gpt-4o'` to the `WHERE` clause. To get separate rows per model, use `GROUP BY attributes->>'gen_ai.request.model'` with the `HAVING` threshold: each model over the line becomes its own row, and the alert fires.
+    To alert on one specific model instead of the total, add `attributes->>'gen_ai.request.model' = 'gpt-6-luna'` to the `WHERE` clause. To get separate rows per model, use `GROUP BY attributes->>'gen_ai.request.model'` with the `HAVING` threshold: each model over the line becomes its own row, and the alert fires.
 
 ## The payoff
 
