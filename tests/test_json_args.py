@@ -31,7 +31,9 @@ from pydantic import (
     RootModel,
     SecretBytes,
     SecretStr,
+    SerializerFunctionWrapHandler,
     computed_field,
+    model_serializer,
 )
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
@@ -65,6 +67,31 @@ class MyModel(BaseModel):
     x: str
     y: int
     u: AnyUrl
+
+
+class DisplayName(BaseModel):
+    name: str
+
+    @model_serializer
+    def serialize(self) -> str:
+        return self.name
+
+
+class DisplayNames(BaseModel):
+    names: list[str]
+
+    @model_serializer
+    def serialize(self) -> list[str]:
+        return self.names
+
+
+class WrappedModel(BaseModel):
+    name: str
+    hidden: datetime = Field(repr=False)
+
+    @model_serializer(mode='wrap')
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        return {'user': handler(self)}
 
 
 @dataclass(frozen=True)
@@ -587,6 +614,27 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             id='pydantic_model',
         ),
         pytest.param(
+            DisplayName(name='Ada'),
+            "name='Ada'",
+            '"Ada"',
+            {'type': 'string', 'x-python-datatype': 'str'},
+            id='pydantic_model_serializer_str',
+        ),
+        pytest.param(
+            DisplayNames(names=['Ada', 'Grace']),
+            "names=['Ada', 'Grace']",
+            '["Ada","Grace"]',
+            {'type': 'array'},
+            id='pydantic_model_serializer_list',
+        ),
+        pytest.param(
+            WrappedModel(name='Ada', hidden=datetime(2023, 1, 1)),
+            "name='Ada'",
+            '{"user":{"name":"Ada"}}',
+            {'type': 'object'},
+            id='pydantic_model_serializer_wrap',
+        ),
+        pytest.param(
             MyReprModel(in_repr=1, not_in_repr=MyDataclass(2)),
             'in_repr=1',
             '{"in_repr":1}',
@@ -983,6 +1031,28 @@ def test_pydantic_model_schema_respects_repr() -> None:
         'title': 'MyReprModel',
         'x-python-datatype': 'PydanticModel',
     }
+
+
+@pytest.mark.parametrize(
+    'value,formatted',
+    [
+        (DisplayName(name='Ada'), "'Ada'"),
+        (DisplayNames(names=['Ada', 'Grace']), "[\n    'Ada',\n    'Grace',\n]"),
+        (
+            WrappedModel(name='Ada', hidden=datetime(2023, 1, 1)),
+            "{\n    'user': {'name': 'Ada'},\n}",
+        ),
+    ],
+)
+def test_pydantic_model_serializer_formatting(value: BaseModel, formatted: str, exporter: TestExporter) -> None:
+    logfire.info('model', model=value)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    assert isinstance(attributes['model'], str)
+    assert isinstance(attributes['logfire.json_schema'], str)
+    schema = json.loads(attributes['logfire.json_schema'])['properties']['model']
+    assert json_args_value_formatter(json.loads(attributes['model']), schema=schema) == formatted
 
 
 def test_attrs_falsey_callable_repr(exporter: TestExporter) -> None:

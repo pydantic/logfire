@@ -168,6 +168,14 @@ def _pydantic_model_encoder(o: Any, seen: set[int]) -> JsonValue:
     if isinstance(o, pydantic.RootModel):
         return to_json_value(o.root, seen)  # pyright: ignore[reportUnknownMemberType]
 
+    return to_json_value(pydantic_model_dump(o), seen)
+
+
+def pydantic_model_dump(o: Any) -> Any:
+    import pydantic
+
+    assert isinstance(o, pydantic.BaseModel)
+
     try:
         # Like dataclass and attrs fields, fields with repr=False are left out.
         cls = type(o)
@@ -181,7 +189,7 @@ def _pydantic_model_encoder(o: Any, seen: set[int]) -> JsonValue:
     except AttributeError:  # pragma: no cover
         # pydantic v1
         dump = o.dict()  # pyright: ignore[reportDeprecated]
-    return to_json_value(dump, seen)
+    return dump
 
 
 def _get_sqlalchemy_data(o: Any, seen: set[int]) -> JsonValue | None:
