@@ -25,7 +25,7 @@ You'll need:
 
 Add Logfire to the app that makes the model calls. Two lines do it: `logfire.configure()` connects to your project, and `logfire.instrument_openai()` records every OpenAI call your app makes, capturing the token counts and cost of each one automatically.
 
-Install Logfire, the OpenAI SDK, and [`genai-prices`](https://github.com/pydantic/genai-prices), the open-source dataset Logfire prices calls from. `genai-prices` isn't a hard dependency of Logfire, so install it alongside; without it, calls are still traced but `operation.cost` is omitted (it ships with Pydantic AI, so you already have it there):
+Install Logfire, the OpenAI SDK, and [`genai-prices`](https://github.com/pydantic/genai-prices) to calculate costs locally. `genai-prices` is optional for tracing and is included with Pydantic AI:
 
 ```bash
 pip install logfire openai genai-prices
@@ -75,7 +75,9 @@ The [Explore](../guides/web-ui/explore.md) page lets you ask any question of you
 - `attributes->'gen_ai.request.model'`: the model name (e.g. `gpt-4o-mini`).
 - `attributes->'gen_ai.system'`: the provider (e.g. `openai`). Some newer SDKs emit `attributes->'gen_ai.provider.name'` instead.
 - `attributes->'gen_ai.usage.input_tokens'` and `attributes->'gen_ai.usage.output_tokens'`: token counts.
-- `attributes->'operation.cost'`: the cost in US dollars, attached by the instrumentation for supported providers (OpenAI, Anthropic, and Pydantic AI), priced with the [`genai-prices`](https://github.com/pydantic/genai-prices) dataset (installed alongside Logfire, as above). Logfire records the cost reported by the [AI Gateway](../reference/advanced/gateway/index.md), including any [custom prices](../reference/advanced/gateway/model-access.md#set-custom-prices-on-a-byok-provider) you set.
+- `attributes->'operation.cost'`: the cost in US dollars, attached by the instrumentation for supported providers (OpenAI, Anthropic, and Pydantic AI), priced with the [`genai-prices`](https://github.com/pydantic/genai-prices) dataset (installed alongside Logfire, as above).
+
+If you use the optional [AI Gateway](../reference/advanced/gateway/index.md), Logfire records the cost it reports as `operation.cost`, including any [custom prices](../reference/advanced/gateway/model-access.md#set-custom-prices-on-a-byok-provider) you set. You don't need to install `genai-prices` to record gateway-reported costs.
 
 This query sums cost and tokens per model per day. Paste it into the query editor, pick a **Time window** (say *Last 7 days*), raise the **Limit** if you have many models, and click **Run** (or press ⌘↵):
 
