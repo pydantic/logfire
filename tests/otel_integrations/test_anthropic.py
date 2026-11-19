@@ -2693,7 +2693,7 @@ def test_message_gateway_cost(cost: str, expected: float, exporter: TestExporter
         api_key='fake_api_key',
         http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
     )
-    with logfire.instrument_anthropic(client):
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
         client.messages.create(
             model='claude-3-haiku-20240307', max_tokens=10, messages=[{'role': 'user', 'content': 'hi'}]
         )
@@ -2730,7 +2730,7 @@ def test_message_stream_gateway_cost(beta: bool, cost: str, expected: float, exp
         api_key='fake_api_key',
         http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, text=body))),
     )
-    with logfire.instrument_anthropic(client):
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
         messages = client.beta.messages if beta else client.messages
         with messages.create(
             model='claude-3-haiku-20240307',
@@ -2769,7 +2769,7 @@ def test_message_stream_gateway_cost_spans(exporter: TestExporter) -> None:
         api_key='fake_api_key',
         http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, text=body))),
     )
-    with logfire.instrument_anthropic(client):
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
         with client.messages.create(
             model='claude-3-haiku-20240307',
             max_tokens=10,
