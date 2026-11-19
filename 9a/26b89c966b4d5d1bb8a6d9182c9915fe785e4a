@@ -1,0 +1,60 @@
+CHANGELOG.md
+  s_2b2aa796021bf2::t_617562d1775929 14
+  s_2b2aa796021bf2::t_993b2ee0bea49d 16-17
+  h_d9dd17644dded9 5
+  s_2b2aa796021bf2::t_79611176c0d1e9 11
+  s_2b2aa796021bf2::t_cbf4a516f61ca9 7-9
+  s_2b2aa796021bf2::t_10501556b9d665 6
+  s_2b2aa796021bf2::t_424399111bfe5d 10
+  s_d4a691b07897c1::t_380d4757f70169 3-4,12-13,15,18-19,1526
+logfire/pyproject.toml
+  s_2b2aa796021bf2::t_93e3d65ca1d18a 50
+  s_d4a691b07897c1::t_e188887708a557 7,48,57-88
+logfire-api/logfire_api/_internal/baggage.pyi
+  s_d4a691b07897c1::t_9ecdc4cfa27db3 1,6,44-47
+logfire-api/logfire_api/_internal/config.pyi
+  s_d4a691b07897c1::t_6374577c9347fb 36,45,229
+logfire-api/logfire_api/_internal/exporters/logs.pyi
+  s_d4a691b07897c1::t_e65e8efa8b8343 2,5
+logfire-api/logfire_api/_internal/exporters/processor_wrapper.pyi
+  s_d4a691b07897c1::t_951d037f2254f2 22,29
+logfire-api/logfire_api/_internal/scrubbing.pyi
+  s_d4a691b07897c1::t_16dea5816a48f8 3,6,11,36,39-40,48-53,59-61,67,71-74,84-85,89
+logfire-api/logfire_api/types.pyi
+  s_d4a691b07897c1::t_d295e96d60f755 13-18
+logfire-api/pyproject.toml
+  s_d4a691b07897c1::t_bcd96398c5e3e4 7
+logfire-sdk/pyproject.toml
+  s_d4a691b07897c1::t_7e25d65f51c27b 7
+uv.lock
+  s_d4a691b07897c1::t_72e545f26441bd 3583,3690,3729,3739,3742-3758,4059
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9a26b89c966b4d5d1bb8a6d9182c9915fe785e4a",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_2b2aa796021bf2": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1794994376097",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_d4a691b07897c1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1f3a8-88c7-7fa2-9bb8-6aca02aa037a",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
