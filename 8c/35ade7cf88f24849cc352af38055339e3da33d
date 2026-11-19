@@ -1,0 +1,24 @@
+CHANGELOG.md
+  s_2d7f4f7dfcdf37::t_e5424e2a6da498 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8c35ade7cf88f24849cc352af38055339e3da33d",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_2d7f4f7dfcdf37": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1f4a9-be74-7220-9462-ee2a94e38e30",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
