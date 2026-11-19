@@ -27,7 +27,14 @@ from ..constants import (
     log_level_attributes,
 )
 from ..db_statement_summary import message_from_db_statement
-from ..integrations.llm_providers.semconv import PROVIDER_NAME
+from ..integrations.llm_providers.semconv import (
+    CACHE_READ_INPUT_TOKENS,
+    INPUT_TOKENS,
+    OUTPUT_TOKENS,
+    PROVIDER_NAME,
+    REQUEST_MODEL,
+    RESPONSE_MODEL,
+)
 from ..json_schema import JsonSchemaProperties, attributes_json_schema
 from ..scrubbing import BaseScrubber
 from ..utils import (
@@ -644,11 +651,14 @@ def _transform_google_genai_span(span: ReadableSpanDict):
     ):
         return
 
-    span['attributes'] = {
+    attributes = {
         **attributes,
         'gen_ai.operation.name': 'chat',
         'gen_ai.system': 'gemini',
     }
+    if 'operation.cost' not in attributes and (cost := _estimate_google_genai_cost(attributes)) is not None:
+        attributes['operation.cost'] = cost
+    span['attributes'] = attributes
     # Rewrite the shared util.genai scope back to the specific instrumentation library so the span is
     # attributable to google-genai (as it was before 1.0b0). Upstream issue:
     # https://github.com/open-telemetry/opentelemetry-python-genai/issues/620
@@ -658,6 +668,28 @@ def _transform_google_genai_span(span: ReadableSpanDict):
         schema_url=scope.schema_url,
         attributes=scope.attributes,
     )
+
+
+def _estimate_google_genai_cost(attributes: Mapping[str, Any]) -> float | None:
+    model = attributes.get(RESPONSE_MODEL) or attributes.get(REQUEST_MODEL)
+    input_tokens = attributes.get(INPUT_TOKENS)
+    output_tokens = attributes.get(OUTPUT_TOKENS)
+    if not isinstance(model, str) or not isinstance(input_tokens, int) or not isinstance(output_tokens, int):
+        return None
+
+    try:
+        from genai_prices import Usage, calc_price
+
+        # The completed span has cumulative usage, and its output total includes thinking tokens.
+        usage = Usage(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cache_read_tokens=attributes.get(CACHE_READ_INPUT_TOKENS),
+        )
+        return float(calc_price(usage, model_ref=model, provider_id='google').total_price)
+    except Exception:
+        # Pricing is optional and the dataset may not know the model.
+        return None
 
 
 def _transform_litellm_span(span: ReadableSpanDict):
