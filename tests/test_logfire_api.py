@@ -437,6 +437,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         pass
     logfire__all__.remove('set_baggage')
 
+    assert hasattr(logfire_api, 'set_attributes')
+    logfire_api.set_attributes({})
+    logfire__all__.remove('set_attributes')
+
     assert hasattr(logfire_api, 'get_context')
     logfire_api.get_context()
     logfire__all__.remove('get_context')

@@ -23,7 +23,7 @@ from ._internal.config import (
     configure,
 )
 from ._internal.constants import LevelName
-from ._internal.main import Logfire, LogfireSpan
+from ._internal.main import Logfire, LogfireSpan, set_attributes
 from ._internal.scrubbing import ScrubbingOptions, ScrubMatch
 from ._internal.stack_info import add_non_user_code_prefix
 from ._internal.utils import suppress_instrumentation
@@ -224,6 +224,7 @@ __all__ = (
     'logfire_info',
     'get_baggage',
     'set_baggage',
+    'set_attributes',
     'get_context',
     'attach_context',
     'url_from_eval',

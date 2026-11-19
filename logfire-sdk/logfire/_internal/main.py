@@ -3607,5 +3607,17 @@ def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> N
     span.set_attributes(otlp_attributes)
 
 
+def set_attributes(attributes: dict[str, Any]) -> None:
+    """Set attributes on the current span, including values that OpenTelemetry cannot represent directly.
+
+    Non-primitive values such as dicts and lists are JSON encoded and described in the span's JSON schema.
+    If there is no active span, or the current span is not recording, this does nothing.
+
+    Args:
+        attributes: The key/value pairs to set on the current span.
+    """
+    set_user_attributes_on_raw_span(trace_api.get_current_span(), attributes)  # pyright: ignore[reportArgumentType]
+
+
 P = ParamSpec('P')
 R = TypeVar('R')
