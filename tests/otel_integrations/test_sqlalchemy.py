@@ -213,7 +213,7 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
                 'end_time': 18000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'SELECT auth_recor…ds_content FROM auth_records WHERE …',
+                    'logfire.msg': 'SELECT auth_reco…s_content FROM auth_records WHERE …',
                     'db.statement': 'SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_number, auth_records.content AS auth_records_content \nFROM auth_records \nWHERE auth_records.id = ?',
                     'db.system': 'sqlite',
                     'db.name': 'example1.db',
@@ -569,7 +569,7 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                 'end_time': 18000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'SELECT auth_recor…ds_content FROM auth_records WHERE …',
+                    'logfire.msg': 'SELECT auth_reco…s_content FROM auth_records WHERE …',
                     'db.statement': """\
 SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_number, auth_records.content AS auth_records_content \nFROM auth_records \nWHERE auth_records.id = ?\
 """,
@@ -636,7 +636,7 @@ def test_sqlalchemy_instrumentation_stable_semconv(exporter: TestExporter):
                 'end_time': 4000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'SELECT name, type…tpage, sql FROM sqlite_master WHERE …',
+                    'logfire.msg': 'SELECT name, typ…page, sql FROM sqlite_master WHERE …',
                     'db.namespace': 'example_stable_semconv.db',
                     'db.query.text': "select name, type, tbl_name, rootpage, sql from sqlite_master where type = 'table' and name = 'auth_records'",
                     'db.system.name': 'sqlite',

@@ -1,6 +1,10 @@
 from inline_snapshot import snapshot
 
-from logfire._internal.db_statement_summary import message_from_db_statement
+from logfire._internal.db_statement_summary import (
+    MAX_QUERY_MESSAGE_LENGTH,
+    message_from_db_statement,
+    truncate,
+)
 
 
 def test_no_db_statement():
@@ -50,13 +54,13 @@ def attrs(q: str):
 def test_query_rewritten():
     q = 'SELECT apple, banana, carrot, durian, egg, fig FROM table WHERE apple = 1 and banana = 2'
     # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
-    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'SELECT apple, ban…, egg, fig FROM table WHERE …'
+    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'SELECT apple, ba… egg, fig FROM table WHERE …'
 
 
 def test_invalid_sql():
     q = 'SELECT apple, banana, carrot, durian, egg, fig FROM "table WHERE apple = 1 offset 12345678901234567890'
     # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
-    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'SELECT apple, ban…, egg, fig FROM "table WHERE …'
+    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'SELECT apple, ba… egg, fig FROM "table WHERE …'
 
 
 def test_one_cte():
@@ -68,7 +72,7 @@ def test_one_cte():
 def test_one_cte_long():
     q = 'WITH foobar_foobar_foobar AS (SELECT apple, banana, carrot FROM table) SELECT * FROM foobar where x = 1'
     # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
-    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'WITH fooba…oobar AS (…) SELECT * FROM foobar WHERE …'
+    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'WITH foob…obar AS (…) SELECT * FROM foobar WHERE …'
 
 
 def test_two_ctes():
@@ -80,7 +84,7 @@ def test_two_ctes():
 def test_long_select():
     q = '\nSELECT apple, banana, carrot, durian, egg, fig, grape FROM table offset 12345678901234567890'
     # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
-    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'SELECT apple, ban…fig, grape FROM table'
+    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'SELECT apple, ba…ig, grape FROM table'
 
 
 def test_from_subquery():
@@ -105,7 +109,7 @@ def test_one_join():
     q = '  SELECT apple, banana, carrot FROM table JOIN other ON table.id = other.id offset 12345678901234567890'
     # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
     assert (
-        message_from_db_statement(attrs(q), None, 'SELECT') == 'SELECT apple, ban…na, carrot FROM table JOIN other ON …'
+        message_from_db_statement(attrs(q), None, 'SELECT') == 'SELECT apple, ba…a, carrot FROM table JOIN other ON …'
     )
 
 
@@ -114,7 +118,7 @@ def test_one_join_long():
     # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
     assert (
         message_from_db_statement(attrs(q), None, 'SELECT')
-        == 'SELECT apple, ban…na, carrot FROM table JOIN other…other ON …'
+        == 'SELECT apple, ba…a, carrot FROM table JOIN othe…ther ON …'
     )
 
 
@@ -127,15 +131,14 @@ def test_two_joins():
 def test_where():
     q = 'SELECT apple, banana, carrot, durian, egg FROM table where a = 1 and b = 2 and c =3'
     # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
-    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'SELECT apple, ban…urian, egg FROM table WHERE …'
+    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'SELECT apple, ba…rian, egg FROM table WHERE …'
 
 
 def test_limit():
     q = 'SELECT apple, banana, carrot, durian, egg, fig, grape FROM table where apple=12345678901234567890 limit 10'
     # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
     assert (
-        message_from_db_statement(attrs(q), None, 'SELECT')
-        == 'SELECT apple, ban…fig, grape FROM table WHERE … LIMIT 10'
+        message_from_db_statement(attrs(q), None, 'SELECT') == 'SELECT apple, ba…ig, grape FROM table WHERE … LIMIT 10'
     )
 
 
@@ -160,14 +163,14 @@ def test_insert():
 def test_insert_long_table():
     q = 'INSERT INTO "analytics"."very_long_events_table_name_for_testing" (apple, banana, carrot, durian, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
     assert message_from_db_statement(attrs(q), None, 'INSERT') == snapshot(
-        'INSERT INTO "analyti…testing" (apple, bana…n, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
+        'INSERT INTO "analyt…esting" (apple, bana…n, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
     )
 
 
 def test_insert_long_table_short_values():
     q = 'INSERT INTO "analytics"."very_long_events_table_name_for_testing" (apple) VALUES (12345678901234567890)'
     assert message_from_db_statement(attrs(q), None, 'INSERT') == snapshot(
-        'INSERT INTO "analytics"."ve…me_for_testing" (apple) VALUES (12345678901234567890)'
+        'INSERT INTO "analytics"."v…e_for_testing" (apple) VALUES (12345678901234567890)'
     )
 
 
@@ -200,3 +203,10 @@ def test_ctes_with_parentheses_in_literals():
     q = "WITH foo AS (SELECT * FROM t WHERE name LIKE '%(%'), bar AS (SELECT ')' AS paren FROM foo) SELECT * FROM bar"
     # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
     assert message_from_db_statement(attrs(q), None, 'SELECT') == 'WITH …[2 CTEs] SELECT * FROM bar'
+
+
+def test_truncate_respects_max_length():
+    # The one-character ellipsis must count against `length`, so output never exceeds it.
+    for length in (10, MAX_QUERY_MESSAGE_LENGTH):
+        result = truncate('a' * 200, length)
+        assert len(result) <= length, (length, len(result), result)

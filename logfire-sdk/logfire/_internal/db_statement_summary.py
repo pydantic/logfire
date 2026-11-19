@@ -156,7 +156,7 @@ def truncate(s: str, length: int) -> str:
     if len(s) <= length:
         return s
     else:
-        half_length = length // 2
+        half_length = (length - 1) // 2
         return f'{s[:half_length]}…{s[-half_length:]}'
 
 
