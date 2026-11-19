@@ -30,7 +30,7 @@ A Collector you [connect with its own `opamp` extension](existing-collectors.md)
 
 ![The Create a Collector policy dialog at its Details step, with Build from a template and Import configuration](../../../images/fleet/create-host-policy.png)
 
-A draft doesn't change any connected client. A published policy doesn't either, until you assign it: choose it under **Use an existing policy** when you [add a host](collectors.md#add-a-host).
+A draft doesn't change any connected client. A new policy reaches no client until you assign it: choose it under **Use an existing policy** when you [add a host](collectors.md#add-a-host).
 
 ## Edit a Collector policy
 

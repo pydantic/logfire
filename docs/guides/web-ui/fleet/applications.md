@@ -201,7 +201,7 @@ Fleet doesn't renew an application's connection key. When it expires, the applic
 
 1. In **Fleet management**, select **Settings** and open the connection key named after the application.
 2. Select **Issue a replacement key**, and copy it: Logfire shows it once.
-3. Put the new key in `OTEL_OPAMP_HEADERS` and restart the application.
+3. Set `OTEL_OPAMP_HEADERS` to `Authorization=Bearer%20<new key>`, and restart the application.
 4. Once its instances show as connected, select **Revoke key** on the old key.
 
 ## Troubleshooting

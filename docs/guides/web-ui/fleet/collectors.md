@@ -35,7 +35,7 @@ One command installs a Collector as a service and connects it to Fleet. It works
 
 6. Keep the setup open. It shows when the host's first data arrives.
 
-To add more hosts, repeat these steps and choose **Use an existing policy**: each install command comes with its own enrollment key. In automation, pipe the key from your secret store into `--token-stdin`, or set `LOGFIRE_COLLECTOR_ENROLLMENT_TOKEN` and leave `--token-stdin` out. Install on each host separately: don't copy one host's Collector state into a machine image, because it holds that host's identity and connection key.
+To add more hosts to a policy, open it and select **Enroll hosts**. It creates one enrollment key for as many hosts as you allow, so you run the same command on each host. In automation, pipe the key from your secret store into `--token-stdin`, or set `LOGFIRE_COLLECTOR_ENROLLMENT_TOKEN` and leave `--token-stdin` out. Install on each host separately: don't copy one host's Collector state into a machine image, because it holds that host's identity and connection key.
 
 ## Connect a Kubernetes cluster
 
