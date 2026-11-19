@@ -1,0 +1,46 @@
+logfire-sdk/logfire/_internal/integrations/llm_providers/anthropic.py
+  s_2d7f4f7dfcdf37::t_cc04e6ab63f931 318-320
+logfire-sdk/logfire/_internal/integrations/google_genai.py
+  s_2d7f4f7dfcdf37::t_cc04e6ab63f931 7-8,40-73
+  s_2d7f4f7dfcdf37::t_a2bc8530cfcdc1 74-75
+tests/otel_integrations/test_openai.py
+  s_2d7f4f7dfcdf37::t_cc04e6ab63f931 4,5966-6298
+tests/otel_integrations/test_google_genai.py
+  s_2d7f4f7dfcdf37::t_cc04e6ab63f931 1-2,6,10,422-526
+docs/guides/web-ui/llms.md
+  s_2d7f4f7dfcdf37::t_cc04e6ab63f931 135,141-142,147-148,153
+tests/otel_integrations/test_openai_agents.py
+  s_2d7f4f7dfcdf37::t_cc04e6ab63f931 2762-2788
+docs/guides/web-ui/llm-panels.md
+  s_2d7f4f7dfcdf37::t_cc04e6ab63f931 94-95
+docs/cookbook/track-llm-cost.md
+  s_2d7f4f7dfcdf37::t_cc04e6ab63f931 28,53-54,76,81-82,146
+tests/otel_integrations/test_llm_usage_attributes.py
+  s_2d7f4f7dfcdf37::t_cc04e6ab63f931 6,15,330-431
+logfire-sdk/logfire/_internal/integrations/llm_providers/usage.py
+  s_2d7f4f7dfcdf37::t_cc04e6ab63f931 3-5,11-47,73-76,97-99
+  s_2d7f4f7dfcdf37::t_2a416d9e42cc5d 100
+tests/otel_integrations/test_anthropic.py
+  s_2d7f4f7dfcdf37::t_cc04e6ab63f931 2762-2959
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "540cb1d71074089720a6fb844ddc1ef296178978",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_2d7f4f7dfcdf37": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1f4a9-be74-7220-9462-ee2a94e38e30",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
