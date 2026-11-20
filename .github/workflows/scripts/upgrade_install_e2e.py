@@ -169,21 +169,15 @@ def main() -> None:
             upgrade=True,
             force=args.from_version == target_version,
         )
-        upgraded_state = 'split-with-cli' if args.from_state == 'beta' else 'split'
-        assert_state(upgraded_state, target_version)
+        assert_state('split', target_version)
         run([str(cli), '--version'], cwd=work_dir, env=env)
 
         # Reinstalling both wheels catches RECORD/file-ownership regressions that
         # are hidden by a one-way upgrade test.
         installer.install(str(sdk_wheel), str(meta_wheel), force=True, no_deps=True)
-        assert_state(upgraded_state, target_version)
+        assert_state('split', target_version)
         run([str(cli), '--version'], cwd=work_dir, env=env)
 
-        # The standalone CLI remains available when explicitly installed, without
-        # taking ownership of the meta-package's Python CLI.
-        installer.install('logfire-cli>=0.1.8')
-        assert_state('split-with-cli', target_version)
-        run([str(cli), '--version'], cwd=work_dir, env=env)
         run([str(standalone_cli), '--version'], cwd=work_dir, env=env)
 
         # The compatibility distribution owns no Python package, so removing it
@@ -202,6 +196,7 @@ def main() -> None:
         installer.install(str(meta_wheel))
         assert_state('split', target_version)
         run([str(cli), '--version'], cwd=work_dir, env=env)
+        run([str(standalone_cli), '--version'], cwd=work_dir, env=env)
 
 
 if __name__ == '__main__':

@@ -64,18 +64,6 @@ T = TypeVar('T')
 JsonValue = Union[int, float, str, bool, None, list['JsonValue'], tuple['JsonValue', ...], 'JsonDict']
 JsonDict = dict[str, JsonValue]
 
-try:
-    import pydantic_core
-except Exception:  # pragma: no cover
-
-    def dump_json(obj: JsonValue) -> str:
-        return json.dumps(obj, separators=(',', ':'))
-else:
-
-    def dump_json(obj: JsonValue) -> str:
-        return pydantic_core.to_json(obj).decode()
-
-
 logger = logging.getLogger('logfire')
 
 

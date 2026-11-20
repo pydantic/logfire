@@ -5,8 +5,10 @@ import dataclasses
 import getpass
 import inspect
 import json
+import math
 import os
 import pickle
+import re
 import signal
 import subprocess
 import sys
@@ -17,7 +19,7 @@ from collections.abc import Callable, Iterable, Sequence
 from contextlib import ExitStack
 from io import StringIO
 from pathlib import Path
-from time import sleep, time
+from time import time
 from typing import Any, Literal
 from unittest import mock
 from unittest.mock import patch
@@ -584,6 +586,30 @@ def test_trace_sample_rate_too_large_for_float_names_the_setting(tmp_path: Path)
         configure(send_to_logfire=False, config_dir=tmp_path)
 
 
+@pytest.mark.parametrize(
+    ('rate', 'printed'), [('nan', 'nan'), ('inf', 'inf'), ('-inf', '-inf'), ('1.5', '1.5'), ('-1', '-1.0')]
+)
+def test_trace_sample_rate_out_of_range_names_the_setting(rate: str, printed: str) -> None:
+    message = f'Expected sampling.head (LOGFIRE_TRACE_SAMPLE_RATE) to be between 0.0 and 1.0, got {printed}'
+    with patch.dict(os.environ, {'LOGFIRE_TRACE_SAMPLE_RATE': rate}):
+        with pytest.raises(LogfireConfigError, match=f'^{re.escape(message)}$'):
+            configure(send_to_logfire=False)
+
+
+@pytest.mark.parametrize('rate', [math.nan, math.inf, 1.5, -0.1])
+def test_sampling_options_head_out_of_range_names_the_setting(rate: float) -> None:
+    message = f'Expected sampling.head (LOGFIRE_TRACE_SAMPLE_RATE) to be between 0.0 and 1.0, got {rate!r}'
+    with pytest.raises(LogfireConfigError, match=f'^{re.escape(message)}$'):
+        configure(send_to_logfire=False, sampling=logfire.SamplingOptions(head=rate))
+
+
+@pytest.mark.parametrize('rate', ['0', '0.5', '1'])
+def test_trace_sample_rate_in_range_is_accepted(rate: str) -> None:
+    with patch.dict(os.environ, {'LOGFIRE_TRACE_SAMPLE_RATE': rate}):
+        configure(send_to_logfire=False)
+    assert GLOBAL_CONFIG.sampling.head == float(rate)
+
+
 def test_logfire_invalid_config_dir(tmp_path: Path):
     (tmp_path / 'pyproject.toml').write_text('invalid-data')
     with pytest.raises(
@@ -784,69 +810,45 @@ def get_batch_log_exporter(processor: LogRecordProcessor) -> LogRecordExporter:
     return processor._batch_processor._exporter  # type: ignore
 
 
-def test_configure_export_delay() -> None:
-    class TrackingExporter(SpanExporter):
-        def __init__(self) -> None:
-            self.last_export_timestamp: float | None = None
-            self.export_delays: list[float] = []
+@pytest.mark.parametrize('schedule_delay', [None, 1, 1500])
+def test_configure_export_delay(schedule_delay: int | None, monkeypatch: pytest.MonkeyPatch) -> None:
+    if schedule_delay is None:
+        monkeypatch.delenv('OTEL_BSP_SCHEDULE_DELAY', raising=False)
+    else:
+        monkeypatch.setenv('OTEL_BSP_SCHEDULE_DELAY', str(schedule_delay))
 
-        def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
-            t = time()
-            if self.last_export_timestamp is not None:
-                self.export_delays.append(t - self.last_export_timestamp)
-            self.last_export_timestamp = t
-            return SpanExportResult.SUCCESS
-
-    def configure_tracking_exporter():
-        request_mocker = requests_mock.Mocker()
+    with requests_mock.Mocker() as request_mocker:
         request_mocker.get(
             'https://logfire-us.pydantic.dev/v1/info',
             json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
         )
+        logfire.configure(send_to_logfire=True, token='abc1', console=False)
+        wait_for_check_token_thread()
 
-        with request_mocker:
-            logfire.configure(
-                send_to_logfire=True,
-                token='abc1',
-                console=False,
-            )
-            wait_for_check_token_thread()
+    processor, *_ = get_span_processors()
+    assert isinstance(processor, DynamicBatchSpanProcessor)
+    # Keep exports local while checking the processor installed by configure().
+    processor.batch_processor._exporter = TestExporter()  # pyright: ignore[reportPrivateUsage]
+    final_delay = 500 if schedule_delay is None else schedule_delay
+    initial_delay = min(final_delay, 100)
+    assert processor.schedule_delay_millis == initial_delay
 
-        dynamic_batch_span_processor, *_ = get_span_processors()
-        assert isinstance(dynamic_batch_span_processor, DynamicBatchSpanProcessor)
-        batch_processor = dynamic_batch_span_processor.batch_processor
-        ex = batch_processor.span_exporter = batch_processor._exporter = TrackingExporter()  # type: ignore
-        return ex
-
-    def check_delays(exp: TrackingExporter, min_delay: float, max_delay: float) -> None:
-        for delay in exp.export_delays:
-            assert min_delay < delay < max_delay, f'delay was {delay}, which is not between {min_delay} and {max_delay}'
-
-    # test the default behaviour
-    exporter = configure_tracking_exporter()
-    for _ in range(10):
+    # Flush background processing before inspecting the delay. Wall-clock intervals can
+    # still reflect an in-flight wait using the previous delay after the tenth span.
+    for _ in range(9):
         logfire.info('test')
-    sleep(0.1)
-    # Initially the delay is 100 ms
-    check_delays(exporter, 0.1, 0.4)
+    assert logfire.force_flush()
+    assert processor.num_processed == 9
+    assert processor.schedule_delay_millis == initial_delay
 
-    exporter.export_delays.clear()
-    while not exporter.export_delays:
-        with logfire.span('test'):
-            pass
-        sleep(0.1)
-    # After the first 10 spans, we increase to 500ms by default
-    check_delays(exporter, 0.4, 1.0)
+    logfire.info('test')
+    assert logfire.force_flush()
+    assert processor.num_processed == 10
+    assert processor.schedule_delay_millis == final_delay
 
-    # test a very small value
-    with patch.dict(os.environ, {'OTEL_BSP_SCHEDULE_DELAY': '1'}):
-        exporter = configure_tracking_exporter()
-
-    while not exporter.export_delays:
-        with logfire.span('test'):
-            pass
-        sleep(0.03)
-    check_delays(exporter, 0.0, 0.1)  # since we set 1ms it should be a very short delay
+    logfire.info('test')
+    assert logfire.force_flush()
+    assert processor.schedule_delay_millis == final_delay
 
 
 def test_configure_service_version(config_kwargs: dict[str, Any], exporter: TestExporter, tmp_path: str) -> None:

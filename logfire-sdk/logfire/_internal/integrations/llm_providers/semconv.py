@@ -135,7 +135,7 @@ class BlobPart(TypedDict):
 
     type: Literal['blob']
     content: str
-    media_type: NotRequired[str]
+    mime_type: NotRequired[str]
     modality: NotRequired[Literal['image', 'audio', 'video', 'document']]
 
 
@@ -144,7 +144,7 @@ class FilePart(TypedDict):
 
     type: Literal['file']
     file_id: str
-    media_type: NotRequired[str]
+    mime_type: NotRequired[str]
     modality: NotRequired[Literal['image', 'audio', 'video', 'document']]
 
 

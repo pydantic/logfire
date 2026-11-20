@@ -169,7 +169,15 @@ def _pydantic_model_encoder(o: Any, seen: set[int]) -> JsonValue:
         return to_json_value(o.root, seen)  # pyright: ignore[reportUnknownMemberType]
 
     try:
-        dump = o.model_dump()
+        # Like dataclass and attrs fields, fields with repr=False are left out.
+        cls = type(o)
+        computed_fields = cls.model_computed_fields
+        if isinstance(computed_fields, property):  # pragma: no cover
+            # pydantic 2.4 and 2.5 only have it on instances.
+            computed_fields = o.model_computed_fields  # pyright: ignore[reportDeprecated]
+        fields = {**cls.model_fields, **computed_fields}
+        hidden = {name for name, field in fields.items() if not field.repr}
+        dump = o.model_dump(exclude=hidden or None)
     except AttributeError:  # pragma: no cover
         # pydantic v1
         dump = o.dict()  # pyright: ignore[reportDeprecated]
@@ -348,7 +356,7 @@ def to_otlp_value(obj: Any) -> dict[str, Any] | list[Any] | str:
 
     A JSON string is returned when the value can't be sent faithfully as a structured value,
     e.g. because it isn't a mapping or sequence, or because it contains a `None` inside an array
-    (which the Logfire backend would drop), an empty key, or an integer outside the signed 64-bit range.
+    (which the Logfire backend would drop), an empty key, an integer outside the signed 64-bit range, or nesting deeper than 20 levels.
     """
     value = to_json_value(obj, set())
     if isinstance(value, (dict, list)) and _is_otlp_native_safe(value):
@@ -377,11 +385,19 @@ def _otlp_value_to_json(value: Any) -> Any:
     return value
 
 
-def _is_otlp_native_safe(value: JsonValue) -> bool:
+# Protobuf rejects a message nested more than 100 levels deep, and the exporter then drops the whole batch.
+# Each structured level costs two protobuf levels (`AnyValue` and `ArrayValue` or `KeyValueList`),
+# so this limit leaves room for the request envelope.
+_MAX_OTLP_NESTING = 20
+
+
+def _is_otlp_native_safe(value: JsonValue, depth: int = 1) -> bool:
+    if isinstance(value, (list, dict)) and depth > _MAX_OTLP_NESTING:
+        return False
     if isinstance(value, list):
-        return all(item is not None and _is_otlp_native_safe(item) for item in value)
+        return all(item is not None and _is_otlp_native_safe(item, depth + 1) for item in value)
     elif isinstance(value, dict):
-        return all(key and _is_otlp_native_safe(item) for key, item in value.items())
+        return all(key and _is_otlp_native_safe(item, depth + 1) for key, item in value.items())
     elif isinstance(value, int) and not isinstance(value, bool):
         return -(2**63) <= value < 2**63
     return True

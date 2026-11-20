@@ -332,10 +332,19 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     """
     source = get_node_source_text(node.value, ex_source)
 
-    # Check if the expression contains await before attempting to compile
-    for sub_node in ast.walk(node.value):
+    # Check for unsupported expressions before attempting to compile.
+    for sub_node in ast.walk(node):
         if isinstance(sub_node, ast.Await):
             raise FStringAwaitError(source)
+
+        # `eval` with a separate locals dict only lets the top level of the expression see those locals.
+        # A lambda or generator expression (and a comprehension before Python 3.12) looks them up in globals instead.
+        # Rather than evaluating such an expression again, ask the user to extract it.
+        if isinstance(sub_node, (ast.Lambda, ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
+            raise KnownFormattingError(
+                f'Cannot evaluate the f-string value {{{source}}} because it contains a lambda, generator expression '
+                f'or comprehension. Assign the value to a variable before logging.'
+            )
 
     value_code = compile(source, '<fvalue1>', 'eval')
     expr = ast.Expression(

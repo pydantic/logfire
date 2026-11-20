@@ -22,7 +22,18 @@ from attrs import define, field as attrs_field
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry import trace
-from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, RootModel, SecretBytes, SecretStr
+from pydantic import (
+    AnyUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    FilePath,
+    NameEmail,
+    RootModel,
+    SecretBytes,
+    SecretStr,
+    computed_field,
+)
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
@@ -104,6 +115,7 @@ class Generator:
 
 def as_json(value: Any) -> Any:
     """Convert a structured attribute value, whose arrays the OTel SDK stores as tuples, to plain JSON."""
+    assert not isinstance(value, str), 'expected a structured value, not a JSON string'
     return json.loads(json.dumps(value))
 
 
@@ -173,6 +185,16 @@ class AttrsError(Exception):
 class MyReprAttrs:
     in_repr: int
     not_in_repr: MyDataclass = attrs_field(repr=False)
+
+
+class MyReprModel(BaseModel):
+    in_repr: int
+    not_in_repr: MyDataclass = Field(repr=False)
+
+    @computed_field(repr=False)
+    @property
+    def computed_not_in_repr(self) -> int:
+        return self.in_repr + 1
 
 
 class ListSubclass(_ListSubclass): ...
@@ -574,6 +596,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             id='pydantic_model',
         ),
         pytest.param(
+            MyReprModel(in_repr=1, not_in_repr=MyDataclass(2)),
+            'in_repr=1',
+            '{"in_repr":1}',
+            {'type': 'object', 'title': 'MyReprModel', 'x-python-datatype': 'PydanticModel'},
+            id='pydantic_model_repr',
+        ),
+        pytest.param(
             MyModel.model_validate(dict(x='x', y=10, u='http://test.com', extra_key=MyDataclass(10))),
             f"x='x' y=10 u={ANYURL_REPR_CLASSNAME}('http://test.com/')",
             '{"x":"x","y":10,"u":"http://test.com/","extra_key":{"t":10}}',
@@ -962,6 +991,14 @@ def test_attrs_schema_respects_repr() -> None:
         'type': 'object',
         'title': 'MyReprAttrs',
         'x-python-datatype': 'attrs',
+    }
+
+
+def test_pydantic_model_schema_respects_repr() -> None:
+    assert create_json_schema(MyReprModel(in_repr=1, not_in_repr=MyDataclass(2)), set()) == {
+        'type': 'object',
+        'title': 'MyReprModel',
+        'x-python-datatype': 'PydanticModel',
     }
 
 
@@ -2271,3 +2308,18 @@ def test_logfire_json_dumps_non_str_keys() -> None:
 def test_set_json_text_attribute_on_non_recording_span() -> None:
     span = trace.NonRecordingSpan(trace.INVALID_SPAN_CONTEXT)
     set_json_text_attribute_on_raw_span(span, 'body', '{"a": 1}')  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize('depth,structured', [(20, True), (21, False)])
+def test_deeply_nested_args_fall_back_to_json(exporter: TestExporter, depth: int, structured: bool) -> None:
+    value: Any = 0
+    for _ in range(depth):
+        value = [value]
+    logfire.info('test message', nested=value)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    if structured:
+        assert as_json(attributes['nested']) == value
+    else:
+        assert attributes['nested'] == json.dumps(value, separators=(',', ':'))
