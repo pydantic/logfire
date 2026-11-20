@@ -198,7 +198,7 @@ The CLI prints one line per bundle with its debug ID and the result, then a summ
 | Conflict | Logfire already has *different* content for this debug ID. | Rebuild so the files get a new debug ID, or upload with the same flags (such as `--strip-sources`) that produced the stored map. |
 | Invalid | Logfire rejected the map. For example, it is not valid JSON, or its `debugId` does not match the debug ID of its bundle. | Check the build output, then run `inject` and `upload` again. |
 | Too large | The map or the bundle is larger than 60 MiB. | Split the bundle into smaller chunks, then build and upload again. |
-| Rate limited or quota full | The project sends uploads too fast, or its source map quota is full. The CLI waits for the time that the server names, then tries again. It tries each file at most 4 times, and it stops if the wait is longer than 60 seconds. | Nothing if the retry succeeds. If the file still fails, run `upload` again later. |
+| Rate limited | The project sends uploads too fast. The CLI waits for the time that the server names, then tries again. It tries each file at most 4 times, and it stops if the wait is longer than 60 seconds. | Nothing if the retry succeeds. If the file still fails, run `upload` again later. |
 
 A result other than stored or already uploaded shows as `failed`, with the reason from the server. If a file fails, the command exits with a non-zero code, so the CI job fails before the deploy.
 
@@ -264,9 +264,15 @@ WHERE attributes->>'logfire.source_map.status' != 'ok'
 ORDER BY start_timestamp DESC
 ```
 
-### Get alerted when maps are missing
+### Get alerted when exceptions stay minified
 
-Logfire has a recommended alert, **Unresolved browser source maps**, that tells you when a browser exception keeps its minified stack trace. It usually means that the upload did not run for a build. The alert is not on by default. To turn it on:
+Logfire has a recommended alert, **Unresolved browser source maps**, that tells you when a browser exception keeps its minified stack trace. The status on the exception names the cause:
+
+- `missing`: the upload did not run for that build. Check the upload step in CI.
+- `error`: Logfire could not use the uploaded map. Check that the map is valid.
+- `pending`: Logfire did not load the map in time. Uploading again does not help. See [Troubleshooting](#troubleshooting).
+
+The alert is not on by default. To turn it on:
 
 1. In your project, open **Alerts** and create a new alert.
 2. Pick **Unresolved browser source maps** from the recommended templates.
