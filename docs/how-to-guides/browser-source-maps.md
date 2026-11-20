@@ -44,8 +44,7 @@ The SDK sends `logfire.debug_ids` from `@pydantic/logfire-browser` version 0.34.
 
 The commands on this page come from the Logfire CLI for JavaScript projects, the `logfire-cli` npm package. Run them with `npx logfire-cli`. The `logfire` command that the Python package installs has no `sourcemap` command.
 
-The `sourcemap` commands are in beta in the CLI, so they can change. The CLI refuses to run a beta command unless you pass `--beta` or set `LOGFIRE_CLI_BETA=true`.
-<!-- TODO: say when `--beta` is no longer needed. The CLI code does not state when the `sourcemap` command leaves beta. -->
+The `sourcemap` commands are in beta in the CLI, so they can change. The CLI refuses to run a beta command unless you pass `--beta` or set `LOGFIRE_CLI_BETA=true`. No date is set yet for when the commands leave beta.
 
 ### Next.js
 
@@ -117,7 +116,6 @@ Each source map and each bundle can be at most 60 MiB, measured before compressi
 
     Logfire has no page and no API that returns an uploaded map or its source text. Everyone who can read the project's data sees the resolved stack traces, which contain your original file and function names. You cannot delete an uploaded map yourself. Logfire deletes it at the end of its [retention](#retention).
     <!-- TODO: confirm whether Logfire shows source lines from `sourcesContent`. The ingest step does not use the source text today. -->
-    <!-- TODO: document how to delete an uploaded map before the retention ends. No delete route exists yet. -->
 
 For a Next.js app, upload the browser chunks under `.next/static`, which Next.js serves from `/_next/static`:
 
@@ -225,8 +223,7 @@ Logfire deletes an uploaded source map 90 days after it was last used to resolve
 
 ## Quotas and billing
 
-Logfire limits how fast one organization uploads. When an upload reaches the limit, the CLI waits and tries again (see [Upload results](#upload-results)).
-<!-- TODO: state the storage quota for uploaded source maps, how Logfire bills them, and where to see usage. The platform code does not define these yet. -->
+Logfire limits how fast one organization uploads. When an upload reaches the limit, the CLI waits and tries again (see [Upload results](#upload-results)). Logfire has not set a storage quota or a price for uploaded source maps yet.
 
 ## Check the result
 
@@ -265,6 +262,22 @@ SELECT start_timestamp, exception_type, attributes->>'logfire.source_map.status'
 FROM records
 WHERE attributes->>'logfire.source_map.status' != 'ok'
 ORDER BY start_timestamp DESC
+```
+
+### Get alerted when maps are missing
+
+Logfire has a recommended alert, **Unresolved browser source maps**, that tells you when a browser exception keeps its minified stack trace. It usually means that the upload did not run for a build. The alert is not on by default. To turn it on:
+
+1. In your project, open **Alerts** and create a new alert.
+2. Pick **Unresolved browser source maps** from the recommended templates.
+3. Choose where to send the notification, then save. You can edit the query before you save.
+
+The alert checks every 10 minutes and fires when at least one exception in the last 10 minutes has the status `missing`, `error` or `pending`. It ignores `partial`, so an exception that resolved some of its frames does not fire it. Its query is:
+
+```sql
+SELECT trace_id, span_name, exception_message, attributes->>'logfire.source_map.status' AS source_map_status
+FROM records
+WHERE is_exception AND attributes->>'logfire.source_map.status' IN ('missing', 'error', 'pending')
 ```
 
 ## Troubleshooting
