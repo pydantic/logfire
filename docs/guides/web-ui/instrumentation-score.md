@@ -2,18 +2,18 @@
 title: "Find gaps in your instrumentation"
 description: "Use the Instrumentation Score to find missing metadata, noisy traces, and other telemetry issues you can fix in Logfire."
 ---
-# Instrumentation score
+# Instrumentation Score
 
-Find the services whose telemetry is hard to filter, compare, or use for debugging. Logfire checks the traces, metrics, and logs it receives against the [OpenTelemetry Instrumentation Score specification](https://github.com/instrumentation-score/spec) and shows you which fixes to prioritize.
+Find the services whose telemetry is hard to filter, compare, or use for debugging. Logfire checks the traces, metrics, and logs it receives against the [Instrumentation Score specification for OpenTelemetry](https://github.com/instrumentation-score/spec) and shows you which fixes to prioritize.
 
 !!! info "Experimental"
-    Instrumentation score is experimental. [Contact Pydantic](https://pydantic.dev/contact) to request access.
+    Instrumentation Score is experimental. [Contact Pydantic](https://pydantic.dev/contact) to request access.
 
 ## Open the score
 
 1. Open your Logfire project and select **Instrumentation score** in the project sidebar.
 2. To check one service, open [Services](services.md), select the service, and choose **Instrumentation score** on its detail page.
-3. Select **Refresh** after new telemetry arrives to update the score.
+3. Select **Refresh** after new telemetry arrives. When the checks finish, the page shows the score and failing rules for the new window.
 
 ## Investigate a failing check
 
@@ -27,7 +27,7 @@ For example, **Metrics have a valid unit** can fail when a service reports reque
 
 Regular checks use the last hour. Pattern checks run over the last 15 minutes. Some checks use a sample, such as the checks for missing parent spans and sensitive data in spans. Open a rule to see how Logfire checks it and what limits apply.
 
-The sensitive-span check runs on a service's score. The production debug check uses the OpenTelemetry environment name `production`. Set `deployment.environment.name` to `production` on telemetry from production services.
+The sensitive-span check runs on a service's score. The production debug check uses the OpenTelemetry environment name `production`. Set the `deployment.environment.name` resource attribute to `production` for those services. See [how to configure environments](../../how-to-guides/environments.md).
 
 If a check has no data, send the relevant telemetry and refresh. If a check reaches its service limit, filter the project by environment or open the score for one service.
 

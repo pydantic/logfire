@@ -790,7 +790,7 @@ navigation:
       - page: "Services"
         path: "guides/web-ui/services.md"
         slug: "observe/services"
-      - page: "Instrumentation score"
+      - page: "Instrumentation Score"
         path: "guides/web-ui/instrumentation-score.md"
         slug: "observe/instrumentation-score"
       - page: "Service Levels"

@@ -38,7 +38,7 @@ Select a service to open its detail page. It shows:
 
 ![Service detail page with request, error, and latency signals](../../images/services/service-detail.png)
 
-Use the [Instrumentation score](instrumentation-score.md) for a service to find gaps in the telemetry it sends.
+Use the [Instrumentation Score](instrumentation-score.md) for a service to find gaps in the telemetry it sends.
 
 ## Read the topology correctly
 
