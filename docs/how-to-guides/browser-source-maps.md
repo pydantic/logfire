@@ -8,95 +8,87 @@ description: "Upload source maps from CI so Logfire shows browser exceptions wit
 !!! warning "Experimental"
     Browser source maps are experimental. The behavior on this page can change before the feature reaches Beta.
 
-Production JavaScript is usually *minified*: the bundler (the build tool that combines your code into a few files, such as Vite, webpack or Turbopack) renames functions and puts the code on a few long lines. A stack trace from a minified bundle points at `index-a1b2.js:1:48213`, which tells you little.
+Upload your source maps from CI, and Logfire shows browser exceptions with your original file, function and line instead of minified code.
 
-A *source map* is a JSON file that the bundler writes next to each bundle. It maps every position in the minified file back to the original file, line and function. When you upload your source maps to Logfire, Logfire shows browser exceptions with your original code.
+Production JavaScript is usually *minified*: the bundler (the build tool that combines your code into a few files, such as Vite, webpack or Turbopack) renames functions and puts the code on a few long lines. A stack trace from a minified bundle points at `index-a1b2.js:1:48213`, which tells you little. A *source map* is a JSON file that the bundler writes next to each bundle. It maps every position in the minified file back to the original file, line and function.
+
+Logfire matches each stack frame to its map by a *debug ID*: a unique ID that the build writes into both the bundle and its map. See [How it works](#how-it-works) for the details.
 
 ## Before you begin
 
-You need these two things:
+You need:
 
 - An app that sends browser exceptions to Logfire with `@pydantic/logfire-browser` version 0.34.0 or later. See the [browser SDK setup](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/).
-- The ID of your *frontend application*. A frontend application is the entry in a Logfire project that gives the browser data of one web app a stable name and a restricted token. Find it under **Project settings → Frontend applications** (see [Frontend](../guides/web-ui/frontend.md)).
+- The ID of your *frontend application*. A frontend application is the entry in a Logfire project that gives the browser data of one web app a stable name and a restricted token. Find it under **Project settings → Frontend applications** (see [Frontend](../guides/web-ui/frontend.md)). The examples on this page read it from the `FRONTEND_APPLICATION_ID` environment variable.
+- A project API key with the `project:write_sourcemaps` scope, in the `LOGFIRE_API_KEY` environment variable. Create it on the project's API keys page in Logfire. The project comes from the key, so you do not pass it on the command line.
+- The Logfire CLI for JavaScript projects, the `logfire-cli` npm package. Run it with `npx logfire-cli`. The `logfire` command that the Python package installs has no `sourcemap` command.
 
-## Give your bundles debug IDs
+Two flags appear in every command:
 
-The commands on this page come from the Logfire CLI for JavaScript projects, the `logfire-cli` npm package. Run them with `npx logfire-cli`. The `logfire` command that the Python package installs has no `sourcemap` command.
+- `--beta`: the CLI runs the `sourcemap` commands only with this flag, or with `LOGFIRE_CLI_BETA=true`. The commands can change.
+- `--region us` or `--region eu`: the Logfire instance that the API key belongs to. For a self-hosted Logfire, pass `--base-url` with the URL of your instance.
 
-The `sourcemap` commands are in beta in the CLI, so they can change. The CLI refuses to run a beta command unless you pass `--beta` or set `LOGFIRE_CLI_BETA=true`. No date is set yet for when the commands leave beta.
+## Set up source maps
 
-### Next.js
+Every setup has the same three steps, run in CI before the deploy:
 
-Turbopack writes debug IDs itself. Turn them on in `next.config.js`:
+1. Build with source maps and debug IDs.
+2. Upload the maps.
+3. Deploy the exact files that you built.
+
+### Build with source maps and debug IDs
+
+For Next.js, set this in `next.config.js`:
 
 ```js title="next.config.js"
 module.exports = {
   productionBrowserSourceMaps: true,
   turbopack: {
-    debugIds: true,
+    debugIds: true, // Next.js 16.0.0 or later
   },
 }
 ```
 
-`productionBrowserSourceMaps` makes `next build` write source maps for browser code. `debugIds` makes Turbopack add the debug ID to each chunk and its map. You do not need `logfire sourcemap inject` for these chunks.
+| Build | Debug IDs come from | Run `inject` |
+| --- | --- | --- |
+| Next.js 16.0.0 or later with Turbopack | `turbopack.debugIds: true` | No |
+| Next.js with webpack (`next build --webpack`), or before 16.0.0 | `inject` | Yes, on `.next` |
+| Vite, webpack, esbuild, Rollup and other bundlers | `inject` | Yes, on the build output directory |
 
-`turbopack.debugIds` needs Next.js 16.0.0 or later. On an earlier version, or when you build with webpack (`next build --webpack`), keep `productionBrowserSourceMaps` and run `inject` after `next build`:
+For other bundlers, turn on source maps:
 
-```bash
-npx logfire-cli --beta sourcemap inject .next
-```
+| Bundler | Setting |
+| --- | --- |
+| Vite | `build.sourcemap: true` in `vite.config.js` |
+| webpack | `devtool: 'source-map'` in `webpack.config.js` |
+| esbuild | `--sourcemap` |
+| Rollup | `output.sourcemap: true` in `rollup.config.js` |
 
-!!! note "Browser exceptions only"
-    This page covers exceptions that `@pydantic/logfire-browser` records in the browser. Next.js middleware and edge runtime code run on the server, so the browser SDK does not send their exceptions.
-
-### Other bundlers
-
-For Vite, webpack, esbuild, Rollup and other bundlers, build with source maps on:
-
-- Vite: set `build.sourcemap: true` in `vite.config.js`.
-- webpack: set `devtool: 'source-map'` in `webpack.config.js`.
-- esbuild: pass `--sourcemap`.
-- Rollup: set `output.sourcemap: true` in `rollup.config.js`.
-
-Then run `logfire sourcemap inject` on the build output directory:
+Then run `inject` on the build output directory. It gives each bundle and its map the same debug ID:
 
 ```bash
 npx logfire-cli --beta sourcemap inject dist
 ```
 
-The command processes every `.js`, `.mjs` and `.cjs` file that has a source map. For each file, it:
+Run `inject` before any step that hashes or compresses the bundle, such as precompression (`.br`, `.gz`), subresource integrity hashes or content-addressed CDN uploads. `inject` changes the bundle bytes, so a hash computed before it no longer matches. Running `inject` again on the same directory is safe.
 
-- derives a debug ID from the file's bytes, so a rebuild of the same code gets the same ID. It keeps a `//# debugId=` comment that the file already has.
-- adds one line at the top that registers the ID in `globalThis._logfireDebugIds`. The SDK reads this registry and `globalThis._debugIds`.
-- appends a `//# debugId=<id>` comment, and writes the same ID into the map's `debugId` field.
+!!! note "Browser exceptions only"
+    This page covers exceptions that `@pydantic/logfire-browser` records in the browser. Next.js middleware and edge runtime code run on the server, so the browser SDK does not send their exceptions.
 
-Run `inject` before any step that hashes or compresses the bundle, such as precompression (`.br`, `.gz`), subresource integrity hashes or content-addressed CDN uploads. `inject` changes the bundle bytes, so a hash computed before it no longer matches.
+### Upload the maps
 
-Running `inject` again on the same directory is safe. It reports each file as `unchanged`.
-
-The files you upload must be exactly the files you deploy. If a later step changes a bundle, its stack traces no longer match the uploaded source map.
-
-## Upload source maps in CI
-
-Upload the maps in CI, after the build and **before you deploy**. Logfire resolves an exception only if its source map is already stored when the exception arrives (see [Late uploads](#late-uploads)).
+!!! warning "Upload before you deploy"
+    Logfire resolves an exception only if its source map is already stored when the exception arrives. An exception that arrives first stays minified, and a later upload does not change it.
 
 ```bash
-npx logfire-cli --beta --region us sourcemap upload dist --frontend-application-id "$FRONTEND_APPLICATION_ID" --delete
+npx logfire-cli --beta --region us sourcemap upload dist \
+  --frontend-application-id "$FRONTEND_APPLICATION_ID" \
+  --delete
 ```
-
-Set `FRONTEND_APPLICATION_ID` to the ID on the project's Frontend page. The examples on this page read it from that variable.
 
 `--delete` removes the `.map` files after the upload, so the deploy does not serve your source maps to browsers. Leave it out only if you want the maps to be public.
 
-Each source map and each bundle can be at most 60 MiB, measured before compression. The CLI reports a larger file as failed, and the server answers `413`. Split the bundle into smaller chunks to get under the limit.
-
-!!! warning "Your source code is in the maps"
-    Most bundlers embed your original source code in each map, in the `sourcesContent` field. By default, `upload` sends it to Logfire, and Logfire stores it with the map. Pass `--strip-sources` to send the maps without the source text. Frames still resolve to the original file, function, line and column.
-
-    Logfire has no page and no API that returns an uploaded map or its source text. Everyone who can read the project's data sees the resolved stack traces, which contain your original file and function names. You cannot delete an uploaded map yourself. Logfire deletes it at the end of its [retention](#retention).
-    <!-- TODO: confirm whether Logfire shows source lines from `sourcesContent`. The ingest step does not use the source text today. -->
-
-For a Next.js app, upload the browser chunks under `.next/static`, which Next.js serves from `/_next/static`:
+For Next.js, upload `.next/static`, because that directory holds the browser chunks. `inject` runs on all of `.next`, but only `.next/static` is served to browsers, from `/_next/static`:
 
 ```bash
 npx logfire-cli --beta --region us sourcemap upload .next/static \
@@ -105,38 +97,33 @@ npx logfire-cli --beta --region us sourcemap upload .next/static \
   --delete
 ```
 
-`--base-url-path` records the URL path of each bundle with its map. Logfire matches by debug ID only, so a wrong path does not stop resolution. For the same reason, a CDN (content delivery network) that serves the bundles from another origin changes nothing.
-<!-- TODO: the CLI describes this path as a fallback identity for frames without a debug ID. The ingest step does not use that fallback today. Update this paragraph if it ships. -->
+If a file fails, `upload` exits with a non-zero code, so the CI job fails before the deploy. See [Upload results](#upload-results).
 
-On Vercel, the build and the deploy are one step. Add the upload to the build command, after `next build`, and set `LOGFIRE_API_KEY` as an environment variable for the build:
+!!! warning "Your source code is in the maps"
+    Most bundlers embed your original source code in each map, in the `sourcesContent` field. By default, `upload` sends it to Logfire, and Logfire stores it with the map. Pass `--strip-sources` to send the maps without the source text. Frames still resolve to the original file, function, line and column.
 
-With `turbopack.debugIds`:
+    Logfire has no page and no API that returns an uploaded map or its source text. Everyone who can read the project's data sees the resolved stack traces, which contain your original file and function names. You cannot delete an uploaded map yourself. Logfire deletes it at the end of its [retention](#retention).
+    <!-- TODO: confirm whether Logfire shows source lines from `sourcesContent`. The ingest step does not use the source text today. -->
 
-```bash
-next build && npx logfire-cli --beta --region us sourcemap upload .next/static --frontend-application-id "$FRONTEND_APPLICATION_ID" --base-url-path /_next/static --delete
-```
+### Deploy the files you built
 
-With webpack, or on Next.js earlier than 16.0.0, run `inject` between the build and the upload:
+The files you deploy must be exactly the files you uploaded. If the deploy builds the code again, or a later step rewrites a bundle, its stack traces no longer match the uploaded map.
 
-```bash
-next build && npx logfire-cli --beta sourcemap inject .next && npx logfire-cli --beta --region us sourcemap upload .next/static --frontend-application-id "$FRONTEND_APPLICATION_ID" --base-url-path /_next/static --delete
-```
-
-### Authentication
-
-`upload` reads the credential from `LOGFIRE_API_KEY`. Use a project API key with the `project:write_sourcemaps` scope. Create it on the project's API keys page in Logfire. The project comes from the key, so you do not pass it on the command line. Also pass `--region` so the CLI knows which Logfire instance to call. The valid values are `us` and `eu`. For a self-hosted Logfire, pass `--base-url` with the URL of your instance.
+### Run it in CI
 
 In GitHub Actions, store the key as a repository secret:
 
 ```yaml
 - run: npm ci && npm run build
 - run: npx logfire-cli --beta sourcemap inject dist
-- run: npx logfire-cli --beta --region us sourcemap upload dist --frontend-application-id "$FRONTEND_APPLICATION_ID" --delete
+- run: >-
+    npx logfire-cli --beta --region us sourcemap upload dist
+    --frontend-application-id "$FRONTEND_APPLICATION_ID" --delete
   env:
     LOGFIRE_API_KEY: ${{ secrets.LOGFIRE_API_KEY }}
 ```
 
-In GitLab CI, store the key as a masked CI/CD variable named `LOGFIRE_API_KEY`:
+In GitLab CI, store the key as a masked CI/CD variable named `LOGFIRE_API_KEY`. `LOGFIRE_RELEASE` names the build. In GitHub Actions and on Vercel, the CLI reads the commit SHA from the environment, so you do not set it there.
 
 ```yaml
 build:
@@ -145,41 +132,21 @@ build:
   script:
     - npm ci && npm run build
     - npx logfire-cli --beta sourcemap inject dist
-    - npx logfire-cli --beta --region us sourcemap upload dist --frontend-application-id "$FRONTEND_APPLICATION_ID" --delete
+    - >-
+      npx logfire-cli --beta --region us sourcemap upload dist
+      --frontend-application-id "$FRONTEND_APPLICATION_ID" --delete
 ```
 
-`LOGFIRE_RELEASE` names the build. In GitHub Actions and on Vercel, the CLI reads the commit SHA from the environment.
+On Vercel, the build and the deploy are one step. Set `LOGFIRE_API_KEY` as a build environment variable, and add the upload to the build command after `next build`:
 
-### Options
+```bash
+next build && \
+  npx logfire-cli --beta --region us sourcemap upload .next/static \
+    --frontend-application-id "$FRONTEND_APPLICATION_ID" \
+    --base-url-path /_next/static --delete
+```
 
-These are the flags that this page uses:
-
-| Option | Purpose |
-| --- | --- |
-| `<DIRECTORY>` | The build output directory to upload. |
-| `--frontend-application-id <UUID>` | The browser application that owns the bundles. Its ID is on the project's Frontend page. |
-| `--base-url-path <PATH>` | The URL path that the directory is served from. The default is `/`. |
-| `--strip-sources` | Remove the embedded source text (`sourcesContent`) from the uploaded maps. Logfire then shows no source lines around a frame. |
-| `--delete` | Delete each `.map` file and the bundle's `sourceMappingURL` comment after the upload succeeds, so the maps do not ship to browsers. |
-| `--region <REGION>`, `--base-url <URL>` | The Logfire instance that the API key belongs to: `us`, `eu`, or the URL of a self-hosted instance. |
-
-<!-- TODO: link to the public `logfire-cli` reference page for `sourcemap` when it is published. -->
-For the other flags, run `npx logfire-cli --beta sourcemap upload --help`.
-
-### Upload results
-
-The CLI prints one line per bundle with its debug ID and the result, then a summary. These are the results you can see:
-
-| Result | Meaning | What to do |
-| --- | --- | --- |
-| Stored (`created`) | Logfire stored the file. | Nothing. |
-| Already uploaded (`exists`) | Logfire already has identical content for this debug ID. | Nothing. A retry of the same upload is safe. |
-| Conflict | Logfire already has *different* content for this debug ID. | Rebuild so the files get a new debug ID, or upload with the same flags (such as `--strip-sources`) that produced the stored map. |
-| Invalid | Logfire rejected the map. For example, it is not valid JSON, or its `debugId` does not match the debug ID of its bundle. | Check the build output, then run `inject` and `upload` again. |
-| Too large | The map or the bundle is larger than 60 MiB. | Split the bundle into smaller chunks, then build and upload again. |
-| Rate limited | The project sends uploads too fast. The CLI waits for the time that the server names, then tries again. It tries each file at most 4 times, and it stops if the wait is longer than 60 seconds. | Nothing if the retry succeeds. If the file still fails, run `upload` again later. |
-
-A result other than stored or already uploaded shows as `failed`, with the reason from the server. If a file fails, the command exits with a non-zero code, so the CI job fails before the deploy.
+With webpack, or on Next.js before 16.0.0, add `npx logfire-cli --beta sourcemap inject .next &&` after `next build &&`.
 
 ## Check the result
 
@@ -199,19 +166,7 @@ Error: checkout failed
     at HTMLButtonElement.<anonymous> (https://app.example.com/assets/index-a1b2.js:1:48392)
 ```
 
-Logfire writes the `logfire.source_map.status` attribute on each exception that carries debug IDs:
-
-| Status | Meaning |
-| --- | --- |
-| `ok` | Every frame with a debug ID resolved to original source. |
-| `partial` | At least one frame resolved, and at least one frame did not. The unresolved frames stay minified. |
-| `missing` | No frame resolved. Logfire has no source map for the debug IDs. |
-| `error` | No frame resolved. Logfire could not load or use the source map. |
-| `pending` | No frame resolved. Logfire did not finish loading the source map in time. |
-
-For `missing`, `error` and `pending`, the stack trace stays as the browser sent it.
-
-To find exceptions with at least one frame that did not resolve, query for every status other than `ok`:
+Logfire writes the `logfire.source_map.status` attribute on each exception that carries debug IDs. `ok` means every frame resolved. Any other value means that at least one frame stayed minified (see [Troubleshooting](#troubleshooting)). To find those exceptions:
 
 ```sql
 SELECT start_timestamp, exception_type, attributes->>'logfire.source_map.status' AS status
@@ -222,35 +177,43 @@ ORDER BY start_timestamp DESC
 
 ### Get alerted when exceptions stay minified
 
-Logfire has a recommended alert, **Unresolved browser source maps**, that tells you when a browser exception keeps its minified stack trace. The status on the exception names the cause:
-
-- `missing`: the upload did not run for that build. Check the upload step in CI.
-- `error`: Logfire could not use the uploaded map. Check that the map is valid.
-- `pending`: Logfire did not load the map in time. Uploading again does not help. See [Troubleshooting](#troubleshooting).
-
-The alert is not on by default. To turn it on:
+Logfire has a recommended alert, **Unresolved browser source maps**. It is not on by default. To turn it on:
 
 1. In your project, open **Alerts** and create a new alert.
 2. Pick **Unresolved browser source maps** from the recommended templates.
 3. Choose where to send the notification, then save. You can edit the query before you save.
 
-The alert checks every 10 minutes and fires when at least one exception in the last 10 minutes has the status `missing`, `error` or `pending`. It ignores `partial`, so an exception that resolved some of its frames does not fire it. Its query is:
-
-```sql
-SELECT trace_id, span_name, exception_message, attributes->>'logfire.source_map.status' AS source_map_status
-FROM records
-WHERE is_exception AND attributes->>'logfire.source_map.status' IN ('missing', 'error', 'pending')
-```
+The alert checks every 10 minutes. It fires when at least one exception has the status `missing`, `error` or `pending`. It ignores `partial`.
 
 ## Troubleshooting
 
-Start from what you see on the exception.
+Start from the status on the exception:
 
-### The exception has no `logfire.source_map.status`
+```mermaid
+flowchart TD
+    A[Exception stays minified] --> B{Has logfire.source_map.status?}
+    B -- No --> C[Check 1: bundle has the debug ID snippet]
+    C --> D[Check 2: span has logfire.debug_ids]
+    B -- Yes --> E{Which status?}
+    E -- missing --> F[Check 3: upload ran before deploy]
+    F --> G[Check 4: deployed files are the uploaded files]
+    E -- "partial, error, pending" --> H[See the status table]
+```
 
-The exception carries no debug IDs, so Logfire did not try to resolve it. Do these two checks in order.
+### Status table
 
-**1. The built bundle contains the debug ID snippet.** Run the command for your build output directory. For a `dist` directory:
+| Status | Meaning | Likely cause | Fix |
+| --- | --- | --- | --- |
+| `partial` | Some frames resolved. The others stay minified. | The upload covered only a part of the build output, or one file failed. | Read the upload log for skipped and failed files. Upload the full build output directory. |
+| `missing` | No frame resolved. Logfire has no map for the debug IDs. | The upload did not run for this build, or it ran after the exception arrived, or the deployed files are not the uploaded files. | Do checks 3 and 4. |
+| `error` | No frame resolved. Logfire could not load or use the map. | The bundler wrote a map that does not follow the source map format. | Check that the `.map` file from the build is valid. Fix the build, then build, `inject` and upload again. If the map is valid, contact support. |
+| `pending` | No frame resolved. Logfire did not load the map in time. | The first exceptions of a new build, or many new builds at once. | Uploading again does not help. These exceptions stay minified for good, and Logfire tries again on the next exception for the same build. If new exceptions keep `pending`, contact support. |
+
+For `missing`, `error` and `pending`, the stack trace stays as the browser sent it.
+
+### No status: the exception carries no debug IDs
+
+**Check 1: the built bundle contains the debug ID snippet.** For a `dist` directory:
 
 ```bash
 grep -rlE '_debugIds|_logfireDebugIds' dist --include='*.js' --include='*.mjs' --include='*.cjs'
@@ -262,9 +225,9 @@ For a Next.js app:
 grep -rlE '_debugIds|_logfireDebugIds' .next/static --include='*.js'
 ```
 
-The command lists each bundle that registers a debug ID. Turbopack writes `_debugIds`, and `logfire sourcemap inject` writes `_logfireDebugIds`. If a bundle is not in the list, turn on `turbopack.debugIds` or run `inject` (see [Give your bundles debug IDs](#give-your-bundles-debug-ids)). Then do the same check on the file that the browser downloads, to make sure that the deploy serves the new build.
+The command lists each bundle that registers a debug ID. If a bundle is not in the list, turn on `turbopack.debugIds` or run `inject` (see [Build with source maps and debug IDs](#build-with-source-maps-and-debug-ids)). Then do the same check on the file that the browser downloads, to make sure that the deploy serves the new build.
 
-**2. The exception span has `logfire.debug_ids`.** Query for the attribute:
+**Check 2: the exception span has `logfire.debug_ids`.**
 
 ```sql
 SELECT start_timestamp, exception_type, attributes->>'logfire.debug_ids' AS debug_ids
@@ -278,18 +241,11 @@ If the bundle has the snippet but the attribute is empty, check these causes:
 - The app uses `@pydantic/logfire-browser` earlier than 0.34.0. Upgrade the SDK.
 - No frame in the stack trace comes from a bundle with a debug ID. For example, the error comes from a third-party script.
 
-### The status is not `ok`
+### Status `missing`
 
-| Status | Likely cause | Fix |
-| --- | --- | --- |
-| `missing` | The upload did not run for this build, or it ran after the exception arrived. A second cause is that the deployed files are not the uploaded files. | Do the two checks below. |
-| `partial` | Some frames resolved. The other frames have one of the causes in this table. For example, the upload covered only a part of the build output, or one file failed. | Read the upload log for skipped and failed files. Upload the full build output directory. |
-| `error` | Logfire could not read or use the stored source map. For example, the bundler wrote a map that does not follow the source map format. | Check that the `.map` file from the build is valid. Fix the build, then build, `inject` and upload again. If the map is valid, contact support. |
-| `pending` | Logfire did not load the source map in time. This can occur for the first exceptions of a new build, or when many new builds arrive together. | The exceptions that already have `pending` stay minified for good. Logfire tries again on the next exception for the same build. If new exceptions keep the status `pending`, contact support. |
+**Check 3: the upload ran before the deploy.** Compare the time of the upload step in the CI log with the time of the deploy. The upload must finish first, and it must exit with code 0.
 
-**The upload ran before the deploy.** Compare the time of the upload step in the CI log with the time of the deploy. The upload must finish first, and it must exit with code 0. An exception that arrives before the upload stays minified (see [Late uploads](#late-uploads)).
-
-**The deployed files are exactly the uploaded files.** A debug ID identifies one exact build output. Compare the `//# debugId=` comment at the end of the deployed bundle with the comment in the bundle that CI uploaded:
+**Check 4: the deployed files are exactly the uploaded files.** Compare the `//# debugId=` comment at the end of the deployed bundle with the comment in the bundle that CI uploaded:
 
 ```bash
 curl -s https://app.example.com/assets/index-a1b2.js | tail -c 200
@@ -311,33 +267,54 @@ Logfire stores a map in the project that the API key belongs to. `inject` derive
 
 ## How it works
 
-Logfire matches a stack frame to its source map by *debug ID*. A debug ID is a unique ID (a UUID) for one built file. The build writes the same ID into the bundle and into its source map.
-
 ```
 build (CI)                         browser                         Logfire
 ──────────                         ───────                         ───────
 bundle + map share a debug ID ───► bundle registers its debug ID
-logfire sourcemap upload ─────────────────────────────────────────► stores the map
+sourcemap upload ─────────────────────────────────────────────────► stores the map
                                    exception: the SDK adds the
                                    debug IDs of the frames ───────► resolves the frames at ingest
 ```
 
-1. A snippet at the top of each bundle registers the bundle's debug ID when the bundle loads. `logfire sourcemap inject` writes the ID to `globalThis._logfireDebugIds`. Turbopack and other tools write it to `globalThis._debugIds`, which is a shared convention. The SDK reads both registries.
-2. When the Logfire browser SDK records an exception, it looks up the files in the stack trace in that registry. It adds the matches to the exception span as the `logfire.debug_ids` attribute: a JSON map from file URL to debug ID. The SDK removes the query string, the fragment and any credentials from each URL.
-3. When the span reaches Logfire, Logfire finds the uploaded source map for each debug ID and rewrites the stack trace to the original source. This happens once, at ingest (when Logfire receives and stores the data). The stored record holds the resolved stack trace.
+1. A snippet at the top of each bundle registers the bundle's debug ID when the bundle loads. `inject` writes the ID to `globalThis._logfireDebugIds`. Turbopack and other tools write it to `globalThis._debugIds`, which is a shared convention. The SDK reads both registries.
+2. When the Logfire browser SDK records an exception, it looks up the files in the stack trace in that registry. It adds the matches to the exception span as the `logfire.debug_ids` attribute: a JSON map from file URL to debug ID.
+3. When the span reaches Logfire, Logfire finds the uploaded source map for each debug ID and rewrites the stack trace to the original source. This happens once, at ingest (when Logfire receives and stores the data). Logfire does not process a stored exception again, which is why the upload must come before the deploy.
 
-Logfire keeps the stack trace as the browser sent it in `logfire.source_map.original_stacktrace`.
+## Reference
 
-The SDK sends `logfire.debug_ids` from `@pydantic/logfire-browser` version 0.34.0. An earlier version sends no debug IDs, so its exceptions stay minified.
+### Options
 
-## Late uploads
+These are the flags that this page uses:
 
-Logfire resolves stack traces when it receives the data, not when you view it. An exception that arrives before its source map is uploaded stays minified, and a later upload does not change it. Logfire does not process a stored exception again. Exceptions that arrive after the upload resolve normally. So upload in CI before the deploy starts serving the new bundles.
+| Option | Purpose |
+| --- | --- |
+| `<DIRECTORY>` | The build output directory to upload. |
+| `--frontend-application-id <UUID>` | The browser application that owns the bundles. |
+| `--base-url-path <PATH>` | The URL path that the directory is served from. The default is `/`. Logfire records it with the map, but matches by debug ID only. |
+| `--strip-sources` | Remove the embedded source text (`sourcesContent`) from the uploaded maps. |
+| `--delete` | Delete each `.map` file and the bundle's `sourceMappingURL` comment after the upload succeeds. |
+| `--region <REGION>`, `--base-url <URL>` | The Logfire instance that the API key belongs to: `us`, `eu`, or the URL of a self-hosted instance. |
 
-## Retention
+<!-- TODO: link to the public `logfire-cli` reference page for `sourcemap` when it is published. -->
+For the other flags, run `npx logfire-cli --beta sourcemap upload --help`.
+
+### Upload results
+
+The CLI prints one line per bundle with its debug ID and the result, then a summary. A result other than stored or already uploaded shows as `failed`, with the reason from the server.
+
+| Result | Meaning | What to do |
+| --- | --- | --- |
+| Stored (`created`) | Logfire stored the file. | Nothing. |
+| Already uploaded (`exists`) | Logfire already has identical content for this debug ID. | Nothing. A retry of the same upload is safe. |
+| Conflict | Logfire already has *different* content for this debug ID. | Rebuild so the files get a new debug ID, or upload with the same flags (such as `--strip-sources`) that produced the stored map. |
+| Invalid | Logfire rejected the map. For example, it is not valid JSON, or its `debugId` does not match the debug ID of its bundle. | Check the build output, then run `inject` and `upload` again. |
+| Too large | The map or the bundle is larger than 60 MiB, measured before compression. | Split the bundle into smaller chunks, then build and upload again. |
+| Rate limited | Uploads arrive too fast. The CLI waits for the time that the server names, then tries again. | Nothing if the retry succeeds. If the file still fails, run `upload` again later. |
+
+### Retention
 
 Logfire deletes an uploaded source map 90 days after it was last used to resolve an exception. A map that no exception uses is deleted 90 days after its upload. This retention is separate from your data retention. Exceptions that were already resolved keep their resolved stack trace.
 
-## Quotas and billing
+### Quotas and billing
 
-Logfire limits how fast one organization uploads. When an upload reaches the limit, the CLI waits and tries again (see [Upload results](#upload-results)). Logfire has not set a storage quota or a price for uploaded source maps yet.
+Logfire has not set a storage quota or a price for uploaded source maps yet.
