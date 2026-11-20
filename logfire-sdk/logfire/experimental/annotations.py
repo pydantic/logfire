@@ -78,3 +78,56 @@ def record_feedback(
         f'feedback: {name} = {value!r}',
         attributes,
     )
+
+
+def record_score(
+    traceparent: str,
+    name: str,
+    value: int | float | bool | None = None,
+    *,
+    target: str,
+    label: str | None = None,
+    explanation: str | None = None,
+    agent_name: str | None = None,
+    evaluator_version: str | None = None,
+    extra: dict[str, Any] | None = None,
+) -> None:
+    """Record an evaluation result for a span, including after the span has ended.
+
+    Emits a `gen_ai.evaluation.result` log using OpenTelemetry evaluation attributes.
+    Unlike `record_feedback`, this records a score rather than a feedback annotation.
+
+    Args:
+        traceparent: The traceparent string returned by `get_traceparent` for the evaluated span.
+        name: The name of the evaluation.
+        value: An optional numeric score. Booleans become 1.0 or 0.0 and default the label to 'pass' or 'fail'.
+        target: The evaluation target, typically the name of the evaluated agent.
+        label: An optional score label, overriding the default for boolean values.
+        explanation: An optional explanation of the result.
+        agent_name: The agent name, defaulting to `target`.
+        evaluator_version: An optional version of the evaluator.
+        extra: Additional attributes. Explicit evaluation arguments take precedence over these attributes.
+    """
+    attributes = dict(extra or {})
+    attributes.update(
+        {
+            'gen_ai.evaluation.name': name,
+            'gen_ai.evaluation.target': target,
+            'gen_ai.agent.name': target if agent_name is None else agent_name,
+        }
+    )
+    if isinstance(value, bool):
+        if label is None:
+            label = 'pass' if value else 'fail'
+        value = float(value)
+    if value is not None:
+        attributes['gen_ai.evaluation.score.value'] = value
+    if label is not None:
+        attributes['gen_ai.evaluation.score.label'] = label
+    if explanation is not None:
+        attributes['gen_ai.evaluation.explanation'] = explanation
+    if evaluator_version is not None:
+        attributes['gen_ai.evaluation.evaluator.version'] = evaluator_version
+
+    with attach_context({TRACEPARENT_NAME: traceparent}, propagator=TRACEPARENT_PROPAGATOR):
+        feedback_logfire.log('info', 'gen_ai.evaluation.result', attributes)
