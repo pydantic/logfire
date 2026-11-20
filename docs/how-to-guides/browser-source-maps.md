@@ -23,10 +23,10 @@ You need:
 - A project API key with the `project:write_sourcemaps` scope, in the `LOGFIRE_API_KEY` environment variable. Create it on the project's API keys page in Logfire. The project comes from the key, so you do not pass it on the command line.
 - The Logfire CLI for JavaScript projects, the `logfire-cli` npm package. Run it with `npx logfire-cli`. The `logfire` command that the Python package installs has no `sourcemap` command.
 
-Two flags appear in every command:
+The commands on this page use two global flags:
 
-- `--beta`: the CLI runs the `sourcemap` commands only with this flag, or with `LOGFIRE_CLI_BETA=true`. The commands can change.
-- `--region us` or `--region eu`: the Logfire instance that the API key belongs to. For a self-hosted Logfire, pass `--base-url` with the URL of your instance.
+- `--beta`, on every command: the CLI runs the `sourcemap` commands only with this flag, or with `LOGFIRE_CLI_BETA=true`. The commands can change.
+- `--region us` or `--region eu`, on `upload` only: the Logfire instance that the API key belongs to. For a self-hosted Logfire, pass `--base-url` with the URL of your instance.
 
 ## Set up source maps
 
@@ -107,7 +107,7 @@ If a file fails, `upload` exits with a non-zero code, so the CI job fails before
 
 ### Deploy the files you built
 
-The files you deploy must be exactly the files you uploaded. If the deploy builds the code again, or a later step rewrites a bundle, its stack traces no longer match the uploaded map.
+Deploy the same build output that you uploaded: the same generated code and the same debug IDs. If the deploy builds the code again, or a later step rewrites a bundle, its stack traces no longer match the uploaded map. The `sourceMappingURL` comment that `--delete` removes is an exception, because removing it changes no code position.
 
 ### Run it in CI
 
@@ -183,7 +183,7 @@ Logfire has a recommended alert, **Unresolved browser source maps**. It is not o
 2. Pick **Unresolved browser source maps** from the recommended templates.
 3. Choose where to send the notification, then save. You can edit the query before you save.
 
-The alert checks every 10 minutes. It fires when at least one exception has the status `missing`, `error` or `pending`. It ignores `partial`.
+The alert checks every 10 minutes. It fires when at least one exception from the last 10 minutes has the status `missing`, `error` or `pending`. It ignores `partial`.
 
 ## Troubleshooting
 
