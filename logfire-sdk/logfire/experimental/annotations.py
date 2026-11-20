@@ -109,6 +109,7 @@ def record_score(
         extra: Additional attributes. Explicit evaluation arguments take precedence over these attributes.
     """
     attributes = dict(extra or {})
+    attributes.pop(ATTRIBUTES_SPAN_TYPE_KEY, None)
     attributes.update(
         {
             'gen_ai.evaluation.name': name,

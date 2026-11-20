@@ -16,7 +16,7 @@ def test_record_score_event(exporter: TestExporter):
         name='human_review',
         value=1.0,
         explanation='Sent as drafted',
-        target='support_agent',
+        target='support_agent', extra={'logfire.span_type': 'pending_span'},
     )
 
     records = exporter.exported_spans_as_dict(parse_json_attributes=True)
