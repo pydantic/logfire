@@ -589,6 +589,7 @@ class Variable(Generic[T_co]):
             return (ref_result.value, ref_result.label, ref_result.version, ref_result.reason)
 
         composed: list[ComposedReference] = []
+        structural_errors: list[VariableCompositionError] = []
         # Always run through `expand_references`, even when no `@{ref}@` tags
         # are present: it's also responsible for unescaping `\@{...}@` →
         # `@{...}@`. Gating on `has_references` produced inconsistent
@@ -601,14 +602,15 @@ class Variable(Generic[T_co]):
                 self.name,
                 resolve_ref,
                 strict=strict,
+                _structural_errors=structural_errors,
             )
-            if fatal_error := _first_fatal_composition_error(composed):
+            if structural_errors:
                 # Cycles / depth overflow are structural failures — the value can't be
                 # meaningfully composed at all, in either strictness mode. Carry `composed`
                 # so the fall-back result can surface the failure chain in `composed_from`.
                 return _ResolveAttempt(
                     ok=False,
-                    exception=VariableCompositionError(fatal_error),
+                    exception=structural_errors[0],
                     stage='composition',
                     composed=composed,
                 )
@@ -1152,22 +1154,6 @@ def _serialize_composed_reference(ref: ComposedReference) -> dict[str, Any]:
     if ref.composed_from:
         data['composed_from'] = [_serialize_composed_reference(c) for c in ref.composed_from]
     return data
-
-
-def _first_fatal_composition_error(composed: list[ComposedReference]) -> str | None:
-    """Return the first *fatal* nested composition error (cycle / depth overflow), if any.
-
-    Soft, per-reference failures (a missing/unresolvable reference, or a referenced variable
-    with a malformed value) are deliberately ignored here: composition leaves the literal
-    `@{ref}@` text in place for those, so the partially-composed value is still usable and
-    should not trigger a wholesale fallback to the code default.
-    """
-    for ref in composed:
-        if ref.error is not None and ref.fatal:
-            return ref.error
-        if nested_error := _first_fatal_composition_error(ref.composed_from):
-            return nested_error
-    return None
 
 
 def _static_composition_refs(variable: Variable[Any]) -> set[str]:
