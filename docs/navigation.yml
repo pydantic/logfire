@@ -165,6 +165,8 @@ navigation:
         path: "how-to-guides/browser-source-maps.md"
         slug: "instrument/browser-source-maps"
         hidden: true
+        aliases:
+          - "how-to-guides/browser-source-maps"
       - page: "Rust"
         path: "languages/rust.md"
         slug: "instrument/rust"
