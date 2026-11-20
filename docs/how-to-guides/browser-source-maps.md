@@ -19,27 +19,6 @@ You need these two things:
 - An app that sends browser exceptions to Logfire with `@pydantic/logfire-browser` version 0.34.0 or later. See the [browser SDK setup](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/).
 - The ID of your *frontend application*. A frontend application is the entry in a Logfire project that gives the browser data of one web app a stable name and a restricted token. Find it under **Project settings → Frontend applications** (see [Frontend](../guides/web-ui/frontend.md)).
 
-## How it works
-
-Logfire matches a stack frame to its source map by *debug ID*. A debug ID is a unique ID (a UUID) for one built file. The build writes the same ID into the bundle and into its source map.
-
-```
-build (CI)                         browser                         Logfire
-──────────                         ───────                         ───────
-bundle + map share a debug ID ───► bundle registers its debug ID
-logfire sourcemap upload ─────────────────────────────────────────► stores the map
-                                   exception: the SDK adds the
-                                   debug IDs of the frames ───────► resolves the frames at ingest
-```
-
-1. A snippet at the top of each bundle registers the bundle's debug ID when the bundle loads. `logfire sourcemap inject` writes the ID to `globalThis._logfireDebugIds`. Turbopack and other tools write it to `globalThis._debugIds`, which is a shared convention. The SDK reads both registries.
-2. When the Logfire browser SDK records an exception, it looks up the files in the stack trace in that registry. It adds the matches to the exception span as the `logfire.debug_ids` attribute: a JSON map from file URL to debug ID. The SDK removes the query string, the fragment and any credentials from each URL.
-3. When the span reaches Logfire, Logfire finds the uploaded source map for each debug ID and rewrites the stack trace to the original source. This happens once, at ingest (when Logfire receives and stores the data). The stored record holds the resolved stack trace.
-
-Logfire keeps the stack trace as the browser sent it in `logfire.source_map.original_stacktrace`.
-
-The SDK sends `logfire.debug_ids` from `@pydantic/logfire-browser` version 0.34.0. An earlier version sends no debug IDs, so its exceptions stay minified.
-
 ## Give your bundles debug IDs
 
 The commands on this page come from the Logfire CLI for JavaScript projects, the `logfire-cli` npm package. Run them with `npx logfire-cli`. The `logfire` command that the Python package installs has no `sourcemap` command.
@@ -202,29 +181,6 @@ The CLI prints one line per bundle with its debug ID and the result, then a summ
 
 A result other than stored or already uploaded shows as `failed`, with the reason from the server. If a file fails, the command exits with a non-zero code, so the CI job fails before the deploy.
 
-## Several apps and environments
-
-Logfire stores a map in the project that the API key belongs to. `inject` derives the debug ID from the bundle's bytes, so the same build output always has the same debug ID.
-
-| Setup | What to do |
-| --- | --- |
-| Staging and production deploy the same build output and send to one project. | Upload one time. The map resolves exceptions from both environments. |
-| Staging and production send to different projects. | Run `upload` one time for each project, with the API key of that project. Pass `--delete` only on the last run, because it removes the `.map` files. |
-| Each environment has its own build. | Run `inject` and `upload` for each build. |
-| A monorepo (one repository with several apps) | Run `inject` and `upload` for each app, on the build output directory of that app, with the `--frontend-application-id` of that app. |
-
-## Late uploads
-
-Logfire resolves stack traces when it receives the data, not when you view it. An exception that arrives before its source map is uploaded stays minified, and a later upload does not change it. Logfire does not process a stored exception again. Exceptions that arrive after the upload resolve normally. So upload in CI before the deploy starts serving the new bundles.
-
-## Retention
-
-Logfire deletes an uploaded source map 90 days after it was last used to resolve an exception. A map that no exception uses is deleted 90 days after its upload. This retention is separate from your data retention. Exceptions that were already resolved keep their resolved stack trace.
-
-## Quotas and billing
-
-Logfire limits how fast one organization uploads. When an upload reaches the limit, the CLI waits and tries again (see [Upload results](#upload-results)). Logfire has not set a storage quota or a price for uploaded source maps yet.
-
 ## Check the result
 
 A resolved exception shows the original file, function, line and column in its stack trace, in the `exception.stacktrace` attribute:
@@ -341,3 +297,47 @@ tail -c 200 dist/assets/index-a1b2.js
 ```
 
 If the IDs differ, the deploy built the code again. Deploy the output of the build that you uploaded. If the IDs are the same but frames resolve to the wrong lines, a step after the upload changed the bundle. Do not minify the files again or compress them again with a tool that rewrites the JavaScript after `inject`. Transport compression by the web server or the CDN (`gzip`, Brotli) is safe, because the browser gets the same bytes back.
+
+## Several apps and environments
+
+Logfire stores a map in the project that the API key belongs to. `inject` derives the debug ID from the bundle's bytes, so the same build output always has the same debug ID.
+
+| Setup | What to do |
+| --- | --- |
+| Staging and production deploy the same build output and send to one project. | Upload one time. The map resolves exceptions from both environments. |
+| Staging and production send to different projects. | Run `upload` one time for each project, with the API key of that project. Pass `--delete` only on the last run, because it removes the `.map` files. |
+| Each environment has its own build. | Run `inject` and `upload` for each build. |
+| A monorepo (one repository with several apps) | Run `inject` and `upload` for each app, on the build output directory of that app, with the `--frontend-application-id` of that app. |
+
+## How it works
+
+Logfire matches a stack frame to its source map by *debug ID*. A debug ID is a unique ID (a UUID) for one built file. The build writes the same ID into the bundle and into its source map.
+
+```
+build (CI)                         browser                         Logfire
+──────────                         ───────                         ───────
+bundle + map share a debug ID ───► bundle registers its debug ID
+logfire sourcemap upload ─────────────────────────────────────────► stores the map
+                                   exception: the SDK adds the
+                                   debug IDs of the frames ───────► resolves the frames at ingest
+```
+
+1. A snippet at the top of each bundle registers the bundle's debug ID when the bundle loads. `logfire sourcemap inject` writes the ID to `globalThis._logfireDebugIds`. Turbopack and other tools write it to `globalThis._debugIds`, which is a shared convention. The SDK reads both registries.
+2. When the Logfire browser SDK records an exception, it looks up the files in the stack trace in that registry. It adds the matches to the exception span as the `logfire.debug_ids` attribute: a JSON map from file URL to debug ID. The SDK removes the query string, the fragment and any credentials from each URL.
+3. When the span reaches Logfire, Logfire finds the uploaded source map for each debug ID and rewrites the stack trace to the original source. This happens once, at ingest (when Logfire receives and stores the data). The stored record holds the resolved stack trace.
+
+Logfire keeps the stack trace as the browser sent it in `logfire.source_map.original_stacktrace`.
+
+The SDK sends `logfire.debug_ids` from `@pydantic/logfire-browser` version 0.34.0. An earlier version sends no debug IDs, so its exceptions stay minified.
+
+## Late uploads
+
+Logfire resolves stack traces when it receives the data, not when you view it. An exception that arrives before its source map is uploaded stays minified, and a later upload does not change it. Logfire does not process a stored exception again. Exceptions that arrive after the upload resolve normally. So upload in CI before the deploy starts serving the new bundles.
+
+## Retention
+
+Logfire deletes an uploaded source map 90 days after it was last used to resolve an exception. A map that no exception uses is deleted 90 days after its upload. This retention is separate from your data retention. Exceptions that were already resolved keep their resolved stack trace.
+
+## Quotas and billing
+
+Logfire limits how fast one organization uploads. When an upload reaches the limit, the CLI waits and tries again (see [Upload results](#upload-results)). Logfire has not set a storage quota or a price for uploaded source maps yet.
