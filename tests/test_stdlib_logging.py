@@ -165,6 +165,51 @@ def test_stdlib_logging_with_custom_parenthesis_params(exporter: TestExporter, l
     )
 
 
+def test_stdlib_logging_mapping_args_cannot_set_logfire_attributes(exporter: TestExporter, logger: Logger) -> None:
+    logger.error(
+        'signup request from %(username)s',
+        {
+            'username': 'bob',
+            'logfire.msg': None,
+            'logfire.msg_template': '{username:>1000}',
+            'logfire.level_num': 1,
+            'logfire.tags': ['forged'],
+            'logfire.sample_rate': 0,
+            'logfire.disable_console_log': True,
+            'logfire.logger_name': 'forged',
+            'code.filepath': 'forged.py',
+            'code.function': 'forged',
+            'code.lineno': 1,
+            'code.other': 'kept',
+        },
+    )
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'signup request from %(username)s',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': 'signup request from %(username)s',
+                    'logfire.msg': 'signup request from bob',
+                    'code.filepath': 'test_stdlib_logging.py',
+                    'code.function': 'test_stdlib_logging_mapping_args_cannot_set_logfire_attributes',
+                    'code.lineno': 123,
+                    'logfire.logger_name': 'tests.test_stdlib_logging',
+                    'username': 'bob',
+                    'code.other': 'kept',
+                    'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"username":{},"code.other":{}}}',
+                },
+            }
+        ]
+    )
+
+
 def test_stdlib_logging_warning(exporter: TestExporter, logger: Logger) -> None:
     logger.warning('%s is in some trouble', 'Fred')
 
