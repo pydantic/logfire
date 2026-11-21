@@ -28,12 +28,15 @@ from functools import lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import PurePath
 from types import GeneratorType
-from typing import Any, NewType, cast
+from typing import TYPE_CHECKING, Any, NewType, cast, get_args
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
 from .json_encoder import is_attrs, is_sqlalchemy, pandas_display_slices, to_json_value
 from .stack_info import STACK_INFO_KEYS
 from .utils import JsonDict, dump_json, log_internal_error, safe_repr
+
+if TYPE_CHECKING:
+    import pydantic
 
 __all__ = 'create_json_schema', 'attributes_json_schema_properties', 'attributes_json_schema', 'JsonSchemaProperties'
 
@@ -376,11 +379,48 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     try:
         fields = [name for name, field in type(obj).model_fields.items() if field.repr]
         extra = obj.model_extra or {}
+        serialized_fields = set(_pydantic_fields_with_serializers(type(obj)).intersection(fields))
     except AttributeError:  # pragma: no cover
         # pydantic v1
         fields = obj.__fields__  # pyright: ignore[reportDeprecated]
         extra = {}
-    return _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen)
+        serialized_fields = set[str]()
+    # The encoder logs these fields as `model_dump()` returns them, which can be a different type
+    # from the attribute, e.g. a nested model serialized as a string.
+    serialized = None
+    if serialized_fields:
+        try:
+            serialized = obj.model_dump(include=serialized_fields)
+        except Exception:
+            # Keep the schema of the attributes, as before, rather than raising for every log.
+            pass
+    return _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen, serialized)
+
+
+@lru_cache
+def _pydantic_fields_with_serializers(cls: type[pydantic.BaseModel]) -> frozenset[str]:
+    """The fields of a Pydantic model whose values are changed by a custom serializer when dumped."""
+    names: set[str] = set()
+    for decorator in cls.__pydantic_decorators__.field_serializers.values():
+        names.update(cls.model_fields if '*' in decorator.info.fields else decorator.info.fields)
+    for name, field in cls.model_fields.items():
+        # Pydantic moves the metadata of a top-level `Annotated` to `field.metadata`,
+        # but leaves it inside unions and containers, e.g. `Annotated[datetime, PlainSerializer(...)] | None`.
+        if _has_serializer_metadata(field.metadata) or _annotation_has_serializer(field.annotation):
+            names.add(name)
+    return frozenset(names)
+
+
+def _annotation_has_serializer(annotation: Any) -> bool:
+    if _has_serializer_metadata(getattr(annotation, '__metadata__', ())):
+        return True
+    return any(_annotation_has_serializer(arg) for arg in get_args(annotation))
+
+
+def _has_serializer_metadata(metadata: Iterable[Any]) -> bool:
+    from pydantic.functional_serializers import PlainSerializer, WrapSerializer
+
+    return any(isinstance(item, (PlainSerializer, WrapSerializer)) for item in metadata)
 
 
 def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:
@@ -454,9 +494,15 @@ def _properties(properties: dict[str, Any], seen: set[int]) -> JsonDict:
         return {}
 
 
-def _custom_object_schema(obj: Any, datatype_name: str, keys: Iterable[str], seen: set[int]) -> JsonDict:
+def _custom_object_schema(
+    obj: Any, datatype_name: str, keys: Iterable[str], seen: set[int], values: Mapping[str, Any] | None = None
+) -> JsonDict:
+    """`values` overrides the attribute values of some keys."""
     properties: dict[str, Any] = {}
     for key in keys:
+        if values and key in values:
+            properties[key] = values[key]
+            continue
         with suppress(Exception):
             properties[key] = getattr(obj, key)
     return {

@@ -11,7 +11,7 @@ from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import Any
+from typing import Annotated, Any
 from unittest.mock import MagicMock, Mock
 from uuid import UUID
 
@@ -28,10 +28,12 @@ from pydantic import (
     Field,
     FilePath,
     NameEmail,
+    PlainSerializer,
     RootModel,
     SecretBytes,
     SecretStr,
     computed_field,
+    field_serializer,
 )
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
@@ -983,6 +985,121 @@ def test_pydantic_model_schema_respects_repr() -> None:
         'title': 'MyReprModel',
         'x-python-datatype': 'PydanticModel',
     }
+
+
+class SerializedUser(BaseModel):
+    name: str
+
+
+def serialize_user_name(user: SerializedUser) -> str:
+    return user.name
+
+
+class OrderWithSerializers(BaseModel):
+    placed_at: datetime
+    user: SerializedUser
+    created: Annotated[datetime, PlainSerializer(lambda v: v.date())]
+    shipped: Annotated[datetime, PlainSerializer(lambda v: v.date())] | None
+    reviewer: Annotated[SerializedUser, PlainSerializer(serialize_user_name)] | None
+    watchers: list[Annotated[SerializedUser, PlainSerializer(serialize_user_name)]]
+    plain: SerializedUser
+
+    @field_serializer('placed_at')
+    def serialize_placed_at(self, placed_at: datetime) -> str:
+        return placed_at.strftime('%d/%m/%Y %H:%M')
+
+    @field_serializer('user')
+    def serialize_user(self, user: SerializedUser) -> str:
+        return user.name
+
+
+def test_pydantic_field_serializers(exporter: TestExporter) -> None:
+    order = OrderWithSerializers(
+        placed_at=datetime(2020, 1, 2, 3, 4),
+        user=SerializedUser(name='Ada'),
+        created=datetime(2020, 1, 1),
+        shipped=datetime(2020, 1, 3),
+        reviewer=SerializedUser(name='Cy'),
+        watchers=[SerializedUser(name='Di')],
+        plain=SerializedUser(name='Bob'),
+    )
+    logfire.info('order', order=order)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    assert isinstance(attributes['order'], str)
+    assert isinstance(attributes['logfire.json_schema'], str)
+    value = json.loads(attributes['order'])
+    schema = json.loads(attributes['logfire.json_schema'])['properties']['order']
+    assert value == snapshot(
+        {
+            'placed_at': '02/01/2020 03:04',
+            'user': 'Ada',
+            'created': '2020-01-01',
+            'shipped': '2020-01-03',
+            'reviewer': 'Cy',
+            'watchers': ['Di'],
+            'plain': {'name': 'Bob'},
+        }
+    )
+    assert schema == snapshot(
+        {
+            'type': 'object',
+            'title': 'OrderWithSerializers',
+            'x-python-datatype': 'PydanticModel',
+            'properties': {
+                'created': {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'},
+                'shipped': {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'},
+                'plain': {'type': 'object', 'title': 'SerializedUser', 'x-python-datatype': 'PydanticModel'},
+            },
+        }
+    )
+    assert json_args_value_formatter(value, schema=schema) == snapshot("""\
+OrderWithSerializers(
+    placed_at='02/01/2020 03:04',
+    user='Ada',
+    created=datetime.date(2020, 1, 1),
+    shipped=datetime.date(2020, 1, 3),
+    reviewer='Cy',
+    watchers=['Di'],
+    plain=SerializedUser(
+        name='Bob',
+    ),
+)\
+""")
+
+
+class BrokenFieldSerializer(BaseModel):
+    when: datetime
+
+    @field_serializer('when')
+    def serialize_when(self, when: datetime) -> str:
+        raise ValueError('broken serializer')
+
+
+def test_pydantic_field_serializer_raises() -> None:
+    assert create_json_schema(BrokenFieldSerializer(when=datetime(2020, 1, 1)), set()) == snapshot(
+        {
+            'type': 'object',
+            'title': 'BrokenFieldSerializer',
+            'x-python-datatype': 'PydanticModel',
+            'properties': {'when': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'}},
+        }
+    )
+
+
+class AllFieldsSerialized(BaseModel):
+    user: SerializedUser
+
+    @field_serializer('*')
+    def serialize_all(self, value: Any) -> str:
+        return str(value)
+
+
+def test_pydantic_wildcard_field_serializer() -> None:
+    assert create_json_schema(AllFieldsSerialized(user=SerializedUser(name='Ada')), set()) == snapshot(
+        {'type': 'object', 'title': 'AllFieldsSerialized', 'x-python-datatype': 'PydanticModel'}
+    )
 
 
 def test_attrs_falsey_callable_repr(exporter: TestExporter) -> None:
