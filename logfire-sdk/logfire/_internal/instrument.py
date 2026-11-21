@@ -202,15 +202,21 @@ def get_open_span(
         if isinstance(extract_args, str):
             extract_args = [extract_args]
 
-        extract_args_final = uniquify_sequence(list(extract_args))
-        missing = set(extract_args_final) - set(sig.parameters)
+        selectors = uniquify_sequence(list(extract_args))
+        included = [arg for arg in selectors if not arg.startswith('-')]
+        excluded = {arg[1:] for arg in selectors if arg.startswith('-')}
+        missing = {arg for arg in selectors if arg.removeprefix('-') not in sig.parameters}
         if missing:
-            extract_args_final = [arg for arg in extract_args_final if arg not in missing]
             warnings.warn(
                 f'Ignoring missing arguments to extract: {", ".join(sorted(missing))}',
                 stacklevel=3,
             )
 
+        extract_args_final = [
+            arg
+            for arg in included or (sig.parameters if excluded else ())
+            if arg not in missing and arg not in excluded
+        ]
         if extract_args_final:  # check that there are still arguments to extract
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
