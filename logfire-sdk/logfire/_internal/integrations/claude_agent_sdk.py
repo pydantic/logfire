@@ -198,8 +198,10 @@ async def pre_tool_use_hook(
         parent_ctx = trace_api.set_span_in_context(otel_span)
         token = context_api.attach(parent_ctx)
         try:
-            span_name = f'execute_tool {tool_name}'
-            span = state.logfire.span(span_name)
+            tool_attributes: dict[str, Any] = {TOOL_NAME: tool_name}
+            span = state.logfire.span(
+                'execute_tool {gen_ai.tool.name}', _span_name=f'execute_tool {tool_name}', **tool_attributes
+            )
             # Replace the code attributes inferred from this hook task's stack with the
             # ones captured at receive_response time; set directly on the OTLP attributes
             # so they stay out of logfire.json_schema like other code attributes.
@@ -208,7 +210,6 @@ async def pre_tool_use_hook(
             span.set_attributes(
                 {
                     OPERATION_NAME: 'execute_tool',
-                    TOOL_NAME: tool_name,
                     TOOL_CALL_ID: tool_use_id,
                     TOOL_CALL_ARGUMENTS: tool_input,
                 }

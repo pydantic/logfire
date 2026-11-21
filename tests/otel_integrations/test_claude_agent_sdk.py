@@ -324,7 +324,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_tool_use_hooks',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'execute_tool Bash',
+                    'logfire.msg_template': 'execute_tool {gen_ai.tool.name}',
                     'logfire.msg': 'execute_tool Bash',
                     'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'Bash',
@@ -354,7 +354,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_tool_use_hooks',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'execute_tool Read',
+                    'logfire.msg_template': 'execute_tool {gen_ai.tool.name}',
                     'logfire.msg': 'execute_tool Read',
                     'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'Read',
@@ -382,7 +382,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_tool_use_hooks',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'execute_tool Write',
+                    'logfire.msg_template': 'execute_tool {gen_ai.tool.name}',
                     'logfire.msg': 'execute_tool Write',
                     'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'Write',
@@ -457,7 +457,7 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_clear_orphaned_tool_spans',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'execute_tool OrphanTool',
+                    'logfire.msg_template': 'execute_tool {gen_ai.tool.name}',
                     'logfire.msg': 'execute_tool OrphanTool',
                     'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'OrphanTool',
@@ -492,6 +492,31 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('tool_name', ['Bash', '{tool_name}', '{missing!r:>20}', 'unmatched {'])
+async def test_tool_name_is_data(exporter: TestExporter, tool_name: str) -> None:
+    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
+
+    with logfire_instance.span('root') as root_span:
+        state = _ConversationState(logfire=logfire_instance, root_span=root_span, input_messages=[])
+        state.announced_tool_ids.add('tool_1')
+        _set_state(state)
+        try:
+            await pre_tool_use_hook(
+                {'tool_name': tool_name, 'tool_input': {}, 'tool_use_id': 'tool_1'}, 'tool_1', {'signal': None}
+            )
+            state.close()
+        finally:
+            _clear_state()
+
+    [tool_span, _root] = exporter.exported_spans_as_dict()
+    assert tool_span['name'] == f'execute_tool {tool_name}'
+    attributes = tool_span['attributes']
+    assert attributes['logfire.msg_template'] == 'execute_tool {gen_ai.tool.name}'
+    assert attributes['logfire.msg'] == f'execute_tool {tool_name}'
+    assert attributes['gen_ai.tool.name'] == tool_name
 
 
 @pytest.mark.anyio
@@ -873,7 +898,7 @@ async def test_tool_use_conversation_cassette(
                 'attributes': {
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'execute_tool Bash',
+                    'logfire.msg_template': 'execute_tool {gen_ai.tool.name}',
                     'gen_ai.tool.name': 'Bash',
                     'code.function': 'test_tool_use_conversation_cassette',
                     'gen_ai.tool.call.id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
