@@ -199,9 +199,12 @@ def test_structlog_critical_is_fatal(exporter: TestExporter, logger: structlog.B
     )
 
 
-def test_structlog_none_message_is_not_formatted(exporter: TestExporter, logger: structlog.BoundLogger) -> None:
-    logger.info('hello {name:>1000}', name='world', **{'logfire.msg': None})
+@pytest.mark.parametrize('attributes', [{}, {'logfire.msg': None}])
+def test_structlog_message_is_not_formatted(
+    exporter: TestExporter, logger: structlog.BoundLogger, attributes: dict[str, str | None]
+) -> None:
+    logger.info('hello {name:>1000}', name='world', **attributes)
 
     [span] = exporter.exported_spans_as_dict()
     assert span['attributes']['logfire.msg_template'] == 'hello {name:>1000}'
-    assert span['attributes']['logfire.msg'] == 'None'
+    assert span['attributes']['logfire.msg'] == ('None' if attributes else 'hello {name:>1000}')
