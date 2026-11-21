@@ -119,6 +119,7 @@ def expand_references(
     strict: bool = False,
     _visited: tuple[str, ...] = (),
     _depth: int = 0,
+    _structural_errors: list[VariableCompositionError] | None = None,
 ) -> tuple[str, list[ComposedReference]]:
     """Expand `@{var}@` references in a serialized variable value.
 
@@ -141,6 +142,7 @@ def expand_references(
             this flag.
         _visited: Internal - ordered variable names in the current expansion chain.
         _depth: Internal - current recursion depth.
+        _structural_errors: Internal - collect the original cycle and depth errors in traversal order.
 
     Returns:
         tuple of (expanded_serialized_value, list_of_composed_references).
@@ -224,11 +226,14 @@ def expand_references(
                     strict=strict,
                     _visited=visited,
                     _depth=_depth + 1,
+                    _structural_errors=_structural_errors,
                 )
                 raw_value = json.loads(expanded_serialized)
             except VariableCompositionError as e:
                 # A cycle or depth overflow within the referenced value: this is a
                 # structural (fatal) failure, not a benign missing reference.
+                if _structural_errors is not None:
+                    _structural_errors.append(e)
                 composed.append(
                     ComposedReference(
                         name=ref_name,

@@ -1003,7 +1003,7 @@ class TestCompositionIntegration:
         assert result.composed_from[0].name == 'b'
         assert result.composed_from[0].composed_from[0].name == 'c'
 
-    def test_cycle_falls_back_gracefully(self, config_kwargs: dict[str, Any]):
+    def test_cycle_falls_back_gracefully(self, config_kwargs: dict[str, Any], exporter: TestExporter):
         """Cycles in references are surfaced on the top-level result and a warning is emitted."""
         variables_config = _make_variables_config(
             a='"@{b}@"',
@@ -1016,10 +1016,33 @@ class TestCompositionIntegration:
         with pytest.warns(RuntimeWarning, match='composition failed'):
             result = var.get()
         assert result.value == 'fallback'
-        assert isinstance(result.exception, VariableCompositionError)
+        assert isinstance(result.exception, VariableCompositionCycleError)
         assert result.reason == 'other_error'
         assert len(result.composed_from) == 1
         assert result.composed_from[0].composed_from[0].error == 'Circular reference detected: a -> b -> a'
+        exception_types = [
+            event.attributes['exception.type']
+            for span in exporter.exported_spans
+            for event in span.events
+            if event.name == 'exception' and event.attributes is not None
+        ]
+        assert exception_types == ['logfire.variables.composition.VariableCompositionCycleError']
+
+    def test_depth_limit_preserves_non_cycle_error(self, config_kwargs: dict[str, Any]):
+        """An acyclic chain can exceed the depth limit and should keep its distinct error."""
+        chain = {f'node_{index}': json.dumps(f'@{{node_{index + 1}}}@') for index in range(22)}
+        chain['node_22'] = '"leaf"'
+        variables_config = _make_variables_config(**chain)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='node_0', default='fallback', type=str)
+
+        with pytest.warns(RuntimeWarning, match='Maximum composition depth'):
+            result = var.get()
+
+        assert result.value == 'fallback'
+        assert result.reason == 'other_error'
+        assert type(result.exception) is VariableCompositionError
 
     def test_nonexistent_reference_in_provider_value_falls_back_to_code_default(self, config_kwargs: dict[str, Any]):
         """A missing `@{ref}@` in a provider value falls back to the code default.
