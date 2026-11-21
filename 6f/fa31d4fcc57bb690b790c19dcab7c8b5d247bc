@@ -1,0 +1,27 @@
+tests/test_formatter.py
+  s_f7e44599b50a23::t_2f49de1956ef17 71-97
+logfire-sdk/logfire/_internal/formatter.py
+  s_f7e44599b50a23::t_205e9a80479876 7,13,203-206
+  s_f7e44599b50a23::t_2f49de1956ef17 5,201-202,207-210
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6ffa31d4fcc57bb690b790c19dcab7c8b5d247bc",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_f7e44599b50a23": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1fdf3-12fb-78b3-893e-5e9ee0348f66",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
