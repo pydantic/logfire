@@ -198,8 +198,7 @@ class ChunksFormatter(Formatter):
                 # given the field_name, find the object it references
                 #  and the argument it came from
                 try:
-                    # Validate every index before resolving the field: custom subscription methods
-                    # can interpret their string argument as code (e.g. type forward references).
+                    # Validate all bracket keys before resolving the field.
                     _, lookups = cast(
                         'tuple[str | int, Iterator[tuple[bool, str | int]]]', formatter_field_name_split(field_name)
                     )
