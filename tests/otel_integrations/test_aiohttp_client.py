@@ -481,7 +481,7 @@ async def test_aiohttp_client_capture_all(
                     'http.request.body.text': {'good': 'request'},
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'http.request.body.text': {'type': 'object'}},
+                        'properties': {'http.request.body.text': {}},
                     },
                     'http.response.header.Content-Type': ('application/json; charset=utf-8',),
                     'http.response.header.Content-Length': IsTuple(IsStr()),
@@ -643,7 +643,7 @@ async def test_aiohttp_client_capture_request_body_form(
                     'http.request.body.form': {'field1': 'value1', 'field2': 'value2'},
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'http.request.body.form': {'type': 'object'}},
+                        'properties': {'http.request.body.form': {}},
                     },
                     'http.status_code': 200,
                     'http.response.status_code': 200,
@@ -833,7 +833,7 @@ async def test_aiohttp_client_capture_all_environment_variable(
                     'http.request.body.text': {'test': 'data'},
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'http.request.body.text': {'type': 'object'}},
+                        'properties': {'http.request.body.text': {}},
                     },
                     'http.response.header.Content-Type': IsTuple(IsStr()),
                     'http.response.header.Content-Length': IsTuple(IsStr()),

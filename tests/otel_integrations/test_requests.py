@@ -69,7 +69,7 @@ async def test_requests_instrumentation(exporter: TestExporter):
                     'http.response.status_code': 200,
                     'logfire.metrics': {
                         'http.client.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.host': 'example.org',
@@ -80,12 +80,12 @@ async def test_requests_instrumentation(exporter: TestExporter):
                                         'net.peer.port': 8080,
                                     },
                                     'total': IsNumeric(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsNumeric(),
                         },
                         'http.client.request.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.request.method': 'GET',
@@ -94,8 +94,8 @@ async def test_requests_instrumentation(exporter: TestExporter):
                                         'server.port': 8080,
                                     },
                                     'total': IsFloat(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsFloat(),
                         },
                     },
@@ -117,7 +117,7 @@ async def test_requests_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'test span',
                     'logfire.metrics': {
                         'http.client.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.host': 'example.org',
@@ -128,12 +128,12 @@ async def test_requests_instrumentation(exporter: TestExporter):
                                         'net.peer.port': 8080,
                                     },
                                     'total': IsNumeric(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsNumeric(),
                         },
                         'http.client.request.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.request.method': 'GET',
@@ -142,8 +142,8 @@ async def test_requests_instrumentation(exporter: TestExporter):
                                         'server.port': 8080,
                                     },
                                     'total': IsFloat(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsFloat(),
                         },
                     },

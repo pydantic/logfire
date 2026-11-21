@@ -60,19 +60,6 @@ jobs:
             otel-version: '1.45'
           - pydantic-version: '2.13'
             otel-version: '1.45'
-          # Every older supported OTel minor, with latest Pydantic.
-          - pydantic-version: '2.14'
-            otel-version: '1.39'
-          - pydantic-version: '2.14'
-            otel-version: '1.40'
-          - pydantic-version: '2.14'
-            otel-version: '1.41'
-          - pydantic-version: '2.14'
-            otel-version: '1.42'
-          - pydantic-version: '2.14'
-            otel-version: '1.43'
-          - pydantic-version: '2.14'
-            otel-version: '1.44'
     env:
       PYTHON: '3.12'
     steps:

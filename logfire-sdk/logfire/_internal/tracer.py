@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import functools
-import json
 import traceback
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
@@ -37,6 +36,7 @@ from .constants import (
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     log_level_attributes,
 )
+from .json_encoder import to_otlp_value
 from .utils import (
     handle_internal_errors,
     is_instrumentation_suppressed,
@@ -170,7 +170,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
                 del OPEN_SPANS[key]
             if self.metrics:
                 self.span.set_attribute(
-                    'logfire.metrics', json.dumps({name: metric.dump() for name, metric in self.metrics.items()})
+                    'logfire.metrics', to_otlp_value({name: metric.dump() for name, metric in self.metrics.items()})
                 )
         self.span.end(end_time or self.ns_timestamp_generator())
 

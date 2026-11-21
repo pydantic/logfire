@@ -1,4 +1,3 @@
-import json
 import os
 from typing import Any
 
@@ -243,7 +242,7 @@ def test_tool_call_is_not_duplicated_in_content(
         },
     )
 
-    assistant_message = json.loads(new_attributes['all_messages_events'])[-1]
+    assistant_message = new_attributes['all_messages_events'][-1]
     assert assistant_message['content'] == expected_content
     assert assistant_message['tool_calls'] == [
         {'id': 'call_1', 'type': 'function', 'function': {'name': 'add', 'arguments': {'a': 123, 'b': 456}}}

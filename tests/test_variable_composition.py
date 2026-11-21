@@ -1164,9 +1164,9 @@ class TestCompositionIntegration:
         attrs = dict(main_span.attributes or {})
 
         # Check composed_from attribute
-        composed_from_json = attrs.get('composed_from')
-        assert isinstance(composed_from_json, str)
-        composed_data = json.loads(composed_from_json)
+        composed_from = attrs.get('composed_from')
+        assert isinstance(composed_from, tuple)
+        composed_data = json.loads(json.dumps(composed_from))
         assert len(composed_data) == 1
         assert composed_data[0]['name'] == 'greeting'
         assert composed_data[0]['version'] == 1
@@ -1193,9 +1193,9 @@ class TestCompositionIntegration:
 
         resolve_spans = [s for s in exporter.exported_spans if s.name == 'Resolve variable main']
         attrs = dict(resolve_spans[-1].attributes or {})
-        composed_from_json = attrs.get('composed_from')
-        assert isinstance(composed_from_json, str)
-        composed_data = json.loads(composed_from_json)
+        composed_from = attrs.get('composed_from')
+        assert isinstance(composed_from, tuple)
+        composed_data = json.loads(json.dumps(composed_from))
 
         assert composed_data[0]['name'] == 'middle'
         assert composed_data[0]['composed_from'][0]['name'] == 'leaf'

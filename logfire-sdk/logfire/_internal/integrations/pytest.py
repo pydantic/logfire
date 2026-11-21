@@ -401,9 +401,11 @@ def pytest_runtest_protocol(
         if hasattr(item, 'callspec'):
             import json
 
+            from logfire._internal.json_encoder import to_otlp_value
+
             try:
-                params_json = json.dumps(item.callspec.params)  # type: ignore[attr-defined]
-                span.set_attribute('test.parameters', params_json)
+                json.dumps(item.callspec.params)  # type: ignore[attr-defined]
+                span.set_attribute('test.parameters', to_otlp_value(item.callspec.params))  # type: ignore[attr-defined]
             except (TypeError, ValueError):
                 # If parameters can't be serialized, just store the keys
                 span.set_attribute('test.parameters', str(list(item.callspec.params.keys())))  # type: ignore[attr-defined]

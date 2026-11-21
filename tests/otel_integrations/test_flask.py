@@ -145,7 +145,7 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
                     'logfire.span_type': 'span',
                     'logfire.metrics': {
                         'http.server.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.flavor': '1.1',
@@ -159,12 +159,12 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
                                         'net.host.port': 80,
                                     },
                                     'total': IsInt(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsInt(),
                         },
                         'http.server.request.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.request.method': 'GET',
@@ -174,8 +174,8 @@ def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGener
                                         'url.scheme': 'http',
                                     },
                                     'total': IsFloat(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsFloat(),
                         },
                     },
