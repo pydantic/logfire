@@ -6,7 +6,7 @@ import traceback
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from threading import Lock
+from threading import Lock, RLock
 from typing import TYPE_CHECKING, Any, cast
 from weakref import WeakKeyDictionary, WeakValueDictionary
 
@@ -68,10 +68,13 @@ class ProxyTracerProvider(TracerProvider):
         default_factory=WeakKeyDictionary['_ProxyTracer', Callable[[], Tracer]]
     )
     lock: Lock = field(default_factory=Lock)
+    # Serializes the calls that use the inner provider (flush, shutdown, reconfiguration)
+    # without being taken by `resource`, which exporters read from inside those calls.
+    operation_lock: RLock = field(default_factory=RLock)
     suppressed_scopes: set[str] = field(default_factory=set[str])
 
     def set_provider(self, provider: SDKTracerProvider) -> None:
-        with self.lock:
+        with self.operation_lock, self.lock:
             self.provider = provider
             for tracer, factory in self.tracers.items():
                 tracer.set_tracer(factory())
@@ -108,9 +111,15 @@ class ProxyTracerProvider(TracerProvider):
                 self.provider.add_span_processor(span_processor)
 
     def shutdown(self) -> None:
-        with self.lock:
-            if isinstance(self.provider, SDKTracerProvider):
-                self.provider.shutdown()
+        # Read the provider under the lock, then shut it down outside it: shutdown runs the
+        # exporters, and an exporter may read `get_tracer_provider().resource`, which takes
+        # this lock again from the same thread (see #2789). `operation_lock` keeps shutdown
+        # from overlapping a flush or a reconfiguration.
+        with self.operation_lock:
+            with self.lock:
+                provider = self.provider
+            if isinstance(provider, SDKTracerProvider):
+                provider.shutdown()
 
     @property
     def resource(self) -> Resource:  # pragma: no cover
@@ -120,9 +129,13 @@ class ProxyTracerProvider(TracerProvider):
             return Resource.create({'service.name': self.config.service_name})
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
-        with self.lock:
-            if isinstance(self.provider, SDKTracerProvider):  # pragma: no branch
-                return self.provider.force_flush(timeout_millis)
+        # As in `shutdown`, the flush runs the exporters outside the lock, so an exporter
+        # that reads the proxy's `resource` cannot deadlock against this thread.
+        with self.operation_lock:
+            with self.lock:
+                provider = self.provider
+            if isinstance(provider, SDKTracerProvider):  # pragma: no branch
+                return provider.force_flush(timeout_millis)
             return True  # pragma: no cover
 
 
