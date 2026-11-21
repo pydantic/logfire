@@ -783,6 +783,50 @@ def test_extract_request_parameters_max_output_tokens() -> None:
     assert span_data['gen_ai.request.max_tokens'] == 200
 
 
+def test_convert_chat_completions_file_parts_and_tool_content_list() -> None:
+    """Chat Completions file parts and a tool message with list content are converted, not left raw."""
+    from logfire._internal.integrations.llm_providers.openai import convert_chat_completions_to_semconv
+
+    messages: list[dict[str, Any]] = [
+        {
+            'role': 'user',
+            'content': [
+                {'type': 'text', 'text': 'Summarize these.'},
+                {'type': 'file', 'file': {'file_data': 'data:application/pdf;base64,JVBER', 'filename': 'a.pdf'}},
+                {'type': 'file', 'file': {'file_id': 'file_123'}},
+            ],
+        },
+        {
+            'role': 'tool',
+            'tool_call_id': 'call_1',
+            'content': [{'type': 'text', 'text': 'first'}, {'type': 'text', 'text': 'second'}],
+        },
+        {'role': 'tool', 'tool_call_id': 'call_2', 'content': 'plain'},
+    ]
+
+    assert convert_chat_completions_to_semconv(messages) == [
+        {
+            'role': 'user',
+            'parts': [
+                {'type': 'text', 'content': 'Summarize these.'},
+                {'type': 'blob', 'content': 'data:application/pdf;base64,JVBER', 'modality': 'document'},
+                {'type': 'file', 'file_id': 'file_123', 'modality': 'document'},
+            ],
+        },
+        {
+            'role': 'tool',
+            'parts': [
+                {
+                    'type': 'tool_call_response',
+                    'id': 'call_1',
+                    'response': [{'type': 'text', 'content': 'first'}, {'type': 'text', 'content': 'second'}],
+                }
+            ],
+        },
+        {'role': 'tool', 'parts': [{'type': 'tool_call_response', 'id': 'call_2', 'response': 'plain'}]},
+    ]
+
+
 def test_extract_request_parameters_max_completion_tokens() -> None:
     """Test that max_completion_tokens is extracted when max_tokens is absent.
 
