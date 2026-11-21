@@ -736,6 +736,17 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             id='custom_bytes_class',
         ),
         pytest.param(
+            numpy.bytes_(b'test bytes'),
+            "b'test bytes'",
+            '"test bytes"',
+            {
+                'type': 'string',
+                'title': 'bytes_',
+                'x-python-datatype': 'bytes',
+            },
+            id='numpy_bytes',
+        ),
+        pytest.param(
             pandas.DataFrame(data={'col1': [1, 2], 'col2': [3, 4]}),
             '   col1  col2\n0     1     3\n1     2     4',
             '[[1,3],[2,4]]',
