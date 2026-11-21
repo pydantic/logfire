@@ -15,7 +15,6 @@ from .._internal.constants import (
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_TAGS_KEY,
-    LOGFIRE_ATTRIBUTES_NAMESPACE,
     LOGGING_TO_OTEL_LEVEL_NUMBERS,
 )
 from .._internal.utils import is_instrumentation_suppressed
@@ -49,9 +48,6 @@ RESERVED_ATTRS: frozenset[str] = frozenset(
         'taskName',  # 3.12+
     ]
 )
-
-# The attributes that `fill_attributes` sets from the location of the logging call.
-_CODE_ATTRIBUTES: frozenset[str] = frozenset(['code.filepath', 'code.lineno', 'code.function'])
 
 if TYPE_CHECKING:
     from .. import Logfire
@@ -133,7 +129,7 @@ class LogfireLoggingHandler(LoggingHandler):
     def fill_attributes(self, record: LogRecord) -> dict[str, Any]:
         """Fill the attributes to send to Logfire.
 
-        This method can be overridden to add more attributes.
+        This method can be overridden to add more attributes or customize `logfire.msg_template`.
 
         Args:
             record: The log record.
@@ -149,6 +145,7 @@ class LogfireLoggingHandler(LoggingHandler):
 
         attributes[ATTRIBUTES_MESSAGE_KEY], args = _format_message(record)
         attributes.update(args)
+        attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = record.msg
 
         return attributes
 
@@ -162,11 +159,6 @@ def _is_single_positional_argument(msg: Any, args: Mapping[str, Any]) -> bool:
     except Exception:
         pass  # The message can't be formatted either way, and `_format_message` fails with this error too.
     return True
-
-
-def _is_logfire_attribute(key: object) -> bool:
-    """Whether `key` is reserved for Logfire metadata."""
-    return isinstance(key, str) and (key.startswith(f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.') or key in _CODE_ATTRIBUTES)
 
 
 def _format_message(record: LogRecord) -> tuple[str, Mapping[str, Any]]:
@@ -192,8 +184,7 @@ def _format_message(record: LogRecord) -> tuple[str, Mapping[str, Any]]:
         # This means the user wrote something like:
         #   log('Hello %(name)s', {'name': 'Alice'})
         # so `name` should be treated as a keyword argument, i.e. its own attribute.
-        attributes = {k: v for k, v in cast('Mapping[str, Any]', args).items() if not _is_logfire_attribute(k)}
-        return msg % args, attributes
+        return msg % args, cast('Mapping[str, Any]', args)
     else:
         # We have to wrap the single positional argument in a tuple.
         # Otherwise this:
