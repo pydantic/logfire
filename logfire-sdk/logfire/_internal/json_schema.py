@@ -31,7 +31,7 @@ from types import GeneratorType
 from typing import Any, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
-from .json_encoder import is_attrs, is_sqlalchemy, pandas_display_slices, to_json_value
+from .json_encoder import is_attrs, is_sqlalchemy, pandas_display_slices, pydantic_model_dump, to_json_value
 from .stack_info import STACK_INFO_KEYS
 from .utils import JsonDict, dump_json, log_internal_error, safe_repr
 
@@ -335,14 +335,16 @@ def _pydantic_root_model_schema(obj: Any, seen: set[int]) -> JsonDict:
 
     assert isinstance(obj, pydantic.RootModel)
 
-    root = obj.root  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+    return _pydantic_serialized_schema(obj.root, seen)  # pyright: ignore[reportUnknownMemberType]
 
+
+def _pydantic_serialized_schema(root: Any, seen: set[int]) -> JsonDict:
     if isinstance(root, type(None)):
         return {'type': 'null'}
 
     schema: JsonDict = {}
 
-    # return a complex schema to ensure JSON parsing for simple objects inside RootModel since they get an
+    # return a complex schema to ensure JSON parsing for simple objects serialized by models since they get an
     # extra layer of JSON encoding and to handle subclass representations correctly
     primitive_types = (str, bool, int, float)
     if isinstance(root, primitive_types):
@@ -365,13 +367,21 @@ def _pydantic_root_model_schema(obj: Any, seen: set[int]) -> JsonDict:
 
         return schema
 
-    return create_json_schema(obj.root, seen)  # pyright: ignore[reportUnknownMemberType]
+    return create_json_schema(root, seen)
 
 
 def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     import pydantic
 
     assert isinstance(obj, pydantic.BaseModel)
+
+    try:
+        serializers = type(obj).__pydantic_decorators__.model_serializers
+    except AttributeError:  # pragma: no cover
+        # pydantic v1
+        serializers = {}
+    if serializers:
+        return _pydantic_serialized_schema(pydantic_model_dump(obj), seen)
 
     try:
         fields = [name for name, field in type(obj).model_fields.items() if field.repr]
