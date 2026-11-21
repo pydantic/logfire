@@ -1,0 +1,27 @@
+tests/test_stdlib_logging.py
+  s_53f198184bb2e6::t_a7d080398907a1 168-200,202-212
+  s_53f198184bb2e6::t_2865941422a5bf 201
+logfire-sdk/logfire/integrations/logging.py
+  s_53f198184bb2e6::t_18e06e474d7f2f 132,148,187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2ecd2163504ec2381356ba0b3b091d80a22b8b06",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_53f198184bb2e6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1fdcf-9a20-7a71-8eba-aadc2818cbb2",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
