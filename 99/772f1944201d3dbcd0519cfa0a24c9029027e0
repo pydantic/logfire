@@ -1,0 +1,25 @@
+tests/test_structlog.py
+  s_53f198184bb2e6::t_d6f41f85aec7cf 204
+  s_53f198184bb2e6::t_10f8d438889187 202-203,205-206,210
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "99772f1944201d3dbcd0519cfa0a24c9029027e0",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_53f198184bb2e6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1fdcf-9a20-7a71-8eba-aadc2818cbb2",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
