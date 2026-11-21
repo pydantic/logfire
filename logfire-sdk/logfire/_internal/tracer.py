@@ -107,10 +107,13 @@ class ProxyTracerProvider(TracerProvider):
             if isinstance(self.provider, SDKTracerProvider):
                 self.provider.add_span_processor(span_processor)
 
+    # shutdown and force_flush call the inner provider outside the lock:
+    # its processors run exporters, which may call back into this proxy (e.g. `resource`).
     def shutdown(self) -> None:
         with self.lock:
-            if isinstance(self.provider, SDKTracerProvider):
-                self.provider.shutdown()
+            provider = self.provider
+        if isinstance(provider, SDKTracerProvider):
+            provider.shutdown()
 
     @property
     def resource(self) -> Resource:  # pragma: no cover
@@ -121,9 +124,10 @@ class ProxyTracerProvider(TracerProvider):
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
         with self.lock:
-            if isinstance(self.provider, SDKTracerProvider):  # pragma: no branch
-                return self.provider.force_flush(timeout_millis)
-            return True  # pragma: no cover
+            provider = self.provider
+        if isinstance(provider, SDKTracerProvider):  # pragma: no branch
+            return provider.force_flush(timeout_millis)
+        return True  # pragma: no cover
 
 
 @dataclass
