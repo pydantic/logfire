@@ -553,7 +553,8 @@ Because it found something more "sole-ful!"\
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
                     'rpc.method': 'tools/call',
-                    'logfire.msg_template': 'MCP request: tools/call joker',
+                    'gen_ai.tool.name': 'joker',
+                    'logfire.msg_template': 'MCP request: tools/call {gen_ai.tool.name}',
                     'logfire.msg': 'MCP request: tools/call joker',
                     'logfire.span_type': 'span',
                     'response': {
