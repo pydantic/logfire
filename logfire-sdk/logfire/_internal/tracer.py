@@ -35,9 +35,11 @@ from .constants import (
     ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_VALIDATION_ERROR_KEY,
+    LEVEL_NUMBERS,
     log_level_attributes,
 )
 from .utils import (
+    canonicalize_exception_traceback,
     handle_internal_errors,
     is_instrumentation_suppressed,
     safe_str,
@@ -544,6 +546,31 @@ original_format_exception = traceback.format_exception
 
 
 @functools.wraps(original_format_exception)
+def exception_log_record_attributes(exception: BaseException, level_num: int) -> dict[str, otel_types.AttributeValue]:
+    """The exception attributes of a log record, with the same defaults as `record_exception` without a callback."""
+    # This matches the `exception.type` that the OTel SDK's `Span.record_exception` sets.
+    module = type(exception).__module__
+    qualname = type(exception).__qualname__
+    attributes: dict[str, otel_types.AttributeValue] = {
+        'exception.type': f'{module}.{qualname}' if module and module != 'builtins' else qualname,
+        'exception.message': safe_str(exception),
+        'exception.stacktrace': ''.join(
+            traceback.format_exception(type(exception), exception, exception.__traceback__)
+        ),
+    }
+    if ValidationError is not None and isinstance(exception, ValidationError):
+        try:
+            attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = exception.json(include_url=False)
+        except TypeError:  # pragma: no cover
+            # pydantic v1
+            attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = exception.json()
+    # This matches `ExceptionCallbackHelper.create_issue`: error level and no parent span in this process.
+    parent = get_current_span().get_span_context()
+    if level_num >= LEVEL_NUMBERS['error'] and OPEN_SPANS.get(_open_spans_key(parent)) is None:
+        attributes[ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY] = sha256_string(canonicalize_exception_traceback(exception))
+    return attributes
+
+
 def _patched_format_exception(*args: Any, **kwargs: Any):
     try:
         return original_format_exception(*args, **kwargs)
