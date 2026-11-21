@@ -4,6 +4,7 @@ import argparse
 import importlib
 import importlib.metadata
 import os
+import re
 import runpy
 import shlex
 import shutil
@@ -35,7 +36,21 @@ INSTRUMENTATION_TARGETS = {
     'opentelemetry-instrumentation-httpx': ('httpx', 'httpx2'),
     'opentelemetry-instrumentation-psycopg2': ('psycopg2',),
 }
-TARGET_PACKAGE_ALIASES = {'psycopg2': ('psycopg2', 'psycopg2-binary')}
+# Import/method names and installed distribution names are not interchangeable.
+TARGET_PACKAGE_ALIASES = {
+    'aio_pika': ('aio-pika',),
+    'aiohttp_client': ('aiohttp',),
+    'aiohttp_server': ('aiohttp',),
+    'confluent_kafka': ('confluent-kafka',),
+    'grpc': ('grpcio',),
+    'kafka_python': ('kafka-python',),
+    'mysql': ('mysql-connector-python',),
+    'psycopg2': ('psycopg2', 'psycopg2-binary'),
+    'tortoise_orm': ('tortoise-orm',),
+    'pydantic_ai': ('pydantic-ai-slim',),
+    'monty': ('pydantic-monty-client',),
+    'openai_agents': ('openai-agents',),
+}
 INSTRUMENTATION_CALL_ARGUMENTS = {
     'opentelemetry-instrumentation-psycopg': ('psycopg',),
     'opentelemetry-instrumentation-psycopg2': ('psycopg2',),
@@ -44,7 +59,7 @@ MINIMUM_INSTRUMENTATION_VERSIONS = {('opentelemetry-instrumentation-httpx', 'htt
 
 # Map of instrumentation packages to the packages they instrument
 OTEL_INSTRUMENTATION_MAP = {
-    'opentelemetry-instrumentation-aio_pika': 'aio_pika',
+    'opentelemetry-instrumentation-aio-pika': 'aio_pika',
     'opentelemetry-instrumentation-aiohttp-client': 'aiohttp_client',
     'opentelemetry-instrumentation-aiohttp-server': 'aiohttp_server',
     'opentelemetry-instrumentation-aiopg': 'aiopg',
@@ -540,18 +555,27 @@ def print_otel_summary(
     console.print()
 
 
+def _normalize_package_name(name: str) -> str:
+    """Compare distribution names using Python packaging's name-normalization rules."""
+    return re.sub(r'[-_.]+', '-', name).lower()
+
+
 def installed_packages() -> set[str]:
-    """Get a set of all installed packages."""
+    """Get normalized installed distribution names, skipping incomplete metadata."""
     try:
         # Try using importlib.metadata first (it's available in Python >=3.10)
-        return {dist.metadata['Name'].lower() for dist in importlib.metadata.distributions()}
+        return {
+            _normalize_package_name(name)
+            for dist in importlib.metadata.distributions()
+            if (name := dist.metadata.get('Name'))
+        }
     except (ImportError, AttributeError):  # pragma: no cover
         # Fall back to pkg_resources
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=UserWarning)
             import pkg_resources  # pyright: ignore[reportMissingImports]
 
-            return {pkg.key for pkg in pkg_resources.working_set}  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
+            return {_normalize_package_name(cast(str, pkg.key)) for pkg in pkg_resources.working_set}  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
 
 
 def _full_install_command(recommendations: list[InstrumentationRecommendation]) -> str:
@@ -632,13 +656,14 @@ def _installed_package_versions(package_names: set[str]) -> dict[str, str]:
 
 def collect_instrumentation_context(exclude: Collection[str]) -> InstrumentationContext:
     """Collects all relevant context for instrumentation and recommendations."""
+    excluded = {_normalize_package_name(name) for name in exclude}
     instrument_pkg_map = {
         otel_pkg: pkg
         for otel_pkg, pkg in OTEL_INSTRUMENTATION_MAP.items()
         if not any(
-            package_name in exclude
+            _normalize_package_name(package_name) in excluded
             for target in _instrumentation_targets(otel_pkg, pkg)
-            for package_name in TARGET_PACKAGE_ALIASES.get(target, (target,))
+            for package_name in (target, *TARGET_PACKAGE_ALIASES.get(target, ()))
         )
     }
     installed_pkgs = installed_packages()
