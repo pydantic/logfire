@@ -1,9 +1,108 @@
+import pytest
 from inline_snapshot import snapshot
 from opentelemetry.trace import get_current_span
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
-from logfire.experimental.annotations import get_traceparent, raw_annotate_span, record_feedback
+from logfire.experimental.annotations import get_traceparent, raw_annotate_span, record_feedback, record_score
+
+
+def test_record_score_event(exporter: TestExporter):
+    with logfire.span('agent run') as span:
+        traceparent = get_traceparent(span)
+
+    record_score(
+        traceparent,
+        name='human_review',
+        value=1.0,
+        explanation='Sent as drafted',
+        target='support_agent',
+        extra={'logfire.span_type': 'pending_span'},
+    )
+
+    records = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(records) == 2
+    result = records[-1]
+    assert result['parent'] == {'trace_id': 1, 'span_id': 1, 'is_remote': True}
+    assert result['name'] == 'gen_ai.evaluation.result'
+    assert result['attributes']['logfire.span_type'] == 'log'
+    assert {key: value for key, value in result['attributes'].items() if key.startswith('gen_ai.')} == snapshot(
+        {
+            'gen_ai.evaluation.name': 'human_review',
+            'gen_ai.evaluation.score.value': 1.0,
+            'gen_ai.evaluation.explanation': 'Sent as drafted',
+            'gen_ai.evaluation.target': 'support_agent',
+            'gen_ai.agent.name': 'support_agent',
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    'value, label, expected',
+    [
+        (True, None, {'gen_ai.evaluation.score.value': 1.0, 'gen_ai.evaluation.score.label': 'pass'}),
+        (False, None, {'gen_ai.evaluation.score.value': 0.0, 'gen_ai.evaluation.score.label': 'fail'}),
+        (False, 'rejected', {'gen_ai.evaluation.score.value': 0.0, 'gen_ai.evaluation.score.label': 'rejected'}),
+        (0, None, {'gen_ai.evaluation.score.value': 0}),
+        (-0.5, '', {'gen_ai.evaluation.score.value': -0.5, 'gen_ai.evaluation.score.label': ''}),
+        (None, 'approved', {'gen_ai.evaluation.score.label': 'approved'}),
+        (None, None, {}),
+    ],
+)
+def test_record_score_values(
+    exporter: TestExporter, value: float | bool | None, label: str | None, expected: dict[str, float | str]
+):
+    with logfire.span('agent run') as span:
+        traceparent = get_traceparent(span)
+
+    record_score(traceparent, 'review', value, target='agent', label=label)
+
+    attributes = exporter.exported_spans_as_dict()[-1]['attributes']
+    assert {key: value for key, value in attributes.items() if key.startswith('gen_ai.evaluation.score.')} == expected
+    assert 'gen_ai.evaluation.explanation' not in attributes
+    assert 'gen_ai.evaluation.evaluator.version' not in attributes
+    if isinstance(value, bool):
+        assert type(attributes['gen_ai.evaluation.score.value']) is float
+
+
+def test_record_score_context_and_extra(exporter: TestExporter):
+    with logfire.span('agent run') as span:
+        traceparent = get_traceparent(span)
+
+    extra = {'reviewer': {'id': 42}, 'gen_ai.evaluation.name': 'ignored', 'logfire.msg': 'reviewed'}
+    with logfire.span('review request') as current:
+        current_traceparent = get_traceparent(current)
+        for _ in range(2):
+            record_score(
+                traceparent,
+                'review',
+                True,
+                target='support',
+                agent_name='support_agent',
+                explanation='',
+                evaluator_version='v1',
+                extra=extra,
+            )
+            assert get_traceparent(get_current_span()) == current_traceparent
+
+    assert extra == {'reviewer': {'id': 42}, 'gen_ai.evaluation.name': 'ignored', 'logfire.msg': 'reviewed'}
+    records = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    results = [record for record in records if record['name'] == 'gen_ai.evaluation.result']
+    assert len(results) == 2
+    for result in results:
+        assert result['parent'] == {'trace_id': 1, 'span_id': 1, 'is_remote': True}
+        assert {key: value for key, value in result['attributes'].items() if key.startswith('gen_ai.')} == snapshot(
+            {
+                'gen_ai.evaluation.name': 'review',
+                'gen_ai.evaluation.target': 'support',
+                'gen_ai.agent.name': 'support_agent',
+                'gen_ai.evaluation.score.value': 1.0,
+                'gen_ai.evaluation.score.label': 'pass',
+                'gen_ai.evaluation.explanation': '',
+                'gen_ai.evaluation.evaluator.version': 'v1',
+            }
+        )
+        assert result['attributes']['reviewer'] == {'id': 42}
 
 
 def test_get_traceparent(exporter: TestExporter):
