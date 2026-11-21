@@ -68,6 +68,33 @@ def test_dict():
     assert v == snapshot([{'t': 'arg', 'v': '42'}])
 
 
+@pytest.mark.parametrize(
+    'key', ['name', 'first name', 'content-type', 'service.name', '__class__', 'café', '日本語', 'a_1 .-']
+)
+def test_allowed_lookup_keys(key: str):
+    assert logfire_format('{value[' + key + ']}', {'value': {key: 42}}, NOOP_SCRUBBER) == '42'
+
+
+@pytest.mark.parametrize(
+    'key',
+    ['call()', '"name"', "'name'", 'a[b', 'a+b', 'a/b', 'a:b', 'a;b', 'a\\b', 'a\tb', 'a\nb', '__import__("os")'],
+)
+@pytest.mark.parametrize('template', ['{value[KEY]}', '{value[safe][KEY]}', '{number:{value[KEY]}}'])
+def test_rejected_lookup_keys(key: str, template: str):
+    class UnexpectedLookup:
+        def __getitem__(self, key: str) -> Any:
+            pytest.fail('Invalid keys must be rejected before any subscription is performed')
+
+    template = template.replace('KEY', key)
+    with pytest.warns(FormattingFailedWarning, match='Square bracket lookup keys may only contain'):
+        assert logfire_format(template, {'value': UnexpectedLookup(), 'number': 1}, NOOP_SCRUBBER) == template
+
+
+def test_lookup_indices_and_dunder_attributes():
+    assert logfire_format('{value[0]}', {'value': [42]}, NOOP_SCRUBBER) == '42'
+    assert logfire_format('{value.__class__.__name__}', {'value': 42}, NOOP_SCRUBBER) == 'int'
+
+
 def test_truncate():
     message = logfire_format(
         '1 {a} 2 {b} 3',

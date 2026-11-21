@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import ast
 import os
+import re
 import types
+from _string import formatter_field_name_split  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
 from collections.abc import Iterator
 from functools import lru_cache
 from pathlib import Path
 from string import Formatter
 from types import CodeType
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import executing
 from typing_extensions import NotRequired, TypedDict
@@ -196,6 +198,16 @@ class ChunksFormatter(Formatter):
                 # given the field_name, find the object it references
                 #  and the argument it came from
                 try:
+                    # Validate every index before resolving the field: custom subscription methods
+                    # can interpret their string argument as code (e.g. type forward references).
+                    _, lookups = cast(
+                        'tuple[str | int, Iterator[tuple[bool, str | int]]]', formatter_field_name_split(field_name)
+                    )
+                    for is_attribute, key in lookups:
+                        if not is_attribute and isinstance(key, str) and not re.fullmatch(r'[\w .-]+', key):
+                            raise ValueError(
+                                'Square bracket lookup keys may only contain word characters, spaces, dots, and hyphens.'
+                            )
                     obj, _arg_used = self.get_field(field_name, args, kwargs)
                 except IndexError:
                     raise KnownFormattingError('Numeric field names are not allowed.')
