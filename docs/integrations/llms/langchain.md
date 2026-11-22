@@ -131,7 +131,9 @@ Not seeing your LangChain steps in Logfire? Check these first:
 - **The three `LANGSMITH_*` environment variables are set before importing `langchain` or
   `langgraph`.** Set them at the very top of your program, above the imports.
 - **`logfire.configure()` runs at startup**, so the connection is ready when the first step runs.
-- **Your Logfire write token is set.** In local development, run `logfire projects use <your-project>`;
+- **Your Logfire write token is set.** In local development, install [uv](https://docs.astral.sh/uv/getting-started/installation/)
+  if needed, then run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use` from your application's directory;
   in production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 
 ## Reference

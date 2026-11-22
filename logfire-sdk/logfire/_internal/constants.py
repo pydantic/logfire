@@ -81,9 +81,6 @@ LOGGING_TO_OTEL_LEVEL_NUMBERS: dict[int, int] = {
 """Mapping from standard library logging level numbers to OTEL/logfire level numbers.
 Based on feeling rather than hard maths."""
 
-ATTRIBUTES_LOG_LEVEL_NAME_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level_name'
-"""Deprecated, use only ATTRIBUTES_LOG_LEVEL_NUM_KEY."""
-
 ATTRIBUTES_LOG_LEVEL_NUM_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level_num'
 """The key within OTEL attributes where logfire puts the log level number."""
 

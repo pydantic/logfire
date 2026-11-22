@@ -6,6 +6,42 @@ Define a variable once with a sensible default, deploy your application, then it
 
 Changes take effect quickly, and every variable resolution is visible in your traces. This trace-level visibility means you can correlate application behavior directly with specific configuration versions, enabling A/B testing, automated prompt optimization, and online evaluations using the same observability data you're already sending to Logfire.
 
+## Turn a feature on and off from Logfire
+
+1. In your Logfire project, open **Feature Flags** and select **New flag**. Create a **Toggle**
+   named `new_checkout` and set its initial value to **Off**. Enable **Feature Flags and Prompts UI**
+   in Early Access if the page is hidden.
+2. [Create a project API key](../use-api-keys.md#creating-api-keys) with the
+   `project:read_variables` scope. Set `LOGFIRE_API_KEY` in your application's environment.
+   Keep the key on your server. To connect to a self-hosted instance, also set
+   `LOGFIRE_BASE_URL` to the instance's origin.
+3. Install the Python dependencies with `pip install 'logfire[variables]'` and run this example.
+
+```python
+import logfire
+
+logfire.configure(send_to_logfire=False)
+
+new_checkout = logfire.var(name='new_checkout', type=bool, default=False)
+
+with new_checkout.get(targeting_key='account-123') as resolved:
+    print(resolved.value)
+    #> False
+```
+
+**Verify.** Turn the flag **On** in Logfire and run the example again. It prints `True`.
+In a long-running application, call `.get()` for each decision so it can use refreshed values.
+The toggle changes the default rollout. Any targeting rules you add still apply.
+For a percentage rollout, replace `account-123` with the stable ID of the account or user that
+receives the flag. See [Test flag changes in staging](targeting.md#test-flag-changes-in-staging)
+for project setup and environment rules.
+
+**Troubleshoot.** If the example still prints `False` after you turn the flag on, check that
+`LOGFIRE_API_KEY` has the read-variables scope and belongs to the project where you created the flag.
+The same example uses the code default when it starts without remote configuration.
+To send evaluations to Logfire, keep your app's existing Logfire configuration. For a new app,
+set `LOGFIRE_TOKEN` to a write token from the same project and call `logfire.configure()`.
+
 ## What Are Managed Variables?
 
 Managed variables are a way to externalize runtime configuration from your code. While they're especially powerful for AI applications (where prompt iteration is frequently critical), they work for any configuration you want to change without redeploying:
@@ -45,7 +81,7 @@ To roll out v3 to everyone, just move the `production` label from v2 to v3. To r
     If no labels are configured in the rollout, or if rollout weights sum to less than 1.0, the remaining traffic uses the **code default** (the `default` value passed to `logfire.var()`). To direct remaining traffic to the latest version instead, create a label that references `latest` and include it in your rollout.
 
 !!! note "Code default as safety net"
-    The `default` value you pass to `logfire.var()` serves as an always-available fallback hard-coded into your source code. If no versions have been created yet, or if the remote configuration is unreachable due to a networking issue, or if a remote value fails validation against your type, the SDK returns the code default instead of raising an error. This means your application always has a working value. The remote configuration improves it, but never breaks it.
+    The SDK uses your code default if it starts without remote configuration, if the rollout serves no value, or if a value fails validation. After a successful fetch, the SDK keeps using its last loaded configuration during a refresh failure. See [Remote variables](remote.md) for startup and refresh options.
 
 ## Structured Configuration
 

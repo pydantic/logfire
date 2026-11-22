@@ -25,7 +25,7 @@ from hypothesis.stateful import (
     invariant,
     precondition,
     rule,
-    run_state_machine_as_test,  # pyright: ignore[reportUnknownVariableType]
+    run_state_machine_as_test,
 )
 from opentelemetry import trace
 from pydantic import AfterValidator, BaseModel, Field, PlainSerializer, RootModel, ValidationError
@@ -1282,6 +1282,24 @@ def _evaluation_span_attributes(exporter: TestExporter) -> dict[str, Any]:
         if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
     )
     return dict(evaluation_span.attributes or {})
+
+
+def test_flag_evaluation_reports_the_revision_of_its_config(config_kwargs: dict[str, Any], exporter: TestExporter):
+    revision = 'a' * 64
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
+    payload = config.model_dump()
+    payload['variables']['test_flag']['experiment_revision'] = revision
+    parsed = VariablesConfig.model_validate(payload)
+    assert 'experiment_revision' not in parsed.model_dump()['variables']['test_flag']
+    logfire.configure(variables=LocalVariablesOptions(config=parsed, instrument=True), **config_kwargs)
+    test_flag = create_flag('test_flag', default=False)
+
+    test_flag.value(targeting_key='account-123')
+    assert _evaluation_span_attributes(exporter)['logfire.feature_flag.experiment_revision'] == revision
+
+    with test_flag.override(True):
+        test_flag.value(targeting_key='account-123')
+    assert 'logfire.feature_flag.experiment_revision' not in _evaluation_span_attributes(exporter)
 
 
 def test_feature_flag_telemetry_records_targeting_key_but_not_attributes(

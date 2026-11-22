@@ -9,7 +9,7 @@ from _typeshed import Incomplete
 from collections.abc import Iterator
 from functools import lru_cache
 from string import Formatter
-from types import CodeType as CodeType
+from types import CodeType
 from typing import Any, Literal
 from typing_extensions import NotRequired, TypedDict
 
@@ -29,6 +29,10 @@ chunks_formatter: Incomplete
 
 def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: BaseScrubber) -> str: ...
 def logfire_format_with_magic(format_string: Any, kwargs: dict[str, Any], scrubber: BaseScrubber, fstring_frame: types.FrameType | None = None) -> tuple[str, dict[str, Any], str]: ...
+
+LOGFIRE_PACKAGE_DIR: Incomplete
+
+def is_logfire_code(code: CodeType) -> bool: ...
 @lru_cache
 def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Source) -> tuple[str, CodeType, CodeType]:
     """Returns three things that can be expensive to compute.

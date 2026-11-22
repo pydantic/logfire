@@ -22,6 +22,7 @@ import logfire
 from logfire import configure
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire._internal.exporters.test import TestLogExporter
+from logfire._internal.tracer import OPEN_SPANS
 from logfire._internal.utils import get_version
 from logfire.integrations.pydantic import set_pydantic_plugin_config
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
@@ -159,6 +160,8 @@ def config_kwargs(
 
 @pytest.fixture(autouse=True)
 def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
+    # Tests reuse trace/span IDs; retained spans from earlier tests must not collide.
+    OPEN_SPANS.clear()
     logfire.DEFAULT_LOGFIRE_INSTANCE.variables_clear()
     configure(
         **config_kwargs,

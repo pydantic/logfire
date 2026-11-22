@@ -33,6 +33,12 @@ agent_config = logfire.var(
 4. If available, the SDK listens for Server-Sent Events (SSE) on `GET /v1/variable-updates/` and triggers an immediate refresh
 5. When you create a new version, move a label, or change a rollout in the UI, running applications pick up the change automatically via SSE or the next poll
 
+The first evaluation can wait on a network request by default. Set `block_before_first_resolve=False`
+to use code defaults while the SDK loads configuration in the background. After the first successful
+fetch, the SDK evaluates locally. If a refresh fails, the SDK continues to use the last configuration
+it loaded for the lifetime of the process until a refresh succeeds. A flag change such as turning a
+feature off reaches an application after that application refreshes.
+
 **Configuration options:**
 
 ```python skip="true"
@@ -146,6 +152,10 @@ logfire.variables_push(yes=True)
 ## Pushing Variable Types
 
 When you have multiple variables that share the same type (e.g., several variables all using the same `AgentConfig` Pydantic model), you can push the type definition itself as a reusable schema. This is done with `logfire.variables_push_types()`.
+
+In the **New flag** dialog, choose the template in **Flag value template**.
+When `logfire.variables_push()` creates a flag from a Pydantic model, it stores the generated JSON
+schema on that flag.
 
 **Why push variable types?**
 

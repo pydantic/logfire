@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import os
 from typing import Any
 
@@ -355,6 +356,42 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                     'logfire.span_type': 'span',
                 },
             },
+        ]
+    )
+
+
+def test_generator_close(exporter: TestExporter, caplog: pytest.LogCaptureFixture):
+    logfire.instrument_openai_agents()
+
+    def traced_generator(name: str):
+        with trace(name):
+            with custom_span('span_name'):
+                yield
+
+    # Closed from the context that advanced it, e.g. by breaking out of a loop over it.
+    generator = traced_generator('trace 1')
+    next(generator)
+    generator.close()
+    assert get_current_span() is None
+    assert get_current_trace() is None
+
+    # So starting the next trace doesn't make openai-agents warn that a trace already exists.
+    with trace('trace 2'):
+        pass
+    assert 'Trace already exists' not in caplog.text
+
+    # Finalized from another context, which can't reset the context the generator ran in: no error.
+    generator = traced_generator('trace 3')
+    contextvars.copy_context().run(next, generator)
+    generator.close()
+
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot(
+        [
+            'Custom span: {name}',
+            'OpenAI Agents trace: {name}',
+            'OpenAI Agents trace: {name}',
+            'Custom span: {name}',
+            'OpenAI Agents trace: {name}',
         ]
     )
 
@@ -2722,3 +2759,30 @@ def test_response_id_and_finish_reasons(fields: dict[str, Any], expected: list[s
 
     assert attributes['gen_ai.response.id'] == 'resp_1'
     assert attributes.get('gen_ai.response.finish_reasons') == expected
+
+
+def test_response_span_gateway_cost() -> None:
+    """The deduplicated Agents span reports the same gateway cost as the OpenAI span it replaces."""
+    response = Response.model_validate(
+        {
+            'id': 'resp_1',
+            'object': 'response',
+            'created_at': 0,
+            'model': 'gpt-4o-mini',
+            'status': 'completed',
+            'parallel_tool_calls': True,
+            'tool_choice': 'auto',
+            'tools': [],
+            'output': [],
+            'usage': {
+                'input_tokens': 10,
+                'input_tokens_details': {'cached_tokens': 0, 'cache_write_tokens': 0},
+                'output_tokens': 5,
+                'output_tokens_details': {'reasoning_tokens': 0},
+                'total_tokens': 15,
+                'logfire_ai_gateway': {'cost': '0.5'},
+            },
+        }
+    )
+    attributes = openai_agents.attributes_from_span_data(ResponseSpanData(response=response), 'Responses API')
+    assert attributes['operation.cost'] == 0.5

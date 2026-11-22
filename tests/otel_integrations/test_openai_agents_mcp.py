@@ -80,6 +80,40 @@ async def test_mcp_logger_is_data(exporter: TestExporter, logger_name: str | Non
         assert 'logger' not in attributes
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    'tool_name', ['my_tool', '{request}', '{request.params.arguments[x]}', '{missing!r:>20}', 'unmatched {']
+)
+async def test_mcp_tool_name_is_data(exporter: TestExporter, tool_name: str):
+    fastmcp = FastMCP()
+
+    async def my_tool(x: int = 0) -> str:
+        return 'done'
+
+    fastmcp.tool(name=tool_name)(my_tool)
+    ClientSession = import_module('mcp.client.session').ClientSession
+    async with create_client_server_memory_streams() as (client_streams, server_streams):
+        async with anyio.create_task_group() as task_group:
+            server = fastmcp._mcp_server
+            task_group.start_soon(server.run, *server_streams, server.create_initialization_options())
+            async with ClientSession(*client_streams) as session:
+                await session.initialize()
+                await session.call_tool(tool_name, {'x': 1})
+            task_group.cancel_scope.cancel()
+
+    spans = [
+        span
+        for span in exporter.exported_spans_as_dict(parse_json_attributes=True)
+        if span['attributes'].get('rpc.method') == 'tools/call'
+    ]
+    assert len(spans) == 1
+    assert spans[0]['name'] == f'MCP request: tools/call {tool_name}'
+    attributes = spans[0]['attributes']
+    assert attributes['logfire.msg_template'] == 'MCP request: tools/call {request.params.name}'
+    assert attributes['logfire.msg'] == f'MCP request: tools/call {tool_name}'
+    assert attributes['request']['params']['name'] == tool_name
+
+
 @pytest.mark.vcr()
 @pytest.mark.anyio
 async def test_mcp(exporter: TestExporter):
@@ -377,7 +411,7 @@ async def test_mcp(exporter: TestExporter):
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
                     'rpc.method': 'tools/call',
-                    'logfire.msg_template': 'MCP request: tools/call random_number',
+                    'logfire.msg_template': 'MCP request: tools/call {request.params.name}',
                     'logfire.msg': 'MCP request: tools/call random_number',
                     'logfire.span_type': 'span',
                     'response': {

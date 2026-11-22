@@ -259,7 +259,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self.is_recording():
-            if isinstance(exc_value, BaseException):
+            if isinstance(exc_value, BaseException) and not isinstance(exc_value, GeneratorExit):
                 self.record_exception(exc_value, escaped=True)
             self.end()
 
@@ -481,11 +481,13 @@ def record_exception(
         event_attributes={**(attributes or {})},
     )
 
+    status_before_callback = getattr(span, 'status', None)
     if callback is not None:
         with handle_internal_errors:
             callback(helper)
 
-    if helper.level >= 'error':
+    # A status set by the callback (e.g. to keep the exception message out of the description) wins.
+    if helper.level >= 'error' and getattr(span, 'status', None) is status_before_callback:
         set_exception_status(span, exception)
 
     if not helper._record_exception:  # pyright: ignore[reportPrivateUsage]

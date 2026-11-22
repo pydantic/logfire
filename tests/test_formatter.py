@@ -1,13 +1,15 @@
 import contextlib
 from collections import ChainMap
 from collections.abc import Mapping
-from types import SimpleNamespace
+from types import FrameType, SimpleNamespace
 from typing import Any
 
+import executing
 import pytest
 from inline_snapshot import snapshot
 
 import logfire
+from logfire._internal import formatter
 from logfire._internal.formatter import FormattingFailedWarning, chunks_formatter, logfire_format
 from logfire._internal.scrubbing import NOOP_SCRUBBER, JsonPath, Scrubber
 from logfire.testing import TestExporter
@@ -64,6 +66,33 @@ def test_three():
 def test_dict():
     v = chunks('{foo[bar]}', {'foo': {'bar': 42}})
     assert v == snapshot([{'t': 'arg', 'v': '42'}])
+
+
+@pytest.mark.parametrize(
+    'key', ['name', 'first name', 'content-type', 'service.name', '__class__', 'café', '日本語', 'a_1 .-']
+)
+def test_allowed_lookup_keys(key: str):
+    assert logfire_format('{value[' + key + ']}', {'value': {key: 42}}, NOOP_SCRUBBER) == '42'
+
+
+@pytest.mark.parametrize(
+    'key',
+    ['call()', '"name"', "'name'", 'a[b', 'a+b', 'a/b', 'a:b', 'a;b', 'a\\b', 'a\tb', 'a\nb', '__import__("os")'],
+)
+@pytest.mark.parametrize('template', ['{value[KEY]}', '{value[safe][KEY]}', '{number:{value[KEY]}}'])
+def test_rejected_lookup_keys(key: str, template: str):
+    class UnexpectedLookup:
+        def __getitem__(self, key: str) -> Any:
+            pytest.fail('Invalid keys must be rejected before any subscription is performed')
+
+    template = template.replace('KEY', key)
+    with pytest.warns(FormattingFailedWarning, match='Square bracket lookup keys may only contain'):
+        assert logfire_format(template, {'value': UnexpectedLookup(), 'number': 1}, NOOP_SCRUBBER) == template
+
+
+def test_lookup_indices_and_dunder_attributes():
+    assert logfire_format('{value[0]}', {'value': [42]}, NOOP_SCRUBBER) == '42'
+    assert logfire_format('{value.__class__.__name__}', {'value': 42}, NOOP_SCRUBBER) == 'int'
 
 
 def test_truncate():
@@ -256,3 +285,92 @@ async def test_await_in_fstring(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_nested_scope_in_fstring(exporter: TestExporter):
+    """A lambda, generator expression or comprehension in an f-string isn't evaluated again, so warn."""
+    items = [1, 2, 3]
+    n = 10
+    precision = 2
+    name = 'local'
+
+    with pytest.warns(FormattingFailedWarning) as warnings:
+        logfire.info(f'joined {", ".join(str(y) for y in items)}')
+        logfire.info(f'doubled {[y * 2 for y in items]}')
+        logfire.info(f'lambda {(lambda: n)()}')
+        logfire.info(f'spec {n:.{(lambda: precision)()}f}')
+        # Evaluated again, the generator expression would look up `name` in the module globals
+        logfire.info(f'name {next(name for _ in items)}', name='kwarg')
+
+    assert [str(w.message).splitlines()[-1].strip() for w in warnings] == snapshot(
+        [
+            'The problem was: Cannot evaluate the f-string value {", ".join(str(y) for y in items)} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {[y * 2 for y in items]} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {(lambda: n)()} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {n} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+            'The problem was: Cannot evaluate the f-string value {next(name for _ in items)} because it contains a lambda, generator expression or comprehension. Assign the value to a variable before logging.',
+        ]
+    )
+    assert [
+        (span['attributes']['logfire.msg_template'], span['attributes']['logfire.msg'])
+        for span in exporter.exported_spans_as_dict()
+    ] == snapshot(
+        [
+            ('joined 1, 2, 3', 'joined 1, 2, 3'),
+            ('doubled [2, 4, 6]', 'doubled [2, 4, 6]'),
+            ('lambda 10', 'lambda 10'),
+            ('spec 10.00', 'spec 10.00'),
+            ('name local', 'name local'),
+        ]
+    )
+
+
+def test_logfire_calls_skip_fstring_magic(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    """Spans that logfire opens itself don't run `executing` on their call site (#2771)."""
+    # In tests, logfire's own calls are checked for f-strings, which needs `executing`. Turn that off.
+    monkeypatch.delenv('PYTEST_CURRENT_TEST')
+    inspected: list[str] = []
+    real_executing = executing.Source.executing.__func__
+
+    def spy(cls: type[executing.Source], frame: FrameType) -> Any:
+        inspected.append(frame.f_code.co_filename)
+        return real_executing(cls, frame)
+
+    monkeypatch.setattr(executing.Source, 'executing', classmethod(spy))
+
+    with logfire.var('my_flag', type=bool, default=False).get():
+        pass
+    assert inspected == []
+
+    # Calls from user code still get the magic.
+    x = 1
+    logfire.info(f'user {x}')
+    assert inspected == [__file__]
+
+    assert [span['attributes']['logfire.msg_template'] for span in exporter.exported_spans_as_dict()] == snapshot(
+        ['Declare variable my_flag', 'Resolve variable my_flag', 'user {x}']
+    )
+
+
+def test_logfire_fstring_call_fails_in_tests(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    """In tests, an f-string passed by logfire's own code is an error, since the magic is skipped for it."""
+    monkeypatch.setattr(formatter, 'is_logfire_code', lambda code: code.co_filename == __file__)  # type: ignore
+
+    x = 1
+    with pytest.raises(AssertionError, match='Logfire called itself with an f-string'):
+        logfire.info(f'internal {x}')
+
+    # Re-evaluating the expression can fail, and that must not hide the f-string either.
+    calls: list[int] = []
+
+    def fails_when_called_again() -> int:
+        calls.append(1)
+        if len(calls) > 1:
+            raise RuntimeError('called again')
+        return x
+
+    with pytest.raises(RuntimeError, match='called again'):
+        logfire.info(f'internal {fails_when_called_again()}')
+
+    logfire.info('internal {x}', x=x)
+    assert [span['attributes']['logfire.msg'] for span in exporter.exported_spans_as_dict()] == snapshot(['internal 1'])

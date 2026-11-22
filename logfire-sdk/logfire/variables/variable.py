@@ -386,6 +386,8 @@ def _feature_flag_telemetry_attributes(
         # Keep that useful detail without assigning OpenTelemetry's `feature_flag.version`, which
         # is reserved for a version that uniquely identifies the flag or flag set configuration.
         result_attributes['logfire.feature_flag.value_version'] = result.version
+    if result.experiment_revision is not None and details.error_code is None:
+        result_attributes['logfire.feature_flag.experiment_revision'] = result.experiment_revision
     if details.error_code is not None:
         result_attributes['error.type'] = details.error_code.lower()
         # Every internal error classification above has a matching safe, generic message.
@@ -944,6 +946,7 @@ class _FlagEvaluationCore(Generic[T_co]):
                 reason='resolved',
                 composed_from=composed,
                 rule_evaluation_reason=serialized_result.rule_evaluation_reason,
+                experiment_revision=serialized_result.experiment_revision,
             ),
         )
 
@@ -1666,6 +1669,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
             composed_from=result.composed_from,
             reason=result.reason,
             rule_evaluation_reason=result.rule_evaluation_reason,
+            experiment_revision=result.experiment_revision,
             provider_state=provider_state,
             flag_not_found=self._is_flag_not_found(result, provider_state),
             targeting_key_source=_FEATURE_TARGETING_KEY_SOURCE.get(),

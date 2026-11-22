@@ -53,7 +53,7 @@ If pods cannot pull images, check that:
 * `imagePullSecrets` in your values file references that secret name.
 * The secret was created from the current image pull key provided by Pydantic.
 
-The [production requirements](./installation.md#image-pull-secret) page shows the expected secret shape.
+The chart README step [Create the image pull secret](https://github.com/pydantic/logfire-helm-chart/tree/main/charts/logfire#2-create-the-image-pull-secret) shows the expected secret shape.
 
 ## PostgreSQL Migration Failures
 

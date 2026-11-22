@@ -209,3 +209,37 @@ logfire.configure(
     ),
 )
 ```
+
+## Reuse targeting conditions
+
+Save a rule's conditions as a target to reuse them from **Add rule**. Logfire saves the target
+for the current project in this browser. Adding a saved target copies its conditions into the
+new rule. After you publish that rule, its conditions apply to the project's flag evaluations.
+
+## Test flag changes in staging
+
+Logfire stores flag definitions, saved values, and rollouts in a project. Applications that read
+from the same project share those settings.
+
+**Use separate projects for independent changes.** Create a [project for each deployment stage](../../../guides/web-ui/organizations-and-projects.md).
+Define the same flag name and type in both projects. Give each application a read key scoped to its
+project. In Logfire, select the staging project before turning on the flag. Verify the result in
+the staging application, then switch to the production project when you are ready to roll it out.
+
+**Use a targeting rule to serve different values in a shared project.** Set
+`LOGFIRE_ENVIRONMENT=staging` in the staging application. In the flag's targeting settings, add a
+rule that matches `deployment.environment.name` equal to `staging` and serves the staging value.
+Keep the production value in the default rollout. Evaluate the flag in both applications after
+publishing. Applications outside the rule follow the default rollout.
+
+## Turn off a boolean flag for everyone
+
+If a flag has published targeting rules, open **Configure** and select **Turn off for everyone**
+below the rules. Logfire clears the active rules, saves `false` as the value for everyone, and
+records the earlier configuration in **History**. Use **Restore previous targeting** on that
+history entry to bring back the previous default and rules.
+
+The switch above the rules changes the default rollout. Matching rules still apply when you use
+that switch. After either change, verify the result in the running application. A connected
+application picks up the change when its flag configuration refreshes. An application that
+cannot fetch configuration can keep using its last loaded values.

@@ -6,6 +6,8 @@ description: "Learn how to use Logfire to keep logs & sensitive data safe: Autom
 
 The **Logfire** SDK scans for and redacts potentially sensitive data from logs and spans before exporting them.
 
+Scrubbing applies only to data that the SDK has not sent yet. If sensitive data already reached Logfire, delete it with a [deletion job](data-deletion.md).
+
 ## Disabling scrubbing
 
 To disable scrubbing entirely, set [`scrubbing`][logfire.configure(scrubbing)] to `False`:
@@ -35,6 +37,11 @@ logfire.info(
 )
 ```
 
+!!! warning "Do not match secret text with `extra_patterns`"
+
+    Use `extra_patterns` to recognize field names such as `customer_pin`, not to match the secret value itself. By default, Logfire copies the matched text into both the `[Scrubbed due to ...]` replacement and the `logfire.scrubbed` attribute.
+    To mask sensitive text inside a string, use [a string transformer](#masking-part-of-a-string).
+
 Here are the default scrubbing patterns:
 
 ```python
@@ -55,6 +62,7 @@ Here are the default scrubbing patterns:
     'credit[._ -]?card',
     'logfire[._ -]?token',
     '(?:access|refresh|bearer|(?:\\b|_)id)[._ -]?token',
+    'security[._ -]?token',
     'pylf_v\\d+_',
     '(?:\\b|_)csrf(?:\\b|_)',
     '(?:\\b|_)xsrf(?:\\b|_)',
@@ -85,11 +93,70 @@ def scrubbing_callback(match: logfire.ScrubMatch):
 logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
 ```
 
+Logfire scrubs a value before checking whether its key matches a pattern. This includes strings and values inside dictionaries, lists, and JSON-encoded containers. Your callback for a matching key receives the scrubbed value, so it can return that value unchanged or return a subset of a container. If it returns a different value, Logfire uses that replacement without scrubbing it again. For most safe keys, Logfire skips pattern matching inside their values; structured message attributes are treated differently, as described below.
+
+If the callback returns a value unchanged (or returns an equal copy of the same type), Logfire checks other patterns that match at the same position, then later positions in the same key or string value. The callback may run more than once for one key or value. A different returned value is used as the final value. After 100 allowed matches in one string, Logfire redacts the value to limit the search cost.
+
+!!! warning "Keep scrubbing callbacks simple and pure"
+
+    Base your callback on the match and any configuration that is safe to share across threads.
+    Request-local values, such as values stored in a Python `ContextVar`, may be unavailable on the background thread.
+    The callback should not have side effects.
+    Do not mutate `match.value` in place. Logfire may not detect the change, so the mutated value may not be written back.
+    If the callback raises an exception, Logfire logs the error and redacts the matched value as though the callback returned `None`. Scrubbing then continues.
+    It should return quickly, as it can get called many times.
+
+## Masking part of a string
+
+Use [`transform_string`][logfire.ScrubbingOptions.transform_string] to replace sensitive text while keeping the rest of a value. The callback receives the string and its path:
+
+```python
+import re
+
+import logfire
+from logfire.types import StringValue
+
+
+def mask_email(item: StringValue) -> str:
+    if '@' not in item.value:
+        return item.value
+    return re.sub(r'\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b', '[email]', item.value)
+
+
+logfire.configure(scrubbing=logfire.ScrubbingOptions(transform_string=mask_email))
+logfire.info('Contact {email}', email='alice@example.com')
+```
+
+The exported `email` attribute and formatted message contain `[email]`. The callback runs on string values inside JSON and under keys that are exempt from pattern matching. Pattern matching runs on the returned string where permitted.
+
+The callback runs for every string the scrubber reaches, including large values. Logfire excludes control and source metadata such as `logfire.span_type` and `code.filepath`. The email regex above is illustrative and can take quadratic time on long strings containing `@`; the initial `@` check does not prevent that. Check the performance of your matcher on the longest values you expect to log.
+
+Logfire transforms `logfire.msg` when it is a string. If this attribute contains a nonempty, non-string value, Logfire leaves the value and any strings inside it unchanged.
+
+!!! warning "Choose a fallback for masking errors"
+
+    If a call to `transform_string` raises an exception, Logfire logs the error and keeps that call's input string. It continues with other strings. Pattern matching still runs where permitted, but a value such as an email address may be exported unchanged.
+
+    If you handle errors inside your callback, redact only values you know are sensitive. A catch-all handler that returns `'[redacted]'` for every error could replace every string if the transformer breaks, leaving little usable telemetry.
+
+## When Logfire scrubs spans
+
+Scrubbing span attributes is slow, so it happens in a background thread when possible.
+It will instead happen on the calling thread if any of the following are true:
+
+- Console logging is enabled and prints attributes, i.e. `include_attributes` is `True`, or it is unset and `verbose` is `True`.
+- A span processor is included in `additional_span_processors` that implements an `on_end` hook and isn't a `BatchSpanProcessor`.
+
+Message template fields are scrubbed on the calling thread. If `transform_string` is configured,
+Logfire also transforms the assembled message, tags, and displayed exception details on that thread.
+Keep objects with large string representations out of messages.
+If neither condition above applies, log large objects as span attributes so they can be scrubbed in the background.
+
 ## Security tips
 
 ### Use message templates
 
-The full span/log message is not scrubbed, only the fields within. For example, this:
+Pattern matching checks message fields rather than the assembled message. For example, this:
 
 ```python skip="true" skip-reason="incomplete"
 logfire.info('User details: {user}', user=User(id=123, password='secret'))
@@ -121,6 +188,8 @@ Using f-strings (e.g. `logfire.info(f'User details: {user}')`) *is* safe if `ins
 
 In short, don't format the message yourself. This is also a good practice in general for [other reasons](../guides/onboarding-checklist/add-manual-tracing.md#messages-and-span-names).
 
+The `transform_string` callback *will* run on the assembled message.
+
 ### Keep sensitive data out of URLs
 
 The attribute `"http.url"` which is recorded by OpenTelemetry instrumentation libraries is considered safe so that URLs like `"http://example.com/users/123/authenticate"` are not redacted.
@@ -136,12 +205,11 @@ you use an interpolation method that's safe from SQL injection.
 
 ### LLM and AI messages
 
-Scrubbing is **disabled** for LLM message attributes such as `gen_ai.input.messages`, `gen_ai.output.messages`, and `pydantic_ai.all_messages`. This is intentional because:
+For `gen_ai.input.messages`, `gen_ai.output.messages`, `gen_ai.system_instructions`, and `pydantic_ai.all_messages`, Logfire checks nested field names for sensitive patterns. For example, it redacts the value of a `password` field inside a tool call. It does not check the message's string values for patterns, so ordinary text containing words such as "password" or "secret" remains visible. A configured `transform_string` callback still runs on those strings.
 
-1. **False positives**: LLMs frequently produce content containing words like "password" or "secret" in normal conversation (e.g., "Your password has been reset" or "The secret to success is..."), which would trigger false positives.
-2. **Ineffective detection**: LLMs might output sensitive data without using any keywords that regex-based scrubbing could detect.
+This avoids false positives in ordinary conversation while catching some structured tool arguments and responses. It does not detect sensitive content in prose or under an innocuous field name.
 
-Because of these limitations, if your LLM interactions might contain sensitive data, the recommended approach is to **exclude message content from logging entirely** rather than relying on scrubbing. For example, with [Pydantic AI](../integrations/llms/pydanticai.md):
+If your LLM interactions might contain sensitive data, **exclude message content from logging entirely** rather than relying on pattern scrubbing. For example, with [Pydantic AI](../integrations/llms/pydanticai.md):
 
 ```python skip-run="true" skip-reason="external-connection"
 import logfire

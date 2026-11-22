@@ -171,3 +171,40 @@ def test_structlog_tags_merged_with_instance_tags(exporter: TestExporter) -> Non
 
     [span] = exporter.exported_spans_as_dict()
     assert span['attributes']['logfire.tags'] == ('instance', 'foo')
+
+
+def test_structlog_critical_is_fatal(exporter: TestExporter, logger: structlog.BoundLogger) -> None:
+    logger.critical('boom')
+
+    assert exporter.exported_spans_as_dict(fixed_line_number=None) == snapshot(
+        [
+            {
+                'name': 'boom',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 21,
+                    'logfire.msg_template': 'boom',
+                    'logfire.msg': 'boom',
+                    'code.filepath': 'test_structlog.py',
+                    'code.function': 'test_structlog_critical_is_fatal',
+                    'code.lineno': 177,
+                    'logfire.disable_console_log': True,
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.parametrize('attributes', [{}, {'logfire.msg': None}])
+def test_structlog_message_is_not_formatted(
+    exporter: TestExporter, logger: structlog.BoundLogger, attributes: dict[str, str | None]
+) -> None:
+    logger.info('hello {name:>1000}', name='world', **attributes)
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg_template'] == 'hello {name:>1000}'
+    assert span['attributes']['logfire.msg'] == ('None' if attributes else 'hello {name:>1000}')

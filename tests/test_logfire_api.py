@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import logging
 import subprocess
 import sys
 import warnings
@@ -13,6 +14,7 @@ from typing import get_args
 from unittest.mock import MagicMock
 
 import pytest
+from loguru import logger as loguru_logger
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from pydantic import __version__ as pydantic_version
 
@@ -244,7 +246,11 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     assert hasattr(logfire_api, 'configure')
     # inspect_arguments=False: f-string introspection has dedicated coverage elsewhere,
     # and `executing` can sporadically fail to match a node under a heavily loaded machine.
-    logfire_api.configure(send_to_logfire=False, console=False, inspect_arguments=False)
+    configured = logfire_api.configure(send_to_logfire=False, console=False, inspect_arguments=False)
+    assert configured is logfire_api.DEFAULT_LOGFIRE_INSTANCE
+    local_configured = logfire_api.configure(local=True, send_to_logfire=False, console=False, inspect_arguments=False)
+    assert isinstance(local_configured, logfire_api.Logfire)
+    assert local_configured is not logfire_api.DEFAULT_LOGFIRE_INSTANCE
     logfire__all__.remove('configure')
 
     assert hasattr(logfire_api, 'VERSION')
@@ -465,6 +471,15 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
             logfire_api.agent_sandboxes()
     logfire__all__.remove('agent_sandboxes')
 
+    for member in ('instrument_sqlite3', 'instrument_mysql'):
+        assert hasattr(logfire_api, member), member
+        if module_name == 'logfire_api.':
+            conn = MagicMock()
+            assert getattr(logfire_api, member)(conn) is conn
+            assert getattr(logfire_api, member)(conn=conn) is conn
+        assert getattr(logfire_api, member)() is None
+        logfire__all__.remove(member)
+
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
         if member == 'instrument_monty' and module_name == 'logfire.':
@@ -477,7 +492,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire__all__.remove(member)
 
     assert hasattr(logfire_api, 'shutdown')
-    logfire_api.shutdown()
+    assert logfire_api.shutdown() is True
     logfire__all__.remove('shutdown')
 
     assert hasattr(logfire_api, 'AutoTraceModule')
@@ -485,15 +500,28 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('AutoTraceModule')
 
     assert hasattr(logfire_api, 'LogfireLoggingHandler')
-    logfire_api.LogfireLoggingHandler()
+    logging_handler = logfire_api.LogfireLoggingHandler()
+    assert isinstance(logging_handler, logging.Handler)
+    stdlib_logger = logging.getLogger('test_logfire_api')
+    stdlib_logger.addHandler(logging_handler)
+    try:
+        stdlib_logger.warning('stdlib logging message')
+    finally:
+        stdlib_logger.removeHandler(logging_handler)
     logfire__all__.remove('LogfireLoggingHandler')
 
     assert hasattr(logfire_api, 'loguru_handler')
     logfire_api.loguru_handler()
+    handler_id = loguru_logger.add(**logfire_api.loguru_handler(console_log=False))
+    try:
+        loguru_logger.info('loguru message')
+    finally:
+        loguru_logger.remove(handler_id)
     logfire__all__.remove('loguru_handler')
 
     assert hasattr(logfire_api, 'StructlogProcessor')
-    logfire_api.StructlogProcessor()
+    event_dict = {'event': 'structlog message', 'level': 'info'}
+    assert logfire_api.StructlogProcessor()(None, 'info', event_dict) is event_dict
     logfire__all__.remove('StructlogProcessor')
 
     assert hasattr(logfire_api, 'SamplingOptions')

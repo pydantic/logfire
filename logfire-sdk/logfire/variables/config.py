@@ -311,6 +311,8 @@ class VariableConfig(BaseModel):
     """Conditional overrides evaluated in order; first match takes precedence."""
     latest_version: LatestVersion | None = None
     """The latest (highest) version of the variable, if any versions exist."""
+    experiment_revision: str | None = Field(default=None, exclude=True)
+    """Identity of the experiment assignments in this provider snapshot."""
     json_schema: dict[str, Any] | None = None
     """JSON schema describing the expected type of this variable's values."""
     type_name: str | None = None
@@ -556,6 +558,7 @@ class VariablesConfig(BaseModel):
             value=serialized_value,
             label=selected_label,
             version=version,
+            experiment_revision=variable_config.experiment_revision if serialized_value is not None else None,
             reason='resolved',
             rule_evaluation_reason=(
                 'static' if explicit_label_selected else variable_config.rule_evaluation_reason(attributes)

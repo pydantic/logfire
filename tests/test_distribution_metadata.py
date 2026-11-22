@@ -44,7 +44,7 @@ def test_distribution_versions_and_dependencies_stay_in_sync() -> None:
     requirements = [Requirement(item) for item in meta['dependencies']]
     dependencies = {requirement.name: requirement for requirement in requirements}
     assert str(dependencies['logfire-sdk'].specifier) == f'=={sdk["version"]}'
-    assert set(dependencies) == {'logfire-sdk'}
+    assert set(dependencies) == {'logfire-sdk', 'logfire-cli'}
 
     sdk_requirements = {requirement.name: requirement for requirement in map(Requirement, sdk['dependencies'])}
     assert str(sdk_requirements['requests'].specifier) == '>=2.31.0'
@@ -69,12 +69,12 @@ def test_meta_package_forwards_every_sdk_extra() -> None:
 
 
 def test_sdk_does_not_own_the_logfire_executable() -> None:
-    """Let the compatibility package own the `logfire` command for the SDK's Python CLI."""
+    """Let the compatibility package own the `logfire` command for the standalone CLI."""
     sdk = load_pyproject(ROOT / 'logfire-sdk' / 'pyproject.toml')['project']
     meta = load_pyproject(ROOT / 'logfire' / 'pyproject.toml')['project']
 
     assert 'scripts' not in sdk
-    assert meta['scripts'] == {'logfire': 'logfire.cli:main'}
+    assert meta['scripts'] == {'logfire': 'logfire_cli:main'}
 
 
 def test_editable_sdk_uses_the_source_tree() -> None:

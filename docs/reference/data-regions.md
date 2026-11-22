@@ -44,7 +44,9 @@ Consider the following factors when selecting a region:
 
 ## Connecting the SDK and API
 
-When you run `logfire auth` and create a project, the SDK picks up the right region automatically from your write token. You don't need to configure a base URL.
+When you [connect your project](../first-trace.md), the CLI saves its write token locally.
+The SDK picks up the right region from that token. Signing in alone does not save project credentials.
+Pass the same `--region` to `uvx logfire-cli auth` and `uvx logfire-cli init` when choosing a non-default region.
 
 You only need your region's URL when talking to Logfire from outside the Python SDK:
 

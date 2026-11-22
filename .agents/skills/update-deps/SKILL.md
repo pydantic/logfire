@@ -20,6 +20,8 @@ make format && make lint && make typecheck && make docs
 
 uv run pytest --inline-snapshot=fix
 
+Run snapshot-writing test processes sequentially. Wait for each process to finish before starting another snapshot run or editing files it can update; overlapping runs can apply stale source offsets and corrupt test files.
+
 Running tests the first time will likely update some snapshots. Just commit those changes even if some tests are still failing.
 
 After seeing what tests fail the first time, any future running of tests in this workflow should only be for some small subset. The full test suite will run in CI.
@@ -29,5 +31,7 @@ Run failed tests again. If the same snapshots get updated again, use `dirty_equa
 `git push origin HEAD` and create a PR with the `test:all-deps` label. No description needed.
 
 For remaining test failures, investigate and explain the problem.
+
+Do not hide compatibility failures with skips or import-error suppression just to make CI pass. If an upstream development build breaks a dependency, report the root cause. Gate unsupported released versions using declared dependency requirements; change the CI matrix only after an explicit decision.
 
 Keep the label on the PR and wait for both regular CI and the full dependency compatibility workflow to pass. The full workflow reruns after each push while the label is present.

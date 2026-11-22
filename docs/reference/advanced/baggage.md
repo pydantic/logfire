@@ -52,7 +52,7 @@ Then you can update your query to
 
 ## Disabling
 
-If you don't want to add Baggage to span attributes, pass `add_baggage_to_attributes=False` to the
+If you do not want to add Baggage to span and log record attributes, pass `add_baggage_to_attributes=False` to the
 [`logfire.configure()`][logfire.configure] function. This may slightly improve performance.
 The [`set_baggage`][logfire.set_baggage] contextmanager will still update the OpenTelemetry Baggage and propagate it to other services.
 

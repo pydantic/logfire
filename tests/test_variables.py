@@ -3340,6 +3340,24 @@ class TestVariable:
         assert result.value == 'my_default'
         assert result.reason == 'code_default'
 
+    def test_invalid_code_default_reports_validation_error_on_every_resolve(self, config_kwargs: dict[str, Any]):
+        """Invalid sentinel defaults must report validation failures so upgrade guidance matches repeated resolves."""
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        class Settings(BaseModel):
+            retries: int = Field(gt=0)
+
+        default = Settings.model_construct(retries=0)
+        var = lf.var(name='invalid_code_default', default=default, type=Settings)
+
+        for _attempt in range(2):
+            with pytest.warns(RuntimeWarning, match='value failed validation'):
+                result = var.get()
+            assert result.value is default
+            assert result.reason == 'validation_error'
+            assert isinstance(result.exception, ValidationError)
+
     def test_get_calls_function_default_once_when_no_config(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)

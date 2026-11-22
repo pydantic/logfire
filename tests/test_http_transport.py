@@ -440,7 +440,9 @@ def test_credentials_check_session_gets_the_policy(
 ) -> None:
     captured_session: list[requests.Session] = []
 
-    def from_token(cls: type[LogfireCredentials], token: str, session: requests.Session, base_url: str) -> None:
+    def from_token(
+        cls: type[LogfireCredentials], token: str, session: requests.Session, base_url: str, **_: Any
+    ) -> None:
         assert token == 'test-token'
         assert base_url == 'https://logfire-us.pydantic.dev'
         captured_session.append(session)

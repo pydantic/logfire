@@ -139,6 +139,8 @@ class ResolvedVariable(Generic[T_co]):
     """How the variable was resolved (see `ResolutionReason` for possible values)."""
     rule_evaluation_reason: RuleEvaluationReason | None = field(default=None, repr=False, compare=False)
     """How the provider rule selected this value, when available from the resolution snapshot."""
+    experiment_revision: str | None = field(default=None, repr=False, compare=False)
+    """Identity of the experiment assignments in the provider snapshot."""
 
     def __post_init__(self):
         self._exit_stack = ExitStack()
@@ -1188,6 +1190,7 @@ class VariableProvider(ABC):
             value=serialized,
             label=label,
             version=version,
+            experiment_revision=config.experiment_revision if serialized is not None else None,
             # A ref that resolves to nothing (e.g. a `code_default` ref the server can't supply) is
             # not a successful resolution — surface missing_config so callers/baggage aren't told a
             # value was used when it wasn't.

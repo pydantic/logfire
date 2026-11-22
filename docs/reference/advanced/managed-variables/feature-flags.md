@@ -23,7 +23,7 @@ Flags are managed variables, so they follow the same naming rules: use ASCII let
 import logfire
 from logfire.experimental.feature_flags import feature_context, flag
 
-logfire.configure()
+logfire.configure(send_to_logfire=False)
 
 new_checkout = flag(
     'new_checkout',
@@ -35,6 +35,8 @@ with feature_context('account-123', attributes={'plan': 'team'}):
     print(new_checkout.value())
     #> False
 ```
+
+This example only reads flag configuration. To send evaluation telemetry, use your app's existing Logfire configuration. For a new app, set `LOGFIRE_TOKEN` to a write token from the same project and call `logfire.configure()`.
 
 Each value configured for a flag in Logfire is a label, and the label an evaluation selects is its *variant*. A *percentage rollout* serves each label to a share of subjects, for example 10% `on` and 90% `off`. The targeting key identifies the subject receiving the flag. Use a stable user or organization identifier so a percentage rollout keeps each subject on the same variant. Attributes let targeting rules select groups such as plans or regions. Context set by `feature_context()` also applies to other managed variables evaluated inside the block; pass `targeting_key` or `attributes` directly to an evaluation when it needs different values.
 
@@ -124,6 +126,39 @@ The entry's value is the variant. When the evaluation returned the code default,
 
 Baggage travels with distributed tracing. Downstream services receive the entry, and so do outgoing HTTP requests from instrumented clients, including requests to third-party APIs. This is usually what you want for analysis across services, but don't use it for variant names that must stay private.
 
+## Measure a checkout experiment
+
+A product experiment compares how often a recorded trace reaches one outcome, such as a completed checkout.
+Use the read key and write token from the same project. Configure the application to send telemetry to Logfire.
+Update your Python SDK before starting a new experiment so evaluation spans include the rollout revision.
+
+Evaluate the flag inside the checkout trace with a stable account ID. Record the success span after the flag
+evaluation, in the same trace. In this example, replace `submit_order` with your application code.
+
+```python skip="true"
+def checkout(account_id: str) -> None:
+    with logfire.span('checkout.request'):
+        use_new_flow = new_checkout.value(targeting_key=account_id)
+        if submit_order(use_new_flow=use_new_flow):
+            with logfire.span('checkout.completed'):
+                pass
+```
+
+1. In **Feature Flags**, save a value for each variant and publish a default rollout that allocates 100%
+   of traffic between them. Remove flag targeting rules for this experiment.
+2. On the flag's **Impact** tab, select **Start experiment**. Choose your existing experience as the
+   **Control variant** and enter `checkout.completed` as the **Successful outcome span**.
+3. Send traffic to both variants and refresh the results. Each variant shows how many traces contained
+   the outcome and the share of that variant's traces that converted.
+
+The difference describes the recorded traces. An account can contribute multiple traces. Keep the
+flag's values, any values they reference, and trace sampling consistent while you collect results.
+New experiments count evaluations from the recorded rollout revision. The comparison excludes traces
+that contain an evaluation from an older rollout, an SDK that omits the revision, a fallback, or an
+override. It also excludes traces that cross variants or use a variant outside the experiment.
+Publishing a change to the flag's serving configuration ends the experiment.
+Open **Previous experiments** to review results for the original measurement window.
+
 ## Test both outcomes
 
 Override a flag without changing remote configuration. Nest overrides to check both outcomes without relying on the remote value:
@@ -179,11 +214,16 @@ print(beta_banner.value())
 #> True
 ```
 
-Flags don't support `logfire.var()`'s `label=` argument for selecting a label by name. To serve a different value in each environment, add a targeting rule on the `deployment.environment.name` resource attribute instead. Resource attributes describe the running application, and `logfire.configure(environment=...)` sets this one.
+Flags don't support `logfire.var()`'s `label=` argument for selecting a label by name. See [Test flag changes in staging](targeting.md#test-flag-changes-in-staging) for project setup and environment rules.
+
+See [Turn off a boolean flag for everyone](targeting.md#turn-off-a-boolean-flag-for-everyone) for disabling a flag with published targeting rules and restoring them from history.
 
 ## Verify the flag
 
-Run the application once, then find `feature_flag.evaluation` in Logfire. Confirm that it includes `feature_flag.key` and the outcome you expected.
+Evaluate the flag in your application. If the app sends telemetry, open the flag in Logfire and
+select **View usage**. Open a `feature_flag.evaluation` span and confirm the value and reason.
+If you are using the read-only example above, change the saved flag value and evaluate it again
+to verify that the application picks up the change.
 
 ## Troubleshoot the flag
 

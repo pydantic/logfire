@@ -22,7 +22,7 @@ Note that you can also set this via the `LOGFIRE_ENVIRONMENT` environment variab
 #### Setting environments in other languages
 
 If you are using languages other than Python, you can set the environment like this:
-`OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=prod"`
+`OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=production"`
 
 ---
 

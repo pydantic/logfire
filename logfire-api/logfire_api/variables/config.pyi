@@ -119,6 +119,7 @@ class VariableConfig(BaseModel):
     rollout: Rollout
     overrides: list[RolloutOverride]
     latest_version: LatestVersion | None
+    experiment_revision: str | None
     json_schema: dict[str, Any] | None
     type_name: str | None
     aliases: list[VariableName] | None
