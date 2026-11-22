@@ -20,8 +20,9 @@ You need:
 
 - An app that sends browser exceptions to Logfire with `@pydantic/logfire-browser` version 0.34.0 or later. See the [browser SDK setup](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/).
 - The ID of your *frontend application*. A frontend application is the entry in a Logfire project that gives the browser data of one web app a stable name and a restricted token. Find it under **Project settings → Frontend applications** (see [Frontend](../guides/web-ui/frontend.md)). The examples on this page read it from the `FRONTEND_APPLICATION_ID` environment variable.
-- A project API key with the `project:write_sourcemaps` scope, in the `LOGFIRE_API_KEY` environment variable. Create it on the project's API keys page in Logfire. The project comes from the key, so you do not pass it on the command line.
-- The Logfire CLI for JavaScript projects, the `logfire-cli` npm package. Run it with `npx logfire-cli`. The `logfire` command that the Python package installs has no `sourcemap` command.
+- The **Browser source maps** feature turned on. Open **Settings → Early access**, select the flask icon next to the **Early access** heading to show experimental features, and turn on **Browser source maps**. The API key form shows the **Source maps** scope only after this step.
+- A project API key with the `project:write_sourcemaps` scope (**Source maps** on the API key form), in the `LOGFIRE_API_KEY` environment variable. Create it on the project's API keys page in Logfire. The project comes from the key, so you do not pass it on the command line.
+- The Logfire CLI for JavaScript projects, the `logfire-cli` npm package, version 0.1.21 or later. Run it with `npx logfire-cli`. The `logfire` command that the Python package installs has no `sourcemap` command.
 
 The commands on this page use two global flags:
 
@@ -97,7 +98,7 @@ npx logfire-cli --beta --region us sourcemap upload .next/static \
   --delete
 ```
 
-If a file fails, `upload` exits with a non-zero code, so the CI job fails before the deploy. See [Upload results](#upload-results).
+`upload` first asks Logfire which builds it already stores, then uploads only the missing ones, in batches. So a run for an unchanged build sends one request. If a file fails, `upload` exits with a non-zero code, so the CI job fails before the deploy. See [Upload results](#upload-results).
 
 !!! warning "Your source code is in the maps"
     Most bundlers embed your original source code in each map, in the `sourcesContent` field. By default, `upload` sends it to Logfire, and Logfire stores it with the map. Pass `--strip-sources` to send the maps without the source text. Frames still resolve to the original file, function, line and column.
@@ -300,13 +301,13 @@ For the other flags, run `npx logfire-cli --beta sourcemap upload --help`.
 
 ### Upload results
 
-The CLI prints one line per bundle with its debug ID and the result, then a summary. A result other than stored or already uploaded shows as `failed`, with the reason from the server.
+The CLI prints one line per bundle with its debug ID and the result, then a summary. A result other than stored, already uploaded or skipped shows as `failed`, with the reason from the server.
 
 | Result | Meaning | What to do |
 | --- | --- | --- |
 | Stored (`created`) | Logfire stored the file. | Nothing. |
-| Already uploaded (`exists`) | Logfire already has identical content for this debug ID. | Nothing. A retry of the same upload is safe. |
-| Conflict | Logfire already has *different* content for this debug ID. | Rebuild so the files get a new debug ID, or upload with the same flags (such as `--strip-sources`) that produced the stored map. |
+| Already uploaded (`exists`) | Logfire already stores a map for this debug ID. Logfire keeps the first upload of each debug ID. | Nothing. A retry of the same upload is safe. |
+| Skipped | Another file in the same run has the same debug ID, for example the same bundle copied to two folders. The CLI uploads the first copy only. With `--delete`, it also deletes the maps of the other copies. | Nothing. |
 | Invalid | Logfire rejected the map. For example, it is not valid JSON, or its `debugId` does not match the debug ID of its bundle. | Check the build output, then run `inject` and `upload` again. |
 | Too large | The map or the bundle is larger than 60 MiB, measured before compression. | Split the bundle into smaller chunks, then build and upload again. |
 | Rate limited | Uploads arrive too fast. The CLI waits for the time that the server names, then tries again. | Nothing if the retry succeeds. If the file still fails, run `upload` again later. |
