@@ -336,14 +336,14 @@ def test_private_names_in_fstring(exporter: TestExporter):
 
         def report(self):
             __width = 6
-            logfire.info(f'balance {self.__balance:{__width}.2f} {self.__currency}')
+            logfire.info(f'balance {self.__balance:{__width}.2f} {self.__currency} {self.__class__.__name__}')
 
     Account(12.5).report()
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'balance {self.__balance} {self.__currency}',
+                'name': 'balance {self.__balance} {self.__currency} {self.__class__.__name__}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -351,14 +351,15 @@ def test_private_names_in_fstring(exporter: TestExporter):
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
-                    'logfire.msg_template': 'balance {self.__balance} {self.__currency}',
-                    'logfire.msg': 'balance  12.50 EUR',
+                    'logfire.msg_template': 'balance {self.__balance} {self.__currency} {self.__class__.__name__}',
+                    'logfire.msg': 'balance  12.50 EUR Account',
                     'code.filepath': 'test_formatter.py',
                     'code.function': 'report',
                     'code.lineno': 123,
                     'self.__balance': 12.5,
                     'self.__currency': 'EUR',
-                    'logfire.json_schema': '{"type":"object","properties":{"self.__balance":{},"self.__currency":{}}}',
+                    'self.__class__.__name__': 'Account',
+                    'logfire.json_schema': '{"type":"object","properties":{"self.__balance":{},"self.__currency":{},"self.__class__.__name__":{}}}',
                 },
             }
         ]
