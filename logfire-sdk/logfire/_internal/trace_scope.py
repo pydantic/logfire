@@ -31,6 +31,10 @@ _lock = threading.Lock()
 # A span that never ends would keep its trace's state forever. Past this many traces with open
 # local root spans, the oldest state is discarded.
 _MAX_OPEN_TRACES = 10_000
+# Many requests can reuse one remote trace ID. Past this many open local root spans in one trace, a
+# new root span is not recorded. Its end then has no effect, so it cannot discard state that other
+# root spans still use. Work in an unrecorded root span can get a different fallback key.
+_MAX_OPEN_ROOTS_PER_TRACE = 1_000
 
 
 def _local_root_ids(span: ReadableSpan) -> tuple[int, int] | None:
@@ -42,13 +46,15 @@ def _local_root_ids(span: ReadableSpan) -> tuple[int, int] | None:
 
 
 def enter_trace_scope(span: ReadableSpan) -> None:
-    """Count `span` if it is a local root span."""
+    """Record `span` if it is a local root span."""
     ids = _local_root_ids(span)
     if ids is None:
         return
     trace_id, span_id = ids
     with _lock:
         state = _states.setdefault(trace_id, _TraceState())
+        if len(state.open_local_roots) >= _MAX_OPEN_ROOTS_PER_TRACE:
+            return
         state.open_local_roots.add(span_id)
         if len(_states) > _MAX_OPEN_TRACES:
             del _states[next(iter(_states))]

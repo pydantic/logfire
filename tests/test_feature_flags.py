@@ -2512,6 +2512,23 @@ def test_an_evicted_root_does_not_end_a_newer_state_for_its_trace(config_kwargs:
     assert trace_scope._states == {}
 
 
+def test_trace_scope_bounds_the_open_roots_of_one_trace(config_kwargs: dict[str, Any]):
+    logfire.configure(**config_kwargs)
+    tracer = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_tracer_provider().get_tracer('test')
+    carrier = {'traceparent': '00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01'}
+    with patch('logfire._internal.trace_scope._MAX_OPEN_ROOTS_PER_TRACE', 2):
+        with logfire.attach_context(carrier):
+            roots = [tracer.start_span(f'request {i}') for i in range(3)]
+        trace_id = roots[0].get_span_context().trace_id
+        assert len(trace_scope._states[trace_id].open_local_roots) == 2
+        # The unrecorded root does not discard the state that the recorded roots use.
+        roots[2].end()
+        assert trace_id in trace_scope._states
+        roots[0].end()
+        roots[1].end()
+    assert trace_scope._states == {}
+
+
 def test_a_sampled_out_root_does_not_leave_its_trace_scope_open(config_kwargs: dict[str, Any]):
     from logfire._internal.constants import ATTRIBUTES_SAMPLE_RATE_KEY
 
