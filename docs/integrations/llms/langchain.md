@@ -38,7 +38,12 @@ Install `logfire`:
 
 {{ install_logfire() }}
 
-This works with your existing `langchain` (or `langgraph`) install: nothing extra to add.
+Logfire can trace an existing LangChain or LangGraph application without an extra tracing package.
+To run the example below, install `langchain` and its OpenAI provider package:
+
+```bash
+pip install langchain langchain-openai
+```
 
 ## Usage
 
