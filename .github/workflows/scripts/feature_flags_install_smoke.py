@@ -1,5 +1,9 @@
 def main() -> None:
     """Smoke-test native feature flags with only the `feature-flags` extra installed."""
+    import importlib.util
+
+    assert importlib.util.find_spec('openfeature') is None, 'The feature-flags extra must not install OpenFeature'
+
     import logfire
     from logfire.experimental.feature_flags import flag
 

@@ -1554,8 +1554,9 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
     ) -> ResolvedVariable[FlagT]:
         """Evaluate the flag and return its value and resolution details."""
         if not targeting_key:
-            # An empty key would put every subject in one bucket, so it counts as no key.
-            targeting_key = self._get_context_targeting_key()
+            # An empty key would put every subject in one bucket, so it counts as no key. The
+            # legacy `targeting_context()` accepts an empty key, so normalize the context key too.
+            targeting_key = self._get_context_targeting_key() or None
         has_stable_targeting_key = targeting_key is not None
         if has_stable_targeting_key:
             source = 'explicit'

@@ -2493,6 +2493,36 @@ def test_trace_scope_discards_the_oldest_trace_past_the_limit(config_kwargs: dic
     assert trace_scope._states == {}
 
 
+def test_an_evicted_root_does_not_end_a_newer_state_for_its_trace(config_kwargs: dict[str, Any]):
+    logfire.configure(**config_kwargs)
+    tracer = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_tracer_provider().get_tracer('test')
+    carrier = {'traceparent': '00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01'}
+    with patch('logfire._internal.trace_scope._MAX_OPEN_TRACES', 1):
+        with logfire.attach_context(carrier):
+            evicted = tracer.start_span('evicted request')
+        # Another trace evicts the first trace's state.
+        tracer.start_span('other trace').end()
+        with logfire.attach_context(carrier):
+            current = tracer.start_span('current request')
+        trace_id = current.get_span_context().trace_id
+        # The evicted root does not belong to the new state, so its end leaves that state open.
+        evicted.end()
+        assert list(trace_scope._states) == [trace_id]
+        current.end()
+    assert trace_scope._states == {}
+
+
+def test_a_sampled_out_root_does_not_leave_its_trace_scope_open(config_kwargs: dict[str, Any]):
+    from logfire._internal.constants import ATTRIBUTES_SAMPLE_RATE_KEY
+
+    logfire.configure(**config_kwargs)
+    tracer = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_tracer_provider().get_tracer('test')
+    # The proxy tracer starts the real span, then replaces it with a span that never ends.
+    span = tracer.start_span('sampled out', attributes={ATTRIBUTES_SAMPLE_RATE_KEY: 0.0})
+    assert not span.is_recording()
+    assert trace_scope._states == {}
+
+
 def test_resolution_warnings_point_at_the_callers_code(config_kwargs: dict[str, Any]):
     flag = _split_flag(config_kwargs)
     for evaluate in (flag.value, flag.details):
@@ -2508,6 +2538,9 @@ def test_an_empty_targeting_key_counts_as_no_key(config_kwargs: dict[str, Any]):
         assert key('') == fallback
         with feature_context('account-123'):
             assert key('') == 'account-123'
+        # The legacy context accepts an empty key, which also counts as no key.
+        with targeting_context(''):
+            assert key() == fallback
 
 
 def test_spans_from_other_tracer_providers_use_the_context_fallback_key(config_kwargs: dict[str, Any]):
