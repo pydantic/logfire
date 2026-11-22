@@ -325,6 +325,46 @@ def test_nested_scope_in_fstring(exporter: TestExporter):
     )
 
 
+def test_private_names_in_fstring(exporter: TestExporter):
+    """Private names in an f-string inside a class are evaluated again with the same mangling as the compiler."""
+
+    class Account:
+        __currency = 'EUR'
+
+        def __init__(self, balance: float):
+            self.__balance = balance
+
+        def report(self):
+            __width = 6
+            logfire.info(f'balance {self.__balance:{__width}.2f} {self.__currency}')
+
+    Account(12.5).report()
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'balance {self.__balance} {self.__currency}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'balance {self.__balance} {self.__currency}',
+                    'logfire.msg': 'balance  12.50 EUR',
+                    'code.filepath': 'test_formatter.py',
+                    'code.function': 'report',
+                    'code.lineno': 123,
+                    'self.__balance': 12.5,
+                    'self.__currency': 'EUR',
+                    'logfire.json_schema': '{"type":"object","properties":{"self.__balance":{},"self.__currency":{}}}',
+                },
+            }
+        ]
+    )
+
+
 def test_logfire_calls_skip_fstring_magic(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
     """Spans that logfire opens itself don't run `executing` on their call site (#2771)."""
     # In tests, logfire's own calls are checked for f-strings, which needs `executing`. Turn that off.
