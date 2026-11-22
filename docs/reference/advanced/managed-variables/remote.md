@@ -55,6 +55,20 @@ logfire.configure(
 )
 ```
 
+## Rotate the read key
+
+1. In your project's **Settings → API keys**, create a second key with the
+   `project:read_variables` scope.
+2. Update `LOGFIRE_API_KEY` in your deployment and restart or redeploy your
+   application processes. The Python SDK uses the key it loaded when you
+   configured it.
+3. Check that the replacement processes evaluate a published value. Revoke
+   the old key after all instances have switched.
+
+A process still using a revoked key cannot refresh. If it already loaded
+configuration, it keeps using those values. A fresh process with a revoked
+key uses its code defaults.
+
 ## Pushing Variables from Code
 
 Instead of manually creating variables in the Logfire UI, you can push your variable definitions directly from your code using `logfire.variables_push()`.
