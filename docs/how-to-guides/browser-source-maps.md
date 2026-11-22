@@ -307,7 +307,7 @@ The CLI prints one line per bundle with its debug ID and the result, then a summ
 | --- | --- | --- |
 | Stored (`created`) | Logfire stored the file. | Nothing. |
 | Already uploaded (`exists`) | Logfire already stores a map for this debug ID. Logfire keeps the first upload of each debug ID. | Nothing. A retry of the same upload is safe. |
-| Skipped | Another file in the same run has the same debug ID, for example the same bundle copied to two folders. The CLI uploads the first copy only. With `--delete`, it also deletes the maps of the other copies. | Nothing. |
+| Skipped | Another file in the same run has the same debug ID, for example the same bundle copied to two folders. The CLI uploads the first copy only. With `--delete`, it also deletes the local `.map` files of the other copies. | Nothing. |
 | Invalid | Logfire rejected the map. For example, it is not valid JSON, or its `debugId` does not match the debug ID of its bundle. | Check the build output, then run `inject` and `upload` again. |
 | Too large | The map or the bundle is larger than 60 MiB, measured before compression. | Split the bundle into smaller chunks, then build and upload again. |
 | Rate limited | Uploads arrive too fast. The CLI waits for the time that the server names, then tries again. | Nothing if the retry succeeds. If the file still fails, run `upload` again later. |
