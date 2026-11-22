@@ -85,6 +85,7 @@ litellm = ["logfire-sdk[litellm]==6.0.0"]
 dspy = ["logfire-sdk[dspy]==6.0.0"]
 datasets = ["logfire-sdk[datasets]==6.0.0"]
 variables = ["logfire-sdk[variables]==6.0.0"]
+feature-flags = ["logfire-sdk[feature-flags]==6.0.0"]
 fleet = ["logfire-sdk[fleet]==6.0.0"]
 
 [project.urls]

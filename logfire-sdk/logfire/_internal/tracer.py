@@ -37,6 +37,7 @@ from .constants import (
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     log_level_attributes,
 )
+from .trace_scope import exit_trace_scope
 from .utils import (
     handle_internal_errors,
     is_instrumentation_suppressed,
@@ -335,6 +336,10 @@ class _ProxyTracer(Tracer):
             name, context, kind, attributes, links, start_time, record_exception, set_status_on_exception
         )
         if not should_sample(span.get_span_context(), attributes):  # pragma: no cover
+            # The processors already started this span, but it is discarded without ending.
+            # Leave its trace scope now, or the scope stays open for the life of the process.
+            if isinstance(span, ReadableSpan):
+                exit_trace_scope(span)
             span = trace_api.NonRecordingSpan(
                 SpanContext(
                     trace_id=span.get_span_context().trace_id,

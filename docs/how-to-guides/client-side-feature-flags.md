@@ -1,17 +1,28 @@
-# Client-Side Feature Flags with OFREP
+---
+title: Use feature flags in a browser
+description: Evaluate Logfire feature flags in a web app with OpenFeature and verify changes in an open page.
+---
 
-Logfire's managed variables can serve as feature flags for client-side applications like web frontends, mobile apps, and edge services. The [OFREP (OpenFeature Remote Evaluation Protocol)](https://openfeature.dev/docs/reference/other-technologies/ofrep/) endpoints let any OpenFeature-compatible client evaluate variables without the Python SDK.
+# Use feature flags in a browser
 
-This guide shows how to set up a **JavaScript/TypeScript web application** using the official OpenFeature Web SDK and OFREP provider. The same approach works for any language with an [OpenFeature SDK and OFREP provider](https://openfeature.dev/ecosystem).
+Change what a web app shows without deploying it again. The [OpenFeature Remote Evaluation Protocol (OFREP)](https://openfeature.dev/docs/reference/other-technologies/ofrep/) evaluates your flags in Logfire. The OpenFeature Web SDK keeps the evaluated values in the browser so your app can read them synchronously.
 
 ## Prerequisites
 
-1. **Create your variables** in the Logfire UI (Settings > Variables) and mark them as **external**. See [External Variables and OFREP](../reference/advanced/managed-variables/external.md)
-2. **Create an API key** with the `project:read_external_variables` scope. Expand the **Advanced** section of the API key form and select just this scope (the one-click presets bundle it into broader access) by selecting the "Read external managed variables within a project via OFREP" item under the "Variables" section. This restricted scope is safe to use in client-side code since it only exposes variables you've explicitly marked as external
+1. In your Logfire project, open **Feature Flags** and select **New flag**. Create a **Toggle**
+   named `show_new_feature` and set it to **Off**. If the page is missing, enable **Feature Flags and Prompts UI**
+   in **Early Access**.
+2. On the flag's **Settings** tab, turn on **Allow restricted API keys to read this flag**
+   under **Visibility**. Select **Make external** to confirm.
+3. On **Use this flag**, select **Browser**, then **Create browser key**. Copy the key before closing
+   the dialog. The key has only the `project:read_external_variables` scope. You can also create one
+   in **API keys**. Expand **Advanced** and select **Read external managed variables within a project via OFREP**.
 
-## Installation
+Anyone with the browser key can read any external flag in the project, and can supply their own
+targeting attributes. Use external flags for public values such as UI choices. Enforce access
+controls on your server.
 
-Install the OpenFeature Web SDK and OFREP provider:
+## Install
 
 === "npm"
 
@@ -28,79 +39,89 @@ Install the OpenFeature Web SDK and OFREP provider:
 === "yarn"
 
     ```bash
-    yarn add @openfeature/web-sdk @openfeature/ofrep-web-provider
+    yarn add @openfeature/web-sdk @openfeature/core @openfeature/ofrep-web-provider @openfeature/ofrep-core
     ```
 
-## Setup
+## Evaluate a flag
 
-Initialize the OpenFeature provider once at application startup. The OFREP provider connects to your Logfire project's OFREP endpoint and handles authentication via your API key.
+Run this at application startup in the browser. Replace the API key and use the host for your
+Logfire region. Use `https://logfire-eu.pydantic.dev` for the EU region, or your API host if
+you self-host Logfire.
 
 ```typescript
 import { OFREPWebProvider } from '@openfeature/ofrep-web-provider'
-import { OpenFeature } from '@openfeature/web-sdk'
+import { OpenFeature, ProviderEvents } from '@openfeature/web-sdk'
 
-const LOGFIRE_API_KEY = 'your-api-key'  // project:read_external_variables scope
-const LOGFIRE_API_HOST = 'logfire-us.pydantic.dev'  // or 'logfire-eu.pydantic.dev' for the EU region, or your self-hosted API host
+const apiKey = 'YOUR_EXTERNAL_VARIABLES_KEY'
+const apiUrl = 'https://logfire-us.pydantic.dev'
 
-const provider = new OFREPWebProvider({
-  // The provider appends `/ofrep/v1/evaluate/flags` itself, so this is the `/v1` root.
-  baseUrl: `https://${LOGFIRE_API_HOST}/v1`,
-  fetchImplementation: (input, init) => {
-    // Keep the headers the provider already set (it sends `Content-Type:
-    // application/json`, which the endpoint requires) and add the API key.
-    const headers = new Headers(input instanceof Request ? input.headers : undefined)
-    new Headers(init?.headers).forEach((value, key) => headers.set(key, value))
-    headers.set('Authorization', `Bearer ${LOGFIRE_API_KEY}`)
-    headers.set('Content-Type', 'application/json')
-    return fetch(input, { ...init, headers })
-  },
-})
+function createFlagProvider() {
+  return new OFREPWebProvider({
+    baseUrl: `${apiUrl}/v1`,
+    headers: [['Authorization', `Bearer ${apiKey}`]],
+    pollInterval: 60_000,
+    cacheMode: 'disabled',
+  })
+}
 
-OpenFeature.setProvider(provider)
-```
+try {
+  await OpenFeature.setProviderAndWait(createFlagProvider(), { targetingKey: 'user-123' })
+} catch (error) {
+  console.warn('Could not load feature flags', error)
+}
 
-!!! note "API key in client-side code"
-    The `project:read_external_variables` scope is designed to be safe for client-side use. It only grants read access to variables you've explicitly marked as external. Keep sensitive configuration in internal (non-external) variables, which are inaccessible with this scope.
-
-## Setting Evaluation Context
-
-Set the evaluation context to enable targeting and deterministic rollouts. The `targetingKey` ensures that the same user always gets the same variant:
-
-```typescript
-await OpenFeature.setContext({
-  targetingKey: userId,
-  // Additional attributes for targeting rules
-  plan: 'enterprise',
-  region: 'us-east',
-})
-```
-
-Any attributes you include in the context can be used by [conditional rules](../reference/advanced/managed-variables/ui.md#targeting-with-conditional-rules) configured in the Logfire UI. For example, you could route all `enterprise` plan users to a specific label.
-
-## Evaluating Flags
-
-Use the OpenFeature client to evaluate flags. The client provides typed methods for different value types:
-
-```typescript
 const client = OpenFeature.getClient()
 
-// Boolean flag
-const showNewFeature = client.getBooleanValue('show_new_feature', false)
+function showFlag() {
+  console.log('show_new_feature', client.getBooleanValue('show_new_feature', false))
+}
 
-// String value (e.g., a theme or prompt)
-const theme = client.getStringValue('ui_theme', 'light')
-
-// Number value
-const maxRetries = client.getNumberValue('max_retries', 3)
-
-// Get detailed evaluation info
-const details = client.getStringDetails('ui_theme', 'light')
-console.log(details.value)    // resolved value
-console.log(details.variant)  // label name (e.g., "production", "canary")
-console.log(details.reason)   // evaluation reason (e.g., "TARGETING_MATCH", "SPLIT")
+client.addHandler(ProviderEvents.ConfigurationChanged, showFlag)
+showFlag()
 ```
 
-The second argument to each method is the **default value**, returned when the flag can't be evaluated (e.g., network error, flag not found).
+The first evaluation waits for the provider to finish loading. If the initial fetch fails,
+or Logfire cannot evaluate the flag, the SDK returns the code default (`false` in this example).
+After the provider loads the flags, the example keeps their values in memory for the current page
+and checks for updates every 60 seconds. Choose a polling interval that fits how quickly open pages need to pick up a change.
+If a later poll fails, the provider keeps the last evaluated values until a refresh succeeds.
+
+## Verify a change
+
+1. Open the browser console. With the flag off, the example prints `show_new_feature false`.
+2. In Logfire, turn the flag on. Keep the page open. When the next successful poll gets the new
+   value, the change handler prints `show_new_feature true`.
+
+## Troubleshoot flag evaluation
+
+If the example keeps printing `false`, check the browser's Network tab for requests ending in
+`/ofrep/v1/evaluate/flags`. For a failed request, check the API host, key, and scope. If the
+request succeeds but omits the flag, check its name and **Visibility** in the same project
+where you created the key.
+
+If the first fetch fails, the provider does not start polling. Resolve the startup error and reload
+the page, or initialize a new provider to retry from within your app.
+
+## Set targeting context
+
+Replace `user-123` with a stable user or account ID for percentage rollouts. Pass additional
+attributes for [targeting rules](../reference/advanced/managed-variables/targeting.md). When the
+signed-in user changes, show the code defaults while you initialize a fresh provider for the new
+context. If the fetch fails, keep showing the defaults. A failed `setContext()` can resolve and
+leave the previous user's values in the existing provider.
+
+```typescript
+let showNewFeature = false
+try {
+  await OpenFeature.setProviderAndWait(createFlagProvider(), {
+    targetingKey: signedInUser.id,
+    plan: signedInUser.plan,
+  })
+  showNewFeature = client.getBooleanValue('show_new_feature', false)
+} catch (error) {
+  console.warn('Could not load flags for the signed-in user', error)
+}
+```
 
 ## React Integration
 
@@ -149,48 +170,6 @@ function MyComponent() {
       <p>Theme variant: {theme.variant}</p>
     </div>
   )
-}
-```
-
-## Full Example
-
-Here's a complete setup combining initialization, context, and evaluation:
-
-```typescript
-import { OFREPWebProvider } from '@openfeature/ofrep-web-provider'
-import { OpenFeature } from '@openfeature/web-sdk'
-
-// Initialize once at app startup
-function initFeatureFlags(apiKey: string, apiHost: string) {
-  const provider = new OFREPWebProvider({
-    baseUrl: `https://${apiHost}/v1`,
-    fetchImplementation: (input, init) => {
-      const headers = new Headers(input instanceof Request ? input.headers : undefined)
-      new Headers(init?.headers).forEach((value, key) => headers.set(key, value))
-      headers.set('Authorization', `Bearer ${apiKey}`)
-      headers.set('Content-Type', 'application/json')
-      return fetch(input, { ...init, headers })
-    },
-  })
-  OpenFeature.setProvider(provider)
-}
-
-// Set context when user authenticates
-async function setUserContext(userId: string, attributes: Record<string, string> = {}) {
-  await OpenFeature.setContext({
-    targetingKey: userId,
-    ...attributes,
-  })
-}
-
-// Evaluate flags anywhere in your app
-function getFeatureFlags() {
-  const client = OpenFeature.getClient()
-  return {
-    showNewDashboard: client.getBooleanValue('show_new_dashboard', false),
-    pricingTier: client.getStringValue('pricing_tier_config', 'standard'),
-    maxUploadSize: client.getNumberValue('max_upload_size_mb', 10),
-  }
 }
 ```
 

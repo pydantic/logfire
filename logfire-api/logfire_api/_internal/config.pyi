@@ -40,7 +40,6 @@ from logfire.sampling import SamplingOptions as SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor as TailSamplingProcessor
 from logfire.variables import VariablesConfig as VariablesConfig
 from logfire.variables.abstract import NoOpVariableProvider as NoOpVariableProvider, VariableProvider as VariableProvider
-from logfire.variables.variable import TemplateVariable as TemplateVariable, Variable as Variable
 from logfire.version import VERSION as VERSION
 from opentelemetry.sdk._logs import LogRecordProcessor
 from opentelemetry.sdk.metrics.export import MetricReader as MetricReader

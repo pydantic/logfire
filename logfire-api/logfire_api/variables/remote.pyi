@@ -2,7 +2,7 @@ import logfire
 from collections.abc import Mapping
 from logfire._internal.config import VariablesOptions
 from logfire._internal.server_response import ServerResponseCallback
-from logfire.variables.abstract import ResolvedVariable, VariableProvider
+from logfire.variables.abstract import ResolvedVariable, VariableProvider, VariableProviderEvaluationState
 from logfire.variables.config import VariableConfig, VariableTypeConfig, VariablesConfig
 from typing import Any
 
@@ -24,18 +24,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 (see `AdvancedOptions.server_response_hook`).
         """
     def start(self, logfire_instance: logfire.Logfire | None) -> None:
-        """Start background polling with the given logfire instance for error logging.
-
-        Args:
-            logfire_instance: The Logfire instance to use for error logging, or None if
-                variable instrumentation is disabled (errors will be reported via warnings).
-        """
+        """Start background polling, using the given Logfire instance to report errors."""
     def refresh(self, force: bool = False):
-        """Fetch the latest variable configuration from the remote API.
-
-        Args:
-            force: If True, fetch configuration even if the polling interval hasn't elapsed.
-        """
+        """Fetch configuration if needed; force bypasses the polling interval."""
     def get_serialized_value(self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> ResolvedVariable[str | None]:
         """Resolve a variable's serialized value from the remote configuration.
 
@@ -58,11 +49,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
             A ResolvedVariable containing the serialized value (or None if not found).
         """
     def shutdown(self, timeout_millis: float = 5000):
-        """Stop the background polling thread and clean up resources.
-
-        Args:
-            timeout_millis: The timeout budget in milliseconds for shutdown operations.
-        """
+        """Stop background work and clean up within the timeout budget in milliseconds."""
+    def get_evaluation_state(self) -> VariableProviderEvaluationState:
+        """Return a non-blocking snapshot of remote configuration health."""
     def get_variable_config(self, name: str) -> VariableConfig | None:
         """Retrieve the full configuration for a variable from the cached config.
 

@@ -348,7 +348,7 @@ def test_logfire_calls_skip_fstring_magic(exporter: TestExporter, monkeypatch: p
     assert inspected == [__file__]
 
     assert [span['attributes']['logfire.msg_template'] for span in exporter.exported_spans_as_dict()] == snapshot(
-        ['Resolve variable my_flag', 'user {x}']
+        ['Declare variable my_flag', 'Resolve variable my_flag', 'user {x}']
     )
 
 
