@@ -80,7 +80,9 @@ class ChunksFormatter(Formatter):
         if node_finder.is_relative_filename:
             if any(format_string is constant for constant in frame.f_code.co_consts):
                 return None
-            return [{'v': format_string, 't': 'lit'}], {}, format_string
+            value_cleaner = MessageValueCleaner(scrubber, check_keys=False)
+            message = value_cleaner.clean_value('message', format_string)
+            return [{'v': message, 't': 'lit'}], value_cleaner.extra_attrs(), message
         call_node = node_finder.node
         if call_node is None:
             return None

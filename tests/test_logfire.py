@@ -3849,8 +3849,11 @@ Couldn't identify the `msg_template` argument in the call.\
 
 
 @pytest.mark.usefixtures('tmp_dir_cwd')
-@pytest.mark.parametrize('value', [1, '{data[item]}'])
-def test_fstring_relative_filename(exporter: TestExporter, value: int | str):
+@pytest.mark.parametrize(
+    'value, expected',
+    [(1, 'real 1'), ('{data[item]}', 'real {data[item]}'), ({'password': 'example'}, "[Scrubbed due to 'password']")],
+)
+def test_fstring_relative_filename(exporter: TestExporter, value: int | str | dict[str, str], expected: str):
     with open('app.py', 'w') as f:
         f.write("logfire.info(f'fake {other}')")
     code = compile("logfire.info(f'real {value}', data=data)", 'app.py', 'exec')
@@ -3859,7 +3862,7 @@ def test_fstring_relative_filename(exporter: TestExporter, value: int | str):
         exec(code, {'logfire': logfire, 'value': value, 'other': 2, 'data': {'item': 3}})
 
     attributes = exporter.exported_spans_as_dict()[-1]['attributes']
-    assert attributes['logfire.msg_template'] == attributes['logfire.msg'] == f'real {value}'
+    assert attributes['logfire.msg_template'] == attributes['logfire.msg'] == expected
     assert 'other' not in attributes
 
 
