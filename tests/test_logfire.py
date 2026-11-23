@@ -3874,7 +3874,17 @@ def test_template_relative_filename(exporter: TestExporter):
 
     attributes = exporter.exported_spans_as_dict()[-1]['attributes']
     assert attributes['logfire.msg_template'] == 'Hello {name}'
-    assert attributes['logfire.msg'] == 'Hello Alice'
+    assert attributes['logfire.msg'] == 'Hello {name}'
+
+
+@pytest.mark.usefixtures('tmp_dir_cwd')
+def test_fstring_relative_filename_constant(exporter: TestExporter):
+    code = compile("value = '{name}'; logfire.info(f'{value}', name='Alice')", 'app.py', 'exec')
+    with pytest.warns(InspectArgumentsFailedWarning, match='compiled with a relative filename'):
+        exec(code, {'logfire': logfire})
+
+    attributes = exporter.exported_spans_as_dict()[-1]['attributes']
+    assert attributes['logfire.msg_template'] == attributes['logfire.msg'] == '{name}'
 
 
 def test_wrong_fstring_source_segment(exporter: TestExporter):
