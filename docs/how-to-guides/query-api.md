@@ -45,8 +45,9 @@ You can also create read tokens programmatically using the Logfire CLI:
 uvx logfire-cli token read
 ```
 
-Run this from a directory connected to the project with `uvx logfire-cli init`.
-The command outputs the read token directly to stdout, making it convenient for use in scripts.
+If you are not signed in, first run `uvx logfire-cli auth`. Run `uvx logfire-cli init` from your
+application's directory to connect it to the project, then create the read token there.
+The command prints the token once to stdout. Store it securely and keep it out of logs, commits, issues, and chats.
 
 ## Using the Read Clients
 
