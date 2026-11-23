@@ -6,6 +6,8 @@ description: "Reference for the Python CLI shipped with Logfire 5.x, with equiva
 
 This page documents the **Python CLI shipped with Logfire 5.x**, not the standalone
 Rust CLI distributed as `logfire-cli`.
+In Logfire 6, the Python CLI's `projects` and `read-tokens` commands are unavailable;
+use the Rust CLI's `init`, `project`, and `token` commands for those tasks.
 
 For full guided onboarding with optional coding-agent assistance, run
 `uvx logfire-cli wizard`. These `uvx` commands require

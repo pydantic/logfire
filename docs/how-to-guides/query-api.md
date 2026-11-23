@@ -42,10 +42,11 @@ After creating the read token, you'll see a dialog with the token value.
 You can also create read tokens programmatically using the Logfire CLI:
 
 ```bash
-logfire read-tokens --project <organization>/<project> create
+uvx logfire-cli token read
 ```
 
-This command will output the read token directly to stdout, making it convenient for use in scripts.
+Run this from a directory connected to the project with `uvx logfire-cli init`.
+The command outputs the read token directly to stdout, making it convenient for use in scripts.
 
 ## Using the Read Clients
 
