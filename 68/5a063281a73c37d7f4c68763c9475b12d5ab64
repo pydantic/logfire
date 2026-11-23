@@ -1,0 +1,25 @@
+docs/how-to-guides/query-api.md
+  s_d503280975649d::t_6b5406a31a65d5 48-49
+  s_d503280975649d::t_edf2bd15d6ce76 50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "685a063281a73c37d7f4c68763c9475b12d5ab64",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_d503280975649d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20967-62ca-7e50-8745-e3f82494d804",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
