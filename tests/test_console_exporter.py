@@ -1303,6 +1303,33 @@ def test_console_exporter_list_data_with_object_schema_mismatch(capsys: pytest.C
     )
 
 
+@pytest.mark.parametrize(
+    'serialized,expected',
+    [('Ada', "│ user='Ada'"), (['Ada', 'Grace'], "│ user=['Ada', 'Grace']")],
+    ids=['string', 'list'],
+)
+def test_console_exporter_log_pydantic_model_serializer(
+    capsys: pytest.CaptureFixture[str], serialized: str | list[str], expected: str
+) -> None:
+    from pydantic import BaseModel, model_serializer
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+    )
+
+    class User(BaseModel):
+        name: str
+
+        @model_serializer
+        def serialize(self) -> str | list[str]:
+            return serialized
+
+    logfire.info('hello {user}', user=User(name='Ada'), count=1)
+
+    assert capsys.readouterr().out.splitlines()[2:] == [expected, '│ count=1']
+
+
 def test_console_exporter_log_pydantic_root_model(capsys: pytest.CaptureFixture[str]) -> None:
     from pydantic import BaseModel, RootModel
 
