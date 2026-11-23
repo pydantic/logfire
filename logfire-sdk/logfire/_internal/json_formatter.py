@@ -385,7 +385,4 @@ def _fromisoformat_or_raw(parse: Callable[[str], Any], value: Any) -> Any:
 
 
 json_args_value_formatter = JsonArgsValueFormatter(indent=4)
-
-
-json_args_value_formatter = JsonArgsValueFormatter(indent=4)
 json_args_value_formatter_compact = JsonArgsValueFormatter(indent=0)
