@@ -1,0 +1,24 @@
+docs/cookbook/track-llm-cost.md
+  s_d503280975649d::t_6b5406a31a65d5 34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7fe1f6a64ce0741c70fab3d294cfd67fbf318c44",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_d503280975649d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20967-62ca-7e50-8745-e3f82494d804",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
