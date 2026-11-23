@@ -527,9 +527,148 @@ def test_clean_default_dir_is_not_a_directory(
     assert exc.value.code == 1
 
 
-def test_inspect(
-    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize(
+    ('distribution', 'target', 'instrumentation'),
+    [
+        ('grpcio', 'grpc', 'grpc'),
+        ('aio_pika', 'aio_pika', 'aio-pika'),
+        ('aiohttp', 'aiohttp_client', 'aiohttp-client'),
+        ('aiohttp', 'aiohttp_server', 'aiohttp-server'),
+        ('Confluent-._Kafka', 'confluent_kafka', 'confluent-kafka'),
+        ('kafka-python', 'kafka_python', 'kafka-python'),
+        ('mysql-connector-python', 'mysql', 'mysql'),
+        ('tortoise-orm', 'tortoise_orm', 'tortoiseorm'),
+        ('psycopg2_binary', 'psycopg2', 'psycopg2'),
+    ],
+)
+def test_inspect_distribution_names_share_run_recommendations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    distribution: str,
+    target: str,
+    instrumentation: str,
 ) -> None:
+    metadata_dir = tmp_path / 'fixture-1.0.dist-info'
+    metadata_dir.mkdir()
+    (metadata_dir / 'METADATA').write_text(f'Name: {distribution}\nVersion: 1.0\n')
+    monkeypatch.setattr(
+        importlib.metadata, 'distributions', lambda: importlib.metadata.Distribution.discover(path=[str(tmp_path)])
+    )
+    monkeypatch.setenv('COLUMNS', '200')
+
+    package = f'opentelemetry-instrumentation-{instrumentation}'
+    # Run and inspect must obtain the same recommendation from actual distribution metadata.
+    context = collect_instrumentation_context({'sqlite3', 'urllib'})
+    recommendation = InstrumentationRecommendation(package, (target,))
+    assert recommendation in context.recommendations
+    with pytest.raises(SystemExit) as exc_info:
+        main(['inspect', '--ignore', 'sqlite3,urllib'])
+    assert exc_info.value.code == 1
+    assert f'{target} (need to install {package})' in capsys.readouterr().err
+
+    script = tmp_path / 'application.py'
+    script.write_text("print('application completed')\n")
+    monkeypatch.setattr(sys, 'path', sys.path.copy())
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    monkeypatch.setenv('LANGSMITH_TRACING_ENABLED', 'false')
+    monkeypatch.setenv('LANGSMITH_OTEL_ENABLED', 'false')
+    main(['run', '--summary', '--exclude', 'sqlite3,urllib', str(script)])
+    output = capsys.readouterr()
+    assert 'application completed' in output.out
+    assert f'{target} (need to install {package})' in output.err
+
+    for ignored in (target, distribution):
+        context = collect_instrumentation_context({ignored})
+        assert package not in context.instrument_pkg_map
+        assert recommendation not in context.recommendations
+
+    instrumentation_metadata = tmp_path / 'instrumentation-1.0.dist-info'
+    instrumentation_metadata.mkdir()
+    (instrumentation_metadata / 'METADATA').write_text(f'Name: {package.replace("-", "_")}\nVersion: 1.0\n')
+    context = collect_instrumentation_context(())
+    assert package in context.installed_otel_pkgs
+    assert recommendation not in context.recommendations
+
+
+@pytest.mark.parametrize('metadata', ['Version: 1.0\n', 'Name:\nVersion: 1.0\n'])
+@pytest.mark.parametrize('command', ['inspect', 'run'])
+def test_inspection_skips_distributions_without_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], metadata: str, command: str
+) -> None:
+    for name, contents in [
+        ('unnamed', metadata),
+        ('grpcio', 'Name: grpcio\nVersion: 1.0\n'),
+    ]:
+        metadata_dir = tmp_path / f'{name}-1.0.dist-info'
+        metadata_dir.mkdir()
+        (metadata_dir / 'METADATA').write_text(contents)
+    monkeypatch.setattr(
+        importlib.metadata, 'distributions', lambda: importlib.metadata.Distribution.discover(path=[str(tmp_path)])
+    )
+    monkeypatch.setenv('COLUMNS', '200')
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    monkeypatch.setenv('LANGSMITH_TRACING_ENABLED', 'false')
+    monkeypatch.setenv('LANGSMITH_OTEL_ENABLED', 'false')
+    if command == 'inspect':
+        with pytest.raises(SystemExit) as exc_info:
+            main(['inspect', '--ignore', 'sqlite3,urllib'])
+        assert exc_info.value.code == 1
+    else:
+        script = tmp_path / 'application.py'
+        script.write_text("print('application completed')\n")
+        monkeypatch.setattr(sys, 'path', sys.path.copy())
+        main(['run', '--summary', '--exclude', 'sqlite3,urllib', str(script)])
+    output = capsys.readouterr()
+    assert 'grpc (need to install opentelemetry-instrumentation-grpc)' in output.err
+    if command == 'run':
+        assert 'application completed' in output.out
+    assert collect_instrumentation_context(()).installed_pkgs == {'grpcio'}
+
+
+@pytest.mark.parametrize(
+    ('distribution', 'target'),
+    [
+        ('pydantic-ai-slim', 'pydantic_ai'),
+        ('pydantic-monty-client', 'monty'),
+        ('openai-agents', 'openai_agents'),
+    ],
+)
+def test_builtin_instrumentation_uses_distribution_aliases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, distribution: str, target: str
+) -> None:
+    metadata_dir = tmp_path / 'fixture-1.0.dist-info'
+    metadata_dir.mkdir()
+    (metadata_dir / 'METADATA').write_text(f'Name: {distribution}\nVersion: 1.0\n')
+    monkeypatch.setattr(
+        importlib.metadata, 'distributions', lambda: importlib.metadata.Distribution.discover(path=[str(tmp_path)])
+    )
+    context = collect_instrumentation_context(())
+    assert distribution in context.installed_otel_pkgs
+    assert all(rec.package_name != distribution for rec in context.recommendations)
+    assert f'✓ {target} (installed and instrumented)' in instrumented_packages_text(
+        context.installed_otel_pkgs, [distribution], context.installed_pkgs
+    )
+    for ignored in (distribution, target):
+        assert distribution not in collect_instrumentation_context({ignored}).instrument_pkg_map
+
+
+def test_inspect(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Keep this rendering contract independent of packages installed on the test host.
+    for name in ('Jinja2', 'PyMySQL', 'opentelemetry-instrumentation-sqlite3'):
+        metadata_dir = tmp_dir_cwd / f'{name}-1.0.dist-info'
+        metadata_dir.mkdir()
+        (metadata_dir / 'METADATA').write_text(f'Name: {name}\nVersion: 1.0\n')
+    monkeypatch.setattr(
+        importlib.metadata, 'distributions', lambda: importlib.metadata.Distribution.discover(path=[str(tmp_dir_cwd)])
+    )
     os.environ['COLUMNS'] = '150'
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
     with pytest.raises(SystemExit):
