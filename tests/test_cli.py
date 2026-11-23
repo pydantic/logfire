@@ -3213,13 +3213,14 @@ def test_is_git_tracked_takes_the_path_literally(tmp_dir_cwd: Path, data_dir_nam
 def test_is_git_tracked_with_explicit_settings(
     tmp_dir_cwd: Path, monkeypatch: pytest.MonkeyPatch, settings: tuple[str, ...]
 ) -> None:
+    for name in ('GIT_DIR', 'GIT_WORK_TREE'):
+        monkeypatch.delenv(name, raising=False)
     repository = tmp_dir_cwd / 'repository'
     subprocess.run(['git', 'init', '--bare', '--quiet', str(repository)], check=True)
     path = tmp_dir_cwd / READ_TOKEN_FILENAME
     path.write_text('{}')
     values = {'GIT_DIR': str(repository), 'GIT_WORK_TREE': str(tmp_dir_cwd)}
     for name, value in values.items():
-        monkeypatch.delenv(name, raising=False)
         if name in settings:
             monkeypatch.setenv(name, value)
     if len(settings) == 2:
