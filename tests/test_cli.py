@@ -3209,6 +3209,25 @@ def test_is_git_tracked_takes_the_path_literally(tmp_dir_cwd: Path, data_dir_nam
     assert _is_git_tracked(path) is True
 
 
+@pytest.mark.parametrize('settings', [('GIT_DIR',), ('GIT_WORK_TREE',), ('GIT_DIR', 'GIT_WORK_TREE')])
+def test_is_git_tracked_with_explicit_settings(
+    tmp_dir_cwd: Path, monkeypatch: pytest.MonkeyPatch, settings: tuple[str, ...]
+) -> None:
+    repository = tmp_dir_cwd / 'repository'
+    subprocess.run(['git', 'init', '--bare', '--quiet', str(repository)], check=True)
+    path = tmp_dir_cwd / READ_TOKEN_FILENAME
+    path.write_text('{}')
+    values = {'GIT_DIR': str(repository), 'GIT_WORK_TREE': str(tmp_dir_cwd)}
+    for name, value in values.items():
+        monkeypatch.delenv(name, raising=False)
+        if name in settings:
+            monkeypatch.setenv(name, value)
+    if len(settings) == 2:
+        subprocess.run(['git', 'add', '--', str(path)], check=True)
+    with pytest.raises(LogfireConfigError, match='configured repository'):
+        _is_git_tracked(path)
+
+
 @pytest.mark.skipif(sys.platform == 'win32', reason='POSIX file modes are not enforced on Windows')
 def test_read_token_save_narrows_an_existing_permissive_file(tmp_dir_cwd: Path) -> None:
     """An existing world-readable file must be restricted BEFORE the token is written.
