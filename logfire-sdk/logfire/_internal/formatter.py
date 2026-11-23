@@ -387,10 +387,13 @@ class _BindSuperCalls(ast.NodeTransformer):
 def _inject_super_binder(code: CodeType, binder: Callable[[Callable[..., Any]], Callable[..., Any]]) -> CodeType:
     # Supply the binder in the generated lambda's constants instead of adding
     # a synthetic key to locals() or globals(). User lambdas are excluded below.
+    # Preserve constant indices because Python versions use different layouts.
     return code.replace(
         co_consts=tuple(
-            const.replace(co_consts=(None, binder))
-            if isinstance(const, CodeType) and const.co_consts == (None, _SUPER_BINDER_PLACEHOLDER)
+            const.replace(
+                co_consts=tuple(binder if value == _SUPER_BINDER_PLACEHOLDER else value for value in const.co_consts)
+            )
+            if isinstance(const, CodeType) and _SUPER_BINDER_PLACEHOLDER in const.co_consts
             else const
             for const in code.co_consts
         )
