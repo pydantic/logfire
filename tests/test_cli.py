@@ -48,7 +48,7 @@ from logfire._internal.cli import (
     STATUS_MAX_ROWS,
     OrgProjectAction,
     SplitArgs,
-    _has_git_dir,  # pyright: ignore[reportPrivateUsage]
+    _find_git_root,  # pyright: ignore[reportPrivateUsage]
     _is_git_tracked,  # pyright: ignore[reportPrivateUsage]
     _load_saved_read_token,  # pyright: ignore[reportPrivateUsage]
     _organization_from_project_url,  # pyright: ignore[reportPrivateUsage]
@@ -3110,10 +3110,10 @@ def test_is_git_tracked_fails_closed_when_git_binary_is_missing_but_a_repo_exist
         _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME)
 
 
-def test_has_git_dir_fails_closed_on_a_real_permission_error(tmp_dir_cwd: Path) -> None:
+def test_find_git_root_fails_closed_on_a_real_permission_error(tmp_dir_cwd: Path) -> None:
     """`Path.exists()` swallows a permission-denied ancestor and reports "not found" --
     confirmed empirically against this Python's actual behavior, not merely assumed from
-    its docs. `_has_git_dir` must not inherit that through a plain `.exists()` call: an
+    its docs. `_find_git_root` must not inherit that through a plain `.exists()` call: an
     inaccessible ancestor reading as "no repository" is exactly the state most likely on a
     machine that has been tampered with, not evidence that no repository is there.
     """
@@ -3125,7 +3125,7 @@ def test_has_git_dir_fails_closed_on_a_real_permission_error(tmp_dir_cwd: Path) 
     try:
         # Running as root, or with CAP_DAC_OVERRIDE, bypasses permission bits entirely --
         # confirming the lock actually took effect before relying on it, rather than
-        # asserting straight into `_has_git_dir`, is what keeps this a real test of the
+        # asserting straight into `_find_git_root`, is what keeps this a real test of the
         # fix instead of a false failure wherever it does not.
         try:
             inner.stat()
@@ -3134,7 +3134,7 @@ def test_has_git_dir_fails_closed_on_a_real_permission_error(tmp_dir_cwd: Path) 
         else:
             pytest.skip('permission bits are not enforced in this environment (root or CAP_DAC_OVERRIDE)')
         with pytest.raises(PermissionError):
-            _has_git_dir(inner)
+            _find_git_root(inner)
     finally:
         os.chmod(locked, 0o755)
 
@@ -3151,7 +3151,7 @@ def test_is_git_tracked_fails_closed_when_the_repository_walk_itself_fails(tmp_d
     """
     with (
         patch('logfire._internal.cli.shutil.which', return_value=None),
-        patch('logfire._internal.cli._has_git_dir', side_effect=PermissionError('denied')),
+        patch('logfire._internal.cli._find_git_root', side_effect=PermissionError('denied')),
         pytest.raises(LogfireConfigError, match='Could not confirm whether'),
     ):
         _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME)

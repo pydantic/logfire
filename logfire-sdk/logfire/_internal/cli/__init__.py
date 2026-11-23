@@ -261,7 +261,7 @@ def _read_token_path(data_dir: Path) -> Path:
     return data_dir / READ_TOKEN_FILENAME
 
 
-def _has_git_dir(start: Path) -> bool:
+def _find_git_root(start: Path) -> bool:
     """Whether `start` or any of its ancestors contains a `.git` entry.
 
     A pure filesystem walk, so it can tell "categorically no repository, so tracking is
@@ -321,7 +321,7 @@ def _is_git_tracked(path: Path) -> bool:
     """
     if shutil.which('git') is None:
         try:
-            has_repo = _has_git_dir(path.parent)
+            has_repo = _find_git_root(path.parent)
         except OSError as e:
             raise LogfireConfigError(
                 f'Could not confirm whether {path} is already tracked by git (looking for a '
