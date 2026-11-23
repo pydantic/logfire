@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import functools
 import inspect
+import os
 import sys
 import types
 import warnings
@@ -156,6 +157,17 @@ class CallNodeFinder(ABC):
 
     def __init__(self, frame: types.FrameType):
         self.frame = frame
+        self.node: ast.Call | None = None
+
+        filename = frame.f_code.co_filename
+        if not (os.path.isabs(filename) or (filename.startswith('<') and filename.endswith('>'))):
+            self.warn_inspect_arguments(
+                'The code was compiled with a relative filename, so its source code cannot be reliably located. '
+                'This happens when using compile() or runpy.run_path() with a relative path, '
+                'or running .pyc files without the source .py files.',
+            )
+            return
+
         # This is where the magic happens. It has caching.
         self.ex = executing.Source.executing(frame)
         self.source = self.ex.source

@@ -3848,6 +3848,20 @@ Couldn't identify the `msg_template` argument in the call.\
     )
 
 
+@pytest.mark.usefixtures('tmp_dir_cwd')
+def test_fstring_relative_filename(exporter: TestExporter):
+    with open('app.py', 'w') as f:
+        f.write("logfire.info(f'fake {other}')")
+    code = compile("logfire.info(f'real {value}')", 'app.py', 'exec')
+
+    with pytest.warns(InspectArgumentsFailedWarning, match='compiled with a relative filename'):
+        exec(code, {'logfire': logfire, 'value': 1, 'other': 2})
+
+    attributes = exporter.exported_spans_as_dict()[-1]['attributes']
+    assert attributes['logfire.msg_template'] == attributes['logfire.msg'] == 'real 1'
+    assert 'other' not in attributes
+
+
 def test_wrong_fstring_source_segment(exporter: TestExporter):
     name = 'me'
     # This is a case where `ast.get_source_segment` returns an incorrect string for `{name}`
