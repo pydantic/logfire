@@ -1,0 +1,28 @@
+examples/python/relative_source_lookup_demo.py
+  s_8ad86ee01e42b5::t_5d8fc3425db5c6 40
+  s_8ad86ee01e42b5::t_caf07ea700dff0 1-15,17-19,21-27,29-37,39,41-67
+  s_8ad86ee01e42b5::t_2d599610cec26e 16,20
+  s_8ad86ee01e42b5::t_d7680a7de12307 28
+  s_8ad86ee01e42b5::t_532798b6637c48 38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f4e7915062655adfa2ac9eef1ae964d8088894d9",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_8ad86ee01e42b5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20965-70a2-7df0-bf47-d8221d865439",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
