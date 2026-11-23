@@ -3165,12 +3165,48 @@ def test_is_git_tracked_fails_closed_when_git_exists_but_cannot_answer(tmp_dir_c
     out, or some other OS-level failure -- so this raises and blocks the write instead of
     guessing safe.
     """
+    (tmp_dir_cwd / '.git').mkdir()
     with (
         patch('logfire._internal.cli.shutil.which', return_value='/usr/bin/git'),
         patch('logfire._internal.cli.subprocess.run', side_effect=subprocess.TimeoutExpired(cmd='git', timeout=5)),
         pytest.raises(LogfireConfigError, match='Could not confirm whether'),
     ):
         _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME)
+
+
+@pytest.mark.parametrize('with_repository', [False, True])
+def test_is_git_tracked_uses_containing_repository(tmp_dir_cwd: Path, with_repository: bool) -> None:
+    data_dir = tmp_dir_cwd / 'data'
+    data_dir.mkdir()
+    path = data_dir / READ_TOKEN_FILENAME
+    path.write_text('{}')
+    (data_dir / 'objects').mkdir()
+    (data_dir / 'refs').mkdir()
+    (data_dir / 'HEAD').write_text('ref: refs/heads/main\n')
+
+    if with_repository:
+        subprocess.run(['git', 'init', '--quiet'], cwd=tmp_dir_cwd, check=True)
+        subprocess.run(['git', 'add', '--', str(path)], cwd=tmp_dir_cwd, check=True)
+        assert _is_git_tracked(path) is True
+        assert _load_saved_read_token(data_dir) is None
+    else:
+        with patch('logfire._internal.cli.subprocess.run') as run:
+            assert _is_git_tracked(path) is False
+        run.assert_not_called()
+
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='":" is not valid in Windows file names')
+@pytest.mark.parametrize('data_dir_name', [':(top)data', ':(glob)data', ':(unknown)data'])
+def test_is_git_tracked_takes_the_path_literally(tmp_dir_cwd: Path, data_dir_name: str) -> None:
+    data_dir = tmp_dir_cwd / data_dir_name
+    data_dir.mkdir()
+    path = data_dir / READ_TOKEN_FILENAME
+    path.write_text('{}')
+    subprocess.run(['git', 'init', '--quiet'], cwd=tmp_dir_cwd, check=True)
+
+    assert _is_git_tracked(path) is False
+    subprocess.run(['git', '--literal-pathspecs', 'add', '--', str(path)], cwd=tmp_dir_cwd, check=True)
+    assert _is_git_tracked(path) is True
 
 
 @pytest.mark.skipif(sys.platform == 'win32', reason='POSIX file modes are not enforced on Windows')

@@ -261,22 +261,8 @@ def _read_token_path(data_dir: Path) -> Path:
     return data_dir / READ_TOKEN_FILENAME
 
 
-def _find_git_root(start: Path) -> bool:
-    """Whether `start` or any of its ancestors contains a `.git` entry.
-
-    A pure filesystem walk, so it can tell "categorically no repository, so tracking is
-    impossible" from "unconfirmed" without needing a `git` binary at all -- it walks up the
-    same way `git` itself resolves a repository root from a working directory.
-
-    Raises `OSError` (permission denied on an intermediate directory, ...) rather than
-    swallowing it: the caller's whole reason for being here is telling "no repository" from
-    "cannot tell", and silently returning either `True` or `False` on a filesystem error
-    would collapse that distinction right back into a guess. `Path.exists()` itself
-    swallows exactly that kind of error and reports `False` -- confirmed empirically, not
-    merely assumed from its docs -- so this uses `lstat()` directly and treats ONLY
-    `FileNotFoundError` as "confirmed absent"; every other `OSError` (permission denied, a
-    path component that is not a directory, ...) propagates.
-    """
+def _find_git_root(start: Path) -> Path | None:
+    """Return the nearest directory containing a `.git` entry, if any."""
     current = start.resolve()
     while True:
         try:
@@ -284,63 +270,39 @@ def _find_git_root(start: Path) -> bool:
         except FileNotFoundError:
             pass
         else:
-            return True
+            return current
         parent = current.parent
         if parent == current:
-            return False
+            return None
         current = parent
 
 
 def _is_git_tracked(path: Path) -> bool:
-    """Whether `path` is tracked by the git repository it sits in, if any.
-
-    `.gitignore` only stops an UNTRACKED file from being added; it does nothing for a path
-    already in the index -- committed before this feature existed, or by mistake -- so
-    writing a real, permanent credential through such a path would make the next `git
-    commit -am` publish it.
-
-    No `.git` anywhere in `path`'s ancestry means no git tracking anywhere either: the
-    threat this guards against is categorically impossible without a repository, so that
-    case is safe to treat as untracked. Checking for `.git` on disk, not merely checking
-    for a `git` BINARY, matters: a repository's index is just files, and can exist -- with
-    this path already tracked in it -- on a machine where `git` itself is not on `PATH`
-    (uninstalled after the commit, a stripped-down `PATH` for this one subprocess call,
-    etc). Trusting the binary's absence as proof of "no repository" would let exactly that
-    machine state slip the write through untracked. Once a `.git` is present, though, a
-    missing `git` binary is treated the same as any other failure to answer below: unconfirmed,
-    not untracked.
-
-    A `git` binary that exists but fails to answer -- the check times out, or some other
-    OS-level failure -- is likewise different from a confirmed "not tracked": tracking might
-    still be real, just unconfirmed, and treating that the same as "definitely untracked"
-    would silently defeat this whole check on exactly the machine states an attacker aiming
-    at this file is most likely to have engineered. Both cases raise, so the caller fails
-    closed rather than guessing. (`git ls-files` in a directory that exists but is not a
-    repository fails the SAME way a real "not tracked" answer does -- a plain non-zero exit,
-    not an exception -- so that case is handled by the ordinary return below.)
-    """
+    """Whether `path` is tracked by its containing repository."""
+    try:
+        directory = path.parent.resolve()
+        root = _find_git_root(directory)
+    except (OSError, RuntimeError) as e:  # RuntimeError: a symlink loop, before Python 3.13
+        raise LogfireConfigError(
+            f'Could not confirm whether {path} is already tracked by git (looking for a '
+            f'repository above {path.parent} failed: {e}); refusing to write a live '
+            f'credential through it without checking. Resolve whatever is blocking that '
+            f'lookup, then try again.'
+        ) from e
+    if root is None:
+        return False
     if shutil.which('git') is None:
-        try:
-            has_repo = _find_git_root(path.parent)
-        except OSError as e:
-            raise LogfireConfigError(
-                f'Could not confirm whether {path} is already tracked by git (looking for a '
-                f'repository above {path.parent} failed: {e}); refusing to write a live '
-                f'credential through it without checking. Resolve whatever is blocking that '
-                f'lookup, then try again.'
-            ) from e
-        if not has_repo:
-            return False
         raise LogfireConfigError(
             f'Could not confirm whether {path} is already tracked by git (no `git` binary '
             f'found on PATH, but {path.parent} appears to be inside a git repository); '
             f'refusing to write a live credential through it without checking. Install git, '
             f'or resolve whatever is keeping it off PATH here, then try again.'
         )
+    relative_path = (directory / path.name).relative_to(root).as_posix()
     try:
         result = subprocess.run(
-            ['git', 'ls-files', '--error-unmatch', '--', path.name],
-            cwd=path.parent,
+            ['git', '--literal-pathspecs', 'ls-files', '--error-unmatch', '--', relative_path],
+            cwd=root,
             capture_output=True,
             timeout=5,
         )
