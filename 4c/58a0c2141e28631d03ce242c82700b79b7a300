@@ -1,0 +1,30 @@
+CHANGELOG.md
+  h_d9dd17644dded9 3-10,1536
+logfire-api/logfire_api/_internal/formatter.pyi
+  h_d9dd17644dded9 44-53
+logfire-api/logfire_api/_internal/integrations/google_genai.pyi
+  h_d9dd17644dded9 3-4,13-16
+logfire-api/logfire_api/_internal/main.pyi
+  h_d9dd17644dded9 667-668
+logfire-api/logfire_api/integrations/logging.pyi
+  h_d9dd17644dded9 34
+logfire-api/pyproject.toml
+  h_d9dd17644dded9 7
+logfire-sdk/pyproject.toml
+  h_d9dd17644dded9 7
+logfire/pyproject.toml
+  h_d9dd17644dded9 7,48,57-88
+uv.lock
+  h_d9dd17644dded9 3583,3729,4059
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4c58a0c2141e28631d03ce242c82700b79b7a300",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
