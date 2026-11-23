@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 from urllib.parse import urljoin
 
@@ -18,15 +17,6 @@ from .utils import UnexpectedResponse
 
 UA_HEADER = f'logfire/{VERSION}'
 _REQUEST_TIMEOUT = (HTTP_CONNECT_TIMEOUT, 30)
-
-
-class ProjectAlreadyExists(Exception):
-    pass
-
-
-class InvalidProjectName(Exception):
-    def __init__(self, reason: str, /) -> None:
-        self.reason = reason
 
 
 class LogfireClient:
@@ -84,11 +74,6 @@ class LogfireClient:
         except UnexpectedResponse as e:
             raise LogfireConfigError(error_message) from e
 
-    def _post_raw(self, endpoint: str, body: Any | None = None) -> Response:
-        response = self._session.post(urljoin(self.base_url, endpoint), json=body, timeout=_REQUEST_TIMEOUT)
-        UnexpectedResponse.raise_for_status(response)
-        return response
-
     def _put_raw(self, endpoint: str, body: Any | None = None) -> Response:  # pragma: no cover
         response = self._session.put(urljoin(self.base_url, endpoint), json=body, timeout=_REQUEST_TIMEOUT)
         UnexpectedResponse.raise_for_status(response)
@@ -100,74 +85,9 @@ class LogfireClient:
         except UnexpectedResponse as e:
             raise LogfireConfigError(error_message) from e
 
-    def _post(self, endpoint: str, *, body: Any | None = None, error_message: str) -> Any:
-        try:
-            return self._post_raw(endpoint, body).json()
-        except UnexpectedResponse as e:
-            raise LogfireConfigError(error_message) from e
-
-    def get_user_organizations(self) -> list[dict[str, Any]]:
-        """Get the organizations of the logged-in user."""
-        return self._get(
-            '/v1/organizations/available-for-projects/', error_message='Error retrieving list of organizations'
-        )
-
     def get_user_information(self) -> dict[str, Any]:
         """Get information about the logged-in user."""
         return self._get('/v1/account/me', error_message='Error retrieving user information')
-
-    def get_user_projects(self) -> list[dict[str, Any]]:
-        """Get the projects of the logged-in user."""
-        return self._get('/v1/writable-projects/', error_message='Error retrieving list of projects')
-
-    def create_new_project(self, organization: str, project_name: str):
-        """Create a new project.
-
-        Args:
-            organization: The organization that should hold the new project.
-            project_name: The name of the project to be created.
-
-        Returns:
-            The newly created project.
-        """
-        try:
-            response = self._post_raw(f'/v1/organizations/{organization}/projects', body={'project_name': project_name})
-        except UnexpectedResponse as e:
-            r = e.response
-            if r.status_code == 409:
-                raise ProjectAlreadyExists
-            if r.status_code == 422:
-                error = r.json()['detail'][0]
-                if error['loc'] == ['body', 'project_name']:  # pragma: no branch
-                    raise InvalidProjectName(error['msg'])
-
-            raise LogfireConfigError('Error creating new project')
-        return response.json()
-
-    def create_write_token(self, organization: str, project_name: str) -> dict[str, Any]:
-        """Create a write token for the given project in the given organization."""
-        return self._post(
-            f'/v1/organizations/{organization}/projects/{project_name}/write-tokens/',
-            error_message='Error creating project write token',
-        )
-
-    def create_read_token(
-        self, organization: str, project_name: str, expires_at: datetime | None = None
-    ) -> dict[str, Any]:
-        """Create a read token for the given project in the given organization.
-
-        `expires_at` bounds how long the token stays valid. The CLI has no way to revoke
-        one, so a token it stores on disk gets an expiry; a token it prints for the caller
-        to place somewhere else does not, because we do not know what it was used for.
-        """
-        body: dict[str, Any] = {'description': 'Created by Logfire CLI'}
-        if expires_at is not None:
-            body['expires_at'] = expires_at.isoformat()
-        return self._post(
-            f'/v1/organizations/{organization}/projects/{project_name}/read-tokens',
-            body=body,
-            error_message='Error creating project read token',
-        )
 
     def get_prompt(self, organization: str, project_name: str, issue: str) -> dict[str, Any]:
         """Get a prompt to be used with your favorite LLM."""
