@@ -1,0 +1,24 @@
+logfire-sdk/logfire/_internal/interactive.py
+  s_d503280975649d::t_96d9f8983a9f57 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2fbd1847e55b5b14c9e2baa4922c36b692d8f1f6",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_d503280975649d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20967-62ca-7e50-8745-e3f82494d804",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
