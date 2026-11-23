@@ -357,6 +357,9 @@ except ImportError:
         def set_baggage(*args, **kwargs) -> AbstractContextManager[None]:
             return nullcontext()
 
+        def set_attributes(*args, **kwargs) -> None:
+            return None
+
         def get_context(*args, **kwargs) -> dict[str, Any]:
             return {}
 

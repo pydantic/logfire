@@ -1700,5 +1700,14 @@ def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.
 def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
     """Convert a user attribute to an OpenTelemetry compatible type."""
 def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None: ...
+def set_attributes(attributes: dict[str, Any]) -> None:
+    """Set attributes on the current span, including values that OpenTelemetry cannot represent directly.
+
+    Non-primitive values such as dicts and lists are JSON encoded and described in the span's JSON schema.
+    If there is no active span, or the current span is not recording, this does nothing.
+
+    Args:
+        attributes: The key/value pairs to set on the current span.
+    """
 P = ParamSpec('P')
 R = TypeVar('R')

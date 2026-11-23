@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import json
 import os
 import re
 import sys
@@ -2505,6 +2506,37 @@ def test_complex_attribute_added_after_span_started(exporter: TestExporter) -> N
             }
         ]
     )
+
+
+def test_set_attributes_on_current_span(exporter: TestExporter) -> None:
+    """The public helper sets complex attributes on the current span, and does nothing without one."""
+    logfire.set_attributes({'no_current_span': 1})
+    assert exporter.exported_spans == []
+
+    @logfire.instrument(span_name='instrumented')
+    def instrumented(ok: bool) -> None:
+        logfire.set_attributes({'status': 'OK' if ok else 'ERROR', 'payload': {'a': [1, 2]}})
+
+    instrumented(True)
+
+    with logfire.span('outer'):
+        logfire.set_attributes({'nested': {'x': 1}})
+
+    final_spans = [
+        span for span in exporter.exported_spans if (span.attributes or {}).get('logfire.span_type') == 'span'
+    ]
+    assert [span.name for span in final_spans] == snapshot(['instrumented', 'outer'])
+
+    instrumented_attributes = final_spans[0].attributes or {}
+    assert instrumented_attributes['status'] == 'OK'
+    assert instrumented_attributes['payload'] == snapshot('{"a":[1,2]}')
+    assert isinstance(instrumented_attributes['logfire.json_schema'], str)
+    assert json.loads(instrumented_attributes['logfire.json_schema'])['properties']['payload'] == snapshot(
+        {'type': 'object'}
+    )
+
+    outer_attributes = final_spans[1].attributes or {}
+    assert outer_attributes['nested'] == snapshot('{"x":1}')
 
 
 def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) -> None:
