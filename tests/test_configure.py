@@ -74,7 +74,6 @@ from logfire._internal.config import (
     LogfireCredentials,
     VariablesOptions,
     get_base_url_from_token,
-    sanitize_project_name,
 )
 from logfire._internal.config_params import extract_list_of_str, normalize_token
 from logfire._internal.exporters import api_key_gate
@@ -1700,18 +1699,6 @@ def test_config_console_output_set():
     assert 'test' in output.getvalue()
 
 
-def test_sanitize_project_name():
-    assert sanitize_project_name('foo') == 'foo'
-    assert sanitize_project_name('FOO') == 'foo'
-    assert sanitize_project_name('  foo - bar!!') == 'foobar'
-    assert sanitize_project_name('  Foo - BAR!!') == 'foobar'
-    assert sanitize_project_name('') == 'untitled'
-    assert sanitize_project_name('-') == 'untitled'
-    assert sanitize_project_name('...') == 'untitled'
-    long_name = 'abcdefg' * 20
-    assert sanitize_project_name(long_name) == long_name[:41]
-
-
 @pytest.mark.parametrize(
     'legacy_state', ['missing', 'empty', 'valid', 'expired', 'different-region', 'custom-server', 'corrupt', 'multiple']
 )
@@ -1855,12 +1842,12 @@ def test_send_to_logfire_false() -> None:
     """
     Test that with send_to_logfire=False, that logic is NOT triggered.
     """
-    with mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError):
+    with mock.patch('rich.prompt.Confirm.ask', side_effect=RuntimeError):
         configure(send_to_logfire=False, console=False)
 
 
 def test_send_to_logfire_if_token_present() -> None:
-    with mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError):
+    with mock.patch('rich.prompt.Confirm.ask', side_effect=RuntimeError):
         with requests_mock.Mocker() as request_mocker:
             configure(send_to_logfire='if-token-present', console=False)
             wait_for_check_token_thread()
@@ -1872,7 +1859,7 @@ def test_send_to_logfire_if_token_present_empty() -> None:
     os.environ['LOGFIRE_TOKEN'] = ''
     try:
         with ExitStack() as stack:
-            stack.enter_context(mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError))
+            stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=RuntimeError))
             requests_mocker = stack.enter_context(requests_mock.Mocker())
             configure(send_to_logfire='if-token-present', console=False)
             wait_for_check_token_thread()
@@ -1888,7 +1875,7 @@ def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
             {'LOGFIRE_TOKEN': '', 'LOGFIRE_SEND_TO_LOGFIRE': 'if-token-present'},
         ),
         mock.patch(
-            'logfire._internal.config.Confirm.ask',
+            'rich.prompt.Confirm.ask',
             side_effect=RuntimeError,
         ),
         requests_mock.Mocker() as requests_mocker,
@@ -1900,7 +1887,7 @@ def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
 
 def test_send_to_logfire_if_token_present_empty_via_arg() -> None:
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError))
+        stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=RuntimeError))
         requests_mocker = stack.enter_context(requests_mock.Mocker())
         configure(token='', send_to_logfire='if-token-present', console=False)
         wait_for_check_token_thread()
