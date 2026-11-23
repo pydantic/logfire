@@ -78,6 +78,8 @@ class ChunksFormatter(Formatter):
 
         node_finder = FormattingCallNodeFinder(frame)
         if node_finder.is_relative_filename:
+            if any(format_string is constant for constant in frame.f_code.co_consts):
+                return None
             return [{'v': format_string, 't': 'lit'}], {}, format_string
         call_node = node_finder.node
         if call_node is None:

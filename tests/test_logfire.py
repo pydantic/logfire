@@ -3863,6 +3863,17 @@ def test_fstring_relative_filename(exporter: TestExporter, value: int | str):
     assert 'other' not in attributes
 
 
+@pytest.mark.usefixtures('tmp_dir_cwd')
+def test_template_relative_filename(exporter: TestExporter):
+    code = compile("logfire.info('Hello {name}', name='Alice')", 'app.py', 'exec')
+    with pytest.warns(InspectArgumentsFailedWarning, match='compiled with a relative filename'):
+        exec(code, {'logfire': logfire})
+
+    attributes = exporter.exported_spans_as_dict()[-1]['attributes']
+    assert attributes['logfire.msg_template'] == 'Hello {name}'
+    assert attributes['logfire.msg'] == 'Hello Alice'
+
+
 def test_wrong_fstring_source_segment(exporter: TestExporter):
     name = 'me'
     # This is a case where `ast.get_source_segment` returns an incorrect string for `{name}`
