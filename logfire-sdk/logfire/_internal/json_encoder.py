@@ -34,7 +34,8 @@ def _bytes_encoder(o: bytes, _seen: set[int]) -> str:
         >>> print(_bytes_encoder(b'hello'))
         hello
     """
-    return repr(o)[2:-1]
+    # Call `bytes.__repr__` directly since subclasses can override `__repr__`, e.g. `numpy.bytes_`.
+    return bytes.__repr__(o)[2:-1]
 
 
 def _bytearray_encoder(o: bytearray, seen: set[int]) -> str:
