@@ -157,20 +157,6 @@ class CallNodeFinder(ABC):
 
     def __init__(self, frame: types.FrameType):
         self.frame = frame
-        self.node: ast.Call | None = None
-
-        filename = frame.f_code.co_filename
-        self.is_relative_filename = not (
-            os.path.isabs(filename) or (filename.startswith('<') and filename.endswith('>'))
-        )
-        if self.is_relative_filename:
-            self.warn_inspect_arguments(
-                'The code was compiled with a relative filename, so its source code cannot be reliably located. '
-                'This happens when using compile() or runpy.run_path() with a relative path, '
-                'or running .pyc files without the source .py files.',
-            )
-            return
-
         # This is where the magic happens. It has caching.
         self.ex = executing.Source.executing(frame)
         self.source = self.ex.source
@@ -201,6 +187,13 @@ class CallNodeFinder(ABC):
             # mean that the bytecode doesn't match the source code seen by `executing`.
             # In 3.11+, a different algorithm is used by `executing` which can deal with this.
             msg += ' This may be caused by a combination of using Python < 3.11 and auto-tracing.'
+
+        filename = self.frame.f_code.co_filename
+        if not (os.path.isabs(filename) or (filename.startswith('<') and filename.endswith('>'))):
+            self.warn_inspect_arguments(
+                msg + ' The filename is relative, so the fallback cannot reliably locate the source.'
+            )
+            return None
 
         # Simple fallback heuristic: check if there's only one possible call node.
         call_nodes = [

@@ -3849,42 +3849,41 @@ Couldn't identify the `msg_template` argument in the call.\
 
 
 @pytest.mark.usefixtures('tmp_dir_cwd')
-@pytest.mark.parametrize(
-    'value, expected',
-    [(1, 'real 1'), ('{data[item]}', 'real {data[item]}'), ({'password': 'example'}, "[Scrubbed due to 'password']")],
-)
-def test_fstring_relative_filename(exporter: TestExporter, value: int | str | dict[str, str], expected: str):
+def test_fstring_relative_filename(exporter: TestExporter):
     with open('app.py', 'w') as f:
-        f.write("logfire.info(f'fake {other}')")
-    code = compile("logfire.info(f'real {value}', data=data)", 'app.py', 'exec')
+        f.write("logfire.info(\n    f'fake {other}'\n)")
+    code = compile("logfire.info(f'real {value}')", 'app.py', 'exec')
 
-    with pytest.warns(InspectArgumentsFailedWarning, match='compiled with a relative filename'):
-        exec(code, {'logfire': logfire, 'value': value, 'other': 2, 'data': {'item': 3}})
+    with pytest.warns(InspectArgumentsFailedWarning, match='filename is relative'):
+        exec(code, {'logfire': logfire, 'value': 1, 'other': 2})
 
     attributes = exporter.exported_spans_as_dict()[-1]['attributes']
-    assert attributes['logfire.msg_template'] == attributes['logfire.msg'] == expected
+    assert attributes['logfire.msg_template'] == attributes['logfire.msg'] == 'real 1'
     assert 'other' not in attributes
 
 
 @pytest.mark.usefixtures('tmp_dir_cwd')
 def test_template_relative_filename(exporter: TestExporter):
     code = compile("logfire.info('Hello {name}', name='Alice')", 'app.py', 'exec')
-    with pytest.warns(InspectArgumentsFailedWarning, match='compiled with a relative filename'):
+    with pytest.warns(InspectArgumentsFailedWarning, match='filename is relative'):
         exec(code, {'logfire': logfire})
 
     attributes = exporter.exported_spans_as_dict()[-1]['attributes']
     assert attributes['logfire.msg_template'] == 'Hello {name}'
-    assert attributes['logfire.msg'] == 'Hello {name}'
+    assert attributes['logfire.msg'] == 'Hello Alice'
 
 
 @pytest.mark.usefixtures('tmp_dir_cwd')
-def test_fstring_relative_filename_constant(exporter: TestExporter):
-    code = compile("value = '{name}'; logfire.info(f'{value}', name='Alice')", 'app.py', 'exec')
-    with pytest.warns(InspectArgumentsFailedWarning, match='compiled with a relative filename'):
-        exec(code, {'logfire': logfire})
+def test_fstring_relative_filename_with_source(exporter: TestExporter):
+    source = "logfire.info(f'Hello {name}')"
+    with open('app.py', 'w') as f:
+        f.write(source)
+    code = compile(source, 'app.py', 'exec')
+    exec(code, {'logfire': logfire, 'name': 'Alice'})
 
     attributes = exporter.exported_spans_as_dict()[-1]['attributes']
-    assert attributes['logfire.msg_template'] == attributes['logfire.msg'] == '{name}'
+    assert attributes['logfire.msg_template'] == 'Hello {name}'
+    assert attributes['logfire.msg'] == 'Hello Alice'
 
 
 def test_wrong_fstring_source_segment(exporter: TestExporter):

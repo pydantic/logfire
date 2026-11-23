@@ -50,7 +50,7 @@ class ChunksFormatter(Formatter):
         #      or from noting scrubbed values.
         # 3. The final message template, which may differ from `format_string` if it was an f-string.
         if fstring_frame:
-            result = self._fstring_chunks(format_string, kwargs, scrubber, fstring_frame)
+            result = self._fstring_chunks(kwargs, scrubber, fstring_frame)
             if result:  # returns None if failed
                 return result
 
@@ -64,7 +64,6 @@ class ChunksFormatter(Formatter):
 
     def _fstring_chunks(
         self,
-        format_string: str,
         kwargs: dict[str, Any],
         scrubber: BaseScrubber,
         frame: types.FrameType,
@@ -77,10 +76,6 @@ class ChunksFormatter(Formatter):
         assert frame is not None
 
         node_finder = FormattingCallNodeFinder(frame)
-        if node_finder.is_relative_filename:
-            value_cleaner = MessageValueCleaner(scrubber, check_keys=False)
-            message = value_cleaner.clean_value('message', format_string)
-            return [{'v': message, 't': 'lit'}], value_cleaner.extra_attrs(), message
         call_node = node_finder.node
         if call_node is None:
             return None
