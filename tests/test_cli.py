@@ -3210,8 +3210,9 @@ def test_is_git_tracked_takes_the_path_literally(tmp_dir_cwd: Path, data_dir_nam
 
 
 @pytest.mark.parametrize('settings', [('GIT_DIR',), ('GIT_WORK_TREE',), ('GIT_DIR', 'GIT_WORK_TREE')])
+@pytest.mark.parametrize('with_repository', [False, True])
 def test_is_git_tracked_with_explicit_settings(
-    tmp_dir_cwd: Path, monkeypatch: pytest.MonkeyPatch, settings: tuple[str, ...]
+    tmp_dir_cwd: Path, monkeypatch: pytest.MonkeyPatch, settings: tuple[str, ...], with_repository: bool
 ) -> None:
     for name in ('GIT_DIR', 'GIT_WORK_TREE'):
         monkeypatch.delenv(name, raising=False)
@@ -3219,13 +3220,16 @@ def test_is_git_tracked_with_explicit_settings(
     subprocess.run(['git', 'init', '--bare', '--quiet', str(repository)], check=True)
     path = tmp_dir_cwd / READ_TOKEN_FILENAME
     path.write_text('{}')
+    if with_repository:
+        subprocess.run(['git', 'init', '--quiet'], cwd=tmp_dir_cwd, check=True)
+        subprocess.run(['git', 'add', '--', str(path)], cwd=tmp_dir_cwd, check=True)
     values = {'GIT_DIR': str(repository), 'GIT_WORK_TREE': str(tmp_dir_cwd)}
     for name, value in values.items():
         if name in settings:
             monkeypatch.setenv(name, value)
-    if len(settings) == 2:
+    if len(settings) == 2 and not with_repository:
         subprocess.run(['git', 'add', '--', str(path)], check=True)
-    with pytest.raises(LogfireConfigError, match='configured repository'):
+    with pytest.raises(LogfireConfigError, match='explicit repository settings'):
         _is_git_tracked(path)
 
 

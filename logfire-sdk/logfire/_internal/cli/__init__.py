@@ -279,6 +279,11 @@ def _find_git_root(start: Path) -> Path | None:
 
 def _is_git_tracked(path: Path) -> bool:
     """Whether `path` is tracked by its containing repository."""
+    if 'GIT_DIR' in os.environ or 'GIT_WORK_TREE' in os.environ:
+        raise LogfireConfigError(
+            f'Could not confirm whether {path} is tracked by git with explicit repository settings; '
+            'unset GIT_DIR and GIT_WORK_TREE before retrying.'
+        )
     try:
         directory = path.parent.resolve()
         root = _find_git_root(directory)
@@ -290,11 +295,6 @@ def _is_git_tracked(path: Path) -> bool:
             f'lookup, then try again.'
         ) from e
     if root is None:
-        if 'GIT_DIR' in os.environ or 'GIT_WORK_TREE' in os.environ:
-            raise LogfireConfigError(
-                f'Could not confirm whether {path} is tracked by git with the configured repository; '
-                'use a checkout containing a .git entry.'
-            )
         return False
     if shutil.which('git') is None:
         raise LogfireConfigError(
