@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import io
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import date, datetime, time, timedelta
 from functools import partial
 from typing import Any, cast
@@ -201,6 +201,11 @@ class JsonArgsValueFormatter:
         value: Any,
         schema: JSONSchema | None,
     ) -> None:
+        if not isinstance(value, Mapping):
+            # A custom model serializer can produce a non-object value.
+            self._write('', '', True, indent_current, value, None)
+            return
+
         indent_new = indent_current + self._indent_step
         before_ = indent_new * ' '
         comma = ',\n' if self._newlines else ', '
@@ -212,7 +217,7 @@ class JsonArgsValueFormatter:
         first = True
         properties = schema.get('properties', {})
         additional = schema.get('additionalProperties')
-        for k, v in value.items():
+        for k, v in cast('Mapping[str, Any]', value).items():
             if first:
                 if self._newlines:
                     self._stream.write('\n')
