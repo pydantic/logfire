@@ -3866,7 +3866,7 @@ def test_fstring_relative_filename(exporter: TestExporter):
 @pytest.mark.usefixtures('tmp_dir_cwd')
 def test_template_relative_filename(exporter: TestExporter):
     code = compile("logfire.info('Hello {name}', name='Alice')", 'app.py', 'exec')
-    with pytest.warns(InspectArgumentsFailedWarning, match='filename is relative') as warnings:
+    with pytest.warns(InspectArgumentsFailedWarning, match='Falling back to normal message formatting') as warnings:
         exec(code, {'logfire': logfire})
     assert len(warnings) == 1
 
