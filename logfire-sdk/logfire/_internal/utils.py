@@ -237,7 +237,7 @@ class UnexpectedResponse(RequestException):
 
 
 READ_TOKEN_FILENAME = 'read_token.json'
-"""Where `logfire read-tokens create --save` stores a read token.
+"""Where the legacy CLI stored a saved read token.
 
 Deliberately NOT a new key inside `logfire_credentials.json`: that file is loaded with
 `LogfireCredentials(**data)`, so an unrecognised key raises `LogfireConfigError` in every
