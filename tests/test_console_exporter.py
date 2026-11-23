@@ -198,6 +198,21 @@ def test_console_empty_formatted_attribute(
     assert not caplog.records
 
 
+def test_console_nat_attribute(config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture) -> None:
+    """Regression test for #2876: pandas.NaT must not crash the console exporter."""
+    import pandas
+
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('order shipped', shipped_at=pandas.NaT, order_id=1)
+
+    assert output.getvalue() == "order shipped\n│ shipped_at='NaT'\n│ order_id=1\n"
+    assert not caplog.records
+
+
 @pytest.mark.parametrize('source', ['file', 'environment', 'options'])
 @pytest.mark.parametrize('include_attributes', [True, False])
 def test_console_include_attributes_config_sources(

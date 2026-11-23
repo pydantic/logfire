@@ -358,13 +358,33 @@ class JsonArgsValueFormatter:
         )
 
     def _format_date(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
-        self._write('', '', True, 0, date.fromisoformat(value) if isinstance(value, str) else value, schema)
+        self._write('', '', True, 0, _fromisoformat_or_raw(date.fromisoformat, value), schema)
 
     def _format_datetime(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
-        self._write('', '', True, 0, datetime.fromisoformat(value) if isinstance(value, str) else value, schema)
+        self._write('', '', True, 0, _fromisoformat_or_raw(datetime.fromisoformat, value), schema)
 
     def _format_time(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
-        self._write('', '', True, 0, time.fromisoformat(value) if isinstance(value, str) else value, schema)
+        self._write('', '', True, 0, _fromisoformat_or_raw(time.fromisoformat, value), schema)
+
+
+def _fromisoformat_or_raw(parse: Callable[[str], Any], value: Any) -> Any:
+    """Parse an ISO format string, falling back to the raw value if it isn't one.
+
+    Some encoded values are not valid ISO format even though they carry a
+    date/time datatype: pandas' ``NaT`` encodes as the string ``'NaT'``
+    (its ``isoformat()`` returns ``'NaT'``), and a custom serializer may return
+    a datetime as a non-ISO string. Returning the value as encoded keeps the
+    console exporter from raising and dropping the other attributes.
+    """
+    if isinstance(value, str):
+        try:
+            return parse(value)
+        except ValueError:
+            return value
+    return value
+
+
+json_args_value_formatter = JsonArgsValueFormatter(indent=4)
 
 
 json_args_value_formatter = JsonArgsValueFormatter(indent=4)

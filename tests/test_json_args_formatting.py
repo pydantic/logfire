@@ -212,6 +212,30 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
             id='time',
         ),
         pytest.param(
+            'NaT',
+            {'type': 'string', 'x-python-datatype': 'datetime'},
+            "'NaT'",
+            id='datetime-nat',
+        ),
+        pytest.param(
+            'NaT',
+            {'type': 'string', 'x-python-datatype': 'date'},
+            "'NaT'",
+            id='date-nat',
+        ),
+        pytest.param(
+            'NaT',
+            {'type': 'string', 'x-python-datatype': 'time'},
+            "'NaT'",
+            id='time-nat',
+        ),
+        pytest.param(
+            'not-a-date',
+            {'type': 'string', 'x-python-datatype': 'datetime'},
+            "'not-a-date'",
+            id='datetime-not-iso',
+        ),
+        pytest.param(
             90072.0,
             {'type': 'number', 'x-python-datatype': 'timedelta'},
             'datetime.timedelta(days=1, seconds=3672)',
@@ -628,6 +652,30 @@ def test_nested_json_args_value_formatting():
             {'type': 'string', 'x-python-datatype': 'time'},
             'datetime.time(12, 10)',
             id='time',
+        ),
+        pytest.param(
+            'NaT',
+            {'type': 'string', 'x-python-datatype': 'datetime'},
+            "'NaT'",
+            id='datetime-nat',
+        ),
+        pytest.param(
+            'NaT',
+            {'type': 'string', 'x-python-datatype': 'date'},
+            "'NaT'",
+            id='date-nat',
+        ),
+        pytest.param(
+            'NaT',
+            {'type': 'string', 'x-python-datatype': 'time'},
+            "'NaT'",
+            id='time-nat',
+        ),
+        pytest.param(
+            'not-a-date',
+            {'type': 'string', 'x-python-datatype': 'datetime'},
+            "'not-a-date'",
+            id='datetime-not-iso',
         ),
         pytest.param(
             90072.0,
