@@ -45,11 +45,7 @@ def add_non_user_code_prefix(path: str | Path) -> None:
     global NON_USER_CODE_PREFIXES
     path = str(Path(path).absolute())
     NON_USER_CODE_PREFIXES += (path,)  # pyright: ignore[reportConstantRedefinition]
-
-
-add_non_user_code_prefix(Path(opentelemetry.sdk.trace.__file__).parent.parent.parent.parent)
-add_non_user_code_prefix(Path(inspect.__file__).parent)
-add_non_user_code_prefix(Path(logfire.__file__).parent)
+    is_user_code.cache_clear()
 
 
 def get_filepath_attribute(file: str) -> StackInfo:
@@ -140,6 +136,11 @@ def is_user_code(code: CodeType) -> bool:
         or code.co_filename.startswith('<')
         or code.co_name in ('<listcomp>', '<dictcomp>', '<setcomp>')
     )
+
+
+add_non_user_code_prefix(Path(opentelemetry.sdk.trace.__file__).parent.parent.parent.parent)
+add_non_user_code_prefix(Path(inspect.__file__).parent)
+add_non_user_code_prefix(Path(logfire.__file__).parent)
 
 
 def warn_at_user_stacklevel(msg: str, category: type[Warning]):
