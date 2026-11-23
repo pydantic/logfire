@@ -7077,6 +7077,20 @@ def test_parse_run_script_with_summary(monkeypatch: pytest.MonkeyPatch, capsys: 
     assert instrument_package_mock.call_args_list == [(('openai',),)]
 
 
+def test_parse_run_script_relative_path(
+    tmp_dir_cwd: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_dir_cwd / 'main.py').write_text('print(__file__, (lambda: 0).__code__.co_filename)')
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.instrument_package', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.OTEL_INSTRUMENTATION_MAP', {'openai': 'openai'})
+
+    main(['run', '--no-summary', 'main.py'])
+
+    script_path = os.path.abspath('main.py')
+    assert capsys.readouterr().out == f'{script_path} {script_path}\n'
+
+
 def test_parse_run_module(
     tmp_dir_cwd: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
