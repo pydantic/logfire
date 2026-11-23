@@ -366,6 +366,123 @@ def test_private_names_in_fstring(exporter: TestExporter):
     )
 
 
+def test_private_names_in_nested_classes_and_functions(exporter: TestExporter):
+    class Outer:
+        __value = 'outer'
+        logfire.info(f'outer body {__value}')
+
+        class Inner:
+            __value = 'inner'
+            logfire.info(f'inner body {__value}')
+
+            def report(self):
+                logfire.info(f'inner method {self.__value}')
+                __local = 'closure'
+
+                def report_closure():
+                    logfire.info(f'nested function {__local}')
+
+                report_closure()
+
+    Outer.Inner().report()
+
+    assert [
+        (span['attributes']['logfire.msg_template'], span['attributes']['logfire.msg'])
+        for span in exporter.exported_spans_as_dict()
+    ] == snapshot(
+        [
+            ('outer body {__value}', 'outer body outer'),
+            ('inner body {__value}', 'inner body inner'),
+            ('inner method {self.__value}', 'inner method inner'),
+            ('nested function {__local}', 'nested function closure'),
+        ]
+    )
+
+
+def test_private_names_with_underscore_class_names(exporter: TestExporter):
+    class __Leading:
+        __value = 'leading underscores'
+
+        def report(self):
+            logfire.info(f'value {self.__value}')
+
+    class ___:
+        __value = 'only underscores'
+
+        def report(self):
+            logfire.info(f'value {self.__value}')
+
+    __Leading().report()
+    ___().report()
+
+    assert [
+        (span['attributes']['logfire.msg_template'], span['attributes']['self.__value'])
+        for span in exporter.exported_spans_as_dict()
+    ] == snapshot([('value {self.__value}', 'leading underscores'), ('value {self.__value}', 'only underscores')])
+
+
+def test_private_names_in_class_decorators_and_bases(exporter: TestExporter):
+    def decorator(_message: None):
+        def decorate(cls: type):
+            return cls
+
+        return decorate
+
+    def base(_message: None):
+        return object
+
+    __value = 'function'
+
+    @decorator(logfire.info(f'outside decorator {__value}'))
+    class Outside(base(logfire.info(f'outside base {__value}'))):
+        __value = 'outside class'
+
+    class Outer:
+        __value = 'outer'
+
+        @decorator(logfire.info(f'outer decorator {__value}'))
+        class Inner(base(logfire.info(f'outer base {__value}'))):
+            __value = 'inner'
+
+    assert Outer.Inner.__name__ == 'Inner'
+
+    assert [
+        (span['attributes']['logfire.msg_template'], span['attributes']['__value'])
+        for span in exporter.exported_spans_as_dict()
+    ] == snapshot(
+        [
+            ('outside decorator {__value}', 'function'),
+            ('outside base {__value}', 'function'),
+            ('outer decorator {__value}', 'outer'),
+            ('outer base {__value}', 'outer'),
+        ]
+    )
+
+
+def test_private_and_already_mangled_names_in_fstring(exporter: TestExporter):
+    class Account:
+        _Account__balance: float
+
+        def __init__(self):
+            self.__balance = 12.5
+
+        def report(self):
+            logfire.info(f'balance {self.__balance + self._Account__balance}')
+            logfire.info(f'keyword {dict(__balance=self.__balance)}')
+
+    Account().report()
+
+    assert [
+        (span['attributes']['logfire.msg_template'], span['attributes']['logfire.msg'])
+        for span in exporter.exported_spans_as_dict()
+    ] == snapshot(
+        [
+            ('balance {self.__balance + self._Account__balance}', 'balance 25.0'),
+            ('keyword {dict(__balance=self.__balance)}', "keyword {'__balance': 12.5}"),
+        ]
+    )
+
+
 def test_logfire_calls_skip_fstring_magic(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
     """Spans that logfire opens itself don't run `executing` on their call site (#2771)."""
     # In tests, logfire's own calls are checked for f-strings, which needs `executing`. Turn that off.
