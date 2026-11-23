@@ -85,6 +85,56 @@ With both scripts running, open the [Live view](../../guides/web-ui/live.md). Wi
 
 ![Logfire MCP Trace](../../images/logfire-screenshot-mcp.png)
 
+## Trace a retry after a tool writes data
+
+A tool can save a change and then fail before the client gets confirmation. If the client retries, pass the same operation ID so the tool can recognize the write it already applied.
+
+The example below uses MCP SDK version 1 and connects the client and server in memory. It runs without a model or a Logfire token. The tool saves one refund to an in-memory ledger, then returns an error on the first call.
+
+```python title="retry.py" skip-run="true" skip-reason="global-instrumentation"
+import asyncio
+
+from mcp.server.fastmcp import FastMCP
+from mcp.shared.memory import create_connected_server_and_client_session
+
+import logfire
+
+logfire.configure(send_to_logfire=False)
+logfire.instrument_mcp()
+
+server = FastMCP('refunds')
+ledger: dict[str, int] = {}
+
+
+@server.tool()
+def refund(operation_id: str) -> int:
+    """Record a refund once for this operation ID."""
+    if operation_id not in ledger:
+        ledger[operation_id] = 2000
+        raise RuntimeError('Simulated failure after recording the refund')
+    return ledger[operation_id]
+
+
+async def main() -> None:
+    """Retry the refund after a simulated error."""
+    async with create_connected_server_and_client_session(server) as client:
+        arguments = {'operation_id': 'refund-1'}
+        with logfire.span('Refund with one retry'):
+            first = await client.call_tool('refund', arguments)
+            assert first.isError
+            retry = await client.call_tool('refund', arguments)
+            assert not retry.isError
+
+    assert sum(ledger.values()) == 2000
+
+
+asyncio.run(main())
+```
+
+The trace contains two calls to `refund`. The first returns an error and the second returns the existing refund. The ledger assertion verifies that the total refunded is still $20. In a real tool, store the operation ID and its result durably with the write so deduplication also works after a restart.
+
+To see the trace in Logfire, remove `send_to_logfire=False` and run the example with your Logfire write token configured.
+
 ## MCP SDK version 2 and fastmcp 4
 
 Version 2 of the MCP Python SDK (`mcp>=2`, which fastmcp 4 depends on) emits OpenTelemetry spans and passes the trace context between client and server on its own. With it, `logfire.configure()` is all you need on each side, and you get the same joined trace without calling `logfire.instrument_mcp()`. Calling it anyway does nothing except emit a warning saying it's unnecessary.
