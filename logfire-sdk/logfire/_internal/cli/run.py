@@ -190,7 +190,7 @@ def parse_run(args: argparse.Namespace) -> None:
             sys.path.insert(0, script_dir)
 
         with alter_sys_argv(script_and_args, f'python {" ".join(script_and_args)}'):
-            runpy.run_path(script_path, run_name='__main__')
+            runpy.run_path(os.path.abspath(script_path), run_name='__main__')
     else:
         print('Usage: logfire run [-m MODULE] [args...] OR logfire run SCRIPT [args...]')
         sys.exit(1)
