@@ -41,6 +41,16 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     2. A compiled code object which can be evaluated to calculate the value.
     3. Another code object which formats the value.
     """
+def enclosing_class_name(node: ast.AST) -> str:
+    """Returns the name of the innermost class whose body contains `node`, or an empty string if there isn't one.
+
+    Uses the parent links that `executing` sets on the nodes.
+    """
+def mangle_private_names(code: CodeType, class_name: str) -> CodeType:
+    """Prefixes the private names that `code` looks up, e.g. `__x` becomes `_ClassName__x`.
+
+    See https://docs.python.org/3/reference/expressions.html#private-name-mangling
+    """
 
 class KnownFormattingError(Exception):
     """An error raised when there's something wrong with a format string or the field values.

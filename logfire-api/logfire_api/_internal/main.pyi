@@ -664,7 +664,8 @@ class Logfire:
         logfire.instrument_openai(client)
 
         response = client.chat.completions.create(
-            model=\'gpt-5-mini\',
+            model=\'gpt-6.1-terra\',
+            reasoning_effort=\'none\',
             messages=[
                 {\'role\': \'system\', \'content\': \'You are a helpful assistant.\'},
                 {\'role\': \'user\', \'content\': \'What is four plus five?\'},

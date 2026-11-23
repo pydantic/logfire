@@ -3580,7 +3580,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "6.0.0"
+version = "6.0.1"
 source = { editable = "logfire" }
 dependencies = [
     { name = "logfire-cli" },
@@ -3726,7 +3726,7 @@ provides-extras = ["gateway", "agent-sandboxes", "system-metrics", "asgi", "wsgi
 
 [[package]]
 name = "logfire-api"
-version = "6.0.0"
+version = "6.0.1"
 source = { editable = "logfire-api" }
 
 [package.metadata]
@@ -4056,7 +4056,7 @@ editor-tests = [
 
 [[package]]
 name = "logfire-sdk"
-version = "6.0.0"
+version = "6.0.1"
 source = { editable = "logfire-sdk" }
 dependencies = [
     { name = "certifi" },

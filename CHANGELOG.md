@@ -1,5 +1,13 @@
 # Release Notes
 
+## [v6.0.1] (2026-11-23)
+
+* Restrict string keys in message template bracket lookups by @alexmojaki in [#2855](https://github.com/pydantic/logfire/pull/2855)
+* fix(structlog): keep user attributes named like stdlib LogRecord fields by @tony1233200 in [#2867](https://github.com/pydantic/logfire/pull/2867)
+* Apply `add_non_user_code_prefix` to code that was already inspected by @Yasser-Ameur in [#2863](https://github.com/pydantic/logfire/pull/2863)
+* Mangle private names when evaluating f-string values inside a class by @caiotheodoro in [#2861](https://github.com/pydantic/logfire/pull/2861)
+* Encode bytes subclasses with a custom repr like plain bytes by @JoeyTan21 in [#2859](https://github.com/pydantic/logfire/pull/2859)
+
 ## [v6.0.0] (2026-11-19)
 
 * Switch the CLI to use the new `logfire-cli` package @alexmojaki in [#2833](https://github.com/pydantic/logfire/pull/2833)
@@ -1525,3 +1533,4 @@ First release from new repo!
 [v5.5.0]: https://github.com/pydantic/logfire/compare/v5.4.0...v5.5.0
 [v5.6.0]: https://github.com/pydantic/logfire/compare/v5.5.0...v5.6.0
 [v6.0.0]: https://github.com/pydantic/logfire/compare/v5.6.0...v6.0.0
+[v6.0.1]: https://github.com/pydantic/logfire/compare/v6.0.0...v6.0.1
