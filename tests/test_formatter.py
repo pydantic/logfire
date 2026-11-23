@@ -532,3 +532,134 @@ def test_logfire_fstring_call_fails_in_tests(exporter: TestExporter, monkeypatch
 
     logfire.info('internal {x}', x=x)
     assert [span['attributes']['logfire.msg'] for span in exporter.exported_spans_as_dict()] == snapshot(['internal 1'])
+
+
+def test_bare_super_in_fstring(exporter: TestExporter):
+    class Base:
+        amount = 12.5
+        label = 'base'
+
+        def value(self) -> float:
+            return self.amount
+
+        def width(self) -> int:
+            return 6
+
+        @classmethod
+        def kind(cls) -> str:
+            return cls.label
+
+    class Child(Base):
+        def value(self) -> float:
+            return -1
+
+        @classmethod
+        def kind(cls) -> str:
+            return 'child'
+
+        def report(receiver, /):  # pyright: ignore[reportSelfClsParameterName]
+            __width_adjustment = 0
+            logfire.info(f'amount {super().value():{super().width() + __width_adjustment}.2f}', receiver='attribute')
+            with logfire.span(f'width {super().width()}'):
+                pass
+
+        @classmethod
+        def report_class(cls):
+            logfire.info(f'label {super().kind()}')
+
+    class Grandchild(Child):
+        amount = 31.25
+        label = 'grandchild'
+
+    Grandchild().report()
+    Grandchild.report_class()
+
+    assert [
+        (
+            span['name'],
+            span['attributes']['logfire.msg_template'],
+            span['attributes']['logfire.msg'],
+            span['attributes'][field],
+        )
+        for span, field in zip(
+            exporter.exported_spans_as_dict(), ('super().value()', 'super().width()', 'super().kind()'), strict=True
+        )
+    ] == [
+        ('amount {super().value()}', 'amount {super().value()}', 'amount  31.25', 31.25),
+        ('width {super().width()}', 'width {super().width()}', 'width 6', 6),
+        ('label {super().kind()}', 'label {super().kind()}', 'label grandchild', 'grandchild'),
+    ]
+
+
+def test_bare_super_preserves_ordinary_name_resolution(exporter: TestExporter):
+    class Base:
+        def value(self) -> int:
+            return 8
+
+    class Child(Base):
+        def explicit(self):
+            logfire.info(f'explicit {super(Child, self).value()}')  # noqa: UP008 - exercise the explicit form
+
+        def skipped(self):
+            enabled = False
+            logfire.info(f'skipped {super().value() if enabled else 5}')
+
+        def shadowed(self):
+            def super(*, amount: int = 4) -> int:
+                return amount
+
+            logfire.info(f'shadowed {super()} {super(amount=9)}')  # pyright: ignore[reportArgumentType]
+
+    child = Child()
+    child.explicit()
+    child.skipped()
+    child.shadowed()
+
+    explicit, skipped, shadowed = exporter.exported_spans_as_dict()
+    assert explicit['attributes']['super(Child, self).value()'] == 8
+    assert skipped['attributes']['super().value() if enabled else 5'] == 5
+    assert shadowed['attributes']['super()'] == 4
+    assert shadowed['attributes']['super(amount=9)'] == 9
+
+
+def test_bare_super_keeps_eval_locals(exporter: TestExporter):
+    class Example:
+        def report(self):
+            def super():
+                return 7
+
+            source_keys = {'code.filepath', 'code.function', 'code.lineno'}
+            expected = {*locals(), 'expected'}
+            logfire.info(
+                f'value {super() if set(locals()) - source_keys == expected and type(locals()) is dict else -1} '
+                f'matching locals {set(locals()) - source_keys == expected}'
+            )
+
+    Example().report()
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == 'value 7 matching locals True'
+    assert (
+        span['attributes']['super() if set(locals()) - source_keys == expected and type(locals()) is dict else -1'] == 7
+    )
+    assert span['attributes']['set(locals()) - source_keys == expected'] is True
+
+
+def test_bare_super_with_no_receiver_at_reevaluation(exporter: TestExporter):
+    class Base:
+        value = 7
+
+    class Example(Base):
+        def report(self):
+            def drop_receiver():
+                nonlocal self
+                del self
+                return True
+
+            logfire.info(f'value {super().value}', dropped=drop_receiver())
+
+    # The call was valid when Python rendered the f-string, but the receiver
+    # was deleted before Logfire could reevaluate it.
+    with pytest.raises(RuntimeError, match=r'super\(\): no arguments'):
+        Example().report()
+    assert not exporter.exported_spans
