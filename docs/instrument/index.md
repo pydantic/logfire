@@ -69,3 +69,5 @@ Once your app is sending data:
 - **See it arrive** in the [Live view](../guides/web-ui/live.md).
 - **Instrument the libraries you already use** (web framework, database driver, HTTP client) with [Integrations](../integrations/index.md).
 - **New to tracing?** [Core concepts](../concepts.md) explains spans and traces and how to read them.
+
+- **Celery**: see the [Celery integration guide](../integrations/celery.md) for the required top‑level `logfire.instrument_celery()` call.
