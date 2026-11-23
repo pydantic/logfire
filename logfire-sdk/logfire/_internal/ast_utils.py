@@ -160,7 +160,10 @@ class CallNodeFinder(ABC):
         self.node: ast.Call | None = None
 
         filename = frame.f_code.co_filename
-        if not (os.path.isabs(filename) or (filename.startswith('<') and filename.endswith('>'))):
+        self.is_relative_filename = not (
+            os.path.isabs(filename) or (filename.startswith('<') and filename.endswith('>'))
+        )
+        if self.is_relative_filename:
             self.warn_inspect_arguments(
                 'The code was compiled with a relative filename, so its source code cannot be reliably located. '
                 'This happens when using compile() or runpy.run_path() with a relative path, '

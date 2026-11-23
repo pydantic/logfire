@@ -3849,16 +3849,17 @@ Couldn't identify the `msg_template` argument in the call.\
 
 
 @pytest.mark.usefixtures('tmp_dir_cwd')
-def test_fstring_relative_filename(exporter: TestExporter):
+@pytest.mark.parametrize('value', [1, '{data[item]}'])
+def test_fstring_relative_filename(exporter: TestExporter, value: int | str):
     with open('app.py', 'w') as f:
         f.write("logfire.info(f'fake {other}')")
-    code = compile("logfire.info(f'real {value}')", 'app.py', 'exec')
+    code = compile("logfire.info(f'real {value}', data=data)", 'app.py', 'exec')
 
     with pytest.warns(InspectArgumentsFailedWarning, match='compiled with a relative filename'):
-        exec(code, {'logfire': logfire, 'value': 1, 'other': 2})
+        exec(code, {'logfire': logfire, 'value': value, 'other': 2, 'data': {'item': 3}})
 
     attributes = exporter.exported_spans_as_dict()[-1]['attributes']
-    assert attributes['logfire.msg_template'] == attributes['logfire.msg'] == 'real 1'
+    assert attributes['logfire.msg_template'] == attributes['logfire.msg'] == f'real {value}'
     assert 'other' not in attributes
 
 
