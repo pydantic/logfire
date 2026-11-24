@@ -26,6 +26,7 @@ from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
 from ..http_transport import install_connection_policy
 from ..interactive import NonInteractiveError, is_non_interactive, require_answer, set_non_interactive
+from ..logfire_info import logfire_info
 from ..server_response import install_logfire_response_hook
 from ..tracer import SDKTracerProvider
 from ..utils import READ_TOKEN_FILENAME
@@ -149,54 +150,6 @@ def _load_credentials_or_exit(data_dir: Path) -> LogfireCredentials:
         sys.stderr.write(f'No Logfire credentials found in {data_dir.resolve()}\n')
         sys.exit(1)
     return credentials
-
-
-def logfire_info() -> str:
-    """Show versions of logfire, OS and related packages."""
-    import importlib.metadata as importlib_metadata
-
-    # get data about packages that are closely related to logfire
-    package_names = {
-        # use by otel to send data
-        'requests': 1,
-        # custom integration
-        'pydantic': 2,
-        # otel integration is customed
-        'fastapi': 3,
-        # custom integration
-        'openai': 4,
-        # dependencies of otel
-        'protobuf': 5,
-        # dependencies
-        'rich': 6,
-        # dependencies
-        'typing-extensions': 7,
-        # dependencies
-        'tomli': 8,
-        # dependencies
-        'executing': 9,
-    }
-    otel_index = max(package_names.values(), default=0) + 1
-    related_packages: list[tuple[int, str, str]] = []
-
-    for dist in importlib_metadata.distributions():
-        metadata = dist.metadata
-        name = metadata.get('Name', '')
-        version = metadata.get('Version', 'UNKNOWN')
-        index = package_names.get(name)
-        if index is not None:
-            related_packages.append((index, name, version))
-        if name.startswith('opentelemetry'):
-            related_packages.append((otel_index, name, version))
-
-    toml_lines: tuple[str, ...] = (
-        f'logfire="{VERSION}"',
-        f'platform="{platform.platform()}"',
-        f'python="{sys.version}"',
-        '[related_packages]',
-        *(f'{name}="{version}"' for _, name, version in sorted(related_packages)),
-    )
-    return '\n'.join(toml_lines) + '\n'
 
 
 def parse_info(_args: argparse.Namespace) -> None:
