@@ -43,7 +43,6 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
     lookup: dict[type[Any], JsonDict | Callable[[Any, set[int]], JsonDict]] = {
         bytes: _bytes_schema,
         bytearray: _bytearray_schema,
-        Enum: _enum_schema,
         Decimal: {'type': 'string', 'format': 'decimal', 'x-python-datatype': 'Decimal'},
         datetime.datetime: {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
         datetime.date: {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'},
@@ -120,6 +119,9 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
         return {'type': 'null'}
 
     try:
+        if isinstance(obj, Enum):
+            obj = obj.value
+
         # cover common types first before calling `type_to_schema` to avoid the overhead of imports if not necessary
         obj_type = obj.__class__
 
@@ -155,7 +157,7 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
             else:
                 return schema(obj, seen) if callable(schema) else schema
 
-        # cover subclasses of common types, can't come earlier due to conflicts with IntEnum and StrEnum
+        # cover subclasses of common types
         if isinstance(obj, (str, int, float)):
             return {}
         elif isinstance(obj, Sequence):
@@ -210,26 +212,6 @@ def _bytearray_schema(obj: bytearray, _seen: set[int]) -> JsonDict:
     if obj.__class__.__name__ != 'bytearray':  # pragma: no cover
         schema['title'] = obj.__class__.__name__
     return schema
-
-
-# NOTE: We don't handle enums where members are not basic types (str, int, bool, float) very well.
-# The "type" will always be "object".
-def _enum_schema(obj: Enum, seen: set[int]) -> JsonDict:
-    enum_values = [e.value for e in obj.__class__]
-    enum_types = set(type(value).__name__ for value in enum_values)
-    if enum_types == {'int', 'float'}:
-        type_ = 'number'
-    elif len(enum_types) == 1 and enum_types <= {'str', 'int', 'bool', 'float'}:
-        type_ = {'str': 'string', 'int': 'integer', 'bool': 'boolean', 'float': 'number'}[next(iter(enum_types))]
-    else:
-        type_ = 'object'
-
-    return {
-        'type': type_,
-        'title': obj.__class__.__name__,
-        'x-python-datatype': 'Enum',
-        'enum': to_json_value(enum_values, seen),
-    }
 
 
 # Schemas for values that are already JSON serializable, i.e. that don't need to be included
