@@ -148,12 +148,9 @@ def truncate_sequence(seq: Truncatable, *, max_length: int, middle: Truncatable)
 def read_toml_file(path: Path) -> dict[str, Any]:
     """Read a TOML file and return the parsed data.
 
-    It wraps the `tomllib.load` function from Python 3.11 or the `tomli.load` function from older versions.
+    It wraps `tomllib.load`.
     """
-    if sys.version_info >= (3, 11):  # pragma: no branch
-        from tomllib import load as load_toml
-    else:
-        from tomli import load as load_toml  # pragma: no cover
+    from tomllib import load as load_toml
 
     with path.open('rb') as f:
         data = load_toml(f)

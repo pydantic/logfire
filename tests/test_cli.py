@@ -3171,7 +3171,7 @@ def test_gateway_auth_recover_after_rejection_handles_non_runtime_refresh_failur
 def test_gateway_auth_recover_after_rejection_handles_browser_timeout() -> None:
     class TimeoutReauthSession(MockOAuthSession):
         async def auth_code_flow(self, bootstrap: gateway_auth.AuthBootstrap) -> None:
-            raise asyncio.TimeoutError
+            raise TimeoutError
 
     async def run() -> bool:
         auth = gateway_auth.GatewayAuth(

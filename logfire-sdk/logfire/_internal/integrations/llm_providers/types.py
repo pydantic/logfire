@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, NamedTuple
-
-from typing_extensions import LiteralString
+from typing import Any, LiteralString, NamedTuple
 
 
 class StreamState(ABC):

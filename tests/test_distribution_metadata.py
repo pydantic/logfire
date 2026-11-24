@@ -1,18 +1,13 @@
 """Contracts for the `logfire` distribution split."""
 
-import sys
 from importlib import metadata
 from pathlib import Path
+from tomllib import loads
 from typing import Any
 
 from packaging.requirements import Requirement
 
 import logfire
-
-if sys.version_info >= (3, 11):
-    from tomllib import loads
-else:
-    from tomli import loads
 
 ROOT = Path(__file__).parents[1]
 
@@ -35,9 +30,11 @@ def test_distribution_versions_and_dependencies_stay_in_sync() -> None:
     assert sdk['name'] == 'logfire-sdk'
     assert meta['name'] == 'logfire'
     assert sdk['version'] == meta['version'] == api['version']
+    assert workspace['project']['requires-python'] == sdk['requires-python'] == api['requires-python'] == '>=3.11'
     assert meta['requires-python'] == sdk['requires-python']
     assert meta['authors'] == sdk['authors']
     assert meta['classifiers'] == sdk['classifiers']
+    assert 'Programming Language :: Python :: 3.10' not in sdk['classifiers']
     assert meta['urls'] == sdk['urls']
     assert meta['license-files'] == ['LICENSE']
 
