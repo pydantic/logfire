@@ -28,6 +28,16 @@ Install `logfire` with the `google-genai` extra:
 
 {{ install_logfire(extras=['google-genai']) }}
 
+The extra installs `opentelemetry-instrumentation-google-genai`, the OpenTelemetry package that
+records Google Gen AI calls. Version `1.3b0` supports `google-genai>=1.32.0,<3`; it does not support
+Google Gen AI SDK 3.x. Use a Google Gen AI SDK version supported by the installed OpenTelemetry
+package.
+
+To capture costs reported by the [AI Gateway](../../reference/advanced/gateway/index.md) for streamed
+responses, you also need `google-genai>=1.69.0`, within that supported range. Earlier SDK versions
+do not expose the `part_metadata` field that carries those costs. This requirement concerns
+gateway-reported costs, separate from [token-based cost estimates](../../cookbook/track-llm-cost.md).
+
 ## Usage
 
 Add two lines to your app: `logfire.configure()` to connect to your project, and
@@ -78,6 +88,10 @@ duration.
 
 Not seeing your model calls in Logfire? Check these first:
 
+- **Your Google Gen AI SDK version is supported.** If the OpenTelemetry package logs an error
+  containing `falls outside of that range, so nothing can be instrumented`, it skips recording
+  Google Gen AI calls. The calls can still succeed without creating spans. Use a supported SDK
+  version as described under [Installation](#installation).
 - **`logfire.configure()` runs before `logfire.instrument_google_genai()`.** Configure the connection
   first, then instrument.
 - **You called `instrument_google_genai()` exactly once.**
