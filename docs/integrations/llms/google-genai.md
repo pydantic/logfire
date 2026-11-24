@@ -85,6 +85,10 @@ Not seeing your model calls in Logfire? Check these first:
   if needed, then run `uvx logfire-cli auth` if needed, then
   `uvx logfire-cli init use` from your application's directory;
   in production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
+- **No spans with `google-genai` 3.x?** The underlying OpenTelemetry instrumentation only
+  supports `google-genai` 1.69.0 up to (but not including) 3.0.0, so with 3.x nothing is
+  instrumented. `logfire.instrument_google_genai()` warns you when the installed version is
+  outside that range. Pin `google-genai` below 3 until upstream adds 3.x support.
 - **Prompts and completions show as `<elided>`?** Set
   `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=SPAN_ONLY` before your app runs, as shown above.
 

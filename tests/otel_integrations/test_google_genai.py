@@ -72,6 +72,28 @@ You can install this with:
 """)
 
 
+def test_instrument_google_genai_warns_on_google_genai_3x() -> None:
+    # opentelemetry-instrumentation-google-genai only supports google-genai < 3, and
+    # silently instruments nothing there. See https://github.com/pydantic/logfire/issues/2880.
+    with patch('logfire._internal.integrations.google_genai.package_version', return_value='3.4.0'):
+        with pytest.warns(UserWarning, match='no spans will be created'):
+            logfire.instrument_google_genai()
+
+
+def test_instrument_google_genai_warns_on_old_google_genai() -> None:
+    # Below 1.69.0 streamed AI Gateway costs (read from `part_metadata`, #2702) are missing.
+    with patch('logfire._internal.integrations.google_genai.package_version', return_value='1.68.0'):
+        with pytest.warns(UserWarning, match='older than 1.69.0'):
+            logfire.instrument_google_genai()
+
+
+def test_instrument_google_genai_no_warning_for_supported_version() -> None:
+    with patch('logfire._internal.integrations.google_genai.package_version', return_value='2.34.0'):
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            logfire.instrument_google_genai()
+
+
 @pytest.mark.vcr()
 def test_instrument_google_genai(capfire: CaptureLogfire) -> None:
     from google.genai import Client, types
