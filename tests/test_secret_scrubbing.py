@@ -856,10 +856,11 @@ def test_scrubbed_notes_are_limited_on_log_records(logs_exporter: TestLogExporte
     assert all(log['body'][key] == "[Scrubbed due to 'password']" for key in body)
 
 
+@pytest.mark.parametrize('count', [40, 60])
 def test_existing_scrubbed_notes_are_limited_without_new_matches(
-    exporter: TestExporter, logs_exporter: TestLogExporter
+    exporter: TestExporter, logs_exporter: TestLogExporter, count: int
 ):
-    notes = [{'path': ['attributes', f'field_{i}'], 'matched_substring': 'reason'} for i in range(60)]
+    notes = [{'path': ['attributes', f'field_{i}'], 'matched_substring': 'reason'} for i in range(count)]
     existing = json.dumps(notes)
     logfire.info('example', **cast(Any, {'logfire.scrubbed': existing}))
     get_logger(__name__).emit(LogRecord(body='example', attributes={'logfire.scrubbed': existing}))
