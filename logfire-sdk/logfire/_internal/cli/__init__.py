@@ -39,9 +39,7 @@ class SplitArgs(argparse.Action):
 
 
 def _main(args: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(
-        prog='python -m logfire', description='Python instrumentation helpers for Logfire.'
-    )
+    parser = argparse.ArgumentParser(prog='logfire', description='Python instrumentation helpers for Logfire.')
     parser.set_defaults(func=lambda _: parser.print_help())  # pyright: ignore[reportUnknownLambdaType]
     subparsers = parser.add_subparsers(title='commands', metavar='')
 
