@@ -81,7 +81,7 @@ Run `inject` before any step that hashes or compresses the bundle, such as preco
 You can upload the same build to Logfire and to another error tracking tool, such as Sentry or Datadog. Logfire reuses a debug ID that the other tool already wrote, so both tools share it.
 
 1. Run the inject step of the other tool, for example `sentry-cli sourcemaps inject` or `datadog-ci sourcemaps inject`.
-2. Run `npx logfire-cli --beta sourcemap inject` last.
+2. Run `npx logfire-cli --beta sourcemap inject dist` last.
 3. Upload to each tool. Pass `--delete` only to the last upload, because it removes the `.map` files.
 
 ### Upload the maps
