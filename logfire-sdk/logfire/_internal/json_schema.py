@@ -404,9 +404,16 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     properties = schema.get('properties')
     if isinstance(properties, dict) and aliases:
         # The default for model_dump(by_alias=...) depends on the Pydantic version and model config.
-        # Dump one field in isolation so an alias matching another field's name cannot hide the setting.
-        sample_name, sample_alias = next(iter(aliases.items()))
-        uses_aliases = sample_alias in obj.model_dump(include={sample_name})
+        # Dump fields in isolation so aliases matching other field names cannot hide the setting.
+        # Skip fields excluded from serialization, which produce no key to check.
+        uses_aliases = False
+        for name, alias in aliases.items():
+            dumped = obj.model_dump(include={name})
+            if alias in dumped:
+                uses_aliases = True
+                break
+            if name in dumped:
+                break
         schema['properties'] = {
             aliases[name] if uses_aliases and name in aliases else name: value for name, value in properties.items()
         }

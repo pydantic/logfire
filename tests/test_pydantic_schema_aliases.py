@@ -167,3 +167,30 @@ def test_empty_serialization_alias(exporter: TestExporter) -> None:
         'x-python-datatype': 'PydanticModel',
         'properties': {serialized_key: {'type': 'string', 'x-python-datatype': type(model.url).__name__}},
     }
+
+
+def test_excluded_alias_does_not_hide_alias_setting(exporter: TestExporter) -> None:
+    class AliasedModel(BaseModel):
+        model_config = ConfigDict(serialize_by_alias=True)
+
+        excluded_url: AnyUrl = Field(serialization_alias='excluded_output', exclude=True)
+        visible_url: AnyUrl = Field(serialization_alias='visible_output')
+
+    model = AliasedModel.model_validate(
+        {'excluded_url': 'https://example.com/excluded', 'visible_url': 'https://example.com/visible'}
+    )
+    logfire.info('aliased model {model}', model=model)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    recorded_json = attributes['model']
+    schema_json = attributes['logfire.json_schema']
+    assert isinstance(recorded_json, str)
+    assert isinstance(schema_json, str)
+    serialized_key = 'visible_output' if get_version(pydantic.__version__) >= get_version('2.11') else 'visible_url'
+    assert json.loads(recorded_json) == {serialized_key: 'https://example.com/visible'}
+    schema_properties = json.loads(schema_json)['properties']['model']['properties']
+    assert schema_properties[serialized_key] == {
+        'type': 'string',
+        'x-python-datatype': type(model.visible_url).__name__,
+    }
