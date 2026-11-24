@@ -400,24 +400,29 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
         fields = obj.__fields__  # pyright: ignore[reportDeprecated]
         aliases = {}
         extra = {}
-    schema = _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen)
-    properties = schema.get('properties')
-    if isinstance(properties, dict) and aliases:
+    if aliases:
         # The default for model_dump(by_alias=...) depends on the Pydantic version and model config.
         # Dump fields in isolation so aliases matching other field names cannot hide the setting.
         # Skip fields excluded from serialization, which produce no key to check.
-        uses_aliases = False
         for name, alias in aliases.items():
             dumped = obj.model_dump(include={name})
             if alias in dumped:
-                uses_aliases = True
-                break
+                properties: dict[str, Any] = {}
+                for field_name in fields:
+                    with suppress(Exception):
+                        properties[aliases.get(field_name, field_name)] = getattr(obj, field_name)
+                for extra_name in extra:
+                    with suppress(Exception):
+                        properties[extra_name] = getattr(obj, extra_name)
+                return {
+                    'type': 'object',
+                    'title': obj.__class__.__name__,
+                    'x-python-datatype': 'PydanticModel',
+                    **_properties(properties, seen),
+                }
             if name in dumped:
                 break
-        schema['properties'] = {
-            aliases[name] if uses_aliases and name in aliases else name: value for name, value in properties.items()
-        }
-    return schema
+    return _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen)
 
 
 def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:

@@ -194,3 +194,35 @@ def test_excluded_alias_does_not_hide_alias_setting(exporter: TestExporter) -> N
         'type': 'string',
         'x-python-datatype': type(model.visible_url).__name__,
     }
+
+
+@pytest.mark.parametrize('serialize_by_alias', [False, True])
+def test_plain_field_overwrites_aliased_metadata(exporter: TestExporter, serialize_by_alias: bool) -> None:
+    class AliasedModel(BaseModel):
+        model_config = ConfigDict(serialize_by_alias=serialize_by_alias)
+
+        first: datetime = Field(serialization_alias='second')
+        second: int
+
+    model = AliasedModel.model_validate({'first': '2024-01-02T03:04:05', 'second': 7})
+    logfire.info('aliased model {model}', model=model)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    recorded_json = attributes['model']
+    schema_json = attributes['logfire.json_schema']
+    assert isinstance(recorded_json, str)
+    assert isinstance(schema_json, str)
+    schema = json.loads(schema_json)['properties']['model']
+    uses_aliases = serialize_by_alias and get_version(pydantic.__version__) >= get_version('2.11')
+    if uses_aliases:
+        assert json.loads(recorded_json) == {'second': 7}
+        assert schema == {'type': 'object', 'title': 'AliasedModel', 'x-python-datatype': 'PydanticModel'}
+    else:
+        assert json.loads(recorded_json) == {'first': '2024-01-02T03:04:05', 'second': 7}
+        assert schema == {
+            'type': 'object',
+            'title': 'AliasedModel',
+            'x-python-datatype': 'PydanticModel',
+            'properties': {'first': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'}},
+        }
