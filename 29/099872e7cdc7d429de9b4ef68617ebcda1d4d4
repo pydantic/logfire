@@ -1,0 +1,25 @@
+logfire-sdk/logfire/_internal/logfire_info.py
+  s_48d92db44c8b12::t_1adebfbd7a5e6e 11-13,15,17,19,21,23,25,27,29,31,37
+  s_48d92db44c8b12::t_57a8321d506253 8
+  s_48d92db44c8b12::t_3486b8b1703f41 1-7,9-10,14,16,18,20,22,24,26,28,30,32-36,38-54
+logfire-sdk/logfire/__init__.py
+  s_48d92db44c8b12::t_57a8321d506253 25
+logfire-sdk/logfire/_internal/cli/__init__.py
+  s_48d92db44c8b12::t_519973ad88702f 29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "29099872e7cdc7d429de9b4ef68617ebcda1d4d4",
+  "prompts": {},
+  "sessions": {
+    "s_48d92db44c8b12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20d29-571c-7b30-9599-483b8401df9c",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
