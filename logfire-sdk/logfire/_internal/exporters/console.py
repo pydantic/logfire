@@ -11,16 +11,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from textwrap import indent as indent_text
-from typing import Any, Literal, TextIO, cast
+from typing import TYPE_CHECKING, Any, Literal, TextIO, cast
 
 from opentelemetry._logs import LogRecord
 from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs.export import LogRecordExporter, LogRecordExportResult
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-from rich.console import Console, Group
-from rich.syntax import Syntax
-from rich.text import Text
 
 from ..constants import (
     ATTRIBUTES_JSON_SCHEMA_KEY,
@@ -36,7 +33,11 @@ from ..constants import (
     LevelName,
 )
 from ..json_formatter import json_args_value_formatter
+from ..stack_info import warn_at_user_stacklevel
 from ..utils import truncate_string
+
+if TYPE_CHECKING:
+    from rich.console import Console
 
 ConsoleColorsValues = Literal['auto', 'always', 'never']
 _INFO_LEVEL = LEVEL_NUMBERS['info']
@@ -124,25 +125,37 @@ class SimpleConsoleSpanExporter(SpanExporter):
         include_attributes: bool | None = None,
     ) -> None:
         self._output = output
-        if colors == 'auto':
-            force_terminal = None
-            no_color = None
+        self._console: Console | None = None
+        try:
+            from rich.console import Console
+        except ImportError:
+            # rich is optional, without it we print plain text without colors.
+            if colors == 'always':
+                warn_at_user_stacklevel(
+                    "Console `colors='always'` requires the `rich` package, output will not be colored. "
+                    'Install it with `pip install rich`.',
+                    category=UserWarning,
+                )
         else:
-            force_terminal = colors == 'always'
-            # Rich 15 honors NO_COLOR even with force_terminal=True unless no_color is set explicitly.
-            no_color = colors == 'never'
-        self._console = Console(
-            color_system='standard' if os.environ.get('PYTEST_VERSION') else 'auto',
-            file=self._output,
-            force_terminal=force_terminal,
-            highlight=False,
-            markup=False,
-            no_color=no_color,
-            soft_wrap=True,
-        )
-        if not self._console.is_terminal:
+            if colors == 'auto':
+                force_terminal = None
+                no_color = None
+            else:
+                force_terminal = colors == 'always'
+                # Rich 15 honors NO_COLOR even with force_terminal=True unless no_color is set explicitly.
+                no_color = colors == 'never'
+            console = Console(
+                color_system='standard' if os.environ.get('PYTEST_VERSION') else 'auto',
+                file=self._output,
+                force_terminal=force_terminal,
+                highlight=False,
+                markup=False,
+                no_color=no_color,
+                soft_wrap=True,
+            )
             # Use plain `print` to `self._output` instead of rich when we don't need colors
-            self._console = None
+            if console.is_terminal:
+                self._console = console
 
         self._include_timestamp = include_timestamp
         self._include_tags = include_tags
@@ -182,6 +195,8 @@ class SimpleConsoleSpanExporter(SpanExporter):
             parts += [('\n', '')] + details_parts
 
         if self._console:
+            from rich.text import Text
+
             self._console.print(Text.assemble(*parts))
         else:
             print(''.join(text for text, _style in parts), file=self._output)
@@ -289,6 +304,8 @@ class SimpleConsoleSpanExporter(SpanExporter):
     def _print_arguments_rich(self, arguments: dict[str, Any], indent_str: str) -> None:
         """Print logfire arguments in color using rich, particularly with syntax highlighting."""
         assert self._console is not None
+        from rich.syntax import Syntax
+        from rich.text import Text
 
         syntax = Syntax('', 'python', background_color='default')
         for k, value_code in arguments.items():
@@ -334,6 +351,10 @@ class SimpleConsoleSpanExporter(SpanExporter):
         exc_tb = cast(str, exc_event.attributes.get('exception.stacktrace'))
 
         if self._console:
+            from rich.console import Group
+            from rich.syntax import Syntax
+            from rich.text import Text
+
             barrier = Text(indent_str + '│ ', style='blue', end='')
             exc_type = Text(f'{exc_type}: ', end='', style='bold red')
             exc_msg = Text(exc_msg)

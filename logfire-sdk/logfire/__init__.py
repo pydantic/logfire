@@ -11,7 +11,6 @@ from . import variables as variables
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
 from ._internal.baggage import get_baggage, set_baggage
-from ._internal.cli import logfire_info
 from ._internal.config import (
     AdvancedOptions,
     CodeSource,
@@ -23,6 +22,7 @@ from ._internal.config import (
     configure,
 )
 from ._internal.constants import LevelName
+from ._internal.info import logfire_info
 from ._internal.main import Logfire, LogfireSpan
 from ._internal.scrubbing import ScrubbingOptions, ScrubMatch
 from ._internal.stack_info import add_non_user_code_prefix

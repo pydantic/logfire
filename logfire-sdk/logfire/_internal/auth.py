@@ -11,8 +11,6 @@ from typing import TypedDict, cast
 from urllib.parse import urljoin
 
 import requests
-from rich.console import Console
-from rich.prompt import IntPrompt
 from typing_extensions import Self
 
 from logfire.exceptions import LogfireConfigError
@@ -115,6 +113,25 @@ class UserToken:
         return token_repr
 
 
+def _ask_choice(prompt: str, count: int) -> int:
+    """Ask the user to pick a number from 1 to `count`."""
+    choices = [str(i) for i in range(1, count + 1)]
+    try:
+        from rich.console import Console
+        from rich.prompt import IntPrompt
+    except ImportError:
+        # rich is optional, fall back to a plain prompt
+        while True:
+            sys.stderr.write(f'{prompt}[{"/".join(choices)}]: ')
+            sys.stderr.flush()
+            answer = input().strip()
+            if answer in choices:
+                return int(answer)
+            sys.stderr.write('Please select one of the available options\n')
+
+    return IntPrompt.ask(prompt, choices=choices, console=Console(file=sys.stderr))
+
+
 @dataclass
 class UserTokenCollection:
     """A collection of user tokens, read from a user tokens file.
@@ -169,10 +186,8 @@ class UserTokenCollection:
                 f'{i}. {token} ({"expired" if token.is_expired else "valid"})'
                 for i, token in enumerate(tokens_list, start=1)
             )
-            int_choice = IntPrompt.ask(
-                f'Multiple user tokens found. Please select one:\n{choices_str}\n',
-                choices=[str(i) for i in range(1, len(tokens_list) + 1)],
-                console=Console(file=sys.stderr),
+            int_choice = _ask_choice(
+                f'Multiple user tokens found. Please select one:\n{choices_str}\n', len(tokens_list)
             )
             token = tokens_list[int_choice - 1]
         else:  # tokens_list == []
