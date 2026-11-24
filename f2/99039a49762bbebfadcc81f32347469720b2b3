@@ -1,0 +1,21 @@
+logfire-sdk/logfire/_internal/regions.py
+  s_48d92db44c8b12::t_a00cfea0c17cb8 1-17
+logfire-sdk/logfire/_internal/config.py
+  s_48d92db44c8b12::t_8e09ec3ee21770 138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f299039a49762bbebfadcc81f32347469720b2b3",
+  "prompts": {},
+  "sessions": {
+    "s_48d92db44c8b12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20d29-571c-7b30-9599-483b8401df9c",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
