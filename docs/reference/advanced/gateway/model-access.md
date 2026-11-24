@@ -70,7 +70,7 @@ Gateway calculates each request's cost from its token counts and a price in USD 
 
    </div>
 
-If the provider answers with a dated version of the model you requested, such as `gpt-5.4-mini` answered as `gpt-5.4-mini-2026-03-17`, a custom price on `gpt-5.4-mini` also applies. If both names have a custom price, the dated name's price applies. On a Bedrock provider whose base URL is Bedrock Mantle (`https://bedrock-mantle.<region>.api.aws`), Claude responses drop the `anthropic.` prefix, so `anthropic.claude-opus-4-7` is answered as `claude-opus-4-7`. A custom price on `anthropic.claude-opus-4-7` also applies to those responses. For any other name in the response, Gateway uses the custom price of the model in the response, or its catalog price if it has none.
+If the provider answers with a dated version of the model you requested, such as `gpt-5.4-mini` answered as `gpt-5.4-mini-2026-03-17`, a custom price on `gpt-5.4-mini` also applies. If both names have a custom price, the dated name's price applies. On a Bedrock provider whose base URL is Bedrock Mantle (`https://bedrock-mantle.<region>.api.aws`), a custom price on an `anthropic.` model also applies when the response drops that prefix, such as `anthropic.claude-opus-4-7` answered as `claude-opus-4-7`. For any other name in the response, Gateway uses the custom price of the model in the response, or its catalog price if it has none.
 
 To return to the catalog price, turn the override off and click **Save model**. Built-in providers always use the catalog price.
 
