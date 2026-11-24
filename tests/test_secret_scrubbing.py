@@ -1766,6 +1766,40 @@ def test_scrub_json_containers_without_a_raw_pattern_match(exporter: TestExporte
     assert span['attributes']['unchanged'] == '{"amount":1e400}'
 
 
+def test_scrub_deeply_nested_json_strings():
+    def nested_json(levels: int, text: str) -> str:
+        for _ in range(levels):
+            text = '["' + text.replace('\\', r'\u005c').replace('"', r'\u0022') + '"]'
+        return text
+
+    def decode(value: str, levels: int) -> str:
+        for _ in range(levels):
+            (value,) = json.loads(value)
+        return value
+
+    scrubber = Scrubber(None)
+    path = ('attributes', 'payload')
+
+    shallow, notes = scrubber.scrub_value(path, nested_json(4, 'password=hunter2'))
+    assert decode(shallow, 4) == "[Scrubbed due to 'password']"
+    assert notes == [{'path': (*path, 0, 0, 0, 0), 'matched_substring': 'password'}]
+
+    for levels in (5, 50):
+        value = nested_json(levels, 'password=hunter2')
+        result, notes = scrubber.scrub_value(path, value)
+        assert decode(result, 4) == '[Scrubbed due to deeply nested JSON]'
+        assert len(result) < len(value)
+        assert notes == [{'path': (*path, *(0 for _ in range(levels))), 'matched_substring': 'password'}]
+
+        unchanged = nested_json(levels, 'hunter2')
+        assert scrubber.scrub_value(path, unchanged) == (unchanged, [])
+
+    escaped = nested_json(5, r'{"pass\u0077ord":"hunter2"}')
+    result, notes = scrubber.scrub_value(path, escaped)
+    assert decode(result, 4) == '[Scrubbed due to deeply nested JSON]'
+    assert notes == [{'path': (*path, 0, 0, 0, 0, 0, 'password'), 'matched_substring': 'password'}]
+
+
 def test_internal_exception_in_scrubbing_callback_does_not_export_secrets(
     exporter: TestExporter, config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture
 ):
