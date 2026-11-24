@@ -95,7 +95,7 @@ logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback
 
 Logfire scrubs a value before checking whether its key matches a pattern. This includes strings and values inside dictionaries, lists, and JSON-encoded containers. Your callback for a matching key receives the scrubbed value, so it can return that value unchanged or return a subset of a container. If it returns a different value, Logfire uses that replacement without scrubbing it again. For most safe keys, Logfire skips pattern matching inside their values; structured message attributes are treated differently, as described below.
 
-Logfire also checks JSON strings nested inside other JSON strings. If it finds a value to scrub inside more than four layers of JSON strings, it replaces that nested string with `[Scrubbed due to deeply nested JSON]`. This can remove other data in the same nested string; JSON with no matches stays unchanged.
+Logfire also checks JSON-encoded arrays and objects nested inside strings. If scrubbing changes a value inside more than four such strings, Logfire replaces the nested string with `[Scrubbed due to deeply nested JSON]`. The marker also replaces any callback replacement inside that string, along with other data there. JSON with no scrubbing changes stays unchanged.
 
 If the callback returns a value unchanged (or returns an equal copy of the same type), Logfire checks other patterns that match at the same position, then later positions in the same key or string value. The callback may run more than once for one key or value. A different returned value is used as the final value. After 100 allowed matches in one string, Logfire redacts the value to limit the search cost.
 
