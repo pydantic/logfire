@@ -1,6 +1,7 @@
 """Versions of Logfire and related packages for support reports."""
 
 import platform
+import re
 import sys
 
 from ..version import VERSION
@@ -38,10 +39,11 @@ def logfire_info() -> str:
         metadata = dist.metadata
         name = metadata.get('Name', '')
         version = metadata.get('Version', 'UNKNOWN')
-        index = package_names.get(name)
+        normalized_name = re.sub(r'[-_.]+', '-', name).lower()
+        index = package_names.get(normalized_name)
         if index is not None:
             related_packages.append((index, name, version))
-        if name.startswith('opentelemetry'):
+        if normalized_name.startswith('opentelemetry'):
             related_packages.append((otel_index, name, version))
 
     toml_lines: tuple[str, ...] = (
