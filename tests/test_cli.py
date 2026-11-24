@@ -390,6 +390,23 @@ def test_whoami_default_dir(
     )
 
 
+def test_whoami_invalid_token_choice(
+    tmp_dir_cwd: Path, multiple_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Giving up on choosing a user token isn't reported as being logged out."""
+    with (
+        patch('logfire._internal.auth.DEFAULT_FILE', multiple_credentials),
+        patch('builtins.input', side_effect=['nope'] * 5),
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        main(['whoami'])
+
+    assert exc_info.value.code == 1
+    err = capsys.readouterr().err
+    assert err.endswith('No valid option was selected after 5 attempts.\n')
+    assert 'Not logged in' not in err
+
+
 def test_whoami_no_token_no_url(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     auth_file = tmp_path / 'default.toml'
     with patch('logfire._internal.auth.DEFAULT_FILE', auth_file), pytest.raises(SystemExit):

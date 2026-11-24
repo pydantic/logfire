@@ -45,7 +45,7 @@ classifiers = [
     "Framework :: OpenTelemetry :: Exporters",
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
-dependencies = ["logfire-sdk==6.0.1", "logfire-cli>=0.1.20"]
+dependencies = ["logfire-sdk[rich]==6.0.1", "logfire-cli>=0.1.20"]
 
 # This package owns the `logfire` command; logfire-cli 0.1.20+ installs only `logfire-cli`.
 # Pip uninstalls monolithic logfire v5, which also owned `logfire`, immediately before
@@ -54,6 +54,7 @@ dependencies = ["logfire-sdk==6.0.1", "logfire-cli>=0.1.20"]
 logfire = "logfire_cli:main"
 
 [project.optional-dependencies]
+rich = ["logfire-sdk[rich]==6.0.1"]
 gateway = ["logfire-sdk[gateway]==6.0.1"]
 agent-sandboxes = ["logfire-sdk[agent-sandboxes]==6.0.1"]
 system-metrics = ["logfire-sdk[system-metrics]==6.0.1"]

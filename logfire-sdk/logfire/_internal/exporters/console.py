@@ -6,21 +6,16 @@ Inspired by https://opentelemetry-python.readthedocs.io/en/latest/_modules/opent
 from __future__ import annotations
 
 import json
-import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from textwrap import indent as indent_text
-from typing import Any, Literal, TextIO, cast
+from typing import Any, TextIO, cast
 
 from opentelemetry._logs import LogRecord
 from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs.export import LogRecordExporter, LogRecordExportResult
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-from rich.console import Console, Group
-from rich.syntax import Syntax
-from rich.text import Text
 
 from ..constants import (
     ATTRIBUTES_JSON_SCHEMA_KEY,
@@ -36,16 +31,12 @@ from ..constants import (
     LevelName,
 )
 from ..json_formatter import json_args_value_formatter
+from ..maybe_rich import ConsoleColorsValues, ConsoleWriter, TextParts
 from ..utils import truncate_string
 
-ConsoleColorsValues = Literal['auto', 'always', 'never']
 _INFO_LEVEL = LEVEL_NUMBERS['info']
 _WARN_LEVEL = LEVEL_NUMBERS['warn']
 _ERROR_LEVEL = LEVEL_NUMBERS['error']
-
-# A list of (text, style) pairs that can be passed to rich's `Text.assemble`.
-# When logging without colors, just the text is used in a plain `print`.
-TextParts = list[tuple[str, str]]
 
 
 @dataclass
@@ -123,26 +114,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         min_log_level: LevelName = 'info',
         include_attributes: bool | None = None,
     ) -> None:
-        self._output = output
-        if colors == 'auto':
-            force_terminal = None
-            no_color = None
-        else:
-            force_terminal = colors == 'always'
-            # Rich 15 honors NO_COLOR even with force_terminal=True unless no_color is set explicitly.
-            no_color = colors == 'never'
-        self._console = Console(
-            color_system='standard' if os.environ.get('PYTEST_VERSION') else 'auto',
-            file=self._output,
-            force_terminal=force_terminal,
-            highlight=False,
-            markup=False,
-            no_color=no_color,
-            soft_wrap=True,
-        )
-        if not self._console.is_terminal:
-            # Use plain `print` to `self._output` instead of rich when we don't need colors
-            self._console = None
+        self._writer = ConsoleWriter(output, colors)
 
         self._include_timestamp = include_timestamp
         self._include_tags = include_tags
@@ -181,13 +153,8 @@ class SimpleConsoleSpanExporter(SpanExporter):
         if details_parts:
             parts += [('\n', '')] + details_parts
 
-        if self._console:
-            self._console.print(Text.assemble(*parts))
-        else:
-            print(''.join(text for text, _style in parts), file=self._output)
+        self._writer.print_parts(parts)
 
-        # This uses a separate system for color vs no-color because it's not simple text:
-        # in the rich case it uses syntax highlighting and columns for layout.
         self._print_arguments(span, indent_str)
 
         exc_event = next((event for event in span.events or [] if event.name == 'exception'), None)
@@ -266,7 +233,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         if not self._include_attributes or not span.attributes:
             return
 
-        arguments: dict[str, Any] = {}
+        arguments: dict[str, str] = {}
         json_schema = cast('dict[str, Any]', json.loads(span.attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY, '{}')))  # pyright: ignore[reportArgumentType]
         for key, schema in json_schema.get('properties', {}).items():
             value = span.attributes.get(key)
@@ -281,48 +248,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         if not arguments:
             return
 
-        if self._console:
-            self._print_arguments_rich(arguments, indent_str)
-        else:
-            self._print_arguments_plain(arguments, indent_str)
-
-    def _print_arguments_rich(self, arguments: dict[str, Any], indent_str: str) -> None:
-        """Print logfire arguments in color using rich, particularly with syntax highlighting."""
-        assert self._console is not None
-
-        syntax = Syntax('', 'python', background_color='default')
-        for k, value_code in arguments.items():
-            # Rich adds a trailing newline when highlighting code without one.
-            # Append our own so cropping removes only that generated newline,
-            # preserving original trailing newlines and expanded tabs.
-            highlighted = syntax.highlight(f'{value_code}\n')
-            highlighted.right_crop(1)
-
-            out = Text()
-            for i, line in enumerate(highlighted.split('\n', allow_blank=True)):
-                if i:
-                    out.append('\n')
-                out.append(indent_str)
-                out.append('│ ', style='blue')
-                if i == 0:
-                    out.append(f'{k}=', style='blue')
-                else:
-                    out.append(' ' * (len(k) + 1))
-                out.append_text(line)
-
-            self._console.print(out)
-
-    def _print_arguments_plain(self, arguments: dict[str, Any], indent_str: str) -> None:
-        """Print logfire arguments without color using the built-in `print` function."""
-        out: list[str] = []
-        for k, value_code in arguments.items():
-            # An empty value, e.g. b'', has no lines but still gets its `k=` line
-            value_lines = value_code.splitlines() or ['']
-            out += [f'{indent_str}│ {k}={value_lines[0]}']
-            prefix = f'{indent_str}│ {" " * len(k)} '
-            for line in value_lines[1:]:
-                out += [f'{prefix}{line}']
-        print('\n'.join(out), file=self._output)
+        self._writer.print_arguments(arguments, indent_str)
 
     def _print_exc_info(self, exc_event: Event | None, indent_str: str) -> None:
         """Print exception information if an exception event is present."""
@@ -333,17 +259,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         exc_msg = cast(str, exc_event.attributes.get('exception.message'))
         exc_tb = cast(str, exc_event.attributes.get('exception.stacktrace'))
 
-        if self._console:
-            barrier = Text(indent_str + '│ ', style='blue', end='')
-            exc_type = Text(f'{exc_type}: ', end='', style='bold red')
-            exc_msg = Text(exc_msg)
-            indented_code = indent_text(exc_tb, indent_str + '│ ')
-            exc_tb = Syntax(indented_code, 'python', background_color='default')
-            self._console.print(Group(barrier, exc_type, exc_msg), exc_tb)
-        else:
-            out = [f'{indent_str}│ {exc_type}: {exc_msg}']
-            out += [indent_text(exc_tb, indent_str + '│ ')]
-            print('\n'.join(out), file=self._output)
+        self._writer.print_exception(exc_type, exc_msg, exc_tb, indent_str)
 
     def force_flush(self, timeout_millis: int = 0) -> bool:  # pragma: no cover
         """Force flush all spans, does nothing for this exporter."""

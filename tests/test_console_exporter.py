@@ -1217,7 +1217,7 @@ def test_console_exporter_rich_argument_preserves_expanded_tab() -> None:
     out = io.StringIO()
     exporter = SimpleConsoleSpanExporter(output=out, verbose=True, colors='always', include_timestamp=False)
 
-    exporter._print_arguments_rich({'x': '\t'}, '')
+    exporter._writer.print_arguments({'x': '\t'}, '')
 
     plain_output = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', out.getvalue())
     assert plain_output == '│ x=    \n'

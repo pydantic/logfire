@@ -68,7 +68,6 @@ from opentelemetry.sdk.trace import (
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
-from rich.console import Console
 from typing_extensions import Self, assert_type
 
 from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
@@ -136,6 +135,7 @@ from .forwarding import OTLPForwardingManager
 from .http_transport import install_connection_policy
 from .integrations.executors import instrument_executors
 from .logs import ProxyLoggerProvider
+from .maybe_rich import print_project_url
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
 from .server_response import ServerResponseCallback, install_logfire_response_hook
@@ -2219,18 +2219,7 @@ class LogfireCredentials:
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""
         if self.project_url:  # pragma: no branch
-            _print_summary(
-                f'[bold]Logfire[/bold] project URL: [cyan]{self.project_url}[/cyan]',
-                min_content_width=len(self.project_url),
-            )
-
-
-def _print_summary(message: str, min_content_width: int) -> None:
-
-    console = Console(stderr=True)
-    if console.width < min_content_width + 4:  # pragma: no cover
-        console.width = min_content_width + 4
-    console.print(message)
+            print_project_url(self.project_url)
 
 
 def _get_creds_file(creds_dir: Path) -> Path:

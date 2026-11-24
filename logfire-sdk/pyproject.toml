@@ -51,7 +51,6 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.46.0",
     "opentelemetry-instrumentation >= 0.41b0, < 0.67b0",
     "opentelemetry-semantic-conventions >= 0.60b0, < 0.67b0",
-    "rich >= 13.4.2",
     "requests >= 2.31.0",
     "certifi >= 2026.10.19",
     "protobuf >= 4.23.4",
@@ -61,6 +60,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Colored console output and the Python CLI (`python -m logfire`).
+rich = ["rich >= 13.4.2"]
 gateway = ["httpx>=0.27.0", "starlette>=0.37.0", "uvicorn>=0.30.0"]
 agent-sandboxes = ["pydantic-monty-client>=1.6.0"]
 system-metrics = ["opentelemetry-instrumentation-system-metrics >= 0.42b0"]

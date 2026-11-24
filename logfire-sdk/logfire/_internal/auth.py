@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import platform
 import re
-import sys
 import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -11,12 +10,11 @@ from typing import TypedDict, cast
 from urllib.parse import urljoin
 
 import requests
-from rich.console import Console
-from rich.prompt import IntPrompt
 from typing_extensions import Self
 
 from logfire.exceptions import LogfireConfigError
 
+from .maybe_rich import ask_choice
 from .utils import UnexpectedResponse, read_toml_file
 
 HOME_LOGFIRE = Path.home() / '.logfire'
@@ -169,10 +167,8 @@ class UserTokenCollection:
                 f'{i}. {token} ({"expired" if token.is_expired else "valid"})'
                 for i, token in enumerate(tokens_list, start=1)
             )
-            int_choice = IntPrompt.ask(
-                f'Multiple user tokens found. Please select one:\n{choices_str}\n',
-                choices=[str(i) for i in range(1, len(tokens_list) + 1)],
-                console=Console(file=sys.stderr),
+            int_choice = ask_choice(
+                f'Multiple user tokens found. Please select one:\n{choices_str}\n', len(tokens_list)
             )
             token = tokens_list[int_choice - 1]
         else:  # tokens_list == []
