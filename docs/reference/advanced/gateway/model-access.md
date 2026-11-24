@@ -88,6 +88,8 @@ When you call Gateway from your code, the cost Gateway calculates, including you
 - [Pydantic AI](https://ai.pydantic.dev/) 2.68 or later.
 - The Logfire SDK 6.0 or later, with [`instrument_openai`](../../../integrations/llms/openai.md), [`instrument_anthropic`](../../../integrations/llms/anthropic.md), or [`instrument_google_genai`](../../../integrations/llms/google-genai.md). For Google, use `google-genai` 1.69.0 or later, below 3.0: earlier versions record no Gateway cost for streamed requests, and 3.0 and later aren't instrumented yet.
 
+If a response has no cost from Gateway, the Logfire SDK's OpenAI and Anthropic integrations record an estimate from catalog prices instead, which doesn't include your custom price, and the Google GenAI integration records no cost.
+
 ## Troubleshooting
 
 - **A model is rejected unexpectedly:** check the model's own setting, then **Default model access**. With the default set to **Block**, every model you have not allowed is rejected, including newly released ones.
