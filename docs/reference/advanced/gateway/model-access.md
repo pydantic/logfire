@@ -1,6 +1,6 @@
 ---
 title: "Control AI Gateway model access and pricing"
-description: "Choose which models each Gateway provider serves, and set custom per-model prices for bring-your-own-key providers through Early Access."
+description: "Choose which models each Gateway provider serves, and set custom per-model prices for bring-your-own-key providers."
 ---
 
 # Control Gateway model access and pricing
@@ -9,8 +9,8 @@ Choose which models your applications can call through each Gateway provider, an
 
 You do not need the **Models** tab to send requests: every model a provider serves is allowed until you change it. Access settings apply to every request routed through that provider, whichever API key or [gateway endpoint](endpoints.md) the request uses. You need organization-admin access to change them.
 
-!!! note "Early Access: Growth, Enterprise, or self-hosted"
-    Model access and pricing is in Early Access, which is available on Growth and Enterprise plans and on self-hosted deployments. To see the **Models** tab, open [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access) and turn on **AI Gateway model access & pricing**. The first time you turn on an Early Access feature, you are asked to accept the Early Access terms. This choice applies to your account in this browser.
+!!! note "Model access and pricing is in Beta"
+    The **Models** tab is available to every organization that can use Gateway, and the workflow may change while it is in Beta.
 
 ## Allow or block models
 
@@ -70,7 +70,7 @@ Gateway calculates each request's cost from its token counts and a price in USD 
 
    </div>
 
-If the provider answers with a dated version of the model you requested, such as `gpt-5.4-mini` answered as `gpt-5.4-mini-2026-03-17`, a custom price on `gpt-5.4-mini` also applies. If both names have a custom price, the dated name's price applies. If the provider answers with a name that is not a dated version, such as `claude-3-7-sonnet-latest` answered as `claude-3-7-sonnet-20250219`, Gateway uses the custom price of the model in the response, or its catalog price if it has none.
+If the provider answers with a dated version of the model you requested, such as `gpt-5.4-mini` answered as `gpt-5.4-mini-2026-03-17`, a custom price on `gpt-5.4-mini` also applies. If both names have a custom price, the dated name's price applies. On a Bedrock provider whose base URL is Bedrock Mantle (`https://bedrock-mantle.<region>.api.aws`), Claude responses drop the `anthropic.` prefix, so `anthropic.claude-opus-4-7` is answered as `claude-opus-4-7`. A custom price on `anthropic.claude-opus-4-7` also applies to those responses. For any other name in the response, Gateway uses the custom price of the model in the response, or its catalog price if it has none.
 
 To return to the catalog price, turn the override off and click **Save model**. Built-in providers always use the catalog price.
 
