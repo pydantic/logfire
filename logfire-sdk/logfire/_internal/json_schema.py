@@ -268,7 +268,7 @@ def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
         # else: large heterogeneous → just {'type': 'object'} (drop schema)
     else:
         # Reuse each value's schema for both homogeneity and properties.
-        value_schemas: dict[str, JsonDict] = {}
+        value_schemas: JsonDict = {}
         common_schema: JsonDict | None = None
         is_homogeneous = True
         for key, value in obj.items():
@@ -279,16 +279,13 @@ def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
                 value_schema = common_schema
             else:
                 is_homogeneous = False
-            value_schemas[key if isinstance(key, str) else safe_repr(key)] = value_schema
+            if value_schema not in PLAIN_SCHEMAS:
+                value_schemas[key if isinstance(key, str) else safe_repr(key)] = value_schema
 
         if is_homogeneous and common_schema is not None and common_schema not in PLAIN_SCHEMAS:
             schema['additionalProperties'] = common_schema
-        else:
-            properties: JsonDict = {
-                key: value_schema for key, value_schema in value_schemas.items() if value_schema not in PLAIN_SCHEMAS
-            }
-            if properties:
-                schema['properties'] = properties
+        elif value_schemas:
+            schema['properties'] = value_schemas
 
     if obj.__class__.__name__ != 'dict':
         schema['x-python-datatype'] = 'Mapping'
