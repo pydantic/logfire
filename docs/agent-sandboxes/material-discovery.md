@@ -72,7 +72,6 @@ import math
 import os
 
 from pydantic_ai import Agent
-from pydantic_ai.capabilities import Hooks
 from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.usage import UsageLimits
 from pydantic_ai_harness import CodeMode
@@ -89,8 +88,10 @@ import logfire
 
 MAX_ATTEMPTS = 12
 INSTRUCTIONS = """Discover a compact equation for stress as a function of strain.
-Use run_code for all calculations. Every call starts a fresh sandbox: fetch observations
-and include all imports and constants again. Use only Python and math, with no packages.
+Use run_code for all calculations. One sandbox session persists throughout this agent run.
+Fetch observations once and reuse imports, variables, functions, and fitted coefficients
+between calls. Use only Python and math, with no packages. If the session resets, reload
+observations and recreate the state you need.
 First fit a line through the origin using sum(x*y)/sum(x*x) and submit it.
 Then inspect residuals, change the equation's shape, and fit its coefficients.
 Use algebra or short search batches, at most 50 trial parameter sets per call.
@@ -149,11 +150,6 @@ async def main():
     scale = max(y for _, y in train) - min(y for _, y in train)
     best = None
     attempts = 0
-    hooks = Hooks()
-
-    @hooks.on.before_tool_execute(tools=['run_code'])
-    def restart_code(ctx, *, call, tool_def, args):
-        return {**args, 'restart': True}
 
     async with logfire.agent_sandboxes(max_processes=1) as scoring_pool:
 
@@ -195,7 +191,7 @@ async def main():
             name='material_discovery',
             instructions=INSTRUCTIONS,
             tools=[get_observations, evaluate_candidate],
-            capabilities=[CodeMode(monty_sandbox=logfire.agent_sandboxes), hooks],
+            capabilities=[CodeMode(monty_sandbox=logfire.agent_sandboxes)],
         )
         with logfire.span('discover material equation'):
             try:
@@ -231,19 +227,22 @@ The application retains the lowest validation error even if a later candidate ge
 It allows 12 submissions, 10 model requests, and 120 seconds for the search. A request or time limit retains the best
 completed candidate. A run with no valid candidate raises an error.
 
-One run with `gpt-5.6`, routed through the AI Gateway, produced the following output. Logfire's console tracing lines
-are omitted here. This is a recorded example, not a required sequence of candidates or a performance benchmark.
+One run using the persistent fitting session with `gpt-5.6`, routed through the AI Gateway, produced the following
+output. Logfire's console tracing lines are omitted here. This is a recorded example, not a required sequence of candidates or a performance benchmark.
 
 ```text
 Attempt 1: train=2.489e-01, validation=2.522e-01
 Attempt 2: train=2.481e-16, validation=2.660e-16
 Best equation:
 def predict(strain: float) -> float:
-    return (20000.00000000004 * strain) / (1.0 + 80.00000000000021 * strain)
+    return 20000.00000000004 * strain / (1.0 + 80.00000000000021 * strain)
 
 Best validation NRMSE: 2.660e-16
 Final-test NRMSE: 3.175e-16
 ```
+
+The fitting session retained the observations across three code calls. Each of the two submitted equations was
+replayed in its own fresh scoring session. The final test used another fresh session.
 
 Errors near `1e-16` are at the scale of floating-point rounding in this experiment. They show recovery of the synthetic
 generator on these points, not measurement precision for a real material.
@@ -269,8 +268,10 @@ an agent proposing and revising executable hypotheses; it does not establish sup
 
 Agent Sandboxes serves two roles in this experiment:
 
-1. **Run the agent's experiments.** Code Mode executes fitting programs that can call `get_observations` and
-   `evaluate_candidate`. These two functions run in your application and expose only the operations the agent needs.
+1. **Run the agent's experiments.** Code Mode keeps one sandbox session throughout the agent run. Later programs
+   reuse observations, imports, helper functions, and intermediate fits from earlier programs. This avoids repeating
+   setup and sending the same data back into each program. The session can call `get_observations` and
+   `evaluate_candidate`, which run in your application and expose only the operations the agent needs.
 2. **Replay each submitted hypothesis.** The scoring tool opens a separate fresh sandbox and runs the candidate's
    `predict` function with strain values. This session has no host functions, files, network access, or environment
    variables. The candidate must include its own imports and coefficients; it cannot depend on the fitting session's state.
@@ -285,10 +286,9 @@ without gaining access to application credentials or private validation and fina
 can impose additional limits. Generated code runs in the hosted interpreter; the application does not execute it
 through host Python's `eval` or `exec`.
 
-The hook sets Code Mode's public `restart=True` option on each `run_code` call.
-Every fitting program starts a fresh sandbox and includes its own imports, observations, and constants.
-The agent still sees earlier tool results in its conversation. Each program's execution appears under the tool call
-that requested it in Logfire. Candidate scoring always uses a separate fresh session.
+Code Mode keeps the fitting session's state between `run_code` calls by default. Each new agent run starts a new
+session. Candidate scoring always uses a separate fresh session, so a submitted hypothesis must work without the
+fitting session's variables or functions. This combines reuse while searching with independent replay while scoring.
 
 Agent Sandboxes supplies isolated, bounded, observable execution. Your application supplies independent measurement
 and selection. Together, they let the agent explore new programs while keeping the experiment's rules outside those programs.
@@ -300,9 +300,9 @@ The generator appears in the example so you can inspect the experiment, but it i
 2. Open Logfire's [Live view](../guides/web-ui/live.md) and find `discover material equation`.
    A **trace** is the full journey of one request, made of nested **spans**: each span is one unit of work,
    a single operation with a name, a start, and a duration.
-3. Expand the `material_discovery` agent invocation and a `run_code` tool call. Inspect the generated fitting program,
-   its `get_observations` or `evaluate_candidate` calls, and the scoring sandbox's code runs inside the evaluation call.
-   Compare the tool's returned errors with the printed scores.
+3. Expand the `material_discovery` agent invocation. Inspect the `run_code` tool calls, recorded sandbox executions,
+   and `get_observations` or `evaluate_candidate` calls. Compare a submitted candidate's source and returned errors
+   with the equation and scores printed in the terminal.
 
 `logfire.instrument_pydantic_ai()` records the native agent, model, and tool spans.
 Agent Sandboxes adds its execution spans to the same trace.
@@ -328,8 +328,9 @@ packages inside the interpreter, check [what sandbox code can do](limits.md) bef
   Use shorter batches and submit a usable candidate before attempting a more expensive search. Candidate evaluation
   returns identified execution timeouts and output-limit failures as errors the agent can use to revise its program.
   Unknown worker crashes and transport failures stop the run; they do not establish that a candidate is invalid.
-- **A program fails because a variable is undefined:** each `run_code` starts fresh. Include imports, coefficients,
-  and a call to `get_observations()` in the new program.
+- **A program fails because a variable is undefined:** the earlier program may have failed before defining it,
+  or the session may have reset. Reload observations and recreate the state needed by the next program.
+  A submitted candidate must always include its own imports and coefficients because scoring uses a fresh session.
 - **The agent reaches a budget limit or submits no valid candidate:** inspect its tool calls in the trace.
   Check that it submits standalone source defining `predict(strain)` and uses Python features supported by Monty.
   A completed valid candidate can be retained at a budget limit; no valid candidate means the run failed.
