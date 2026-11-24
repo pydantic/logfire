@@ -141,9 +141,12 @@ class ChunksFormatter(Formatter):
                     and local_vars.get('super', global_vars.get('super', frame.f_builtins.get('super')))
                     is builtins.super
                 ):
-                    raise KnownFormattingError(
-                        f'Cannot evaluate the f-string value {{{source}}} because it contains zero-argument super(). '
-                        'Assign the value to a variable before logging.'
+                    # The original rendered message may contain values that have not been scrubbed.
+                    # Keep the cleaned prefix and stop before evaluating any remaining fields.
+                    omitted = '[remaining f-string omitted]'
+                    extra_attrs.update(value_cleaner.extra_attrs())
+                    raise FStringSuperError(
+                        (''.join(chunk['v'] for chunk in result) + omitted, extra_attrs, new_template + omitted)
                     )
 
                 # Note that this doesn't include:
@@ -307,6 +310,12 @@ def logfire_format_with_magic(
             fstring_frame=fstring_frame,
         )
         return ''.join(chunk['v'] for chunk in chunks), extra_attrs, new_template
+    except FStringSuperError as e:
+        warn_formatting(
+            'Cannot inspect an f-string that contains zero-argument super(). '
+            'Assign the value to a variable before logging.'
+        )
+        return e.result
     except KnownFormattingError as e:
         warn_formatting(str(e) or str(e.__cause__))
     except FStringAwaitError as e:
@@ -454,6 +463,14 @@ class FStringAwaitError(Exception):
     This is a specific case that can't be handled by f-string introspection and requires
     pre-evaluating the await expression before logging.
     """
+
+
+class FStringSuperError(Exception):
+    """Carries a scrubbed partial result when a field cannot be inspected."""
+
+    def __init__(self, result: tuple[str, dict[str, Any], str]):
+        super().__init__()
+        self.result = result
 
 
 class FormattingFailedWarning(UserWarning):

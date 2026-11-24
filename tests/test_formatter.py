@@ -1,4 +1,6 @@
 import contextlib
+import json
+import warnings
 from collections import ChainMap
 from collections.abc import Mapping
 from types import FrameType, SimpleNamespace
@@ -13,6 +15,7 @@ from logfire._internal import formatter
 from logfire._internal.formatter import FormattingFailedWarning, chunks_formatter, logfire_format
 from logfire._internal.scrubbing import NOOP_SCRUBBER, JsonPath, Scrubber
 from logfire.testing import TestExporter
+from logfire.types import StringValue
 
 
 def chunks(format_string: str, kwargs: Mapping[str, Any]):
@@ -572,10 +575,26 @@ def test_bare_super_in_fstring(exporter: TestExporter):
         (span['name'], span['attributes']['logfire.msg_template'], span['attributes']['logfire.msg'])
         for span in exporter.exported_spans_as_dict()
     ] == [
-        ('amount 31.25', 'amount 31.25', 'amount 31.25'),
-        ('amount padded  31.25', 'amount padded  31.25', 'amount padded  31.25'),
-        ('width 6', 'width 6', 'width 6'),
-        ('label Child', 'label Child', 'label Child'),
+        (
+            'amount [remaining f-string omitted]',
+            'amount [remaining f-string omitted]',
+            'amount [remaining f-string omitted]',
+        ),
+        (
+            'amount padded [remaining f-string omitted]',
+            'amount padded [remaining f-string omitted]',
+            'amount padded [remaining f-string omitted]',
+        ),
+        (
+            'width [remaining f-string omitted]',
+            'width [remaining f-string omitted]',
+            'width [remaining f-string omitted]',
+        ),
+        (
+            'label [remaining f-string omitted]',
+            'label [remaining f-string omitted]',
+            'label [remaining f-string omitted]',
+        ),
     ]
 
 
@@ -611,7 +630,7 @@ def test_bare_super_preserves_ordinary_name_resolution(exporter: TestExporter):
     assert shadowed['attributes']['super(amount=9)'] == 9
     assert shadowed_spec['attributes']['42'] == 42
     assert shadowed_spec['attributes']['logfire.msg'] == 'shadowed spec   42'
-    assert skipped['attributes']['logfire.msg_template'] == 'skipped 5'
+    assert skipped['attributes']['logfire.msg_template'] == 'skipped [remaining f-string omitted]'
 
 
 def test_bare_super_uses_current_eval_namespace(exporter: TestExporter):
@@ -637,4 +656,72 @@ def test_bare_super_uses_current_eval_namespace(exporter: TestExporter):
 
     first, fallback, last = exporter.exported_spans_as_dict()
     assert first['attributes']['super().value'] == last['attributes']['super().value'] == 7
-    assert fallback['attributes']['logfire.msg_template'] == 'value 8'
+    assert fallback['attributes']['logfire.msg_template'] == 'value [remaining f-string omitted]'
+
+
+def test_bare_super_preserves_cleaned_prefix(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    transformed_fields: list[str] = []
+    tail_calls: list[int] = []
+
+    def transform(value: StringValue) -> str:
+        if value.path == ('message', 'prefix'):
+            transformed_fields.append('prefix')
+            return 'masked fixture-marker'
+        return value.value
+
+    def tail() -> str:
+        tail_calls.append(1)
+        return 'unused sample'
+
+    logfire.configure(
+        **config_kwargs,
+        scrubbing=logfire.ScrubbingOptions(extra_patterns=['fixture-marker'], transform_string=transform),
+    )
+
+    class Base:
+        value = 8
+
+    class Child(Base):
+        def report(self):
+            prefix = 'example sample'
+            with logfire.span(f'prefix {prefix} guarded {super().value} suffix {tail()}'):
+                pass
+
+    with pytest.warns(FormattingFailedWarning, match=r'contains zero-argument super\(\)') as caught:
+        Child().report()
+
+    assert len(caught) == 1
+    assert 'super().value' not in str(caught[0].message)
+    assert transformed_fields == ['prefix']
+    assert tail_calls == [1]
+
+    [span] = exporter.exported_spans_as_dict()
+    assert (
+        span['name']
+        == span['attributes']['logfire.msg_template']
+        == 'prefix {prefix} guarded [remaining f-string omitted]'
+    )
+    assert (
+        span['attributes']['logfire.msg']
+        == "prefix [Scrubbed due to 'fixture-marker'] guarded [remaining f-string omitted]"
+    )
+    assert json.loads(span['attributes']['logfire.scrubbed']) == [
+        {'path': ['message', 'prefix'], 'matched_substring': 'fixture-marker'}
+    ]
+    assert 'super().value' not in span['attributes']
+    assert 'tail()' not in span['attributes']
+
+
+def test_bare_super_warning_as_error_does_not_emit_event(exporter: TestExporter):
+    class Base:
+        value = 8
+
+    class Child(Base):
+        def report(self):
+            logfire.info(f'value {super().value}')
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', FormattingFailedWarning)
+        with pytest.raises(FormattingFailedWarning, match=r'contains zero-argument super\(\)'):
+            Child().report()
+    assert not exporter.exported_spans
