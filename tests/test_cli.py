@@ -29,7 +29,6 @@ from logfire._internal.cli.run import (
     instrument_packages,
     instrumented_packages_text,
 )
-from logfire._internal.config import LogfireCredentials
 from logfire.testing import TestExporter
 from tests.import_used_for_tests import run_script_test
 
@@ -38,16 +37,6 @@ PSYCOPG_OTEL_PACKAGES = {
     'opentelemetry-instrumentation-psycopg': 'psycopg',
     'opentelemetry-instrumentation-psycopg2': 'psycopg',
 }
-
-
-@pytest.fixture
-def logfire_credentials() -> LogfireCredentials:
-    return LogfireCredentials(
-        token='token',
-        project_name='my-project',
-        project_url='https://dashboard.logfire.dev',
-        logfire_api_url='https://logfire-us.pydantic.dev',
-    )
 
 
 def test_no_args(capsys: pytest.CaptureFixture[str]) -> None:
@@ -134,11 +123,8 @@ logging.error('application error')
     assert [line for line in wrapped.stderr.splitlines() if line.startswith('APP:')] == direct.stderr.splitlines()
 
 
-def test_inspect(
-    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_inspect(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     os.environ['COLUMNS'] = '150'
-    logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
     with pytest.raises(SystemExit):
         main(['inspect'])
     assert capsys.readouterr().err == snapshot("""\
