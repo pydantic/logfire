@@ -688,12 +688,14 @@ def _transform_litellm_span(span: ReadableSpanDict):
 
     try:
         request_model = cast(str, attributes['llm.model_name'])
+        system = guess_system(request_model, 'litellm')
         new_attrs.update(
             {
                 'gen_ai.request.model': request_model,
                 'gen_ai.usage.input_tokens': attributes['llm.token_count.prompt'],
                 'gen_ai.usage.output_tokens': attributes['llm.token_count.completion'],
-                'gen_ai.system': guess_system(request_model, 'litellm'),
+                'gen_ai.system': system,
+                PROVIDER_NAME: system,
             }
         )
     except Exception:  # pragma: no cover

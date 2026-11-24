@@ -245,6 +245,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'gen_ai.usage.input_tokens': 80,
                     'gen_ai.usage.output_tokens': 18,
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.tags': ['LLM'],
                     'logfire.json_schema': {
                         'type': 'object',
@@ -399,6 +400,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'gen_ai.response.model': 'gpt-4o-mini',
                     'gen_ai.usage.input_tokens': 62,
                     'gen_ai.usage.output_tokens': 26,
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                     'logfire.tags': ['LLM'],
                     'logfire.json_schema': {
