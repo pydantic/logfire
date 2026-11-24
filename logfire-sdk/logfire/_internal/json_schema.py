@@ -374,7 +374,13 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     assert isinstance(obj, pydantic.BaseModel)
 
     try:
-        fields = [name for name, field in type(obj).model_fields.items() if field.repr]
+        cls = type(obj)
+        computed_fields = cls.model_computed_fields
+        if isinstance(computed_fields, property):  # pragma: no cover
+            # pydantic 2.4 and 2.5 only have it on instances.
+            computed_fields = obj.model_computed_fields  # pyright: ignore[reportDeprecated]
+        # Computed fields are dumped by `_pydantic_model_encoder` too, so describe them here as well.
+        fields = [name for name, field in {**cls.model_fields, **computed_fields}.items() if field.repr]
         extra = obj.model_extra or {}
     except AttributeError:  # pragma: no cover
         # pydantic v1
