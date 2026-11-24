@@ -404,11 +404,11 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     properties = schema.get('properties')
     if isinstance(properties, dict) and aliases:
         # The default for model_dump(by_alias=...) depends on the Pydantic version and model config.
-        # Use its actual keys so the schema matches the value encoded by _pydantic_model_encoder.
-        dumped = obj.model_dump()
+        # Dump one field in isolation so an alias matching another field's name cannot hide the setting.
+        sample_name, sample_alias = next(iter(aliases.items()))
+        uses_aliases = sample_alias in obj.model_dump(include={sample_name})
         schema['properties'] = {
-            aliases[name] if name in aliases and aliases[name] in dumped and name not in dumped else name: value
-            for name, value in properties.items()
+            aliases[name] if uses_aliases and name in aliases else name: value for name, value in properties.items()
         }
     return schema
 

@@ -1,4 +1,6 @@
 import json
+from datetime import datetime
+from decimal import Decimal
 
 import pydantic
 import pytest
@@ -80,5 +82,40 @@ def test_pydantic_model_schema_matches_serialized_aliases(exporter: TestExporter
                 'properties': {nested_url_key: url_schema},
             },
             'extra_url': url_schema,
+        },
+    }
+
+
+@pytest.mark.parametrize('serialize_by_alias', [False, True])
+def test_serialization_alias_matches_another_field_name(exporter: TestExporter, serialize_by_alias: bool) -> None:
+    class AliasedModel(BaseModel):
+        model_config = ConfigDict(serialize_by_alias=serialize_by_alias)
+
+        first: datetime = Field(serialization_alias='second')
+        second: Decimal = Field(serialization_alias='total')
+
+    model = AliasedModel.model_validate({'first': '2024-01-02T03:04:05', 'second': '1.25'})
+    logfire.info('aliased model {model}', model=model)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    recorded_json = attributes['model']
+    schema_json = attributes['logfire.json_schema']
+    assert isinstance(recorded_json, str)
+    assert isinstance(schema_json, str)
+    recorded = json.loads(recorded_json)
+    schema = json.loads(schema_json)['properties']['model']
+    uses_aliases = serialize_by_alias and get_version(pydantic.__version__) >= get_version('2.11')
+    date_key = 'second' if uses_aliases else 'first'
+    decimal_key = 'total' if uses_aliases else 'second'
+
+    assert recorded == {date_key: '2024-01-02T03:04:05', decimal_key: '1.25'}
+    assert schema == {
+        'type': 'object',
+        'title': 'AliasedModel',
+        'x-python-datatype': 'PydanticModel',
+        'properties': {
+            date_key: {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+            decimal_key: {'type': 'string', 'format': 'decimal', 'x-python-datatype': 'Decimal'},
         },
     }
