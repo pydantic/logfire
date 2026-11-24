@@ -194,6 +194,33 @@ def test_excluded_alias_does_not_hide_alias_setting(exporter: TestExporter) -> N
         'type': 'string',
         'x-python-datatype': type(model.visible_url).__name__,
     }
+    if serialized_key == 'visible_output':
+        assert 'excluded_output' not in schema_properties
+
+
+def test_excluded_alias_does_not_overwrite_visible_metadata(exporter: TestExporter) -> None:
+    if get_version(pydantic.__version__) < get_version('2.11'):
+        pytest.skip('serialize_by_alias requires Pydantic 2.11')
+
+    class AliasedModel(BaseModel):
+        model_config = ConfigDict(serialize_by_alias=True)
+
+        visible: datetime = Field(serialization_alias='shared')
+        excluded: Decimal = Field(serialization_alias='shared', exclude=True)
+
+    model = AliasedModel.model_validate({'visible': '2024-01-02T03:04:05', 'excluded': '1.25'})
+    logfire.info('aliased model {model}', model=model)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    recorded_json = attributes['model']
+    schema_json = attributes['logfire.json_schema']
+    assert isinstance(recorded_json, str)
+    assert isinstance(schema_json, str)
+    assert json.loads(recorded_json) == {'shared': '2024-01-02T03:04:05'}
+    assert json.loads(schema_json)['properties']['model']['properties'] == {
+        'shared': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'}
+    }
 
 
 @pytest.mark.parametrize('serialize_by_alias', [False, True])

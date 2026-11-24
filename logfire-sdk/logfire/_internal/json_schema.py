@@ -409,8 +409,11 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
             if alias in dumped:
                 properties: dict[str, Any] = {}
                 for field_name in fields:
+                    serialized_name = aliases.get(field_name, field_name)
+                    if serialized_name not in obj.model_dump(include={field_name}):
+                        continue
                     with suppress(Exception):
-                        properties[aliases.get(field_name, field_name)] = getattr(obj, field_name)
+                        properties[serialized_name] = getattr(obj, field_name)
                 for extra_name in extra:
                     with suppress(Exception):
                         properties[extra_name] = getattr(obj, extra_name)
