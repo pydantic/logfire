@@ -936,8 +936,8 @@ def test_log_non_scalar_args(
     exporter: TestExporter,
     value: Any,
     value_repr: str,
-    value_json: str,
-    json_schema: str,
+    value_json: str | int,
+    json_schema: dict[str, Any],
 ) -> None:
     logfire.info('test message {var=}', var=value)
 
