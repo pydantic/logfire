@@ -463,7 +463,6 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     assert logfire__all__ == set(), logfire__all__
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason='We only need this test for a single Python version.')
 def test_match_version_on_pyproject() -> None:
     import tomllib
 

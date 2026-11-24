@@ -4,12 +4,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
 from threading import Lock
-from typing import Literal
+from typing import Literal, Self
 
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.sampling import Sampler, TraceIdRatioBased
-from typing_extensions import Self
 
 from logfire._internal.constants import (
     ONE_SECOND_IN_NANOSECONDS,

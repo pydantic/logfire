@@ -830,6 +830,91 @@ def test_scrub_message(exporter: TestExporter):
     )
 
 
+@pytest.mark.parametrize('count', [40, 60])
+def test_scrubbed_notes_are_limited_across_message_and_attributes(exporter: TestExporter, count: int):
+    fields = {f'field_{i}': f'password={i}' for i in range(count)}
+    logfire.info(' '.join(f'{{{key}}}' for key in fields), **cast(Any, fields))
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attributes = span['attributes']
+    assert len(attributes['logfire.scrubbed']) == 50
+    message_notes = [{'path': ['message', key], 'matched_substring': 'password'} for key in fields]
+    attribute_notes = [{'path': ['attributes', key], 'matched_substring': 'password'} for key in fields]
+    assert attributes['logfire.scrubbed'] == (message_notes + attribute_notes)[:50]
+    assert all(attributes[key] == "[Scrubbed due to 'password']" for key in fields)
+
+
+def test_scrubbed_notes_are_limited_on_log_records(logs_exporter: TestLogExporter):
+    body = {f'password_{i}': f'value_{i}' for i in range(60)}
+    get_logger(__name__).emit(LogRecord(body=body))
+
+    (log,) = logs_exporter.exported_logs_as_dicts(parse_json_attributes=True)
+    assert len(log['attributes']['logfire.scrubbed']) == 50
+    assert log['attributes']['logfire.scrubbed'] == [
+        {'path': ['log_body', key], 'matched_substring': 'password'} for key in list(body)[:50]
+    ]
+    assert all(log['body'][key] == "[Scrubbed due to 'password']" for key in body)
+
+
+@pytest.mark.parametrize('existing', [1, '1', 'null', '{}', 'not json'])
+def test_invalid_existing_scrubbed_notes_do_not_disable_scrubbing(
+    exporter: TestExporter, logs_exporter: TestLogExporter, existing: int | str
+):
+    logfire.info('example', **cast(Any, {'logfire.scrubbed': existing, 'password': 'hunter2'}))
+    get_logger(__name__).emit(LogRecord(attributes={'logfire.scrubbed': existing, 'password': 'hunter2'}))
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attributes = span['attributes']
+    assert attributes['password'] == "[Scrubbed due to 'password']"
+    assert attributes['logfire.scrubbed'] == [{'path': ['attributes', 'password'], 'matched_substring': 'password'}]
+    (log,) = logs_exporter.exported_logs_as_dicts(parse_json_attributes=True)
+    assert log['attributes']['password'] == "[Scrubbed due to 'password']"
+    assert log['attributes']['logfire.scrubbed'] == [
+        {'path': ['attributes', 'password'], 'matched_substring': 'password'}
+    ]
+
+
+@pytest.mark.parametrize('error_type', [TypeError, ValueError, RecursionError])
+def test_existing_scrubbed_notes_parse_errors_do_not_disable_scrubbing(
+    exporter: TestExporter, logs_exporter: TestLogExporter, monkeypatch: pytest.MonkeyPatch, error_type: type[Exception]
+):
+    original_loads = json.loads
+
+    def fail_for_scrubbed(value: Any, *args: Any, **kwargs: Any) -> Any:
+        if value == 'opaque':
+            raise error_type('cannot decode scrubbed notes')
+        return original_loads(value, *args, **kwargs)
+
+    monkeypatch.setattr(json, 'loads', fail_for_scrubbed)
+    logfire.info('example', **cast(Any, {'logfire.scrubbed': 'opaque', 'password': 'hunter2'}))
+    get_logger(__name__).emit(LogRecord(attributes={'logfire.scrubbed': 'opaque', 'password': 'hunter2'}))
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attributes = span['attributes']
+    assert attributes['password'] == "[Scrubbed due to 'password']"
+    assert attributes['logfire.scrubbed'] == [{'path': ['attributes', 'password'], 'matched_substring': 'password'}]
+    (log,) = logs_exporter.exported_logs_as_dicts(parse_json_attributes=True)
+    assert log['attributes']['password'] == "[Scrubbed due to 'password']"
+    assert log['attributes']['logfire.scrubbed'] == [
+        {'path': ['attributes', 'password'], 'matched_substring': 'password'}
+    ]
+
+
+@pytest.mark.parametrize('count', [40, 60])
+def test_existing_scrubbed_notes_are_limited_without_new_matches(
+    exporter: TestExporter, logs_exporter: TestLogExporter, count: int
+):
+    notes = [{'path': ['attributes', f'field_{i}'], 'matched_substring': 'reason'} for i in range(count)]
+    existing = json.dumps(notes)
+    logfire.info('example', **cast(Any, {'logfire.scrubbed': existing}))
+    get_logger(__name__).emit(LogRecord(body='example', attributes={'logfire.scrubbed': existing}))
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    (log,) = logs_exporter.exported_logs_as_dicts(parse_json_attributes=True)
+    assert span['attributes']['logfire.scrubbed'] == notes[:50]
+    assert log['attributes']['logfire.scrubbed'] == notes[:50]
+
+
 @pytest.mark.parametrize(
     ('value', 'expected', 'expected_notes'),
     [
