@@ -404,13 +404,14 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
         # The default for model_dump(by_alias=...) depends on the Pydantic version and model config.
         # Dump fields in isolation so aliases matching other field names cannot hide the setting.
         # Skip fields excluded from serialization, which produce no key to check.
+        # Value serialization warnings are irrelevant here because only the keys are used.
         for name, alias in aliases.items():
-            dumped = obj.model_dump(include={name})
+            dumped = obj.model_dump(include={name}, warnings=False)
             if alias in dumped:
                 properties: dict[str, Any] = {}
                 for field_name in fields:
                     serialized_name = aliases.get(field_name, field_name)
-                    if serialized_name not in obj.model_dump(include={field_name}):
+                    if serialized_name not in obj.model_dump(include={field_name}, warnings=False):
                         continue
                     with suppress(Exception):
                         properties[serialized_name] = getattr(obj, field_name)

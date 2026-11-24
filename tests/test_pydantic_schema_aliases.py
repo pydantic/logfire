@@ -8,6 +8,7 @@ import pytest
 from pydantic import AnyUrl, BaseModel, ConfigDict, Field
 
 import logfire
+from logfire._internal.json_schema import create_json_schema
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
@@ -253,3 +254,18 @@ def test_plain_field_overwrites_aliased_metadata(exporter: TestExporter, seriali
             'x-python-datatype': 'PydanticModel',
             'properties': {'first': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'}},
         }
+
+
+def test_alias_key_probe_ignores_value_serialization_warnings() -> None:
+    class AliasedModel(BaseModel):
+        model_config = ConfigDict(serialize_by_alias=True)
+
+        value: int = Field(serialization_alias='output_value')
+
+    model = AliasedModel.model_validate({'value': 1}).model_copy(update={'value': 'unexpected'})
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        warnings.simplefilter('always')
+        schema = create_json_schema(model, set())
+
+    assert recorded_warnings == []
+    assert schema == {'type': 'object', 'title': 'AliasedModel', 'x-python-datatype': 'PydanticModel'}
