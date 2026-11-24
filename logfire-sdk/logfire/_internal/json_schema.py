@@ -271,12 +271,20 @@ def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
         # else: large heterogeneous → just {'type': 'object'} (drop schema)
     else:
         # Medium dict: reuse each value's schema for both homogeneity and properties.
-        value_schemas = [(k, create_json_schema(v, seen)) for k, v in obj.items()]
-        common_schema = value_schemas[0][1]
-        if (
-            all(value_schema == common_schema for _, value_schema in value_schemas)
-            and common_schema not in PLAIN_SCHEMAS
-        ):
+        value_schemas: list[tuple[Any, JsonDict]] = []
+        common_schema: JsonDict | None = None
+        is_homogeneous = True
+        for key, value in obj.items():
+            value_schema = create_json_schema(value, seen)
+            if common_schema is None:
+                common_schema = value_schema
+            elif value_schema == common_schema:
+                value_schema = common_schema
+            else:
+                is_homogeneous = False
+            value_schemas.append((key, value_schema))
+
+        if is_homogeneous and common_schema is not None and common_schema not in PLAIN_SCHEMAS:
             schema['additionalProperties'] = common_schema
         else:
             key_schemas = {
