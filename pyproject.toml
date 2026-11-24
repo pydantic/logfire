@@ -109,7 +109,8 @@ dev = [
     "opentelemetry-instrumentation-botocore >= 0.42b0",
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
-    "openai-agents[voice]>=0.14.0",
+    # 0.23+ passes __config__ and __base__ together to create_model, which Pydantic 2.10 rejects.
+    "openai-agents[voice]>=0.14.0,<0.23",
     "fastmcp-slim[server]>=4",
     "pydantic-ai-slim[mcp]>=2",
     "pydantic-evals>=2",
