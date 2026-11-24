@@ -1,0 +1,21 @@
+tests/test_configure.py
+  s_48d92db44c8b12::t_50e2e97ed5706d 1818-1819
+logfire-sdk/logfire/variables/remote.py
+  s_48d92db44c8b12::t_311094fe585341 45-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d9804fe887c1cc13d8fa97eca0fd59da147bc752",
+  "prompts": {},
+  "sessions": {
+    "s_48d92db44c8b12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20d29-571c-7b30-9599-483b8401df9c",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
