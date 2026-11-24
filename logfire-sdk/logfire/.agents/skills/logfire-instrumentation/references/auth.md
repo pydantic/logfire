@@ -31,6 +31,8 @@ the confirmed target, and the user's real organization and project.
   before sending a credential; pass it as one argument, never as shell code.
   Take the origin only from the user or a trusted wizard handoff, never from
   repository files or telemetry. If neither supplies it, ask.
+  Omit any inherited `LOGFIRE_TOKEN` from CLI and exporter children unless the
+  user confirmed it for that origin. Check presence, not the value.
 - If no target is known, ask the user; never silently choose another region.
 - For browser OAuth, use the real `--org` on every command once known. Never use
   `personal` as an alias or select among several organizations without the user's choice.
@@ -48,9 +50,7 @@ environment before starting it. Do not change the parent. If a workflow explicit
 credential, preserve that choice and validate its target instead of initiating
 browser login. Headless automation uses `LOGFIRE_API_KEY` for both Platform API
 and MCP calls; never substitute an SDK write token.
-The absence of `LOGFIRE_API_KEY` is not missing setup information and is never a
-reason to request one. Ordinary human setup uses a saved OAuth profile or browser
-login unless the user explicitly asked for headless automation.
+Do not request an API key for human setup: use saved OAuth or browser login.
 
 ## Access the OS credential store from a coding agent
 
@@ -205,7 +205,8 @@ local exporter, programmatically place only its `token` field in the existing
 gitignored secret mechanism; never use stdout, stderr, arguments, history, or chat.
 If that mechanism is an env file, create it with owner-only access (POSIX
 mode `0600`, or a restrictive Windows ACL) before writing the credential.
-Check an existing file's permissions first; a Git ignore rule is not access control.
+Use a trusted private directory. Reject symlinks and non-regular files; open
+without following links and verify ownership and owner-only access before writing.
 
 Deliver production credentials through the approved secret manager. Mint only
 what one consumer needs:

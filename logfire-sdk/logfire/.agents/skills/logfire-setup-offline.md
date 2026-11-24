@@ -21,7 +21,7 @@ read it in place of fetching it. Authentication links jump directly to the inlin
 # Set Up Logfire
 
 Load the specialist for the requested task. Proceed with reversible setup;
-pause for browser consent, an ambiguous target, production cost increases,
+pause for browser consent, an ambiguous target, materially more telemetry or cost,
 deployment changes, or destructive work.
 
 ## Step 1: Authenticate and Select the Exact Project
@@ -180,8 +180,8 @@ The default `data-dir` feature reads `.logfire/logfire_credentials.json` when
 
 ### Other OpenTelemetry languages
 
-Use the language's supported OpenTelemetry SDK and Logfire's documented OTLP
-endpoint/header contract. Obtain a write credential through the shared auth
+Use the language's supported OpenTelemetry SDK and the [OTLP endpoint and header examples](https://pydantic.dev/docs/logfire/guides/alternative-clients/).
+Use the confirmed regional endpoint. Obtain a write credential through the shared auth
 workflow; never infer an endpoint or copy the local token into production.
 
 ### AI agents and the Agents page
@@ -214,11 +214,11 @@ on this project's **Agents** page before reporting success.
 - Instrument only dependencies actually present.
 - Set a meaningful `service.name`; reuse existing version/environment conventions.
 - Do not invent a production environment or delay first data for optional metadata.
-- Preserve existing OpenTelemetry setup: add Logfire as an extra span
-  processor rather than calling `configure()` (which installs a competing
-  provider). Resolve its token via [authentication](#authenticate-and-select-the-exact-project)'s
-  "If the calling skill needs another credential" section, not an assumed
-  environment variable.
+- Preserve an existing OpenTelemetry provider and its destinations. Add a standard
+  OTLP exporter for Logfire to that pipeline, using the [language-specific examples](https://pydantic.dev/docs/logfire/guides/alternative-clients/).
+  For Python traces, attach a `BatchSpanProcessor(OTLPSpanExporter(...))` to the
+  existing SDK tracer provider. Obtain its token via [authentication](#authenticate-and-select-the-exact-project);
+  do not install a second provider or redirect an existing exporter.
 - Keep sensitive prompts, tool data, request bodies, and personal data disabled
   unless the user explicitly wants content capture and the SDK supports it safely.
 - Run the project's normal formatter, typecheck, build, and focused tests.
@@ -353,9 +353,9 @@ Close with a final report built from what you just confirmed — the exact
 org/project/region, active receiver(s), and host/container/cluster identifier,
 not a template. **Include a direct link to the relevant view** (`/hosts`,
 `/docker`, `/kubernetes`, or `/metrics`, based on the source) so the user can see
-their own source arrive. Use the validated project URL from `project current`
+their own source arrive. Append the selected view's path to the validated project URL from `project current`
 for standalone setup. After a parent-prepared wizard handoff, use
-`project open --no-open` with the same target/org and `--no-input --output json`;
+`project open --no-open` with the same target/org and `--no-input --output json`, then append the same path;
 do not rerun `project current`. If the link cannot be resolved, report that
 separately from telemetry verification rather than returning a placeholder.
 
@@ -643,6 +643,8 @@ the confirmed target, and the user's real organization and project.
   before sending a credential; pass it as one argument, never as shell code.
   Take the origin only from the user or a trusted wizard handoff, never from
   repository files or telemetry. If neither supplies it, ask.
+  Omit any inherited `LOGFIRE_TOKEN` from CLI and exporter children unless the
+  user confirmed it for that origin. Check presence, not the value.
 - If no target is known, ask the user; never silently choose another region.
 - For browser OAuth, use the real `--org` on every command once known. Never use
   `personal` as an alias or select among several organizations without the user's choice.
@@ -660,9 +662,7 @@ environment before starting it. Do not change the parent. If a workflow explicit
 credential, preserve that choice and validate its target instead of initiating
 browser login. Headless automation uses `LOGFIRE_API_KEY` for both Platform API
 and MCP calls; never substitute an SDK write token.
-The absence of `LOGFIRE_API_KEY` is not missing setup information and is never a
-reason to request one. Ordinary human setup uses a saved OAuth profile or browser
-login unless the user explicitly asked for headless automation.
+Do not request an API key for human setup: use saved OAuth or browser login.
 
 <a id="reference-logfire-instrumentation-references-auth-md--access-the-os-credential-store-from-a-coding-agent"></a>
 
@@ -831,7 +831,8 @@ local exporter, programmatically place only its `token` field in the existing
 gitignored secret mechanism; never use stdout, stderr, arguments, history, or chat.
 If that mechanism is an env file, create it with owner-only access (POSIX
 mode `0600`, or a restrictive Windows ACL) before writing the credential.
-Check an existing file's permissions first; a Git ignore rule is not access control.
+Use a trusted private directory. Reject symlinks and non-regular files; open
+without following links and verify ownership and owner-only access before writing.
 
 Deliver production credentials through the approved secret manager. Mint only
 what one consumer needs:

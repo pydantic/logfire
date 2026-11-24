@@ -104,8 +104,8 @@ The default `data-dir` feature reads `.logfire/logfire_credentials.json` when
 
 ### Other OpenTelemetry languages
 
-Use the language's supported OpenTelemetry SDK and Logfire's documented OTLP
-endpoint/header contract. Obtain a write credential through the shared auth
+Use the language's supported OpenTelemetry SDK and the [OTLP endpoint and header examples](https://pydantic.dev/docs/logfire/guides/alternative-clients/).
+Use the confirmed regional endpoint. Obtain a write credential through the shared auth
 workflow; never infer an endpoint or copy the local token into production.
 
 ### AI agents and the Agents page
@@ -138,11 +138,11 @@ on this project's **Agents** page before reporting success.
 - Instrument only dependencies actually present.
 - Set a meaningful `service.name`; reuse existing version/environment conventions.
 - Do not invent a production environment or delay first data for optional metadata.
-- Preserve existing OpenTelemetry setup: add Logfire as an extra span
-  processor rather than calling `configure()` (which installs a competing
-  provider). Resolve its token via [authentication](./references/auth.md)'s
-  "If the calling skill needs another credential" section, not an assumed
-  environment variable.
+- Preserve an existing OpenTelemetry provider and its destinations. Add a standard
+  OTLP exporter for Logfire to that pipeline, using the [language-specific examples](https://pydantic.dev/docs/logfire/guides/alternative-clients/).
+  For Python traces, attach a `BatchSpanProcessor(OTLPSpanExporter(...))` to the
+  existing SDK tracer provider. Obtain its token via [authentication](./references/auth.md);
+  do not install a second provider or redirect an existing exporter.
 - Keep sensitive prompts, tool data, request bodies, and personal data disabled
   unless the user explicitly wants content capture and the SDK supports it safely.
 - Run the project's normal formatter, typecheck, build, and focused tests.

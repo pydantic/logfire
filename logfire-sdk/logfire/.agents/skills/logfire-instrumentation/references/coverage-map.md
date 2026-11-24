@@ -29,7 +29,7 @@ Add metrics only for a concrete operational question. Counters describe totals,
 histograms describe distributions such as latency, and gauges describe current
 state. Avoid unbounded labels such as user IDs or request URLs.
 
-- Python metric patterns live in `logfire-instrumentation/references/python/logging-patterns.md`.
+- See the [Python metric patterns](./python/logging-patterns.md).
 - Rust provides counter, histogram and gauge instruments in the `logfire` crate.
 - JavaScript uses the OpenTelemetry Metrics API; `@pydantic/logfire-node` does
   not provide a separate custom-metrics wrapper.
@@ -43,7 +43,7 @@ native OpenTelemetry; other frameworks may require an OpenInference instrumentor
 Coverage of messages, tools, tokens and cost differs by framework, so verify the
 fields that actually arrived rather than assuming parity.
 
-For JavaScript Vercel AI SDK calls, use the dedicated AI SDK reference. For
+For JavaScript Vercel AI SDK calls, use the [AI SDK reference](./javascript/ai-sdk.md). For
 Python framework calls and package requirements, use the [AI/LLM integrations reference](./python/integrations.md#aillm-frameworks).
 
 ## Expansion order

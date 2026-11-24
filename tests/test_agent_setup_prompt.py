@@ -88,6 +88,8 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
             assert retired not in document
         assert 'Cloud US (`https://logfire-us.pydantic.dev`): `--region us`' in text
         assert 'Cloud EU (`https://logfire-eu.pydantic.dev`): `--region eu`' in text
+        assert 'explicitly supplied non-cloud origin: `--base-url https://logfire.example.com`' in text
+        assert 'Run the CLI from the application directory' in text
         assert 'absolute HTTPS origin without credentials, a non-root path, query, or fragment' in text
         assert 'Reject whitespace and control characters' in text
         assert 'pass it as one argument, never as shell code' in text
@@ -99,18 +101,18 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
         assert 'Omit that ambient variable from the application child process' in text
         assert 'never substitute an SDK write token' in text
 
-    commands = {
-        line for block in BASH_FENCE.findall(auth) for line in block.splitlines() if line.startswith('logfire ')
-    }
-    prefix = 'logfire --region us --org acme --no-input --output json'
-    for action in (
-        'mcp context',
-        'mcp projects',
-        'init new --name my-app',
-        'init use --name my-app',
-        'project current',
-    ):
-        assert f'{prefix} {action}' in commands
+        commands = {
+            line for block in BASH_FENCE.findall(document) for line in block.splitlines() if line.startswith('logfire ')
+        }
+        prefix = 'logfire --region us --org acme --no-input --output json'
+        for action in (
+            'mcp context',
+            'mcp projects',
+            'init new --name my-app',
+            'init use --name my-app',
+            'project current',
+        ):
+            assert f'{prefix} {action}' in commands
     assert 'logfire.instrument_fastapi(app)' in instrumentation
     assert 'logfire.instrument_httpx()' in instrumentation
     assert 'logfire::configure().finish()?' in instrumentation

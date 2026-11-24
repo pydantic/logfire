@@ -79,9 +79,9 @@ Close with a final report built from what you just confirmed — the exact
 org/project/region, active receiver(s), and host/container/cluster identifier,
 not a template. **Include a direct link to the relevant view** (`/hosts`,
 `/docker`, `/kubernetes`, or `/metrics`, based on the source) so the user can see
-their own source arrive. Use the validated project URL from `project current`
+their own source arrive. Append the selected view's path to the validated project URL from `project current`
 for standalone setup. After a parent-prepared wizard handoff, use
-`project open --no-open` with the same target/org and `--no-input --output json`;
+`project open --no-open` with the same target/org and `--no-input --output json`, then append the same path;
 do not rerun `project current`. If the link cannot be resolved, report that
 separately from telemetry verification rather than returning a placeholder.
 

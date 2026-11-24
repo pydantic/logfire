@@ -6,7 +6,7 @@ description: Route broad requests to set up Pydantic Logfire across application 
 # Set Up Logfire
 
 Load the specialist for the requested task. Proceed with reversible setup;
-pause for browser consent, an ambiguous target, production cost increases,
+pause for browser consent, an ambiguous target, materially more telemetry or cost,
 deployment changes, or destructive work.
 
 ## Step 1: Authenticate and Select the Exact Project
