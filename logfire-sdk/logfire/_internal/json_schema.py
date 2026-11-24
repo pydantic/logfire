@@ -43,6 +43,7 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
     lookup: dict[type[Any], JsonDict | Callable[[Any, set[int]], JsonDict]] = {
         bytes: _bytes_schema,
         bytearray: _bytearray_schema,
+        Enum: lambda obj, seen: create_json_schema(obj.value, seen),
         Decimal: {'type': 'string', 'format': 'decimal', 'x-python-datatype': 'Decimal'},
         datetime.datetime: {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
         datetime.date: {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'},
@@ -127,9 +128,6 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
 
         if id(obj) in seen:
             return {}
-
-        if isinstance(obj, Enum):
-            return create_json_schema(obj.value, seen | {id(obj)})
 
         seen = seen.copy()
         seen.add(id(obj))
