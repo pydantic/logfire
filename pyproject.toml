@@ -128,7 +128,7 @@ dev = [
     # 1.98 imports typing.NotRequired, which is unavailable on Python 3.10.
     "litellm >= 1.96.2, != 1.97.0, != 1.98.0; python_version < '3.11'",
     "openinference-instrumentation-dspy >= 0",
-    "dspy >= 3.1.0",
+    "dspy >= 3.1.0, < 3.5",
     "pip >= 0",
     "surrealdb >= 0, < 3",
     "snowflake-connector-python >= 3",
