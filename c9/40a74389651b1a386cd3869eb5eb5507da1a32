@@ -1,0 +1,19 @@
+logfire-sdk/logfire/_internal/json_schema.py
+  s_c2791ce9d77804::t_c84f77a8cb70c3 274-287
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c940a74389651b1a386cd3869eb5eb5507da1a32",
+  "prompts": {},
+  "sessions": {
+    "s_c2791ce9d77804": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20dd2-48ef-76e2-aaf4-cb40fb8b19db",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
