@@ -79,7 +79,9 @@ def _warn_if_google_genai_version_unsupported() -> None:
     """Warn loudly when the installed google-genai can't be fully instrumented.
 
     `opentelemetry-instrumentation-google-genai` only supports `google-genai >= 1.69.0, < 3`
-    (the range the `logfire[google-genai]` extra pins). Outside it the failure is silent:
+    (the range the `logfire[google-genai]` extra pins). The `< 3` bound is the instrumentor's
+    own declared range (1.3b0 declares `google-genai>=1.32.0,<3` and refuses to instrument
+    anything outside it), so the warning is not a false positive for any released instrumentor. Outside it the failure is silent:
     with 3.x the upstream instrumentor logs one line and instruments nothing, so no spans,
     token counts or `operation.cost` are recorded; below 1.69.0 streamed AI Gateway costs
     (read from `part_metadata`, see #2702) are missing. A warning is used instead of
@@ -90,7 +92,9 @@ def _warn_if_google_genai_version_unsupported() -> None:
         installed_version = get_version(package_version('google-genai'))
     except PackageNotFoundError:  # pragma: no cover - google-genai is always installed here
         return
-    if installed_version >= get_version('3'):
+    if installed_version >= get_version('3.0.0.dev0'):
+        # Compare against 3.0.0.dev0, not 3: pre-releases such as 3.0.0rc1 sort below 3,
+        # so comparing against 3 would miss them and they'd get no warning.
         warn_at_user_stacklevel(
             f'Logfire cannot instrument google-genai {installed_version}: '
             'opentelemetry-instrumentation-google-genai only supports google-genai >=1.69.0,<3, '

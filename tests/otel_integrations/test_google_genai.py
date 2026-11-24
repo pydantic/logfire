@@ -72,10 +72,12 @@ You can install this with:
 """)
 
 
-def test_instrument_google_genai_warns_on_google_genai_3x() -> None:
+@pytest.mark.parametrize('version', ['3.0.0', '3.0.0rc1', '3.0.0a1', '3.4.0'])
+def test_instrument_google_genai_warns_on_google_genai_3x(version: str) -> None:
     # opentelemetry-instrumentation-google-genai only supports google-genai < 3, and
     # silently instruments nothing there. See https://github.com/pydantic/logfire/issues/2880.
-    with patch('logfire._internal.integrations.google_genai.package_version', return_value='3.4.0'):
+    # Pre-releases of 3.0.0 sort below 3, so the check must catch them too.
+    with patch('logfire._internal.integrations.google_genai.package_version', return_value=version):
         with pytest.warns(UserWarning, match='no spans will be created'):
             logfire.instrument_google_genai()
 
@@ -87,8 +89,9 @@ def test_instrument_google_genai_warns_on_old_google_genai() -> None:
             logfire.instrument_google_genai()
 
 
-def test_instrument_google_genai_no_warning_for_supported_version() -> None:
-    with patch('logfire._internal.integrations.google_genai.package_version', return_value='2.34.0'):
+@pytest.mark.parametrize('version', ['1.69.0', '2.34.0'])
+def test_instrument_google_genai_no_warning_for_supported_version(version: str) -> None:
+    with patch('logfire._internal.integrations.google_genai.package_version', return_value=version):
         with warnings.catch_warnings():
             warnings.simplefilter('error')
             logfire.instrument_google_genai()
