@@ -857,18 +857,26 @@ def test_scrubbed_notes_are_limited_on_log_records(logs_exporter: TestLogExporte
 
 
 @pytest.mark.parametrize('existing', [1, '1', 'null', '{}', 'not json'])
-def test_invalid_existing_scrubbed_notes_do_not_disable_scrubbing(exporter: TestExporter, existing: int | str):
+def test_invalid_existing_scrubbed_notes_do_not_disable_scrubbing(
+    exporter: TestExporter, logs_exporter: TestLogExporter, existing: int | str
+):
     logfire.info('example', **cast(Any, {'logfire.scrubbed': existing, 'password': 'hunter2'}))
+    get_logger(__name__).emit(LogRecord(attributes={'logfire.scrubbed': existing, 'password': 'hunter2'}))
 
     (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
     attributes = span['attributes']
     assert attributes['password'] == "[Scrubbed due to 'password']"
     assert attributes['logfire.scrubbed'] == [{'path': ['attributes', 'password'], 'matched_substring': 'password'}]
+    (log,) = logs_exporter.exported_logs_as_dicts(parse_json_attributes=True)
+    assert log['attributes']['password'] == "[Scrubbed due to 'password']"
+    assert log['attributes']['logfire.scrubbed'] == [
+        {'path': ['attributes', 'password'], 'matched_substring': 'password'}
+    ]
 
 
 @pytest.mark.parametrize('error_type', [TypeError, ValueError, RecursionError])
 def test_existing_scrubbed_notes_parse_errors_do_not_disable_scrubbing(
-    exporter: TestExporter, monkeypatch: pytest.MonkeyPatch, error_type: type[Exception]
+    exporter: TestExporter, logs_exporter: TestLogExporter, monkeypatch: pytest.MonkeyPatch, error_type: type[Exception]
 ):
     original_loads = json.loads
 
@@ -879,11 +887,17 @@ def test_existing_scrubbed_notes_parse_errors_do_not_disable_scrubbing(
 
     monkeypatch.setattr(json, 'loads', fail_for_scrubbed)
     logfire.info('example', **cast(Any, {'logfire.scrubbed': 'opaque', 'password': 'hunter2'}))
+    get_logger(__name__).emit(LogRecord(attributes={'logfire.scrubbed': 'opaque', 'password': 'hunter2'}))
 
     (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
     attributes = span['attributes']
     assert attributes['password'] == "[Scrubbed due to 'password']"
     assert attributes['logfire.scrubbed'] == [{'path': ['attributes', 'password'], 'matched_substring': 'password'}]
+    (log,) = logs_exporter.exported_logs_as_dicts(parse_json_attributes=True)
+    assert log['attributes']['password'] == "[Scrubbed due to 'password']"
+    assert log['attributes']['logfire.scrubbed'] == [
+        {'path': ['attributes', 'password'], 'matched_substring': 'password'}
+    ]
 
 
 @pytest.mark.parametrize('count', [40, 60])
