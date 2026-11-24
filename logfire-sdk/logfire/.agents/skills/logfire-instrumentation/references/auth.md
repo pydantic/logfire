@@ -22,11 +22,13 @@ the confirmed target, and the user's real organization and project.
 
 ## Keep the target and credentials separate
 
-- Cloud US: `--region us`; Cloud EU: `--region eu`.
+- Cloud US (`https://logfire-us.pydantic.dev`): `--region us`;
+  Cloud EU (`https://logfire-eu.pydantic.dev`): `--region eu`.
   Omit any ambient `LOGFIRE_BASE_URL` from that CLI child process.
 - An explicitly supplied non-cloud origin: `--base-url https://logfire.example.com`.
   Accept only an absolute HTTPS origin without credentials, a non-root path, query,
-  or fragment. Never infer or change a destination that will receive credentials.
+  or fragment. Reject whitespace and control characters. Confirm the origin
+  before sending a credential; pass it as one argument, never as shell code.
 - If no target is known, ask the user; never silently choose another region.
 - For browser OAuth, use the real `--org` on every command once known. Never use
   `personal` as an alias or select among several organizations without the user's choice.

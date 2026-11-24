@@ -17,5 +17,6 @@ This file is a compatibility index for older prompts that ask for the JS framewo
 
 - Use `node --import ./instrumentation.js` for modern Node ESM preload. Use `--require` only for CommonJS.
 - Browser code sends directly with a restricted public frontend application token and its generated regional trace URL. Never expose `LOGFIRE_TOKEN`, `OTEL_EXPORTER_OTLP_HEADERS`, or another ordinary write token in a browser bundle.
+- For a single-page application, [group pages by route](./react-browser.md#group-pages-by-route) instead of recording raw URL paths as route names.
 - Next.js server-side tracing should use `@vercel/otel`; do not use `@pydantic/logfire-node` as the primary Next server setup unless the app has a separate custom Node server.
 - Cloudflare Workers wrap the exported handler with `instrument()` from `@pydantic/logfire-cf-workers`; import manual spans/logs from `logfire`.
