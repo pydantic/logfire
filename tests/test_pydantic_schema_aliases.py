@@ -1,4 +1,5 @@
 import json
+import warnings
 from datetime import datetime
 from decimal import Decimal
 
@@ -119,3 +120,25 @@ def test_serialization_alias_matches_another_field_name(exporter: TestExporter, 
             decimal_key: {'type': 'string', 'format': 'decimal', 'x-python-datatype': 'Decimal'},
         },
     }
+
+
+def test_alias_detection_does_not_serialize_hidden_fields(exporter: TestExporter) -> None:
+    class AliasedModel(BaseModel):
+        model_config = ConfigDict(serialize_by_alias=True)
+
+        url: AnyUrl = Field(serialization_alias='output_url')
+        password: str = Field(repr=False)
+
+    model = AliasedModel.model_validate({'url': 'https://example.com', 'password': 'original'})
+    model = model.model_copy(update={'password': b'secret'})
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        warnings.simplefilter('always')
+        logfire.info('aliased model {model}', model=model)
+
+    assert recorded_warnings == []
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    recorded_json = attributes['model']
+    assert isinstance(recorded_json, str)
+    assert 'secret' not in recorded_json
+    assert 'password' not in recorded_json
