@@ -958,6 +958,13 @@ def test_recursive_enum_value_schema() -> None:
     assert create_json_schema(member, set()) == {}
 
 
+def test_bytes_enum_value_schema() -> None:
+    class BytesEnum(bytes, Enum):
+        MEMBER = b'bytes'
+
+    assert create_json_schema(BytesEnum.MEMBER, set()) == {'type': 'string', 'x-python-datatype': 'bytes'}
+
+
 def test_attrs_schema_respects_repr() -> None:
     assert create_json_schema(MyReprAttrs(1, MyDataclass(2)), set()) == {
         'type': 'object',
