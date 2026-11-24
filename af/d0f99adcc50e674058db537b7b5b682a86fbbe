@@ -1,0 +1,28 @@
+tests/test_auth.py
+  s_48d92db44c8b12::t_8cd1787c8866c3 16-17
+  s_718c32d780e10d::t_be62e7e7e0200f 18-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "afd0f99adcc50e674058db537b7b5b682a86fbbe",
+  "prompts": {},
+  "sessions": {
+    "s_48d92db44c8b12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20d29-571c-7b30-9599-483b8401df9c",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_718c32d780e10d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20d61-270a-77f3-8b63-3e90a45c8689",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
