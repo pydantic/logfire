@@ -38,15 +38,6 @@ from requests import RequestException, Response
 from logfire._internal.stack_info import is_user_code
 from logfire._internal.ulid import ulid
 
-try:
-    _ = BaseExceptionGroup
-except NameError:
-    if not TYPE_CHECKING:
-
-        class BaseExceptionGroup(BaseException):
-            """Stub for BaseExceptionGroup for Python < 3.11."""
-
-
 if TYPE_CHECKING:
     from typing import ParamSpec
 
