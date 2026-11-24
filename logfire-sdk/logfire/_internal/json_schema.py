@@ -116,10 +116,6 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
         The JSON Schema.
     """
     try:
-        if isinstance(obj, Enum):
-            if id(obj) in seen:
-                return {}
-            return create_json_schema(obj.value, seen | {id(obj)})
         if obj is None:
             return {'type': 'null'}
 
@@ -131,6 +127,9 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
 
         if id(obj) in seen:
             return {}
+
+        if isinstance(obj, Enum):
+            return create_json_schema(obj.value, seen | {id(obj)})
 
         seen = seen.copy()
         seen.add(id(obj))
