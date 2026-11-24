@@ -6,7 +6,6 @@ import enum
 import io
 import json
 import re
-import sys
 from datetime import datetime
 from enum import IntEnum, StrEnum
 from pathlib import Path
@@ -992,14 +991,10 @@ def test_exception(exporter: TestExporter) -> None:
         ]
     )
 
-    issue_lines = (
-        [
-            '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m     '
-            '\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m^\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m',
-        ]
-        if sys.version_info >= (3, 11)
-        else []
-    )
+    issue_lines = [
+        '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m     '
+        '\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m^\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m',
+    ]
 
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, colors='always').export(exporter.exported_spans)

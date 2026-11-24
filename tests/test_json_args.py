@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from collections import deque
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -392,8 +391,8 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
         ),
         pytest.param(
             {'enum': StrEnum('Color', ['RED', 'GREEN', 'BLUE']).BLUE},
-            "{'enum': <Color.BLUE: 'blue'>}" if sys.version_info >= (3, 11) else "{'enum': <Color.BLUE: '3'>}",
-            '{"enum":"blue"}' if sys.version_info >= (3, 11) else '{"enum":"3"}',
+            "{'enum': <Color.BLUE: 'blue'>}",
+            '{"enum":"blue"}',
             {
                 'type': 'object',
                 'properties': {
@@ -401,7 +400,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
                         'type': 'string',
                         'title': 'Color',
                         'x-python-datatype': 'Enum',
-                        'enum': ['red', 'green', 'blue'] if sys.version_info >= (3, 11) else ['1', '2', '3'],
+                        'enum': ['red', 'green', 'blue'],
                     },
                 },
             },
