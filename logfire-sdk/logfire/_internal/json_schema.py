@@ -388,13 +388,29 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     assert isinstance(obj, pydantic.BaseModel)
 
     try:
-        fields = [name for name, field in type(obj).model_fields.items() if field.repr]
+        fields = {name: field for name, field in type(obj).model_fields.items() if field.repr}
+        aliases: dict[str, str] = {}
+        for name, field in fields.items():
+            alias = field.serialization_alias or field.alias
+            if alias and alias != name:
+                aliases[name] = alias
         extra = obj.model_extra or {}
     except AttributeError:  # pragma: no cover
         # pydantic v1
         fields = obj.__fields__  # pyright: ignore[reportDeprecated]
+        aliases = {}
         extra = {}
-    return _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen)
+    schema = _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen)
+    properties = schema.get('properties')
+    if isinstance(properties, dict) and aliases:
+        # The default for model_dump(by_alias=...) depends on the Pydantic version and model config.
+        # Use its actual keys so the schema matches the value encoded by _pydantic_model_encoder.
+        dumped = obj.model_dump()
+        schema['properties'] = {
+            aliases[name] if name in aliases and aliases[name] in dumped and name not in dumped else name: value
+            for name, value in properties.items()
+        }
+    return schema
 
 
 def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:
