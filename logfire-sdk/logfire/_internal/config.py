@@ -142,7 +142,6 @@ from .stack_info import warn_at_user_stacklevel
 from .tracer import OPEN_SPANS, PendingSpanProcessor, ProxyTracerProvider
 from .utils import (
     SeededRandomIdGenerator,
-    ensure_data_dir_exists,
     handle_internal_errors,
     platform_is_aws_lambda,
     platform_is_emscripten,
@@ -2207,13 +2206,6 @@ class LogfireCredentials:
             project_url=data['project_url'],
             logfire_api_url=base_url,
         )
-
-    def write_creds_file(self, creds_dir: Path) -> None:
-        """Write a credentials file to the given path."""
-        ensure_data_dir_exists(creds_dir)
-        data = dataclasses.asdict(self)
-        path = _get_creds_file(creds_dir)
-        path.write_text(json.dumps(data, indent=2) + '\n')
 
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""
