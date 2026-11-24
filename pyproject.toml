@@ -121,7 +121,7 @@ dev = [
     "langchain-openai>=0.3.17",
     "langgraph >= 0",
     "opentelemetry-instrumentation-google-genai >= 1.0b0",
-    "google-genai >= 0",
+    "google-genai >= 0, < 3",
     "openinference-instrumentation-litellm >= 0",
     "litellm >= 1.98.0; python_version >= '3.11'",
     # LiteLLM 1.97 leaves its Message Pydantic model unresolved on Python 3.10, while
@@ -130,7 +130,7 @@ dev = [
     "openinference-instrumentation-dspy >= 0",
     "dspy >= 3.1.0",
     "pip >= 0",
-    "surrealdb >= 0",
+    "surrealdb >= 0, < 3",
     "snowflake-connector-python >= 3",
     "pytest-examples>=0.0.18",
     "pytest-timeout>=2.4.0",
