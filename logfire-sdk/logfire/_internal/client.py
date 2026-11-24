@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 from urllib.parse import urljoin
 
 from requests import Response, Session
-from typing_extensions import Self
 
 from logfire.exceptions import LogfireConfigError
 from logfire.version import VERSION

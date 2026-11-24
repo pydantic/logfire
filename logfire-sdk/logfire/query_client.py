@@ -2,21 +2,13 @@ from __future__ import annotations
 
 import math
 import platform
-import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar, cast
-
-from typing_extensions import Self
+from typing import TYPE_CHECKING, Any, Generic, Literal, Self, TypedDict, TypeVar, cast
 
 from logfire import VERSION
 from logfire._internal.config import get_base_url_from_token
-
-if sys.version_info >= (3, 11):
-    from datetime import UTC
-else:
-    UTC = timezone.utc
 
 try:
     from httpx import AsyncClient, Client, Response, Timeout
@@ -284,8 +276,8 @@ def _parse_retry_after_header(value: str | None) -> float | None:
     except (TypeError, ValueError, IndexError, OverflowError):
         return None
     if retry_at.tzinfo is None:
-        retry_at = retry_at.replace(tzinfo=timezone.utc)
-    return max(0.0, (retry_at - datetime.now(timezone.utc)).total_seconds())
+        retry_at = retry_at.replace(tzinfo=UTC)
+    return max(0.0, (retry_at - datetime.now(UTC)).total_seconds())
 
 
 def _parse_retry_after_member(value: Any) -> float | None:

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Literal, cast
 from opentelemetry.metrics import CallbackOptions, Observation
 
 if TYPE_CHECKING:
-    from typing_extensions import LiteralString
+    from typing import LiteralString
 
     from logfire import Logfire
 

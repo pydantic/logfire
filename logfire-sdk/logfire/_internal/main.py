@@ -16,6 +16,7 @@ from typing import (  # NOQA UP035
     Any,
     Callable,
     Literal,
+    LiteralString,
     Type,
     TypeVar,
     cast,
@@ -30,7 +31,7 @@ from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
-from typing_extensions import LiteralString, ParamSpec
+from typing_extensions import ParamSpec
 
 from ..version import VERSION
 from . import async_

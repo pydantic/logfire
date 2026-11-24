@@ -3,9 +3,9 @@
 import gc
 import os
 import re
-import sys
 from collections.abc import Iterator
 from pathlib import Path
+from tomllib import loads
 
 import pydantic
 import pytest
@@ -13,11 +13,6 @@ from packaging.utils import canonicalize_name
 from pytest_examples import CodeExample, EvalExample, find_examples
 
 from logfire._internal.utils import get_version
-
-if sys.version_info >= (3, 11):
-    from tomllib import loads
-else:
-    from tomli import loads
 
 # Prevent accidental live API calls during testing
 os.environ.setdefault('LOGFIRE_SEND_TO_LOGFIRE', 'false')

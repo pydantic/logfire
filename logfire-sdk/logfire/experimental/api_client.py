@@ -54,11 +54,11 @@ from collections.abc import Sequence
 from datetime import datetime
 from functools import cache
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, Literal, cast, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, NotRequired, Self, cast, overload
 from uuid import UUID
 
 from pydantic import TypeAdapter, ValidationError
-from typing_extensions import NotRequired, Self, TypedDict, TypeForm, TypeVar
+from typing_extensions import TypedDict, TypeForm, TypeVar
 
 from logfire._internal.config import get_base_url_from_token
 from logfire._internal.stack_info import warn_at_user_stacklevel

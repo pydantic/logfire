@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "logfire"
 version = "6.0.1"
 description = "Pydantic Logfire Python SDK and command-line interface"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
     { name = "Samuel Colvin", email = "samuel@pydantic.dev" },
@@ -26,7 +26,6 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
