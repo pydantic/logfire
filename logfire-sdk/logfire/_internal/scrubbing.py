@@ -77,6 +77,7 @@ _DEFAULT_PATTERN_START_CHARS = 'pmsacljx_rbih'
 _DEFAULT_PATTERN = rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(DEFAULT_PATTERNS)})'
 _MAX_UNCHANGED_MATCHES = 100
 _MAX_SCRUBBED_NOTES = 50
+_MAX_JSON_STRING_DEPTH = 4
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
@@ -379,6 +380,7 @@ class SpanScrubber:
         self._transform_string = parent._transform_string  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
+        self._json_string_depth = 0
         self._is_legacy_llm_scope = scope_name in ('logfire.openai', 'logfire.anthropic')
         self._is_legacy_openai_scope = scope_name == 'logfire.openai'
 
@@ -489,8 +491,17 @@ class SpanScrubber:
                 try:
                     decoded = json.loads(value)
                     scrub_count_before = self.scrub_count
-                    scrubbed = self.scrub(path, decoded, in_safe_key, key_only)
-                    return logfire_json_dumps(scrubbed) if self.scrub_count != scrub_count_before else value
+                    self._json_string_depth += 1
+                    try:
+                        scrubbed = self.scrub(path, decoded, in_safe_key, key_only)
+                    finally:
+                        self._json_string_depth -= 1
+                    if self.scrub_count == scrub_count_before:
+                        return value
+                    # Re-encoding many nested JSON strings can grow exponentially.
+                    if self._json_string_depth >= _MAX_JSON_STRING_DEPTH:
+                        return '[Scrubbed due to deeply nested JSON]'
+                    return logfire_json_dumps(scrubbed)
                 except (ValueError, RecursionError):
                     pass
             transformed = self._safely_transform_string(path, value)
