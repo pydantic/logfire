@@ -76,6 +76,7 @@ DEFAULT_PATTERNS = [
 _DEFAULT_PATTERN_START_CHARS = 'pmsacljx_rbih'
 _DEFAULT_PATTERN = rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(DEFAULT_PATTERNS)})'
 _MAX_UNCHANGED_MATCHES = 100
+_MAX_SCRUBBED_NOTES = 50
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
@@ -321,7 +322,7 @@ class Scrubber(BaseScrubber):
                 already_scrubbed = []
             span['attributes'] = {
                 **attributes,
-                ATTRIBUTES_SCRUBBED_KEY: json.dumps(already_scrubbed + span_scrubber.scrubbed),
+                ATTRIBUTES_SCRUBBED_KEY: json.dumps((already_scrubbed + span_scrubber.scrubbed)[:_MAX_SCRUBBED_NOTES]),
             }
 
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
@@ -593,7 +594,8 @@ class SpanScrubber:
             return result
         self.scrub_count += 1
         matched_substring = match.pattern_match.group(0)
-        self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
+        if len(self.scrubbed) < _MAX_SCRUBBED_NOTES:
+            self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
         return f'[Scrubbed due to {matched_substring!r}]'
 
 
@@ -631,7 +633,7 @@ class MessageValueCleaner:
             # Whereas having the key in the path doesn't affect the scrubbing result,
             # so this only looks at `value` itself.
             value, scrubbed_notes = self.scrubber.scrub_value(('message', field_name), value)
-        self.scrubbed.extend(scrubbed_notes)
+        self.scrubbed.extend(scrubbed_notes[: _MAX_SCRUBBED_NOTES - len(self.scrubbed)])
         return self.truncate(value)
 
     def truncate(self, value: str) -> str:
