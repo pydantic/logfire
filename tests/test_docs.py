@@ -62,7 +62,7 @@ def set_eval_config(eval_example: EvalExample):
         quotes='single',
         isort=True,
         ruff_ignore=ruff_ignore,
-        target_version='py310',
+        target_version='py311',  # pyright: ignore[reportArgumentType]  # pytest-examples types stop at py310
     )
 
 
@@ -215,7 +215,7 @@ def test_skill_examples_formatting(eval_example: EvalExample):
         quotes='either',
         isort=False,
         ruff_ignore=[*ruff_ignore, 'F821', 'I001', 'Q'],
-        target_version='py310',
+        target_version='py311',  # pyright: ignore[reportArgumentType]  # pytest-examples types stop at py310
     )
 
     for example in examples:
