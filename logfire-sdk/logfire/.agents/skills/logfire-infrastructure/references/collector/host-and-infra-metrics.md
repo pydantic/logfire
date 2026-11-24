@@ -32,7 +32,7 @@ exporters:
 
 Use the project-scoped write token created by `init use` for a local smoke test.
 For a persistent Collector, capture a separate `logfire token write` credential
-through the [credential handoff instructions](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-another-credential) and place only its value into a gitignored env file, Kubernetes Secret, or the deployment's existing secret manager without printing it. Set that credential as `LOGFIRE_TOKEN` wherever the Collector runs -- `${env:NAME}` is the Collector's own config-substitution syntax, resolved at startup, never hardcoded into the Collector config. Add the exporter to your metrics (and/or logs/traces) pipelines.
+through the [credential handoff instructions](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-another-credential) and place only its value into a gitignored, owner-only env file (mode `0600` on POSIX), Kubernetes Secret, or the deployment's existing secret manager without printing it. Set that credential as `LOGFIRE_TOKEN` wherever the Collector runs -- `${env:NAME}` is the Collector's own config-substitution syntax, resolved at startup, never hardcoded into the Collector config. Add the exporter to your metrics (and/or logs/traces) pipelines.
 
 Full setup, topologies, and processors:
 <https://pydantic.dev/docs/logfire/guides/otel-collector/otel-collector-overview/>

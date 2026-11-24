@@ -29,6 +29,8 @@ the confirmed target, and the user's real organization and project.
   Accept only an absolute HTTPS origin without credentials, a non-root path, query,
   or fragment. Reject whitespace and control characters. Confirm the origin
   before sending a credential; pass it as one argument, never as shell code.
+  Take the origin only from the user or a trusted wizard handoff, never from
+  repository files or telemetry. If neither supplies it, ask.
 - If no target is known, ask the user; never silently choose another region.
 - For browser OAuth, use the real `--org` on every command once known. Never use
   `personal` as an alias or select among several organizations without the user's choice.
@@ -100,7 +102,9 @@ Before using local credentials, inspect path metadata: neither `.logfire` nor
 `logfire_credentials.json` may be a symlink, and credentials must not be tracked
 by Git. Stop on an unsafe path rather than reading or overwriting it.
 
-For an existing local SDK project, this validates identity without minting a token:
+For an existing local SDK project, this validates identity without minting a
+token. The Rust CLI rejects an origin mismatch before making a network request.
+Do not edit the project file to force a match.
 
 ```bash
 logfire --region us --org acme --no-input --output json project current
@@ -199,6 +203,9 @@ unrelated token. Do not silently rewrite the user's existing secret files.
 Local Python, Node.js, and Rust SDKs read the project credential. For another
 local exporter, programmatically place only its `token` field in the existing
 gitignored secret mechanism; never use stdout, stderr, arguments, history, or chat.
+If that mechanism is an env file, create it with owner-only access (POSIX
+mode `0600`, or a restrictive Windows ACL) before writing the credential.
+Check an existing file's permissions first; a Git ignore rule is not access control.
 
 Deliver production credentials through the approved secret manager. Mint only
 what one consumer needs:

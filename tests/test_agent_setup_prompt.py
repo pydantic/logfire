@@ -91,6 +91,8 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
         assert 'absolute HTTPS origin without credentials, a non-root path, query, or fragment' in text
         assert 'Reject whitespace and control characters' in text
         assert 'pass it as one argument, never as shell code' in text
+        assert 'only from the user or a trusted wizard handoff, never from repository files or telemetry' in text
+        assert 'mode `0600`, or a restrictive Windows ACL' in text
         assert 'Omit any ambient `LOGFIRE_BASE_URL`' in text
         assert 'omit `LOGFIRE_API_KEY`, `LOGFIRE_TOKEN`, and `LOGFIRE_MCP_TOKEN`' in text
         assert 'may be a symlink, and credentials must not be tracked by Git' in text
@@ -263,6 +265,7 @@ def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() 
     assert "endpoint: '<selected-logfire-origin>'" in reference
     assert "endpoint: 'https://logfire-us.pydantic.dev'" not in reference
     assert 'Kubernetes Secret' in reference and 'without printing it' in reference
+    assert 'owner-only env file (mode `0600` on POSIX)' in reference
     assert 'collection_interval: 60s' in reference
     assert 'system.cpu.utilization:' in reference
     assert 'system.memory.utilization:' in reference
