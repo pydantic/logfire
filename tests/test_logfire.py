@@ -899,6 +899,26 @@ def test_log_with_multiple_tags(exporter: TestExporter):
     assert s.attributes[ATTRIBUTES_TAGS_KEY] == ('tag1', 'tag2', 'tag3', 'tag4')
 
 
+def test_single_string_tag(exporter: TestExporter):
+    logfire.info('a log', _tags='abc')
+    with logfire.span('a span', _tags='abc'):
+        pass
+    logfire.log('info', 'another log', tags='abc')
+    logfire.with_settings(tags='abc').info('a settings log', _tags='def')
+
+    tags = {
+        span.name: span.attributes[ATTRIBUTES_TAGS_KEY]
+        for span in exporter.exported_spans
+        if span.attributes and span.attributes.get('logfire.span_type') != 'pending_span'
+    }
+    assert tags == {
+        'a log': ('abc',),
+        'a span': ('abc',),
+        'another log': ('abc',),
+        'a settings log': ('abc', 'def'),
+    }
+
+
 def test_instrument(exporter: TestExporter):
     tagged = logfire.with_tags('test_instrument')
 

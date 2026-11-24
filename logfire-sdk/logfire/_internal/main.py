@@ -263,7 +263,7 @@ class Logfire:
             if json_schema_properties := attributes_json_schema_properties(attributes):
                 otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
-            tags = (self._tags or ()) + tuple(_tags or ())
+            tags = (self._tags or ()) + ((_tags,) if isinstance(_tags, str) else tuple(_tags or ()))
             if tags:
                 otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
@@ -809,7 +809,7 @@ class Logfire:
             if json_schema_properties := attributes_json_schema_properties(attributes):
                 otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
-            tags = self._tags + tuple(tags or ())
+            tags = self._tags + ((tags,) if isinstance(tags, str) else tuple(tags or ()))
             if tags:
                 otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
@@ -913,7 +913,7 @@ class Logfire:
         # TODO add sample_rate once it's more stable
         return Logfire(
             config=self._config,
-            tags=self._tags + tuple(tags),
+            tags=self._tags + ((tags,) if isinstance(tags, str) else tuple(tags)),
             sample_rate=self._sample_rate,
             console_log=self._console_log if console_log is None else console_log,
             otel_scope=self._otel_scope if custom_scope_suffix is None else f'logfire.{custom_scope_suffix}',
