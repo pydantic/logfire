@@ -142,3 +142,28 @@ def test_alias_detection_does_not_serialize_hidden_fields(exporter: TestExporter
     assert isinstance(recorded_json, str)
     assert 'secret' not in recorded_json
     assert 'password' not in recorded_json
+
+
+def test_empty_serialization_alias(exporter: TestExporter) -> None:
+    class AliasedModel(BaseModel):
+        model_config = ConfigDict(serialize_by_alias=True)
+
+        url: AnyUrl = Field(serialization_alias='')
+
+    model = AliasedModel.model_validate({'url': 'https://example.com'})
+    logfire.info('aliased model {model}', model=model)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    recorded_json = attributes['model']
+    schema_json = attributes['logfire.json_schema']
+    assert isinstance(recorded_json, str)
+    assert isinstance(schema_json, str)
+    serialized_key = '' if get_version(pydantic.__version__) >= get_version('2.11') else 'url'
+    assert json.loads(recorded_json) == {serialized_key: 'https://example.com/'}
+    assert json.loads(schema_json)['properties']['model'] == {
+        'type': 'object',
+        'title': 'AliasedModel',
+        'x-python-datatype': 'PydanticModel',
+        'properties': {serialized_key: {'type': 'string', 'x-python-datatype': type(model.url).__name__}},
+    }

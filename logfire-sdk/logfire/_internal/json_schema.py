@@ -391,8 +391,8 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
         fields = {name: field for name, field in type(obj).model_fields.items() if field.repr}
         aliases: dict[str, str] = {}
         for name, field in fields.items():
-            alias = field.serialization_alias or field.alias
-            if alias and alias != name:
+            alias = field.serialization_alias if field.serialization_alias is not None else field.alias
+            if alias is not None and alias != name:
                 aliases[name] = alias
         extra = obj.model_extra or {}
     except AttributeError:  # pragma: no cover
