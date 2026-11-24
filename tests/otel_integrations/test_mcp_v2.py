@@ -36,13 +36,7 @@ async def test_instrument_mcp_v2_builtin_otel(exporter: TestExporter):
             result = await client.call_tool('add', {'a': 1, 'b': 2})
 
     assert result.data == 3
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    # FastMCP 4.2 adds these attributes to server spans; Python 3.10 resolves 4.1.
-    for span in spans:
-        if span['name'] in {'server/discover', 'tools/call add', 'tools/list'}:
-            span['attributes'].pop('jsonrpc.request.id', None)
-            span['attributes'].pop('gen_ai.operation.name', None)
-    assert spans == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'server/discover',
@@ -55,6 +49,7 @@ async def test_instrument_mcp_v2_builtin_otel(exporter: TestExporter):
                     'mcp.method.name': 'server/discover',
                     'fastmcp.server.name': 'demo',
                     'mcp.protocol.version': '2026-07-28',
+                    'jsonrpc.request.id': '1',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'server/discover',
                 },
@@ -100,8 +95,10 @@ async def test_instrument_mcp_v2_builtin_otel(exporter: TestExporter):
                     'mcp.method.name': 'tools/call',
                     'fastmcp.server.name': 'demo',
                     'mcp.protocol.version': '2026-07-28',
+                    'jsonrpc.request.id': '2',
                     'mcp.session.id': "[Scrubbed due to 'session']",
                     'gen_ai.tool.name': 'add',
+                    'gen_ai.operation.name': 'execute_tool',
                     'fastmcp.component.key': 'tool:add@',
                     'fastmcp.component.type': 'tool',
                     'fastmcp.provider.type': 'LocalProvider',
@@ -136,6 +133,7 @@ async def test_instrument_mcp_v2_builtin_otel(exporter: TestExporter):
                     'fastmcp.component.type': 'tool',
                     'fastmcp.component.key': '',
                     'mcp.protocol.version': '2026-07-28',
+                    'jsonrpc.request.id': '3',
                     'mcp.session.id': "[Scrubbed due to 'session']",
                     'logfire.scrubbed': [{'path': ['attributes', 'mcp.session.id'], 'matched_substring': 'session'}],
                 },
@@ -163,6 +161,7 @@ async def test_instrument_mcp_v2_builtin_otel(exporter: TestExporter):
                     'mcp.method.name': 'tools/call',
                     'fastmcp.component.key': 'add',
                     'gen_ai.tool.name': 'add',
+                    'gen_ai.operation.name': 'execute_tool',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'tools/call add',
                 },
