@@ -7,9 +7,9 @@ See: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal, NotRequired, TypeAlias
 
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 # Version types for controlling span attribute format
 SemconvVersion = Literal[1, 2, 'latest']

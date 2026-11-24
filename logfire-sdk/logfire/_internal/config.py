@@ -18,7 +18,7 @@ from datetime import timedelta
 from importlib.metadata import entry_points
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, assert_type
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -69,7 +69,6 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from rich.console import Console
-from typing_extensions import Self, assert_type
 
 from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesLogProcessorWrapper, DirectBaggageAttributesSpanProcessor

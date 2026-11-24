@@ -1,7 +1,7 @@
 [project]
 name = "logfire-python"
 version = "0.0.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = ["logfire"]
 
 [dependency-groups]
@@ -23,7 +23,7 @@ dev = [
     "django >= 4.2.16",
     "dirty-equals >= 0.8.0",
     # For type checking `logfire.configure(fleet=...)` against the Fleet client (the `fleet` extra).
-    "logfire-fleet-otel >= 0.2.1, < 0.3; python_version >= '3.11'",
+    "logfire-fleet-otel >= 0.2.1, < 0.3",
     "pytest >= 8.3.4",
     "pytest-django >= 4.6.0",
     "pytest-pretty >= 1.2.0",
@@ -126,10 +126,7 @@ dev = [
     "opentelemetry-instrumentation-google-genai >= 1.0b0",
     "google-genai >= 0, < 3",
     "openinference-instrumentation-litellm >= 0",
-    "litellm >= 1.98.0; python_version >= '3.11'",
-    # LiteLLM 1.97 leaves its Message Pydantic model unresolved on Python 3.10, while
-    # 1.98 imports typing.NotRequired, which is unavailable on Python 3.10.
-    "litellm >= 1.96.2, != 1.97.0, != 1.98.0; python_version < '3.11'",
+    "litellm >= 1.98.0",
     "openinference-instrumentation-dspy >= 0",
     "dspy >= 3.1.0, < 3.5",
     "pip >= 0",
@@ -155,7 +152,7 @@ package = false
 default-groups = ["dev"]
 exclude-newer = "4 days"
 # LiteLLM caps filelock below 4, but only uses the compatible FileLock API.
-# 4.0.3 fixes thread startup failures under coverage on Python 3.10/3.11:
+# 4.0.3 fixes thread startup failures under coverage on Python 3.11:
 # https://github.com/tox-dev/filelock/pull/747
 override-dependencies = ["filelock>=4.0.3,<5"]
 

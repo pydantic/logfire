@@ -8,7 +8,7 @@ import json
 import re
 import sys
 from datetime import datetime
-from enum import Enum
+from enum import IntEnum, StrEnum
 from pathlib import Path
 from typing import Any, Literal
 from unittest import mock
@@ -32,15 +32,6 @@ from logfire._internal.exporters.console import (
 )
 from logfire.testing import TestExporter
 from tests.utils import ReadableSpanModel, SpanContextModel, exported_spans_as_models
-
-if sys.version_info >= (3, 11):  # pragma: no branch
-    from enum import IntEnum, StrEnum
-else:  # pragma: no cover
-
-    class StrEnum(str, Enum): ...
-
-    class IntEnum(int, Enum): ...
-
 
 tracer = trace.get_tracer('test')
 
@@ -988,31 +979,18 @@ def test_exception(exporter: TestExporter) -> None:
 
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, colors='never').export(exporter.exported_spans)
-    if sys.version_info >= (3, 11):
-        assert out.getvalue().splitlines() == snapshot(
-            [
-                '00:00:01.000 error!!! test',
-                '             │ ZeroDivisionError: division by zero',
-                '             │ Traceback (most recent call last):',
-                IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
-                '             │     1 / 0  # type: ignore',
-                '             │     ~~^~~',
-                '             │ ZeroDivisionError: division by zero',
-                '',
-            ]
-        )
-    else:
-        assert out.getvalue().splitlines() == snapshot(
-            [
-                '00:00:01.000 error!!! test',
-                '             │ ZeroDivisionError: division by zero',
-                '             │ Traceback (most recent call last):',
-                IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
-                '             │     1 / 0  # type: ignore',
-                '             │ ZeroDivisionError: division by zero',
-                '',
-            ]
-        )
+    assert out.getvalue().splitlines() == snapshot(
+        [
+            '00:00:01.000 error!!! test',
+            '             │ ZeroDivisionError: division by zero',
+            '             │ Traceback (most recent call last):',
+            IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
+            '             │     1 / 0  # type: ignore',
+            '             │     ~~^~~',
+            '             │ ZeroDivisionError: division by zero',
+            '',
+        ]
+    )
 
     issue_lines = (
         [
@@ -1234,7 +1212,7 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
 
         ABC = 'abc'
 
-    class MyStrEnum(str, enum.Enum):
+    class MyStrEnum(enum.StrEnum):
         """String-based Enum."""
 
         STR = 'str_val'
@@ -1328,6 +1306,19 @@ def test_console_exporter_log_pydantic_model_serializer(
     logfire.info('hello {user}', user=User(name='Ada'), count=1)
 
     assert capsys.readouterr().out.splitlines()[2:] == [expected, '│ count=1']
+
+
+def test_console_exporter_log_pandas_nat(capsys: pytest.CaptureFixture[str]) -> None:
+    import pandas
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+    )
+
+    logfire.info('hello', when=pandas.NaT, count=1)
+
+    assert capsys.readouterr().out.splitlines()[2:] == snapshot(["│ when='NaT'", '│ count=1'])
 
 
 def test_console_exporter_log_pydantic_root_model(capsys: pytest.CaptureFixture[str]) -> None:

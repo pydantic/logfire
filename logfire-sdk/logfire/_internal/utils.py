@@ -38,15 +38,6 @@ from requests import RequestException, Response
 from logfire._internal.stack_info import is_user_code
 from logfire._internal.ulid import ulid
 
-try:
-    _ = BaseExceptionGroup
-except NameError:
-    if not TYPE_CHECKING:
-
-        class BaseExceptionGroup(BaseException):
-            """Stub for BaseExceptionGroup for Python < 3.11."""
-
-
 if TYPE_CHECKING:
     from typing import ParamSpec
 
@@ -148,12 +139,9 @@ def truncate_sequence(seq: Truncatable, *, max_length: int, middle: Truncatable)
 def read_toml_file(path: Path) -> dict[str, Any]:
     """Read a TOML file and return the parsed data.
 
-    It wraps the `tomllib.load` function from Python 3.11 or the `tomli.load` function from older versions.
+    It wraps `tomllib.load`.
     """
-    if sys.version_info >= (3, 11):  # pragma: no branch
-        from tomllib import load as load_toml
-    else:
-        from tomli import load as load_toml  # pragma: no cover
+    from tomllib import load as load_toml
 
     with path.open('rb') as f:
         data = load_toml(f)

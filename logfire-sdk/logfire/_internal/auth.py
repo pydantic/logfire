@@ -5,15 +5,14 @@ import re
 import sys
 import warnings
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TypedDict, cast
+from typing import Self, TypedDict, cast
 from urllib.parse import urljoin
 
 import requests
 from rich.console import Console
 from rich.prompt import IntPrompt
-from typing_extensions import Self
 
 from logfire.exceptions import LogfireConfigError
 
@@ -91,9 +90,7 @@ class UserToken:
     @property
     def is_expired(self) -> bool:
         """Whether the token is expired."""
-        return datetime.now(tz=timezone.utc) >= datetime.fromisoformat(self.expiration.rstrip('Z')).replace(
-            tzinfo=timezone.utc
-        )
+        return datetime.now(tz=UTC) >= datetime.fromisoformat(self.expiration.rstrip('Z')).replace(tzinfo=UTC)
 
     def __str__(self) -> str:
         region = 'us'
