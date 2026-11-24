@@ -263,15 +263,30 @@ def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
     if n <= 10 and not has_long_key:
         # Small dict: always use per-key properties
         schema.update(_properties({(k if isinstance(k, str) else safe_repr(k)): v for k, v in obj.items()}, seen))
-    else:
-        # Medium or large dict: check homogeneity
+    elif is_large:
+        # Large dict: check homogeneity
         common_schema, is_homogeneous = _check_homogeneous(obj, seen)
         if is_homogeneous and common_schema is not None and common_schema not in PLAIN_SCHEMAS:
             schema['additionalProperties'] = common_schema
-        elif not is_large:
-            # Medium heterogeneous: per-key properties
-            schema.update(_properties({(k if isinstance(k, str) else safe_repr(k)): v for k, v in obj.items()}, seen))
         # else: large heterogeneous → just {'type': 'object'} (drop schema)
+    else:
+        # Medium dict: reuse each value's schema for both homogeneity and properties.
+        value_schemas = [(k, create_json_schema(v, seen)) for k, v in obj.items()]
+        common_schema = value_schemas[0][1]
+        if (
+            all(value_schema == common_schema for _, value_schema in value_schemas)
+            and common_schema not in PLAIN_SCHEMAS
+        ):
+            schema['additionalProperties'] = common_schema
+        else:
+            key_schemas = {
+                (k if isinstance(k, str) else safe_repr(k)): value_schema for k, value_schema in value_schemas
+            }
+            properties: JsonDict = {
+                k: value_schema for k, value_schema in key_schemas.items() if value_schema not in PLAIN_SCHEMAS
+            }
+            if properties:
+                schema['properties'] = properties
 
     if obj.__class__.__name__ != 'dict':
         schema['x-python-datatype'] = 'Mapping'

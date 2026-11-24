@@ -11,7 +11,7 @@ from enum import Enum, IntEnum, StrEnum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 from uuid import UUID
 
 import numpy
@@ -2014,6 +2014,25 @@ def test_medium_dict_schema():
     # Medium homogeneous with plain values → just {'type': 'object'}
     d_medium_plain = {f'key_{i}': 'hello' for i in range(20)}
     assert create_json_schema(d_medium_plain, set()) == {'type': 'object'}
+
+    # Different plain schemas still need no per-key properties.
+    d_medium_plain_hetero = {f'key_{i}': (None if i % 2 else 0) for i in range(11)}
+    assert create_json_schema(d_medium_plain_hetero, set()) == {'type': 'object'}
+
+    # The last key wins when distinct keys have the same string representation.
+    d_medium_duplicate_keys = {1: datetime(2023, 1, 1), '1': 0, **{f'key_{i}': 0 for i in range(9)}}
+    assert create_json_schema(d_medium_duplicate_keys, set()) == {'type': 'object'}
+
+
+def test_nested_medium_dict_schema_is_generated_once_per_value():
+    nested: object = 0
+    for _ in range(12):
+        nested = {'nested': nested, **{f'key_{i}': 0 for i in range(10)}}
+
+    with patch('logfire._internal.json_schema.create_json_schema', wraps=create_json_schema) as schema_spy:
+        assert schema_spy(nested, set()) == {'type': 'object'}
+
+    assert schema_spy.call_count == 133
 
 
 def test_large_dict_schema():
