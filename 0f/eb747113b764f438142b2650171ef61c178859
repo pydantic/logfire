@@ -1,0 +1,21 @@
+docs/navigation.yml
+  s_48d92db44c8b12::t_097a1f1a29cb77 1184
+docs/reference/cli.md
+  s_48d92db44c8b12::t_e8094dbbec2676 2-3,6,8,10,12,16,19,23,27,30,34,37-38,42,44,46-49,51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0feb747113b764f438142b2650171ef61c178859",
+  "prompts": {},
+  "sessions": {
+    "s_48d92db44c8b12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20d29-571c-7b30-9599-483b8401df9c",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
