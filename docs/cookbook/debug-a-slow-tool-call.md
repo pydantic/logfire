@@ -26,7 +26,7 @@ slow.
 ## Prerequisites
 
 - **A Logfire project and its write token.** Create a project and copy its token from
-  **Project → Settings → Write tokens** in the [Logfire web app](https://logfire.pydantic.dev/). New to
+  <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" /> in the Logfire web app. New to
   Logfire? See [Getting Started](../index.md).
 - **A Google Gemini API key**, from [Google AI Studio](https://aistudio.google.com/apikey), set as
   `GEMINI_API_KEY`. The agent uses `google:gemini-flash-lite-latest`; any

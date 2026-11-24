@@ -21,7 +21,7 @@ Each guide shows the two client settings you need to change: the API key and gat
     export LOGFIRE_GATEWAY_API_KEY="..."
     ```
 
-3. On the Gateway **Connect** tab, select a route and model. Copy the gateway URL and model name into the example.
+3. On the Gateway [**Connect** tab](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect), select a route and model. Copy the gateway URL and model name into the example.
 
 The examples use the OpenAI-compatible route for the US region, `https://gateway-us.pydantic.dev/proxy/openai`. For the EU region, use `gateway-eu` instead. For a self-hosted organization, copy the URL from the **Connect** tab.
 

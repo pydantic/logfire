@@ -13,7 +13,7 @@ Rust has a dedicated Logfire SDK, the [`logfire`](https://crates.io/crates/logfi
 
 You need:
 
-- A Logfire project and a **write token** (the credential your app uses to send data to a Logfire project). Copy one from **Project → Settings → Write tokens**; see [Create Write Tokens](../how-to-guides/create-write-tokens.md).
+- A Logfire project and a **write token** (the credential your app uses to send data to a Logfire project). Copy one from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" />; see [Create Write Tokens](../how-to-guides/create-write-tokens.md).
 - A working Rust toolchain (`cargo`).
 
 The token encodes which [data region](../reference/data-regions.md) your project is in (US or EU), so the SDK sends to the correct place automatically. You do not set an endpoint. Running a self-hosted Logfire? Set `LOGFIRE_BASE_URL` to your instance's URL.

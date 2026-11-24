@@ -19,7 +19,7 @@ Each application takes its settings from an **SDK policy**. A policy sets only t
 
 ## Connect an application
 
-1. In **Fleet management**, open **SDKs** and select **Add application**.
+1. In **Fleet management**, open <OpenInLogfire path="fleet/sdks/inventory" variant="inline" label="SDKs" /> and select **Add application**.
 2. Enter the application's name, which becomes its `OTEL_SERVICE_NAME`, and choose what it uses. Select **Get setup instructions**.
 
     ![The Connect an application dialog with an application name and a choice of setup](../../../images/fleet/connect-application.png)
@@ -200,7 +200,7 @@ Within seconds the application stops sending info logs to the [Live view](../liv
 | Symptom | Check |
 | --- | --- |
 | The application never connects | Check that the Fleet package loads before your application starts, and that `OTEL_OPAMP_ENDPOINT` and `OTEL_OPAMP_HEADERS` are set in the application's environment. Its logs name connection and authentication errors. |
-| Connected, but **Policy status** shows **Failed** | Open the application in **SDKs**. It reports which setting it couldn't apply and why. An application set up [in code](#in-code) can't take sampling or instrumentation changes. |
+| Connected, but **Policy status** shows **Failed** | Open the application in [**SDKs**](https://logfire.pydantic.dev/-/redirect/latest-project/fleet/sdks/inventory). It reports which setting it couldn't apply and why. An application set up [in code](#in-code) can't take sampling or instrumentation changes. |
 | A setting shows as unsupported | Not every setup supports every setting. Unsupported clients are left out of a rollout's preview. |
 | No telemetry arrives | Fleet doesn't send telemetry. Check the application's write token and region settings. |
 | Node.js prints `MetadataLookupWarning` at start | OpenTelemetry's Google Cloud resource detector found no GCP metadata server, so it is harmless outside GCP. To skip the cloud detectors, set `OTEL_NODE_RESOURCE_DETECTORS=env,host,os,process,serviceinstance`. |

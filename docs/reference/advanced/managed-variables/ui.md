@@ -1,6 +1,6 @@
 # Managing Variables in the Logfire UI
 
-The Logfire web UI provides a complete interface for managing your variables without any code changes. You can find it under **Settings > Variables** in your project. The page includes two tabs:
+The Logfire web UI provides a complete interface for managing your variables without any code changes. You can find it under <OpenInLogfire path="managed-variables/variables" variant="inline" label="Settings > Variables" /> in your project. The page includes two tabs:
 
 - **Variables**: browse, create, and manage your managed variables
 - **Types**: define reusable JSON schemas for custom variable types

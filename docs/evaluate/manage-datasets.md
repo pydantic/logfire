@@ -7,7 +7,7 @@ description: "Create a hosted or code-defined evaluation dataset, curate its cas
 
 Build a dataset, a stable collection of test cases that you can run repeatedly as your agent, model, or prompt changes.
 
-Open a project, then select **AI Evaluations** > **Datasets & experiments**. The **Datasets** tab lists both kinds of dataset together.
+Open a project, then select <OpenInLogfire path="evals" variant="inline" label="AI Evaluations > Datasets & experiments" />. The **Datasets** tab lists both kinds of dataset together.
 
 ## Understand what the list contains
 

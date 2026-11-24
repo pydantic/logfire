@@ -73,7 +73,7 @@ This prints the model's answer to your query. Every LlamaIndex step in that run 
 ## Verify it worked
 
 Run your program, then open your project in the
-[Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
+Logfire web app and go to the <OpenInLogfire path="" variant="inline" label="Live view" />. Within a few seconds you
 should see a trace for the query, with spans for the indexing, retrieval, and model call. Click into it
 to see the duration of each step.
 

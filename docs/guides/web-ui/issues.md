@@ -12,7 +12,7 @@ The <OpenInLogfire path="issues" variant="inline" label="Error Tracking" /> page
 
 You need a project that receives exception data and permission to change its configuration.
 
-1. In the project sidebar, open **Product & Behavior**, then **Error tracking**. In the compact sidebar, select the **Product & Behavior** icon to open its menu.
+1. In the project sidebar, open **Product & Behavior**, then <OpenInLogfire path="issues" variant="inline" label="Error tracking" />. In the compact sidebar, select the **Product & Behavior** icon to open its menu.
 2. If tracking is disabled, select **Enable Issues**.
 3. Select notification channels, or leave them empty to track errors only in Logfire.
 4. Select **Enable Issue Tracking**. If you left channels empty, select **Enable anyway** in the **No active channel** dialog.
@@ -110,7 +110,7 @@ On a wide screen, select **Issue**, **Last seen**, **First seen**, or **Hits** i
 !!! warning "Permanent data loss"
     Disabling tracking permanently deletes the project's issues, states, and history. Re-enabling it starts a new issue history.
 
-1. Open **Error tracking** and select **Configure**.
+1. Open **Error tracking** and select <OpenInLogfire path="issues/configure" variant="inline" label="Configure" />.
 2. Select **Disable issues**.
 3. In the dialog, type the project name exactly as shown.
 4. Select **Disable issues** to confirm.

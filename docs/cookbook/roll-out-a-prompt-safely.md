@@ -24,8 +24,8 @@ For the full model behind these terms, see [Prompt management concepts](../refer
 ## Prerequisites
 
 - **A Logfire project.** If you don't have one, create it in the Logfire web app.
-- **A write token**, so your application can send **traces** (the recorded journey of each request, made of nested timed operations called **spans**). Create one in Logfire under **Project → Settings → Write tokens**, and set it in your application's environment as `LOGFIRE_TOKEN`.
-- **An API key with the `project:read_variables` scope**, which is what lets your application *fetch* prompts (a write token can't). Create one under **Project → Settings → API keys**, and set it as `LOGFIRE_API_KEY`.
+- **A write token**, so your application can send **traces** (the recorded journey of each request, made of nested timed operations called **spans**). Create one in Logfire under <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" />, and set it in your application's environment as `LOGFIRE_TOKEN`.
+- **An API key with the `project:read_variables` scope**, which is what lets your application *fetch* prompts (a write token can't). Create one under <OpenInLogfire path="settings/api-keys" variant="inline" label="Project → Settings → API keys" />, and set it as `LOGFIRE_API_KEY`.
 - **An API key for your language model provider**, from that provider's own dashboard. This walkthrough uses an OpenAI-style call, but the prompt-management workflow is the same for any provider.
 - **The Logfire SDK with the variables extra**, which installs the prompt-fetching support:
 
@@ -69,7 +69,7 @@ Every word of `SUPPORT_PROMPT` is frozen into the deployed code. To change the r
 
 First, create the prompt in Logfire so it lives outside your source tree:
 
-1. In the Logfire web app, open the **Prompts** page and create a prompt named **Support Agent**.
+1. In the Logfire web app, open the <OpenInLogfire path="prompts" variant="inline" label="Prompts page" /> and create a prompt named **Support Agent**.
 2. Paste your instruction text as its first draft and save it as **v1**.
 3. Move the `production` label to v1, so `production` now points at the text you just saved.
 
@@ -120,7 +120,7 @@ If your prompt has runtime placeholders (a customer name, a topic) written as `{
 
 Your app is now serving v1 from the `production` label. When you want to change the refund wording, you don't touch the code at all:
 
-1. On the **Prompts** page, open **Support Agent** and edit the draft, say, clearer escalation instructions.
+1. On the <OpenInLogfire path="prompts" variant="inline" label="Prompts page" />, open **Support Agent** and edit the draft, say, clearer escalation instructions.
 2. Save it as **v2**. Saving a version and putting it live are separate steps: v2 exists now, but `production` still points at v1, so your running app is unaffected.
 
 Before you promote v2, test it. You have two ways, depending on how thorough you want to be:
@@ -136,7 +136,7 @@ Before you promote v2, test it. You have two ways, depending on how thorough you
 
 Once v2 tests well, put it live by moving the label. Your prompt is backed by a managed variable named `prompt__support_agent` (the same object you fetch in code), and promotion happens there, not in your code:
 
-1. In Logfire, open **Managed Variables** and open `prompt__support_agent`.
+1. In Logfire, open <OpenInLogfire path="managed-variables" variant="inline" label="Managed Variables" /> and open `prompt__support_agent`.
 2. On the **Values** tab, move the `production` label from v1 to v2.
 3. Save the label change.
 
@@ -148,7 +148,7 @@ Your running application fetches `prompt__support_agent` with `label='production
 
 Say v2 looks worse in production. Rolling back is the same move in reverse:
 
-1. Open `prompt__support_agent` under **Managed Variables**.
+1. Open `prompt__support_agent` under <OpenInLogfire path="managed-variables" variant="inline" label="Managed Variables" />.
 2. Move the `production` label back to v1.
 3. Save.
 

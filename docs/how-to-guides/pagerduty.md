@@ -42,7 +42,7 @@ The connection starts in Logfire. PagerDuty asks you to approve the services dur
 
 ### In Logfire: connect PagerDuty
 
-1. Open your organization's **Settings**, then **Connections**.
+1. Open your organization's **Settings**, then [**Connections**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/connections).
 2. Find **PagerDuty** and click **Connect**.
 3. Choose the region where your PagerDuty account is hosted, then click **Connect PagerDuty**.
 
@@ -62,7 +62,7 @@ For each service you approve, Logfire receives a key that lets it send alerts an
 
 A notification channel is an organization-level destination that you attach to one or more alerts.
 
-1. Open **Project settings** → **Notifications** → **Delivery** → **Channels**.
+1. Open <OpenInLogfire path="delivery/channels" variant="inline" label="Project settings → Notifications → Delivery → Channels" />.
 2. Click **New channel**.
 3. Enter a name that explains who receives the page, such as `PagerDuty on-call`.
 4. Select **PagerDuty** as the type.
@@ -81,7 +81,7 @@ Logfire requires a successful test before it creates the channel. This catches r
 
 ### In Logfire: send an alert to PagerDuty
 
-1. Open **Alerts** from your project's sidebar.
+1. Open <OpenInLogfire path="alerts" variant="inline" label="Alerts" /> from your project's sidebar.
 2. Create a new alert or edit an existing alert.
 3. Under **Send notifications to**, select the PagerDuty channel.
 4. Save the alert.
@@ -99,7 +99,7 @@ Trigger the alert with test data and check both systems:
 
 ### Add or replace approved services
 
-Return to **Settings** > **Connections**, expand **PagerDuty**, and click **Reconnect**. Select the complete set of services that Logfire should use.
+Return to [**Settings** > **Connections**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/connections), expand **PagerDuty**, and click **Reconnect**. Select the complete set of services that Logfire should use.
 
 Existing channels keep their current service reference. If you remove a service from the PagerDuty app installation, update or delete every Logfire channel that uses it.
 
@@ -107,7 +107,7 @@ Existing channels keep their current service reference. If you remove a service 
 
 1. Resolve any open PagerDuty incidents created by Logfire.
 2. Delete the Logfire notification channels that use the connection.
-3. Open your organization's **Settings** > **Connections**.
+3. Open your organization's [**Settings** > **Connections**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/connections).
 4. Expand **PagerDuty** and click **Disconnect**.
 5. In PagerDuty, open each approved service and remove the Logfire integration if you no longer need it.
 
@@ -117,7 +117,7 @@ Disconnecting removes the encrypted service keys and approved service references
 
 **The PagerDuty account is not available when I create a channel.** Connections are organization-specific. Confirm that you connected PagerDuty to the same organization that owns the project, then reopen the channel form.
 
-**A PagerDuty service is missing.** Reconnect PagerDuty under **Settings** > **Connections** and approve the service. Confirm that you selected the region that matches the account's PagerDuty domain.
+**A PagerDuty service is missing.** Reconnect PagerDuty under [**Settings** > **Connections**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/connections) and approve the service. Confirm that you selected the region that matches the account's PagerDuty domain.
 
 **The test message fails.** The service integration may have been removed or its key may no longer be valid. Reconnect the account, select the service again, and retry the test.
 

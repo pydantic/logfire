@@ -9,7 +9,7 @@ Send someone a focused view of one LLM interaction without giving them access to
 
 !!! note "Early Access availability"
 
-    On Logfire Cloud, Early Access is available on Growth and Enterprise plans. Enable it in **Settings → Early access** in the browser where you use Logfire. Early Access choices are stored in that browser and apply across the organizations you use there.
+    On Logfire Cloud, Early Access is available on Growth and Enterprise plans. Enable it in [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access) in the browser where you use Logfire. Early Access choices are stored in that browser and apply across the organizations you use there.
 
 A public conversation starts from one LLM span (one model call, with a start and a duration). The default **Bubbles only** view presents its user, assistant, and tool messages as a chat. The public page also shows the share title and the Logfire organization and project names. Its data response keeps the span identifiers and timing needed to render the page, but excludes system and developer instructions, tool definitions, span events, raw provider attributes, and service, process, resource, and HTTP metadata.
 
@@ -19,7 +19,7 @@ Use a public conversation when someone needs the model exchange itself, for exam
 
 ## Enable Public Conversations
 
-1. Open **Settings → Early access**.
+1. Open [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access).
 2. Find **Public conversations** under **Observability** or **AI Agent Optimization**.
 3. Turn on the switch. The first Early Access feature you enable asks you to accept the Early Access terms.
 
@@ -29,7 +29,7 @@ The switch only controls where the sharing controls appear in your browser. Proj
 
 ## Share one conversation
 
-1. Open **Live view** and select an LLM span, or open an agent run.
+1. Open <OpenInLogfire path="" variant="inline" label="Live view" /> and select an LLM span, or open an agent run.
 2. Select **Share conversation** in the details header.
 3. Review the title and choose when the link expires. The default is one week.
 4. Select **Share** to copy or send the link, or **Share & open** to inspect the public page first.
@@ -52,7 +52,7 @@ If you enabled all views, inspect each tab before sending the link. Confirm that
 
 ## Manage and revoke links
 
-Open **Project settings → Public traces** to see public trace and conversation links for the project. From there you can copy a link, change its title, or delete it. Deleting a public link revokes access immediately and cannot be undone.
+Open <OpenInLogfire path="settings/public-traces" variant="inline" label="Project settings → Public traces" /> to see public trace and conversation links for the project. From there you can copy a link, change its title, or delete it. Deleting a public link revokes access immediately and cannot be undone.
 
 Deleting a link does not delete the original span or conversation from your project.
 
@@ -60,7 +60,7 @@ Deleting a link does not delete the original span or conversation from your proj
 
 | Symptom | Cause and fix |
 | --- | --- |
-| **Share conversation** is missing | Enable **Public conversations** in **Settings → Early access** in this browser. |
+| **Share conversation** is missing | Enable **Public conversations** in [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access) in this browser. |
 | The control says the conversation is not shared publicly | Your project role does not have permission to create public conversation links. Ask a project administrator to share it or update your role. |
 | The public link returns **Not found** | The link expired, someone revoked it, or the underlying span aged out of data retention. Create a new link if the span is still available. |
 | Messages are missing | Logfire could not reconstruct those messages from the attributes recorded by your LLM instrumentation. Open the original span and check which message attributes it contains. |

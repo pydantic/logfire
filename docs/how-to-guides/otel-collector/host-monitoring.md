@@ -288,7 +288,7 @@ For long-running deployments, wrap that in a systemd unit (or your init system o
 
 ## You should see this machine on the Hosts page
 
-Within a minute or two of the Collector starting, the host shows up on the **Hosts** page keyed by `host.name`. From there:
+Within a minute or two of the Collector starting, the host shows up on the <OpenInLogfire path="hosts" variant="inline" label="Hosts page" /> keyed by `host.name`. From there:
 
 - Click the host to drill into per-host CPU, memory, disk, and network charts.
 - Open the <OpenInLogfire path="explore" variant="inline" label="SQL Workbench" /> to query the raw metric series: useful for ad-hoc questions like "show me every host where filesystem utilization is above 90%".

@@ -14,7 +14,7 @@ This guide covers Codex's native telemetry. For completed turns with tool calls 
 
 ## Configure Codex
 
-Install [Codex CLI](https://developers.openai.com/codex/cli) and create a [write token](../how-to-guides/create-write-tokens.md) in your Logfire project's **Settings → Write tokens**. The configuration below was checked with Codex CLI 0.153.2.
+Install [Codex CLI](https://developers.openai.com/codex/cli) and create a [write token](../how-to-guides/create-write-tokens.md) in your Logfire project's <OpenInLogfire path="settings/write-tokens" variant="inline" label="Settings → Write tokens" />. The configuration below was checked with Codex CLI 0.153.2.
 
 !!! warning "Review the data Codex sends"
     Enabling this configuration sends Codex activity to Logfire. `log_user_prompt = false` redacts user prompts, but other event fields can include tool output and identifying metadata. The Logfire SDK's scrubbing, which hides sensitive values before sending them, does not process data sent directly by Codex.

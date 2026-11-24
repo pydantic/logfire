@@ -13,7 +13,7 @@ Live Evaluations reads [`gen_ai.evaluation.result`](https://github.com/open-tele
 
 ## Find the signal
 
-Open **Evals: Live Monitoring** from the sidebar. The target list shows agents and functions with recent online-evaluation activity. A target is the agent or function that produced an evaluation result.
+Open <OpenInLogfire path="live-evals" variant="inline" label="Evals: Live Monitoring" /> from the sidebar. The target list shows agents and functions with recent online-evaluation activity. A target is the agent or function that produced an evaluation result.
 
 1. Choose a time range at the top of the page. Start with **24h** for a normal operating view, then narrow it when investigating a recent deployment or broaden it to compare a longer period.
 2. Find the target you want to inspect. Each row shows the target type, its evaluators, the number of events, and when the last event arrived.
@@ -58,7 +58,7 @@ Use a score to record feedback such as thumbs-up/down or a satisfaction rating. 
 
 [Pydantic Evals](https://pydantic.dev/docs/ai/evals/online-evaluation/) emits evaluation events automatically when evaluators run. For feedback you have already collected, emit the same `gen_ai.evaluation.result` event directly through OpenTelemetry, the open industry standard for collecting traces, metrics, and logs. You do not need to run an evaluator.
 
-Install `logfire` with `pip install logfire`. Set `LOGFIRE_TOKEN` to a write token from **Project Settings > Write Tokens** in the project that receives your application's data.
+Install `logfire` with `pip install logfire`. Set `LOGFIRE_TOKEN` to a write token from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project Settings > Write Tokens" /> in the project that receives your application's data.
 
 !!! note "Feedback is sent to Logfire"
 
@@ -112,7 +112,7 @@ Restoring the saved context links feedback to the original response even after t
 
 ### Check the result in Logfire
 
-Open **Evals: Live Monitoring** and select `support-agent`:
+Open <OpenInLogfire path="live-evals" variant="inline" label="Evals: Live Monitoring" /> and select `support-agent`:
 
 - **Recent events** shows `user_helpfulness` with a score of `1.00` for the example above.
 - Binary `0`/`1` scores appear as a pass percentage in the summary. For thumbs-up/down, this is the percentage of positive feedback: one thumbs-up shows `100%`; one thumbs-up and one thumbs-down show `50%`.
@@ -126,7 +126,7 @@ Use a hide rule when an old experiment, test evaluator, or retired version makes
 
 Hide rules affect **Evals: Live Monitoring** only. They do not delete telemetry, change traces, or remove evaluation events from alerts and SQL queries.
 
-Rules created from an evaluator's overflow menu are scoped to that target. On the **Hidden Evaluators** project settings page, you can add, edit, and remove rules, or leave the target empty to match evaluators across the project. Every populated field in one rule must match an event; an event is hidden when any active rule matches it. Removing a rule makes its matching entries visible again.
+Rules created from an evaluator's overflow menu are scoped to that target. On the <OpenInLogfire path="settings/hidden-evaluators" variant="inline" label="Hidden Evaluators project settings page" />, you can add, edit, and remove rules, or leave the target empty to match evaluators across the project. Every populated field in one rule must match an event; an event is hidden when any active rule matches it. Removing a rule makes its matching entries visible again.
 
 ## Verify your setup
 

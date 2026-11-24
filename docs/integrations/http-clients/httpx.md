@@ -97,7 +97,7 @@ Run it with `python main.py`.
 ## Verify it worked
 
 Run your program, then open your project in the
-[Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
+Logfire web app and go to the <OpenInLogfire path="" variant="inline" label="Live view" />. Within a few seconds you
 should see a span for the `GET` request. Click it to see the URL, response status, and how long it
 took.
 

@@ -32,7 +32,7 @@ To write your own rule, choose **Custom rule** on **New optimization**, give it 
 
 ## Verify it worked
 
-Send the same small test prompt through an endpoint with and without the optimization. Confirm its binding under **Endpoints → your endpoint → Optimizations**. If Gateway telemetry is enabled, inspect the request's trace and the optimization's usage to confirm a match. A difference in the model's prose alone is not proof of which rule ran.
+Send the same small test prompt through an endpoint with and without the optimization. Confirm its binding under [**Endpoints → your endpoint → Optimizations**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/endpoints). If Gateway telemetry is enabled, inspect the request's trace and the optimization's usage to confirm a match. A difference in the model's prose alone is not proof of which rule ran.
 
 ## Watch the Gateway optimizations tutorial
 

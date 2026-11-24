@@ -502,10 +502,10 @@ If Logfire returns `invalid_grant`, ask the customer to reconnect instead of rep
 
 ## Manage or disconnect an app
 
-Open **OAuth apps** in the app owner's organization settings to view the app's details, manage redirect URLs and scopes, or manage confidential-client secrets.
+Open [**OAuth apps**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/developer/oauth-apps) in the app owner's organization settings to view the app's details, manage redirect URLs and scopes, or manage confidential-client secrets.
 When rotating a secret, create a replacement, update your server to use it, and then revoke the old secret.
 
-A customer can revoke an individual OAuth session from their account's **Security** settings.
+A customer can revoke an individual OAuth session from their account's [**Security** settings](https://logfire.pydantic.dev/settings/security/authorized-apps).
 Your integration must handle a revoked grant by asking the customer to reconnect.
 
 !!! warning "Deleting the app affects every connection"

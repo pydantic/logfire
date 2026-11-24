@@ -23,7 +23,7 @@ A Collector that reports a configuration managed elsewhere, such as by Helm or G
 
 ## Create a policy
 
-1. In **Fleet management**, open **Policies** and select **Add policy**.
+1. In **Fleet management**, open <OpenInLogfire path="fleet/policies" variant="inline" label="Policies" /> and select **Add policy**.
 2. Choose **Host Collector**, **Kubernetes Collector** or **SDK policy**.
 3. Start from a template, import an existing Collector configuration, or build a custom policy.
 
@@ -94,13 +94,13 @@ A host Collector or an application that can't run a version refuses it and keeps
 
 ## Roll out to a few clients first
 
-To try a version on a pilot group before every client gets it, turn on **Use rollouts**: select **Settings** in Fleet management, then **Policy delivery**. You can change this setting only when no rollout is running.
+To try a version on a pilot group before every client gets it, turn on **Use rollouts**: select <OpenInLogfire path="settings/fleet" variant="inline" label="Settings" /> in Fleet management, then **Policy delivery**. You can change this setting only when no rollout is running.
 
 With rollouts on, publishing doesn't send the version to anyone:
 
 1. Review the change and select **Publish version** (Collector policy) or **Publish policy** (SDK policy).
 2. Select **Plan rollout** or **Roll out policy**, choose how many instances join the pilot, and start it.
-3. Watch the pilot under **Policies → Rollouts**. A rollout shows how many instances applied the version and how many failed. **Pause rollout** stops new offers, and **Cancel rollout** stops it.
+3. Watch the pilot under <OpenInLogfire path="fleet/rollouts" variant="inline" label="Policies → Rollouts" />. A rollout shows how many instances applied the version and how many failed. **Pause rollout** stops new offers, and **Cancel rollout** stops it.
 
 A pilot doesn't expand on its own. When its results look right, start another rollout with more instances. Clients that aren't in a rollout keep the version they have, and new instances of an application or host start on the policy's stable version.
 

@@ -37,7 +37,7 @@ Annotations become comparable only when reviewers use the same rule. Before you 
 
 ## Open the run you want to review
 
-1. In the Logfire web UI, open **Annotations** under **AI Evaluations**.
+1. In the Logfire web UI, open <OpenInLogfire path="annotations" variant="inline" label="Annotations" /> under **AI Evaluations**.
 2. Under **Agents**, select the agent whose runs you want to review.
 3. Select **Proceed to annotate**. Logfire takes you to that agent's **Runs** tab, where you can inspect the interaction before recording your judgment.
 
@@ -74,7 +74,7 @@ Use the file to seed a [dataset](manage-datasets.md), so the runs your team mark
 
 ## Verify the annotation
 
-After you save, the Runs tab's annotated count increases and the run shows its annotation. Return to **Annotations** to see the saved review in **Recent annotations**, where you can filter by verdict.
+After you save, the Runs tab's annotated count increases and the run shows its annotation. Return to <OpenInLogfire path="annotations" variant="inline" label="Annotations" /> to see the saved review in **Recent annotations**, where you can filter by verdict.
 
 ## Troubleshooting
 
@@ -84,7 +84,7 @@ The agent needs recorded runs in the selected time range. Send or wait for an ag
 
 ### I do not see the annotation controls
 
-Open the interaction from **Agents** > **Runs**. Run annotations are attached to complete agent runs and are not available from the generic Live view.
+Open the interaction from <OpenInLogfire path="agents" variant="inline" label="Agents" /> > **Runs**. Run annotations are attached to complete agent runs and are not available from the generic Live view.
 
 ## Next steps
 

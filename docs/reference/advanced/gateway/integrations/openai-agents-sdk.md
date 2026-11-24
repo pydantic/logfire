@@ -19,7 +19,7 @@ The [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) builds s
 
 ## TypeScript
 
-Set `apiKey` to your gateway key and `baseURL` to the OpenAI-compatible gateway route. Copy the route and a supported model name from the Gateway **Connect** tab.
+Set `apiKey` to your gateway key and `baseURL` to the OpenAI-compatible gateway route. Copy the route and a supported model name from the Gateway [**Connect** tab](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect).
 
 ```typescript title="openai-agents-sdk-gateway.mts" hl_lines="11-12" skip-run="true" skip-reason="external-connection"
 import { Agent, OpenAIProvider, Runner } from '@openai/agents';
@@ -87,9 +87,9 @@ if __name__ == '__main__':
 
 ## Verify it worked
 
-Run either example from your terminal. It prints the agent's final response. That confirms the client reached the gateway. Organization admins can also open **AI Engineering** > **Gateway** > **Spending** to see usage for the key. If telemetry is enabled, open the selected project's **Live** view to inspect the request trace.
+Run either example from your terminal. It prints the agent's final response. That confirms the client reached the gateway. Organization admins can also open [**AI Engineering** > **Gateway** > **Spending**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/spending) to see usage for the key. If telemetry is enabled, open the selected project's <OpenInLogfire path="" variant="inline" label="Live view" /> to inspect the request trace.
 
 ## Troubleshooting
 
 - **The example cannot read `LOGFIRE_GATEWAY_API_KEY`:** set the environment variable in the same terminal where you run the example.
-- **The request returns an authentication or model error:** copy the URL and model name again from the Gateway **Connect** tab, and confirm that the selected route supports the OpenAI request format.
+- **The request returns an authentication or model error:** copy the URL and model name again from the Gateway [**Connect** tab](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect), and confirm that the selected route supports the OpenAI request format.

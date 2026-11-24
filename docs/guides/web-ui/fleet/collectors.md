@@ -18,10 +18,10 @@ Already run a Collector whose configuration you manage yourself? Add the Collect
 
 One command installs a Collector as a service and connects it to Fleet. It works on Linux, macOS and Windows.
 
-1. In **Fleet management**, open **Collectors**, select **Add Collector**, then **Host**.
+1. In **Fleet management**, open <OpenInLogfire path="fleet/collectors" variant="inline" label="Collectors" />, select **Add Collector**, then **Host**.
 2. Under **What to collect**, choose a starting point, such as host monitoring for the host's operating system or file logs. Fleet creates a host policy from it, or uses an existing policy you pick. You can change the policy later.
 3. Select **Get install command**, then choose the host's operating system.
-4. Copy the **enrollment key**. Logfire shows it once. It lets a host join your project, and you can revoke it in your project's Fleet settings.
+4. Copy the **enrollment key**. Logfire shows it once. It lets a host join your project, and you can revoke it in your project's <OpenInLogfire path="settings/fleet" variant="inline" label="Fleet settings" />.
 5. Run the command Logfire shows on the host, and paste the key when it asks. On Linux, for a project in the US region:
 
     ```bash
@@ -39,7 +39,7 @@ To install on many hosts, pipe the key from your secret store into `--token-stdi
 
 In a cluster, Fleet manages Collectors through the [OpenTelemetry Operator](https://github.com/open-telemetry/opentelemetry-operator), the standard Kubernetes add-on that runs Collectors from `OpenTelemetryCollector` resources. You install one small Operator bridge in the cluster. It connects to Fleet and creates, updates and deletes the Collector resources your policy describes.
 
-1. In **Fleet management**, open **Collectors**, select **Add Collector**, then **Kubernetes**.
+1. In **Fleet management**, open <OpenInLogfire path="fleet/collectors" variant="inline" label="Collectors" />, select **Add Collector**, then **Kubernetes**.
 2. Name the cluster and choose what to collect: application telemetry sent to the cluster's Collectors, Kubernetes cluster metrics, and container logs.
 
     ![The Connect Kubernetes dialog with a cluster name and three kinds of telemetry to collect](../../../images/fleet/connect-kubernetes.png)
@@ -47,7 +47,7 @@ In a cluster, Fleet manages Collectors through the [OpenTelemetry Operator](http
 3. Under **Advanced**, set the **Collector namespaces** Fleet may run Collectors in. Turn on **Limit the bridge to this policy's components** to make the bridge refuse a later policy that uses any other receiver, processor or exporter.
 4. Select **Get setup instructions**, save the connection key Logfire shows, and follow the steps:
     1. **Prepare your cluster**: check your `kubectl` context and that the Operator is installed. If it isn't, install cert-manager and then the Operator, as the step shows.
-    2. **Create the connection Secrets**: the commands prompt for the connection key and for a Logfire write token, which the Collectors use to send data. [Create a write token](../../../how-to-guides/create-write-tokens.md) under **Project settings → Security & access → Write tokens**.
+    2. **Create the connection Secrets**: the commands prompt for the connection key and for a Logfire write token, which the Collectors use to send data. [Create a write token](../../../how-to-guides/create-write-tokens.md) under <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project settings → Security & access → Write tokens" />.
     3. **Grant Collector read access**, if you collect cluster metrics: apply `collector-permissions.yaml`.
     4. **Apply the bridge**: download `fleet-bridge.yaml` and run `kubectl apply -f fleet-bridge.yaml`.
 

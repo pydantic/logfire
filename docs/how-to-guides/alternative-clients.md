@@ -54,7 +54,7 @@ tracer = tracer_provider.get_tracer('my_tracer')
 tracer.start_span('Hello World').end()
 ```
 
-Then navigate to the Live view for your project in your browser. You should see a trace with a single span named `Hello World`.
+Then navigate to the <OpenInLogfire path="" variant="inline" label="Live view" /> for your project in your browser. You should see a trace with a single span named `Hello World`.
 
 To configure the exporter without environment variables:
 

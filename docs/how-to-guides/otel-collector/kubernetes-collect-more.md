@@ -172,8 +172,8 @@ You can also send application metrics over the daemon Collector's existing OTLP 
 
 ## Confirm the additional data
 
-- Open **Live** and filter by `k8s.namespace.name`, `k8s.deployment.name`, or `k8s.pod.name` to find application traces and pod logs.
-- Open **Metrics Explorer** and search for the new metric names before building dashboards or alerts.
+- Open <OpenInLogfire path="" variant="inline" label="Live" /> and filter by `k8s.namespace.name`, `k8s.deployment.name`, or `k8s.pod.name` to find application traces and pod logs.
+- Open <OpenInLogfire path="metrics" variant="inline" label="Metrics Explorer" /> and search for the new metric names before building dashboards or alerts.
 - Check the Collector and Operator logs when injection or collection does not appear:
 
     ```bash

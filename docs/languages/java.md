@@ -13,7 +13,7 @@ Java does not have a dedicated Logfire SDK, but Logfire is built on [OpenTelemet
 
 You need:
 
-- A Logfire project and a **write token** (the credential your app uses to send data to a Logfire project). Copy one from **Project → Settings → Write tokens**; see [Create Write Tokens](../how-to-guides/create-write-tokens.md).
+- A Logfire project and a **write token** (the credential your app uses to send data to a Logfire project). Copy one from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" />; see [Create Write Tokens](../how-to-guides/create-write-tokens.md).
 - A working Java runtime and an application you can run. The agent instruments a real app, so a program that does no work produces no spans.
 
 !!! note "This sends your data to Logfire"

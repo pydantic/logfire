@@ -22,7 +22,7 @@ pip install logfire agno openai openinference-instrumentation-agno
 ## Usage
 
 Before running your agent, [connect your project](../../first-trace.md) or set `LOGFIRE_TOKEN`
-to a [write token](../../how-to-guides/create-write-tokens.md) from **Project → Settings → Write tokens**.
+to a [write token](../../how-to-guides/create-write-tokens.md) from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" />.
 
 Call [`logfire.configure()`][logfire.configure] and then `AgnoInstrumentor().instrument()` **before** creating
 and running your agent:

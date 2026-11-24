@@ -9,7 +9,7 @@ The **Agents view** is the entry point for finding and inspecting the AI agents 
 
 {{ video("02eb69ba8023a4f13c5ee3fbaf11ec48", 95, 56) }}
 
-You'll find Agents in the project sidebar. The time picker is shared with the rest of the observability surfaces.
+You'll find <OpenInLogfire path="agents" variant="inline" label="Agents" /> in the project sidebar. The time picker is shared with the rest of the observability surfaces.
 
 ## The Agents list
 

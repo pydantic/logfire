@@ -44,7 +44,7 @@ If you need a provider that is not listed here, contact [support@pydantic.dev](m
 
 1. Log in to Logfire and switch to your **Enterprise Cloud organization**.
 2. Go to **Settings** in the left-hand menu.
-3. Select **Single sign-on**.
+3. Select [**Single sign-on**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/sso).
 4. Note the **Redirect URI** shown. You will need this when configuring the Azure app.
 
 ---
@@ -82,7 +82,7 @@ From your app registration, gather the following:
 
 ## Step 5: Configure the OIDC Provider in Logfire
 
-1. Return to **Logfire** → **Settings** → **Single sign-on**.
+1. Return to [**Logfire** → **Settings** → **Single sign-on**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/sso).
 2. Click **Add OIDC Provider** and select **Azure** (Microsoft Entra ID).
 3. Fill in the fields:
    - **Client ID**: your Azure Client ID
@@ -121,7 +121,7 @@ A request will be sent to your Azure admin for approval. The Azure admin should 
 ## Step 8: Invite Team Members
 
 1. Go to your Enterprise Cloud organization in Logfire.
-2. Navigate to **Settings** → **Invite Members**.
+2. Navigate to [**Settings** → **Invite Members**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/members).
 3. Create an invite link (set it to never expire for convenience if you plan to share it in internal documentation).
 4. Share the **invite link** with your team. If users are not already authenticated, it will automatically redirect them to your SSO login page.
 
@@ -133,7 +133,7 @@ During the transition, existing login methods (e.g., Google, GitHub) remain acti
 
 Once your team has successfully migrated to Entra ID SSO:
 
-- You can **disconnect** individual login methods from **Settings** → **Single sign-on**.
+- You can **disconnect** individual login methods from [**Settings** → **Single sign-on**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/sso).
 - Advise team members to use the SSO login URL going forward. If other providers are still enabled, users may inadvertently log in with their personal accounts instead.
 
 ### Linking Accounts for Existing Users
@@ -141,12 +141,12 @@ Once your team has successfully migrated to Entra ID SSO:
 Users who joined the organization before SSO was configured need to connect their existing account to the new identity provider. For example, if a user previously logged in with GitHub and the organization has now set up Azure Entra ID:
 
 1. The user logs in with **GitHub** (their existing provider).
-2. They navigate to **Organization Settings** → **Account connections**.
+2. They navigate to [**Organization Settings** → **Account connections**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/general).
 3. They connect their account to **Azure Entra ID**.
 4. After linking, the user can log in with either GitHub or Azure.
 
 !!! warning "Existing Users and Email Addresses"
-    Users who previously signed up with a different email (e.g., a personal Gmail) will appear with that email in Logfire. To update an email address to a corporate address, the user can go to **Account Settings** → **Emails** (`https://logfire.pydantic.dev/settings/emails`) and add their corporate email.
+    Users who previously signed up with a different email (e.g., a personal Gmail) will appear with that email in Logfire. To update an email address to a corporate address, the user can go to [**Account Settings** → **Emails**](https://logfire.pydantic.dev/settings/emails) (`https://logfire.pydantic.dev/settings/emails`) and add their corporate email.
 
 ---
 
@@ -154,7 +154,7 @@ Users who joined the organization before SSO was configured need to connect thei
 
 | Step | Action |
 |---|---|
-| 1 | Copy the Redirect URI from Logfire Settings → Single sign-on |
+| 1 | Copy the Redirect URI from [Logfire Settings → Single sign-on](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/sso) |
 | 2 | Create a **Web** app registration in Azure Entra ID with that Redirect URI |
 | 3 | Generate a Client Secret in Azure |
 | 4 | Collect Client ID, Client Secret, and Tenant ID |

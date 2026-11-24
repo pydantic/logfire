@@ -27,7 +27,7 @@ When you create a public trace link, anyone with access to the link can view the
 
 ## Managing Public Traces
 
-All public trace links are managed in the **Shared Traces** section under Project Settings. From here you can:
+All public trace links are managed in the <OpenInLogfire path="settings/public-traces" variant="inline" label="Shared Traces section" /> under Project Settings. From here you can:
 
 - View all active public links with their trace/span IDs
 - See creation dates and expiration times

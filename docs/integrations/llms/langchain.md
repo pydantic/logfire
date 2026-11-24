@@ -91,7 +91,7 @@ The resulting trace looks like this in Logfire:
 ## Verify it worked
 
 Run your program, then open your project in the
-[Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
+Logfire web app and go to the <OpenInLogfire path="" variant="inline" label="Live view" />. Within a few seconds you
 should see a trace for the agent run, with a span for each step. Click into it to see the model calls
 and tool calls.
 

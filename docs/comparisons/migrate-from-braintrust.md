@@ -13,7 +13,7 @@ Keep your existing Braintrust `Eval` code and send its next completed evaluation
 
 ## Send your next evaluation to Logfire
 
-Create a project API key under **Project → Settings → API keys** with **Send telemetry** (`project:write_otlp`) and **Read datasets** (`project:read_datasets`). The key selects the destination project, sends the run, and lets the Braintrust SDK read experiment metadata for its final comparison summary. An ingest-only write token cannot complete that read.
+Create a project API key under <OpenInLogfire path="settings/api-keys" variant="inline" label="Project → Settings → API keys" /> with **Send telemetry** (`project:write_otlp`) and **Read datasets** (`project:read_datasets`). The key selects the destination project, sends the run, and lets the Braintrust SDK read experiment metadata for its final comparison summary. An ingest-only write token cannot complete that read.
 
 Set the Braintrust app URL to the compatibility endpoint for your Logfire data region. Put the project API key in the variable where the Braintrust SDK expects its API key:
 
@@ -38,7 +38,7 @@ This change affects future runs only. It does not import Braintrust history, cop
 Let the SDK finish its normal score summary, then use either route:
 
 1. Open the result URL printed by the Braintrust SDK.
-2. Or open the destination Logfire project, select **Experiments** in the sidebar, and open the newest run.
+2. Or open the destination Logfire project, select <OpenInLogfire path="experiments" variant="inline" label="Experiments" /> in the sidebar, and open the newest run.
 
 Confirm that the experiment contains the expected cases and evaluator results. Case data appears when the SDK requests its final comparison summary, so it does not appear incrementally while the run is still in progress.
 

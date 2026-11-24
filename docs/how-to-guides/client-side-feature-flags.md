@@ -6,7 +6,7 @@ This guide shows how to set up a **JavaScript/TypeScript web application** using
 
 ## Prerequisites
 
-1. **Create your variables** in the Logfire UI (Settings > Variables) and mark them as **external**. See [External Variables and OFREP](../reference/advanced/managed-variables/external.md)
+1. **Create your variables** in the Logfire UI (<OpenInLogfire path="managed-variables/variables" variant="inline" label="Settings > Variables" />) and mark them as **external**. See [External Variables and OFREP](../reference/advanced/managed-variables/external.md)
 2. **Create an API key** with the `project:read_external_variables` scope. Expand the **Advanced** section of the API key form and select just this scope (the one-click presets bundle it into broader access) by selecting the "Read external managed variables within a project via OFREP" item under the "Variables" section. This restricted scope is safe to use in client-side code since it only exposes variables you've explicitly marked as external
 
 ## Installation

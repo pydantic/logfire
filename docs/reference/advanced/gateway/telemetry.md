@@ -13,9 +13,9 @@ Skip this page if you only need the Gateway's own spans. Gateway telemetry works
 
 ## Prerequisites
 
-- Gateway telemetry enabled for a project. Open **Gateway → Settings**, find the **Telemetry** card, and select the project. The recommended setup in [Send your first Gateway request](first-request.md) does this for you.
-- A Gateway API key for that project. Open **Gateway → Connect** to copy one. The Gateway writes its spans to the project that the key belongs to.
-- A write token (the credential your app uses to send data to a Logfire project) for the same project, so your app's spans reach the project that holds the Gateway's spans. Create one under **Project → Settings → Write tokens**. See [Create write tokens](../../../how-to-guides/create-write-tokens.md).
+- Gateway telemetry enabled for a project. Open [**Gateway → Settings**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/settings), find the **Telemetry** card, and select the project. The recommended setup in [Send your first Gateway request](first-request.md) does this for you.
+- A Gateway API key for that project. Open [**Gateway → Connect**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect) to copy one. The Gateway writes its spans to the project that the key belongs to.
+- A write token (the credential your app uses to send data to a Logfire project) for the same project, so your app's spans reach the project that holds the Gateway's spans. Create one under <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" />. See [Create write tokens](../../../how-to-guides/create-write-tokens.md).
 
 !!! note "Baggage is stored in your project"
     Baggage is small key/value data that rides along with a request. The Gateway saves every baggage entry as an attribute on its span, and it also records the whole `baggage` header as the `http.request.header.baggage` attribute. Everyone with access to the project can read both. The Gateway does not send baggage to the model provider. Its guardrails check prompts and responses, not baggage. Do not put secrets or personal data in baggage.
@@ -101,7 +101,7 @@ See [Baggage](../baggage.md) for how `set_baggage` works, and [Distributed traci
 
 ## Verify
 
-Open the project in **Live View**. You should see one trace in which the Gateway's span is nested under a span from your app. Span names depend on the SDK versions, but the nesting looks like this. With Pydantic AI:
+Open the project in <OpenInLogfire path="" variant="inline" label="Live View" />. You should see one trace in which the Gateway's span is nested under a span from your app. Span names depend on the SDK versions, but the nesting looks like this. With Pydantic AI:
 
 ```text
 invoke_agent agent

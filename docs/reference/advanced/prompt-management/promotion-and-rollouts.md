@@ -41,7 +41,7 @@ Suppose `support-agent` has:
 
 To promote v2:
 
-1. Open **Managed Variables**.
+1. Open <OpenInLogfire path="managed-variables" variant="inline" label="Managed Variables" />.
 2. Open `prompt__support_agent`.
 3. On the **Values** tab, select the `production` label.
 4. Edit from v2 or assign `production` to v2.

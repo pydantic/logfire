@@ -21,7 +21,7 @@ Clients connect to Fleet over the Open Agent Management Protocol ([OpAMP](https:
 
 ## Find Fleet in Logfire
 
-Fleet is on for every plan. Open **Fleet management** in your project's sidebar. The **Hosts**, **Kubernetes** and **Services** pages also link to it.
+Fleet is on for every plan. Open <OpenInLogfire path="fleet" variant="inline" label="Fleet management" /> in your project's sidebar. The **Hosts**, **Kubernetes** and **Services** pages also link to it.
 
 If you turned Fleet off on its settings page, it stays off for you in that browser. Opening any Fleet page offers **Turn on Fleet** to bring it back. Turning Fleet off doesn't stop your Collectors, applications or policies.
 

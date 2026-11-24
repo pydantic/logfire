@@ -25,7 +25,7 @@ pip install letta letta-client
 
 ## Running it
 
-Create a [write token](../../how-to-guides/create-write-tokens.md) from **Project → Settings → Write tokens**,
+Create a [write token](../../how-to-guides/create-write-tokens.md) from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" />,
 then start the Letta server with both variables set:
 
 ```bash

@@ -242,7 +242,7 @@ distributed trace (one trace that spans several services).
 
 After running your tests with `--logfire`, view the traces in the Logfire web UI:
 
-1. Navigate to your project in Logfire
+1. Navigate to <OpenInLogfire path="" variant="inline" label="your project" /> in Logfire
 2. Filter by service name `pytest` (or your custom service name)
 3. Explore the trace hierarchy to see:
     - Which tests passed/failed

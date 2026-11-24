@@ -66,8 +66,8 @@ Run it with `python server.py`.
 With the server running, open [http://localhost:8080/](http://localhost:8080/) or
 [http://localhost:8080/users/123](http://localhost:8080/users/123) in your browser.
 
-Then open your project in the [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live**
-view. Within a few seconds you should see a span for the request. Click it to see its duration, the
+Then open your project in the Logfire web app and go to the
+<OpenInLogfire path="" variant="inline" label="Live view" />. Within a few seconds you should see a span for the request. Click it to see its duration, the
 method and path, and the response status.
 
 ## Troubleshooting

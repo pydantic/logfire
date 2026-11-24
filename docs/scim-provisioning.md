@@ -36,7 +36,7 @@ Before configuring your identity provider:
     with `403`. Replace it with an `instance:scim` key created from the organization that
     has the admin panel.
 
-For an Enterprise Cloud deployment, go to **Organization settings → Single sign-on** to find the provider name and manage its group mappings. The identity provider must already exist before its SCIM endpoint is available. The group identifier must exactly match the group name or ID sent by your identity provider.
+For an Enterprise Cloud deployment, go to [**Organization settings → Single sign-on**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/sso) to find the provider name and manage its group mappings. The identity provider must already exist before its SCIM endpoint is available. The group identifier must exactly match the group name or ID sent by your identity provider.
 
 For a self-hosted deployment, configure group-to-role mappings in the deployment before enabling SCIM. Contact [Logfire support](mailto:support@pydantic.dev) if you need help with the deployment configuration.
 
@@ -50,7 +50,7 @@ Use the base URL for your deployment:
 | Enterprise Cloud, EU region | `https://api-eu.pydantic.dev/api/scim/{provider_name}` |
 | Enterprise Self-Hosted | `{api_origin}/api/scim` |
 
-For an Enterprise Cloud deployment, replace `{provider_name}` with the exact provider name shown under **Organization settings → Single sign-on**. The provider must belong to the same organization as the API key. For self-hosted deployments, replace `{api_origin}` with the API origin for that deployment.
+For an Enterprise Cloud deployment, replace `{provider_name}` with the exact provider name shown under [**Organization settings → Single sign-on**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/sso). The provider must belong to the same organization as the API key. For self-hosted deployments, replace `{api_origin}` with the API origin for that deployment.
 
 Send the organization API key as a bearer token with every request:
 

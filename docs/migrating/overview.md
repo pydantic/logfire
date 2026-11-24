@@ -11,7 +11,7 @@ Nothing about your instrumentation changes: the same spans, metrics, and logs yo
 
 ## What you need
 
-- **A Logfire project and its write token.** The write token is the credential that selects the destination project and authorizes writes. Create one under **Project → Settings → Write tokens** (see [Create Write Tokens](../how-to-guides/create-write-tokens.md)). Treat it like a password: set it from an environment variable, never commit it.
+- **A Logfire project and its write token.** The write token is the credential that selects the destination project and authorizes writes. Create one under <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" /> (see [Create Write Tokens](../how-to-guides/create-write-tokens.md)). Treat it like a password: set it from an environment variable, never commit it.
 - **Your data region's endpoint:**
     - US: `https://logfire-us.pydantic.dev`
     - EU: `https://logfire-eu.pydantic.dev`

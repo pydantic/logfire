@@ -53,7 +53,7 @@ Connections are organization-level: one workspace install serves every project i
 
 ## 1. Connect the workspace
 
-1. Open your organization's **Settings**, then **Connections** under **Developer**.
+1. Open your organization's **Settings**, then [**Connections**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/connections) under **Developer**.
 2. Find the **Slack** row and click **Connect**.
 3. Slack asks which workspace to install into and lists the permissions the app requests. Approve it.
 
@@ -76,7 +76,7 @@ Logfire only lists channels the app is a member of, so this step is what makes a
 
 A *notification channel* in Logfire is a destination you attach to alerts and issues.
 
-1. In your project, open **Project settings**, then select **Delivery** under **Notifications**. On the **Channels** tab, click **New channel**. You can also create one inline from the **Send notifications to** section of an alert form.
+1. In your project, open **Project settings**, then select **Delivery** under **Notifications**. On the <OpenInLogfire path="delivery/channels" variant="inline" label="Channels tab" />, click **New channel**. You can also create one inline from the **Send notifications to** section of an alert form.
 2. Name it. This is a Logfire label, not the Slack channel name.
 3. Pick **Slack App** as the type. (**Slack Webhook** is the other route, covered in [Setup Slack Alerts](setup-slack-alerts.md).)
 4. Pick the **Slack workspace** you connected.
@@ -108,7 +108,7 @@ One channel can serve many alerts, and one alert can notify several channels.
 
 ## Removing access
 
-- **Disconnect in Logfire** (**Settings** → **Connections**) to revoke the grant. Channels using that workspace stop delivering.
+- **Disconnect in Logfire** ([**Settings** → **Connections**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/connections)) to revoke the grant. Channels using that workspace stop delivering.
 - **Uninstall in Slack** to do the same from the other side. Logfire marks the install revoked and its channels stop working until you connect again.
 
 A Slack install belongs to the workspace, so if several Logfire organizations connected the same workspace, revoking affects all of them. Reconnecting is a fresh install rather than a repair: the old grant is gone.

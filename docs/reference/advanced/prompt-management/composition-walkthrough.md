@@ -20,7 +20,7 @@ This walkthrough builds a support-agent prompt from:
 
 ## 1. Create reusable fragments
 
-Open **Managed Variables** and create a JSON variable named
+Open <OpenInLogfire path="managed-variables" variant="inline" label="Managed Variables" /> and create a JSON variable named
 `support_brand_profile`. Save a version with this value:
 
 ```json
@@ -45,7 +45,7 @@ same managed-variable targeting and label rules used by application code.
 
 ## 2. Create the composed prompt
 
-Open **Prompt Management**, create a prompt named `Support Agent`, and use this
+Open <OpenInLogfire path="prompts" variant="inline" label="Prompt Management" />, create a prompt named `Support Agent`, and use this
 template:
 
 ```handlebars
@@ -119,7 +119,7 @@ example, a reference to `@{support_agent}@` may suggest
 
 ## 4. Edit one fragment
 
-Go back to `support_safety_rules` in **Managed Variables** and save a new version:
+Go back to `support_safety_rules` in <OpenInLogfire path="managed-variables" variant="inline" label="Managed Variables" /> and save a new version:
 
 ```text
 Never reveal private account data. Confirm the customer's identity before

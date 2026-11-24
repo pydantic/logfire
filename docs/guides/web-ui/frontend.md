@@ -16,7 +16,7 @@ The page groups browser telemetry by frontend application. A frontend applicatio
 
 ## Send browser data
 
-1. Open **Frontend** in your project and select **Set up**.
+1. Open <OpenInLogfire path="frontend" variant="inline" label="Frontend" /> in your project and select **Set up**.
 2. Create a frontend application with a stable name, such as `customer-portal`, or select an existing application.
 3. Copy the generated setup, including the frontend application token and regional trace URL, into your browser application. Use the generated values, not placeholders or a regular Logfire write token.
 4. Enable the browser signals you want to investigate. See the [browser SDK guide](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/) for automatic request tracing, Core Web Vitals, browser metrics, and framework-specific options.
@@ -39,13 +39,13 @@ When you filter to an investigation target, Logfire also shows related recorded 
 
 ## Verify browser data
 
-Load an instrumented page, interact with it, and return to **Frontend**. Expand the time range if needed. You should see a page load and the application's name. Core Web Vitals appear only after you enable `rum.webVitals` and supported browsers report measurements.
+Load an instrumented page, interact with it, and return to <OpenInLogfire path="frontend" variant="inline" label="Frontend" />. Expand the time range if needed. You should see a page load and the application's name. Core Web Vitals appear only after you enable `rum.webVitals` and supported browsers report measurements.
 
 ## Fix missing frontend data
 
 | Symptom | What to check |
 |---------|---------------|
 | **No frontend data in this range** | Confirm the generated browser setup is running, the token belongs to the selected application, and the time range includes a recent page load. |
-| The application is missing | Select **All applications**, then confirm the application still exists under **Project settings → Frontend applications**. |
+| The application is missing | Select **All applications**, then confirm the application still exists under [**Project settings → Frontend applications**](https://logfire.pydantic.dev/-/redirect/latest-project/frontend/applications). |
 | Page loads appear without Core Web Vitals | Enable `rum.webVitals` in the browser SDK configuration, reload the page, and wait for supported measurements to complete. |
 | Requests fail from the browser | Check the browser network panel for authentication, content-security-policy, or ad-blocker failures. |

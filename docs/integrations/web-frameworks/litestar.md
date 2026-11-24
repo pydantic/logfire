@@ -62,8 +62,8 @@ python main.py
 
 ## Verify it worked
 
-Open [http://localhost:8000/hello/world](http://localhost:8000/hello/world), then open the **Live**
-view in the [Logfire web app](https://logfire.pydantic.dev/). You should see a
+Open [http://localhost:8000/hello/world](http://localhost:8000/hello/world), then open the
+<OpenInLogfire path="" variant="inline" label="Live view" /> in the Logfire web app. You should see a
 `GET /hello/{name}` span. Open it to inspect the response status and duration.
 
 ## Troubleshooting

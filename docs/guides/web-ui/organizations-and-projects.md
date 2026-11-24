@@ -16,7 +16,7 @@ Depending on the user's organization role, they may have implicit access to the 
 
 ## Find a project from the organization overview
 
-Open **Projects** from your organization's navigation to see the projects you can access.
+Open [**Projects**](https://logfire.pydantic.dev/-/redirect/default-org/-/projects) from your organization's navigation to see the projects you can access.
 The organization overview is available to everyone without an Early Access opt-in.
 
 Use the search field to find a project by name. **Recently visited** shows up to three projects you
@@ -44,7 +44,7 @@ to share your personal org's projects (which you may wish to keep private) with 
 
 Send an invitation directly to someone by email.
 
-1. Open **Org settings**, then select **Members**.
+1. Open **Org settings**, then select [**Members**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/members).
 2. Select **Invite team member**.
 3. Enter the person's email address, choose their organization role, and select **Send invitation**.
 
@@ -52,7 +52,7 @@ Logfire sends a single-use invitation that expires after seven days. Only a Logf
 
 To share a reusable URL instead, select **Use an invite link** in the invitation dialog. Choose how many times the link can be used and when it expires, then select **Create link**. Copy and share the generated URL.
 
-Open the **Past/pending invites** tab to confirm that the invitation appears. You can revoke an invitation there before someone accepts it.
+Open the [**Past/pending invites** tab](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/members/invitations) to confirm that the invitation appears. You can revoke an invitation there before someone accepts it.
 
 If Logfire cannot send the email, check that the address is valid and try again. Organization administrators can also use an invite link while email delivery is unavailable.
 

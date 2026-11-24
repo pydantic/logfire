@@ -69,7 +69,7 @@ async function main() {
 main();
 ```
 
-Run it with `LOGFIRE_TOKEN=<write-token> OPENAI_API_KEY=<key> npx tsx main.ts`, then open the Live view of your
+Run it with `LOGFIRE_TOKEN=<write-token> OPENAI_API_KEY=<key> npx tsx main.ts`, then open the <OpenInLogfire path="" variant="inline" label="Live view" /> of your
 project. The example fails unless the native LlamaIndex agent executes `lookup_incident`; the resulting trace
 contains the agent run, its model calls, and that tool call.
 

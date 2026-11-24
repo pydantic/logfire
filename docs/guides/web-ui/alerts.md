@@ -10,7 +10,7 @@ With **Logfire**, use <OpenInLogfire path="alerts" variant="inline" label="Alert
 
 Let's see in practice how to create an alert.
 
-1. Go to the **Alerts** section in the left sidebar.
+1. Go to the <OpenInLogfire path="alerts" variant="inline" label="Alerts section" /> in the left sidebar.
 2. Click the **New alert** button. You'll land on a picker offering three starting points:
     - **Custom query**: start from a blank SQL editor (use this if your scenario isn't covered below).
     - **Service Level Objective**: define a reliability target and Logfire wires up the burn-rate alerts automatically. Best when you have a clear contract (uptime, latency, error budget).

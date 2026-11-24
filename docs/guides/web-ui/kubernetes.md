@@ -8,7 +8,7 @@ Find Kubernetes resources that need attention, then inspect their events, contai
 
 You'll find **Kubernetes** in the project sidebar. Resource findings are available in the inventory, and the dedicated **Logs** and **Events** tabs show container logs and Kubernetes Events.
 
-Switch to the **Pods** tab to drop into individual pod state: restart counts, CPU and memory per pod, status pill, and the workload they belong to.
+Switch to the <OpenInLogfire path="kubernetes/overview/pods" variant="inline" label="Pods tab" /> to drop into individual pod state: restart counts, CPU and memory per pod, status pill, and the workload they belong to.
 
 ## What's in the view
 
@@ -68,7 +68,7 @@ Live tail follows incoming records. **Pause** freezes the window for inspection.
 
 ## Inspect Kubernetes Events
 
-Open **Events** for the fleet or a selected resource. Search by message, reason, or affected object. Each event shows its type, reason, message, affected resource, and reported total occurrence count when available. Open an event to inspect its original structured body.
+Open <OpenInLogfire path="kubernetes/events" variant="inline" label="Events" /> for the fleet or a selected resource. Search by message, reason, or affected object. Each event shows its type, reason, message, affected resource, and reported total occurrence count when available. Open an event to inspect its original structured body.
 
 An Event is a Kubernetes lifecycle record, such as a scheduling failure or a container restart. The chart's `kubernetesEvents` preset sends these records to Logfire through the `k8s_objects` receiver. Repeated updates to the same Event appear together; its occurrence count is reported by Kubernetes, not a count of rows received in your selected range. The list starts with recent records; use **Show more** when available to request older records in the range.
 

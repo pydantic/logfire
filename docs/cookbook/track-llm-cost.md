@@ -18,7 +18,7 @@ You'll instrument your model calls, read per-model spend in Logfire's LLMs view,
 
 You'll need:
 
-- **A Logfire project and its write token**: the credential your app uses to send data to Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the Logfire web app. New to Logfire? Start with [Getting Started](../index.md).
+- **A Logfire project and its write token**: the credential your app uses to send data to Logfire. Create a project and copy its token from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" /> in the Logfire web app. New to Logfire? Start with [Getting Started](../index.md).
 - **A model provider API key**: for this guide we use OpenAI, whose key comes from your [OpenAI dashboard](https://platform.openai.com/api-keys). The OpenAI SDK reads it from the `OPENAI_API_KEY` environment variable. The same steps work for [Anthropic](../integrations/llms/anthropic.md), [Google Gen AI](../integrations/llms/google-genai.md), [Pydantic AI](../integrations/llms/pydanticai.md), and [other providers](../guides/web-ui/llms.md#supported-instrumentations).
 
 ## 1. Instrument your model calls
@@ -62,7 +62,7 @@ Every supported instrumentation records the same token and cost data: swap in [`
 
 ## 2. See per-model spend in the LLMs view
 
-Once calls are flowing, the **LLMs and providers** view (in the project sidebar; the page itself is titled **LLMs**) gives you a per-model breakdown without writing any SQL. Each row is one `(provider, model)` pair (for example `openai` / `gpt-4o`) with its call count, errors, latency, input and output tokens, and total **Cost**. Sort by cost to see which model is spending the most.
+Once calls are flowing, the <OpenInLogfire path="llms" variant="inline" label="LLMs and providers view" /> (in the project sidebar; the page itself is titled **LLMs**) gives you a per-model breakdown without writing any SQL. Each row is one `(provider, model)` pair (for example `openai` / `gpt-4o`) with its call count, errors, latency, input and output tokens, and total **Cost**. Sort by cost to see which model is spending the most.
 
 ![The LLMs and providers view: a per-model breakdown of calls, errors, latency, tokens, and cost](../images/guide/llms-view.png)
 
@@ -104,7 +104,7 @@ A few things to know about the SQL:
 
 A one-off query answers the question once. To keep the answer in front of you, add it to a [dashboard](../guides/web-ui/dashboards.md): a saved screen of charts, each powered by a SQL query, that updates as new data arrives.
 
-Logfire ships a **standard dashboard** for exactly this. Turn on **LLM tokens and costs** (from the dashboards list) for a ready-made breakdown of token usage and cost by model, no query to write. If it's close but not quite what you want, use it as a starting point for a custom chart.
+Logfire ships a **standard dashboard** for exactly this. Turn on **LLM tokens and costs** (from the <OpenInLogfire path="dashboards" variant="inline" label="dashboards list" />) for a ready-made breakdown of token usage and cost by model, no query to write. If it's close but not quite what you want, use it as a starting point for a custom chart.
 
 For a custom spend-over-time chart, create a dashboard, add a time-series chart, and use the query below. Dashboards bucket time with the `$resolution` variable, which adjusts to the chart's time range automatically, so each point is spend per bucket, not per calendar day. For fixed one-day totals regardless of range, swap in `time_bucket('1 day', start_timestamp)`:
 
@@ -125,7 +125,7 @@ See **[Write dashboard queries](../how-to-guides/write-dashboard-queries.md)** f
 
 A dashboard shows spend when you look at it. An [alert](../guides/web-ui/alerts.md) tells you without looking: it's a SQL query Logfire runs on a schedule, and when the query returns rows, Logfire sends a notification. Write the query so that **rows mean "spend is too high"**, and you'll hear about a runaway bill instead of finding it later.
 
-In the sidebar, go to **Alerts** under **Reliability**, click **New alert**, pick **Custom query**, and enter a query that returns a row only when the spend in your alert window exceeds your threshold (here, 50 US dollars):
+In the sidebar, go to <OpenInLogfire path="alerts" variant="inline" label="Alerts" /> under **Reliability**, click **New alert**, pick **Custom query**, and enter a query that returns a row only when the spend in your alert window exceeds your threshold (here, 50 US dollars):
 
 ```sql
 SELECT

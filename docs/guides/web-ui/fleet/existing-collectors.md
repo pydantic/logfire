@@ -32,7 +32,7 @@ Fleet shows such a Collector with the **Policy status** **Report only**, and doe
 
 ## 1. Get a connection key
 
-1. In **Fleet management**, open **Collectors**, select **Add Collector**, then **Existing Collector**.
+1. In **Fleet management**, open <OpenInLogfire path="fleet/collectors" variant="inline" label="Collectors" />, select **Add Collector**, then **Existing Collector**.
 2. Enter a **Name** for this installation, such as the Collector's role (`gateway`), and an **Environment** to filter by in Fleet.
 3. Select **Get connection key**.
 
@@ -78,7 +78,7 @@ To also send the Collector's data to Logfire, add an exporter with a [write toke
 
 ## 3. Check it in Fleet
 
-Open **Collectors**. You should see the Collector within a few seconds, named by its host or pod name, with **Connection** connected and **Policy status** **Report only**. Select it to see its health per component, the configuration it runs and its components.
+Open <OpenInLogfire path="fleet/collectors" variant="inline" label="Collectors" />. You should see the Collector within a few seconds, named by its host or pod name, with **Connection** connected and **Policy status** **Report only**. Select it to see its health per component, the configuration it runs and its components.
 
 ## Troubleshooting
 
@@ -93,7 +93,7 @@ If the Collector doesn't appear, look for `opamp` in the Collector's own logs:
 
 The extension can't take a new connection key from Fleet, so it stops connecting when its key expires. Before then:
 
-1. In **Fleet management**, select **Settings** and open the connection key. It has the **Name** you entered in step 1.
+1. In **Fleet management**, select <OpenInLogfire path="settings/fleet" variant="inline" label="Settings" /> and open the connection key. It has the **Name** you entered in step 1.
 2. Select **Issue a replacement key**. It lasts 90 days.
 3. Set `LOGFIRE_OPAMP_TOKEN` to the new key on your Collectors and restart them.
 4. Once they all show as connected, revoke the old key.

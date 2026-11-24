@@ -78,7 +78,7 @@ With that you get:
 ## Verify it worked
 
 Run your program, then open your project in the
-[Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
+Logfire web app and go to the <OpenInLogfire path="" variant="inline" label="Live view" />. Within a few seconds you
 should see a span for the Anthropic call. Click it to read the conversation and see the token count and
 duration.
 

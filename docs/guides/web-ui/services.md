@@ -69,7 +69,7 @@ Sampling means keeping a representative subset of telemetry instead of every eve
 
 ## Send a first service span
 
-Copy a write token from **Project settings → Write tokens**, then run:
+Copy a write token from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project settings → Write tokens" />, then run:
 
 ```bash
 pip install logfire

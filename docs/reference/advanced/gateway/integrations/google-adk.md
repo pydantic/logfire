@@ -19,7 +19,7 @@ Send requests from your Google Agent Development Kit (ADK) agents through the Lo
 
 ## Python
 
-The LiteLLM client uses the OpenAI-compatible gateway route. Copy the route and a supported model name from the Gateway **Connect** tab.
+The LiteLLM client uses the OpenAI-compatible gateway route. Copy the route and a supported model name from the Gateway [**Connect** tab](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect).
 
 ```python title="google-adk-gateway.py" hl_lines="9-10" skip-run="true" skip-reason="external-connection"
 import asyncio
@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
 ## Go
 
-The Go client uses the provider-native Google Vertex route. Copy the Google Vertex URL and a supported Gemini model from the Gateway **Connect** tab.
+The Go client uses the provider-native Google Vertex route. Copy the Google Vertex URL and a supported Gemini model from the Gateway [**Connect** tab](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect).
 
 ```go title="google-adk-gateway.go" hl_lines="17 25 28 30" skip-run="true" skip-reason="external-connection"
 package main
@@ -129,10 +129,10 @@ func main() {
 
 ## Verify it worked
 
-Run either example from your terminal. It prints the model response. That confirms the client reached the gateway. Organization admins can also open **AI Engineering** > **Gateway** > **Spending** to see usage for the key. If telemetry is enabled, open the selected project's **Live** view to inspect the request trace.
+Run either example from your terminal. It prints the model response. That confirms the client reached the gateway. Organization admins can also open [**AI Engineering** > **Gateway** > **Spending**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/spending) to see usage for the key. If telemetry is enabled, open the selected project's <OpenInLogfire path="" variant="inline" label="Live view" /> to inspect the request trace.
 
 ## Troubleshooting
 
 - **The example reports that `LOGFIRE_GATEWAY_API_KEY` is missing:** set the environment variable in the same terminal where you run the example.
-- **The Python request fails:** copy an OpenAI-compatible URL and supported model from the Gateway **Connect** tab.
-- **The Go request fails:** copy the Google Vertex URL and supported Gemini model from the **Connect** tab; an OpenAI-compatible route does not work with the provider-native Go client.
+- **The Python request fails:** copy an OpenAI-compatible URL and supported model from the Gateway [**Connect** tab](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect).
+- **The Go request fails:** copy the Google Vertex URL and supported Gemini model from the [**Connect** tab](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect); an OpenAI-compatible route does not work with the provider-native Go client.

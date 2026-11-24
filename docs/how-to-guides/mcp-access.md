@@ -12,7 +12,7 @@ The policy belongs to an organization and applies across all of its projects. Us
 External MCP access controls are available on the [Enterprise plan](../enterprise.md), including self-hosted deployments. Personal, Team, and Growth organizations keep normal credential-scoped MCP access, but cannot set an organization-wide read-only policy or use the `agent-feedback` tool.
 
 !!! info "Experimental"
-    In **Settings → Early access**, select the flask icon next to the **Early access** heading to show experimental features. Enable **External MCP access** in the browser where you will configure it.
+    In [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access), select the flask icon next to the **Early access** heading to show experimental features. Enable **External MCP access** in the browser where you will configure it.
 
 ## Before you start
 
@@ -25,7 +25,7 @@ You need:
 ## Choose what external clients can do
 
 1. Select the organization you want to configure.
-2. Open **Org settings → Security & access → MCP access**.
+2. Open [**Org settings → Security & access → MCP access**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/mcp-access).
 3. Choose an access mode:
     - **Full access**: each credential's permissions decide which tools the client can use. This setting does not grant permissions that the credential does not already have.
     - **Read-only**: clients can query and read data. Logfire hides and refuses write tools even when the connected session or API key has write permissions.
@@ -61,7 +61,7 @@ The server enforces the current policy on every request. A client with a cached 
 
 ### The MCP access tab is missing
 
-Open **Settings → Early access**, reveal the experimental features with the flask icon, and enable **External MCP access**.
+Open [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access), reveal the experimental features with the flask icon, and enable **External MCP access**.
 
 ### The page asks you to upgrade
 

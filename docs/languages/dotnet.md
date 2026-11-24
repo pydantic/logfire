@@ -13,7 +13,7 @@ See what your .NET application is doing in Logfire: the requests it handles, how
 
 You need:
 
-- A Logfire project and a **write token** (the credential your app uses to send data to a Logfire project). Copy one from **Project → Settings → Write tokens**; see [Create Write Tokens](../how-to-guides/create-write-tokens.md).
+- A Logfire project and a **write token** (the credential your app uses to send data to a Logfire project). Copy one from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" />; see [Create Write Tokens](../how-to-guides/create-write-tokens.md).
 - A working .NET SDK.
 
 !!! note "This sends your data to Logfire"

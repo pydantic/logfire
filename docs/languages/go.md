@@ -13,7 +13,7 @@ Go does not have a dedicated Logfire SDK, but Logfire is built on [OpenTelemetry
 
 You need:
 
-- A Logfire project and a **write token** (the credential your app uses to send data to a Logfire project). Copy one from **Project → Settings → Write tokens**; see [Create Write Tokens](../how-to-guides/create-write-tokens.md).
+- A Logfire project and a **write token** (the credential your app uses to send data to a Logfire project). Copy one from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" />; see [Create Write Tokens](../how-to-guides/create-write-tokens.md).
 - A working Go toolchain. The current OpenTelemetry Go modules require Go 1.25 or newer.
 
 !!! note "This sends your data to Logfire"

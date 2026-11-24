@@ -40,7 +40,7 @@ There are a few ways to create an alert.  You can:
 We'll create an alert that will let us know if any HTTP request takes longer than a second to execute.
 
 * Login to **Logfire** and [navigate to your project](https://logfire-us.pydantic.dev/-/redirect/latest-project)
-* Click on **Alerts** in the **Reliability** section of the left sidebar
+* Click on <OpenInLogfire path="alerts" variant="inline" label="Alerts" /> in the **Reliability** section of the left sidebar
 * Select the **New alert** button in the top right, then pick **Custom query**
 * Let's give this Alert a name of **Slow Requests**
 * For the query, we'll group results by the http path and duration.  We want to include the **max** duration in a given time frame.  We also want to filter out any traces that aren't http requests, and order by the max duration, so we can see which routes are the slowest.  This query looks like:
@@ -74,7 +74,7 @@ For this, you will need the [Webhook URL](#creating-a-slack-incoming-webhook) yo
 Let's set up a channel, then test that alerts can be sent with the URL.
 In the **Send notifications to** section of the alert form:
 
-* Select **Add channel** to open the New channel dialog (channels can also be managed from **Project settings** → **Notifications** → **Delivery** → **Channels**; they are shared across all projects in your organization)
+* Select **Add channel** to open the New channel dialog (channels can also be managed from <OpenInLogfire path="delivery/channels" variant="inline" label="Project settings → Notifications → Delivery → Channels" />; they are shared across all projects in your organization)
 * Put in a name such as **Logfire Alerts**.  This does not need to be the name of your Slack channel
 * Select **Slack Webhook** as the type (or leave it as **Auto**; the Slack format is inferred from `hooks.slack.com` URLs)
 * Paste in your Webhook URL from the Slack [Apps Management Dashboard](https://api.slack.com/apps)

@@ -17,7 +17,7 @@ agent starts. You configure that file to send Eve's traces to Logfire.
 You need:
 
 - An Eve project. Run `npx eve@latest init my-agent` to create one.
-- A Logfire project and write token. Copy the token from **Project → Settings → Write tokens**.
+- A Logfire project and write token. Copy the token from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" />.
 - Credentials for your chosen model, configured through `eve link` or the model provider's environment
   variables.
 
@@ -92,7 +92,7 @@ Send the agent a message such as:
 Reply with EVE_LOGFIRE_OK.
 ```
 
-Open your Logfire project's **Live** view. You should see an Eve turn containing the agent invocation, model
+Open your Logfire project's <OpenInLogfire path="" variant="inline" label="Live view" />. You should see an Eve turn containing the agent invocation, model
 step, and model call. Open the trace to inspect the input, `EVE_LOGFIRE_OK` response, duration, model, and
 token usage. The exact span names depend on your Eve and artificial intelligence (AI) software development kit
 (SDK) versions.

@@ -9,7 +9,7 @@ Turn an experiment result into a specific decision: keep a change, revise it, or
 
 An experiment is one run of your AI system over a dataset. An evaluator judges each output and records an assertion or score.
 
-Open a project, then select **AI Evaluations** > **Datasets & experiments** > **Experiments**.
+Open a project, then select <OpenInLogfire path="experiments" variant="inline" label="AI Evaluations > Datasets & experiments > Experiments" />.
 
 ## Find the run
 

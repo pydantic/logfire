@@ -76,6 +76,6 @@ The **How it's measured** panel records the scope and exact conditions.
 
 ## Monitor an LLM provider
 
-On the **Providers** tab of [LLMs and Providers](llms.md), select **Set reliability targets** for an observed provider. Choose an availability or latency target for that provider across every service that calls it. To limit an LLM target to one service, create it from that service's **Reliability** page instead.
+On the <OpenInLogfire path="llms/providers" variant="inline" label="Providers tab" /> of [LLMs and Providers](llms.md), select **Set reliability targets** for an observed provider. Choose an availability or latency target for that provider across every service that calls it. To limit an LLM target to one service, create it from that service's **Reliability** page instead.
 
 Provider targets default to **99% over 28 days**. Availability targets treat server failures, rate limits, timeouts, and connection errors as bad. Recognized OpenAI and Anthropic client errors, such as invalid requests or credentials, are excluded because they do not measure provider availability.

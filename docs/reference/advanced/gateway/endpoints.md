@@ -24,7 +24,7 @@ Endpoint priorities and weights are included on every Gateway plan. Your plan's 
 
    </div>
 
-5. Open **Connect** and select the endpoint. Copy the generated snippet: your application's URL uses the endpoint slug, not a provider slug. Send a test request. If Gateway telemetry is enabled, inspect its trace to confirm which provider handled it.
+5. Open [**Connect**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect) and select the endpoint. Copy the generated snippet: your application's URL uses the endpoint slug, not a provider slug. Send a test request. If Gateway telemetry is enabled, inspect its trace to confirm which provider handled it.
 
 Before combining providers, confirm they support the request format and model identifier your application sends. Failover does not translate an unsupported model or API format into one another. A paused provider stays configured but receives no requests.
 

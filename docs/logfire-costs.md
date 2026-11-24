@@ -32,12 +32,12 @@ Logfire limits what the org can do. Two separate things happen, at two different
 
 Both limits lift when the monthly included usage resets, or as soon as you upgrade to a paid plan.
 
-If you want to keep an eye on this before you hit it, **Billing & usage** in your organization settings shows
+If you want to keep an eye on this before you hit it, [**Billing & usage**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/payment) in your organization settings shows
 your current usage and your reset date, and Logfire emails the organization as usage approaches the included amount.
 
 ## Where to see usage & cost in Logfire
 
-Open your organization settings, then select **Billing & usage**. You need the
+Open your organization settings, then select [**Billing & usage**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/payment). You need the
 [necessary organization permissions](./guides/web-ui/organizations-and-projects.md) to see billing information.
 
 The page is divided into these tabs:
@@ -61,7 +61,7 @@ You can also filter the chart by time range, project, token, and unit.
 
 ## Standard usage dashboard
 
-Open **Dashboards**, click **+ Dashboard**, choose the **Logfire** tab, then enable **Usage Overview**. This gives you a
+Open <OpenInLogfire path="dashboards" variant="inline" label="Dashboards" />, click **+ Dashboard**, choose the **Logfire** tab, then enable **Usage Overview**. This gives you a
 detailed breakdown of:
 
 * Which services are producing the most records (i.e. traces, spans, logs) and
@@ -126,7 +126,7 @@ Enterprise plans support native extended retention. Email `sales@pydantic.dev` i
 ## Set or change a spending cap
 
 Team and Growth organizations can use a monthly spending cap to limit what usage beyond the included amount adds to
-an invoice. Open **Org settings → Billing & usage → Spending controls** to see the cap, what this billing cycle has
+an invoice. Open [**Org settings → Billing & usage → Spending controls**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/payment/spending-cap) to see the cap, what this billing cycle has
 spent against it, and how much is left.
 
 Your first cap is set up by us: email `accounts@pydantic.dev` to ask for one. Once your organization has a cap, the
@@ -141,7 +141,7 @@ raised. Nothing is discarded, so raising the cap brings the hidden data back int
     Every organization with a cap can change the amount without contacting us. The Spending controls card marks this
     **Beta** while we gather feedback on it.
 
-1. Open **Org settings → Billing & usage → Spending controls**.
+1. Open [**Org settings → Billing & usage → Spending controls**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/payment/spending-cap).
 2. Select **Change cap**.
 3. Enter the new monthly cap in dollars, then select **Save cap**.
 

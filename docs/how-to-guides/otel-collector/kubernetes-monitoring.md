@@ -25,7 +25,7 @@ The Collector also accepts application telemetry over the OpenTelemetry Protocol
 
 Use the upstream [`opentelemetry-kube-stack`](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-kube-stack) Helm chart to populate Logfire's [Kubernetes view](../../guides/web-ui/kubernetes.md).
 
-Copy a write token, the credential that lets this deployment send data to your project, from **Project → Settings → Write tokens**.
+Copy a write token, the credential that lets this deployment send data to your project, from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" />.
 
 !!! note "Review volume before installing"
     Infrastructure metrics, pod stdout and stderr, Kubernetes Events, and application telemetry forwarded through the Collector count toward your usage. Volume grows with the number of nodes, pods, and containers. This setup reduces the chart's defaults, but does not guarantee that a cluster fits a particular usage allowance. Review pod logs for sensitive values, use [Collector scrubbing](otel-collector-scrubbing.md) when needed, and [measure projected volume](kubernetes-reduce-volume.md#measure-before-and-after) after installation.
@@ -114,8 +114,8 @@ kubectl -n observability get opentelemetrycollectors,pods
 
 Within two minutes:
 
-1. Open **Kubernetes** in Logfire. You should see your cluster, nodes, namespaces, workloads, and pods.
-2. Open **Live** and filter by `k8s.cluster.name`. You should see pod logs and Kubernetes Events.
+1. Open <OpenInLogfire path="kubernetes" variant="inline" label="Kubernetes" /> in Logfire. You should see your cluster, nodes, namespaces, workloads, and pods.
+2. Open <OpenInLogfire path="" variant="inline" label="Live" /> and filter by `k8s.cluster.name`. You should see pod logs and Kubernetes Events.
 
 To inspect the same records from a resource's dedicated **Logs** and **Events** tabs, open the [Kubernetes view](../../guides/web-ui/kubernetes.md#logs-and-events-tabs). The tabs retain your resource scope, time range, and environment.
 

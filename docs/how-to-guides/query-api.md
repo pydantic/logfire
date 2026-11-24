@@ -31,7 +31,7 @@ To create a read token using the web interface:
 1. Open the **Logfire** web interface at [logfire.pydantic.dev](https://logfire.pydantic.dev).
 2. Select your project from the **Projects** section on the left-hand side of the page.
 3. Click on the ⚙️ **Settings** tab in the top right corner of the page.
-4. Select the **Read tokens** tab from the left-hand menu.
+4. Select the <OpenInLogfire path="settings/read-tokens" variant="inline" label="Read tokens tab" /> from the left-hand menu.
 5. Click on the **Create read token** button.
 
 After creating the read token, you'll see a dialog with the token value.

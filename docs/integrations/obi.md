@@ -28,7 +28,7 @@ You need:
 - A Linux host and kernel [supported by OBI](https://opentelemetry.io/docs/zero-code/obi/).
 - Permission to inspect the target processes and load extended Berkeley Packet Filter (eBPF)
   programs into the kernel.
-- A Logfire project and a write token from **Project settings > Write tokens**.
+- A Logfire project and a write token from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project settings > Write tokens" />.
 - The endpoint for your [Logfire data region](../reference/data-regions.md):
   `https://logfire-us.pydantic.dev` for the US or `https://logfire-eu.pydantic.dev` for the EU.
 
@@ -223,9 +223,9 @@ Use standard workload labels so service names remain stable when pods are replac
 Generate several requests, then allow up to one minute for OBI v0.13's default metrics export
 interval.
 
-1. Open **Live** and filter by `service_name = 'checkout-api'`. You should see HTTP or gRPC server
+1. Open <OpenInLogfire path="" variant="inline" label="Live" /> and filter by `service_name = 'checkout-api'`. You should see HTTP or gRPC server
    spans, which are units of work with a start time and duration.
-2. Open **Services** and confirm that `checkout-api` appears with recent activity.
+2. Open <OpenInLogfire path="services" variant="inline" label="Services" /> and confirm that `checkout-api` appears with recent activity.
 3. Open **Explore > Metrics** and run:
 
 ```sql

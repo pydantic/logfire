@@ -54,7 +54,7 @@ Pick your language below; the Python, JavaScript/TypeScript, and Rust tabs are c
     Install [`uv`](https://docs.astral.sh/uv/) if it is not already available, then run
     the two `uvx logfire-cli` commands above.
     If you do not want to use a CLI, set `LOGFIRE_TOKEN` to a
-    [write token](how-to-guides/create-write-tokens.md) from **Project → Settings → Write tokens** instead.
+    [write token](how-to-guides/create-write-tokens.md) from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" /> instead.
 
     **2. Add Logfire to your app**
 
@@ -83,7 +83,7 @@ Pick your language below; the Python, JavaScript/TypeScript, and Rust tabs are c
 
     **1. Install and connect**
 
-    Copy a write token (the credential your app uses to send data to a Logfire project) from **Project → Settings → Write tokens**, then install the SDK and set the token:
+    Copy a write token (the credential your app uses to send data to a Logfire project) from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" />, then install the SDK and set the token:
 
     ```bash
     npm install @pydantic/logfire-node
@@ -120,7 +120,7 @@ Pick your language below; the Python, JavaScript/TypeScript, and Rust tabs are c
 
     **1. Install and connect**
 
-    Copy a write token (the credential your app uses to send data to a Logfire project) from **Project → Settings → Write tokens**, then add the SDK to your project and set the token:
+    Copy a write token (the credential your app uses to send data to a Logfire project) from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" />, then add the SDK to your project and set the token:
 
     ```bash
     cargo add logfire
@@ -176,7 +176,7 @@ Each integration ships as an extra, so install the matching one first: `pip inst
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Nothing appears in the Live view | No project credentials or write token set | Run `uvx logfire-cli auth`, then `uvx logfire-cli init` from your application's directory; or set `LOGFIRE_TOKEN` from **Project → Settings → Write tokens** |
+| Nothing appears in the Live view | No project credentials or write token set | Run `uvx logfire-cli auth`, then `uvx logfire-cli init` from your application's directory; or set `LOGFIRE_TOKEN` from [**Project → Settings → Write tokens**](https://logfire.pydantic.dev/-/redirect/latest-project/settings/write-tokens) |
 | The view looks empty | The time range does not include now | Widen the time range in the top right |
 | A short script sends nothing | The program exited before its data was sent | Logfire sends data as your program runs and on exit; in JavaScript, call `await logfire.shutdown()` before exiting |
 

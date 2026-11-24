@@ -44,13 +44,13 @@ Choose the endpoint that matches your account's [data region](../data-regions.md
 
 ### Organization API Key
 
-Navigate to your organization, then **Settings → API Keys → New API Key**.
+Navigate to your organization, then [**Settings → API Keys → New API Key**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/api-keys/new).
 
 Organization API keys can be scoped to all projects or a specific project. See API Key Scopes for available permissions.
 
 ### Project API Key
 
-Navigate to your project, then **Settings → API Keys → New API Key**.
+Navigate to your project, then <OpenInLogfire path="settings/api-keys/new" variant="inline" label="Settings → API Keys → New API Key" />.
 
 Project API keys are limited to the project where they were created.
 

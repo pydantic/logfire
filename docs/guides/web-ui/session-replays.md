@@ -16,7 +16,7 @@ A session replay records changes to the page's document structure and user inter
 
 ## Record sessions
 
-1. Open **Frontend → Session replays** in your project and select **Set up**. Create a frontend application or select an existing application.
+1. Open <OpenInLogfire path="frontend/session-replays" variant="inline" label="Frontend → Session replays" /> in your project and select **Set up**. Create a frontend application or select an existing application.
 2. Copy the generated browser setup, including the frontend application token and regional trace URL, into your application. Use the generated values, not placeholders or a regular Logfire write token.
 3. Install the optional `@pydantic/logfire-session-replay` package.
 4. Follow the [Session Replay setup](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#session-replay) to load the recorder and configure the replay endpoint.
@@ -41,7 +41,7 @@ The event rows are synchronized with playback. Select an activity, network reque
 
 ## Verify a recording
 
-After using the instrumented application, open **Frontend → Session Replays** and include the session's start time in the selected range. You should see the entry page and activity counts. Open the row and confirm that playback and the activity list advance together.
+After using the instrumented application, open <OpenInLogfire path="frontend/session-replays" variant="inline" label="Frontend → Session Replays" /> and include the session's start time in the selected range. You should see the entry page and activity counts. Open the row and confirm that playback and the activity list advance together.
 
 ## Fix missing or incomplete recordings
 

@@ -104,7 +104,7 @@ Pydantic Logfire provides a hosted remote MCP server that you can use without in
     (e.g., `https://logfire.my-company.com/mcp`), as the remote MCP server is hosted alongside your Logfire deployment.
 
 !!! tip
-    The in-app **MCP** page (in your project's sidebar) shows the same setup instructions with your
+    The in-app <OpenInLogfire path="mcp" variant="inline" label="MCP page" /> (in your project's sidebar) shows the same setup instructions with your
     instance's server URL pre-filled, plus one-click install links for several clients.
 
 Organization admins can [limit every external MCP client to read-only tools](mcp-access.md) and

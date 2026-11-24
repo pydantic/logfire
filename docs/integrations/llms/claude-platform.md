@@ -34,7 +34,7 @@ Claude's spans have the service name `claude-platform`. Spans from your own app 
 
 You need:
 
-- A Logfire project and a [write token](../../how-to-guides/create-write-tokens.md) (the credential that lets a service send data to a project), from **Settings → Write tokens** in your project.
+- A Logfire project and a [write token](../../how-to-guides/create-write-tokens.md) (the credential that lets a service send data to a project), from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Settings → Write tokens" /> in your project.
 - The **admin** role in your organization in the [Claude Console](https://platform.claude.com). This is the organization that owns your API keys, which is separate from any claude.ai organization.
 
 ## Step 1: Add Logfire in the Claude Console

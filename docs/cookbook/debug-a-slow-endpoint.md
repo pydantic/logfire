@@ -27,8 +27,8 @@ walkthrough: when the request span *contains* the query span, you can see which 
 ## Prerequisites
 
 - **A Logfire project and its write token.** The write token is the credential your app uses to send data to
-  Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
-  [Logfire web app](https://logfire.pydantic.dev/), and set it as `LOGFIRE_TOKEN` in your environment before
+  Logfire. Create a project and copy its token from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" /> in the
+  Logfire web app, and set it as `LOGFIRE_TOKEN` in your environment before
   running the app. New to Logfire? [Getting Started](../index.md) walks
   through creating a project and linking your machine.
 - **A running PostgreSQL database.** If you don't have one handy, start a throwaway one with Docker:

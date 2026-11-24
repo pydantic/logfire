@@ -18,8 +18,8 @@ You need:
 
 - A Logfire project and a service write token for the project.
   A project administrator can use the Cloud guide to create an ingest-only service API key.
-  For manual setup, create a token under **Settings → Write tokens**, or an API key with the
-  `project:write_otlp` scope under **Settings → API keys**.
+  For manual setup, create a token under <OpenInLogfire path="settings/write-tokens" variant="inline" label="Settings → Write tokens" />, or an API key with the
+  `project:write_otlp` scope under <OpenInLogfire path="settings/api-keys" variant="inline" label="Settings → API keys" />.
   Ask an administrator to create the key without the personal-key option.
   A personal API key stops working if its owner loses project access.
 - The deployment's public HTTPS ingest base URL, without a path or trailing slash.
@@ -40,7 +40,7 @@ Avoid collecting the same metrics through both Firehose and an OpenTelemetry Col
 
 ## Create the AWS resources
 
-1. In Logfire, open **Infrastructure → Cloud → AWS** when the experimental guide is available.
+1. In Logfire, open <OpenInLogfire path="cloud/aws" variant="inline" label="Infrastructure → Cloud → AWS" /> when the experimental guide is available.
    If data is already arriving, click **Set up cloud provider** at the top right, then select **AWS**.
    Select **Direct Firehose** to send logs and metrics without a Collector.
    **CloudWatch API** and **Firehose via Collector** use your own OpenTelemetry Collector.

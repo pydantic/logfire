@@ -80,7 +80,7 @@ print(response.entities)
 ## Verify it worked
 
 Run your program, then open your project in the
-[Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
+Logfire web app and go to the <OpenInLogfire path="" variant="inline" label="Live view" />. Within a few seconds you
 should see a trace for the DSPy run, with a span for each module call. Click into it to see the
 prompts, responses, and token counts.
 

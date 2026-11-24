@@ -25,7 +25,7 @@ A few terms, defined once:
 ## Prerequisites
 
 - **Python 3.10 or newer.**
-- **A Logfire project and its write token.** The write token is the credential your app uses to send data to a Logfire project. Create a project, copy the token from **Project → Settings → Write tokens** in the Logfire web app, and set `LOGFIRE_TOKEN`. For local development, use [the CLI setup steps](../first-trace.md) to sign in and save project credentials in your application's directory instead.
+- **A Logfire project and its write token.** The write token is the credential your app uses to send data to a Logfire project. Create a project, copy the token from <OpenInLogfire path="settings/write-tokens" variant="inline" label="Project → Settings → Write tokens" /> in the Logfire web app, and set `LOGFIRE_TOKEN`. For local development, use [the CLI setup steps](../first-trace.md) to sign in and save project credentials in your application's directory instead.
 - **A Google Gemini API key**, from [Google AI Studio](https://aistudio.google.com/apikey), set as the `GEMINI_API_KEY` environment variable. The agent below uses `google:gemini-flash-lite-latest`; any [model Pydantic AI supports](https://pydantic.dev/docs/ai/models/) works the same way: swap the model string and set that provider's key instead.
 
 !!! note "Consequence: this sends data, and some of it costs money"
@@ -268,7 +268,7 @@ Some answers can't be settled by code or by a model: *was this reply actually th
 
 To review one of the support-agent runs:
 
-1. Open **Annotations** under **AI Evaluations** in Logfire.
+1. Open <OpenInLogfire path="annotations" variant="inline" label="Annotations" /> under **AI Evaluations** in Logfire.
 2. Select the support agent, then select **Proceed to annotate**.
 3. Find the uncertain run and select **Add annotation**.
 4. Choose **Pass**, **Neutral**, or **Fail**, explain the evidence in **Comment**, and select **Save**.

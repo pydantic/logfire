@@ -30,7 +30,7 @@ In prose, the flow is: the **dataset** feeds each case into your **task**; each 
 The dataset, the collection of test cases, can live in either of two places, and you can move cases between them:
 
 - **Code-defined**, with [pydantic-evals](evals-in-code.md). You define the cases in Python; when you run an experiment with Logfire configured, its results appear in Logfire automatically. This is the right home when your cases are generated from code or checked into your repo alongside your tests.
-- **Hosted on Logfire.** Open **AI Evaluations** > **Datasets & experiments** > **Datasets**, select **New dataset**, and choose **Manage in Logfire**. Your team can edit its cases directly in the web UI, define schemas, and import cases from code.
+- **Hosted on Logfire.** Open <OpenInLogfire path="evals" variant="inline" label="AI Evaluations > Datasets & experiments > Datasets" />, select **New dataset**, and choose **Manage in Logfire**. Your team can edit its cases directly in the web UI, define schemas, and import cases from code.
 
 Reach for a hosted dataset when teammates need to add or edit test cases, or when a team wants one shared set of cases to evaluate against. Reach for a code-defined dataset when the cases belong with your source. See [Manage datasets](manage-datasets.md) for both.
 

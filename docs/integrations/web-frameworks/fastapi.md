@@ -68,8 +68,8 @@ Run it with `python main.py`.
 With the app running, open
 [http://localhost:8000/hello?name=world](http://localhost:8000/hello?name=world) in your browser.
 
-Then open your project in the [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live**
-view. Within a few seconds you should see a span for the `GET /hello` request. Click it to see its
+Then open your project in the Logfire web app and go to the
+<OpenInLogfire path="" variant="inline" label="Live view" />. Within a few seconds you should see a span for the `GET /hello` request. Click it to see its
 duration, the `name` argument (`world`), and the response status.
 
 ## Troubleshooting

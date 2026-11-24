@@ -12,7 +12,7 @@ managed variable.
 
 ## Prompts list
 
-Open **Prompt Management** from your project navigation. The list shows the
+Open <OpenInLogfire path="prompts" variant="inline" label="Prompt Management" /> from your project navigation. The list shows the
 prompts in the project, with their display names and slugs. Create one prompt per
 runtime prompt your application fetches, such as `support-agent`,
 `incident-triage`, or `welcome-email`.
@@ -136,7 +136,7 @@ code as well.
 
 After saving a version, promote it from the backing managed variable:
 
-1. Open the prompt's backing variable in **Managed Variables**.
+1. Open the prompt's backing variable in <OpenInLogfire path="managed-variables" variant="inline" label="Managed Variables" />.
 2. Move a label such as `production`, `canary`, or `staging` to the prompt
    version you want to serve.
 3. Configure rollout or targeting rules if you want a partial rollout.

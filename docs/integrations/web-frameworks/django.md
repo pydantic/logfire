@@ -71,8 +71,8 @@ logfire.instrument_django()
 
 Start your app (for example, `python manage.py runserver`) and open one of your pages in the browser.
 
-Then open your project in the [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live**
-view. Within a few seconds you should see a span for the request. Click it to see its duration, the
+Then open your project in the Logfire web app and go to the
+<OpenInLogfire path="" variant="inline" label="Live view" />. Within a few seconds you should see a span for the request. Click it to see its duration, the
 view that handled it, and the response status.
 
 ## Troubleshooting

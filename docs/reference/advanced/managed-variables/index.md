@@ -179,7 +179,7 @@ Managed variables require API keys with the appropriate scopes. There are two sc
 | `project:write_variables` | Create, update, and delete variables and variable types |
 | `project:read_external_variables` | Read only external variables via OFREP (for client-side apps) |
 
-You can create and manage API keys in your project's **Settings > API Keys** page. For more details on external variables and client-side access patterns, see [External Variables and OFREP](external.md#api-key-scopes-for-variables).
+You can create and manage API keys in your project's <OpenInLogfire path="settings/api-keys" variant="inline" label="Settings > API Keys" /> page. For more details on external variables and client-side access patterns, see [External Variables and OFREP](external.md#api-key-scopes-for-variables).
 
 ## Quick Start
 

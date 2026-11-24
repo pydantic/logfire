@@ -19,7 +19,7 @@ Send requests from your LlamaIndex workflows through the Logfire AI Gateway.
 
 ## Configure LlamaIndex
 
-Set `api_key` to your gateway key and `api_base` to the OpenAI-compatible gateway route. Copy the route and a supported model name from the Gateway **Connect** tab.
+Set `api_key` to your gateway key and `api_base` to the OpenAI-compatible gateway route. Copy the route and a supported model name from the Gateway [**Connect** tab](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect).
 
 ```python title="llamaindex-gateway.py" hl_lines="11-12" skip-run="true" skip-reason="external-connection"
 import asyncio
@@ -53,9 +53,9 @@ if __name__ == '__main__':
 
 ## Verify it worked
 
-Run the example from your terminal. It prints the workflow result. That confirms the client reached the gateway. Organization admins can also open **AI Engineering** > **Gateway** > **Spending** to see usage for the key. If telemetry is enabled, open the selected project's **Live** view to inspect the request trace.
+Run the example from your terminal. It prints the workflow result. That confirms the client reached the gateway. Organization admins can also open [**AI Engineering** > **Gateway** > **Spending**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/spending) to see usage for the key. If telemetry is enabled, open the selected project's <OpenInLogfire path="" variant="inline" label="Live view" /> to inspect the request trace.
 
 ## Troubleshooting
 
 - **Python raises `KeyError: 'LOGFIRE_GATEWAY_API_KEY'`:** set the environment variable in the same terminal where you run the example.
-- **The request returns an authentication or model error:** copy the URL and model name again from the Gateway **Connect** tab, and confirm that the selected route supports the OpenAI request format.
+- **The request returns an authentication or model error:** copy the URL and model name again from the Gateway [**Connect** tab](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect), and confirm that the selected route supports the OpenAI request format.

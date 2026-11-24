@@ -33,12 +33,12 @@ You can select **Use your password** at any time. After a successful sign-in, Lo
 Password-backed accounts can disable email code sign-in:
 
 1. Sign in to Logfire.
-2. Open **Settings → Profile**.
+2. Open [**Settings → Profile**](https://logfire.pydantic.dev/settings/profile).
 3. Turn **Email code sign-in** off.
 
 Logfire invalidates codes that it issued before the setting changed. Password sign-in remains available. To turn email code sign-in on again, your account must have two-factor authentication and you must have signed in recently.
 
-An account created without a password cannot turn off its only email sign-in method. To add one, open **Org settings → General → Account connections** and select **Set up email and password**. You can then disable email code sign-in from your profile.
+An account created without a password cannot turn off its only email sign-in method. To add one, open [**Org settings → General → Account connections**](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/general) and select **Set up email and password**. You can then disable email code sign-in from your profile.
 
 ## Verify the method
 

@@ -39,7 +39,7 @@ You need organization-admin access to configure protections.
    | **Redact** | Replace the matched value before forwarding. |
    | **Block** | Reject the request before it reaches the provider. |
 
-5. Click **Install protection**. Return to **Guardrails** to confirm its target and action. On **Endpoints → your endpoint → Guardrails**, check that it applies to the route you will call.
+5. Click **Install protection**. Return to **Guardrails** to confirm its target and action. On [**Endpoints → your endpoint → Guardrails**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/endpoints), check that it applies to the route you will call.
 
 **Enable recommended setup** may already have installed recommended protections. Review their actions and targeting before sending real user data. A protection in **Observe** or **Flag response** mode does not stop a secret reaching the upstream provider.
 

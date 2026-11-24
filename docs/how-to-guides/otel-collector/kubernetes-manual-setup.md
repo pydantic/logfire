@@ -840,9 +840,9 @@ kubectl -n observability rollout status daemonset/otel-node-collector
 
 Once both full Collectors are running:
 
-1. Open the **Kubernetes** page in the Logfire UI. It groups by `k8s.cluster.name`, `k8s.node.name`, `k8s.namespace.name`, and `k8s.pod.name`. If your Pods aren't appearing, `k8sattributesprocessor` likely isn't enriching them. Check the Collector's own logs and the RBAC ClusterRole.
-2. Open **Metrics** and look for `k8s.pod.cpu.usage`, `k8s.pod.memory.usage`, `k8s.node.cpu.usage`, `container.cpu.usage`, `k8s.deployment.available`, `k8s.deployment.desired`. The first four come from `kubelet_stats`; the deployment ones come from `k8sclusterreceiver`.
-3. Open **Live** and filter for `otel_resource_attributes->>'k8s.namespace.name' = 'default'`. You should see your apps' stdout flowing through.
+1. Open the <OpenInLogfire path="kubernetes" variant="inline" label="Kubernetes page" /> in the Logfire UI. It groups by `k8s.cluster.name`, `k8s.node.name`, `k8s.namespace.name`, and `k8s.pod.name`. If your Pods aren't appearing, `k8sattributesprocessor` likely isn't enriching them. Check the Collector's own logs and the RBAC ClusterRole.
+2. Open <OpenInLogfire path="metrics" variant="inline" label="Metrics" /> and look for `k8s.pod.cpu.usage`, `k8s.pod.memory.usage`, `k8s.node.cpu.usage`, `container.cpu.usage`, `k8s.deployment.available`, `k8s.deployment.desired`. The first four come from `kubelet_stats`; the deployment ones come from `k8sclusterreceiver`.
+3. Open <OpenInLogfire path="" variant="inline" label="Live" /> and filter for `otel_resource_attributes->>'k8s.namespace.name' = 'default'`. You should see your apps' stdout flowing through.
 4. To inspect Kubernetes Events in **Live**, filter `scope_name` to `github.com/open-telemetry/opentelemetry-collector-contrib/receiver/k8sobjectsreceiver`. Open an event record and inspect `object.reason` and `object.action` in its structured body.
 5. Find unhandled exceptions, scoped to a namespace:
 

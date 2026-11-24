@@ -30,7 +30,7 @@ You need organization-admin access and a credential for a supported provider. Se
 3. Under **Connect provider**, enter the credential and any vendor-specific endpoint details. The default base URL is filled in for providers that have one.
 4. Click **Test & continue**. This asks the provider for its models using the supplied configuration. A successful check confirms this connection test, not that every model or future request will work. If the check is unsupported or unavailable, the form offers **Continue without a passing check**; do that only if you can verify the route with a real request afterward.
 5. Under **Name your provider**, choose a route name (slug), the URL segment after `/proxy/`. By default, **Add provider and create endpoint** creates an endpoint with the same slug. Under **Advanced options**, you can [assign the provider to an existing endpoint](endpoints.md) or change its base URL if your plan permits it. Changing the base URL returns you to the connection check; repeat or skip that check for the new configuration before adding the provider.
-6. Save, then open **Connect**, select the new route, and [send a test request](first-request.md).
+6. Save, then open [**Connect**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/connect), select the new route, and [send a test request](first-request.md).
 
 The provider's credential is different from the **Gateway API key** that your application sends to Logfire. Never put the upstream provider credential in a Gateway request or a public client.
 
