@@ -22,7 +22,7 @@ You need:
 - The ID of your *frontend application*. A frontend application is the entry in a Logfire project that gives the browser data of one web app a stable name and a restricted token. Find it under **Project settings → Frontend applications** (see [Frontend](../guides/web-ui/frontend.md)). The examples on this page read it from the `FRONTEND_APPLICATION_ID` environment variable.
 - The **Browser source maps** feature turned on. Open **Settings → Early access**, select the flask icon next to the **Early access** heading to show experimental features, and turn on **Browser source maps**. The API key form shows the **Source maps** scope only after this step.
 - A project API key with the `project:write_sourcemaps` scope (**Source maps** on the API key form), in the `LOGFIRE_API_KEY` environment variable. Create it on the project's API keys page in Logfire. The project comes from the key, so you do not pass it on the command line.
-- The Logfire CLI for JavaScript projects, the `logfire-cli` npm package, version 0.1.21 or later. Run it with `npx logfire-cli`. The `logfire` command that the Python package installs has no `sourcemap` command.
+- The Logfire CLI for JavaScript projects, the `logfire-cli` npm package, version 0.1.22 or later. Run it with `npx logfire-cli`. The `logfire` command that the Python package installs has no `sourcemap` command.
 
 The commands on this page use two global flags:
 
