@@ -7,7 +7,7 @@ from abc import abstractmethod
 from contextlib import nullcontext, suppress
 from dataclasses import dataclass
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar, cast
 
 import agents
 from agents import (
@@ -32,7 +32,6 @@ from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanError, TSpanData
 from agents.tracing.traces import NoOpTrace
 from opentelemetry.trace import NonRecordingSpan, use_span
-from typing_extensions import Self
 
 from logfire._internal.formatter import logfire_format
 from logfire._internal.integrations.llm_providers.openai import (

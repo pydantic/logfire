@@ -10,10 +10,10 @@ from functools import lru_cache
 from pathlib import Path
 from string import Formatter
 from types import CodeType
-from typing import Any, Literal, cast
+from typing import Any, Literal, NotRequired, cast
 
 import executing
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 import logfire
 

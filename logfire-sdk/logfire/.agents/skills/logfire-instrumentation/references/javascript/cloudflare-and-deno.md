@@ -24,7 +24,7 @@ For `wrangler.toml`:
 compatibility_flags = ["nodejs_compat"]
 ```
 
-Set local development values in `.dev.vars`. Workers don't auto-read `.logfire/logfire_credentials.json` the way Python's SDK does, but the token in it is still the one to reuse here rather than minting a new one — see [auth.md](../auth.md)'s "If the calling skill needs a write token" section:
+Set local development values in `.dev.vars`. Workers don't auto-read `.logfire/logfire_credentials.json` the way Python's SDK does, but the token in it is still the one to reuse here rather than minting a new one — see [auth.md](../auth.md#if-the-calling-skill-needs-another-credential):
 
 ```bash
 LOGFIRE_TOKEN=your-write-token
@@ -74,7 +74,7 @@ For Tail Worker flows, use `instrumentTail()` in the producer Worker and `export
 
 ## Deno
 
-Deno has built-in OpenTelemetry support. Configure OTLP export to Logfire and use the core package for manual spans. Deno is a generic-OpenTelemetry setup like any non-native-SDK language — for the write token in the header below, reuse what `projects use` already created rather than minting a new one; see [auth.md](../auth.md)'s "If the calling skill needs a write token" section:
+Deno has built-in OpenTelemetry support. Configure OTLP export to Logfire and use the core package for manual spans. Deno is a generic-OpenTelemetry setup like any non-native-SDK language — for the write token in the header below, reuse what `init use` already created rather than minting a new one; see [auth.md](../auth.md#if-the-calling-skill-needs-another-credential):
 
 ```bash
 OTEL_DENO=true \

@@ -1,100 +1,235 @@
 # Authenticate and Select the Exact Project
 
-Shared by all three Logfire setup skills (instrumentation, infrastructure, evals) — whichever skill you're following, run this once per session; a later skill's own `whoami` check will report "already resolved" and can be skipped.
+Use the Rust CLI for account and project commands. The Python `logfire` package
+since 6.0 installs it as `logfire`; the standalone Python package installs
+`logfire-cli`. SDK-only applications do not need to add the CLI as a dependency.
 
-Choose the CLI target before assuming anything needs to happen. Logfire Cloud is the normal customer path and uses a region. Derive the target from the exact supplied origin and use the same target on every CLI command in this session:
+- **Wizard handoff:** use the exact executable supplied by the wizard, including
+  in copied prompts. Do not substitute a tool runner, a similarly named local
+  executable, or a new install. If the parent already connected this project,
+  use its confirmed origin, organization, and project; do not rerun `auth`,
+  `signup`, `init`, `mcp context`, or `project current`. Recover using the same
+  target only if the SDK rejects the credential. Do not ask a launched agent
+  to restore account credentials stripped from its environment.
+- **Standalone:** use a trusted installed Rust CLI, not a repository-local
+  executable or an older Python or JavaScript CLI. If neither launcher is
+  installed, follow the [standalone CLI installation instructions](https://pypi.org/project/logfire-cli/)
+  in a trusted tools environment outside the project. Run the CLI from the
+  application directory. No wizard environment variable is required.
 
-- `https://logfire-us.pydantic.dev` -> `--region us`
-- `https://logfire-eu.pydantic.dev` -> `--region eu`
-- An explicitly supplied non-cloud Logfire origin -> `--base-url <exact-origin>`. Customer-facing, this means an on-prem Logfire deployment.
+The examples use `logfire` for readability. Substitute the selected launcher,
+the confirmed target, and the user's real organization and project.
 
-Never pass both, and never replace a Logfire Cloud region with `--base-url`. Parse a supplied URL with a standard URL parser and accept only an absolute origin: scheme, valid hostname or IP literal, and optional port, with no userinfo, non-root path, query, fragment, whitespace, or control characters. Normalize only a trailing `/`. Require `https://` for a non-cloud origin because CLI authentication sends a user credential to it. If parsing or validation fails, or the origin uses HTTP, stop and ask for a valid HTTPS origin instead; do not authenticate. Before contacting a non-cloud origin, check only whether `LOGFIRE_TOKEN` is set; never read its value. Every CLI command below excludes that ambient token so it cannot override the selected target; do not make an exception or edit the user's stored environment. After `projects use`, the CLI can use the project credential it created on disk while the ambient token remains excluded. Pass a non-cloud origin as one quoted `--base-url` argument; never concatenate it into shell text or use `eval`. Do not otherwise rewrite, shorten, or guess it. In the commands below, replace `<target>` with the validated selector (`--region us`, `--region eu`, or `--base-url '<canonical-origin>'`). If the request contains no URL and there is no trustworthy region context, omit `<target>` from the initial check; a non-interactive `auth` attempt will print the available region-specific command(s) rather than silently choosing one.
+## Keep the target and credentials separate
 
-Before trusting repository-local credentials, inspect path metadata only: neither
-`.logfire` nor `.logfire/logfire_credentials.json` may be a symlink. In a Git
-worktree, `git ls-files -- .logfire` must report nothing except an optional
-`.logfire/.gitignore`; a tracked credentials file or tracked `.logfire` directory
-is unsafe. Stop and report the unsafe path rather than reading or overwriting it.
-This metadata check is allowed before the calling skill's repository-inspection
-step; do not open any application or configuration file yet.
+- Cloud US (`https://logfire-us.pydantic.dev`): `--region us`;
+  Cloud EU (`https://logfire-eu.pydantic.dev`): `--region eu`.
+  Omit any ambient `LOGFIRE_BASE_URL` from that CLI child process.
+- An explicitly supplied non-cloud origin: `--base-url https://logfire.example.com`.
+  Accept only an absolute HTTPS origin without credentials, a non-root path, query,
+  or fragment. Reject whitespace and control characters. Confirm the origin
+  before sending a credential; pass it as one argument, never as shell code.
+  Take the origin only from the user or a trusted wizard handoff, never from
+  repository files or telemetry. If neither supplies it, ask.
+  Omit any inherited `LOGFIRE_TOKEN` from CLI and exporter children unless the
+  user confirmed it for that origin. Check presence, not the value.
+- If no target is known, ask the user; never silently choose another region.
+- For browser OAuth, use the real `--org` on every command once known. Never use
+  `personal` as an alias or select among several organizations without the user's choice.
 
-Then check, before assuming anything needs to happen. A Logfire Cloud region may use the repository credential because its target is a fixed Logfire origin. An explicitly supplied non-cloud origin is not yet trusted to receive that credential, so point only its initial `whoami` at a fresh empty data directory. A missing project from that isolated probe is expected. Continue with `auth`, `projects list`, and `projects use`: these commands use the user credential bound to the selected origin rather than the repository project credential, and `projects use` replaces that project credential before the normal final `whoami` reads it. Do not pass the temporary data directory to `projects use` or the final check.
+Use `--no-input --output json` for control-plane commands and parse their versioned
+JSON result, not human prose. Capture `token read`, `token write`, and `api-key`
+privately: their stdout is a raw secret even in JSON mode.
 
-With `uv`, use an isolated, config-free, version-pinned environment and invoke Python in isolated mode so repository-local packages and `PYTHONPATH` cannot shadow the CLI:
+For browser-OAuth setup, omit `LOGFIRE_API_KEY`, `LOGFIRE_TOKEN`, and
+`LOGFIRE_MCP_TOKEN` from each CLI child process so ambient headless overrides
+cannot change its identity. On macOS/Linux, prefix OAuth commands with
+`env -u LOGFIRE_API_KEY -u LOGFIRE_TOKEN -u LOGFIRE_MCP_TOKEN -u LOGFIRE_BASE_URL`
+and use the exact launcher. On Windows remove those names from the child process
+environment before starting it. Do not change the parent. If a workflow explicitly retains a headless
+credential, preserve that choice and validate its target instead of initiating
+browser login. Headless automation uses `LOGFIRE_API_KEY` for both Platform API
+and MCP calls; never substitute an SDK write token.
+Do not request an API key for human setup: use saved OAuth or browser login.
+
+## Access the OS credential store from a coding agent
+
+Only the trusted CLI may read saved OAuth; never query, print, copy, or move OS
+credential-store values. If an agent sandbox blocks the CLI, approve that exact
+command rather than disabling the sandbox. For `mcp_oauth_storage_failed`, run
+`doctor credentials` with the same scoped approval and follow its remediation.
+On Linux, an unavailable user D-Bus session or Secret Service may require
+repairing the login session and restarting the long-lived agent so it inherits
+the live bus. Do not launch a separate bus for the CLI or copy OAuth secrets.
+
+## Inspect a configured API key
+
+When the intended server is known, inspect an existing `LOGFIRE_API_KEY` before
+selecting a project or making a mutation. This `mcp context` call is a read-only
+status check, not a decision to work headlessly, so it does not require the user
+to choose headless access first. It reports the account, project, and region the
+credential already names. Treat a valid result as the confirmed identity and do
+not ask the user to restate facts it proves.
+
+Pass the exact target explicitly; the US examples below are not a default to try.
+If the target is unknown, ask before making a request. Do not probe servers or
+rely on the last active OAuth profile.
 
 ```bash
-# Logfire Cloud:
-env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> whoami
-
-# Explicitly supplied non-cloud origin:
-(
-  credential_probe_dir="$(mktemp -d)" || exit 1
-  trap 'rm -rf -- "$credential_probe_dir"' EXIT
-  env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive --base-url '<canonical-origin>' whoami --data-dir "$credential_probe_dir"
-)
+logfire --region us --no-input --output json mcp context
+logfire --region us --org acme --no-input --output json mcp context
 ```
 
-In a JS/TS project without `uv`, use this POSIX-shell fallback. Include the helper at the start of every JS CLI command block so a fresh shell can run it. The exact package version and `--ignore-scripts` keep the reviewed CLI artifact stable and prevent lifecycle scripts from running:
+Use `--org` once the intended organization is known: the CLI checks it against
+the API key's public identity and fails before further work on a mismatch. This
+call uses the public MCP identity tool and does not persist or exchange the key,
+create an OAuth session, or write an SDK credential. Read
+`data.identity.organization_name` and the optional `data.identity.project`; ask
+about missing project choices or conflicting identities, not facts already
+established. A successful identity check is not permission from the user to
+create projects or tokens.
+
+A denied, invalid, or insufficiently scoped key must not trigger fallback to
+another identity or server. Follow the specific error without assuming the key
+expired. Reserve `LOGFIRE_TOKEN` for SDK ingestion. Use `LOGFIRE_API_KEY` for explicitly requested headless account access.
+
+OAuth credentials stay in the OS credential store, bound to the origin and
+organization. SDK write credentials stay with the project in
+`.logfire/logfire_credentials.json`. Do not move OAuth grants into the project or
+use the SDK write token to authenticate control-plane calls.
+
+## Check before creating anything
+
+Before using local credentials, inspect path metadata: neither `.logfire` nor
+`.logfire/logfire_credentials.json` may be a symlink, and credentials must not be tracked
+by Git. Stop on an unsafe path rather than reading or overwriting it.
+
+For an existing local SDK project, this validates identity without minting a
+token. The Rust CLI rejects an origin mismatch before making a network request.
+Do not edit the project file to force a match.
 
 ```bash
-npm_cache="$(mktemp -d)"
-npm_prefix="$(mktemp -d)"
-run_logfire_js() {
-  env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
-}
-
-# Logfire Cloud:
-run_logfire_js <target> whoami
-
-# Explicitly supplied non-cloud origin:
-(
-  credential_probe_dir="$(mktemp -d)" || exit 1
-  trap 'rm -rf -- "$credential_probe_dir"' EXIT
-  run_logfire_js --base-url '<canonical-origin>' whoami --data-dir "$credential_probe_dir"
-)
+logfire --region us --org acme --no-input --output json project current
 ```
 
-Do not use a plain `npx logfire` command or omit the external `--prefix`, shared `--cache`, or Node and shell overrides. The npm CLI does not support `--non-interactive`; without a TTY it fails instead of prompting. The command blocks above are POSIX shell. On Windows, install `uv` from its [official installation guide](https://docs.astral.sh/uv/getting-started/installation/) and launch the same isolated Python arguments through a child process whose environment omits `LOGFIRE_TOKEN`; use the agent runtime's process API rather than translating `env -u`, the subshell, or `trap` into shell text. For the non-cloud probe, pass a newly created temporary directory as `--data-dir` and remove it afterward.
+If the result matches the requested organization, project and origin, reuse it.
+Only for standalone setup: if the file is missing and the user selected an
+existing project, follow sign-in and `init use` below. If they haven't selected
+one, ask whether to connect an existing account or create a new one. A prepared
+wizard handoff needs neither check nor initialization.
 
-If that already reports the right project and resolved target (`--region` for Logfire Cloud or `--base-url` for an explicitly supplied on-prem origin), you're done — skip straight to the rest of whichever skill sent you here, even if you haven't run `auth` yourself yet. Signing in doesn't have to be your action: the user may have done it in a browser tab left over from an earlier session, or in parallel while you were working on something else. Treat it as good news, not something to question — never undo or re-authenticate over a session that's already valid. Otherwise, run the CLI yourself from the application directory with one of the verified prefixes above — it's a setup tool, not an app dependency. `--non-interactive` is Python-CLI-only right now: the JS CLI doesn't recognize it and errors with "Unknown option" if you pass it — omit it entirely on every JS invocation below; keep it on every Python one. JS `projects list` prints a table to stderr and does not accept `--json`; only `projects status` does.
+## Create a new account and its first project
+
+When the user requests a new account, confirm the target and the real organization
+and project names, then run:
 
 ```bash
-# Python CLI (uvx --isolated) -- always include --non-interactive:
-env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> auth
-env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects list --json
-env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects use <project-name> --org <organization-name>
-env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> whoami
-
-# JS CLI (POSIX shell) -- include the helper in this shell; drop --non-interactive:
-npm_cache="$(mktemp -d)"
-npm_prefix="$(mktemp -d)"
-run_logfire_js() {
-  env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
-}
-run_logfire_js <target> auth
-run_logfire_js <target> projects list
-run_logfire_js <target> projects use <project-name> --org <organization-name>
-run_logfire_js <target> whoami
+logfire --region us --org acme --no-input --output json signup --project my-app
 ```
 
-**On the Python CLI, always put `--non-interactive` immediately after `logfire`.** Without it, a question with nobody to answer it can block on a read that never returns.
+The claim link expires after five minutes; names are not reserved until browser
+signup completes. Relay the link privately to the user and keep the process alive
+while they create the account and approve OAuth. Treat the link as a secret: do
+not put it in files, logs, commits, or third-party tools, and never approve consent
+on the user's behalf.
 
-- `<target>` is a global option: put it after `--non-interactive` on Python commands and immediately after `logfire` on JavaScript commands, before the subcommand. The product prompt only needs to supply the exact Logfire URL; this reference owns the `--region` versus `--base-url` distinction.
-- `auth` with `--non-interactive` does **not** open a browser — it prints a URL and polls for you to finish. Relay that URL to the user; don't wait silently. When the command succeeds, continue immediately with `projects list`; once the project is identified, run `projects use` and `whoami` in the same setup run. Do not end the task merely after browser approval. If project selection is ambiguous, ask the user rather than guessing. Authentication alone does not connect the repository to the project, while `projects use` creates the project credential the application needs.
-- `projects list`: Python takes `--json` on this subcommand; the JS CLI prints a table to stderr and ignores `--json` here. Exactly one project returned? Use it. Several plausible and none identified? Ask the user. None exist? Use `<target> projects new <project-name> --org <organization-name>` with the same verified CLI prefix instead.
+Successful signup stores OAuth in the OS credential store and the SDK write token
+in this directory. Confirm the result with `project current`; do not run `init`
+again and mint another token. If signup fails after creating the account, inspect
+the existing account/project and resume with the existing-account flow below,
+rather than repeatedly creating accounts. Do not change regions or fall back to
+a different signup mechanism when the server does not support claiming.
 
-- Any command failing with `NonInteractiveError` explains what to do next in its own message — usually the exact missing flag (commonly `--org`), but `auth` with no region instead prints a runnable `--region <id> auth` line per region. Follow what the message says and retry once. Don't drop `--non-interactive` to make the error go away; that trades a clear message for the hang it exists to prevent.
-- `whoami`'s org/project/region is what every later step must match — instrumentation, verification, any link you give the user. Never substitute a different or "latest" project.
-- The CLI commands above exclude ambient `LOGFIRE_TOKEN`, but a later application process can still inherit that variable and silently override the `.logfire/` project credential. During local verification, launch the application through a child environment that also omits the ambient token and make sure its env loader does not reintroduce an unrelated token. Do not mutate the parent shell or silently rewrite the application's existing environment files.
-- Never print, log, hard-code, commit, or echo a token, and don't read `~/.logfire/default.toml`'s contents — a bad or missing credential surfaces as a CLI error, not a prompt. The one exception is reading `.logfire/logfire_credentials.json`'s `token` key programmatically, and only to hand it to a non-native-SDK application language that needs the actual value (see below) — never to print, display, or otherwise surface it.
+## Sign in to an existing account
 
-## If the calling skill needs a write token, not just a CLI session
+For an account-only check or read-only query/link workflow:
 
-Some callers need an actual token value, not just an authenticated CLI session. `projects use` creates a project-scoped write token and stores it in the gitignored `.logfire/logfire_credentials.json`; do not mint a second token merely because a non-SDK process needs the value:
+```bash
+logfire --region us --org acme --no-input --output json auth status
+logfire --region us --org acme --no-input --output json mcp context
+logfire --region us --org acme --no-input --output json mcp projects
+```
 
-- **A setup with no Logfire SDK reading local credentials for it** needs a write token for its OTLP exporter's Authorization header. Check the language's own instrumentation reference for whether its SDK already handles this. When nothing does, reuse the credential `projects use` created: read only the `token` key programmatically and write it directly into the runtime's existing gitignored local secret mechanism, without sending the value to stdout, stderr, shell history, source control, or chat.
-- An **OpenTelemetry Collector** can use that same CLI-created write token. For Docker or a local host, write a mode-`0600`, gitignored env file such as `.logfire/logfire.env` and configure the Collector to load it. For Kubernetes, create or update the Secret from that env file with `kubectl create secret generic logfire-token --from-env-file=.logfire/logfire.env --dry-run=client -o yaml | kubectl apply -f -`; the dry run emits the manifest directly to `apply` without persisting or displaying an intermediate secret. Use the deployment's secret manager instead when one already exists.
-- If `projects use` cannot create the credential because the authenticated user lacks `write_token` permission, stop and ask a project administrator to provide or install an appropriate credential through their normal secret-management path. Never ask anyone to paste a token into the agent chat.
-- An **API key** for `LogfireAPIClient` (hosted-dataset push/pull) comes from **Settings → API Keys**, scoped `project:read_datasets`/`project:write_datasets` — a generic write/read token lacks those scopes.
+`auth status` reads saved non-secret profile metadata; `mcp context` validates the
+live account/server identity. Authenticate only if the required session is absent
+or invalid. When the organization is known, retain it during login so the CLI can
+reject consent for another organization:
 
-Same rule applies to all three: never print, log, hard-code, commit, or echo the value — inject it via environment variable and check only that it's set, not its value.
+```bash
+logfire --region us --org acme --no-input --output json auth
+```
+
+Only when the organization is not yet known, omit `--org` on the initial login;
+select the real organization before further operations:
+
+```bash
+logfire --region us --no-input --output json auth
+```
+
+Relay the authorization URL to the user and wait for browser approval. This is the
+human step, not permission to accept consent on their behalf. Keep the process
+alive while they finish, then continue the requested work. On an error, follow
+the specific recovery instruction; do not drop `--no-input` to hide ambiguity.
+
+## Connect an SDK project
+
+Only instrumentation/setup needs a local write credential. Querying or making
+links must not create projects or write tokens: select a confirmed project from
+`mcp projects` and pass `--project` to the query/link command instead.
+
+For SDK setup, `init use` creates a new write token in the existing project and
+saves it locally. `init new` additionally creates a project. Use only the mode and
+name the user requested or confirmed; do not repeatedly initialize a valid project.
+
+```bash
+logfire --region us --org acme --no-input --output json init use --name my-app
+# Only when creating a new project is part of the requested setup:
+logfire --region us --org acme --no-input --output json init new --name my-app
+logfire --region us --org acme --no-input --output json project current
+```
+
+Confirm `data.organization`, `data.project`, `data.server`, and `data.project_url`
+from `project current`. If a mutation reports partial effects, inspect/reuse the
+remote project or revoke the unused token as appropriate before retrying; do not
+blindly create another project/token.
+
+If `data.logfire_token_environment_set` is true, the SDK may override the local
+project. Omit that ambient variable from the application child process when the
+user chose the new local credential, and ensure an env loader does not restore an
+unrelated token. Do not silently rewrite the user's existing secret files.
+
+## If the calling skill needs another credential
+
+Local Python, Node.js, and Rust SDKs read the project credential. For another
+local exporter, programmatically place only its `token` field in the existing
+gitignored secret mechanism; never use stdout, stderr, arguments, history, or chat.
+If that mechanism is an env file, create it with owner-only access (POSIX
+mode `0600`, or a restrictive Windows ACL) before writing the credential.
+Use a trusted private directory. Reject symlinks and non-regular files; open
+without following links and verify ownership and owner-only access before writing.
+
+Deliver production credentials through the approved secret manager. Mint only
+what one consumer needs:
+
+- `logfire token write` for another SDK, exporter, or deployment.
+- `logfire token read` for an SDK-compatible query client.
+- `logfire api-key query --name query-client` when it specifically needs an API key.
+- `logfire api-key gateway --name ai-gateway` for an AI Gateway client.
+- `logfire api-key project:read_variables --name app-runtime` for an application
+  that only consumes managed prompts or variables.
+- `logfire api-key project:read_external_variables --name browser-flags` for a
+  less-trusted OFREP client that reads only variables marked external.
+- `logfire api-key variables --name prompt-sync` for a tool that manages them.
+- `logfire api-key gateway project:read_variables --name agent-service` only
+  when the same runtime needs Gateway and managed-prompt reads.
+
+Minting a key does not enable/configure Gateway, create prompts or variables,
+or install SDK extras; complete those product steps separately when requested.
+Never broaden or replace the local SDK token, and never mint an additional
+credential until one consumer actually needs it.
+Capture stdout through a process API, accept it only after exit zero, and discard
+it on failure. These commands neither save the secret nor replace the local SDK
+credential. Never run them bare in a recorded agent terminal.
+
+If permissions prevent credential creation, stop and ask an administrator to
+install a suitable credential through the normal secret-management path, not chat.

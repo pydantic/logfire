@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import warnings
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlparse
 
@@ -386,7 +386,7 @@ def test_params_non_string_fallback():
     capture: dict[str, Any] = {}
     conn = make_connection(capture=capture)
     cur = conn.cursor()
-    ts = datetime(2024, 1, 15, 12, 30, 0, tzinfo=timezone.utc)
+    ts = datetime(2024, 1, 15, 12, 30, 0, tzinfo=UTC)
     cur.execute(
         'SELECT * FROM records WHERE start_timestamp > %(ts)s',
         {'ts': ts},
@@ -447,7 +447,7 @@ def test_params_empty_dict():
 
 def test_connection_timestamps():
     capture: dict[str, Any] = {}
-    ts = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    ts = datetime(2024, 1, 1, tzinfo=UTC)
     conn = make_connection(capture=capture, min_timestamp=ts, max_timestamp=ts)
     cur = conn.cursor()
     assert cur.min_timestamp == ts
@@ -460,8 +460,8 @@ def test_connection_timestamps():
 
 def test_cursor_timestamp_override():
     capture: dict[str, Any] = {}
-    conn_ts = datetime(2024, 1, 1, tzinfo=timezone.utc)
-    cur_ts = datetime(2024, 6, 1, tzinfo=timezone.utc)
+    conn_ts = datetime(2024, 1, 1, tzinfo=UTC)
+    cur_ts = datetime(2024, 6, 1, tzinfo=UTC)
     conn = make_connection(capture=capture, min_timestamp=conn_ts, max_timestamp=conn_ts)
     cur = conn.cursor()
     assert cur.min_timestamp == conn_ts
@@ -478,7 +478,7 @@ def test_cursor_timestamp_override():
 
 def test_cursor_max_timestamp_none_override():
     capture: dict[str, Any] = {}
-    conn = make_connection(capture=capture, max_timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc))
+    conn = make_connection(capture=capture, max_timestamp=datetime(2024, 1, 1, tzinfo=UTC))
     cur = conn.cursor()
     cur.max_timestamp = None
     assert cur.max_timestamp is None
@@ -641,7 +641,7 @@ def test_connect_default_min_timestamp():
     assert 'min_timestamp' in capture['body']
     # The default should be approximately 1 day ago
     assert conn.min_timestamp is not None
-    age = datetime.now(timezone.utc) - conn.min_timestamp
+    age = datetime.now(UTC) - conn.min_timestamp
     assert timedelta(hours=23) < age < timedelta(hours=25)
     conn.close()
 
@@ -660,7 +660,7 @@ def test_connect_min_timestamp_timedelta():
     cur.execute('SELECT 1')
     assert 'min_timestamp' in capture['body']
     assert conn.min_timestamp is not None
-    age = datetime.now(timezone.utc) - conn.min_timestamp
+    age = datetime.now(UTC) - conn.min_timestamp
     assert timedelta(days=6) < age < timedelta(days=8)
     conn.close()
 

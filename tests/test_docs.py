@@ -3,9 +3,9 @@
 import gc
 import os
 import re
-import sys
 from collections.abc import Iterator
 from pathlib import Path
+from tomllib import loads
 
 import pydantic
 import pytest
@@ -13,11 +13,6 @@ from packaging.utils import canonicalize_name
 from pytest_examples import CodeExample, EvalExample, find_examples
 
 from logfire._internal.utils import get_version
-
-if sys.version_info >= (3, 11):
-    from tomllib import loads
-else:
-    from tomli import loads
 
 # Prevent accidental live API calls during testing
 os.environ.setdefault('LOGFIRE_SEND_TO_LOGFIRE', 'false')
@@ -67,7 +62,7 @@ def set_eval_config(eval_example: EvalExample):
         quotes='single',
         isort=True,
         ruff_ignore=ruff_ignore,
-        target_version='py310',
+        target_version='py311',  # pyright: ignore[reportArgumentType]  # pytest-examples types stop at py310
     )
 
 
@@ -220,7 +215,7 @@ def test_skill_examples_formatting(eval_example: EvalExample):
         quotes='either',
         isort=False,
         ruff_ignore=[*ruff_ignore, 'F821', 'I001', 'Q'],
-        target_version='py310',
+        target_version='py311',  # pyright: ignore[reportArgumentType]  # pytest-examples types stop at py310
     )
 
     for example in examples:

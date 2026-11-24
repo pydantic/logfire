@@ -92,6 +92,8 @@ def baggage_attributes(parent_context: context.Context | None, existing_attrs: M
     """The baggage in `parent_context` as attributes to add to a record that already has `existing_attrs`."""
     attrs: dict[str, str] = {}
     for k, v in baggage.get_all(parent_context).items():
+        if k.startswith('logfire.') and not k.startswith('logfire.variables.'):
+            continue
         if not isinstance(v, str):
             # Since this happens for every record, don't try converting to string, which could be expensive.
             warnings.warn(

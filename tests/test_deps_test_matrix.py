@@ -1,16 +1,11 @@
 """Keep the dependency workflow complete as supported minor versions advance."""
 
-import sys
+import tomllib
 from pathlib import Path
 
 import yaml
 from packaging.requirements import Requirement
 from packaging.version import Version
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
 
 
 def test_deps_test_matrix_covers_every_supported_minor_once() -> None:
