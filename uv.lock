@@ -3630,6 +3630,9 @@ flask = [
 fleet = [
     { name = "logfire-sdk", extra = ["fleet"] },
 ]
+gateway = [
+    { name = "logfire-sdk", extra = ["gateway"] },
+]
 google-genai = [
     { name = "logfire-sdk", extra = ["google-genai"] },
 ]
@@ -3700,6 +3703,7 @@ requires-dist = [
     { name = "logfire-sdk", extras = ["fastapi"], marker = "extra == 'fastapi'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["flask"], marker = "extra == 'flask'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["fleet"], marker = "extra == 'fleet'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["gateway"], marker = "extra == 'gateway'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["google-genai"], marker = "extra == 'google-genai'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["httpx"], marker = "extra == 'httpx'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["litellm"], marker = "extra == 'litellm'", editable = "logfire-sdk" },
@@ -3718,7 +3722,7 @@ requires-dist = [
     { name = "logfire-sdk", extras = ["variables"], marker = "extra == 'variables'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["wsgi"], marker = "extra == 'wsgi'", editable = "logfire-sdk" },
 ]
-provides-extras = ["agent-sandboxes", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables", "fleet"]
+provides-extras = ["gateway", "agent-sandboxes", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables", "fleet"]
 
 [[package]]
 name = "logfire-api"
@@ -4116,6 +4120,12 @@ flask = [
 fleet = [
     { name = "logfire-fleet-otel", marker = "python_full_version >= '3.11'" },
 ]
+gateway = [
+    { name = "httpx" },
+    { name = "starlette", version = "1.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "starlette", version = "1.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "uvicorn" },
+]
 google-genai = [
     { name = "opentelemetry-instrumentation-google-genai" },
 ]
@@ -4178,6 +4188,7 @@ requires-dist = [
     { name = "certifi", specifier = ">=2026.10.19" },
     { name = "executing", specifier = ">=2.0.1" },
     { name = "httpx", marker = "extra == 'datasets'", specifier = ">=0.27.2" },
+    { name = "httpx", marker = "extra == 'gateway'", specifier = ">=0.27.0" },
     { name = "litestar", marker = "extra == 'litestar'", specifier = ">=2.11.0" },
     { name = "logfire-fleet-otel", marker = "python_full_version >= '3.11' and extra == 'fleet'", specifier = ">=0.2.1,<0.3" },
     { name = "openinference-instrumentation-dspy", marker = "extra == 'dspy'", specifier = ">=0" },
@@ -4224,10 +4235,12 @@ requires-dist = [
     { name = "pydantic-monty-client", marker = "extra == 'agent-sandboxes'", specifier = ">=1.6.0" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rich", specifier = ">=13.4.2" },
+    { name = "starlette", marker = "extra == 'gateway'", specifier = ">=0.37.0" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
     { name = "typing-extensions", specifier = ">=4.13.0" },
+    { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["agent-sandboxes", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables", "fleet"]
+provides-extras = ["gateway", "agent-sandboxes", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables", "fleet"]
 
 [[package]]
 name = "loguru"
