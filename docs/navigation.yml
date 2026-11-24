@@ -1181,7 +1181,7 @@ navigation:
             slug: "reference/cli"
             aliases:
               - "logfire/reference/cli"
-            title: "Logfire SDK CLI: SDK Command Line Interface Guide"
+            title: "Use the Logfire CLI"
           - page: "Examples"
             path: "reference/examples.md"
             slug: "reference/examples"
