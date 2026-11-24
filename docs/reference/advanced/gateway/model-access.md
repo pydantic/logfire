@@ -79,7 +79,14 @@ To return to the catalog price, turn the override off and click **Save model**. 
 Open **Playground** from the sidebar, choose the provider and model, and send a short message. The Playground needs a project API key; if it shows **project key required**, click **Create project key** first.
 
 - An allowed model answers. A blocked model still appears in the model list, but the request returns the `403` error above.
-- For a custom price, send a request, then open [**AI Engineering → Gateway → API Keys**](https://logfire.pydantic.dev/-/redirect/default-org/-/gateway/api-keys), select the key you used, and check **Usage & Spending Limits**. The cost should match your price, not the catalog price. The cost estimate shown in the Playground uses catalog prices, so don't use it to check a custom price.
+- For a custom price, check the cost shown under the reply. It should match your price, not the catalog price.
+
+### Custom prices in traces
+
+When you call Gateway from your code, the cost Gateway calculates, including your custom price, is recorded as `operation.cost` on the model request span. This needs one of:
+
+- [Pydantic AI](https://ai.pydantic.dev/) 2.68 or later.
+- The Logfire SDK 6.0 or later, with [`instrument_openai`](../../../integrations/llms/openai.md), [`instrument_anthropic`](../../../integrations/llms/anthropic.md), or [`instrument_google_genai`](../../../integrations/llms/google-genai.md). For Google, use `google-genai` 1.69.0 or later, below 3.0: earlier versions record no Gateway cost for streamed requests, and 3.0 and later aren't instrumented yet.
 
 ## Troubleshooting
 
