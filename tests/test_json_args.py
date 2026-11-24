@@ -392,6 +392,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             id='enum_with_none_value',
         ),
         pytest.param(
+            Enum('Outer', {'INNER': Enum('Inner', {'ONE': 1}).ONE}).INNER,
+            'Outer.INNER',
+            '1',
+            {},
+            id='enum_with_enum_value',
+        ),
+        pytest.param(
             {'enum': StrEnum('Color', ['RED', 'GREEN', 'BLUE']).BLUE},
             "{'enum': <Color.BLUE: 'blue'>}",
             '{"enum":"blue"}',
