@@ -380,7 +380,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
         pytest.param(
             Enum('Color', ['RED', 'GREEN', 'BLUE']).BLUE,
             'Color.BLUE',
-            '3',
+            3,
             {},
             id='enum',
         ),
@@ -394,7 +394,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
         pytest.param(
             Enum('Outer', {'INNER': Enum('Inner', {'ONE': 1}).ONE}).INNER,
             'Outer.INNER',
-            '1',
+            1,
             {},
             id='enum_with_enum_value',
         ),
@@ -415,14 +415,14 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
         pytest.param(
             Enum('Color', {'RED': 1, 'GREEN': 'str'}).RED,
             'Color.RED',
-            '1',
+            1,
             {},
             id='enum_with_int_and_str_values',
         ),
         pytest.param(
             Enum('Color', {'RED': 1, 'GREEN': 1.5}).RED,
             'Color.RED',
-            '1',
+            1,
             {},
             id='enum_with_int_and_float_values',
         ),
@@ -1817,9 +1817,9 @@ def test_pydantic_root_model(exporter: TestExporter):
                 'with_none': 'null',
                 'with_none_inner': 'null',
                 'with_color': '"RED"',
-                'with_color_inner': '"RED"',
+                'with_color_inner': 'RED',
                 'with_order': '1',
-                'with_order_inner': '1',
+                'with_order_inner': 1,
                 'logfire.json_schema': {
                     'type': 'object',
                     'properties': {

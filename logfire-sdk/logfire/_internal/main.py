@@ -3568,7 +3568,7 @@ def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.
 def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
     """Convert a user attribute to an OpenTelemetry compatible type."""
     if isinstance(value, Enum):
-        return logfire_json_dumps(value)
+        return prepare_otlp_attribute(value.value)
     elif isinstance(value, int):
         if not -OTLP_MAX_INT_SIZE - 1 <= value <= OTLP_MAX_INT_SIZE:
             warnings.warn(
