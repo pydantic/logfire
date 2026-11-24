@@ -112,7 +112,7 @@ def _limited_scrubbed_notes(attributes: Mapping[str, Any], notes: list[ScrubbedN
         return None
     try:
         parsed: Any = json.loads(raw_notes) if isinstance(raw_notes, str) else []
-    except json.JSONDecodeError:  # pragma: no cover
+    except (TypeError, ValueError, RecursionError):
         parsed = []
     if isinstance(parsed, list):
         existing = cast('list[ScrubbedNote]', parsed)
