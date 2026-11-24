@@ -1,0 +1,102 @@
+logfire-sdk/logfire/sampling/_tail_sampling.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 7
+logfire-sdk/pyproject.toml
+  s_63da2a5c522d59::t_d69b505ffde7b7 9,94
+tests/test_docs.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 8
+tests/test_query_client.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 4,40,281,309
+logfire-sdk/logfire/_internal/config_params.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 108-109
+tests/test_cli.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 3174
+docs/guides/onboarding-checklist/add-manual-tracing.md
+  s_63da2a5c522d59::t_d69b505ffde7b7 150
+logfire-sdk/logfire/_internal/integrations/system_metrics.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 11
+logfire-sdk/logfire/_internal/formatter.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 13,16
+logfire-sdk/logfire/db_api.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 22,150
+logfire-sdk/logfire/_internal/integrations/openai_agents.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 10
+logfire-sdk/logfire/_internal/auth.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 8,10,93
+tests/test_datasets_client.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 12,1634
+pyproject.toml
+  s_63da2a5c522d59::t_0b806d9a19c399 155
+  s_63da2a5c522d59::t_d69b505ffde7b7 4,26,129
+tests/test_json_args.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 11
+logfire-sdk/logfire/experimental/api_client.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 57,61
+tests/test_query_client_errors.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 10,29,466
+docs/cookbook/evaluate-an-agent.md
+  s_63da2a5c522d59::t_d69b505ffde7b7 27
+logfire-sdk/logfire/_internal/json_types.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 3
+.github/workflows/main.yml
+  s_63da2a5c522d59::t_d69b505ffde7b7 117,175
+logfire-sdk/logfire/_internal/integrations/llm_providers/semconv.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 10,12
+logfire-sdk/logfire/_internal/integrations/fastapi.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 7,266
+logfire-sdk/logfire/variables/remote.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 12,465,487,528
+logfire/pyproject.toml
+  s_63da2a5c522d59::t_d69b505ffde7b7 9
+tests/test_db_api.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 7,389,450,463-464,481,644,663
+logfire-sdk/logfire/_internal/json_formatter.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 39-41,360-368
+tests/test_distribution_metadata.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 5,33,37
+logfire-sdk/logfire/_internal/main.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 19,34
+logfire-sdk/logfire/_internal/integrations/llm_providers/types.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 4
+logfire-sdk/logfire/query_client.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 5,8,279-280
+logfire-api/pyproject.toml
+  s_63da2a5c522d59::t_d69b505ffde7b7 23
+logfire-sdk/logfire/_internal/config.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 21
+logfire-sdk/logfire/_internal/instrument.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 9,13
+tests/test_deps_test_matrix.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 3
+logfire-sdk/logfire/_internal/client.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 3
+logfire-sdk/logfire/_internal/utils.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 142,144
+tests/test_canonicalize_exception.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 77-78,94,211-212,228
+tests/test_console_exporter.py
+  s_63da2a5c522d59::t_d69b505ffde7b7 11,982-993,1215,1311-1321
+  s_63da2a5c522d59::t_6fafc0a131313c 1322-1323
+uv.lock
+  s_63da2a5c522d59::t_faecb9f9bb58aa 3,17-19,58,83,296-297,498,608,761,1345-1347,1350,1378,1425,1436,1481,1563,1567,1578,1582,1584,1589,1591,1597,1599,1602-1603,1607,1609,1611-1613,1621,1623,1625-1626,1633-1634,1848,1885,1899,1901,2170,2196,2199,2487,2537,2540,2544,2546,2550-2551,2556,2577,2603,2620-2621,2633,2647,2664,2812,2821,2849,3115,3123-3124,3131,3134-3135,3141,3145-3146,3175,3177,3180,3183-3184,3187,3203,3205,3211,3257,3260,3384,3400,3404,3471,3681,3687,3689-3690,4075-4077,4247-4248,4263-4264,4269,4271,4283,4517,5552,5556,5621,5684-5686,5689,5699,5846,6040-6045,6047-6051,6053,6234,6283,6446,6976,7057,7350,7352,7832
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "01f84de46849e8a85bd81ae21ac29093024fdde9",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_63da2a5c522d59": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20cfb-91cb-7f22-af3b-aab4a00dd961",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
