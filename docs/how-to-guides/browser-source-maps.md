@@ -78,17 +78,11 @@ Run `inject` before any step that hashes or compresses the bundle, such as preco
 
 ### If you also use another error tool
 
-Use the Logfire CLI to prepare the build for Logfire, also when the project uses another error tracking tool. Run `npx logfire-cli --beta sourcemap inject` as the last inject step, after the inject step of any other tool, such as `sentry-cli sourcemaps inject`, `datadog-ci sourcemaps inject` or `posthog-cli sourcemap inject`. Upload the maps to the other tool after all inject steps and before the Logfire upload, because `--delete` removes the `.map` files:
+You can upload the same build to Logfire and to another error tracking tool, such as Sentry or Datadog. Logfire reuses a debug ID that the other tool already wrote, so both tools share it.
 
-```bash
-# 1. Run the inject steps of other tools.
-# 2. Run the Logfire inject last.
-npx logfire-cli --beta sourcemap inject dist
-# 3. Upload the maps to the other tools.
-# 4. Upload to Logfire, which deletes the maps.
-npx logfire-cli --beta --region us sourcemap upload dist \
-  --frontend-application-id "$FRONTEND_APPLICATION_ID" --delete
-```
+1. Run the inject step of the other tool, for example `sentry-cli sourcemaps inject` or `datadog-ci sourcemaps inject`.
+2. Run `npx logfire-cli --beta sourcemap inject` last.
+3. Upload to each tool. Pass `--delete` only to the last upload, because it removes the `.map` files.
 
 ### Upload the maps
 
