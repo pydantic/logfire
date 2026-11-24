@@ -1736,9 +1736,6 @@ def test_missing_sdk_credentials_explain_native_cli_setup(
     data_dir = tmp_dir_cwd / ('custom data' if custom_data_dir else '.logfire')
     with (
         mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file),
-        mock.patch(
-            'logfire._internal.client.LogfireClient.from_url', side_effect=AssertionError('legacy auth accessed')
-        ),
         mock.patch('rich.prompt.Confirm.ask', side_effect=AssertionError('unexpected confirmation')),
         mock.patch('rich.prompt.Prompt.ask', side_effect=AssertionError('unexpected prompt')),
     ):
@@ -1795,9 +1792,6 @@ def test_project_credentials_do_not_require_legacy_user_auth(
     elif credential_source == 'argument-over-environment':
         monkeypatch.setenv('LOGFIRE_TOKEN', 'pylf_v1_eu_other_project_write_token')
     with (
-        mock.patch(
-            'logfire._internal.client.LogfireClient.from_url', side_effect=AssertionError('legacy auth accessed')
-        ),
         requests_mock.Mocker() as requests,
     ):
         requests.get(
@@ -1828,11 +1822,6 @@ def test_send_to_logfire_true(tmp_path: Path) -> None:
     )
     with ExitStack() as stack:
         stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
-        stack.enter_context(
-            mock.patch(
-                'logfire._internal.client.LogfireClient.from_url', side_effect=AssertionError('legacy auth accessed')
-            )
-        )
         with pytest.raises(LogfireConfigError, match='No usable project credentials found'):
             configure(send_to_logfire=True, console=False, data_dir=data_dir)
     wait_for_check_token_thread()

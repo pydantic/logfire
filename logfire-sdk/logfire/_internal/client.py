@@ -4,12 +4,11 @@ from typing import Any
 from urllib.parse import urljoin
 
 from requests import Response, Session
-from typing_extensions import Self
 
 from logfire.exceptions import LogfireConfigError
 from logfire.version import VERSION
 
-from .auth import UserToken, UserTokenCollection
+from .auth import UserToken
 from .constants import HTTP_CONNECT_TIMEOUT
 from .http_transport import install_connection_policy
 from .server_response import ServerResponseCallback, install_logfire_response_hook
@@ -42,27 +41,6 @@ class LogfireClient:
         self._session.headers.update({'Authorization': self._token, 'User-Agent': UA_HEADER})
         install_logfire_response_hook(self._session, server_response_hook)
 
-    @classmethod
-    def from_url(
-        cls,
-        base_url: str | None,
-        server_response_hook: ServerResponseCallback | None = None,
-    ) -> Self:
-        """Create a client from the provided base URL.
-
-        Args:
-            base_url: The base URL to use when looking for a user token. If `None`, will prompt
-                the user into selecting a token from the token collection (or, if only one available,
-                use it directly). The token collection will be created from the `~/.logfire/default.toml`
-                file (or an empty one if no such file exists).
-            server_response_hook: Optional override for the API response hook (see
-                `AdvancedOptions.server_response_hook`).
-        """
-        return cls(
-            user_token=UserTokenCollection().get_token(base_url),
-            server_response_hook=server_response_hook,
-        )
-
     def _get_raw(self, endpoint: str, params: dict[str, Any] | None = None) -> Response:
         response = self._session.get(urljoin(self.base_url, endpoint), params=params, timeout=_REQUEST_TIMEOUT)
         UnexpectedResponse.raise_for_status(response)
@@ -88,11 +66,3 @@ class LogfireClient:
     def get_user_information(self) -> dict[str, Any]:
         """Get information about the logged-in user."""
         return self._get('/v1/account/me', error_message='Error retrieving user information')
-
-    def get_prompt(self, organization: str, project_name: str, issue: str) -> dict[str, Any]:
-        """Get a prompt to be used with your favorite LLM."""
-        return self._get(
-            f'/v1/organizations/{organization}/projects/{project_name}/prompts',
-            params={'issue': issue},
-            error_message='Error retrieving prompt',
-        )
