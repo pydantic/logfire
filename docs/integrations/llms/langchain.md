@@ -38,7 +38,12 @@ Install `logfire`:
 
 {{ install_logfire() }}
 
-This works with your existing `langchain` (or `langgraph`) install: nothing extra to add.
+Logfire can trace an existing LangChain or LangGraph application without an extra tracing package.
+To run the example below, install `langchain` and its OpenAI provider package:
+
+```bash
+pip install langchain langchain-openai
+```
 
 ## Usage
 
@@ -78,7 +83,7 @@ def add(a: float, b: float) -> float:
     return a + b
 
 
-math_agent = create_agent('openai:gpt-5-mini', tools=[add], name='math_agent')
+math_agent = create_agent('openai:gpt-6.1-terra', tools=[add], name='math_agent')
 
 result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})
 print(result['messages'][-1].content)
