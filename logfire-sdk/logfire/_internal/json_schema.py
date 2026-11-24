@@ -278,7 +278,7 @@ def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
             value_schema = create_json_schema(value, seen)
             if common_schema is None:
                 common_schema = value_schema
-            elif value_schema == common_schema:
+            elif is_homogeneous and value_schema == common_schema:
                 value_schema = common_schema
             else:
                 is_homogeneous = False
