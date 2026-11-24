@@ -7,7 +7,7 @@ Use this for Express, Fastify, Koa, Hono on Node, background workers, CLIs, and 
 Install in the app package:
 
 ```bash
-npm install @pydantic/logfire-node @opentelemetry/auto-instrumentations-node
+npm install @pydantic/logfire-node @opentelemetry/auto-instrumentations-node @opentelemetry/instrumentation
 ```
 
 Use the repo's package manager. If peer dependency warnings name additional `@opentelemetry/*` packages, install the reported peers.
@@ -39,17 +39,18 @@ ESM or modern Node:
 ```json
 {
   "scripts": {
-    "start": "node --import ./dist/instrumentation.js ./dist/server.js"
+    "start": "node --experimental-loader=@opentelemetry/instrumentation/hook.mjs --import ./dist/instrumentation.js ./dist/server.js"
   }
 }
 ```
 
-TypeScript during development with `tsx`:
+TypeScript during development with `tsx` (verify automatic spans in this runner;
+loader interactions can differ from the compiled app):
 
 ```json
 {
   "scripts": {
-    "dev": "node --import tsx --import ./src/instrumentation.ts ./src/server.ts"
+    "dev": "node --experimental-loader=@opentelemetry/instrumentation/hook.mjs --import tsx --import ./src/instrumentation.ts ./src/server.ts"
   }
 }
 ```
@@ -72,7 +73,15 @@ logfire.configure({ serviceName: process.env.LOGFIRE_SERVICE_NAME || 'node-servi
 }
 ```
 
-Use `--require` only for CommonJS. Prefer `--import` for ESM and modern Node apps.
+Use `--require` only for CommonJS. ESM needs both the early `--import` bootstrap
+and OpenTelemetry's supported loader hook for automatic patching of ESM imports.
+See [OpenTelemetry's ESM support guidance](https://github.com/open-telemetry/opentelemetry-js/blob/main/doc/esm-support.md)
+when adapting the command to a project's runner.
+If a TypeScript development runner does not support the hook, validate
+ingestion with the compiled ESM start script before treating setup as complete.
+Do not assume a successful startup means HTTP spans were captured: invoke one
+request and verify its span. In particular, named imports from `node:http` can
+appear to work while the server remains uninstrumented without the hook.
 
 ## Manual Spans In App Code
 

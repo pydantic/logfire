@@ -30,11 +30,12 @@ exporters:
       Authorization: '${env:LOGFIRE_TOKEN}'
 ```
 
-Use the project-scoped write token created by the authentication flow's `projects use`
-command. Follow its [credential handoff instructions](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session) to place only the token value into a gitignored env file, Kubernetes Secret, or the deployment's existing secret manager without printing it. Set that credential as `LOGFIRE_TOKEN` wherever the Collector runs -- `${env:NAME}` is the Collector's own config-substitution syntax, resolved at startup, never hardcoded into the Collector config. Add the exporter to your metrics (and/or logs/traces) pipelines.
+Use the project-scoped write token created by `init use` for a local smoke test.
+For a persistent Collector, capture a separate `logfire token write` credential
+through the [credential handoff instructions](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-another-credential) and place only its value into a gitignored env file, Kubernetes Secret, or the deployment's existing secret manager without printing it. Set that credential as `LOGFIRE_TOKEN` wherever the Collector runs -- `${env:NAME}` is the Collector's own config-substitution syntax, resolved at startup, never hardcoded into the Collector config. Add the exporter to your metrics (and/or logs/traces) pipelines.
 
 Full setup, topologies, and processors:
-https://pydantic.dev/docs/logfire/guides/otel-collector/otel-collector-overview/
+<https://pydantic.dev/docs/logfire/guides/otel-collector/otel-collector-overview/>
 
 ## Host metrics → Hosts page
 
@@ -78,7 +79,28 @@ service:
 
 Set `host.name` (and other host resource attributes) so hosts are identified
 correctly. Guide:
-https://pydantic.dev/docs/logfire/guides/otel-collector/host-monitoring/
+<https://pydantic.dev/docs/logfire/guides/otel-collector/host-monitoring/>
+
+After validation, use the host's existing service manager when the Collector is
+already installed. For a first foreground smoke test, run the detected Contrib
+binary directly using the same `COLLECTOR_CONFIG` path that passed validation,
+and trigger at least one collection interval:
+
+```bash
+timeout 5m otelcol-contrib --config="$COLLECTOR_CONFIG"
+```
+
+If GNU `timeout` is unavailable, enforce the same five-minute bound through the
+agent's process runner and stop the Collector with SIGINT after a sample. Never
+leave the foreground smoke test running indefinitely.
+
+The foreground process is not a completed monitoring deployment. After the smoke
+test, install the validated configuration through the host's existing persistent
+service/container mechanism, enable it across restarts, record its start time,
+and verify a newer sample while that persistent deployment is running. If no
+deployment mechanism is available or the binary is not installed, stop and ask
+which supported installation path to use rather than reporting transient data as
+complete host monitoring.
 
 **App-only alternative:** if you can't run a Collector but the app process should
 report its host's metrics, call `logfire.instrument_system_metrics()` (Python,
@@ -92,6 +114,7 @@ Use the `docker_stats` receiver — **Contrib-only, not in the core Collector im
 ```yaml
 receivers:
   docker_stats:
+    collection_interval: 60s
     endpoint: unix:///var/run/docker.sock
     api_version: "1.44"   # quoted string -- a bare float like 1.44 is rejected
 
@@ -138,11 +161,13 @@ service:
 ```
 
 ```bash
-HOST_NAME=$(hostname) docker compose up
+HOST_NAME=$(hostname) docker compose up -d --no-deps otel-collector
 ```
 
 A literal `$(hostname)` inside a Compose value does not expand -- it has to
-come in from the shell.
+come in from the shell. If the repository uses another Collector service name
+or a task runner, use that targeted service/task instead of starting the whole
+Compose application.
 
 If the collector runs in a container and the Logfire base URL is a
 localhost/LAN address (self-hosted or local dev), reach the host via
@@ -229,6 +254,7 @@ containers within the last few minutes.
 
 Guide: https://pydantic.dev/docs/logfire/observe/docker/
 
+
 ## Kubernetes → Kubernetes page
 
 Collect cluster state, per-node/per-pod metrics, and the `k8s.*` resource
@@ -240,7 +266,15 @@ pattern is two Collectors — a Deployment for cluster-level state
 `k8s.*` attributes onto traces from your applications.
 
 Guide:
-https://pydantic.dev/docs/logfire/guides/otel-collector/kubernetes-monitoring/
+<https://pydantic.dev/docs/logfire/guides/otel-collector/kubernetes-monitoring/>
+
+For a standard new deployment, follow that guide's pinned
+`opentelemetry-kube-stack` Helm flow end to end: create the `observability`
+namespace, put the write token in the `logfire-token` Secret without printing
+it, set a real `clusterName`, configure `collectors.daemon` with the exact
+regional OTLP endpoint, and wait for the Operator and Collector pods. Do not
+invent a partial Deployment/DaemonSet or omit the chart's RBAC. If the guide is
+unavailable, stop rather than claiming an incomplete cluster setup succeeded.
 
 ## Database / queue / cache servers → Metrics & Dashboards
 
@@ -284,7 +318,7 @@ the receiver to the services the project actually depends on (read
   `GetMetricStatistics` / `ListMetrics` IAM permissions.
 
 Full setup, IAM policies, and example ECS/Cloud Run deployments:
-https://pydantic.dev/docs/logfire/guides/cloud-metrics/
+<https://pydantic.dev/docs/logfire/guides/cloud-metrics/>
 
 ## Service & resource metadata
 

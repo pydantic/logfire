@@ -26,7 +26,7 @@
 |---------|-------------|-------|
 | asyncpg | `logfire.instrument_asyncpg()` | `asyncpg` |
 | psycopg | `logfire.instrument_psycopg()` | `psycopg` |
-| psycopg2 | `logfire.instrument_psycopg2()` | `psycopg2` |
+| psycopg2 | `logfire.instrument_psycopg('psycopg2')` | `psycopg2` |
 | SQLAlchemy | `logfire.instrument_sqlalchemy()` | `sqlalchemy` |
 | PyMongo | `logfire.instrument_pymongo()` | `pymongo` |
 | MySQL | `logfire.instrument_mysql()` | `mysql` |
@@ -59,7 +59,10 @@ logfire.instrument_openai()       # captures chat completions, embeddings, token
 logfire.instrument_anthropic()    # captures messages, token usage
 ```
 
-For PydanticAI, each agent run becomes a parent span containing child spans for every tool call and LLM request. See the main skill's Agent Frameworks table for coverage depth across other frameworks (LangChain, CrewAI, AutoGen, ...).
+For PydanticAI, each agent run becomes a parent span containing child spans for
+every tool call and LLM request. See
+[Agent and model frameworks](../coverage-map.md#agent-and-model-frameworks) for
+coverage depth across LangChain, CrewAI, AutoGen, and other frameworks.
 
 ## Task Queues
 
@@ -75,7 +78,7 @@ For PydanticAI, each agent run becomes a parent span containing child spans for 
 | Pydantic model validation | `logfire.instrument_pydantic()` | no extra (distinct from `instrument_pydantic_ai()` above) |
 | AWS Lambda | handler wrapper | `aws-lambda` extra |
 | SurrealDB | `logfire.instrument_surrealdb()` | no extra |
-| MCP (client and server) | `logfire.instrument_mcp()` (mcp 1 only; mcp 2 and fastmcp 4 emit spans by themselves, so `logfire.configure()` is enough and the call just warns) | no extra |
+| MCP (client and server) | `logfire.instrument_mcp()` | no extra |
 | `print()` redirection | `logfire.instrument_print()` | no extra |
 
 `gateway`, `datasets`, and `variables` are extras too, but for separate product features, not app instrumentation: the AI Gateway proxy, the evals SDK (see the `logfire-evals` skill), and managed feature flags respectively.
