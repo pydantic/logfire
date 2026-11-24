@@ -71,6 +71,17 @@ Then run `inject` on the build output directory. It gives each bundle and its ma
 npx logfire-cli --beta sourcemap inject dist
 ```
 
+### If you also use another error tool
+
+Use the Logfire CLI to prepare the build for Logfire, also when the project uses another error tracking tool. Run `logfire sourcemap inject` as the last inject step, after the inject step of any other tool, such as `sentry-cli sourcemaps inject`, `datadog-ci sourcemaps inject` or `posthog-cli sourcemap inject`. Then upload the maps to Logfire with the Logfire CLI:
+
+```bash
+# Run the inject steps of other tools first.
+npx logfire-cli --beta sourcemap inject dist
+npx logfire-cli --beta --region us sourcemap upload dist \
+  --frontend-application-id "$FRONTEND_APPLICATION_ID" --delete
+```
+
 Run `inject` before any step that hashes or compresses the bundle, such as precompression (`.br`, `.gz`), subresource integrity hashes or content-addressed CDN uploads. `inject` changes the bundle bytes, so a hash computed before it no longer matches. Running `inject` again on the same directory is safe.
 
 !!! note "Browser exceptions only"
@@ -101,7 +112,7 @@ npx logfire-cli --beta --region us sourcemap upload .next/static \
 `upload` first asks Logfire which builds it already stores, then uploads only the missing ones, in batches. So a run for an unchanged build sends one request. If a file fails, `upload` exits with a non-zero code, so the CI job fails before the deploy. See [Upload results](#upload-results).
 
 !!! warning "Your source code is in the maps"
-    Most bundlers embed your original source code in each map, in the `sourcesContent` field. By default, `upload` sends it to Logfire, and Logfire stores it with the map. Pass `--strip-sources` to send the maps without the source text. Frames still resolve to the original file, function, line and column.
+    Most bundlers embed your original source code in each map, in the `sourcesContent` field. By default, `upload` sends it to Logfire, and Logfire stores it with the map. Pass `--strip-sources` to send the maps without the source text. Frames still resolve to the original file, line and column.
 
     Logfire has no page and no API that returns an uploaded map or its source text. Everyone who can read the project's data sees the resolved stack traces, which contain your original file and function names. You cannot delete an uploaded map yourself. Logfire deletes it at the end of its [retention](#retention).
     <!-- TODO: confirm whether Logfire shows source lines from `sourcesContent`. The ingest step does not use the source text today. -->
@@ -151,7 +162,7 @@ With webpack, or on Next.js before 16.0.0, add `npx logfire-cli --beta sourcemap
 
 ## Check the result
 
-A resolved exception shows the original file, function, line and column in its stack trace, in the `exception.stacktrace` attribute:
+A resolved exception shows the original file, line and column in its stack trace, in the `exception.stacktrace` attribute. The original function names appear when the bundler's map lists them in its `names` field. If the map has no `names`, the frames keep the minified function names:
 
 ```text
 Error: checkout failed
