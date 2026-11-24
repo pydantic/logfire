@@ -1,0 +1,25 @@
+docs/agent-sandboxes/large-results.md
+  s_0b7cd1bd2efbeb::t_b6a9b97ef5ea90 43,50,58
+docs/how-to-guides/query-api.md
+  s_0b7cd1bd2efbeb::t_b6a9b97ef5ea90 298,304
+docs/agent-sandboxes/many-tool-calls.md
+  s_0b7cd1bd2efbeb::t_3be34b7f72c616 62,85
+tests/test_docs.py
+  s_0b7cd1bd2efbeb::t_f812bfce341d60 65,218
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6a765e5f182b1c5af1a3ad76249e320f2f688a85",
+  "prompts": {},
+  "sessions": {
+    "s_0b7cd1bd2efbeb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20d9e-a5b6-73f3-b337-297d837ce063",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
