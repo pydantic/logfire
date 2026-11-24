@@ -385,6 +385,20 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             id='enum',
         ),
         pytest.param(
+            Enum('Choice', {'YES': True}).YES,
+            'Choice.YES',
+            'true',
+            {'type': 'boolean', 'title': 'Choice', 'x-python-datatype': 'Enum'},
+            id='bool_enum',
+        ),
+        pytest.param(
+            Enum('FloatChoice', {'VALUE': 1.5}).VALUE,
+            'FloatChoice.VALUE',
+            '1.5',
+            {'type': 'number', 'title': 'FloatChoice', 'x-python-datatype': 'Enum'},
+            id='float_enum',
+        ),
+        pytest.param(
             Enum('Maybe', {'NONE': None}).NONE,
             'Maybe.NONE',
             'null',
