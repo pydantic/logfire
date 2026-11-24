@@ -6,16 +6,6 @@ from typing import Any
 
 import numpy as np
 import pytest
-from dirty_equals import IsInt, IsPartialDict, IsStr
-from inline_snapshot import snapshot
-from openai import AsyncOpenAI
-from openai.types.responses import Response
-
-import logfire
-from logfire._internal.exporters.test import TestExporter
-
-pytest.importorskip('agents', reason='openai-agents requires python 3.10', exc_type=ImportError)
-
 from agents import (
     Agent,
     AgentSpanData,
@@ -46,7 +36,13 @@ from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData, Tas
 from agents.tracing.spans import NoOpSpan
 from agents.tracing.traces import NoOpTrace
 from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
+from dirty_equals import IsInt, IsPartialDict, IsStr
+from inline_snapshot import snapshot
+from openai import AsyncOpenAI
+from openai.types.responses import Response
 
+import logfire
+from logfire._internal.exporters.test import TestExporter
 from logfire._internal.integrations import openai_agents
 from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
