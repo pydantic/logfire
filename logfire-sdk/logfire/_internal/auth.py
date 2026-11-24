@@ -3,7 +3,6 @@ from __future__ import annotations
 import platform
 import re
 import sys
-import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,7 +12,6 @@ from urllib.parse import urljoin
 import requests
 from rich.console import Console
 from rich.prompt import IntPrompt
-from typing_extensions import Self
 
 from logfire.exceptions import LogfireConfigError
 
@@ -79,14 +77,6 @@ class UserToken:
     token: str
     base_url: str
     expiration: str
-
-    @classmethod
-    def from_user_token_data(cls, base_url: str, token: UserTokenData) -> Self:
-        return cls(
-            token=token['token'],
-            base_url=base_url,
-            expiration=token['expiration'],
-        )
 
     @property
     def is_expired(self) -> bool:
@@ -190,25 +180,6 @@ See https://pydantic.dev/docs/logfire/get-started for more details.""")
             raise LogfireConfigError(f'User token {token} is expired. Please run `logfire auth` to authenticate.')
         return token
 
-    def is_logged_in(self, base_url: str | None = None) -> bool:
-        """Check whether the user token collection contains at least one valid user token.
-
-        Args:
-            base_url: Only check for user tokens valid for this base URL. If not provided,
-                all the tokens of the collection will be considered.
-        """
-        if base_url is not None:
-            tokens = (t for t in self.user_tokens.values() if t.base_url == base_url)
-        else:
-            tokens = self.user_tokens.values()
-        return any(not t.is_expired for t in tokens)
-
-    def add_token(self, base_url: str, token: UserTokenData) -> UserToken:
-        """Add a user token to the collection."""
-        self.user_tokens[base_url] = user_token = UserToken.from_user_token_data(base_url, token)
-        self._dump()
-        return user_token
-
     def logout(self, base_url: str | None = None) -> list[str]:
         """Remove user token(s) from the collection."""
         if not self.user_tokens:
@@ -264,35 +235,3 @@ def request_device_code(session: requests.Session, base_api_url: str) -> tuple[s
         raise LogfireConfigError('Failed to request a device code.') from e
     data: NewDeviceFlow = res.json()
     return data['device_code'], data['frontend_auth_url']
-
-
-def poll_for_token(session: requests.Session, device_code: str, base_api_url: str) -> UserTokenData:
-    """Poll the Logfire API for the user token.
-
-    This function will keep polling the API until it receives a user token, not that
-    each request should take ~10 seconds as the API endpoint will block waiting for the user to
-    complete authentication.
-
-    Args:
-        session: The `requests` session to use.
-        device_code: The device code to poll for.
-        base_api_url: The base URL of the Logfire instance.
-
-    Returns:
-        The user token.
-    """
-    auth_endpoint = urljoin(base_api_url, f'/v1/device-auth/wait/{device_code}')
-    errors = 0
-    while True:
-        try:
-            res = session.get(auth_endpoint, timeout=_DEVICE_FLOW_TIMEOUT)
-            UnexpectedResponse.raise_for_status(res)
-        except requests.RequestException as e:
-            errors += 1
-            if errors >= 4:
-                raise LogfireConfigError('Failed to poll for token.') from e
-            warnings.warn('Failed to poll for token. Retrying...')
-        else:
-            opt_user_token: UserTokenData | None = res.json()
-            if opt_user_token:
-                return opt_user_token

@@ -13,6 +13,10 @@ from logfire._internal.auth import UserToken, UserTokenCollection, request_devic
 from logfire.exceptions import LogfireConfigError
 
 
+def test_missing_user_tokens_file(tmp_path: Path) -> None:
+    assert UserTokenCollection(tmp_path / 'missing.toml').user_tokens == {}
+
+
 @pytest.mark.parametrize(
     ['base_url', 'token', 'expected'],
     [
