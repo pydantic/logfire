@@ -42,7 +42,7 @@ Set the same service & resource metadata conventions the [collector reference](.
 
 Before starting or restarting the Collector, validate the config file — a receiver typo or bad indentation should surface as a validation error, not a Collector that starts, logs nothing useful, and silently drops the pipeline:
 
-Set `COLLECTOR_CONFIG` to the actual config path discovered in Step 2. Reuse
+Set `COLLECTOR_CONFIG` to the existing config path, or the file you created in Step 3. Reuse
 that exact path for validation, the smoke test, and persistent deployment.
 
 ```bash

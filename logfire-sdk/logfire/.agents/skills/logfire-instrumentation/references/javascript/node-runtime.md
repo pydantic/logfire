@@ -7,18 +7,17 @@ Use this for Express, Fastify, Koa, Hono on Node, background workers, CLIs, and 
 Install in the app package:
 
 ```bash
-npm install @pydantic/logfire-node @opentelemetry/auto-instrumentations-node @opentelemetry/instrumentation
+npm install @pydantic/logfire-node@0.26.0 @opentelemetry/auto-instrumentations-node@0.81.2 @opentelemetry/instrumentation@0.223.2
 ```
 
-Use the repo's package manager. If peer dependency warnings name additional `@opentelemetry/*` packages, install the reported peers.
+This set works together in a fresh install. Use the repo's package manager; for an existing installation, match the Logfire release's peer ranges rather than installing the latest OpenTelemetry packages independently. Do not force past peer conflicts.
 
 ## Instrumentation File
 
-Create an instrumentation module that is loaded before the app imports instrumented libraries:
+Create an instrumentation module that is loaded before the app imports instrumented libraries. If the app uses an environment-file loader, run its existing loader before configuring Logfire.
 
 ```ts
 // instrumentation.ts
-import 'dotenv/config'
 import * as logfire from '@pydantic/logfire-node'
 
 logfire.configure({
@@ -59,7 +58,6 @@ CommonJS:
 
 ```js
 // instrumentation.cjs
-require('dotenv/config')
 const logfire = require('@pydantic/logfire-node')
 
 logfire.configure({ serviceName: process.env.LOGFIRE_SERVICE_NAME || 'node-service' })
@@ -79,8 +77,8 @@ See [OpenTelemetry's ESM support guidance](https://github.com/open-telemetry/ope
 when adapting the command to a project's runner.
 If a TypeScript development runner does not support the hook, validate
 ingestion with the compiled ESM start script before treating setup as complete.
-Do not assume a successful startup means HTTP spans were captured: invoke one
-request and verify its span. In particular, named imports from `node:http` can
+Verify one automatic span from the workload: an incoming request for a server,
+or an instrumented queue, database, or outbound call for a worker. Named imports from `node:http` can
 appear to work while the server remains uninstrumented without the hook.
 
 ## Manual Spans In App Code

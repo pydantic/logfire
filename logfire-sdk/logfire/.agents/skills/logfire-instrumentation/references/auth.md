@@ -36,13 +36,15 @@ the confirmed target, and the user's real organization and project.
   `personal` as an alias or select among several organizations without the user's choice.
 
 Use `--no-input --output json` for control-plane commands and parse their versioned
-JSON result, not human prose. The explicit exceptions are `token read` and
-`token write`: they emit a new secret on stdout even in JSON mode.
+JSON result, not human prose. Capture `token read`, `token write`, and `api-key`
+privately: their stdout is a raw secret even in JSON mode.
 
 For browser-OAuth setup, omit `LOGFIRE_API_KEY`, `LOGFIRE_TOKEN`, and
 `LOGFIRE_MCP_TOKEN` from each CLI child process so ambient headless overrides
-cannot change its identity. Do not print their values or modify the parent
-environment. If a manually handed-off workflow explicitly retains a headless
+cannot change its identity. On macOS/Linux, prefix OAuth commands with
+`env -u LOGFIRE_API_KEY -u LOGFIRE_TOKEN -u LOGFIRE_MCP_TOKEN -u LOGFIRE_BASE_URL`
+and use the exact launcher. On Windows remove those names from the child process
+environment before starting it. Do not change the parent. If a workflow explicitly retains a headless
 credential, preserve that choice and validate its target instead of initiating
 browser login. Headless automation uses `LOGFIRE_API_KEY` for both Platform API
 and MCP calls; never substitute an SDK write token.
@@ -99,7 +101,7 @@ use the SDK write token to authenticate control-plane calls.
 ## Check before creating anything
 
 Before using local credentials, inspect path metadata: neither `.logfire` nor
-`logfire_credentials.json` may be a symlink, and credentials must not be tracked
+`.logfire/logfire_credentials.json` may be a symlink, and credentials must not be tracked
 by Git. Stop on an unsafe path rather than reading or overwriting it.
 
 For an existing local SDK project, this validates identity without minting a
@@ -111,12 +113,10 @@ logfire --region us --org acme --no-input --output json project current
 ```
 
 If the result matches the requested organization, project and origin, reuse it.
-A missing project file is not an authentication failure. When a trusted setup
-handoff already names an exact organization and existing project, continue with
-the existing-account sign-in and `init use` path below; do not ask the user to
-repeat that choice. Without an exact existing project, ask whether the user needs
-a new account or wants to connect an existing account rather than inferring it
-from missing local credentials.
+Only for standalone setup: if the file is missing and the user selected an
+existing project, follow sign-in and `init use` below. If they haven't selected
+one, ask whether to connect an existing account or create a new one. A prepared
+wizard handoff needs neither check nor initialization.
 
 ## Create a new account and its first project
 

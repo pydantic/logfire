@@ -28,8 +28,8 @@ event in Logfire.
 Node:
 
 1. For a local wiring check, set `LOGFIRE_CONSOLE=true` and
-   `LOGFIRE_SEND_TO_LOGFIRE=false`. For the required ingestion check, use the
-   selected project's credential instead.
+   `LOGFIRE_SEND_TO_LOGFIRE=false`. For an authorized ingestion check, unset
+   that flag in the test process and use the selected project's credential.
 2. Start through the instrumented script.
 3. Trigger one request or job.
 4. Confirm console output for the local check, then find the fresh event in the
@@ -59,7 +59,7 @@ Deno:
 - The start script was changed for `dev` but production uses a different uninstrumented script.
 - The app is ESM but the preload was added as `--require` instead of `--import`.
 - An ESM app starts with `--import` but omits the OpenTelemetry ESM loader hook;
-  check the actual runner and verify an HTTP request span, not only console startup.
+  verify an automatic span from the exercised request, job, or outbound operation, not console startup.
 - `LOGFIRE_TOKEN` is absent and local `.logfire` credentials are not configured.
 - Browser code is using an ordinary write token instead of the restricted frontend application token, or its trace URL and token came from different applications or regions.
 - Next.js has `instrumentation.ts` in the wrong directory for the app structure.

@@ -6,7 +6,7 @@ Use the package manager detected in [project-detection.md](./project-detection.m
 
 | Runtime | Install |
 | --- | --- |
-| Node.js server, worker, CLI, script | `@pydantic/logfire-node @opentelemetry/auto-instrumentations-node` |
+| Node.js server, worker, CLI, script | Use the [compatible Logfire, auto-instrumentation, and loader packages](./node-runtime.md#install). |
 | Next.js server-side tracing | `@vercel/otel logfire` |
 | Browser/React/Vite client tracing | `@pydantic/logfire-browser` |
 | Cloudflare Workers in-process tracing | `@pydantic/logfire-cf-workers logfire` |

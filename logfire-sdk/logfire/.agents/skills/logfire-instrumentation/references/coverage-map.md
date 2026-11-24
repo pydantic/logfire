@@ -44,7 +44,7 @@ Coverage of messages, tools, tokens and cost differs by framework, so verify the
 fields that actually arrived rather than assuming parity.
 
 For JavaScript Vercel AI SDK calls, use the dedicated AI SDK reference. For
-Python framework calls and package requirements, use the integrations reference.
+Python framework calls and package requirements, use the [AI/LLM integrations reference](./python/integrations.md#aillm-frameworks).
 
 ## Expansion order
 

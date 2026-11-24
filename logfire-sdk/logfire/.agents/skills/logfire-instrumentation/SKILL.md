@@ -157,10 +157,10 @@ Compilation and a clean exporter log are not evidence of ingestion.
 1. Run the real application and exercise one identifiable operation.
 2. Query the exact project confirmed by the parent wizard handoff, or by
    `project current` for standalone use, for that service and operation within
-   the test window:
+   the test window. Replace the example service and span names with the ones exercised:
 
    ```bash
-   logfire --region us --org acme --no-input --output json mcp query run "SELECT start_timestamp, trace_id, service_name, message FROM records WHERE service_name = 'my-app' ORDER BY start_timestamp DESC LIMIT 20" --project my-app
+   logfire --region us --org acme --no-input --output json mcp query run "SELECT start_timestamp, trace_id, service_name, span_name FROM records WHERE service_name = 'my-app' AND span_name = 'example-operation' ORDER BY start_timestamp DESC LIMIT 20" --start 5m --project my-app
    ```
 
 3. Confirm timestamps are fresh, the service is not `unknown_service`, parent/

@@ -76,9 +76,11 @@ recording privacy, volume, and matching errors to playable sessions.
 
 Follow the frontend specialist for router instrumentation and route-template grouping.
 
-Browser capture requires a restricted frontend application token, separate from
-the server's ordinary write token. Preserve an existing telemetry proxy; adding
-a Next.js rewrite is not required to hide the restricted frontend token.
+Use the restricted frontend application token **and its generated regional trace URL**
+in public client config. Never substitute a placeholder or the server's ordinary
+write token. No rewrite is required. If the app already proxies browser telemetry,
+retain it only if it checks the request's `Origin` against an explicitly configured
+frontend origin and rejects requests when either is absent or they differ.
 
 If using a Client Component fallback, import it normally from an App Router
 Server Component. Put `next/dynamic` with `ssr: false` in another Client

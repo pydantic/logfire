@@ -26,10 +26,12 @@ Supply `BRAINTRUST_API_KEY` through the project's private environment or secret
 manager; never paste the key into a shell command, source file, or chat.
 The destination project's API key needs `project:write_otlp` and `project:read_datasets`: the SDK writes the run, then reads experiment metadata for its summary. An ingest-only write token fails with `403`.
 
-If that key does not already exist, confirm the exact project with the shared
-authentication guide, then capture the exact CLI's
-`logfire api-key project:write_otlp project:read_datasets --name braintrust` output
-directly into the private environment. Do not run it bare or display its stdout.
+If a new key is authorized, run the exact CLI in the confirmed project's application
+directory. For example, the arguments for Cloud US/organization acme are
+`--region us --org acme --no-input --output json api-key project:write_otlp project:read_datasets --name braintrust`.
+Substitute the confirmed origin and organization. The project comes from the
+validated local credential directory, not a `--project` flag. Capture raw stdout
+directly into the private environment; do not display it.
 
 This **compatibility preview** covers inline/callable data, local tasks and scorers, multiple scores, one label per name, and normal summary finalization. It excludes Braintrust-hosted resources, BTQL, the model proxy, server-side scoring, and post-finalization feedback. Rust, `summarize_scores=False`, and manual `flush()` without comparison do not request the summary needed for projection. See the [full coverage and concept mapping](https://pydantic.dev/docs/logfire/get-started/comparisons/migrate-from-braintrust/).
 
@@ -79,11 +81,11 @@ If the stored dataset has custom evaluators, pass their classes with
 `custom_report_evaluator_types=[...]` for custom report evaluators. Push changes
 with `client.push_dataset(dataset)`.
 
-Hosted dataset access needs a separate API key. Capture it from the exact CLI
-with `logfire api-key project:read_datasets --name hosted-evals` for read-only access,
-or use `logfire api-key project:read_datasets project:write_datasets --name hosted-evals`
-for create/update/push workflows. Never display the one-time stdout. Step 2's
-CLI login selects the project but is not this key.
+Hosted dataset access needs a separate API key. If authorized to mint one, use
+the same confirmed application directory, target, organization, non-interactive
+flags, and private stdout capture as the Step 1 example. Use
+`api-key project:read_datasets --name hosted-evals` for reads; add
+`project:write_datasets` only for create/update/push. CLI login is not this key.
 
 ## Step 4: Define the Dataset and Run It
 
@@ -202,7 +204,8 @@ A report printing to the terminal isn't proof it reached Logfire — confirm the
 
 **Came from the Step 1 Braintrust path (Step 2 skipped)?** There's no `project current`-resolved project to look up here — use the SDK's own printed result URL instead, which already opens directly in the right Logfire project. Confirm the same things below (completion, pass mix, case detail) from that page rather than searching by name.
 
-1. **Query the run directly through the authenticated CLI.** Replace the
+1. **For a native Logfire-backed run only, query through the authenticated CLI.**
+   Braintrust users continue at item 2 using their SDK's result URL. Replace the
    synthetic dataset and task names with the exact ones you just ran, keep the
    exact target/org/project from Step 2, and require a fresh completed root span:
 

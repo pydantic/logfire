@@ -31,6 +31,7 @@ first. Do not create an SDK write token just to route a request.
 
 Read-only repository inspection does not require login. Before modifying the app
 or sending telemetry, follow [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project).
+For standalone SDK setup, confirm the target with `project current` when configured.
 If the wizard already prepared this project, reuse its target and send-only SDK write token.
 Never broaden it. Mint a separate credential only if a later task needs one.
 
@@ -66,7 +67,7 @@ Never print, log, or commit credentials. See the
 [credential handoff instructions](#if-the-calling-skill-needs-another-credential)
 if a later step needs a separate credential. After verification, share the clean
 project link and report what you actually observed. With the CLI, use
-`mcp link project` for the confirmed project with `--no-input --output json`
+`mcp link project --project <confirmed-project>` with `--no-input --output json`
 and without `--open`; return `data.url`. Prefer the verified trace or
 experiment link when available. If link creation fails, say so; never invent
 a URL or treat creating one as proof of ingestion. Do not rerun
@@ -232,10 +233,10 @@ Compilation and a clean exporter log are not evidence of ingestion.
 1. Run the real application and exercise one identifiable operation.
 2. Query the exact project confirmed by the parent wizard handoff, or by
    `project current` for standalone use, for that service and operation within
-   the test window:
+   the test window. Replace the example service and span names with the ones exercised:
 
    ```bash
-   logfire --region us --org acme --no-input --output json mcp query run "SELECT start_timestamp, trace_id, service_name, message FROM records WHERE service_name = 'my-app' ORDER BY start_timestamp DESC LIMIT 20" --project my-app
+   logfire --region us --org acme --no-input --output json mcp query run "SELECT start_timestamp, trace_id, service_name, span_name FROM records WHERE service_name = 'my-app' AND span_name = 'example-operation' ORDER BY start_timestamp DESC LIMIT 20" --start 5m --project my-app
    ```
 
 3. Confirm timestamps are fresh, the service is not `unknown_service`, parent/
@@ -315,7 +316,7 @@ Set the same service & resource metadata conventions the [collector reference](.
 
 Before starting or restarting the Collector, validate the config file — a receiver typo or bad indentation should surface as a validation error, not a Collector that starts, logs nothing useful, and silently drops the pipeline:
 
-Set `COLLECTOR_CONFIG` to the actual config path discovered in Step 2. Reuse
+Set `COLLECTOR_CONFIG` to the existing config path, or the file you created in Step 3. Reuse
 that exact path for validation, the smoke test, and persistent deployment.
 
 ```bash
@@ -391,10 +392,12 @@ Supply `BRAINTRUST_API_KEY` through the project's private environment or secret
 manager; never paste the key into a shell command, source file, or chat.
 The destination project's API key needs `project:write_otlp` and `project:read_datasets`: the SDK writes the run, then reads experiment metadata for its summary. An ingest-only write token fails with `403`.
 
-If that key does not already exist, confirm the exact project with the shared
-authentication guide, then capture the exact CLI's
-`logfire api-key project:write_otlp project:read_datasets --name braintrust` output
-directly into the private environment. Do not run it bare or display its stdout.
+If a new key is authorized, run the exact CLI in the confirmed project's application
+directory. For example, the arguments for Cloud US/organization acme are
+`--region us --org acme --no-input --output json api-key project:write_otlp project:read_datasets --name braintrust`.
+Substitute the confirmed origin and organization. The project comes from the
+validated local credential directory, not a `--project` flag. Capture raw stdout
+directly into the private environment; do not display it.
 
 This **compatibility preview** covers inline/callable data, local tasks and scorers, multiple scores, one label per name, and normal summary finalization. It excludes Braintrust-hosted resources, BTQL, the model proxy, server-side scoring, and post-finalization feedback. Rust, `summarize_scores=False`, and manual `flush()` without comparison do not request the summary needed for projection. See the [full coverage and concept mapping](https://pydantic.dev/docs/logfire/get-started/comparisons/migrate-from-braintrust/).
 
@@ -444,11 +447,11 @@ If the stored dataset has custom evaluators, pass their classes with
 `custom_report_evaluator_types=[...]` for custom report evaluators. Push changes
 with `client.push_dataset(dataset)`.
 
-Hosted dataset access needs a separate API key. Capture it from the exact CLI
-with `logfire api-key project:read_datasets --name hosted-evals` for read-only access,
-or use `logfire api-key project:read_datasets project:write_datasets --name hosted-evals`
-for create/update/push workflows. Never display the one-time stdout. Step 2's
-CLI login selects the project but is not this key.
+Hosted dataset access needs a separate API key. If authorized to mint one, use
+the same confirmed application directory, target, organization, non-interactive
+flags, and private stdout capture as the Step 1 example. Use
+`api-key project:read_datasets --name hosted-evals` for reads; add
+`project:write_datasets` only for create/update/push. CLI login is not this key.
 
 ## Step 4: Define the Dataset and Run It
 
@@ -567,7 +570,8 @@ A report printing to the terminal isn't proof it reached Logfire — confirm the
 
 **Came from the Step 1 Braintrust path (Step 2 skipped)?** There's no `project current`-resolved project to look up here — use the SDK's own printed result URL instead, which already opens directly in the right Logfire project. Confirm the same things below (completion, pass mix, case detail) from that page rather than searching by name.
 
-1. **Query the run directly through the authenticated CLI.** Replace the
+1. **For a native Logfire-backed run only, query through the authenticated CLI.**
+   Braintrust users continue at item 2 using their SDK's result URL. Replace the
    synthetic dataset and task names with the exact ones you just ran, keep the
    exact target/org/project from Step 2, and require a fresh completed root span:
 
@@ -644,13 +648,15 @@ the confirmed target, and the user's real organization and project.
   `personal` as an alias or select among several organizations without the user's choice.
 
 Use `--no-input --output json` for control-plane commands and parse their versioned
-JSON result, not human prose. The explicit exceptions are `token read` and
-`token write`: they emit a new secret on stdout even in JSON mode.
+JSON result, not human prose. Capture `token read`, `token write`, and `api-key`
+privately: their stdout is a raw secret even in JSON mode.
 
 For browser-OAuth setup, omit `LOGFIRE_API_KEY`, `LOGFIRE_TOKEN`, and
 `LOGFIRE_MCP_TOKEN` from each CLI child process so ambient headless overrides
-cannot change its identity. Do not print their values or modify the parent
-environment. If a manually handed-off workflow explicitly retains a headless
+cannot change its identity. On macOS/Linux, prefix OAuth commands with
+`env -u LOGFIRE_API_KEY -u LOGFIRE_TOKEN -u LOGFIRE_MCP_TOKEN -u LOGFIRE_BASE_URL`
+and use the exact launcher. On Windows remove those names from the child process
+environment before starting it. Do not change the parent. If a workflow explicitly retains a headless
 credential, preserve that choice and validate its target instead of initiating
 browser login. Headless automation uses `LOGFIRE_API_KEY` for both Platform API
 and MCP calls; never substitute an SDK write token.
@@ -713,7 +719,7 @@ use the SDK write token to authenticate control-plane calls.
 ## Check before creating anything
 
 Before using local credentials, inspect path metadata: neither `.logfire` nor
-`logfire_credentials.json` may be a symlink, and credentials must not be tracked
+`.logfire/logfire_credentials.json` may be a symlink, and credentials must not be tracked
 by Git. Stop on an unsafe path rather than reading or overwriting it.
 
 For an existing local SDK project, this validates identity without minting a
@@ -725,12 +731,10 @@ logfire --region us --org acme --no-input --output json project current
 ```
 
 If the result matches the requested organization, project and origin, reuse it.
-A missing project file is not an authentication failure. When a trusted setup
-handoff already names an exact organization and existing project, continue with
-the existing-account sign-in and `init use` path below; do not ask the user to
-repeat that choice. Without an exact existing project, ask whether the user needs
-a new account or wants to connect an existing account rather than inferring it
-from missing local credentials.
+Only for standalone setup: if the file is missing and the user selected an
+existing project, follow sign-in and `init use` below. If they haven't selected
+one, ask whether to connect an existing account or create a new one. A prepared
+wizard handoff needs neither check nor initialization.
 
 <a id="reference-logfire-instrumentation-references-auth-md--create-a-new-account-and-its-first-project"></a>
 

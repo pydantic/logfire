@@ -31,6 +31,8 @@ exporters:
 ```
 
 Use the project-scoped write token created by `init use` for a local smoke test.
+From the confirmed application directory, pass only the saved project credential's
+`token` field to the Collector child's `LOGFIRE_TOKEN` programmatically, without printing it.
 For a persistent Collector, capture a separate `logfire token write` credential
 through the [credential handoff instructions](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-another-credential) and place only its value into a gitignored, owner-only env file (mode `0600` on POSIX), Kubernetes Secret, or the deployment's existing secret manager without printing it. Set that credential as `LOGFIRE_TOKEN` wherever the Collector runs -- `${env:NAME}` is the Collector's own config-substitution syntax, resolved at startup, never hardcoded into the Collector config. Add the exporter to your metrics (and/or logs/traces) pipelines.
 
@@ -82,12 +84,12 @@ correctly. Guide:
 <https://pydantic.dev/docs/logfire/guides/otel-collector/host-monitoring/>
 
 After validation, use the host's existing service manager when the Collector is
-already installed. For a first foreground smoke test, run the detected Contrib
-binary directly using the same `COLLECTOR_CONFIG` path that passed validation,
+already installed. For a first foreground smoke test, set `COLLECTOR_BIN` to the
+executable that validated this configuration. Use the same `COLLECTOR_CONFIG` path,
 and trigger at least one collection interval:
 
 ```bash
-timeout 5m otelcol-contrib --config="$COLLECTOR_CONFIG"
+timeout 5m "$COLLECTOR_BIN" --config="$COLLECTOR_CONFIG"
 ```
 
 If GNU `timeout` is unavailable, enforce the same five-minute bound through the

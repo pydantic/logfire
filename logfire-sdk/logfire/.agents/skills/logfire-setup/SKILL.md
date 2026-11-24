@@ -16,6 +16,7 @@ first. Do not create an SDK write token just to route a request.
 
 Read-only repository inspection does not require login. Before modifying the app
 or sending telemetry, follow [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md).
+For standalone SDK setup, confirm the target with `project current` when configured.
 If the wizard already prepared this project, reuse its target and send-only SDK write token.
 Never broaden it. Mint a separate credential only if a later task needs one.
 
@@ -51,7 +52,7 @@ Never print, log, or commit credentials. See the
 [credential handoff instructions](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-another-credential)
 if a later step needs a separate credential. After verification, share the clean
 project link and report what you actually observed. With the CLI, use
-`mcp link project` for the confirmed project with `--no-input --output json`
+`mcp link project --project <confirmed-project>` with `--no-input --output json`
 and without `--open`; return `data.url`. Prefer the verified trace or
 experiment link when available. If link creation fails, say so; never invent
 a URL or treat creating one as proof of ingestion. Do not rerun

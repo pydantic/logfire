@@ -62,7 +62,15 @@ logfire.instrument_anthropic()    # captures messages, token usage
 For PydanticAI, each agent run becomes a parent span containing child spans for
 every tool call and LLM request. See
 [Agent and model frameworks](../coverage-map.md#agent-and-model-frameworks) for
-coverage depth across LangChain, CrewAI, AutoGen, and other frameworks.
+coverage depth across frameworks.
+
+- **LangChain/LangGraph:** with `langsmith>=0.4.25`, set `LANGSMITH_TRACING=true`,
+  `LANGSMITH_OTEL_ENABLED=true`, and `LANGSMITH_OTEL_ONLY=true` in the application;
+  call `logfire.configure()` before running the chain. No separate instrumentor is needed.
+- **Google ADK:** call `logfire.configure()` before starting the agent; ADK emits OpenTelemetry spans natively.
+- **CrewAI, Agno, or smolagents:** choose the framework-specific
+  `openinference-instrumentation-*` package compatible with the installed framework.
+  Follow that package's instrumentor instructions after configuring Logfire; do not instrument the same library twice.
 
 ## Task Queues
 
@@ -78,7 +86,7 @@ coverage depth across LangChain, CrewAI, AutoGen, and other frameworks.
 | Pydantic model validation | `logfire.instrument_pydantic()` | no extra (distinct from `instrument_pydantic_ai()` above) |
 | AWS Lambda | handler wrapper | `aws-lambda` extra |
 | SurrealDB | `logfire.instrument_surrealdb()` | no extra |
-| MCP (client and server) | `logfire.instrument_mcp()` | no extra |
+| MCP (client and server) | MCP 1: `logfire.instrument_mcp()`. MCP 2 and FastMCP 4 emit spans natively: use `logfire.configure()` only. | no extra |
 | `print()` redirection | `logfire.instrument_print()` | no extra |
 
 `gateway`, `datasets`, and `variables` are extras too, but for separate product features, not app instrumentation: the AI Gateway proxy, the evals SDK (see the `logfire-evals` skill), and managed feature flags respectively.
