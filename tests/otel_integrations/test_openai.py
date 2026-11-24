@@ -30,6 +30,9 @@ import logfire
 from logfire._internal.utils import get_version, suppress_instrumentation
 from logfire.testing import TestExporter
 
+# OpenAI's httpx2 client annotation rejects httpx clients, although it accepts them
+# at runtime. Keep httpx here to test its OpenTelemetry instrumentation.
+
 pytestmark = [
     pytest.mark.skipif(
         get_version(pydantic.__version__) < get_version('2.11'),
@@ -369,7 +372,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
 def instrumented_client() -> Iterator[openai.Client]:
     with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
         # use a hardcoded API key to make sure one in the environment is never used
-        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)  # pyright: ignore[reportArgumentType]
 
         # Test instrumenting a class
         with logfire.instrument_openai(openai.Client, version=[1, 'latest']):
@@ -386,7 +389,7 @@ def instrumented_client() -> Iterator[openai.Client]:
 async def instrumented_async_client() -> AsyncIterator[openai.AsyncClient]:
     async with httpx.AsyncClient(transport=MockTransport(request_handler)) as httpx_client:
         # use a hardcoded API key to make sure one in the environment is never used
-        openai_client = openai.AsyncClient(api_key='foobar', http_client=httpx_client)
+        openai_client = openai.AsyncClient(api_key='foobar', http_client=httpx_client)  # pyright: ignore[reportArgumentType]
 
         with logfire.instrument_openai(openai_client, version=[1, 'latest']):
             yield openai_client
@@ -2329,11 +2332,14 @@ def test_sync_chat_completions_version_v1_only(exporter: TestExporter) -> None:
                                 'audio_tokens': 0,
                                 'reasoning_tokens': 0,
                                 'rejected_prediction_tokens': 0,
+                                'text_tokens': None,
                             },
                             'prompt_tokens_details': {
                                 'audio_tokens': 0,
                                 'cache_write_tokens': None,
                                 'cached_tokens': 0,
+                                'image_tokens': None,
+                                'text_tokens': None,
                             },
                         },
                     },
@@ -2970,7 +2976,7 @@ def test_responses_stream_incomplete_or_failed(final_fields: dict[str, Any], exp
         body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in events)
         return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream'})
 
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))  # pyright: ignore[reportArgumentType]
     with logfire.instrument_openai(client):
         list(
             client.responses.create(model='gpt-4.1', input='What is four plus five?', max_output_tokens=16, stream=True)
@@ -3223,7 +3229,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
     with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
         HTTPXClientInstrumentor().instrument_client(httpx_client)
         # use a hardcoded API key to make sure one in the environment is never used
-        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)  # pyright: ignore[reportArgumentType]
 
         with logfire.instrument_openai(openai_client, version=[1, 'latest']):
             response = openai_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
@@ -3400,7 +3406,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
     with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
         HTTPXClientInstrumentor().instrument_client(httpx_client)
         # use a hardcoded API key to make sure one in the environment is never used
-        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)  # pyright: ignore[reportArgumentType]
 
         with logfire.instrument_openai(openai_client, suppress_other_instrumentation=True, version=[1, 'latest']):
             response = openai_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
@@ -5444,7 +5450,7 @@ def test_get_endpoint_config_responses_agent_span() -> None:
 @pytest.mark.parametrize('version', [1, 2, [1, 2]])
 @pytest.mark.parametrize('complete', [False, True])
 def test_stream_response_metadata(version: Any, complete: bool, exporter: TestExporter) -> None:
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(request_handler)))
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(request_handler)))  # pyright: ignore[reportArgumentType]
     with logfire.instrument_openai(client, version=version):
         list(
             client.chat.completions.create(
@@ -5475,7 +5481,7 @@ async def test_internal_exception_in_on_response_keeps_the_response(
         'choices': [{'index': 0, 'message': None, 'finish_reason': 'content_filter'}],
     }
     async with httpx.AsyncClient(transport=MockTransport(lambda _: httpx.Response(200, json=body))) as http_client:
-        client = openai.AsyncClient(api_key='foobar', http_client=http_client)
+        client = openai.AsyncClient(api_key='foobar', http_client=http_client)  # pyright: ignore[reportArgumentType]
         with logfire.instrument_openai(client):
             response = await client.chat.completions.create(
                 model='gpt-4o', messages=[{'role': 'user', 'content': 'hi'}]
@@ -5531,7 +5537,7 @@ def test_cached_prompt_tokens_recorded(exporter: TestExporter) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=responses_body if request.url.path.endswith('/responses') else chat_body)
 
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))  # pyright: ignore[reportArgumentType]
     with logfire.instrument_openai(client):
         client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
         client.responses.create(model='gpt-4o-mini', input='hi')
@@ -5588,7 +5594,7 @@ def test_cache_write_tokens_recorded(exporter: TestExporter) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=responses_body if request.url.path.endswith('/responses') else chat_body)
 
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))  # pyright: ignore[reportArgumentType]
     with logfire.instrument_openai(client):
         client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
         client.responses.create(model='gpt-4o-mini', input='hi')
@@ -5675,7 +5681,7 @@ def test_cache_write_tokens_recorded_from_streams(exporter: TestExporter) -> Non
             body = ''.join(f'data: {json.dumps(chunk)}\n\n' for chunk in chat_chunks) + 'data: [DONE]\n\n'
         return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream'})
 
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))  # pyright: ignore[reportArgumentType]
     with logfire.instrument_openai(client):
         list(
             client.chat.completions.create(
@@ -5753,7 +5759,7 @@ def test_azure_content_filter_chunks_ignored_in_stream(chunks_have_object: bool,
     sse = ''.join(f'data: {json.dumps(chunk)}\n\n' for chunk in chunks) + 'data: [DONE]\n\n'
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(
+        http_client=httpx.Client(  # pyright: ignore[reportArgumentType]
             transport=MockTransport(
                 lambda _: httpx.Response(200, text=sse, headers={'content-type': 'text/event-stream'})
             )
@@ -5798,7 +5804,7 @@ def test_uncached_prompt_tokens_omit_cache_attribute(exporter: TestExporter) -> 
     }
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),  # pyright: ignore[reportArgumentType]
     )
     with logfire.instrument_openai(client):
         client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
@@ -5863,7 +5869,7 @@ def test_responses_finish_reasons(fields: dict[str, Any], expected: list[str] | 
     }
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),  # pyright: ignore[reportArgumentType]
     )
     with logfire.instrument_openai(client):
         client.responses.create(model='gpt-4o-mini', input='hi')
@@ -5896,7 +5902,7 @@ def test_responses_custom_tool_calls(exporter: TestExporter) -> None:
     }
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),  # pyright: ignore[reportArgumentType]
     )
     with logfire.instrument_openai(client):
         client.responses.create(
@@ -5954,7 +5960,7 @@ def test_responses_refusal_recorded_as_text(exporter: TestExporter) -> None:
     }
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),  # pyright: ignore[reportArgumentType]
     )
     with logfire.instrument_openai(client):
         client.responses.create(model='gpt-4o-mini', input='hi')
@@ -5966,7 +5972,7 @@ def test_responses_refusal_recorded_as_text(exporter: TestExporter) -> None:
 
 
 def gateway_client(handler: Callable[[httpx.Request], httpx.Response]) -> openai.Client:
-    return openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    return openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))  # pyright: ignore[reportArgumentType]
 
 
 def sse_response(events: list[dict[str, Any]]) -> httpx.Response:

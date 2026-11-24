@@ -10,6 +10,8 @@ import pytest
 import logfire
 from logfire.testing import TestExporter
 
+# OpenAI accepts this httpx test transport at runtime despite its httpx2 annotation.
+
 
 class FailingChatStream(httpx.SyncByteStream):
     def __init__(self, *, chunks_before_error: int) -> None:
@@ -40,7 +42,10 @@ def test_chat_completions_stream_failure_records_model_error(exporter: TestExpor
 
     with httpx.Client(transport=httpx.MockTransport(handle)) as httpx_client:
         client = openai.Client(
-            api_key='unused', base_url='https://example.invalid/v1', http_client=httpx_client, max_retries=0
+            api_key='unused',
+            base_url='https://example.invalid/v1',
+            http_client=httpx_client,  # pyright: ignore[reportArgumentType]
+            max_retries=0,
         )
         with logfire.instrument_openai(client):
             response = client.chat.completions.create(
