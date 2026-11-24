@@ -1,0 +1,20 @@
+docs/reference/advanced/baggage.md
+  s_2ea8d0b9c8714a::t_2bfa381e1e2820 65-67
+  s_2ea8d0b9c8714a::t_f8e3f3ea411332 68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "61ad19e3d7fb81862188bb986ab101f2c83a064b",
+  "prompts": {},
+  "sessions": {
+    "s_2ea8d0b9c8714a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20e02-83eb-7a70-a1d2-16c366e4dfe3",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
