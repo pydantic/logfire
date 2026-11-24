@@ -951,6 +951,13 @@ def test_log_non_scalar_args(
     assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema  # type: ignore
 
 
+def test_recursive_enum_value_schema() -> None:
+    member = Enum('Recursive', {'MEMBER': 1}).MEMBER
+    object.__setattr__(member, '_value_', member)
+
+    assert create_json_schema(member, set()) == {}
+
+
 def test_attrs_schema_respects_repr() -> None:
     assert create_json_schema(MyReprAttrs(1, MyDataclass(2)), set()) == {
         'type': 'object',
