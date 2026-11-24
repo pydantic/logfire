@@ -70,7 +70,6 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from rich.console import Console
 
-from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesLogProcessorWrapper, DirectBaggageAttributesSpanProcessor
 from logfire._internal.collect_system_info import collect_package_info
 from logfire.exceptions import LogfireConfigError
@@ -136,6 +135,7 @@ from .http_transport import install_connection_policy
 from .integrations.executors import instrument_executors
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
+from .regions import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
 from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .stack_info import warn_at_user_stacklevel
