@@ -36,9 +36,9 @@ class JsonArgsValueFormatter:
             'bytes': self._format_bytes,
             'bytearray': self._format_bytearray,
             'Decimal': partial(self._write, 'Decimal(', ')', True),
-            'date': self._format_date,
-            'datetime': self._format_datetime,
-            'time': self._format_time,
+            'date': partial(self._format_iso, date.fromisoformat),
+            'datetime': partial(self._format_iso, datetime.fromisoformat),
+            'time': partial(self._format_iso, time.fromisoformat),
             'timedelta': self._format_timedelta,
             'Enum': partial(self._write, '(', ')', True),
             'IPv4Address': partial(self._write, 'IPv4Address(', ')', True),
@@ -357,14 +357,15 @@ class JsonArgsValueFormatter:
             real_row_count=schema.get('x-row-count', 0),
         )
 
-    def _format_date(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
-        self._write('', '', True, 0, date.fromisoformat(value) if isinstance(value, str) else value, schema)
-
-    def _format_datetime(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
-        self._write('', '', True, 0, datetime.fromisoformat(value) if isinstance(value, str) else value, schema)
-
-    def _format_time(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
-        self._write('', '', True, 0, time.fromisoformat(value) if isinstance(value, str) else value, schema)
+    def _format_iso(
+        self, parse: Callable[[str], Any], _indent_current: int, value: Any, schema: JSONSchema | None
+    ) -> None:
+        try:
+            value = parse(value)
+        except (TypeError, ValueError):
+            # The encoded value isn't always an ISO formatted string, e.g. pandas.NaT is encoded as 'NaT'.
+            pass
+        self._write('', '', True, 0, value, schema)
 
 
 json_args_value_formatter = JsonArgsValueFormatter(indent=4)

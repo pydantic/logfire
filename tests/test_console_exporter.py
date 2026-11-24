@@ -1330,6 +1330,19 @@ def test_console_exporter_log_pydantic_model_serializer(
     assert capsys.readouterr().out.splitlines()[2:] == [expected, '│ count=1']
 
 
+def test_console_exporter_log_pandas_nat(capsys: pytest.CaptureFixture[str]) -> None:
+    import pandas
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+    )
+
+    logfire.info('hello', when=pandas.NaT, count=1)
+
+    assert capsys.readouterr().out.splitlines()[2:] == snapshot(["│ when='NaT'", '│ count=1'])
+
+
 def test_console_exporter_log_pydantic_root_model(capsys: pytest.CaptureFixture[str]) -> None:
     from pydantic import BaseModel, RootModel
 
