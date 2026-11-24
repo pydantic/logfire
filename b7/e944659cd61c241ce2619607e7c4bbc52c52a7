@@ -1,0 +1,21 @@
+logfire-sdk/logfire/_internal/logfire_info.py
+  s_48d92db44c8b12::t_ef0955ec6bdec1 4,42-43,46
+tests/test_logfire_info.py
+  s_48d92db44c8b12::t_ef0955ec6bdec1 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b7e944659cd61c241ce2619607e7c4bbc52c52a7",
+  "prompts": {},
+  "sessions": {
+    "s_48d92db44c8b12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20d29-571c-7b30-9599-483b8401df9c",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
