@@ -8,7 +8,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-from enum import Enum
+from enum import Enum, IntEnum, StrEnum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
@@ -44,15 +44,6 @@ import logfire
 from logfire._internal.json_formatter import json_args_value_formatter
 from logfire._internal.json_schema import create_json_schema
 from logfire.testing import TestExporter
-
-if sys.version_info >= (3, 11):  # pragma: no branch
-    from enum import IntEnum, StrEnum
-else:  # pragma: no cover
-
-    class StrEnum(str, Enum): ...
-
-    class IntEnum(int, Enum): ...
-
 
 pandas.set_option('display.max_columns', 10)
 pandas.set_option('display.max_rows', 20)

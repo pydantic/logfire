@@ -4,7 +4,7 @@ import platform
 import re
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict, cast
 from urllib.parse import urljoin
@@ -81,9 +81,7 @@ class UserToken:
     @property
     def is_expired(self) -> bool:
         """Whether the token is expired."""
-        return datetime.now(tz=timezone.utc) >= datetime.fromisoformat(self.expiration.rstrip('Z')).replace(
-            tzinfo=timezone.utc
-        )
+        return datetime.now(tz=UTC) >= datetime.fromisoformat(self.expiration.rstrip('Z')).replace(tzinfo=UTC)
 
     def __str__(self) -> str:
         region = 'us'
