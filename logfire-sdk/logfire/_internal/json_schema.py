@@ -115,12 +115,11 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
     Returns:
         The JSON Schema.
     """
-    if obj is None:
-        return {'type': 'null'}
-
     try:
         if isinstance(obj, Enum):
             obj = obj.value
+        if obj is None:
+            return {'type': 'null'}
 
         # cover common types first before calling `type_to_schema` to avoid the overhead of imports if not necessary
         obj_type = obj.__class__
