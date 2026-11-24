@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import ast
+import builtins
 import os
 import re
 import types
 from _string import formatter_field_name_split  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
-from builtins import super as builtin_super
-from collections.abc import Callable, Iterator
-from copy import deepcopy
-from functools import lru_cache, partial
+from collections.abc import Iterator
+from functools import lru_cache
 from pathlib import Path
 from string import Formatter
 from types import CodeType
@@ -137,10 +136,15 @@ class ChunksFormatter(Formatter):
                 source, value_code, formatted_code, has_bare_super = compile_formatted_value(
                     node_value, node_finder.source
                 )
-                if has_bare_super:
-                    bind_super = partial(_bind_super, frame)
-                    value_code = _inject_super_binder(value_code, bind_super)
-                    formatted_code = _inject_super_binder(formatted_code, bind_super)
+                if (
+                    has_bare_super
+                    and local_vars.get('super', global_vars.get('super', frame.f_builtins.get('super')))
+                    is builtins.super
+                ):
+                    raise KnownFormattingError(
+                        f'Cannot evaluate the f-string value {{{source}}} because it contains zero-argument super(). '
+                        'Assign the value to a variable before logging.'
+                    )
 
                 # Note that this doesn't include:
                 # - The format spec, e.g. `:0.2f`
@@ -341,65 +345,6 @@ def _check_not_fstring(
     )
 
 
-_SUPER_BINDER_PLACEHOLDER = '@bind_super'
-
-
-def _bind_super(frame: types.FrameType, func: Callable[..., Any]) -> Callable[..., Any]:
-    # A bare builtin super() normally reads the lexical class and first
-    # positional argument from its caller. Independent eval frames have neither.
-    code = frame.f_code
-    if func is builtin_super and code.co_argcount and '__class__' in code.co_freevars:
-        locals_ = frame.f_locals
-        receiver = code.co_varnames[0]
-        if receiver in locals_ and isinstance(cls := locals_.get('__class__'), type):
-            return partial(builtin_super, cls, locals_[receiver])
-    return func
-
-
-def _is_bare_super(node: ast.AST) -> bool:
-    return (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == 'super'
-        and not node.args
-        and not node.keywords
-    )
-
-
-class _BindSuperCalls(ast.NodeTransformer):
-    def visit_Call(self, node: ast.Call) -> ast.Call:
-        if _is_bare_super(node):
-            # Rewrite the callee so it is resolved once, at the point of the
-            # original call. A shadowing callable runs in the same eval frame.
-            binder = ast.Lambda(
-                args=ast.arguments(
-                    posonlyargs=[], args=[], vararg=None, kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[]
-                ),
-                body=ast.Constant(value=_SUPER_BINDER_PLACEHOLDER),
-            )
-            callee = ast.Call(func=ast.Call(func=binder, args=[], keywords=[]), args=[node.func], keywords=[])
-            node.func = ast.copy_location(callee, node.func)
-        else:
-            self.generic_visit(node)
-        return node
-
-
-def _inject_super_binder(code: CodeType, binder: Callable[[Callable[..., Any]], Callable[..., Any]]) -> CodeType:
-    # Supply the binder in the generated lambda's constants instead of adding
-    # a synthetic key to locals() or globals(). User lambdas are excluded below.
-    # Preserve constant indices because Python versions use different layouts.
-    return code.replace(
-        co_consts=tuple(
-            const.replace(
-                co_consts=tuple(binder if value == _SUPER_BINDER_PLACEHOLDER else value for value in const.co_consts)
-            )
-            if isinstance(const, CodeType) and _SUPER_BINDER_PLACEHOLDER in const.co_consts
-            else const
-            for const in code.co_consts
-        )
-    )
-
-
 @lru_cache
 def compile_formatted_value(
     node: ast.FormattedValue, ex_source: executing.Source
@@ -409,7 +354,7 @@ def compile_formatted_value(
     1. Source code corresponding to the node value (excluding the format spec).
     2. A compiled code object which can be evaluated to calculate the value.
     3. Another code object which formats the value.
-    4. Whether either code object can call bare super().
+    4. Whether the value or format spec contains a bare call to super().
     """
     source = get_node_source_text(node.value, ex_source)
 
@@ -427,18 +372,17 @@ def compile_formatted_value(
                 f'Cannot evaluate the f-string value {{{source}}} because it contains a lambda, generator expression '
                 f'or comprehension. Assign the value to a variable before logging.'
             )
-        has_bare_super = has_bare_super or _is_bare_super(sub_node)
 
-    format_spec = node.format_spec
-    if has_bare_super:
-        binding = _BindSuperCalls()
-        value_expr = binding.visit(ast.parse(source, mode='eval'))
-        value_code = compile(ast.fix_missing_locations(value_expr), '<fvalue1>', 'eval')
-        if format_spec is not None:
-            # Do not mutate executing's cached source tree or copy its ancestors.
-            format_spec = binding.visit(deepcopy(format_spec, {id(node): node}))
-    else:
-        value_code = compile(source, '<fvalue1>', 'eval')
+        if (
+            isinstance(sub_node, ast.Call)
+            and isinstance(sub_node.func, ast.Name)
+            and sub_node.func.id == 'super'
+            and not sub_node.args
+            and not sub_node.keywords
+        ):
+            has_bare_super = True
+
+    value_code = compile(source, '<fvalue1>', 'eval')
     expr = ast.Expression(
         ast.JoinedStr(
             values=[
@@ -452,7 +396,7 @@ def compile_formatted_value(
                 ast.FormattedValue(
                     value=ast.Name(id='@fvalue', ctx=ast.Load()),
                     conversion=node.conversion,
-                    format_spec=format_spec,
+                    format_spec=node.format_spec,
                 )
             ]
         )

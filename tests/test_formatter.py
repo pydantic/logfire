@@ -536,30 +536,24 @@ def test_logfire_fstring_call_fails_in_tests(exporter: TestExporter, monkeypatch
 
 def test_bare_super_in_fstring(exporter: TestExporter):
     class Base:
-        amount = 12.5
-        label = 'base'
+        value_calls = 0
 
         def value(self) -> float:
-            return self.amount
+            self.value_calls += 1
+            return 31.25
 
         def width(self) -> int:
             return 6
 
         @classmethod
         def kind(cls) -> str:
-            return cls.label
+            return cls.__name__
 
     class Child(Base):
-        def value(self) -> float:
-            return -1
-
-        @classmethod
-        def kind(cls) -> str:
-            return 'child'
-
-        def report(receiver, /):  # pyright: ignore[reportSelfClsParameterName]
-            __width_adjustment = 0
-            logfire.info(f'amount {super().value():{super().width() + __width_adjustment}.2f}', receiver='attribute')
+        def report(self):
+            amount = 31.25
+            logfire.info(f'amount {super().value():.2f}')
+            logfire.info(f'amount padded {amount:{super().width()}.2f}')
             with logfire.span(f'width {super().width()}'):
                 pass
 
@@ -567,27 +561,21 @@ def test_bare_super_in_fstring(exporter: TestExporter):
         def report_class(cls):
             logfire.info(f'label {super().kind()}')
 
-    class Grandchild(Child):
-        amount = 31.25
-        label = 'grandchild'
-
-    Grandchild().report()
-    Grandchild.report_class()
+    child = Child()
+    with pytest.warns(FormattingFailedWarning, match=r'contains zero-argument super\(\)') as warnings:
+        child.report()
+        Child.report_class()
+    assert len(warnings) == 4
+    assert child.value_calls == 1
 
     assert [
-        (
-            span['name'],
-            span['attributes']['logfire.msg_template'],
-            span['attributes']['logfire.msg'],
-            span['attributes'][field],
-        )
-        for span, field in zip(
-            exporter.exported_spans_as_dict(), ('super().value()', 'super().width()', 'super().kind()'), strict=True
-        )
+        (span['name'], span['attributes']['logfire.msg_template'], span['attributes']['logfire.msg'])
+        for span in exporter.exported_spans_as_dict()
     ] == [
-        ('amount {super().value()}', 'amount {super().value()}', 'amount  31.25', 31.25),
-        ('width {super().width()}', 'width {super().width()}', 'width 6', 6),
-        ('label {super().kind()}', 'label {super().kind()}', 'label grandchild', 'grandchild'),
+        ('amount 31.25', 'amount 31.25', 'amount 31.25'),
+        ('amount padded  31.25', 'amount padded  31.25', 'amount padded  31.25'),
+        ('width 6', 'width 6', 'width 6'),
+        ('label Child', 'label Child', 'label Child'),
     ]
 
 
@@ -600,66 +588,53 @@ def test_bare_super_preserves_ordinary_name_resolution(exporter: TestExporter):
         def explicit(self):
             logfire.info(f'explicit {super(Child, self).value()}')  # noqa: UP008 - exercise the explicit form
 
-        def skipped(self):
-            enabled = False
-            logfire.info(f'skipped {super().value() if enabled else 5}')
-
         def shadowed(self):
             def super(*, amount: int = 4) -> int:
                 return amount
 
             logfire.info(f'shadowed {super()} {super(amount=9)}')  # pyright: ignore[reportArgumentType]
+            logfire.info(f'shadowed spec {42:{super()}}')
+
+        def skipped(self):
+            enabled = False
+            logfire.info(f'skipped {super().value() if enabled else 5}')
 
     child = Child()
     child.explicit()
-    child.skipped()
     child.shadowed()
+    with pytest.warns(FormattingFailedWarning, match=r'contains zero-argument super\(\)'):
+        child.skipped()
 
-    explicit, skipped, shadowed = exporter.exported_spans_as_dict()
+    explicit, shadowed, shadowed_spec, skipped = exporter.exported_spans_as_dict()
     assert explicit['attributes']['super(Child, self).value()'] == 8
-    assert skipped['attributes']['super().value() if enabled else 5'] == 5
     assert shadowed['attributes']['super()'] == 4
     assert shadowed['attributes']['super(amount=9)'] == 9
+    assert shadowed_spec['attributes']['42'] == 42
+    assert shadowed_spec['attributes']['logfire.msg'] == 'shadowed spec   42'
+    assert skipped['attributes']['logfire.msg_template'] == 'skipped 5'
 
 
-def test_bare_super_keeps_eval_locals(exporter: TestExporter):
-    class Example:
-        def report(self):
-            def super():
-                return 7
-
-            source_keys = {'code.filepath', 'code.function', 'code.lineno'}
-            expected = {*locals(), 'expected'}
-            logfire.info(
-                f'value {super() if set(locals()) - source_keys == expected and type(locals()) is dict else -1} '
-                f'matching locals {set(locals()) - source_keys == expected}'
-            )
-
-    Example().report()
-
-    [span] = exporter.exported_spans_as_dict()
-    assert span['attributes']['logfire.msg'] == 'value 7 matching locals True'
-    assert (
-        span['attributes']['super() if set(locals()) - source_keys == expected and type(locals()) is dict else -1'] == 7
-    )
-    assert span['attributes']['set(locals()) - source_keys == expected'] is True
-
-
-def test_bare_super_with_no_receiver_at_reevaluation(exporter: TestExporter):
+def test_bare_super_uses_current_eval_namespace(exporter: TestExporter):
     class Base:
-        value = 7
+        value = 8
 
-    class Example(Base):
-        def report(self):
-            def drop_receiver():
-                nonlocal self
-                del self
-                return True
+    class Child(Base):
+        def report(self, **attrs: Any):
+            logfire.info(f'value {super().value}', **attrs)
 
-            logfire.info(f'value {super().value}', dropped=drop_receiver())
+    child = Child()
+    override_calls: list[int] = []
 
-    # The call was valid when Python rendered the f-string, but the receiver
-    # was deleted before Logfire could reevaluate it.
-    with pytest.raises(RuntimeError, match=r'super\(\): no arguments'):
-        Example().report()
-    assert not exporter.exported_spans
+    def replacement_super() -> SimpleNamespace:
+        override_calls.append(1)
+        return SimpleNamespace(value=7)
+
+    child.report(super=replacement_super)
+    with pytest.warns(FormattingFailedWarning, match=r'contains zero-argument super\(\)'):
+        child.report()
+    child.report(super=replacement_super)
+    assert override_calls == [1, 1]
+
+    first, fallback, last = exporter.exported_spans_as_dict()
+    assert first['attributes']['super().value'] == last['attributes']['super().value'] == 7
+    assert fallback['attributes']['logfire.msg_template'] == 'value 8'
