@@ -3592,6 +3592,7 @@ def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
         return logfire_json_dumps(value)
 
 
+@handle_internal_errors
 def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None:
     if not span.is_recording():
         return
