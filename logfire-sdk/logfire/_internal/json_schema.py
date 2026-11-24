@@ -31,7 +31,7 @@ from types import GeneratorType
 from typing import Any, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
-from .json_encoder import is_attrs, is_sqlalchemy, pandas_display_slices, to_json_value
+from .json_encoder import is_attrs, is_sqlalchemy, numpy_scalar_to_python, pandas_display_slices, to_json_value
 from .stack_info import STACK_INFO_KEYS
 from .utils import JsonDict, dump_json, log_internal_error, safe_repr
 
@@ -144,7 +144,7 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
         elif is_attrs(obj_type):
             return _attrs_schema(obj, seen)
         elif isinstance(obj, Enum):
-            enum_value = obj.value
+            enum_value = numpy_scalar_to_python(obj.value)
             scalar_type: str | None = None
             if isinstance(enum_value, str):
                 scalar_type = 'string'
