@@ -106,6 +106,23 @@ class ScrubbedNote(TypedDict):
     matched_substring: str
 
 
+def _limited_scrubbed_notes(attributes: Mapping[str, Any], notes: list[ScrubbedNote]) -> str | None:
+    raw_notes = attributes.get(ATTRIBUTES_SCRUBBED_KEY)
+    if raw_notes is None and not notes:
+        return None
+    try:
+        parsed: Any = json.loads(raw_notes) if isinstance(raw_notes, str) else []
+    except json.JSONDecodeError:  # pragma: no cover
+        parsed = []
+    if isinstance(parsed, list):
+        existing = cast('list[ScrubbedNote]', parsed)
+    else:  # pragma: no cover
+        existing = []
+    if not notes and len(existing) <= _MAX_SCRUBBED_NOTES:
+        return None
+    return json.dumps((existing + notes)[:_MAX_SCRUBBED_NOTES])
+
+
 def _is_unchanged_value(value: Any, result: Any) -> bool:
     if result is value:
         return True
@@ -313,17 +330,9 @@ class Scrubber(BaseScrubber):
         scope = span['instrumentation_scope']
         span_scrubber = SpanScrubber(self, scope_name=scope.name if scope else None)
         span_scrubber.scrub_span(span)
-        if span_scrubber.scrubbed:
-            attributes = span['attributes']
-            already_scrubbed = cast('str', attributes.get(ATTRIBUTES_SCRUBBED_KEY, '[]'))
-            try:
-                already_scrubbed = cast('list[ScrubbedNote]', json.loads(already_scrubbed))
-            except json.JSONDecodeError:  # pragma: no cover
-                already_scrubbed = []
-            span['attributes'] = {
-                **attributes,
-                ATTRIBUTES_SCRUBBED_KEY: json.dumps((already_scrubbed + span_scrubber.scrubbed)[:_MAX_SCRUBBED_NOTES]),
-            }
+        attributes = span['attributes']
+        if limited_notes := _limited_scrubbed_notes(attributes, span_scrubber.scrubbed):
+            span['attributes'] = {**attributes, ATTRIBUTES_SCRUBBED_KEY: limited_notes}
 
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
         span_scrubber = SpanScrubber(self)
@@ -446,13 +455,14 @@ class SpanScrubber:
     def scrub_log(self, log: LogRecord) -> LogRecord:
         new_attributes: dict[str, Any] | None = self.scrub(('attributes',), log.attributes)
         new_body = self.scrub(('log_body',), log.body)
+        limited_notes = _limited_scrubbed_notes(new_attributes or {}, self.scrubbed)
 
-        if not self.scrub_count:
+        if not self.scrub_count and limited_notes is None:
             return log
 
-        if self.scrubbed:
+        if limited_notes is not None:
             new_attributes = new_attributes or {}
-            new_attributes[ATTRIBUTES_SCRUBBED_KEY] = json.dumps(self.scrubbed)
+            new_attributes[ATTRIBUTES_SCRUBBED_KEY] = limited_notes
 
         result = copy.copy(log)
         result.attributes = BoundedAttributes(attributes=new_attributes)
