@@ -17,7 +17,6 @@ from opentelemetry.util._once import Once
 from pydantic import ValidationError
 from requests import RequestException, Session
 
-from logfire._internal.client import UA_HEADER
 from logfire._internal.config import VariablesOptions
 from logfire._internal.http_transport import install_connection_policy
 from logfire._internal.server_response import ServerResponseCallback, install_logfire_response_hook
@@ -43,6 +42,9 @@ from logfire.variables.config import (
     VariableConfig,
     VariablesConfig,
 )
+from logfire.version import VERSION
+
+UA_HEADER = f'logfire/{VERSION}'
 
 if TYPE_CHECKING:
     import logfire
