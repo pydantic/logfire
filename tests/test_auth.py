@@ -10,6 +10,7 @@ import requests_mock
 from inline_snapshot import snapshot
 
 from logfire._internal.auth import UserToken, UserTokenCollection, request_device_code
+from logfire._internal.maybe_rich import NoValidChoiceError
 from logfire.exceptions import LogfireConfigError
 
 
@@ -104,7 +105,7 @@ def test_get_user_token_input_choice_gives_up(multiple_credentials: Path) -> Non
     token_collection = UserTokenCollection(multiple_credentials)
 
     with patch('builtins.input', side_effect=['nope'] * 5) as mock_input:
-        with pytest.raises(LogfireConfigError, match=r'^No valid option was selected after 5 attempts\.$'):
+        with pytest.raises(NoValidChoiceError, match=r'^No valid option was selected after 5 attempts\.$'):
             token_collection.get_token(base_url=None)
     assert mock_input.call_count == 5
 

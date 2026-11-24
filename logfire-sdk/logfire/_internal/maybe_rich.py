@@ -11,14 +11,20 @@ import sys
 from textwrap import indent as indent_text
 from typing import TYPE_CHECKING, Literal, TextIO
 
-from logfire.exceptions import LogfireConfigError
-
 from .stack_info import warn_at_user_stacklevel
 
 if TYPE_CHECKING:
     from rich.console import Console
 
-__all__ = 'ConsoleColorsValues', 'TextParts', 'ConsoleWriter', 'ask_choice', 'print_project_url', 'require_rich'
+__all__ = (
+    'ConsoleColorsValues',
+    'TextParts',
+    'ConsoleWriter',
+    'ask_choice',
+    'NoValidChoiceError',
+    'print_project_url',
+    'require_rich',
+)
 
 ConsoleColorsValues = Literal['auto', 'always', 'never']
 
@@ -137,11 +143,18 @@ class ConsoleWriter:
 ASK_CHOICE_MAX_ATTEMPTS = 5
 
 
+class NoValidChoiceError(Exception):
+    """The user didn't give a valid answer to `ask_choice` within `ASK_CHOICE_MAX_ATTEMPTS` attempts.
+
+    Deliberately not a `LogfireConfigError`: CLI commands catch that to mean "not logged in".
+    """
+
+
 def ask_choice(prompt: str, count: int) -> int:
     """Ask the user on stderr to pick a number from 1 to `count`.
 
     Raises:
-        LogfireConfigError: If no valid choice is given after `ASK_CHOICE_MAX_ATTEMPTS` attempts.
+        NoValidChoiceError: If no valid choice is given after `ASK_CHOICE_MAX_ATTEMPTS` attempts.
     """
     choices = [str(i) for i in range(1, count + 1)]
     choices_str = f'[{"/".join(choices)}]'
@@ -172,7 +185,7 @@ def ask_choice(prompt: str, count: int) -> int:
         if answer in choices:
             return int(answer)
         report_invalid()
-    raise LogfireConfigError(f'No valid option was selected after {ASK_CHOICE_MAX_ATTEMPTS} attempts.')
+    raise NoValidChoiceError(f'No valid option was selected after {ASK_CHOICE_MAX_ATTEMPTS} attempts.')
 
 
 def print_project_url(project_url: str) -> None:

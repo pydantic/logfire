@@ -27,6 +27,7 @@ from ..config_params import ParamManager
 from ..http_transport import install_connection_policy
 from ..info import logfire_info
 from ..interactive import NonInteractiveError, is_non_interactive, require_answer, set_non_interactive
+from ..maybe_rich import NoValidChoiceError
 from ..server_response import install_logfire_response_hook
 from ..tracer import SDKTracerProvider
 from ..utils import READ_TOKEN_FILENAME
@@ -333,7 +334,7 @@ def main(args: list[str] | None = None) -> None:
     except KeyboardInterrupt:
         sys.stderr.write('User cancelled.\n')
         sys.exit(1)
-    except NonInteractiveError as e:
+    except (NonInteractiveError, NoValidChoiceError) as e:
         # The whole point is guidance instead of a traceback, so it must not escape.
         sys.stderr.write(f'{e}\n')
         sys.exit(1)

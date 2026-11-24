@@ -10,14 +10,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
 
 import logfire
 from logfire import ConsoleOptions
 from logfire._internal.auth import UserTokenCollection
 from logfire._internal.config import LogfireCredentials
-from logfire._internal.maybe_rich import require_rich
-from logfire.exceptions import LogfireConfigError
+from logfire._internal.maybe_rich import NoValidChoiceError, require_rich
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def test_console_exporter_without_rich() -> None:
     with pytest.warns(UserWarning, match=r"Console `colors='always'` requires the `rich` package"):
         logfire.configure(
             send_to_logfire=False,
-            console=ConsoleOptions(output=output, colors='always', include_timestamps=False, include_attributes=True),
+            console=ConsoleOptions(output=output, colors='always', include_timestamps=False, verbose=True),
         )
 
     with logfire.span('outer {x}', x=[1, 2]):
@@ -46,14 +46,16 @@ def test_console_exporter_without_rich() -> None:
     # No ANSI escape codes, just plain text.
     assert '\x1b[' not in output.getvalue()
     lines = output.getvalue().splitlines()
-    assert lines[:7] == snapshot(
+    assert lines[:9] == snapshot(
         [
             'outer [1, 2]',
+            IsStr(regex=r'│ tests/test_rich_optional\.py:\d+'),
             '│ x=[',
             '│       1,',
             '│       2,',
             '│   ]',
             '  inner',
+            IsStr(regex=r'│ tests/test_rich_optional\.py:\d+ warn'),
             'failed',
         ]
     )
@@ -84,9 +86,10 @@ def test_token_choice_without_rich(multiple_credentials: Path, capsys: pytest.Ca
 def test_token_choice_without_rich_gives_up(multiple_credentials: Path) -> None:
     token_collection = UserTokenCollection(multiple_credentials)
 
-    with patch('builtins.input', side_effect=['nope'] * 5):
-        with pytest.raises(LogfireConfigError, match=r'^No valid option was selected after 5 attempts\.$'):
+    with patch('builtins.input', side_effect=['nope'] * 5) as mock_input:
+        with pytest.raises(NoValidChoiceError, match=r'^No valid option was selected after 5 attempts\.$'):
             token_collection.get_token(base_url=None)
+    assert mock_input.call_count == 5
 
 
 @pytest.mark.usefixtures('without_rich')
@@ -124,7 +127,9 @@ def test_import_and_log_without_rich() -> None:
         )
         with logfire.span('hello {name}', name='world'):
             logfire.info('inside')
-        assert 'rich' not in logfire.logfire_info().split('[related_packages]')[0]
+        assert logfire.logfire_info().startswith('logfire=')
+        # `import logfire` must not load the CLI, which requires rich.
+        assert 'logfire._internal.cli' not in sys.modules
 
         try:
             import logfire.cli
