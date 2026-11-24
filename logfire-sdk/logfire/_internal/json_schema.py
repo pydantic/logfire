@@ -260,17 +260,14 @@ def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
     has_long_key = any(len(str(k)) > 100 for k in obj.keys())
     is_large = n > 100 or has_long_key
 
-    if n <= 10 and not has_long_key:
-        # Small dict: always use per-key properties
-        schema.update(_properties({(k if isinstance(k, str) else safe_repr(k)): v for k, v in obj.items()}, seen))
-    elif is_large:
+    if is_large:
         # Large dict: check homogeneity
         common_schema, is_homogeneous = _check_homogeneous(obj, seen)
         if is_homogeneous and common_schema is not None and common_schema not in PLAIN_SCHEMAS:
             schema['additionalProperties'] = common_schema
         # else: large heterogeneous → just {'type': 'object'} (drop schema)
     else:
-        # Medium dict: reuse each value's schema for both homogeneity and properties.
+        # Reuse each value's schema for both homogeneity and properties.
         value_schemas: list[tuple[Any, JsonDict]] = []
         common_schema: JsonDict | None = None
         is_homogeneous = True

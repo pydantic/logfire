@@ -395,13 +395,11 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             '{"enum":"blue"}',
             {
                 'type': 'object',
-                'properties': {
-                    'enum': {
-                        'type': 'string',
-                        'title': 'Color',
-                        'x-python-datatype': 'Enum',
-                        'enum': ['red', 'green', 'blue'],
-                    },
+                'additionalProperties': {
+                    'type': 'string',
+                    'title': 'Color',
+                    'x-python-datatype': 'Enum',
+                    'enum': ['red', 'green', 'blue'],
                 },
             },
             id='str_enum',
@@ -920,10 +918,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             {
                 'items': {
                     'type': 'object',
-                    'properties': {
-                        "<class 'str'>": {'type': 'object', 'x-python-datatype': 'unknown'},
-                        "<class 'int'>": {'type': 'object', 'x-python-datatype': 'unknown'},
-                    },
+                    'additionalProperties': {'type': 'object', 'x-python-datatype': 'unknown'},
                 },
                 'type': 'array',
             },
@@ -1235,7 +1230,7 @@ def test_log_numpy_timedelta_args(exporter: TestExporter) -> None:
     assert attributes['logfire.json_schema'] == IsJson(
         {
             'type': 'object',
-            'properties': {'td': unknown, 'nested': {'type': 'object', 'properties': {'td': unknown}}},
+            'properties': {'td': unknown, 'nested': {'type': 'object', 'additionalProperties': unknown}},
         }
     )
 
@@ -1505,21 +1500,19 @@ def test_recursive_objects(exporter: TestExporter) -> None:
                             'properties': {
                                 'dct': {
                                     'type': 'object',
-                                    'properties': {
-                                        'model': {
-                                            'type': 'object',
-                                            'title': 'Model',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'lst': {
-                                                    'type': 'array',
-                                                    'items': {
-                                                        'type': 'object',
-                                                        'title': 'Dataclass',
-                                                        'x-python-datatype': 'dataclass',
-                                                    },
-                                                }
-                                            },
+                                    'additionalProperties': {
+                                        'type': 'object',
+                                        'title': 'Model',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'lst': {
+                                                'type': 'array',
+                                                'items': {
+                                                    'type': 'object',
+                                                    'title': 'Dataclass',
+                                                    'x-python-datatype': 'dataclass',
+                                                },
+                                            }
                                         },
                                     },
                                 },
@@ -1530,12 +1523,10 @@ def test_recursive_objects(exporter: TestExporter) -> None:
                                     'properties': {
                                         'dct': {
                                             'type': 'object',
-                                            'properties': {
-                                                'model': {
-                                                    'type': 'object',
-                                                    'title': 'Model',
-                                                    'x-python-datatype': 'PydanticModel',
-                                                },
+                                            'additionalProperties': {
+                                                'type': 'object',
+                                                'title': 'Model',
+                                                'x-python-datatype': 'PydanticModel',
                                             },
                                         }
                                     },
@@ -1549,12 +1540,10 @@ def test_recursive_objects(exporter: TestExporter) -> None:
                                         'properties': {
                                             'dct': {
                                                 'type': 'object',
-                                                'properties': {
-                                                    'model': {
-                                                        'type': 'object',
-                                                        'title': 'Model',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
+                                                'additionalProperties': {
+                                                    'type': 'object',
+                                                    'title': 'Model',
+                                                    'x-python-datatype': 'PydanticModel',
                                                 },
                                             }
                                         },
@@ -1947,17 +1936,14 @@ def test_array_schema_reuses_consecutive_equal_schemas():
     assert prefix_items[3] is prefix_items[4]
 
 
-def test_homogeneous_dict_schema():
-    """Small dicts (≤10 keys) always use per-key properties."""
-    # All values are datetimes → small dict → per-key properties
+def test_small_dict_schema():
+    """Small dicts share schemas for equal values and use per-key properties for different values."""
+    # All values are datetimes → one shared schema
     d = {'a': datetime(2023, 1, 1), 'b': datetime(2023, 6, 15)}
     schema = create_json_schema(d, set())
     assert schema == {
         'type': 'object',
-        'properties': {
-            'a': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
-            'b': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
-        },
+        'additionalProperties': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
     }
 
     # All values are plain (strings) → just {'type': 'object'}
