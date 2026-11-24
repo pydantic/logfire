@@ -76,6 +76,8 @@ from pydantic_ai.usage import UsageLimits
 from pydantic_ai_harness import CodeMode
 from pydantic_monty import (
     MontyConversionError,
+    MontyCrashedError,
+    MontyDisconnectError,
     MontyRuntimeError,
     MontySyntaxError,
     MontyTypingError,
@@ -114,13 +116,22 @@ async def predict(pool, source, rows):
     if len(source.encode()) > 16000:
         raise ValueError('Source exceeds 16,000 bytes')
     limits = {'max_feed_duration_secs': 0.05, 'max_turn_duration_secs': 0.05, 'max_memory': 16 * 1024 * 1024}
-    async with pool.checkout(limits=limits) as session:
-        await session.feed_run(source + '\nNone', print_callback=lambda *args: None)
-        values = await session.feed_run(
-            '[predict(x) for x in strains]',
-            inputs={'strains': [x for x, _ in rows]},
-            print_callback=lambda *args: None,
-        )
+    try:
+        async with pool.checkout(limits=limits) as session:
+            await session.feed_run(source + '\nNone', print_callback=lambda *args: None)
+            values = await session.feed_run(
+                '[predict(x) for x in strains]',
+                inputs={'strains': [x for x, _ in rows]},
+                print_callback=lambda *args: None,
+            )
+    except MontyDisconnectError as exc:
+        if exc.cause in {'turn_timeout', 'response_too_large'}:
+            raise ValueError('Candidate exceeded the hosted execution/output limit') from exc
+        raise
+    except MontyCrashedError as exc:
+        if exc.timed_out:
+            raise ValueError('Candidate exceeded the execution time limit') from exc
+        raise
     if not isinstance(values, list) or len(values) != len(rows):
         raise ValueError('Return one scalar per strain')
     if not all(type(v) in (int, float) and math.isfinite(v) for v in values):
@@ -312,7 +323,9 @@ packages inside the interpreter, check [what sandbox code can do](limits.md) bef
   [Run code from Python](python.md), and check the selected model's provider credentials. Authentication and service
   errors stop the run rather than count as evidence that an equation is bad.
 - **A fitting loop exceeds the sandbox's resource limit:** reduce the number of trial parameter sets per call.
-  Use shorter batches and submit a usable candidate before attempting a more expensive search.
+  Use shorter batches and submit a usable candidate before attempting a more expensive search. Candidate evaluation
+  returns identified execution timeouts and output-limit failures as errors the agent can use to revise its program.
+  Unknown worker crashes and transport failures stop the run; they do not establish that a candidate is invalid.
 - **A program fails because a variable is undefined:** each `run_code` starts fresh. Include imports, coefficients,
   and a call to `get_observations()` in the new program.
 - **The agent reaches a budget limit or submits no valid candidate:** inspect its tool calls in the trace.
