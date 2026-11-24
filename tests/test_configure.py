@@ -1735,7 +1735,6 @@ def test_missing_sdk_credentials_explain_native_cli_setup(
     original_auth = auth_file.read_bytes() if auth_file.exists() else None
     data_dir = tmp_dir_cwd / ('custom data' if custom_data_dir else '.logfire')
     with (
-        mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file),
         mock.patch('rich.prompt.Confirm.ask', side_effect=AssertionError('unexpected confirmation')),
         mock.patch('rich.prompt.Prompt.ask', side_effect=AssertionError('unexpected prompt')),
     ):
@@ -1816,14 +1815,8 @@ def test_project_credentials_do_not_require_legacy_user_auth(
 def test_send_to_logfire_true(tmp_path: Path) -> None:
     """Sending without project credentials fails before legacy login or project setup."""
     data_dir = tmp_path / 'logfire_data'
-    auth_file = tmp_path / 'default.toml'
-    auth_file.write_text(
-        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
-    )
-    with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
-        with pytest.raises(LogfireConfigError, match='No usable project credentials found'):
-            configure(send_to_logfire=True, console=False, data_dir=data_dir)
+    with pytest.raises(LogfireConfigError, match='No usable project credentials found'):
+        configure(send_to_logfire=True, console=False, data_dir=data_dir)
     wait_for_check_token_thread()
 
 
