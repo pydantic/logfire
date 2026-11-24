@@ -16,6 +16,7 @@ import logfire
 from logfire import ConsoleOptions
 from logfire._internal.auth import UserTokenCollection
 from logfire._internal.config import LogfireCredentials
+from logfire._internal.maybe_rich import require_rich
 
 
 @pytest.fixture
@@ -47,13 +48,13 @@ def test_console_exporter_without_rich() -> None:
     assert lines[:9] == snapshot(
         [
             'outer [1, 2]',
-            '│ tests/test_rich_optional.py:37',
+            '│ tests/test_rich_optional.py:38',
             '│ x=[',
             '│       1,',
             '│       2,',
             '│   ]',
             '  inner',
-            '│ tests/test_rich_optional.py:38 warn',
+            '│ tests/test_rich_optional.py:39 warn',
             'failed',
         ]
     )
@@ -90,6 +91,14 @@ def test_print_token_summary_without_rich(capsys: pytest.CaptureFixture[str]) ->
     )
     credentials.print_token_summary()
     assert capsys.readouterr().err == snapshot('Logfire project URL: https://logfire.pydantic.dev/org/my-project\n')
+
+
+@pytest.mark.usefixtures('without_rich')
+def test_require_rich() -> None:
+    with pytest.raises(
+        ImportError, match=r'^Some feature requires the `rich` package, install it with `pip install rich`\.$'
+    ):
+        require_rich('Some feature')
 
 
 def test_import_and_log_without_rich() -> None:

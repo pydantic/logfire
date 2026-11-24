@@ -135,6 +135,7 @@ from .forwarding import OTLPForwardingManager
 from .http_transport import install_connection_policy
 from .integrations.executors import instrument_executors
 from .logs import ProxyLoggerProvider
+from .maybe_rich import print_project_url
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
 from .server_response import ServerResponseCallback, install_logfire_response_hook
@@ -2218,18 +2219,7 @@ class LogfireCredentials:
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""
         if self.project_url:  # pragma: no branch
-            try:
-                from rich.console import Console
-            except ImportError:
-                # rich is optional
-                sys.stderr.write(f'Logfire project URL: {self.project_url}\n')
-                return
-
-            console = Console(stderr=True)
-            min_width = len(self.project_url) + 4
-            if console.width < min_width:  # pragma: no cover
-                console.width = min_width
-            console.print(f'[bold]Logfire[/bold] project URL: [cyan]{self.project_url}[/cyan]')
+            print_project_url(self.project_url)
 
 
 def _get_creds_file(creds_dir: Path) -> Path:

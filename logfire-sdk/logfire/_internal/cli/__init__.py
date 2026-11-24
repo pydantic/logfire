@@ -14,11 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
-
-try:
-    from rich.console import Console
-except ImportError as e:  # pragma: no cover
-    raise ImportError('The Logfire Python CLI requires the `rich` package, install it with `pip install rich`.') from e
+from rich.console import Console
 
 from logfire.exceptions import LogfireConfigError
 from logfire.propagate import ContextCarrier, get_context
