@@ -1,0 +1,24 @@
+tests/test_json_args.py
+  s_0b7cd1bd2efbeb::t_304088672f2bb3 394-395,403
+tests/test_source_code_extraction.py
+  s_0b7cd1bd2efbeb::t_2bf793e3ac191c 64,90,208
+  s_0b7cd1bd2efbeb::t_1869e3caffecb5 91,209
+tests/test_console_exporter.py
+  s_0b7cd1bd2efbeb::t_304088672f2bb3 994-997
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1fc853751c5b2f763e57b7ea6caa2b530203fd77",
+  "prompts": {},
+  "sessions": {
+    "s_0b7cd1bd2efbeb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20d9e-a5b6-73f3-b337-297d837ce063",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
