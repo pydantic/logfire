@@ -6,12 +6,11 @@ from inspect import signature
 from io import BytesIO
 from typing import Any
 
-import httpx
+import httpx2
 import openai
 import pydantic
 import pytest
 from dirty_equals import IsInt, IsNumeric, IsStr
-from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 from openai.types import (
     completion,
@@ -24,14 +23,10 @@ from openai.types import (
     images_response,
 )
 from openai.types.chat import chat_completion, chat_completion_chunk as cc_chunk, chat_completion_message
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 import logfire
 from logfire._internal.utils import get_version, suppress_instrumentation
 from logfire.testing import TestExporter
-
-# OpenAI's httpx2 client annotation rejects httpx clients, although it accepts them
-# at runtime. Keep httpx here to test its OpenTelemetry instrumentation.
 
 pytestmark = [
     pytest.mark.skipif(
@@ -41,7 +36,7 @@ pytestmark = [
 ]
 
 
-def request_handler(request: httpx.Request) -> httpx.Response:
+def request_handler(request: httpx2.Request) -> httpx2.Response:
     """Used to mock httpx requests
 
     We do this instead of using pytest-httpx since 1) it's nearly as simple 2) pytest-httpx doesn't support Python 3.8.
@@ -52,7 +47,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
         json_body = json.loads(request.content)
         if json_body.get('stream'):
             if json_body['messages'][0]['content'] == 'empty response chunk':
-                return httpx.Response(200, text='data: []\n\n')
+                return httpx2.Response(200, text='data: []\n\n')
             elif json_body['messages'][0]['content'] == 'empty choices in response chunk':
                 chunk = cc_chunk.ChatCompletionChunk(
                     id='1',
@@ -61,7 +56,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     model='gpt-4',
                     object='chat.completion.chunk',
                 )
-                return httpx.Response(200, text=f'data: {chunk.model_dump_json()}\n\n')
+                return httpx2.Response(200, text=f'data: {chunk.model_dump_json()}\n\n')
             elif json_body['messages'][0]['content'] == 'streamed tool call':
                 chunks = [
                     cc_chunk.ChatCompletionChunk(
@@ -194,7 +189,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                         usage=completion_usage.CompletionUsage(completion_tokens=1, prompt_tokens=2, total_tokens=3),
                     ),
                 ]
-                return httpx.Response(
+                return httpx2.Response(
                     200, text=''.join(f'data: {chunk.model_dump_json(exclude_unset=True)}\n\n' for chunk in chunks)
                 )
             else:
@@ -223,9 +218,9 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                         object='chat.completion.chunk',
                     ),
                 ]
-                return httpx.Response(200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in chunks))
+                return httpx2.Response(200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in chunks))
         else:
-            return httpx.Response(
+            return httpx2.Response(
                 200,
                 json=chat_completion.ChatCompletion(
                     id='test_id',
@@ -277,11 +272,11 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     object='text_completion',
                 ),
             ]
-            return httpx.Response(
+            return httpx2.Response(
                 200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in completion_chunks)
             )
         else:
-            return httpx.Response(
+            return httpx2.Response(
                 200,
                 json=completion.Completion(
                     id='test_id',
@@ -297,7 +292,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 ).model_dump(mode='json'),
             )
     elif request.url == 'https://api.openai.com/v1/embeddings':
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json=create_embedding_response.CreateEmbeddingResponse(
                 data=[
@@ -316,7 +311,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             ).model_dump(mode='json'),
         )
     elif request.url == 'https://api.openai.com/v1/images/generations':
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json=images_response.ImagesResponse(
                 created=123,
@@ -329,7 +324,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             ).model_dump(mode='json'),
         )
     elif request.url == 'https://api.openai.com/v1/files':
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json=file_object.FileObject(
                 id='test_id',
@@ -342,7 +337,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             ).model_dump(mode='json'),
         )
     elif request.url == 'https://api.openai.com/v1/assistants':
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={
                 'id': 'asst_abc123',
@@ -360,7 +355,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             },
         )
     elif request.url == 'https://api.openai.com/v1/threads':
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={'id': 'thread_abc123', 'object': 'thread', 'created_at': 1698107661, 'metadata': {}},
         )
@@ -370,9 +365,9 @@ def request_handler(request: httpx.Request) -> httpx.Response:
 
 @pytest.fixture
 def instrumented_client() -> Iterator[openai.Client]:
-    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+    with httpx2.Client(transport=httpx2.MockTransport(request_handler)) as httpx_client:
         # use a hardcoded API key to make sure one in the environment is never used
-        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)  # pyright: ignore[reportArgumentType]
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
 
         # Test instrumenting a class
         with logfire.instrument_openai(openai.Client, version=[1, 'latest']):
@@ -387,9 +382,9 @@ def instrumented_client() -> Iterator[openai.Client]:
 
 @pytest.fixture
 async def instrumented_async_client() -> AsyncIterator[openai.AsyncClient]:
-    async with httpx.AsyncClient(transport=MockTransport(request_handler)) as httpx_client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(request_handler)) as httpx_client:
         # use a hardcoded API key to make sure one in the environment is never used
-        openai_client = openai.AsyncClient(api_key='foobar', http_client=httpx_client)  # pyright: ignore[reportArgumentType]
+        openai_client = openai.AsyncClient(api_key='foobar', http_client=httpx_client)
 
         with logfire.instrument_openai(openai_client, version=[1, 'latest']):
             yield openai_client
@@ -2972,11 +2967,11 @@ def test_responses_stream_incomplete_or_failed(final_fields: dict[str, Any], exp
         {'type': f'response.{final_fields["status"]}', 'sequence_number': 1, 'response': final_response},
     ]
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in events)
-        return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream'})
+        return httpx2.Response(200, text=body, headers={'content-type': 'text/event-stream'})
 
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))  # pyright: ignore[reportArgumentType]
+    client = openai.Client(api_key='fake_api_key', http_client=httpx2.Client(transport=httpx2.MockTransport(handler)))
     with logfire.instrument_openai(client):
         list(
             client.responses.create(model='gpt-4.1', input='What is four plus five?', max_output_tokens=16, stream=True)
@@ -3226,10 +3221,10 @@ def test_images(instrumented_client: openai.Client, exporter: TestExporter) -> N
 
 
 def test_dont_suppress_httpx(exporter: TestExporter) -> None:
-    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
-        HTTPXClientInstrumentor().instrument_client(httpx_client)
+    with httpx2.Client(transport=httpx2.MockTransport(request_handler)) as httpx_client:
+        logfire.instrument_httpx(httpx_client)
         # use a hardcoded API key to make sure one in the environment is never used
-        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)  # pyright: ignore[reportArgumentType]
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
 
         with logfire.instrument_openai(openai_client, version=[1, 'latest']):
             response = openai_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
@@ -3403,10 +3398,10 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
 
 
 def test_suppress_httpx(exporter: TestExporter) -> None:
-    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
-        HTTPXClientInstrumentor().instrument_client(httpx_client)
+    with httpx2.Client(transport=httpx2.MockTransport(request_handler)) as httpx_client:
+        logfire.instrument_httpx(httpx_client)
         # use a hardcoded API key to make sure one in the environment is never used
-        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)  # pyright: ignore[reportArgumentType]
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
 
         with logfire.instrument_openai(openai_client, suppress_other_instrumentation=True, version=[1, 'latest']):
             response = openai_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
@@ -5450,7 +5445,9 @@ def test_get_endpoint_config_responses_agent_span() -> None:
 @pytest.mark.parametrize('version', [1, 2, [1, 2]])
 @pytest.mark.parametrize('complete', [False, True])
 def test_stream_response_metadata(version: Any, complete: bool, exporter: TestExporter) -> None:
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(request_handler)))  # pyright: ignore[reportArgumentType]
+    client = openai.Client(
+        api_key='fake_api_key', http_client=httpx2.Client(transport=httpx2.MockTransport(request_handler))
+    )
     with logfire.instrument_openai(client, version=version):
         list(
             client.chat.completions.create(
@@ -5480,8 +5477,10 @@ async def test_internal_exception_in_on_response_keeps_the_response(
         'model': 'gpt-4o',
         'choices': [{'index': 0, 'message': None, 'finish_reason': 'content_filter'}],
     }
-    async with httpx.AsyncClient(transport=MockTransport(lambda _: httpx.Response(200, json=body))) as http_client:
-        client = openai.AsyncClient(api_key='foobar', http_client=http_client)  # pyright: ignore[reportArgumentType]
+    async with httpx2.AsyncClient(
+        transport=httpx2.MockTransport(lambda _: httpx2.Response(200, json=body))
+    ) as http_client:
+        client = openai.AsyncClient(api_key='foobar', http_client=http_client)
         with logfire.instrument_openai(client):
             response = await client.chat.completions.create(
                 model='gpt-4o', messages=[{'role': 'user', 'content': 'hi'}]
@@ -5534,10 +5533,10 @@ def test_cached_prompt_tokens_recorded(exporter: TestExporter) -> None:
         },
     }
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=responses_body if request.url.path.endswith('/responses') else chat_body)
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json=responses_body if request.url.path.endswith('/responses') else chat_body)
 
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))  # pyright: ignore[reportArgumentType]
+    client = openai.Client(api_key='fake_api_key', http_client=httpx2.Client(transport=httpx2.MockTransport(handler)))
     with logfire.instrument_openai(client):
         client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
         client.responses.create(model='gpt-4o-mini', input='hi')
@@ -5591,10 +5590,10 @@ def test_cache_write_tokens_recorded(exporter: TestExporter) -> None:
         },
     }
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=responses_body if request.url.path.endswith('/responses') else chat_body)
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json=responses_body if request.url.path.endswith('/responses') else chat_body)
 
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))  # pyright: ignore[reportArgumentType]
+    client = openai.Client(api_key='fake_api_key', http_client=httpx2.Client(transport=httpx2.MockTransport(handler)))
     with logfire.instrument_openai(client):
         client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
         client.responses.create(model='gpt-4o-mini', input='hi')
@@ -5674,14 +5673,14 @@ def test_cache_write_tokens_recorded_from_streams(exporter: TestExporter) -> Non
         },
     ]
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         if request.url.path.endswith('/responses'):
             body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in responses_events)
         else:
             body = ''.join(f'data: {json.dumps(chunk)}\n\n' for chunk in chat_chunks) + 'data: [DONE]\n\n'
-        return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream'})
+        return httpx2.Response(200, text=body, headers={'content-type': 'text/event-stream'})
 
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))  # pyright: ignore[reportArgumentType]
+    client = openai.Client(api_key='fake_api_key', http_client=httpx2.Client(transport=httpx2.MockTransport(handler)))
     with logfire.instrument_openai(client):
         list(
             client.chat.completions.create(
@@ -5759,9 +5758,9 @@ def test_azure_content_filter_chunks_ignored_in_stream(chunks_have_object: bool,
     sse = ''.join(f'data: {json.dumps(chunk)}\n\n' for chunk in chunks) + 'data: [DONE]\n\n'
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(  # pyright: ignore[reportArgumentType]
-            transport=MockTransport(
-                lambda _: httpx.Response(200, text=sse, headers={'content-type': 'text/event-stream'})
+        http_client=httpx2.Client(
+            transport=httpx2.MockTransport(
+                lambda _: httpx2.Response(200, text=sse, headers={'content-type': 'text/event-stream'})
             )
         ),
     )
@@ -5804,7 +5803,7 @@ def test_uncached_prompt_tokens_omit_cache_attribute(exporter: TestExporter) -> 
     }
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),  # pyright: ignore[reportArgumentType]
+        http_client=httpx2.Client(transport=httpx2.MockTransport(lambda _: httpx2.Response(200, json=body))),
     )
     with logfire.instrument_openai(client):
         client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
@@ -5869,7 +5868,7 @@ def test_responses_finish_reasons(fields: dict[str, Any], expected: list[str] | 
     }
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),  # pyright: ignore[reportArgumentType]
+        http_client=httpx2.Client(transport=httpx2.MockTransport(lambda _: httpx2.Response(200, json=body))),
     )
     with logfire.instrument_openai(client):
         client.responses.create(model='gpt-4o-mini', input='hi')
@@ -5902,7 +5901,7 @@ def test_responses_custom_tool_calls(exporter: TestExporter) -> None:
     }
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),  # pyright: ignore[reportArgumentType]
+        http_client=httpx2.Client(transport=httpx2.MockTransport(lambda _: httpx2.Response(200, json=body))),
     )
     with logfire.instrument_openai(client):
         client.responses.create(
@@ -5960,7 +5959,7 @@ def test_responses_refusal_recorded_as_text(exporter: TestExporter) -> None:
     }
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),  # pyright: ignore[reportArgumentType]
+        http_client=httpx2.Client(transport=httpx2.MockTransport(lambda _: httpx2.Response(200, json=body))),
     )
     with logfire.instrument_openai(client):
         client.responses.create(model='gpt-4o-mini', input='hi')
@@ -5971,13 +5970,13 @@ def test_responses_refusal_recorded_as_text(exporter: TestExporter) -> None:
     )
 
 
-def gateway_client(handler: Callable[[httpx.Request], httpx.Response]) -> openai.Client:
-    return openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))  # pyright: ignore[reportArgumentType]
+def gateway_client(handler: Callable[[httpx2.Request], httpx2.Response]) -> openai.Client:
+    return openai.Client(api_key='fake_api_key', http_client=httpx2.Client(transport=httpx2.MockTransport(handler)))
 
 
-def sse_response(events: list[dict[str, Any]]) -> httpx.Response:
+def sse_response(events: list[dict[str, Any]]) -> httpx2.Response:
     body = ''.join(f'data: {json.dumps(event)}\n\n' for event in events) + 'data: [DONE]\n\n'
-    return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream'})
+    return httpx2.Response(200, text=body, headers={'content-type': 'text/event-stream'})
 
 
 GATEWAY_USAGE = {'logfire_ai_gateway': {'cost': '0.5'}}
@@ -5998,7 +5997,7 @@ def test_chat_completion_gateway_cost(cost: str, expected: float, exporter: Test
             'logfire_ai_gateway': {'cost': cost},
         },
     }
-    client = gateway_client(lambda _: httpx.Response(200, json=body))
+    client = gateway_client(lambda _: httpx2.Response(200, json=body))
     with logfire.instrument_openai(client):
         client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
 
@@ -6148,7 +6147,7 @@ GATEWAY_RESPONSE: dict[str, Any] = {
 
 
 def test_responses_gateway_cost(exporter: TestExporter) -> None:
-    client = gateway_client(lambda _: httpx.Response(200, json=GATEWAY_RESPONSE))
+    client = gateway_client(lambda _: httpx2.Response(200, json=GATEWAY_RESPONSE))
     with logfire.instrument_openai(client):
         client.responses.create(model='gpt-4o-mini', input='hi')
 
@@ -6249,7 +6248,7 @@ def test_embeddings_gateway_cost(exporter: TestExporter) -> None:
         'data': [{'object': 'embedding', 'index': 0, 'embedding': [0.1]}],
         'usage': {'prompt_tokens': 10, 'total_tokens': 10, **GATEWAY_USAGE},
     }
-    client = gateway_client(lambda _: httpx.Response(200, json=body))
+    client = gateway_client(lambda _: httpx2.Response(200, json=body))
     with logfire.instrument_openai(client):
         client.embeddings.create(model='text-embedding-3-small', input='hi')
 
