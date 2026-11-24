@@ -295,13 +295,13 @@ conn = logfire.db_api.connect(read_token='<your_read_token>', min_timestamp=time
 You can also override the timestamp filter per-cursor:
 
 ```python skip-run="true" skip-reason="external-connection"
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import logfire.db_api
 
 conn = logfire.db_api.connect(read_token='<your_read_token>')
 cursor = conn.cursor()
-cursor.min_timestamp = datetime.now(timezone.utc) - timedelta(days=14)
+cursor.min_timestamp = datetime.now(UTC) - timedelta(days=14)
 cursor.execute('SELECT start_timestamp, message FROM records LIMIT 10')
 ```
 

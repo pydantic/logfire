@@ -3513,7 +3513,6 @@ def test_inspect_arguments(exporter: TestExporter):
     )
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason='Testing behaviour in Python 3.11+')
 def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
     # We're about to 'disable' `executing` which `snapshot` also uses, so make the snapshot first.
     expected_spans = snapshot(

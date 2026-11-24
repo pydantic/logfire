@@ -14,7 +14,7 @@ from openai.types.responses import Response
 import logfire
 from logfire._internal.exporters.test import TestExporter
 
-pytest.importorskip('agents', reason='openai-agents requires python 3.10', exc_type=ImportError)
+pytest.importorskip('agents', reason='openai-agents requires a newer pydantic', exc_type=ImportError)
 
 from agents import (
     Agent,
