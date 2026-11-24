@@ -269,3 +269,30 @@ def test_alias_key_probe_ignores_value_serialization_warnings() -> None:
 
     assert recorded_warnings == []
     assert schema == {'type': 'object', 'title': 'AliasedModel', 'x-python-datatype': 'PydanticModel'}
+
+
+def test_all_aliased_fields_excluded(exporter: TestExporter) -> None:
+    class AliasedModel(BaseModel):
+        model_config = ConfigDict(serialize_by_alias=True)
+
+        excluded_url: AnyUrl = Field(serialization_alias='excluded_output', exclude=True)
+        visible_url: AnyUrl
+
+    model = AliasedModel.model_validate(
+        {'excluded_url': 'https://example.com/excluded', 'visible_url': 'https://example.com/visible'}
+    )
+    logfire.info('aliased model {model}', model=model)
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    recorded_json = attributes['model']
+    schema_json = attributes['logfire.json_schema']
+    assert isinstance(recorded_json, str)
+    assert isinstance(schema_json, str)
+    assert json.loads(recorded_json) == {'visible_url': 'https://example.com/visible'}
+    assert json.loads(schema_json)['properties']['model'] == {
+        'type': 'object',
+        'title': 'AliasedModel',
+        'x-python-datatype': 'PydanticModel',
+        'properties': {'visible_url': {'type': 'string', 'x-python-datatype': type(model.visible_url).__name__}},
+    }

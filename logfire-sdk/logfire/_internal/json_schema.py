@@ -401,31 +401,26 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
         aliases = {}
         extra = {}
     if aliases:
-        # The default for model_dump(by_alias=...) depends on the Pydantic version and model config.
-        # Dump fields in isolation so aliases matching other field names cannot hide the setting.
-        # Skip fields excluded from serialization, which produce no key to check.
-        # Value serialization warnings are irrelevant here because only the keys are used.
-        for name, alias in aliases.items():  # pragma: no branch
+        properties: dict[str, Any] = {}
+        for name in fields:
+            # An isolated dump reveals the effective alias on every supported Pydantic version and
+            # omits excluded fields. Value warnings are irrelevant because only the keys are used.
             dumped = obj.model_dump(include={name}, warnings=False)
-            if alias in dumped:
-                properties: dict[str, Any] = {}
-                for field_name in fields:
-                    serialized_name = aliases.get(field_name, field_name)
-                    if serialized_name not in obj.model_dump(include={field_name}, warnings=False):
-                        continue
-                    with suppress(Exception):
-                        properties[serialized_name] = getattr(obj, field_name)
-                for extra_name in extra:
-                    with suppress(Exception):
-                        properties[extra_name] = getattr(obj, extra_name)
-                return {
-                    'type': 'object',
-                    'title': obj.__class__.__name__,
-                    'x-python-datatype': 'PydanticModel',
-                    **_properties(properties, seen),
-                }
-            if name in dumped:
-                break
+            alias = aliases.get(name)
+            serialized_name = alias if alias is not None and alias in dumped else name
+            if serialized_name not in dumped:
+                continue
+            with suppress(Exception):
+                properties[serialized_name] = getattr(obj, name)
+        for name in extra:
+            with suppress(Exception):
+                properties[name] = getattr(obj, name)
+        return {
+            'type': 'object',
+            'title': obj.__class__.__name__,
+            'x-python-datatype': 'PydanticModel',
+            **_properties(properties, seen),
+        }
     return _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen)
 
 
