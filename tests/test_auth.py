@@ -84,10 +84,29 @@ def test_get_user_token_no_explicit_url(default_credentials: Path) -> None:
 def test_get_user_token_input_choice(multiple_credentials: Path) -> None:
     token_collection = UserTokenCollection(multiple_credentials)
 
-    with patch('rich.prompt.IntPrompt.ask', side_effect=[1]):
+    with patch('builtins.input', side_effect=['1']):
         token = token_collection.get_token(base_url=None)
         # https://logfire-us.pydantic.dev is the first URL present in the multiple credentials fixture:
         assert token.base_url == 'https://logfire-us.pydantic.dev'
+
+
+def test_get_user_token_input_choice_retries(multiple_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    token_collection = UserTokenCollection(multiple_credentials)
+
+    with patch('builtins.input', side_effect=['3', ' 2 ']):
+        token = token_collection.get_token(base_url=None)
+
+    assert token.base_url == 'https://logfire-eu.pydantic.dev'
+    assert capsys.readouterr().err.count('Please select one of the available options') == 1
+
+
+def test_get_user_token_input_choice_gives_up(multiple_credentials: Path) -> None:
+    token_collection = UserTokenCollection(multiple_credentials)
+
+    with patch('builtins.input', side_effect=['nope'] * 5) as mock_input:
+        with pytest.raises(LogfireConfigError, match=r'^No valid option was selected after 5 attempts\.$'):
+            token_collection.get_token(base_url=None)
+    assert mock_input.call_count == 5
 
 
 def test_get_user_token_empty_credentials(tmp_path: Path) -> None:

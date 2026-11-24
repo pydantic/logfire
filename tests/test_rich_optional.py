@@ -17,6 +17,7 @@ from logfire import ConsoleOptions
 from logfire._internal.auth import UserTokenCollection
 from logfire._internal.config import LogfireCredentials
 from logfire._internal.maybe_rich import require_rich
+from logfire.exceptions import LogfireConfigError
 
 
 @pytest.fixture
@@ -32,7 +33,7 @@ def test_console_exporter_without_rich() -> None:
     with pytest.warns(UserWarning, match=r"Console `colors='always'` requires the `rich` package"):
         logfire.configure(
             send_to_logfire=False,
-            console=ConsoleOptions(output=output, colors='always', include_timestamps=False, verbose=True),
+            console=ConsoleOptions(output=output, colors='always', include_timestamps=False, include_attributes=True),
         )
 
     with logfire.span('outer {x}', x=[1, 2]):
@@ -45,16 +46,14 @@ def test_console_exporter_without_rich() -> None:
     # No ANSI escape codes, just plain text.
     assert '\x1b[' not in output.getvalue()
     lines = output.getvalue().splitlines()
-    assert lines[:9] == snapshot(
+    assert lines[:7] == snapshot(
         [
             'outer [1, 2]',
-            '│ tests/test_rich_optional.py:38',
             '│ x=[',
             '│       1,',
             '│       2,',
             '│   ]',
             '  inner',
-            '│ tests/test_rich_optional.py:39 warn',
             'failed',
         ]
     )
@@ -79,6 +78,15 @@ def test_token_choice_without_rich(multiple_credentials: Path, capsys: pytest.Ca
 
     assert token.base_url == 'https://logfire-eu.pydantic.dev'
     assert capsys.readouterr().err.count('Please select one of the available options') == 2
+
+
+@pytest.mark.usefixtures('without_rich')
+def test_token_choice_without_rich_gives_up(multiple_credentials: Path) -> None:
+    token_collection = UserTokenCollection(multiple_credentials)
+
+    with patch('builtins.input', side_effect=['nope'] * 5):
+        with pytest.raises(LogfireConfigError, match=r'^No valid option was selected after 5 attempts\.$'):
+            token_collection.get_token(base_url=None)
 
 
 @pytest.mark.usefixtures('without_rich')

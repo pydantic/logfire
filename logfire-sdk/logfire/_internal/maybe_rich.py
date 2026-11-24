@@ -11,6 +11,8 @@ import sys
 from textwrap import indent as indent_text
 from typing import TYPE_CHECKING, Literal, TextIO
 
+from logfire.exceptions import LogfireConfigError
+
 from .stack_info import warn_at_user_stacklevel
 
 if TYPE_CHECKING:
@@ -40,27 +42,26 @@ class ConsoleWriter:
                     'Install it with `pip install rich`.',
                     category=UserWarning,
                 )
-            return
-
-        if colors == 'auto':
-            force_terminal = None
-            no_color = None
         else:
-            force_terminal = colors == 'always'
-            # Rich 15 honors NO_COLOR even with force_terminal=True unless no_color is set explicitly.
-            no_color = colors == 'never'
-        console = Console(
-            color_system='standard' if os.environ.get('PYTEST_VERSION') else 'auto',
-            file=output,
-            force_terminal=force_terminal,
-            highlight=False,
-            markup=False,
-            no_color=no_color,
-            soft_wrap=True,
-        )
-        # Use plain `print` to `output` instead of rich when we don't need colors
-        if console.is_terminal:
-            self._console = console
+            if colors == 'auto':
+                force_terminal = None
+                no_color = None
+            else:
+                force_terminal = colors == 'always'
+                # Rich 15 honors NO_COLOR even with force_terminal=True unless no_color is set explicitly.
+                no_color = colors == 'never'
+            console = Console(
+                color_system='standard' if os.environ.get('PYTEST_VERSION') else 'auto',
+                file=output,
+                force_terminal=force_terminal,
+                highlight=False,
+                markup=False,
+                no_color=no_color,
+                soft_wrap=True,
+            )
+            # Use plain `print` to `output` instead of rich when we don't need colors
+            if console.is_terminal:
+                self._console = console
 
     def print_parts(self, parts: TextParts) -> None:
         """Print styled text parts on one line."""
@@ -133,22 +134,45 @@ class ConsoleWriter:
             print(f'{indent_str}│ {exc_type}: {exc_msg}\n{indented_tb}', file=self._output)
 
 
+ASK_CHOICE_MAX_ATTEMPTS = 5
+
+
 def ask_choice(prompt: str, count: int) -> int:
-    """Ask the user on stderr to pick a number from 1 to `count`."""
+    """Ask the user on stderr to pick a number from 1 to `count`.
+
+    Raises:
+        LogfireConfigError: If no valid choice is given after `ASK_CHOICE_MAX_ATTEMPTS` attempts.
+    """
     choices = [str(i) for i in range(1, count + 1)]
+    choices_str = f'[{"/".join(choices)}]'
+    invalid_message = 'Please select one of the available options'
     try:
         from rich.console import Console
-        from rich.prompt import IntPrompt
+        from rich.markup import escape
     except ImportError:
-        while True:
-            sys.stderr.write(f'{prompt}[{"/".join(choices)}]: ')
-            sys.stderr.flush()
-            answer = input().strip()
-            if answer in choices:
-                return int(answer)
-            sys.stderr.write('Please select one of the available options\n')
 
-    return IntPrompt.ask(prompt, choices=choices, console=Console(file=sys.stderr))
+        def read_answer() -> str:
+            sys.stderr.write(f'{prompt}{choices_str}: ')
+            sys.stderr.flush()
+            return input()
+
+        def report_invalid() -> None:
+            sys.stderr.write(f'{invalid_message}\n')
+    else:
+        console = Console(file=sys.stderr)
+
+        def read_answer() -> str:
+            return console.input(f'{escape(prompt)}[prompt.choices]{escape(choices_str)}[/prompt.choices]: ')
+
+        def report_invalid() -> None:
+            console.print(invalid_message, style='prompt.invalid.choice')
+
+    for _ in range(ASK_CHOICE_MAX_ATTEMPTS):
+        answer = read_answer().strip()
+        if answer in choices:
+            return int(answer)
+        report_invalid()
+    raise LogfireConfigError(f'No valid option was selected after {ASK_CHOICE_MAX_ATTEMPTS} attempts.')
 
 
 def print_project_url(project_url: str) -> None:
@@ -157,14 +181,13 @@ def print_project_url(project_url: str) -> None:
         from rich.console import Console
     except ImportError:
         sys.stderr.write(f'Logfire project URL: {project_url}\n')
-        return
-
-    console = Console(stderr=True)
-    # Make sure the URL isn't wrapped, so it can be clicked or copied.
-    min_width = len(project_url) + 4
-    if console.width < min_width:  # pragma: no cover
-        console.width = min_width
-    console.print(f'[bold]Logfire[/bold] project URL: [cyan]{project_url}[/cyan]')
+    else:
+        console = Console(stderr=True)
+        # Make sure the URL isn't wrapped, so it can be clicked or copied.
+        min_width = len(project_url) + 4
+        if console.width < min_width:  # pragma: no cover
+            console.width = min_width
+        console.print(f'[bold]Logfire[/bold] project URL: [cyan]{project_url}[/cyan]')
 
 
 def require_rich(feature: str) -> None:
