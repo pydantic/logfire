@@ -1,9 +1,11 @@
 ---
-title: "Discover a material-response equation with an agent"
-description: "Search over executable hypotheses with an agent, run them in Logfire Agent Sandboxes, and independently measure their quality."
+title: "Search over executable hypotheses with Agent Sandboxes"
+description: "Use Logfire Agent Sandboxes to let an agent test and improve executable hypotheses, demonstrated by discovering a material-response equation."
 ---
 
-# Discover a material-response equation with an agent
+# Search over executable hypotheses with Agent Sandboxes
+
+*A worked example: discovering a material-response equation.*
 
 **An agent searches over executable hypotheses, while the application independently measures their quality.**
 
