@@ -1,0 +1,26 @@
+pyproject.toml
+  s_63da2a5c522d59::t_910de44e639b82 122-123
+uv.lock
+  s_63da2a5c522d59::t_ff3c202a66dd74 3642,3681,3828-3829,3838-3839,4328,4456
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "37c97ceae951fd3fa581d12b7721129acd6faae9",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_63da2a5c522d59": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20cfb-91cb-7f22-af3b-aab4a00dd961",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
