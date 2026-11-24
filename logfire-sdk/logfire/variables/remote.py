@@ -9,7 +9,7 @@ import time
 import warnings
 import weakref
 from collections.abc import Mapping
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
@@ -17,7 +17,6 @@ from opentelemetry.util._once import Once
 from pydantic import ValidationError
 from requests import RequestException, Session
 
-from logfire._internal.client import UA_HEADER
 from logfire._internal.config import VariablesOptions
 from logfire._internal.http_transport import install_connection_policy
 from logfire._internal.server_response import ServerResponseCallback, install_logfire_response_hook
@@ -43,6 +42,9 @@ from logfire.variables.config import (
     VariableConfig,
     VariablesConfig,
 )
+from logfire.version import VERSION
+
+UA_HEADER = f'logfire/{VERSION}'
 
 if TYPE_CHECKING:
     import logfire
@@ -462,7 +464,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             if (
                 not force
                 and self._last_fetched_at is not None
-                and self._last_fetched_at > datetime.now(tz=timezone.utc) - self._polling_interval
+                and self._last_fetched_at > datetime.now(tz=UTC) - self._polling_interval
             ):
                 return  # nothing to do
 
@@ -484,7 +486,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                     # Do NOT call raise_for_status here (304 is outside 2xx).
                     if variables_response.status_code == 304:
                         self._consecutive_refresh_failures = 0
-                        self._last_fetched_at = datetime.now(tz=timezone.utc)
+                        self._last_fetched_at = datetime.now(tz=UTC)
                         self._has_attempted_fetch = True
                         return
                     UnexpectedResponse.raise_for_status(variables_response)
@@ -525,7 +527,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 # sending ETags doesn't leave a stale validator that causes spurious 304s.
                 self._etag = variables_response.headers.get('ETag')
                 self._config = new_config
-                self._last_fetched_at = datetime.now(tz=timezone.utc)
+                self._last_fetched_at = datetime.now(tz=UTC)
             except ValidationError as e:
                 self._log_error('Failed to parse variables configuration from Logfire API', e)
             finally:

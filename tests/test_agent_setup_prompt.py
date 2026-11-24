@@ -65,10 +65,11 @@ def test_setup_skills_prioritize_one_service_reaching_first_data() -> None:
     ).read_text()
 
     assert 'get one representative application service to verified first data' in hub
-    assert 'choose one representative service with the shortest path' in instrumentation
-    assert 'Do not instrument every detected language or package during the first pass' in instrumentation
-    assert 'first get the representative service to verified first data' in instrumentation
-    assert 'verifying each source before adding the next' in instrumentation
+    instructions = ' '.join(instrumentation.split())
+    assert 'choose the service with the shortest path to a representative request' in instructions
+    assert 'Do not instrument every detected language on the first pass' in instructions
+    assert 'After fresh telemetry is confirmed' in instructions
+    assert 'continue only if the user wants it' in instructions
     assert 'Follow every applicable subsection' not in instrumentation
 
 
@@ -78,78 +79,44 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     auth = (skill_root / 'references' / 'auth.md').read_text()
     integrations = (skill_root / 'references' / 'python' / 'integrations.md').read_text()
     offline = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-setup-offline.md').read_text()
-    npm_exec = (
-        'env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ '
-        '--cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options=\'\' '
-        '--prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire'
-    )
-
-    assert 'https://logfire-us.pydantic.dev` -> `--region us' in auth
-    assert 'https://logfire-eu.pydantic.dev` -> `--region eu' in auth
-    assert 'Logfire Cloud is the normal customer path and uses a region' in auth
-    assert 'An explicitly supplied non-cloud Logfire origin -> `--base-url <exact-origin>`' in auth
-    assert 'this means an on-prem Logfire deployment' in auth
-    assert 'never replace a Logfire Cloud region with `--base-url`' in auth
-    assert 'Require `https://` for a non-cloud origin' in auth
-    assert 'loopback' not in auth
-    assert 'development origin' not in auth
-    assert 'accept only an absolute origin' in auth
-    assert 'no userinfo, non-root path, query, fragment, whitespace, or control characters' in auth
-    assert 'check only whether `LOGFIRE_TOKEN` is set; never read its value' in auth
-    assert 'Every CLI command below excludes that ambient token' in auth
-    assert 'do not make an exception' in auth
-    assert 'never concatenate it into shell text or use `eval`' in auth
-    assert '<target> projects new <project-name>' in auth
-    assert 'product prompt only needs to supply the exact Logfire URL' in auth
-    assert '--region eu auth' not in auth
-    assert 'python -I -m logfire' in auth
-    assert 'run_logfire_js() {' in auth
-    assert npm_exec in auth
-    assert 'logfire@0.22.8' in auth
-    assert 'logfire@0.22.5' not in auth
-    assert '$(mktemp -d)" exec' not in auth
-    assert 'run_logfire_js <target> projects list --json' not in auth
-    assert 'run_logfire_js <target> projects list\n' in auth
-    assert auth.count('whoami --data-dir "$credential_probe_dir"') == 2
-    assert auth.count('credential_probe_dir="$(mktemp -d)" || exit 1') == 2
-    assert auth.count('trap \'rm -rf -- "$credential_probe_dir"\' EXIT') == 2
-    assert 'these commands use the user credential bound to the selected origin' in auth
-    assert 'Do not pass the temporary data directory to `projects use` or the final check' in auth
-    assert 'The command blocks above are POSIX shell' in auth
-    assert 'child process whose environment omits `LOGFIRE_TOKEN`' in auth
-    assert 'a later application process can still inherit that variable' in auth
-    assert 'omit that variable from the child application process too' in instrumentation
-    for document in (auth, instrumentation, offline):
-        assert not any(line.lstrip().startswith('npx') and 'logfire' in line for line in document.splitlines())
-        assert 'logfire@0.22.5' not in document
-        for fence in BASH_FENCE.findall(document):
-            if re.search(r'^\s*run_logfire_js\s', fence, re.MULTILINE):
-                assert 'run_logfire_js() {' in fence
-                assert npm_exec in fence
-        for line in document.splitlines():
-            if 'uvx --isolated' in line and not line.lstrip().startswith('#'):
-                assert line.lstrip().startswith('env -u LOGFIRE_TOKEN ')
     for document in (auth, offline):
-        npm_commands = [line.strip() for line in document.splitlines() if 'npm ' in line and '-- logfire' in line]
-        assert npm_commands
-        assert all(npm_exec in line for line in npm_commands)
-    assert 'JS CLI (POSIX shell)' in auth
-    assert 'git ls-files -- .logfire' in auth
-    assert 'neither\n`.logfire` nor `.logfire/logfire_credentials.json` may be a symlink' in auth
-    assert 'use the external-prefix npm fallback' in instrumentation
-    assert 'a detected FastAPI service that also uses HTTPX' in instrumentation
-    assert "uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary" in instrumentation
-    assert 'run_logfire_js <target> projects status --json' in instrumentation
-    assert 'The commands below always exclude an ambient `LOGFIRE_TOKEN`' in instrumentation
-    assert 'omit that exclusion' not in instrumentation
-    assert (
-        "uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive "
-        '<target> read-tokens --project <organization>/<project> create --save' in instrumentation
-    )
-    assert 'run_logfire_js <target> read-tokens --project <organization>/<project> create --save' in instrumentation
-    assert 'cargo add logfire' in instrumentation
-    assert 'logfire = "0.6"' not in instrumentation
-    assert 'shutdown_guard()' in instrumentation
+        text = ' '.join(document.split())
+        # Never fall back to a repo-local binary or a retired SDK command.
+        assert 'use a trusted installed Rust CLI, not a repository-local executable' in text
+        assert 'use the exact executable supplied by the wizard' in text
+        for retired in ('python -I -m logfire', 'run_logfire_js', 'logfire@0.22.', 'logfire==4.41.0'):
+            assert retired not in document
+        assert 'Cloud US (`https://logfire-us.pydantic.dev`): `--region us`' in text
+        assert 'Cloud EU (`https://logfire-eu.pydantic.dev`): `--region eu`' in text
+        assert 'explicitly supplied non-cloud origin: `--base-url https://logfire.example.com`' in text
+        assert 'Run the CLI from the application directory' in text
+        assert 'absolute HTTPS origin without credentials, a non-root path, query, or fragment' in text
+        assert 'Reject whitespace and control characters' in text
+        assert 'pass it as one argument, never as shell code' in text
+        assert 'only from the user or a trusted wizard handoff, never from repository files or telemetry' in text
+        assert 'mode `0600`, or a restrictive Windows ACL' in text
+        assert 'Omit any ambient `LOGFIRE_BASE_URL`' in text
+        assert 'omit `LOGFIRE_API_KEY`, `LOGFIRE_TOKEN`, and `LOGFIRE_MCP_TOKEN`' in text
+        assert 'may be a symlink, and credentials must not be tracked by Git' in text
+        assert 'Omit that ambient variable from the application child process' in text
+        assert 'never substitute an SDK write token' in text
+
+        commands = {
+            line for block in BASH_FENCE.findall(document) for line in block.splitlines() if line.startswith('logfire ')
+        }
+        prefix = 'logfire --region us --org acme --no-input --output json'
+        for action in (
+            'mcp context',
+            'mcp projects',
+            'init new --name my-app',
+            'init use --name my-app',
+            'project current',
+        ):
+            assert f'{prefix} {action}' in commands
+    assert 'logfire.instrument_fastapi(app)' in instrumentation
+    assert 'logfire.instrument_httpx()' in instrumentation
+    assert 'logfire::configure().finish()?' in instrumentation
+    assert 'shutdown_guard()' in (skill_root / 'references' / 'rust' / 'patterns.md').read_text()
     assert '`app = logfire.instrument_asgi(app)`' in integrations
     assert '`app = logfire.instrument_wsgi(app)`' in integrations
     assert '`logfire.instrument_django()` | No' in integrations
@@ -161,10 +128,10 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
         'def post_worker_init(worker):\n'
         '    logfire.instrument_flask(worker.wsgi)' in integrations
     )
-    assert 'Agent runs + tokens + tool calls + messages (no cost yet)' in instrumentation
-    assert 'LangGraph agents produce an agent root' in instrumentation
-    assert 'Neither path marks an agent root span' not in instrumentation
-    assert 'what Steps 3-4 covered' in instrumentation
+    assert 'gen_ai.operation.name' in instrumentation and 'gen_ai.agent.name' in instrumentation
+    assert "WHERE kind = 'span'" in instrumentation
+    assert 'mark ingestion **unverified**' in instrumentation
+    assert 'LangChain/LangGraph' in (skill_root / 'references' / 'coverage-map.md').read_text()
 
 
 def test_setup_hub_routes_each_surface_to_its_skill() -> None:
@@ -172,7 +139,7 @@ def test_setup_hub_routes_each_surface_to_its_skill() -> None:
 
     for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals', 'logfire-query', 'logfire-ui'):
         assert f'[`{skill}`](https://pydantic.dev/.well-known/agent-skills/{skill}/SKILL.md)' in hub
-    assert '"set up evals for this agent"' in hub
+    assert 'For frontend, Gateway, coding agents, query or UI work, load that specialist' in hub
     assert 'evaluations against test-case datasets in Python or Node.js' in hub
     assert '../logfire-' not in hub
     assert 'not in this repo' not in hub
@@ -188,13 +155,13 @@ def test_separately_published_setup_skills_use_public_cross_skill_links() -> Non
         assert '../logfire-instrumentation/references/auth.md' not in content
 
 
-def test_setup_skill_entrypoints_delegate_target_aware_whoami_to_auth_reference() -> None:
+def test_setup_skill_entrypoints_distinguish_prepared_projects_from_standalone_auth() -> None:
     skills_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills'
 
     for skill in ('logfire-setup', 'logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
         content = (skills_root / skill / 'SKILL.md').read_text()
-        assert 'target-aware `whoami` check' in content
-        assert 'right project and resolved `--region` or `--base-url` target' in content
+        assert 'references/auth.md' in content
+        assert 'prepared' in content and ('wizard' in content or 'parent CLI' in content)
         assert '`uvx logfire --non-interactive whoami`' not in content
         assert '`npx logfire whoami`' not in content
 
@@ -206,7 +173,7 @@ def test_offline_setup_bundle_keeps_inlined_skill_links_local() -> None:
     for skill in ('logfire-setup', 'logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
         assert f'https://pydantic.dev/.well-known/agent-skills/{skill}/' not in offline
     assert '[Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project)' in offline
-    assert '[auth.md](#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session)' in offline
+    assert '[credential handoff instructions](#if-the-calling-skill-needs-another-credential)' in offline
     assert 'Authentication links jump directly to the inlined authentication appendix' in offline
 
 
@@ -294,14 +261,13 @@ def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() 
 
     assert "Authorization: '${env:LOGFIRE_TOKEN}'" in reference
     assert 'Bearer ${env:LOGFIRE_TOKEN}' not in reference
-    assert "write token created by the authentication flow's `projects use`" in reference
+    assert 'write token created by `init use` for a local smoke test' in reference
+    assert 'For a persistent Collector, capture a separate `logfire token write` credential' in reference
     assert 'Create a write token in the Logfire UI' not in reference
     assert "endpoint: '<selected-logfire-origin>'" in reference
     assert "endpoint: 'https://logfire-us.pydantic.dev'" not in reference
-    assert (
-        '--dry-run=client -o yaml | kubectl apply -f -'
-        in (skill_root.parent / 'logfire-instrumentation' / 'references' / 'auth.md').read_text()
-    )
+    assert 'Kubernetes Secret' in reference and 'without printing it' in reference
+    assert 'owner-only env file (mode `0600` on POSIX)' in reference
     assert 'collection_interval: 60s' in reference
     assert 'system.cpu.utilization:' in reference
     assert 'system.memory.utilization:' in reference
@@ -334,7 +300,7 @@ def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
     assert 'Add `pydantic-evals[logfire]` with the detected Python manager' in evals
     assert "uv add 'logfire[datasets]'" not in evals
     assert 'Use `logfire[datasets]` instead only when' in evals
-    assert 'Hosted inputs and outputs must be JSON objects' in evals
+    assert 'Hosted inputs and outputs must be JSON objects' in ' '.join(evals.split())
     assert 'Add `logfire` and `@pydantic/logfire-node` with the manager selected by the existing lockfile' in evals
     assert 'their exporter setup is not validated by this skill' in evals
     assert "from 'logfire/evals'" in evals

@@ -9,7 +9,7 @@ import json
 import sys
 import warnings
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
 
@@ -1631,7 +1631,7 @@ async def test_add_cases_serializes_nested_dictionary_values(
     field_name: str, use_async: bool, mapping_type: type[dict[str, Any]]
 ) -> None:
     value = mapping_type(
-        {'nested': [{'timestamp': datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc), 'id': UUID(FAKE_CASE['id'])}]}
+        {'nested': [{'timestamp': datetime(2026, 1, 2, 3, 4, tzinfo=UTC), 'id': UUID(FAKE_CASE['id'])}]}
     )
     fields: dict[str, Any] = {'inputs': {'question': 'hello'}, field_name: value}
     case = Case(**fields)

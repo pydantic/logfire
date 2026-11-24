@@ -6,11 +6,11 @@ import inspect
 import warnings
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import AbstractContextManager, asynccontextmanager, contextmanager
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, LiteralString, TypeVar
 
 from opentelemetry import trace
 from opentelemetry.util import types as otel_types
-from typing_extensions import LiteralString, ParamSpec
+from typing_extensions import ParamSpec
 
 from .constants import (
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,

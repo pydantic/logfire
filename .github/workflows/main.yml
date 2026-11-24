@@ -114,7 +114,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
-            python-version: "3.10"
+            python-version: "3.11"
             from-version: "4.41.0"
             installer: pip
           - os: ubuntu-latest
@@ -172,7 +172,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
+        python-version: [ "3.11", "3.12", "3.13", "3.14" ]
         pydantic-version: [ "2" ] # i.e. the latest
         otel-version: [ "1" ] # i.e. the latest
         include:

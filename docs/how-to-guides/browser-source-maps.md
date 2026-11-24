@@ -22,7 +22,7 @@ You need:
 - The ID of your *frontend application*. A frontend application is the entry in a Logfire project that gives the browser data of one web app a stable name and a restricted token. Find it under **Project settings → Frontend applications** (see [Frontend](../guides/web-ui/frontend.md)). The examples on this page read it from the `FRONTEND_APPLICATION_ID` environment variable.
 - The **Browser source maps** feature turned on. Open **Settings → Early access**, select the flask icon next to the **Early access** heading to show experimental features, and turn on **Browser source maps**. The API key form shows the **Source maps** scope only after this step.
 - A project API key with the `project:write_sourcemaps` scope (**Source maps** on the API key form), in the `LOGFIRE_API_KEY` environment variable. Create it on the project's API keys page in Logfire. The project comes from the key, so you do not pass it on the command line.
-- The Logfire CLI for JavaScript projects, the `logfire-cli` npm package, version 0.1.21 or later. Run it with `npx logfire-cli`. The `logfire` command that the Python package installs has no `sourcemap` command.
+- The Logfire CLI for JavaScript projects, the `logfire-cli` npm package, version 0.1.22 or later. Run it with `npx logfire-cli`. The `logfire` command that the Python package installs has no `sourcemap` command.
 
 The commands on this page use two global flags:
 
@@ -76,6 +76,14 @@ Run `inject` before any step that hashes or compresses the bundle, such as preco
 !!! note "Browser exceptions only"
     This page covers exceptions that `@pydantic/logfire-browser` records in the browser. Next.js middleware and edge runtime code run on the server, so the browser SDK does not send their exceptions.
 
+### If you also use another error tool
+
+You can upload the same build to Logfire and to another error tracking tool, such as Sentry or Datadog. Logfire reuses a debug ID that the other tool already wrote, so both tools share it.
+
+1. Run the inject step of the other tool, for example `sentry-cli sourcemaps inject` or `datadog-ci sourcemaps inject`.
+2. Run `npx logfire-cli --beta sourcemap inject dist` last.
+3. Upload to each tool. Pass `--delete` only to the last upload, because it removes the `.map` files.
+
 ### Upload the maps
 
 !!! warning "Upload before you deploy"
@@ -101,9 +109,9 @@ npx logfire-cli --beta --region us sourcemap upload .next/static \
 `upload` first asks Logfire which builds it already stores, then uploads only the missing ones, in batches. So a run for an unchanged build sends one request. If a file fails, `upload` exits with a non-zero code, so the CI job fails before the deploy. See [Upload results](#upload-results).
 
 !!! warning "Your source code is in the maps"
-    Most bundlers embed your original source code in each map, in the `sourcesContent` field. By default, `upload` sends it to Logfire, and Logfire stores it with the map. Pass `--strip-sources` to send the maps without the source text. Frames still resolve to the original file, function, line and column.
+    Most bundlers embed your original source code in each map, in the `sourcesContent` field. By default, `upload` sends it to Logfire, and Logfire stores it with the map. Pass `--strip-sources` to send the maps without the source text. Frames still resolve to the original file, line and column.
 
-    Logfire has no page and no API that returns an uploaded map or its source text. Everyone who can read the project's data sees the resolved stack traces, which contain your original file and function names. You cannot delete an uploaded map yourself. Logfire deletes it at the end of its [retention](#retention).
+    Logfire has no page and no API that returns an uploaded map or its source text. Everyone who can read the project's data sees the resolved stack traces, which contain your original file names, and your original function names when the map has a `names` field. You cannot delete an uploaded map yourself. Logfire deletes it at the end of its [retention](#retention).
     <!-- TODO: confirm whether Logfire shows source lines from `sourcesContent`. The ingest step does not use the source text today. -->
 
 ### Deploy the files you built
@@ -151,7 +159,7 @@ With webpack, or on Next.js before 16.0.0, add `npx logfire-cli --beta sourcemap
 
 ## Check the result
 
-A resolved exception shows the original file, function, line and column in its stack trace, in the `exception.stacktrace` attribute:
+A resolved exception shows the original file, line and column in its stack trace, in the `exception.stacktrace` attribute. The original function names appear when the bundler's map lists them in its `names` field. If the map has no `names`, the frames keep the minified function names:
 
 ```text
 Error: checkout failed

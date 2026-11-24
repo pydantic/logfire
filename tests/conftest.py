@@ -197,48 +197,6 @@ def tmp_dir_cwd(tmp_path: Path):
         os.chdir(cwd)
 
 
-@pytest.fixture
-def default_credentials(tmp_path: Path) -> Path:
-    auth_file = tmp_path / 'default.toml'
-    auth_file.write_text(
-        """
-        [tokens."https://logfire-us.pydantic.dev"]
-        token = "pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
-        expiration = "2099-12-31T23:59:59"
-        """
-    )
-    return auth_file
-
-
-@pytest.fixture
-def expired_credentials(tmp_path: Path) -> Path:
-    auth_file = tmp_path / 'default.toml'
-    auth_file.write_text(
-        """
-        [tokens."https://logfire-us.pydantic.dev"]
-        token = "pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
-        expiration = "1970-01-01T00:00:00"
-        """
-    )
-    return auth_file
-
-
-@pytest.fixture
-def multiple_credentials(tmp_path: Path) -> Path:
-    auth_file = tmp_path / 'default.toml'
-    auth_file.write_text(
-        """
-        [tokens."https://logfire-us.pydantic.dev"]
-        token = "pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
-        expiration = "2099-12-31T23:59:59"
-        [tokens."https://logfire-eu.pydantic.dev"]
-        token = "pylf_v1_eu_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
-        expiration = "2099-12-31T23:59:59"
-        """
-    )
-    return auth_file
-
-
 SENSITIVE_HEADERS = [
     # All sensitive headers should be lower case as
     # that's how they are presented by VCR.
