@@ -284,11 +284,10 @@ def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
         if is_homogeneous and common_schema is not None and common_schema not in PLAIN_SCHEMAS:
             schema['additionalProperties'] = common_schema
         else:
-            key_schemas = {
-                (k if isinstance(k, str) else safe_repr(k)): value_schema for k, value_schema in value_schemas
-            }
             properties: JsonDict = {
-                k: value_schema for k, value_schema in key_schemas.items() if value_schema not in PLAIN_SCHEMAS
+                (k if isinstance(k, str) else safe_repr(k)): value_schema
+                for k, value_schema in value_schemas
+                if value_schema not in PLAIN_SCHEMAS
             }
             if properties:
                 schema['properties'] = properties

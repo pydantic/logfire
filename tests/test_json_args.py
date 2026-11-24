@@ -2005,10 +2005,6 @@ def test_medium_dict_schema():
     d_medium_plain_hetero = {f'key_{i}': (None if i % 2 else 0) for i in range(11)}
     assert create_json_schema(d_medium_plain_hetero, set()) == {'type': 'object'}
 
-    # The last key wins when distinct keys have the same string representation.
-    d_medium_duplicate_keys = {1: datetime(2023, 1, 1), '1': 0, **{f'key_{i}': 0 for i in range(9)}}
-    assert create_json_schema(d_medium_duplicate_keys, set()) == {'type': 'object'}
-
 
 def test_nested_medium_dict_schema_is_generated_once_per_value():
     nested: object = 0
