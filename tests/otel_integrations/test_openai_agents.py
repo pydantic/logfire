@@ -2320,29 +2320,41 @@ async def test_function_tool_exception(exporter: TestExporter):
                 'context': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'start_time': 7000000000,
-                'end_time': 8000000000,
+                'end_time': 9000000000,
                 'attributes': {
                     'logfire.msg_template': 'Function: {name}',
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
                     'name': 'tool',
                     'input': {},
-                    'output': 'An error occurred while running the tool.',
+                    'output': "An error occurred while running the tool. Please try again. Error: Ouch, don't do that again!",
                     'mcp_data': 'null',
                     'gen_ai.system': 'openai',
                     'error': {
                         'message': 'Error running tool (non-fatal)',
-                        'data': {'tool_name': 'tool', 'error': 'Tool execution failed. Error details are redacted.'},
+                        'data': {'tool_name': 'tool', 'error': "Ouch, don't do that again!"},
                     },
                     'logfire.msg': 'Function: tool failed: Error running tool (non-fatal)',
                 },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 8000000000,
+                        'attributes': {
+                            'exception.type': 'RuntimeError',
+                            'exception.message': "Ouch, don't do that again!",
+                            'exception.stacktrace': "RuntimeError: Ouch, don't do that again!",
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
             },
             {
                 'name': 'Turn {turn} for agent Start Agent',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'start_time': 4000000000,
-                'end_time': 9000000000,
+                'end_time': 10000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_function_tool_exception',
@@ -2368,8 +2380,8 @@ async def test_function_tool_exception(exporter: TestExporter):
                 'name': 'Responses API with {gen_ai.request.model!r}',
                 'context': {'trace_id': 1, 'span_id': 15, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 13, 'is_remote': False},
-                'start_time': 11000000000,
-                'end_time': 12000000000,
+                'start_time': 12000000000,
+                'end_time': 13000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_function_tool_exception',
@@ -2405,7 +2417,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                         },
                         {
                             'call_id': 'call_OpJ32C09GImFzxYLe01MiOOd',
-                            'output': 'An error occurred while running the tool.',
+                            'output': "An error occurred while running the tool. Please try again. Error: Ouch, don't do that again!",
                             'type': 'function_call_output',
                         },
                     ],
@@ -2427,7 +2439,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                             'event.name': 'gen_ai.tool.message',
                             'role': 'tool',
                             'id': 'call_OpJ32C09GImFzxYLe01MiOOd',
-                            'content': 'An error occurred while running the tool.',
+                            'content': "An error occurred while running the tool. Please try again. Error: Ouch, don't do that again!",
                             'name': 'tool',
                         },
                         {
@@ -2454,8 +2466,8 @@ async def test_function_tool_exception(exporter: TestExporter):
                 'name': 'Turn {turn} for agent Start Agent',
                 'context': {'trace_id': 1, 'span_id': 13, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'start_time': 10000000000,
-                'end_time': 13000000000,
+                'start_time': 11000000000,
+                'end_time': 14000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_function_tool_exception',
@@ -2482,7 +2494,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
-                'end_time': 14000000000,
+                'end_time': 15000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_function_tool_exception',
@@ -2502,7 +2514,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
-                'end_time': 15000000000,
+                'end_time': 16000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_function_tool_exception',
@@ -2529,7 +2541,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 16000000000,
+                'end_time': 17000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_function_tool_exception',
@@ -2584,11 +2596,11 @@ async def test_voice_pipeline(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'input': {'format': 'pcm'},
                     'output': 'あたし',
-                    'gen_ai.request.model': 'gpt-transcribe',
+                    'gen_ai.request.model': 'gpt-4o-transcribe',
                     'gen_ai.system': 'openai',
                     'model_config': {'temperature': None, 'language': None, 'prompt': None},
-                    'gen_ai.response.model': 'gpt-transcribe',
-                    'logfire.msg': "Speech → Text with 'gpt-transcribe': あたし",
+                    'gen_ai.response.model': 'gpt-4o-transcribe',
+                    'logfire.msg': "Speech → Text with 'gpt-4o-transcribe': あたし",
                 },
             },
             {
