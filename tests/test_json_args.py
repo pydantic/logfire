@@ -380,50 +380,53 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
         pytest.param(
             Enum('Color', ['RED', 'GREEN', 'BLUE']).BLUE,
             'Color.BLUE',
-            3,
-            {},
+            '3',
+            {'type': 'integer', 'title': 'Color', 'x-python-datatype': 'Enum'},
             id='enum',
         ),
         pytest.param(
             Enum('Maybe', {'NONE': None}).NONE,
             'Maybe.NONE',
             'null',
-            {'type': 'null'},
+            {'type': 'null', 'title': 'Maybe', 'x-python-datatype': 'Enum'},
             id='enum_with_none_value',
         ),
         pytest.param(
             Enum('Outer', {'INNER': Enum('Inner', {'ONE': 1}).ONE}).INNER,
             'Outer.INNER',
-            1,
-            {},
+            '1',
+            {'type': 'integer', 'title': 'Outer', 'x-python-datatype': 'Enum'},
             id='enum_with_enum_value',
         ),
         pytest.param(
             {'enum': StrEnum('Color', ['RED', 'GREEN', 'BLUE']).BLUE},
             "{'enum': <Color.BLUE: 'blue'>}",
             '{"enum":"blue"}',
-            {'type': 'object'},
+            {
+                'type': 'object',
+                'additionalProperties': {'type': 'string', 'title': 'Color', 'x-python-datatype': 'Enum'},
+            },
             id='str_enum',
         ),
         pytest.param(
             Enum('Color', {'RED': 1, 'GREEN': 'str', 'BLUE': MyDataclass(t=1)}).BLUE,
             'Color.BLUE',
             '{"t":1}',
-            {'type': 'object', 'title': 'MyDataclass', 'x-python-datatype': 'dataclass'},
+            {'type': 'object', 'title': 'Color', 'x-python-datatype': 'Enum'},
             id='enum_with_complex_values',
         ),
         pytest.param(
             Enum('Color', {'RED': 1, 'GREEN': 'str'}).RED,
             'Color.RED',
-            1,
-            {},
+            '1',
+            {'type': 'integer', 'title': 'Color', 'x-python-datatype': 'Enum'},
             id='enum_with_int_and_str_values',
         ),
         pytest.param(
             Enum('Color', {'RED': 1, 'GREEN': 1.5}).RED,
             'Color.RED',
-            1,
-            {},
+            '1',
+            {'type': 'integer', 'title': 'Color', 'x-python-datatype': 'Enum'},
             id='enum_with_int_and_float_values',
         ),
         pytest.param(
@@ -936,7 +939,7 @@ def test_log_non_scalar_args(
     exporter: TestExporter,
     value: Any,
     value_repr: str,
-    value_json: str | int,
+    value_json: str,
     json_schema: dict[str, Any],
 ) -> None:
     logfire.info('test message {var=}', var=value)
@@ -955,14 +958,18 @@ def test_recursive_enum_value_schema() -> None:
     member = Enum('Recursive', {'MEMBER': 1}).MEMBER
     object.__setattr__(member, '_value_', member)
 
-    assert create_json_schema(member, set()) == {}
+    assert create_json_schema(member, set()) == {'title': 'Recursive', 'x-python-datatype': 'Enum'}
 
 
 def test_bytes_enum_value_schema() -> None:
     class BytesEnum(bytes, Enum):
         MEMBER = b'bytes'
 
-    assert create_json_schema(BytesEnum.MEMBER, set()) == {'type': 'string', 'x-python-datatype': 'bytes'}
+    assert create_json_schema(BytesEnum.MEMBER, set()) == {
+        'type': 'string',
+        'title': 'BytesEnum',
+        'x-python-datatype': 'Enum',
+    }
 
 
 def test_attrs_schema_respects_repr() -> None:
@@ -1831,9 +1838,9 @@ def test_pydantic_root_model(exporter: TestExporter):
                 'with_none': 'null',
                 'with_none_inner': 'null',
                 'with_color': '"RED"',
-                'with_color_inner': 'RED',
+                'with_color_inner': '"RED"',
                 'with_order': '1',
-                'with_order_inner': 1,
+                'with_order_inner': '1',
                 'logfire.json_schema': {
                     'type': 'object',
                     'properties': {
@@ -1853,9 +1860,9 @@ def test_pydantic_root_model(exporter: TestExporter):
                         'with_none': {'type': 'null'},
                         'with_none_inner': {'type': 'null'},
                         'with_color': {'type': 'string', 'x-python-datatype': 'str', 'title': 'Color'},
-                        'with_color_inner': {},
+                        'with_color_inner': {'type': 'string', 'title': 'Color', 'x-python-datatype': 'Enum'},
                         'with_order': {'type': 'integer', 'x-python-datatype': 'int', 'title': 'Order'},
-                        'with_order_inner': {},
+                        'with_order_inner': {'type': 'integer', 'title': 'Order', 'x-python-datatype': 'Enum'},
                     },
                 },
             },

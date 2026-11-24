@@ -144,7 +144,22 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
         elif is_attrs(obj_type):
             return _attrs_schema(obj, seen)
         elif isinstance(obj, Enum):
-            return create_json_schema(obj.value, seen)
+            enum_value = obj.value
+            scalar_type: str | None = None
+            if isinstance(enum_value, str):
+                scalar_type = 'string'
+            elif isinstance(enum_value, bool):
+                scalar_type = 'boolean'
+            elif isinstance(enum_value, int):
+                scalar_type = 'integer'
+            elif isinstance(enum_value, float):
+                scalar_type = 'number'
+            return {
+                **({'type': scalar_type} if scalar_type else {}),
+                **create_json_schema(enum_value, seen),
+                'title': obj.__class__.__name__,
+                'x-python-datatype': 'Enum',
+            }
 
         global _type_to_schema
         _type_to_schema = _type_to_schema or type_to_schema()

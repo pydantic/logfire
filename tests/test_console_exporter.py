@@ -1235,9 +1235,9 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
             '│ d=datetime.datetime(2020, 12, 31, 12, 34, 56)',
             '│ x=None',
             "│ v=Decimal('1.0')",
-            "│ e='abc'",
-            "│ se='str_val'",
-            '│ ie=1',
+            "│ e=MyEnum('abc')",
+            "│ se=MyStrEnum('str_val')",
+            '│ ie=MyIntEnum(1)',
             '│ rp=^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$',
         ]
     )
@@ -1390,9 +1390,9 @@ def test_console_exporter_log_pydantic_root_model(capsys: pytest.CaptureFixture[
             '│ with_none=None',
             '│ with_none_inner=None',
             "│ with_color=Color('RED')",
-            "│ with_color_inner='RED'",
+            "│ with_color_inner=Color('RED')",
             '│ with_order=Order(1)',
-            '│ with_order_inner=1',
+            '│ with_order_inner=Order(1)',
         ]
     )
 
