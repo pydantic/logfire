@@ -3,7 +3,6 @@ from __future__ import annotations as _annotations
 import json
 import os
 import random
-import re
 import threading
 import time
 import warnings
@@ -804,8 +803,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         elif isinstance(condition, (ValueIsIn, ValueIsNotIn)):
             return {'values': list(condition.values)}
         elif isinstance(condition, (ValueMatchesRegex, ValueDoesNotMatchRegex)):
-            pattern = condition.pattern
-            return {'pattern': pattern.pattern if isinstance(pattern, re.Pattern) else pattern}
+            return condition.model_dump(mode='json', include={'pattern'})
         elif isinstance(condition, (KeyIsPresent, KeyIsNotPresent)):
             return {}
         return {}  # pragma: no cover

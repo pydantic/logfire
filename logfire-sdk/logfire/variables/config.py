@@ -6,7 +6,15 @@ from collections.abc import Mapping, Sequence
 from functools import cached_property
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, ValidationError, WithJsonSchema, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    PlainSerializer,
+    ValidationError,
+    WithJsonSchema,
+    field_validator,
+    model_validator,
+)
 from typing_extensions import TypeAliasType
 
 from logfire._internal.config import (
@@ -111,12 +119,36 @@ class ValueIsNotIn(BaseModel):
         return value not in self.values
 
 
+def _serialize_regex_pattern(pattern: str | re.Pattern[str]) -> str:
+    if isinstance(pattern, str):
+        return pattern
+
+    # A pattern loaded from JSON may be compiled again by Pydantic. Skip flags already in its prefix.
+    inline_flags = re.match(r'(?:\(\?[aimsux]+\))+', pattern.pattern)
+    # Unicode is already the default for string patterns. Debug only affects compilation output.
+    flags = ''.join(
+        letter
+        for flag, letter in (
+            (re.ASCII, 'a'),
+            (re.IGNORECASE, 'i'),
+            (re.MULTILINE, 'm'),
+            (re.DOTALL, 's'),
+            (re.VERBOSE, 'x'),
+        )
+        if pattern.flags & flag and (inline_flags is None or letter not in inline_flags[0])
+    )
+    return f'(?{flags}){pattern.pattern}' if flags else pattern.pattern
+
+
+_RegexPattern = Annotated[str | re.Pattern[str], PlainSerializer(_serialize_regex_pattern, when_used='json')]
+
+
 class ValueMatchesRegex(BaseModel):
     """Condition that matches when an attribute value matches a regex pattern."""
 
     attribute: str
     """The name of the attribute to check."""
-    pattern: str | re.Pattern[str]
+    pattern: _RegexPattern
     """The regex pattern the attribute value must match."""
     kind: Literal['value-matches-regex'] = 'value-matches-regex'
     """Discriminator field for condition type."""
@@ -134,7 +166,7 @@ class ValueDoesNotMatchRegex(BaseModel):
 
     attribute: str
     """The name of the attribute to check."""
-    pattern: str | re.Pattern[str]
+    pattern: _RegexPattern
     """The regex pattern the attribute value must not match."""
     kind: Literal['value-does-not-match-regex'] = 'value-does-not-match-regex'
     """Discriminator field for condition type."""

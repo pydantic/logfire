@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import os
+import re
 import time
 import unittest.mock
 import warnings
@@ -47,6 +48,58 @@ from logfire.variables.variable import is_resolve_function, targeting_context
 # =============================================================================
 # Test Condition Classes
 # =============================================================================
+
+
+@pytest.mark.parametrize(
+    ('condition_type', 'pattern', 'value', 'expected_label'),
+    [
+        pytest.param(
+            ValueMatchesRegex, re.compile(r'@example\.com$', re.I), 'Alice@EXAMPLE.com', 'internal', id='ignorecase'
+        ),
+        pytest.param(
+            ValueDoesNotMatchRegex, re.compile(r'@example\.com$', re.I), 'Alice@EXAMPLE.com', None, id='negated'
+        ),
+        pytest.param(ValueMatchesRegex, re.compile('^staff$', re.M), 'external\nstaff', 'internal', id='multiline'),
+        pytest.param(ValueMatchesRegex, re.compile('a.b', re.S), 'a\nb', 'internal', id='dotall'),
+        pytest.param(ValueMatchesRegex, re.compile('a b # staff', re.X), 'ab', 'internal', id='verbose'),
+        pytest.param(ValueMatchesRegex, re.compile(r'^\w+$', re.A), 'café', None, id='ascii'),
+        pytest.param(
+            ValueMatchesRegex,
+            re.compile('(?m)^staff.verified$', re.I | re.S),
+            'external\nSTAFF\nverified\nexternal',
+            'internal',
+            id='combined-with-inline',
+        ),
+    ],
+)
+def test_compiled_regex_flags_json_round_trip(
+    condition_type: type[ValueMatchesRegex] | type[ValueDoesNotMatchRegex],
+    pattern: re.Pattern[str],
+    value: str,
+    expected_label: str | None,
+) -> None:
+    config = VariablesConfig(
+        variables={
+            'banner': VariableConfig(
+                name='banner',
+                labels={'internal': LabeledValue(version=1, serialized_value='"staff banner"')},
+                rollout=Rollout(labels={}),
+                overrides=[
+                    RolloutOverride(
+                        conditions=[condition_type(attribute='email', pattern=pattern)],
+                        rollout=Rollout(labels={'internal': 1.0}),
+                    )
+                ],
+            )
+        }
+    )
+    attributes = {'email': value}
+    assert config.variables['banner'].resolve_label('k', attributes) == expected_label
+
+    serialized = config.model_dump_json()
+    reloaded = VariablesConfig.model_validate_json(serialized)
+    assert reloaded.variables['banner'].resolve_label('k', attributes) == expected_label
+    assert reloaded.model_dump_json() == serialized
 
 
 class TestValueEquals:
@@ -4827,8 +4880,6 @@ class TestRemoteProviderConditionExtraFields:
 
     def test_compiled_regex_pattern(self):
         """Test that compiled regex patterns are serialized correctly."""
-        import re
-
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
         post_adapter = request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'test'})
@@ -4858,6 +4909,51 @@ class TestRemoteProviderConditionExtraFields:
                 body = post_adapter.last_request.json()
                 conditions = body['overrides'][0]['conditions']
                 assert conditions[0]['pattern'] == r'^test_\d+'
+            finally:
+                provider.shutdown()
+
+    @pytest.mark.parametrize('existing', [False, True], ids=['create', 'update'])
+    def test_compiled_regex_flags_push(self, existing: bool) -> None:
+        config = VariablesConfig(
+            variables={
+                'banner': VariableConfig(
+                    name='banner',
+                    rollout=Rollout(labels={}),
+                    overrides=[
+                        RolloutOverride(
+                            conditions=[
+                                ValueMatchesRegex(attribute='email', pattern=re.compile(r'@example\.com$', re.I)),
+                                ValueDoesNotMatchRegex(
+                                    attribute='name', pattern=re.compile('^test.name$', re.M | re.S)
+                                ),
+                            ],
+                            rollout=Rollout(labels={}),
+                        )
+                    ],
+                )
+            }
+        )
+        with requests_mock_module.Mocker() as request_mocker:
+            previous = VariableConfig(name='banner', rollout=Rollout(labels={}), overrides=[])
+            request_mocker.get(
+                f'{REMOTE_BASE_URL}v1/variables/',
+                json={'variables': {'banner': previous.model_dump(mode='json')} if existing else {}},
+            )
+            if existing:
+                write_adapter = request_mocker.put(f'{REMOTE_BASE_URL}v1/variables/banner/', json={})
+            else:
+                write_adapter = request_mocker.post(f'{REMOTE_BASE_URL}v1/variables/', json={})
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL, token=REMOTE_TOKEN, options=VariablesOptions()
+            )
+            try:
+                assert provider.push_config(config, yes=True)
+                assert write_adapter.last_request is not None
+                conditions = write_adapter.last_request.json()['overrides'][0]['conditions']
+                assert conditions == [
+                    {'kind': 'value-matches-regex', 'attribute': 'email', 'pattern': r'(?i)@example\.com$'},
+                    {'kind': 'value-does-not-match-regex', 'attribute': 'name', 'pattern': '(?ms)^test.name$'},
+                ]
             finally:
                 provider.shutdown()
 
