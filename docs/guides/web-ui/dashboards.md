@@ -373,6 +373,45 @@ Every dashboard is stored as a JSON document. This is the same format the [Terra
 
 ![The dashboard export flyout](../../images/guide/dashboard-download-json.png)
 
+## Version history
+
+Logfire keeps the earlier versions of a custom dashboard, so you can go back after a save that you want to revert.
+
+### Restoring an earlier version
+
+1. Open the dashboard and click **Edit**.
+2. Click **Restore an earlier version**. The option only appears once the dashboard has an earlier version.
+
+    ![The Edit dashboard panel with the Restore an earlier version option](../../images/guide/dashboard-restore-earlier-version.png)
+
+3. The **Version history** list shows the current version, then each earlier version with its age and who saved it. Click a version to preview it on the page. Nothing is saved while you preview.
+
+    ![The Version history list with an earlier version selected and previewed on the dashboard](../../images/guide/dashboard-version-history.png)
+
+4. Click **Restore this version**.
+
+A restore saves immediately. It doesn't wait for **Save**, and it discards any unsaved edits you made before opening the version history. If you have unsaved edits, Logfire asks you to confirm first.
+
+A restore is itself a new version, and Logfire keeps the version it replaced. To undo a restore, open the version history again and restore the version at the top of the list.
+
+A restore brings back the dashboard's name, panels, variables, and layout.
+
+### Which versions are kept
+
+Logfire keeps up to 50 of the most recent versions of a dashboard. Older versions are removed as new ones arrive, and the most recent earlier version is always kept. A restore always keeps the version it replaces. So does overwriting someone else's changes after a save conflict.
+
+A run of saves by the same person keeps at most one version every five minutes, so a burst of small edits shows up as a single entry.
+
+For extremely large or complicated dashboards, Logfire may save less than 50 total revisions to avoid storing too much data. The vast majority of users are unlikely to hit this limit.
+
+### Restoring from the API, MCP, or the Logfire Assistant
+
+The same three operations are available outside the dashboard editor: list the kept versions, read one, and restore one.
+
+- **Public API**: under `/api/v1/projects/{project_id}/dashboards/{dashboard_id}/`, use `GET versions/`, `GET versions/{version}/`, and `POST versions/{version}/restore/`. Reading needs the `project:read_dashboard` scope and restoring needs `project:write_dashboard`. To make a restore fail if someone else changed the dashboard after you read it, send the dashboard's current version as `{"version": <current version>}`. The request then returns `409` instead of overwriting their change.
+- **MCP server**: the [Logfire MCP server](../../how-to-guides/mcp-server.md) has the `dashboard_list_versions`, `dashboard_get_version`, and `dashboard_restore` tools.
+- **Logfire Assistant**: ask it to put a dashboard back the way it was, or to show what a dashboard looked like before a change. It asks for your approval before it restores anything.
+
 ## Time range and live updates
 
 The time range picker in the top right of the dashboard controls the window of data shown. Choose a preset such as `last 5 minutes`, `last 15 minutes`, `last 30 minutes`, `last 6 hours`, up to `last 14 days`, or set a custom range.
