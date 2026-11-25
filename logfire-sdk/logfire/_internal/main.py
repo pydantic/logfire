@@ -1484,23 +1484,41 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
+        from contextlib import ExitStack, contextmanager
+
         import openai
 
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
-        from .integrations.llm_providers.openai import get_endpoint_config, is_async_client, on_response
+        from .integrations.llm_providers.openai import (
+            get_endpoint_config,
+            instrument_openai_responses_ws,
+            is_async_client,
+            on_response,
+        )
         from .integrations.llm_providers.semconv import normalize_versions
 
         normalized_versions = normalize_versions(version)
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_llm_provider(
+        target = openai_client or (openai.OpenAI, openai.AsyncOpenAI)
+        http_cm = instrument_llm_provider(
             self,
-            openai_client or (openai.OpenAI, openai.AsyncOpenAI),
+            target,
             suppress_other_instrumentation,
             'OpenAI',
             partial(get_endpoint_config, version=normalized_versions),
             partial(on_response, version=normalized_versions),
             is_async_client,
         )
+        ws_cm = instrument_openai_responses_ws(self, target, normalized_versions)
+
+        @contextmanager
+        def uninstrument_openai():
+            with ExitStack() as stack:
+                stack.enter_context(http_cm)
+                stack.enter_context(ws_cm)
+                yield
+
+        return uninstrument_openai()
 
     def instrument_openai_agents(self) -> None:
         """Instrument the [`agents`](https://github.com/openai/openai-agents-python) framework from OpenAI.
