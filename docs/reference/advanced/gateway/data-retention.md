@@ -24,6 +24,7 @@ The Gateway holds request and response bodies in memory while it proxies them. I
 | Spend totals for each key, member, project, and organization | No. Amounts in US dollars only. | The Gateway's database | No fixed expiry | You cannot turn it off. [Spending limits](spending-policies.md) need it. |
 | Built-in provider usage: cost and request count for each key | No | The Gateway's database | Hourly rows for three months. Monthly totals have no fixed expiry. | You cannot turn it off. Billing needs it. |
 | Provider block events: key ID, provider type, and a fixed reason code | No | The Gateway's database | Until you delete the API key | You cannot turn it off. |
+| Routing metrics: request, error, and latency counts for each provider, route, and model, in one-minute buckets | No | The Gateway's database | 90 days | You cannot turn it off. [Gateway endpoints](endpoints.md) need it to route around a failing provider. |
 
 A **span** is one unit of work, with a name, a start, and a duration. The Gateway records one span for each attempt to reach a provider.
 
@@ -177,11 +178,11 @@ Only [enforcing ZDR](#require-zero-data-retention-for-built-in-providers), so th
 
 ### How request fields pass through
 
-The Gateway sends your request body to the provider with only the changes listed below. It never adds, removes, or changes a retention field. If you leave a field out, the provider applies its own default.
+The Gateway sends your request body to the provider with only the changes listed below. On a custom provider, it never adds, removes, or changes a retention field. If you leave a field out, the provider applies its own default. On a built-in OpenAI or Azure OpenAI provider, it [turns off response storage](#built-in-openai-providers-never-store-a-response).
 
 | Provider | Forwarded unchanged | Changed by the Gateway |
 | --- | --- | --- |
-| OpenAI, Azure OpenAI | `store`, `previous_response_id`, `metadata`, `prompt_cache_key`, `prompt_cache_retention`, `user` | `safety_identifier`: the Gateway puts an identifier for your organization in front of your value. Streaming Chat Completions: the Gateway sets `stream_options.include_usage` to `true`. |
+| OpenAI, Azure OpenAI | `metadata`, `prompt_cache_key`, `prompt_cache_retention`, `user`. On a custom provider, also `store` and `previous_response_id`. | `safety_identifier`: the Gateway puts an identifier for your organization in front of your value. Streaming Chat Completions: the Gateway sets `stream_options.include_usage` to `true`. Built-in providers only: the Gateway sets `store` to `false`. |
 | Anthropic | `cache_control`, the `anthropic-beta` and `anthropic-version` headers, other `metadata` keys | `metadata.user_id`: the Gateway puts an identifier for your organization in front of your value. |
 | Google Vertex AI, Google AI Studio | The whole `generateContent` body, including `cachedContent` | Nothing |
 | AWS Bedrock | The whole Converse body | Nothing |
@@ -202,9 +203,24 @@ The Gateway forwards your request headers, except these:
 
 The Gateway appends its own name to `User-Agent`.
 
-### Ask OpenAI not to store a response
+### Built-in OpenAI providers never store a response
 
-The OpenAI Responses API stores each response in the provider account unless the request says otherwise. Set `store=False`, and the Gateway forwards it:
+The OpenAI Responses API stores each response in the provider account unless the request says otherwise. A built-in provider account is shared across organizations, so a stored response there could be named by a request from another organization.
+
+On a built-in OpenAI or Azure OpenAI provider, the Gateway sets `store` to `false` on every Responses and Chat Completions request. A `store=True` in your request has no effect. The Gateway also refuses, with a `400` that names the field, a request that refers to an object the provider account stores:
+
+| Refused on a built-in provider | Why |
+| --- | --- |
+| `previous_response_id`, `conversation` | They name a stored response or conversation. |
+| An input item that refers to a stored item by `id`, such as an `item_reference` | The provider loads the stored item into the model's context. |
+| A container ID on a tool or an input item | The container belongs to the shared account. `container: {"type": "auto"}` still works. |
+| A Chat Completions message with `audio.id` | It names stored audio. |
+
+To continue a conversation on a built-in provider, send the full message history in each request. To use stored responses, [add your own provider](byok-providers.md).
+
+### Ask OpenAI not to store a response on a custom provider
+
+On a custom provider, the Gateway forwards `store` as you sent it. Set `store=False` to keep the response out of your provider account:
 
 ```python skip-run="true" skip-reason="external-connection"
 from openai import OpenAI
@@ -230,7 +246,7 @@ print(response.output_text)
 ### Require zero data retention for built-in providers
 
 !!! note "Experimental"
-    The zero data retention requirement is experimental, and it can change. The organization setting needs an Enterprise Cloud organization or a self-hosted deployment.
+    The zero data retention requirement is experimental, and it can change. To see the **Zero data retention** card, open [**Settings → Early access**](https://logfire.pydantic.dev/settings/early-access), choose **Show experimental features**, and turn on **Gateway zero data retention**. This choice applies to your account in this browser. The organization setting needs an Enterprise Cloud organization or a self-hosted deployment.
 
 Among built-in providers, a request that requires ZDR can only reach one that Pydantic confirmed as ZDR. Custom providers are not affected, because their retention terms are yours.
 
