@@ -392,7 +392,7 @@ Logfire keeps the earlier versions of a custom dashboard, so you can go back aft
 
 A restore saves immediately. It doesn't wait for **Save**, and it discards any unsaved edits you made before opening the version history. If you have unsaved edits, Logfire asks you to confirm first.
 
-A restore is itself a new version, and Logfire keeps the version it replaced. To undo a restore, open the version history again and restore the version at the top of the list.
+A restore is itself a new version, and Logfire keeps the version it replaced. To undo a restore, open the version history again and restore the most recent earlier version.
 
 A restore brings back the dashboard's name, panels, variables, and layout.
 
@@ -408,7 +408,7 @@ For extremely large or complicated dashboards, Logfire may save less than 50 tot
 
 The same three operations are available outside the dashboard editor: list the kept versions, read one, and restore one.
 
-- **Public API**: under `/api/v1/projects/{project_id}/dashboards/{dashboard_id}/`, use `GET versions/`, `GET versions/{version}/`, and `POST versions/{version}/restore/`. Reading needs the `project:read_dashboard` scope and restoring needs `project:write_dashboard`. To make a restore fail if someone else changed the dashboard after you read it, send the dashboard's current version as `{"version": <current version>}`. The request then returns `409` instead of overwriting their change.
+- **Public API**: with a [Logfire API key](../../reference/advanced/use-api-keys.md), under `/api/v1/projects/{project_id}/dashboards/{dashboard_id}/`, use `GET versions/`,`GET versions/{version}/`, and `POST versions/{version}/restore/`. Reading needs the `project:read_dashboard` scope and restoring needs `project:write_dashboard`. To make a restore fail if someone else changed the dashboard after you read it, send the dashboard's current version as `{"version": <current version>}`. The request then returns `409` instead of overwriting their change.
 - **MCP server**: the [Logfire MCP server](../../how-to-guides/mcp-server.md) has the `dashboard_list_versions`, `dashboard_get_version`, and `dashboard_restore` tools.
 - **Logfire Assistant**: ask it to put a dashboard back the way it was, or to show what a dashboard looked like before a change. It asks for your approval before it restores anything.
 
