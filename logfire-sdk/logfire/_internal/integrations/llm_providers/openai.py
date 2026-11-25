@@ -1001,7 +1001,7 @@ class _PendingWsResponse:
 
 
 class _SkippedWsResponse:
-    """Placeholder for a `response.create` that isn't recorded, e.g. because instrumentation is suppressed.
+    """Placeholder for a `response.create` that isn't recorded, e.g. because instrumentation is suppressed or off.
 
     It keeps its place in the lane so that the events of its response aren't assigned to a later request.
     """
@@ -1020,19 +1020,22 @@ class _WsSessionTracker:
     default lane), so each event belongs to the oldest pending request on its lane.
     """
 
-    def __init__(
-        self,
-        logfire_llm: Logfire,
-        versions: frozenset[NormalizedSemconvVersion],
-        *,
-        is_async: bool,
-        base_url: str,
-    ) -> None:
-        self.logfire_llm = logfire_llm
-        self.versions = versions
+    def __init__(self, client: Any, settings: _WsInstrumentationSettings, *, is_async: bool) -> None:
+        self.client = client
+        self.settings = settings
+        self.logfire_llm = settings.logfire_llm
+        self.versions = settings.versions
         self.is_async = is_async
-        self.base_url = base_url
+        # Use the HTTP base URL like the HTTP instrumentation does, for cost and gateway detection.
+        self.base_url = str(client.base_url)
         self.lanes: dict[str | None, deque[_WsLaneEntry]] = {}
+
+    def is_instrumented(self) -> bool:
+        """Whether the instrumentation this connection was opened with is still active.
+
+        A connection can outlive `instrument_openai`'s context manager, and shouldn't record requests after it.
+        """
+        return getattr(self.client, _WS_SETTINGS_ATTR, None) is self.settings
 
     def on_send(self, event: Any) -> tuple[str | None, _WsLaneEntry] | None:
         """Register a `response.create` event before it's sent, and return a handle to `discard` it if sending fails."""
@@ -1047,8 +1050,10 @@ class _WsSessionTracker:
                 return None
 
             entry: _WsLaneEntry
-            if is_instrumentation_suppressed() or is_current_agent_span(
-                'Responses API', 'Responses API with {gen_ai.request.model!r}'
+            if (
+                not self.is_instrumented()
+                or is_instrumentation_suppressed()
+                or is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}')
             ):
                 entry = _SkippedWsResponse()
             else:
@@ -1276,10 +1281,7 @@ def _instrumented_ws_connect(original_connect: Any, *, is_async: bool) -> Any:
         settings: _WsInstrumentationSettings | None = getattr(client, _WS_SETTINGS_ATTR, None)
         if settings is None:
             return manager
-        # Use the HTTP base URL like the HTTP instrumentation does, for cost and gateway detection.
-        tracker = _WsSessionTracker(
-            settings.logfire_llm, settings.versions, is_async=is_async, base_url=str(client.base_url)
-        )
+        tracker = _WsSessionTracker(client, settings, is_async=is_async)
         return _wrap_ws_manager(manager, tracker, is_async=is_async)
 
     return connect

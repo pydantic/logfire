@@ -6700,6 +6700,42 @@ def test_responses_websocket_skipped_requests(exporter: TestExporter) -> None:
     )
 
 
+def test_responses_websocket_connection_outlives_instrumentation(exporter: TestExporter) -> None:
+    """A connection opened while instrumented stops recording new requests once instrumentation is reverted."""
+    with _ws_client(_reply_to_each_request) as client:
+        with logfire.instrument_openai(client):
+            conn = client.responses.connect().enter()
+            conn.response.create(model='gpt-4.1', input='while instrumented')
+            _event_types_until_completed(conn)
+            # Still in progress when instrumentation is reverted, so it's recorded once it ends.
+            conn.response.create(model='gpt-4.1', input='in progress when uninstrumented')
+        _event_types_until_completed(conn)
+        conn.response.create(model='gpt-4.1', input='after uninstrumenting')
+        _event_types_until_completed(conn)
+        conn.close()
+
+    assert _ws_logs(exporter) == snapshot(
+        [
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'while instrumented'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply 0'}]}],
+                'response_id': 'resp_0',
+                'error_type': None,
+            },
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'in progress when uninstrumented'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply 1'}]}],
+                'response_id': 'resp_1',
+                'error_type': None,
+            },
+        ]
+    )
+
+
 def test_responses_websocket_failed_response(exporter: TestExporter) -> None:
     def handler(ws: Any) -> None:
         request = json.loads(ws.recv())
