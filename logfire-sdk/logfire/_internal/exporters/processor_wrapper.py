@@ -715,7 +715,7 @@ def _transform_litellm_span(span: ReadableSpanDict):
     }
 
 
-_OPENAI_MODEL_PREFIX = re.compile(r'(?:^|/)(?:gpt-5|chatgpt-|o[134](?:-|$))')
+_OPENAI_MODEL_PREFIX = re.compile(r'(?:^|/)(?:gpt-5(?:[-.]|$)|chatgpt-|o[134](?:-|$))')
 
 
 def guess_system(model: str, default: str = ''):
