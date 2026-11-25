@@ -148,11 +148,9 @@ _FEATURE_TARGETING_KEY: ContextVar[str | None] = ContextVar('_FEATURE_TARGETING_
 # Where the targeting key of the feature flag being evaluated came from: 'explicit' for a call-site
 # or context key, 'trace' or 'ephemeral' for a fallback key that Logfire chose.
 _FEATURE_TARGETING_KEY_SOURCE: ContextVar[str | None] = ContextVar('_FEATURE_TARGETING_KEY_SOURCE', default=None)
-# A fallback key for unkeyed flag evaluations outside a trace. It stays set for the rest of the context.
-_EPHEMERAL_TARGETING_KEY: ContextVar[str | None] = ContextVar('_EPHEMERAL_TARGETING_KEY', default=None)
 
 # Thread pool tasks see the overrides and targeting context of the code that submitted them.
-THREAD_CONTEXTVARS.extend([_VARIABLE_OVERRIDES, _TARGETING_CONTEXT, _FEATURE_TARGETING_KEY, _EPHEMERAL_TARGETING_KEY])
+THREAD_CONTEXTVARS.extend([_VARIABLE_OVERRIDES, _TARGETING_CONTEXT, _FEATURE_TARGETING_KEY])
 
 
 class ResolveFunction(Protocol[T_co]):
@@ -1480,17 +1478,16 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
 
         The key lasts while the trace has open local root spans in this process, so every thread and
         task in the trace shares it. A request that reuses a trace ID after the trace ended gets a
-        new key, so a caller cannot reuse a trace ID to keep a variant. Outside a trace, a random key
-        stays set for the rest of the current context.
+        new key, so a caller cannot reuse a trace ID to keep a variant.
+
+        Outside a trace, each evaluation gets a new random key. Without a trace, nothing marks where
+        one request ends. A key kept in a context would outlive the request: a worker thread or an
+        inherited startup context would then serve one variant to every request that it handles.
         """
         key = feature_flag_targeting_key()
         if key is not None:
             return key
-        key = _EPHEMERAL_TARGETING_KEY.get()
-        if key is None:
-            key = f'ephemeral:{secrets.token_hex(16)}'
-            _EPHEMERAL_TARGETING_KEY.set(key)
-        return key
+        return f'ephemeral:{secrets.token_hex(16)}'
 
     def __init__(
         self,
@@ -2049,13 +2046,10 @@ def feature_context(
 
     Args:
         targeting_key: Stable identifier used for deterministic rollouts, such as a user or organization ID.
+            An empty key, such as the ID of an anonymous user, counts as no key. Feature flags in the
+            block then use the fallback key of an unkeyed evaluation.
         attributes: Optional targeting attributes, such as the user's plan or region.
-
-    Raises:
-        ValueError: If `targeting_key` is empty.
     """
-    if not targeting_key:
-        raise ValueError('feature_context() requires a non-empty targeting key.')
     feature_token = _FEATURE_TARGETING_KEY.set(targeting_key)
     try:
         with targeting_context(targeting_key, attributes=attributes):

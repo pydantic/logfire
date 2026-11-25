@@ -2,12 +2,14 @@
 
 A local root span is the first span that this process starts for a trace: it has no parent, or its
 parent came from another process. The span processor records the open local root spans of each trace
-and discards the trace's state when the last one ends. Work in any thread or task that belongs to
-the trace shares the state. A later request that reuses the trace ID after it ended gets new state.
+and discards the trace's state when the last one ends. The tracer records local root spans that a
+sampler dropped, because processors never see them. Work in any thread or task that belongs to the
+trace shares the state. A later request that reuses the trace ID after it ended gets new state.
 """
 
 from __future__ import annotations
 
+import os
 import secrets
 import threading
 from dataclasses import dataclass, field
@@ -15,7 +17,13 @@ from dataclasses import dataclass, field
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import get_current_span
 
-__all__ = ('enter_trace_scope', 'exit_trace_scope', 'feature_flag_targeting_key')
+__all__ = (
+    'enter_local_root',
+    'enter_trace_scope',
+    'exit_local_root',
+    'exit_trace_scope',
+    'feature_flag_targeting_key',
+)
 
 
 @dataclass
@@ -45,12 +53,27 @@ def _local_root_ids(span: ReadableSpan) -> tuple[int, int] | None:
     return context.trace_id, context.span_id
 
 
+def _reset_lock_after_fork() -> None:  # pragma: no cover
+    # Every local root span takes this lock. If another thread held it when the process forked,
+    # the child would wait for it forever. The child keeps the states, because work in the child
+    # can continue a trace that was open in the parent.
+    global _lock
+    _lock = threading.Lock()
+
+
+if hasattr(os, 'register_at_fork'):  # pragma: no branch
+    os.register_at_fork(after_in_child=_reset_lock_after_fork)
+
+
 def enter_trace_scope(span: ReadableSpan) -> None:
     """Record `span` if it is a local root span."""
     ids = _local_root_ids(span)
-    if ids is None:
-        return
-    trace_id, span_id = ids
+    if ids is not None:
+        enter_local_root(*ids)
+
+
+def enter_local_root(trace_id: int, span_id: int) -> None:
+    """Record an open local root span by its IDs."""
     with _lock:
         state = _states.setdefault(trace_id, _TraceState())
         if len(state.open_local_roots) >= _MAX_OPEN_ROOTS_PER_TRACE:
@@ -63,9 +86,12 @@ def enter_trace_scope(span: ReadableSpan) -> None:
 def exit_trace_scope(span: ReadableSpan) -> None:
     """Discard the trace's state when its last open local root span ends."""
     ids = _local_root_ids(span)
-    if ids is None:
-        return
-    trace_id, span_id = ids
+    if ids is not None:
+        exit_local_root(*ids)
+
+
+def exit_local_root(trace_id: int, span_id: int) -> None:
+    """Forget an open local root span, and discard its trace's state if it was the last one."""
     with _lock:
         state = _states.get(trace_id)
         if state is None or span_id not in state.open_local_roots:

@@ -9,6 +9,7 @@ import traceback
 import warnings
 from contextlib import ExitStack
 
+from logfire._internal import trace_scope
 from logfire._internal.config import VariablesOptions
 from logfire.variables.config import VariablesConfig
 from logfire.variables.remote import LogfireRemoteVariableProvider
@@ -33,6 +34,8 @@ def main() -> None:
         provider._lifecycle_lock,
         provider._sse_response_lock,
         provider._reset_once._lock,
+        # Every local root span takes this lock, including spans that have no feature flags.
+        trace_scope._lock,
     ]
     acquired, release = threading.Event(), threading.Event()
 
@@ -63,6 +66,7 @@ def main() -> None:
                     provider._lifecycle_lock,
                     provider._sse_response_lock,
                     provider._reset_once._lock,
+                    trace_scope._lock,
                 ):
                     assert lock.acquire(timeout=0.5)
                     lock.release()

@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import json
 import traceback
+import weakref
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -37,7 +38,7 @@ from .constants import (
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     log_level_attributes,
 )
-from .trace_scope import exit_trace_scope
+from .trace_scope import enter_local_root, exit_local_root, exit_trace_scope
 from .utils import (
     handle_internal_errors,
     is_instrumentation_suppressed,
@@ -159,6 +160,8 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     record_metrics: bool
     metrics: dict[str, SpanMetric] = field(default_factory=lambda: defaultdict(SpanMetric))
     exception_callback: ExceptionCallback | None = None
+    # Leaves the trace scope of a local root span that a sampler dropped. See `_ProxyTracer.start_span`.
+    leave_trace_scope: Callable[[], object] | None = None
 
     def __post_init__(self):
         # A suppressed span shares the current span's context, so it mustn't replace that span's entry.
@@ -166,6 +169,8 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
 
     def end(self, end_time: int | None = None) -> None:
         with handle_internal_errors:
+            if self.leave_trace_scope is not None:
+                self.leave_trace_scope()
             key = self._open_spans_key()
             if OPEN_SPANS.get(key) is self:
                 del OPEN_SPANS[key]
@@ -350,12 +355,25 @@ class _ProxyTracer(Tracer):
                     ),
                 )
             )
-        return _LogfireWrappedSpan(
+        wrapped = _LogfireWrappedSpan(
             span,
             ns_timestamp_generator=ns_timestamp_generator,
             record_metrics=record_metrics,
             exception_callback=exception_callback,
         )
+        if not span.is_recording():
+            # A sampler dropped this span, so no processor records its trace scope. Record it here,
+            # or unkeyed feature flags in a sampled-out request could not share one fallback key.
+            span_context = span.get_span_context()
+            parent_context = get_current_span(context).get_span_context()
+            if span_context.is_valid and (not parent_context.is_valid or parent_context.is_remote):
+                enter_local_root(span_context.trace_id, span_context.span_id)
+                # Logfire does not end a span that does not record, such as a sampled-out log. So
+                # the scope also ends when the span is garbage collected.
+                leave = weakref.finalize(wrapped, exit_local_root, span_context.trace_id, span_context.span_id)
+                leave.atexit = False
+                wrapped.leave_trace_scope = leave
+        return wrapped
 
     # This means that `with start_as_current_span(...):`
     # is roughly equivalent to `with use_span(start_span(...)):`

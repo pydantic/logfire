@@ -1768,7 +1768,7 @@ def test_feature_flags_use_a_random_key_per_local_trace_without_a_targeting_key(
     assert first.flag_metadata['logfire.targeting_key_source'] == 'trace'
 
 
-def test_feature_flags_without_a_trace_keep_one_key_for_the_context():
+def test_feature_flags_without_a_trace_draw_a_new_key_for_each_evaluation():
     config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
     logfire.configure(
         send_to_logfire=False,
@@ -1782,10 +1782,9 @@ def test_feature_flags_without_a_trace_keep_one_key_for_the_context():
             warnings.simplefilter('ignore', RuntimeWarning)
             return [flag.details().variant for _ in range(20)]
 
-    # Each fresh context draws its own key, but every evaluation in one context agrees.
-    variants = [contextvars.Context().run(evaluate_repeatedly) for _ in range(20)]
-    assert all(len(set(run)) == 1 for run in variants)
-    assert {run[0] for run in variants} == {'enabled', 'disabled'}
+    # Nothing marks where a request ends outside a trace, so no key outlives one evaluation.
+    # A key kept in the context would pin every later request in this thread to one variant.
+    assert set(evaluate_repeatedly()) == {'enabled', 'disabled'}
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', RuntimeWarning)
         details = contextvars.Context().run(flag.details)
@@ -1850,7 +1849,7 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
         self.flag = create_flag('test_flag', default=False, logfire_instance=self.logfire)
         self.contexts: list[tuple[AbstractContextManager[None], str, dict[str, str]]] = []
         self.overrides: list[tuple[AbstractContextManager[None], bool]] = []
-        self.base_results = {key: self.flag.details(targeting_key=key) for key in self.KEYS}
+        self.base_results = {key: self.flag.details(targeting_key=key) for key in self.KEYS if key}
 
     @rule(
         targeting_key=st.sampled_from([key for key in KEYS if key]),
@@ -1889,7 +1888,8 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
     )
     def evaluate(self, explicit_key: str | None, explicit_plan: str):
         targeting_key = explicit_key
-        if targeting_key is None and not self.contexts:
+        if not targeting_key and not self.contexts:
+            # Without a key from the call or a context, each evaluation draws a random key.
             targeting_key = 'account-a'
         attributes = None if explicit_plan == 'none' else {'plan': explicit_plan}
 
@@ -2215,10 +2215,15 @@ def test_type_mismatch_message_names_fields_without_values(config_kwargs: dict[s
     assert 'opaque' not in (details.error_message or '')
 
 
-def test_feature_context_rejects_an_empty_targeting_key():
-    with pytest.raises(ValueError, match='non-empty targeting key'):
-        with feature_context(''):
-            pass  # pragma: no cover
+def test_feature_context_accepts_an_empty_targeting_key(config_kwargs: dict[str, Any]):
+    key = _fallback_key_recorder(_split_flag(config_kwargs))
+    with logfire.span('request'):
+        fallback = key()
+        # An anonymous user can have an empty ID. That counts as no key, and it does not raise.
+        with feature_context('', attributes={'plan': 'free'}):
+            assert key() == fallback
+        with feature_context('account-123'), feature_context(''):
+            assert key() == fallback
 
 
 @pytest.mark.parametrize('entry_point', ['flag', 'feature_context'])
@@ -2280,18 +2285,19 @@ def test_targeting_key_precedence(config_kwargs: dict[str, Any]):
         return lookup.call_args.args[1]
 
     def scenario() -> None:
-        # Outside a trace, the first unkeyed evaluation sets a random key for this context.
+        # Outside a trace, each unkeyed evaluation draws a new random key.
         ephemeral = key_used()
         assert ephemeral.startswith('ephemeral:')
-        assert key_used() == ephemeral
+        assert key_used() not in {ephemeral, ''}
         with logfire.span('request'):
-            # A trace takes precedence over the random key set earlier in the root context.
+            # Inside a trace, every unkeyed evaluation shares the trace's key.
             trace_key = key_used()
             assert trace_key.startswith('trace:')
             with feature_context('account-context'):
                 assert key_used() == 'account-context'
                 assert key_used(targeting_key='account-explicit') == 'account-explicit'
-        assert key_used() == ephemeral
+            assert key_used() == trace_key
+        assert key_used().startswith('ephemeral:')
 
     contextvars.Context().run(scenario)
 
@@ -2479,7 +2485,7 @@ def test_root_spans_that_never_become_current_or_end_elsewhere_do_not_leak_keys(
     # After the span ended in another thread, a new request in this thread gets a new key.
     with logfire.span('next request'):
         assert key() not in {request_key, outside}
-    assert key() == outside
+    assert trace_scope._states == {}
 
 
 def test_trace_scope_discards_the_oldest_trace_past_the_limit(config_kwargs: dict[str, Any]):
@@ -2529,6 +2535,35 @@ def test_trace_scope_bounds_the_open_roots_of_one_trace(config_kwargs: dict[str,
     assert trace_scope._states == {}
 
 
+def test_head_sampled_out_requests_get_one_fallback_key_per_request(config_kwargs: dict[str, Any]):
+    config_kwargs['sampling'] = logfire.SamplingOptions(head=0.0)
+    key = _fallback_key_recorder(_split_flag(config_kwargs))
+    unsampled_parent = {'traceparent': '00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00'}
+
+    def requests() -> list[str]:
+        # A sync worker thread keeps one context across the requests that it handles. A sampler
+        # drops each request, but the request must still get its own key, not one per thread.
+        keys: list[str] = []
+        for carrier in ({}, {}, unsampled_parent):
+            # Logfire does not end a span that does not record, so the scope ends when the span is
+            # garbage collected. Binding the span with `as` would keep it alive after the block.
+            with logfire.attach_context(carrier), logfire.span('request'):
+                assert not trace.get_current_span().is_recording()
+                keys.append(key())
+                with logfire.span('child'), ThreadPoolExecutor(1) as executor:
+                    assert key() == keys[-1]
+                    assert executor.submit(key).result() == keys[-1]
+            assert trace_scope._states == {}
+        return keys
+
+    keys = contextvars.Context().run(requests)
+    assert all(k.startswith('trace:') for k in keys)
+    assert len(set(keys)) == 3
+    # A sampled-out log is a local root span that nothing ends. It must not leave its scope open.
+    logfire.info('sampled out')
+    assert trace_scope._states == {}
+
+
 def test_a_sampled_out_root_does_not_leave_its_trace_scope_open(config_kwargs: dict[str, Any]):
     from logfire._internal.constants import ATTRIBUTES_SAMPLE_RATE_KEY
 
@@ -2537,6 +2572,9 @@ def test_a_sampled_out_root_does_not_leave_its_trace_scope_open(config_kwargs: d
     # The proxy tracer starts the real span, then replaces it with a span that never ends.
     span = tracer.start_span('sampled out', attributes={ATTRIBUTES_SAMPLE_RATE_KEY: 0.0})
     assert not span.is_recording()
+    # The tracer keeps the scope open for the unrecorded span, and ends it with the span.
+    assert set(trace_scope._states) == {span.get_span_context().trace_id}
+    span.end()
     assert trace_scope._states == {}
 
 
@@ -2564,7 +2602,7 @@ def test_spans_from_other_tracer_providers_use_the_context_fallback_key(config_k
     from opentelemetry.sdk.trace import TracerProvider
 
     key = _fallback_key_recorder(_split_flag(config_kwargs))
-    outside = key()
     # Logfire's span processor never saw this span, so its trace has no tracked key.
     with TracerProvider().get_tracer('other').start_as_current_span('untracked'):
-        assert key() == outside
+        assert key().startswith('ephemeral:')
+    assert trace_scope._states == {}
