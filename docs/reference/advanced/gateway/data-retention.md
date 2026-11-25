@@ -168,6 +168,7 @@ Pydantic has confirmed these built-in providers as ZDR:
 
 | Built-in provider | ZDR |
 | --- | --- |
+| Doubleword | Yes |
 | Google Vertex AI | Yes |
 | Groq | Yes |
 | Every other built-in provider | Not confirmed |
