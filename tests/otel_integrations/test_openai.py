@@ -6736,6 +6736,49 @@ def test_responses_websocket_connection_outlives_instrumentation(exporter: TestE
     )
 
 
+@pytest.mark.anyio
+async def test_responses_websocket_connection_outlives_instrumentation_async(exporter: TestExporter) -> None:
+    from websockets.asyncio.server import serve
+
+    async def handler(ws: Any) -> None:
+        i = 0
+        async for raw in ws:
+            request = json.loads(raw)
+            for event in _ws_response_events(f'resp_{i}', request['model'], f'reply {i}'):
+                await ws.send(json.dumps(event))
+            i += 1
+
+    async def read_until_completed(conn: Any) -> None:
+        async for event in conn:
+            if event.type == 'response.completed':
+                break
+
+    async with serve(handler, '127.0.0.1', 0) as server:
+        port = server.sockets[0].getsockname()[1]
+        client = openai.AsyncOpenAI(api_key='fake_api_key', websocket_base_url=f'ws://127.0.0.1:{port}')
+        with logfire.instrument_openai(client):
+            conn = await client.responses.connect().enter()
+            await conn.response.create(model='gpt-4.1', input='while instrumented')
+            await read_until_completed(conn)
+        await conn.response.create(model='gpt-4.1', input='after uninstrumenting')
+        await read_until_completed(conn)
+        await conn.close()
+        await client.close()
+
+    assert _ws_logs(exporter) == snapshot(
+        [
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'while instrumented'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply 0'}]}],
+                'response_id': 'resp_0',
+                'error_type': None,
+            }
+        ]
+    )
+
+
 def test_responses_websocket_failed_response(exporter: TestExporter) -> None:
     def handler(ws: Any) -> None:
         request = json.loads(ws.recv())
