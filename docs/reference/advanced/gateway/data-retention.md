@@ -175,7 +175,14 @@ Pydantic has confirmed these built-in providers as ZDR:
 
 You can use the ZDR built-in providers on every plan. Send your request to a route whose only built-in providers are ZDR. A [Gateway endpoint](endpoints.md) that also includes another built-in provider can share traffic with it or fail over to it, so that route does not guarantee ZDR.
 
-Only [enforcing ZDR](#require-zero-data-retention-for-built-in-providers), so that a request cannot reach any other built-in provider, needs an Enterprise Cloud organization or a self-hosted deployment.
+Two controls depend on your plan:
+
+| Control | Plan |
+| --- | --- |
+| The **ZDR** badge on a built-in provider, on the **Providers** tab | Growth, Enterprise, or self-hosted Logfire |
+| The [organization setting](#require-zero-data-retention-for-built-in-providers) that keeps every request away from the other built-in providers | Enterprise Cloud or self-hosted Logfire |
+
+Both are experimental, and you turn them on with the same Early Access option as the requirement below.
 
 ### How request fields pass through
 
