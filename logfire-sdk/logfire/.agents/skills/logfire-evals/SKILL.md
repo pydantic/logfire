@@ -13,17 +13,25 @@ Span-based evaluators inspect the task's OpenTelemetry span tree. Without workin
 
 ## Step 1: Check for an Existing Braintrust Suite First
 
-Cheap check, before anything else: does this repo already have an existing Braintrust suite — actual `Eval(...)` calls or `from braintrust import Eval` in source, not just a `braintrust` dependency listed without any real usage? This path needs **no CLI auth at all** — don't run Step 2 for it. The compatibility endpoint is documented only for Logfire Cloud US and EU; for any other supplied origin, use the native evaluation path instead.
+Cheap check, before anything else: does this repo already have an existing Braintrust suite — actual `Eval(...)` calls or `from braintrust import Eval` in source, not just a `braintrust` dependency listed without any real usage? This path needs no CLI auth when a suitable project API key already exists. The compatibility endpoint is documented only for Logfire Cloud US and EU; for any other supplied origin, use the native evaluation path instead.
 
-Keep the existing `Eval()` code (Python `braintrust>=0.30.1` / TypeScript `braintrust>=3.24.0` — verified versions) and redirect its next run to Logfire by changing environment variables only, no `pydantic_evals` involved:
+Keep the existing `Eval()` code (Python `braintrust>=0.30.1` / TypeScript `braintrust>=3.24.0`) and redirect its next run to Logfire by changing environment variables only, no `pydantic_evals` involved:
 
 ```bash
 export BRAINTRUST_APP_URL="https://logfire-us.pydantic.dev/v1/braintrust"  # EU: logfire-eu.pydantic.dev
-export BRAINTRUST_API_KEY="<logfire-project-api-key>"                     # Settings -> API Keys
-unset BRAINTRUST_API_URL BRAINTRUST_PROXY_URL  # these override the endpoint above if set — the #1 "it still hit Braintrust" cause
+unset BRAINTRUST_API_URL BRAINTRUST_PROXY_URL  # these override the endpoint above if set
 ```
 
+Supply `BRAINTRUST_API_KEY` through the project's private environment or secret
+manager; never paste the key into a shell command, source file, or chat.
 The destination project's API key needs `project:write_otlp` and `project:read_datasets`: the SDK writes the run, then reads experiment metadata for its summary. An ingest-only write token fails with `403`.
+
+If a new key is authorized, run the exact CLI in the confirmed project's application
+directory. For example, the arguments for Cloud US/organization acme are
+`--region us --org acme --no-input --output json api-key project:write_otlp project:read_datasets --name braintrust`.
+Substitute the confirmed origin and organization. The project comes from the
+validated local credential directory, not a `--project` flag. Capture raw stdout
+directly into the private environment; do not display it.
 
 This **compatibility preview** covers inline/callable data, local tasks and scorers, multiple scores, one label per name, and normal summary finalization. It excludes Braintrust-hosted resources, BTQL, the model proxy, server-side scoring, and post-finalization feedback. Rust, `summarize_scores=False`, and manual `flush()` without comparison do not request the summary needed for projection. See the [full coverage and concept mapping](https://pydantic.dev/docs/logfire/get-started/comparisons/migrate-from-braintrust/).
 
@@ -35,15 +43,49 @@ Skip straight to Step 5 (Verify) — the SDK's own printed result URL also opens
 
 For an explicitly local-only run without span evaluators, use a fresh process that neither preloads nor imports application telemetry; omit Python's `logfire.configure()` and any Node.js exporter bootstrap. If the task configures an exporter and has no documented disable switch, stop rather than claiming local-only. Uploading, hosted datasets, and span evaluators require Logfire authentication to the exact project.
 
-For a Logfire-backed run, use [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 3 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there. This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
-
+For a Logfire-backed run, reuse the exact target and project if the parent
+wizard already prepared them. Otherwise, use [Authenticate and Select the Exact
+Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md) for the Rust
+CLI's target-aware identity check, OAuth session, and explicit project selection.
+This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations
+use a separate API key with different scopes.
 
 ## Step 3: Detect What to Evaluate
 
 Identify the real task and any dataset. Follow repository package, test, and dependency conventions. For a first eval, prefer 3-5 cases from tests, schemas, examples, or synthetic fixtures, with deterministic checks for defined behavior. Do not copy the example unless it fits, replace an eval framework, or refactor unrelated code. Without a runnable task or safe expected behavior, ask one focused question instead of inventing either.
 
 - **In-code dataset**: a Python module using `pydantic_evals`, or a Node.js module using `logfire/evals`. This is the default for an agent-driven workflow.
-- **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`). Hosted inputs and outputs must be JSON objects; scalar roots accepted by code-defined datasets are rejected. `client.get_dataset(name)` with no type arguments returns a raw dict, not something `push_dataset` or `.evaluate_sync()` can take — pass the input/output (and metadata, if used) types to get back a real `pydantic_evals.Dataset`: `client.get_dataset(name, MyInputType, MyOutputType)`. If the stored dataset contains custom evaluators, also pass their classes with `custom_evaluator_types=[MyEvaluator]` (and custom report evaluators with `custom_report_evaluator_types=[...]`) so they can be deserialized. Push with `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not Step 2's CLI auth flow. Only relevant if the user specifically wants case editing outside code.
+- **Hosted/managed dataset**: cases live in the Logfire UI and can be edited
+  outside the codebase. Use this only when the user specifically wants that
+  workflow.
+
+### Hosted dataset requirements
+
+Import `LogfireAPIClient` from `logfire.experimental.api_client`. Hosted inputs
+and outputs must be JSON objects; unlike code-defined datasets, scalar roots are
+rejected.
+
+`client.get_dataset(name)` without type arguments returns a raw dictionary. To
+get a `pydantic_evals.Dataset` that supports `push_dataset` and
+`.evaluate_sync()`, pass the input and output types, plus the metadata type when
+used:
+
+```python
+client.get_dataset(name, MyInputType, MyOutputType)
+```
+
+When the dataset has typed metadata, pass its type as the next argument.
+
+If the stored dataset has custom evaluators, pass their classes with
+`custom_evaluator_types=[MyEvaluator]`. Use
+`custom_report_evaluator_types=[...]` for custom report evaluators. Push changes
+with `client.push_dataset(dataset)`.
+
+Hosted dataset access needs a separate API key. If authorized to mint one, use
+the same confirmed application directory, target, organization, non-interactive
+flags, and private stdout capture as the Step 1 example. Use
+`api-key project:read_datasets --name hosted-evals` for reads; add
+`project:write_datasets` only for create/update/push. CLI login is not this key.
 
 ## Step 4: Define the Dataset and Run It
 
@@ -75,6 +117,7 @@ dataset = Dataset[str, str, None](
 
 report = dataset.evaluate_sync(classify_sentiment)  # or `await dataset.evaluate(...)`
 report.print(include_input=True, include_output=True)
+print(logfire.url_from_eval(report))
 ```
 
 Use `logfire[datasets]` instead only when the task specifically needs the hosted-dataset API from Step 3.
@@ -159,12 +202,32 @@ If editing a hosted dataset: `client.push_dataset(dataset)` **overwrites** serve
 
 A report printing to the terminal isn't proof it reached Logfire — confirm the run actually landed. **Never report a case as passed, a score, or a run as complete without having actually checked it in this session** — if a run fails, cancels, or produces no scores, report that failure plainly; never substitute an invented score or a manual guess at what the result "should" be.
 
-**Came from the Step 1 Braintrust path (Step 2 skipped)?** There's no `whoami`-resolved project to look up here — use the SDK's own printed result URL instead, which already opens directly in the right Logfire project. Confirm the same things below (completion, pass mix, case detail) from that page rather than searching by name.
+**Came from the Step 1 Braintrust path (Step 2 skipped)?** There's no `project current`-resolved project to look up here — use the SDK's own printed result URL instead, which already opens directly in the right Logfire project. Confirm the same things below (completion, pass mix, case detail) from that page rather than searching by name.
 
-1. **Query for the run directly, if a Logfire MCP server or API is connected** — the root span for a run is named `evaluate {name}` and carries `gen_ai.operation.name = 'experiment'`, `dataset_name`, and `task_name` attributes; find the most recent one matching your dataset's name and confirm `logfire.experiment.metadata` shows the case count and pass rate you expect. Otherwise, open **AI Evaluations → Datasets & Experiments → Experiments** in Logfire for the exact project from Step 2, and find the run by name/timestamp.
+1. **For a native Logfire-backed run only, query through the authenticated CLI.**
+   Braintrust users continue at item 2 using their SDK's result URL. Replace the
+   synthetic dataset and task names with the exact ones you just ran, keep the
+   exact target/org/project from Step 2, and require a fresh completed root span:
+
+   ```bash
+   logfire --region us --org acme --no-input --output json mcp query run "SELECT start_timestamp, end_timestamp, trace_id, span_id, attributes->>'dataset_name' AS dataset_name, attributes->>'task_name' AS task_name, attributes->'logfire.experiment.metadata' AS experiment_metadata FROM records WHERE start_timestamp > now() - interval '15 minutes' AND end_timestamp IS NOT NULL AND parent_span_id IS NULL AND attributes->>'gen_ai.operation.name' = 'experiment' AND attributes->>'dataset_name' = 'sentiment-eval' AND attributes->>'task_name' = 'classify_sentiment' ORDER BY start_timestamp DESC LIMIT 5" --project my-app
+   ```
+
+   Confirm `logfire.experiment.metadata` reports the expected completion count
+   and pass mix. If query access is unavailable, open the exact project URL from
+   standalone `project current` or, after a parent-prepared wizard handoff,
+   `project open --no-open` with the same target/org and `--no-input --output json`.
+   Append `/evals` to the validated project URL, then find the run by name and
+   timestamp under **Datasets & Experiments**.
 2. **Read the Overview tab (or the queried metadata) first**: completion count, assertion pass mix, task errors, average duration. **If completion says "Not reported,"** the run sent case data but never signaled it finished — treat that as a broken run, not a passing one.
 3. **Open the Cases tab**, starting from Needs Review / Failed / Errors, not the full list.
 4. **Drill into a failing case's trace in Live view** for the actual evidence, rather than trusting the summary score alone.
 5. **Fix and re-run** until the cases that should pass do, and any tool-call/trajectory checks show real span data, not "No span tree available."
 
-Close with a final report built from what you just confirmed — the run name, exact case count and pass rate you queried, and which evaluators ran — not a template. **Include the direct link to this experiment** (the SDK's own printed result URL, or the Datasets & Experiments page you opened it from), so the user can see the run without having to ask where to look.
+Close with a final report built from what you just confirmed — the run name,
+exact case count and pass rate you queried, and which evaluators ran — not a
+template. Native Python `pydantic_evals` runs must print
+`logfire.url_from_eval(report)`. For Braintrust compatibility and other SDK paths,
+use their own verified result URL when they provide one. Otherwise, include the
+exact project's Datasets & Experiments page plus the run name and timestamp; do
+not claim a URL was printed when it was not.

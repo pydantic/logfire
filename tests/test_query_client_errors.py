@@ -7,7 +7,7 @@ because a healthy server never produces the responses being exercised here.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
 from typing import Any
 
@@ -26,7 +26,7 @@ from logfire.query_client import (
 BASE_URL = 'http://localhost:3000'
 READ_TOKEN = 'fake-read-token'
 SQL = 'SELECT message FROM records'
-MIN_TIMESTAMP = datetime(2020, 1, 1, tzinfo=timezone.utc)
+MIN_TIMESTAMP = datetime(2020, 1, 1, tzinfo=UTC)
 
 
 def mock_transport(status_code: int, **response_kwargs: Any) -> httpx.MockTransport:
@@ -463,7 +463,7 @@ def test_retry_after_problem_member_accepts_only_finite_non_negative(retry_after
 
 
 def test_retry_after_header_http_date_in_future():
-    retry_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    retry_at = datetime.now(UTC) + timedelta(hours=1)
     transport = mock_transport(429, text='slow down', headers={'retry-after': format_datetime(retry_at, usegmt=True)})
     with LogfireQueryClient(read_token=READ_TOKEN, base_url=BASE_URL, transport=transport) as client:
         with pytest.raises(QueryRateLimitedError) as exc_info:

@@ -3525,7 +3525,6 @@ def test_inspect_arguments(exporter: TestExporter):
     )
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason='Testing behaviour in Python 3.11+')
 def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
     # We're about to 'disable' `executing` which `snapshot` also uses, so make the snapshot first.
     expected_spans = snapshot(
@@ -3861,6 +3860,46 @@ Couldn't identify the `msg_template` argument in the call.\
             },
         ]
     )
+
+
+@pytest.mark.usefixtures('tmp_dir_cwd')
+def test_fstring_relative_filename(exporter: TestExporter):
+    with open('app.py', 'w') as f:
+        f.write("logfire.info(\n    f'fake {other}'\n)")
+    code = compile("logfire.info(f'real {value}')", 'app.py', 'exec')
+
+    with pytest.warns(InspectArgumentsFailedWarning, match='filename is relative') as warnings:
+        exec(code, {'logfire': logfire, 'value': 1, 'other': 2})
+    assert len(warnings) == 1
+
+    attributes = exporter.exported_spans_as_dict()[-1]['attributes']
+    assert attributes['logfire.msg_template'] == attributes['logfire.msg'] == 'real 1'
+    assert 'other' not in attributes
+
+
+@pytest.mark.usefixtures('tmp_dir_cwd')
+def test_template_relative_filename(exporter: TestExporter):
+    code = compile("logfire.info('Hello {name}', name='Alice')", 'app.py', 'exec')
+    with pytest.warns(InspectArgumentsFailedWarning, match='Falling back to normal message formatting') as warnings:
+        exec(code, {'logfire': logfire})
+    assert len(warnings) == 1
+
+    attributes = exporter.exported_spans_as_dict()[-1]['attributes']
+    assert attributes['logfire.msg_template'] == 'Hello {name}'
+    assert attributes['logfire.msg'] == 'Hello Alice'
+
+
+@pytest.mark.usefixtures('tmp_dir_cwd')
+def test_fstring_relative_filename_with_source(exporter: TestExporter):
+    source = "logfire.info(f'Hello {name}')"
+    with open('app.py', 'w') as f:
+        f.write(source)
+    code = compile(source, 'app.py', 'exec')
+    exec(code, {'logfire': logfire, 'name': 'Alice'})
+
+    attributes = exporter.exported_spans_as_dict()[-1]['attributes']
+    assert attributes['logfire.msg_template'] == 'Hello {name}'
+    assert attributes['logfire.msg'] == 'Hello Alice'
 
 
 def test_wrong_fstring_source_segment(exporter: TestExporter):

@@ -74,7 +74,6 @@ from logfire._internal.config import (
     LogfireCredentials,
     VariablesOptions,
     get_base_url_from_token,
-    sanitize_project_name,
 )
 from logfire._internal.config_params import extract_list_of_str, normalize_token
 from logfire._internal.exporters import api_key_gate
@@ -1700,28 +1699,11 @@ def test_config_console_output_set():
     assert 'test' in output.getvalue()
 
 
-def test_sanitize_project_name():
-    assert sanitize_project_name('foo') == 'foo'
-    assert sanitize_project_name('FOO') == 'foo'
-    assert sanitize_project_name('  foo - bar!!') == 'foobar'
-    assert sanitize_project_name('  Foo - BAR!!') == 'foobar'
-    assert sanitize_project_name('') == 'untitled'
-    assert sanitize_project_name('-') == 'untitled'
-    assert sanitize_project_name('...') == 'untitled'
-    long_name = 'abcdefg' * 20
-    assert sanitize_project_name(long_name) == long_name[:41]
-
-
-@pytest.mark.parametrize(
-    'legacy_state', ['missing', 'empty', 'valid', 'expired', 'different-region', 'custom-server', 'corrupt', 'multiple']
-)
 @pytest.mark.parametrize('custom_data_dir', [False, True])
 @pytest.mark.parametrize('send_to_logfire', [True, None])
 def test_missing_sdk_credentials_explain_native_cli_setup(
     tmp_dir_cwd: Path,
-    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    legacy_state: str,
     custom_data_dir: bool,
     send_to_logfire: bool | None,
 ):
@@ -1729,39 +1711,13 @@ def test_missing_sdk_credentials_explain_native_cli_setup(
     monkeypatch.delenv('PYTEST_VERSION', raising=False)
     # Docs tests disable sending during collection, even when their cases are deselected.
     monkeypatch.delenv('LOGFIRE_SEND_TO_LOGFIRE', raising=False)
-    auth_file = tmp_path / 'default.toml'
-    if legacy_state == 'empty':
-        auth_file.touch()
-    elif legacy_state == 'corrupt':
-        auth_file.write_text('invalid legacy credentials [')
-    elif legacy_state in ('valid', 'expired', 'different-region', 'multiple'):
-        expiration = '2000-01-01T00:00:00' if legacy_state == 'expired' else '2099-12-31T23:59:59'
-        auth_file.write_text(
-            f'[tokens."https://logfire-us.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "{expiration}"'
-        )
-        if legacy_state == 'multiple':
-            with auth_file.open('a') as file:
-                file.write(
-                    '\n[tokens."https://logfire-eu.pydantic.dev"]\n'
-                    'token = "another_fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
-                )
-    original_auth = auth_file.read_bytes() if auth_file.exists() else None
     data_dir = tmp_dir_cwd / ('custom data' if custom_data_dir else '.logfire')
     with (
-        mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file),
-        mock.patch(
-            'logfire._internal.client.LogfireClient.from_url', side_effect=AssertionError('legacy auth accessed')
-        ),
         mock.patch('rich.prompt.Confirm.ask', side_effect=AssertionError('unexpected confirmation')),
         mock.patch('rich.prompt.Prompt.ask', side_effect=AssertionError('unexpected prompt')),
     ):
-        base_url = 'https://logfire-eu.pydantic.dev' if legacy_state == 'different-region' else None
-        if legacy_state == 'custom-server':
-            base_url = 'https://logfire.example.com'
         with requests_mock.Mocker() as requests, pytest.raises(LogfireConfigError) as error:
-            logfire.configure(
-                send_to_logfire=send_to_logfire, data_dir=data_dir, advanced=logfire.AdvancedOptions(base_url=base_url)
-            )
+            logfire.configure(send_to_logfire=send_to_logfire, data_dir=data_dir)
         message = str(error.value)
         assert '`uvx logfire-cli auth`' in message
         assert '`uvx logfire-cli init`' in message
@@ -1772,11 +1728,9 @@ def test_missing_sdk_credentials_explain_native_cli_setup(
         assert 'pass `send_to_logfire=False` to `logfire.configure()`' in message
         assert '`--region` or `--base-url`' in message
         assert '`init --data-dir`' in message
-        assert 'fake_user_token' not in message
         assert error.value.__context__ is None
         assert not requests.called
         assert not (data_dir / 'logfire_credentials.json').exists()
-        assert (auth_file.read_bytes() if auth_file.exists() else None) == original_auth
 
 
 @pytest.mark.parametrize(
@@ -1784,7 +1738,7 @@ def test_missing_sdk_credentials_explain_native_cli_setup(
     ['file', 'environment', 'argument', 'environment-over-file', 'argument-over-file', 'argument-over-environment'],
 )
 @pytest.mark.parametrize('custom_data_dir', [False, True])
-def test_project_credentials_do_not_require_legacy_user_auth(
+def test_project_credential_sources(
     tmp_dir_cwd: Path, monkeypatch: pytest.MonkeyPatch, credential_source: str, custom_data_dir: bool
 ):
     data_dir = tmp_dir_cwd / ('custom data' if custom_data_dir else '.logfire')
@@ -1808,9 +1762,6 @@ def test_project_credentials_do_not_require_legacy_user_auth(
     elif credential_source == 'argument-over-environment':
         monkeypatch.setenv('LOGFIRE_TOKEN', 'pylf_v1_eu_other_project_write_token')
     with (
-        mock.patch(
-            'logfire._internal.client.LogfireClient.from_url', side_effect=AssertionError('legacy auth accessed')
-        ),
         requests_mock.Mocker() as requests,
     ):
         requests.get(
@@ -1835,19 +1786,8 @@ def test_project_credentials_do_not_require_legacy_user_auth(
 def test_send_to_logfire_true(tmp_path: Path) -> None:
     """Sending without project credentials fails before legacy login or project setup."""
     data_dir = tmp_path / 'logfire_data'
-    auth_file = tmp_path / 'default.toml'
-    auth_file.write_text(
-        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
-    )
-    with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
-        stack.enter_context(
-            mock.patch(
-                'logfire._internal.client.LogfireClient.from_url', side_effect=AssertionError('legacy auth accessed')
-            )
-        )
-        with pytest.raises(LogfireConfigError, match='No usable project credentials found'):
-            configure(send_to_logfire=True, console=False, data_dir=data_dir)
+    with pytest.raises(LogfireConfigError, match='No usable project credentials found'):
+        configure(send_to_logfire=True, console=False, data_dir=data_dir)
     wait_for_check_token_thread()
 
 
@@ -1855,12 +1795,12 @@ def test_send_to_logfire_false() -> None:
     """
     Test that with send_to_logfire=False, that logic is NOT triggered.
     """
-    with mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError):
+    with mock.patch('rich.prompt.Confirm.ask', side_effect=RuntimeError):
         configure(send_to_logfire=False, console=False)
 
 
 def test_send_to_logfire_if_token_present() -> None:
-    with mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError):
+    with mock.patch('rich.prompt.Confirm.ask', side_effect=RuntimeError):
         with requests_mock.Mocker() as request_mocker:
             configure(send_to_logfire='if-token-present', console=False)
             wait_for_check_token_thread()
@@ -1872,7 +1812,7 @@ def test_send_to_logfire_if_token_present_empty() -> None:
     os.environ['LOGFIRE_TOKEN'] = ''
     try:
         with ExitStack() as stack:
-            stack.enter_context(mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError))
+            stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=RuntimeError))
             requests_mocker = stack.enter_context(requests_mock.Mocker())
             configure(send_to_logfire='if-token-present', console=False)
             wait_for_check_token_thread()
@@ -1888,7 +1828,7 @@ def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
             {'LOGFIRE_TOKEN': '', 'LOGFIRE_SEND_TO_LOGFIRE': 'if-token-present'},
         ),
         mock.patch(
-            'logfire._internal.config.Confirm.ask',
+            'rich.prompt.Confirm.ask',
             side_effect=RuntimeError,
         ),
         requests_mock.Mocker() as requests_mocker,
@@ -1900,7 +1840,7 @@ def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
 
 def test_send_to_logfire_if_token_present_empty_via_arg() -> None:
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError))
+        stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=RuntimeError))
         requests_mocker = stack.enter_context(requests_mock.Mocker())
         configure(token='', send_to_logfire='if-token-present', console=False)
         wait_for_check_token_thread()

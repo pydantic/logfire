@@ -52,7 +52,7 @@ so a panic still flushes. Call `.with_install_panic_handler(false)` before
 `.finish()` only to disable the hook.
 
 Set `LOGFIRE_TOKEN` in your environment or follow the
-[authentication and project-selection flow](../auth.md), including `projects use`,
+[authentication and project-selection flow](../auth.md), including `init use`,
 to create `.logfire/logfire_credentials.json` for the selected project.
 
 ## Tracing Crate Compatibility

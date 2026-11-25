@@ -184,10 +184,12 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                         }
                                     ],
                                     'function_call': None,
-                                    'provider_specific_fields': {'refusal': None},
+                                    'provider_specific_fields': None,
                                     'annotations': [],
+                                    'refusal': None,
                                 },
                                 'provider_specific_fields': {},
+                                'logprobs': None,
                             }
                         ],
                         'usage': {
@@ -197,7 +199,6 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                             'completion_tokens_details': IsPartialDict(),
                             'prompt_tokens_details': IsPartialDict(),
                         },
-                        'moderation': None,
                         'service_tier': 'default',
                     },
                     'output.mime_type': 'application/json',
@@ -234,8 +235,9 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                 }
                             ],
                             'function_call': None,
-                            'provider_specific_fields': {'refusal': None},
+                            'provider_specific_fields': None,
                             'annotations': [],
+                            'refusal': None,
                         }
                     },
                     'gen_ai.request.model': 'gpt-4o-mini',
@@ -292,8 +294,9 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                     }
                                 ],
                                 'function_call': None,
-                                'provider_specific_fields': {'refusal': None},
+                                'provider_specific_fields': None,
                                 'annotations': [],
+                                'refusal': None,
                             },
                             {
                                 'tool_call_id': 'call_SWFIWhfCI6AeHuaV6EM1MRsJ',
@@ -374,8 +377,9 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                     }
                                 ],
                                 'function_call': None,
-                                'provider_specific_fields': {'refusal': None},
+                                'provider_specific_fields': None,
                                 'annotations': [],
+                                'refusal': None,
                             },
                             {
                                 'tool_call_id': 'call_SWFIWhfCI6AeHuaV6EM1MRsJ',

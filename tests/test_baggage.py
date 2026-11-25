@@ -329,3 +329,35 @@ def test_baggage_respects_log_record_attribute_limits(
     assert isinstance(attributes, BoundedAttributes)
     assert len(attributes) == 2
     assert attributes.dropped == 1
+
+
+def test_logfire_baggage_keys_do_not_become_attributes(
+    config_kwargs: dict[str, Any], exporter: TestExporter, logs_exporter: TestLogExporter
+) -> None:
+    config_kwargs['add_baggage_to_attributes'] = True
+    logfire.configure(**config_kwargs)
+    baggage_values = {
+        'logfire.sample_rate': '1',
+        'logfire.scrubbed': '1',
+        'logfire.msg_template': 'forged',
+        'logfire.variables.feature': 'candidate',
+        'logfire.variables.feature.version': '2',
+        'customer.id': '123',
+    }
+    with logfire.set_baggage(**baggage_values):
+        assert logfire.get_baggage() == baggage_values
+        with logfire.span('span'):
+            pass
+        get_logger('test').emit(body='log')
+
+    [span] = exporter.exported_spans_as_dict()
+    [log] = logs_exporter.exported_logs_as_dicts()
+    for attributes in (span['attributes'], log['attributes']):
+        assert attributes['logfire.variables.feature'] == 'candidate'
+        assert attributes['logfire.variables.feature.version'] == '2'
+        assert attributes['customer.id'] == '123'
+        assert 'logfire.sample_rate' not in attributes
+        assert 'logfire.scrubbed' not in attributes
+        assert 'baggage_conflict.logfire.msg_template' not in attributes
+    assert span['attributes']['logfire.msg_template'] == 'span'
+    assert 'logfire.msg_template' not in log['attributes']

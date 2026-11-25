@@ -3,7 +3,7 @@
 import json
 from collections.abc import Iterator
 
-import httpx
+import httpx2
 import openai
 import pytest
 
@@ -11,7 +11,7 @@ import logfire
 from logfire.testing import TestExporter
 
 
-class FailingChatStream(httpx.SyncByteStream):
+class FailingChatStream(httpx2.SyncByteStream):
     def __init__(self, *, chunks_before_error: int) -> None:
         self.chunks_before_error = chunks_before_error
 
@@ -30,17 +30,20 @@ class FailingChatStream(httpx.SyncByteStream):
 
 @pytest.mark.parametrize('chunks_before_error', [0, 2])
 def test_chat_completions_stream_failure_records_model_error(exporter: TestExporter, chunks_before_error: int) -> None:
-    def handle(request: httpx.Request) -> httpx.Response:
+    def handle(request: httpx2.Request) -> httpx2.Response:
         assert request.url == 'https://example.invalid/v1/chat/completions'
-        return httpx.Response(
+        return httpx2.Response(
             200,
             headers={'content-type': 'text/event-stream'},
             stream=FailingChatStream(chunks_before_error=chunks_before_error),
         )
 
-    with httpx.Client(transport=httpx.MockTransport(handle)) as httpx_client:
+    with httpx2.Client(transport=httpx2.MockTransport(handle)) as httpx_client:
         client = openai.Client(
-            api_key='unused', base_url='https://example.invalid/v1', http_client=httpx_client, max_retries=0
+            api_key='unused',
+            base_url='https://example.invalid/v1',
+            http_client=httpx_client,
+            max_retries=0,
         )
         with logfire.instrument_openai(client):
             response = client.chat.completions.create(

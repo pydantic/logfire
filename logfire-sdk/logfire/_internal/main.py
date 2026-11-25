@@ -16,6 +16,7 @@ from typing import (  # NOQA UP035
     Any,
     Callable,
     Literal,
+    LiteralString,
     Type,
     TypeVar,
     cast,
@@ -30,7 +31,7 @@ from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
-from typing_extensions import LiteralString, ParamSpec
+from typing_extensions import ParamSpec
 
 from ..version import VERSION
 from . import async_
@@ -777,7 +778,7 @@ class Logfire:
 
             attributes = attributes or {}
             merged_attributes = {**stack_info, **attributes}
-            if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
+            if ATTRIBUTES_MESSAGE_KEY not in attributes:
                 fstring_frame = None
                 if self._config.inspect_arguments:
                     fstring_frame = inspect.currentframe()
@@ -799,8 +800,8 @@ class Logfire:
                     attributes = {**attributes, **extra_attrs}
             else:
                 # The message has already been filled in, presumably by a logging integration.
-                # Make sure it's a string.
-                msg = merged_attributes[ATTRIBUTES_MESSAGE_KEY] = str(msg)
+                # Make sure it's a string, including when the value is None.
+                msg = merged_attributes[ATTRIBUTES_MESSAGE_KEY] = str(attributes.pop(ATTRIBUTES_MESSAGE_KEY))
                 msg_template = str(msg_template)
 
             otlp_attributes = prepare_otlp_attributes(merged_attributes)
@@ -1453,7 +1454,8 @@ class Logfire:
         logfire.instrument_openai(client)
 
         response = client.chat.completions.create(
-            model='gpt-5-mini',
+            model='gpt-6.1-terra',
+            reasoning_effort='none',
             messages=[
                 {'role': 'system', 'content': 'You are a helpful assistant.'},
                 {'role': 'user', 'content': 'What is four plus five?'},
@@ -3632,6 +3634,7 @@ def _is_plain_native_collection(schema: Any, otlp_value: Any) -> bool:
 PLAIN_COLLECTION_SCHEMAS = ({'type': 'object'}, {'type': 'array'})
 
 
+@handle_internal_errors
 def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None:
     if not span.is_recording():
         return

@@ -31,7 +31,7 @@ Install Logfire and the OpenAI SDK. To calculate costs in your app, also install
 pip install logfire openai genai-prices
 ```
 
-Set your write token and your OpenAI key so the app can send data and make model calls (in local development you can run `logfire projects use <your-project>` instead of the token):
+Set your write token and your OpenAI key so the app can send data and make model calls:
 
 ```bash
 export LOGFIRE_TOKEN=<your write token from Project → Settings → Write tokens>

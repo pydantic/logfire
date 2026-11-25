@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import sys
 from typing import Any
 
 import pytest
@@ -62,7 +61,7 @@ def test_source_code_extraction_function(exporter: TestExporter) -> None:
                 'end_time': 2000000000,
                 'attributes': {
                     'code.filepath': 'tests/test_source_code_extraction.py',
-                    'code.lineno': 17,
+                    'code.lineno': 16,
                     'code.function': 'func',
                     'logfire.msg_template': 'from function',
                     'logfire.span_type': 'span',
@@ -76,7 +75,6 @@ def test_source_code_extraction_function(exporter: TestExporter) -> None:
 def test_source_code_extraction_method(exporter: TestExporter) -> None:
     AClass().method()
 
-    code_function = 'AClass.method' if sys.version_info >= (3, 11) else 'method'
     assert normalize_filepaths(
         exporter.exported_spans_as_dict(strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False)
     ) == snapshot(
@@ -89,8 +87,8 @@ def test_source_code_extraction_method(exporter: TestExporter) -> None:
                 'end_time': 2000000000,
                 'attributes': {
                     'code.filepath': 'tests/test_source_code_extraction.py',
-                    'code.lineno': 23,
-                    'code.function': code_function,
+                    'code.lineno': 22,
+                    'code.function': 'AClass.method',
                     'logfire.msg_template': 'from method',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'from method',
@@ -195,7 +193,6 @@ with logfire.span('from module'):
 def test_source_code_extraction_nested(exporter: TestExporter) -> None:
     nested()
 
-    code_function = 'nested.<locals>.bar.<locals>.AClass.method' if sys.version_info >= (3, 11) else 'method'
     assert normalize_filepaths(
         exporter.exported_spans_as_dict(strip_filepaths=False, fixed_line_number=None, _strip_function_qualname=False)
     ) == snapshot(
@@ -208,8 +205,8 @@ def test_source_code_extraction_nested(exporter: TestExporter) -> None:
                 'end_time': 2000000000,
                 'attributes': {
                     'code.filepath': 'tests/test_source_code_extraction.py',
-                    'code.lineno': 31,
-                    'code.function': code_function,
+                    'code.lineno': 30,
+                    'code.function': 'nested.<locals>.bar.<locals>.AClass.method',
                     'logfire.msg_template': 'hi!',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'hi!',

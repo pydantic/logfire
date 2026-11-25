@@ -2,16 +2,18 @@ from __future__ import annotations
 
 import ast
 import os
+import re
 import types
+from _string import formatter_field_name_split  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
 from collections.abc import Iterator
 from functools import lru_cache
 from pathlib import Path
 from string import Formatter
 from types import CodeType
-from typing import Any, Literal
+from typing import Any, Literal, NotRequired, cast
 
 import executing
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 import logfire
 
@@ -196,6 +198,15 @@ class ChunksFormatter(Formatter):
                 # given the field_name, find the object it references
                 #  and the argument it came from
                 try:
+                    # Validate all bracket keys before resolving the field.
+                    _, lookups = cast(
+                        'tuple[str | int, Iterator[tuple[bool, str | int]]]', formatter_field_name_split(field_name)
+                    )
+                    for is_attribute, key in lookups:
+                        if not is_attribute and isinstance(key, str) and not re.fullmatch(r'[\w .-]+', key):
+                            raise ValueError(
+                                'Square bracket lookup keys may only contain word characters, spaces, dots, and hyphens.'
+                            )
                     obj, _arg_used = self.get_field(field_name, args, kwargs)
                 except IndexError:
                     raise KnownFormattingError('Numeric field names are not allowed.')
@@ -367,7 +378,41 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     )
     ast.fix_missing_locations(expr)
     formatted_code = compile(expr, '<fvalue2>', 'eval')
+
+    # Inside a class, the compiler rewrites a private name like `self.__x` to `self._ClassName__x`,
+    # stripping leading underscores from the class name.
+    # The code above is compiled on its own, so apply the same rewrite to the names it looks up.
+    if class_name := enclosing_class_name(node).lstrip('_'):
+        value_code = mangle_private_names(value_code, class_name)
+        formatted_code = mangle_private_names(formatted_code, class_name)
     return source, value_code, formatted_code
+
+
+def enclosing_class_name(node: ast.AST) -> str:
+    """Returns the name of the innermost class whose body contains `node`, or an empty string if there isn't one.
+
+    Uses the parent links that `executing` sets on the nodes.
+    """
+    child, parent = node, getattr(node, 'parent', None)
+    while parent is not None:
+        # Decorators and base classes are evaluated outside the class body.
+        if isinstance(parent, ast.ClassDef) and child in parent.body:
+            return parent.name
+        child, parent = parent, getattr(parent, 'parent', None)
+    return ''
+
+
+def mangle_private_names(code: CodeType, class_name: str) -> CodeType:
+    """Prefixes the private names that `code` looks up, e.g. `__x` becomes `_ClassName__x`.
+
+    See https://docs.python.org/3/reference/expressions.html#private-name-mangling
+    """
+    return code.replace(
+        co_names=tuple(
+            f'_{class_name}{name}' if name.startswith('__') and not name.endswith('__') else name
+            for name in code.co_names
+        )
+    )
 
 
 class KnownFormattingError(Exception):

@@ -260,18 +260,32 @@ def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
     has_long_key = any(len(str(k)) > 100 for k in obj.keys())
     is_large = n > 100 or has_long_key
 
-    if n <= 10 and not has_long_key:
-        # Small dict: always use per-key properties
-        schema.update(_properties({(k if isinstance(k, str) else safe_repr(k)): v for k, v in obj.items()}, seen))
-    else:
-        # Medium or large dict: check homogeneity
+    if is_large:
+        # Large dict: check homogeneity
         common_schema, is_homogeneous = _check_homogeneous(obj, seen)
         if is_homogeneous and common_schema is not None and common_schema not in PLAIN_SCHEMAS:
             schema['additionalProperties'] = common_schema
-        elif not is_large:
-            # Medium heterogeneous: per-key properties
-            schema.update(_properties({(k if isinstance(k, str) else safe_repr(k)): v for k, v in obj.items()}, seen))
         # else: large heterogeneous → just {'type': 'object'} (drop schema)
+    else:
+        # Reuse each value's schema for both homogeneity and properties.
+        value_schemas: JsonDict = {}
+        common_schema: JsonDict | None = None
+        is_homogeneous = True
+        for key, value in obj.items():
+            value_schema = create_json_schema(value, seen)
+            if common_schema is None:
+                common_schema = value_schema
+            elif is_homogeneous and value_schema == common_schema:
+                value_schema = common_schema
+            else:
+                is_homogeneous = False
+            if value_schema not in PLAIN_SCHEMAS:
+                value_schemas[key if isinstance(key, str) else safe_repr(key)] = value_schema
+
+        if is_homogeneous and common_schema is not None and common_schema not in PLAIN_SCHEMAS:
+            schema['additionalProperties'] = common_schema
+        elif value_schemas:
+            schema['properties'] = value_schemas
 
     if obj.__class__.__name__ != 'dict':
         schema['x-python-datatype'] = 'Mapping'

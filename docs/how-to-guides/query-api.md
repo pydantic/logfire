@@ -42,10 +42,12 @@ After creating the read token, you'll see a dialog with the token value.
 You can also create read tokens programmatically using the Logfire CLI:
 
 ```bash
-logfire read-tokens --project <organization>/<project> create
+uvx logfire-cli token read
 ```
 
-This command will output the read token directly to stdout, making it convenient for use in scripts.
+If you are not signed in, first run `uvx logfire-cli auth`. Run `uvx logfire-cli init` from your
+application's directory to connect it to the project, then create the read token there.
+The command prints the token once to stdout. Store it securely and keep it out of logs, commits, issues, and chats.
 
 ## Using the Read Clients
 
@@ -293,13 +295,13 @@ conn = logfire.db_api.connect(read_token='<your_read_token>', min_timestamp=time
 You can also override the timestamp filter per-cursor:
 
 ```python skip-run="true" skip-reason="external-connection"
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import logfire.db_api
 
 conn = logfire.db_api.connect(read_token='<your_read_token>')
 cursor = conn.cursor()
-cursor.min_timestamp = datetime.now(timezone.utc) - timedelta(days=14)
+cursor.min_timestamp = datetime.now(UTC) - timedelta(days=14)
 cursor.execute('SELECT start_timestamp, message FROM records LIMIT 10')
 ```
 
