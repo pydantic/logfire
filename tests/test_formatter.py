@@ -598,7 +598,7 @@ def test_bare_super_in_fstring(exporter: TestExporter):
     ]
 
 
-def test_bare_super_preserves_ordinary_name_resolution(exporter: TestExporter):
+def test_only_bare_super_stops_fstring_inspection(exporter: TestExporter):
     class Base:
         def value(self) -> int:
             return 8
@@ -611,7 +611,8 @@ def test_bare_super_preserves_ordinary_name_resolution(exporter: TestExporter):
             def super(*, amount: int = 4) -> int:
                 return amount
 
-            logfire.info(f'shadowed {super()} {super(amount=9)}')  # pyright: ignore[reportArgumentType]
+            logfire.info(f'shadowed with arguments {super(amount=9)}')  # pyright: ignore[reportArgumentType]
+            logfire.info(f'shadowed {super()}')
             logfire.info(f'shadowed spec {42:{super()}}')
 
         def skipped(self):
@@ -620,20 +621,20 @@ def test_bare_super_preserves_ordinary_name_resolution(exporter: TestExporter):
 
     child = Child()
     child.explicit()
-    child.shadowed()
-    with pytest.warns(FormattingFailedWarning, match=r'contains zero-argument super\(\)'):
+    with pytest.warns(FormattingFailedWarning, match=r'contains zero-argument super\(\)') as caught:
+        child.shadowed()
         child.skipped()
+    assert len(caught) == 3
 
-    explicit, shadowed, shadowed_spec, skipped = exporter.exported_spans_as_dict()
+    explicit, shadowed_with_arguments, shadowed, shadowed_spec, skipped = exporter.exported_spans_as_dict()
     assert explicit['attributes']['super(Child, self).value()'] == 8
-    assert shadowed['attributes']['super()'] == 4
-    assert shadowed['attributes']['super(amount=9)'] == 9
-    assert shadowed_spec['attributes']['42'] == 42
-    assert shadowed_spec['attributes']['logfire.msg'] == 'shadowed spec   42'
+    assert shadowed_with_arguments['attributes']['super(amount=9)'] == 9
+    assert shadowed['attributes']['logfire.msg_template'] == 'shadowed [remaining f-string omitted]'
+    assert shadowed_spec['attributes']['logfire.msg_template'] == 'shadowed spec [remaining f-string omitted]'
     assert skipped['attributes']['logfire.msg_template'] == 'skipped [remaining f-string omitted]'
 
 
-def test_bare_super_uses_current_eval_namespace(exporter: TestExporter):
+def test_bare_super_does_not_use_log_attribute_override(exporter: TestExporter):
     class Base:
         value = 8
 
@@ -648,15 +649,13 @@ def test_bare_super_uses_current_eval_namespace(exporter: TestExporter):
         override_calls.append(1)
         return SimpleNamespace(value=7)
 
-    child.report(super=replacement_super)
     with pytest.warns(FormattingFailedWarning, match=r'contains zero-argument super\(\)'):
-        child.report()
-    child.report(super=replacement_super)
-    assert override_calls == [1, 1]
+        child.report(super=replacement_super)
+    assert override_calls == []
 
-    first, fallback, last = exporter.exported_spans_as_dict()
-    assert first['attributes']['super().value'] == last['attributes']['super().value'] == 7
+    [fallback] = exporter.exported_spans_as_dict()
     assert fallback['attributes']['logfire.msg_template'] == 'value [remaining f-string omitted]'
+    assert 'super().value' not in fallback['attributes']
 
 
 def test_bare_super_preserves_cleaned_prefix(exporter: TestExporter, config_kwargs: dict[str, Any]):

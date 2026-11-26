@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import builtins
 import os
 import re
 import types
@@ -136,11 +135,8 @@ class ChunksFormatter(Formatter):
                 source, value_code, formatted_code, has_bare_super = compile_formatted_value(
                     node_value, node_finder.source
                 )
-                if (
-                    has_bare_super
-                    and local_vars.get('super', global_vars.get('super', frame.f_builtins.get('super')))
-                    is builtins.super
-                ):
+                if has_bare_super:
+                    # Treat a direct zero-argument super() call as the builtin during inspection.
                     # The original rendered message may contain values that have not been scrubbed.
                     # Keep the cleaned prefix and stop before evaluating any remaining fields.
                     omitted = '[remaining f-string omitted]'
