@@ -493,10 +493,19 @@ class SpanScrubber:
         if not isinstance(schema, dict):
             attributes.pop(ATTRIBUTES_JSON_SCHEMA_KEY)
             return
+        schema = cast('dict[str, Any]', schema)
+        root_properties = schema.get('properties')
+        if not isinstance(root_properties, dict):
+            attributes.pop(ATTRIBUTES_JSON_SCHEMA_KEY)
+            return
+        root_properties = cast('dict[str, Any]', root_properties)
 
         changed = False
         for path in self._replaced_paths:
-            node = cast('dict[str, Any]', schema)
+            # OpenTelemetry attributes may not be represented in Logfire's schema.
+            if path[1] not in root_properties:
+                continue
+            node = schema
             for part in path[1:]:
                 child: Any = None
                 if isinstance(part, int):

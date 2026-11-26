@@ -1939,7 +1939,7 @@ def test_replaced_mapping_schema_in_lists_and_shared_mapping_schema(exporter: Te
     assert 'tok-' not in json.dumps(schema)
 
 
-@pytest.mark.parametrize('schema_value', ['not json', '[]'])
+@pytest.mark.parametrize('schema_value', ['not json', '[]', '{"type":"object"}'])
 def test_replaced_mapping_drops_unusable_schema(exporter: TestExporter, schema_value: str):
     get_tracer(__name__).start_span(
         'Example', attributes={'sessions': '{"tok-active":1}', 'logfire.json_schema': schema_value}
@@ -1961,6 +1961,17 @@ def test_replaced_mapping_prunes_nearest_schema_when_path_is_missing(exporter: T
 
     (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
     assert span['attributes']['logfire.json_schema']['properties']['user'] == {'type': 'object'}
+
+
+def test_unrepresented_attribute_does_not_prune_other_schema(exporter: TestExporter):
+    schema = '{"type":"object","properties":{"created":{"type":"string","format":"date-time"}}}'
+    get_tracer(__name__).start_span(
+        'Example', attributes={'sessions': '{"tok-active":1}', 'logfire.json_schema': schema}
+    ).end()
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['sessions'] == "[Scrubbed due to 'session']"
+    assert span['attributes']['logfire.json_schema'] == schema
 
 
 def test_non_string_child_key_does_not_prevent_parent_redaction():
