@@ -812,3 +812,14 @@ def test_all_types_covered():
 def test_zero_dimensional_ndarray_formatting(formatter: Any, value: Any, formatted: str) -> None:
     schema: JSONSchema = {'type': 'array', 'x-python-datatype': 'ndarray', 'x-shape': [], 'x-dtype': 'object'}
     assert formatter(value, schema=schema) == formatted
+
+
+@pytest.mark.parametrize('formatter', [json_args_value_formatter, json_args_value_formatter_compact])
+@pytest.mark.parametrize('value', [{'replacement': 1}, {'data': {}, 'rows': ['missing'], 'columns': []}])
+def test_dataframe_formatter_handles_mapping_replacement(formatter: Any, value: dict[str, Any]) -> None:
+    schema = cast(
+        JSONSchema, {'type': 'object', 'x-python-datatype': 'DataFrame', 'x-row-count': 1, 'x-column-count': 1}
+    )
+    formatted = formatter(value, schema=schema)
+    assert formatted.startswith('{')
+    assert formatted.endswith('}')

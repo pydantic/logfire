@@ -353,6 +353,39 @@ class JsonArgsValueFormatter:
             self._write('', '', False, 0, value, None)
             return
         if isinstance(value, Mapping):
+            value = cast('Mapping[str, Any]', value)
+            data_value = value.get('data')
+            rows_value = value.get('rows')
+            columns_value = value.get('columns')
+            if (
+                set(value) != {'data', 'rows', 'columns'}
+                or not isinstance(data_value, Mapping)
+                or not isinstance(rows_value, list)
+                or not isinstance(columns_value, list)
+            ):
+                self._format_items('{', ': ', '}', True, _indent_current, value, None)
+                return
+            data_value = cast('Mapping[str, Any]', data_value)
+            rows_value = cast('list[Any]', rows_value)
+            columns_value = cast('list[Any]', columns_value)
+            if not (
+                all(isinstance(label, str) for label in rows_value + columns_value)
+                and all(
+                    isinstance(entries, list)
+                    and all(
+                        isinstance(entry, str)
+                        or (
+                            isinstance(entry, Mapping)
+                            and all(isinstance(cells, list) for cells in cast('Mapping[str, Any]', entry).values())
+                        )
+                        for entry in cast('list[Any]', entries)
+                    )
+                    for entries in data_value.values()
+                )
+                and all(isinstance(data_value.get(row), list) for row in rows_value)
+            ):
+                self._format_items('{', ': ', '}', True, _indent_current, value, None)
+                return
             value = cast('dict[str, Any]', value)
             columns = cast('list[str]', value['columns'])
             indices = cast('list[str]', value['rows'])
