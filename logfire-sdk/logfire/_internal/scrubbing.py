@@ -510,13 +510,13 @@ class SpanScrubber:
         columns = [column_labels[label] for label in original_columns]
         data: dict[str, list[Any]] = {}
         row_offsets: dict[str, int] = {}
-        for original_row in original_rows:
+        for row_index, original_row in enumerate(original_rows):
             row_offset = row_offsets.get(original_row, 0)
             row_offsets[original_row] = row_offset + 1
             original_cells = original_data[original_row][row_offset]
             scrubbed_columns: dict[str, list[Any]] = {}
-            for original_column, original_values in original_cells.items():
-                cell_path = path + ('data', original_row, row_offset, original_column)
+            for column_index, (original_column, original_values) in enumerate(original_cells.items()):
+                cell_path = path + ('data', row_index, column_index)
                 scrubbed = self.scrub(cell_path, original_values, in_safe_key, key_only)
                 if not in_safe_key and (match := self._pattern.search(original_column)):
                     scrubbed = self._scrub_matches(cell_path, scrubbed, match)
@@ -536,7 +536,7 @@ class SpanScrubber:
                 )
             if not in_safe_key and (match := self._pattern.search(original_row)):
                 data.setdefault(row_labels[original_row], []).append(
-                    self._scrub_matches(path + ('data', original_row, row_offset), cells, match)
+                    self._scrub_matches(path + ('data', row_index), cells, match)
                 )
             else:
                 data.setdefault(row_labels[original_row], []).append(cells)

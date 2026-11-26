@@ -1105,6 +1105,18 @@ def test_log_dataframe_password_column_is_scrubbed(exporter: TestExporter) -> No
     assert 'hunter2' not in json.dumps(attributes)
 
 
+def test_log_dataframe_scrubbed_metadata_omits_original_labels(exporter: TestExporter) -> None:
+    frame = pandas.DataFrame({'password-live-token-456': ['hunter2']}, index=['session-live-token-123'])
+    logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    exported = json.dumps(attributes)
+    assert 'session-live-token-123' not in exported
+    assert 'password-live-token-456' not in exported
+    assert 'hunter2' not in exported
+    assert attributes['logfire.scrubbed']
+
+
 def test_log_dataframe_scrubbed_value_has_no_labels_in_schema(exporter: TestExporter) -> None:
     logfire.info('frame', sessions=pandas.DataFrame({'requests': [2]}, index=['tok-abc123']))
 
@@ -1241,7 +1253,7 @@ def test_log_dataframe_column_callback_scalar(
     logfire.configure(
         **config_kwargs,
         scrubbing=logfire.ScrubbingOptions(
-            callback=lambda match: replacement if match.path[-1] == 'password' else None
+            callback=lambda match: replacement if match.pattern_match.string == 'password' else None
         ),
     )
     logfire.info('frame', frame=pandas.DataFrame({'password': ['hunter2']}, index=['alice']))
