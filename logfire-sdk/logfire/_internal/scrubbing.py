@@ -147,8 +147,8 @@ class ScrubbingOptions:
     Otherwise, the returned value replaces the matched value.
     Logfire scrubs each value before checking whether its key matches. A callback for a matching key
     receives that scrubbed value. A different value returned by the callback is treated as final.
-    For a dict with a `loc` list and an `input` key, such as a Pydantic validation error, each string in `loc`
-    is checked like a key for `input`.
+    For a Pydantic validation error detail with `loc`, `type`, and `msg`, each string in `loc`
+    is checked like a key for its `input` value.
     If a value is returned unchanged or as an equal copy of the same type, Logfire checks other patterns at the
     same position, then later matches in the string. This applies to both matching keys and string values.
     After 100 allowed matches in one string, Logfire redacts the value to bound the search cost.
@@ -368,6 +368,14 @@ class Scrubber(BaseScrubber):
         return SpanScrubber(self)._safely_transform_string(('otel_log_event_name',), value)  # pyright: ignore[reportPrivateUsage]
 
 
+def _is_validation_error_detail(value: Mapping[Any, Any]) -> bool:
+    return (
+        isinstance(value.get('loc'), (list, tuple))
+        and isinstance(value.get('type'), str)
+        and isinstance(value.get('msg'), str)
+    )
+
+
 class SpanScrubber:
     """Does the actual scrubbing work.
 
@@ -533,9 +541,10 @@ class SpanScrubber:
             ]
         elif isinstance(value, Mapping):
             result: dict[Any, Any] = {}
+            mapping = cast('Mapping[Any, Any]', value)
             legacy_attributes = self._is_legacy_llm_scope and path == ('attributes',)
             legacy_request = self._is_legacy_llm_scope and path == ('attributes', 'request_data')
-            for k, v in cast('Mapping[Any, Any]', value).items():
+            for k, v in mapping.items():
                 # Legacy provider payloads can contain user text. Match nested keys such as
                 # tool-call "password", but do not treat words in message text as secrets.
                 scoped_content = legacy_attributes and (
@@ -566,9 +575,8 @@ class SpanScrubber:
                         result[k] = redacted
                     else:
                         result[k] = scrubbed
-            if not in_safe_key and 'input' in value:
-                loc = cast('Mapping[Any, Any]', value).get('loc')
-                result['input'] = self._scrub_validation_error_input(path + ('input',), loc, result['input'])
+            if not in_safe_key and 'input' in mapping and _is_validation_error_detail(mapping):
+                result['input'] = self._scrub_validation_error_input(path + ('input',), mapping['loc'], result['input'])
             return result
         return value
 

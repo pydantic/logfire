@@ -2474,16 +2474,16 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
     logfire.info(
         'hi',
         errors=[
-            {'type': 'string_too_short', 'loc': ['body', 'username'], 'input': 'al'},
-            {'type': 'string_too_short', 'loc': ['body', 'password'], 'input': 'hunter2'},
+            {'type': 'string_too_short', 'loc': ['body', 'username'], 'msg': 'short', 'input': 'al'},
+            {'type': 'string_too_short', 'loc': ['body', 'password'], 'msg': 'short', 'input': 'hunter2'},
             # A parent name counts too, like a parent key.
-            {'type': 'string_too_short', 'loc': ['body', 'credentials', 'code'], 'input': '12'},
+            {'type': 'string_too_short', 'loc': ['body', 'credentials', 'code'], 'msg': 'short', 'input': '12'},
             # The anchored pattern matches after the `body` prefix, and the list index is skipped.
-            {'type': 'string_too_short', 'loc': ['body', 'cards', 0, 'pin'], 'input': '12'},
+            {'type': 'string_too_short', 'loc': ['body', 'cards', 0, 'pin'], 'msg': 'short', 'input': '12'},
             # The anchor doesn't match `pinned`.
-            {'type': 'bool_parsing', 'loc': ['body', 'pinned'], 'input': 'maybe'},
+            {'type': 'bool_parsing', 'loc': ['body', 'pinned'], 'msg': 'invalid', 'input': 'maybe'},
             # A redacted list stays a list.
-            {'type': 'too_short', 'loc': ['body', 'passwords'], 'input': ['hunter2']},
+            {'type': 'too_short', 'loc': ['body', 'passwords'], 'msg': 'short', 'input': ['hunter2']},
         ],
         # The same field names as keys, for comparison.
         keys={
@@ -2496,23 +2496,36 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
         },
         # Without a `loc` list, `input` is an ordinary key, e.g. in LLM tool-use blocks.
         tool_call={'name': 'search', 'input': 'hunter2'},
+        missing_msg={'loc': ['body', 'password'], 'input': 'hunter2'},
     )
 
     attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
     assert attributes['errors'] == snapshot(
         [
-            {'type': 'string_too_short', 'loc': ['body', 'username'], 'input': 'al'},
-            {'type': 'string_too_short', 'loc': ['body', 'password'], 'input': "[Scrubbed due to 'password']"},
+            {'type': 'string_too_short', 'loc': ['body', 'username'], 'msg': 'short', 'input': 'al'},
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'password'],
+                'msg': 'short',
+                'input': "[Scrubbed due to 'password']",
+            },
             {
                 'type': 'string_too_short',
                 'loc': ['body', "[Scrubbed due to 'credential']", 'code'],
+                'msg': 'short',
                 'input': "[Scrubbed due to 'credential']",
             },
-            {'type': 'string_too_short', 'loc': ['body', 'cards', 0, 'pin'], 'input': "[Scrubbed due to 'pin']"},
-            {'type': 'bool_parsing', 'loc': ['body', 'pinned'], 'input': 'maybe'},
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'cards', 0, 'pin'],
+                'msg': 'short',
+                'input': "[Scrubbed due to 'pin']",
+            },
+            {'type': 'bool_parsing', 'loc': ['body', 'pinned'], 'msg': 'invalid', 'input': 'maybe'},
             {
                 'type': 'too_short',
                 'loc': ['body', "[Scrubbed due to 'password']"],
+                'msg': 'short',
                 'input': ["[Scrubbed due to 'password']"],
             },
         ]
@@ -2528,6 +2541,7 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
         }
     )
     assert attributes['tool_call'] == {'name': 'search', 'input': 'hunter2'}
+    assert attributes['missing_msg'] == {'loc': ['body', 'password'], 'input': 'hunter2'}
 
 
 def test_validation_error_exception_data_scrubbed(exporter: TestExporter):
@@ -2560,6 +2574,21 @@ def test_validation_error_exception_data_scrubbed(exporter: TestExporter):
     )
 
 
+def test_validation_error_input_in_logged_data(exporter: TestExporter):
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    with pytest.raises(ValidationError) as caught:
+        Login(password='hunter2')
+
+    errors = caught.value.errors()
+    logfire.info('bad', errors=errors, response=json.dumps({'detail': errors}))
+
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'][0]['input'] == "[Scrubbed due to 'password']"
+    assert attributes['response']['detail'][0]['input'] == "[Scrubbed due to 'password']"
+
+
 def test_validation_error_input_callback_checks_later_loc_parts(exporter: TestExporter, config_kwargs: dict[str, Any]):
     matches: list[tuple[Any, ...]] = []
 
@@ -2571,12 +2600,22 @@ def test_validation_error_input_callback_checks_later_loc_parts(exporter: TestEx
 
     logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
     logfire.info(
-        'hi', errors=[{'type': 'string_too_short', 'loc': ['body', 'session', 'password'], 'input': 'hunter2'}]
+        'hi',
+        errors=[
+            {'type': 'string_too_short', 'loc': ['body', 'session', 'password'], 'msg': 'short', 'input': 'hunter2'}
+        ],
     )
 
     attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
     assert attributes['errors'] == snapshot(
-        [{'type': 'string_too_short', 'loc': ['body', 'session', 'password'], 'input': "[Scrubbed due to 'password']"}]
+        [
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'session', 'password'],
+                'msg': 'short',
+                'input': "[Scrubbed due to 'password']",
+            }
+        ]
     )
     assert matches == snapshot(
         [
