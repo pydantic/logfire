@@ -2476,6 +2476,12 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
         errors=[
             {'type': 'string_too_short', 'loc': ['body', 'username'], 'msg': 'short', 'input': 'al'},
             {'type': 'string_too_short', 'loc': ['body', 'password'], 'msg': 'short', 'input': 'hunter2'},
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'credentials', 'password'],
+                'msg': 'short',
+                'input': 'hunter2',
+            },
             # A parent name counts too, like a parent key.
             {'type': 'string_too_short', 'loc': ['body', 'credentials', 'code'], 'msg': 'short', 'input': '12'},
             # The anchored pattern matches after the `body` prefix, and the list index is skipped.
@@ -2506,6 +2512,12 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
             {
                 'type': 'string_too_short',
                 'loc': ['body', 'password'],
+                'msg': 'short',
+                'input': "[Scrubbed due to 'password']",
+            },
+            {
+                'type': 'string_too_short',
+                'loc': ['body', "[Scrubbed due to 'credential']", 'password'],
                 'msg': 'short',
                 'input': "[Scrubbed due to 'password']",
             },
@@ -2542,6 +2554,14 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
     )
     assert attributes['tool_call'] == {'name': 'search', 'input': 'hunter2'}
     assert attributes['missing_msg'] == {'loc': ['body', 'password'], 'input': 'hunter2'}
+    assert [
+        note
+        for note in attributes['logfire.scrubbed']
+        if note['path'][:2] == ['attributes', 'errors'] and note['path'][-1] == 'password'
+    ] == [
+        {'path': ['attributes', 'errors', 1, 'body', 'password'], 'matched_substring': 'password'},
+        {'path': ['attributes', 'errors', 2, 'body', 'credentials', 'password'], 'matched_substring': 'password'},
+    ]
 
 
 def test_validation_error_exception_data_scrubbed(exporter: TestExporter):
@@ -2617,9 +2637,26 @@ def test_validation_error_input_callback_checks_later_loc_parts(exporter: TestEx
             }
         ]
     )
-    assert matches == snapshot(
-        [
-            (('attributes', 'errors', 0, 'input'), 'session', 'session'),
-            (('attributes', 'errors', 0, 'input'), 'password', 'password'),
-        ]
+    assert matches == snapshot([(('attributes', 'errors', 0, 'body', 'session', 'password'), 'password', 'password')])
+
+
+def test_validation_error_input_callback_checks_outer_loc_parts(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    matches: list[tuple[Any, ...]] = []
+
+    def callback(match: logfire.ScrubMatch):
+        if 'loc' not in match.path:
+            matches.append((match.path, match.pattern_match.group(0)))
+        if match.pattern_match.group(0) == 'password':
+            return match.value
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
+    logfire.info(
+        'bad', errors=[{'type': 'too_short', 'loc': ['credentials', 'password'], 'msg': 'short', 'input': 'x'}]
     )
+
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'][0]['input'] == "[Scrubbed due to 'credential']"
+    assert matches == [
+        (('attributes', 'errors', 0, 'credentials', 'password'), 'password'),
+        (('attributes', 'errors', 0, 'credentials'), 'credential'),
+    ]

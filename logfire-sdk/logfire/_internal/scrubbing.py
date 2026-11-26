@@ -576,23 +576,24 @@ class SpanScrubber:
                     else:
                         result[k] = scrubbed
             if not in_safe_key and 'input' in mapping and _is_validation_error_detail(mapping):
-                result['input'] = self._scrub_validation_error_input(path + ('input',), mapping['loc'], result['input'])
+                result['input'] = self._scrub_validation_error_input(
+                    path, cast('list[Any] | tuple[Any, ...]', mapping['loc']), result['input']
+                )
             return result
         return value
 
-    def _scrub_validation_error_input(self, path: JsonPath, loc: Any, value: Any) -> Any:
+    def _scrub_validation_error_input(self, error_path: JsonPath, loc: list[Any] | tuple[Any, ...], value: Any) -> Any:
         """Redacts the `input` of a Pydantic validation error when a field name in its `loc` matches.
 
         For example, in `{'loc': ['body', 'password'], 'input': 'hunter2'}` the field name and the rejected value
         are separate entries, so checking each key and value on its own never connects them.
-        Each string in `loc` counts as a key for `input`, even when it's exactly a pattern such as 'password'.
+        String names are checked from innermost to outermost, with a path ending at the matching field name.
         `value` is the already scrubbed `input`.
         """
-        if not isinstance(loc, (list, tuple)):
-            return value
-        for part in cast('list[Any] | tuple[Any, ...]', loc):
+        for index in range(len(loc) - 1, -1, -1):
+            part = loc[index]
             if isinstance(part, str) and (match := self._pattern.search(part)):
-                redacted = self._scrub_matches(path, value, match)
+                redacted = self._scrub_matches(error_path + tuple(loc[: index + 1]), value, match)
                 if not _is_unchanged_value(value, redacted):
                     # Like the key rule, keep a sequence a sequence. `scrub` returns every sequence as a list.
                     if isinstance(redacted, str) and isinstance(value, list):

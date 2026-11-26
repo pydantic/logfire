@@ -947,7 +947,7 @@ def test_pydantic_plugin_record_failure_scrubs_input(exporter: TestExporter) -> 
             ],
             'input_data': {'password': "[Scrubbed due to 'password']"},
             'logfire.scrubbed': [
-                {'path': ['attributes', 'errors', 0, 'input'], 'matched_substring': 'password'},
+                {'path': ['attributes', 'errors', 0, 'password'], 'matched_substring': 'password'},
                 {'path': ['attributes', 'input_data', 'password'], 'matched_substring': 'password'},
             ],
         }

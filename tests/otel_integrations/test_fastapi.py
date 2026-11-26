@@ -2209,7 +2209,7 @@ def test_scrubbing_validation_error_input(client: TestClient, exporter: TestExpo
         ]
     )
     assert attributes['logfire.scrubbed'] == snapshot(
-        [{'path': ['attributes', 'fastapi.arguments.errors', 0, 'input'], 'matched_substring': 'password'}]
+        [{'path': ['attributes', 'fastapi.arguments.errors', 0, 'body', 'password'], 'matched_substring': 'password'}]
     )
     assert 'hunter2' not in json.dumps(exporter.exported_spans_as_dict())
 
