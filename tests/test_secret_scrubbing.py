@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import json
 import re
 from io import StringIO
@@ -23,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from pydantic_core import PydanticCustomError
 
 import logfire
-from logfire._internal import utils
+from logfire._internal import scrubbing, utils
 from logfire._internal.exporters import processor_wrapper
 from logfire._internal.exporters.logs import MainLogProcessorWrapper
 from logfire._internal.exporters.processor_wrapper import (
@@ -2563,6 +2564,18 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
         {'path': ['attributes', 'errors', 1, 'body', 'password'], 'matched_substring': 'password'},
         {'path': ['attributes', 'errors', 2, 'body', 'credentials', 'password'], 'matched_substring': 'password'},
     ]
+
+
+def test_builtin_validation_error_types_without_pydantic_core(monkeypatch: pytest.MonkeyPatch):
+    original_import = builtins.__import__
+
+    def import_without_pydantic_core(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'pydantic_core.core_schema':
+            raise ImportError(name)
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', import_without_pydantic_core)
+    assert scrubbing._builtin_error_types() == frozenset()  # pyright: ignore[reportPrivateUsage]
 
 
 def test_validation_error_exception_data_scrubbed(exporter: TestExporter):

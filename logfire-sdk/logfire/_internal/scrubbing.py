@@ -37,14 +37,16 @@ from .json_encoder import logfire_json_dumps
 from .stack_info import STACK_INFO_KEYS
 from .utils import ReadableSpanDict, handle_internal_errors, truncate_string
 
-try:
-    from pydantic_core.core_schema import ErrorType
-except ImportError:  # Pydantic is optional.
-    builtin_error_types: frozenset[str] = frozenset()
-else:
-    builtin_error_types = frozenset(get_args(ErrorType)) - {'value_error', 'assertion_error'}
 
-_BUILTIN_ERROR_TYPES = builtin_error_types
+def _builtin_error_types() -> frozenset[str]:
+    try:
+        from pydantic_core.core_schema import ErrorType
+    except ImportError:  # Pydantic is optional.
+        return frozenset()
+    return frozenset(get_args(ErrorType)) - {'value_error', 'assertion_error'}
+
+
+_BUILTIN_ERROR_TYPES = _builtin_error_types()
 
 DEFAULT_PATTERNS = [
     'password',
