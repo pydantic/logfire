@@ -8,6 +8,7 @@ from pathlib import Path
 from threading import Event, get_ident
 from typing import Any, cast
 
+import pydantic_core
 import pytest
 from dirty_equals import IsJson, IsPartialDict
 from inline_snapshot import snapshot
@@ -2576,6 +2577,16 @@ def test_builtin_validation_error_types_without_pydantic_core(monkeypatch: pytes
 
     monkeypatch.setattr(builtins, '__import__', import_without_pydantic_core)
     assert scrubbing._builtin_error_types() == frozenset()  # pyright: ignore[reportPrivateUsage]
+
+
+def test_builtin_error_message_skips_context_placeholders(monkeypatch: pytest.MonkeyPatch):
+    def unexpected_renderer(*args: Any, **kwargs: Any) -> Any:
+        pytest.fail('Context placeholders must not reach PydanticKnownError')
+
+    monkeypatch.setattr(pydantic_core, 'PydanticKnownError', unexpected_renderer)
+    assert not scrubbing._is_builtin_error_message(  # pyright: ignore[reportPrivateUsage]
+        'string_too_short', 'bad x', {'min_length': '{tag}' * 2000}
+    )
 
 
 def test_validation_error_exception_data_scrubbed(exporter: TestExporter):

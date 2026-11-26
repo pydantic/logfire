@@ -393,6 +393,11 @@ def _is_validation_error_detail(value: Mapping[Any, Any]) -> bool:
 def _is_builtin_error_message(error_type: str, message: str, ctx: Any) -> bool:
     if error_type not in _BUILTIN_ERROR_TYPES:
         return False
+    if isinstance(ctx, Mapping):
+        context_values = cast('Mapping[Any, Any]', ctx)
+        if any(isinstance(value, str) and ('{' in value or '}' in value) for value in context_values.values()):
+            # Rendering can repeatedly expand placeholders in context strings.
+            return False
     try:
         from pydantic_core import PydanticKnownError
 
