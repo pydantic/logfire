@@ -480,6 +480,10 @@ class SpanScrubber:
 
     def _scrub_dataframe(self, path: JsonPath, value: Mapping[str, Any], in_safe_key: bool, key_only: bool) -> Any:
         """Scrub DataFrame labels as data while keeping query keys and display order aligned."""
+        if not in_safe_key:
+            for field in ('data', 'rows', 'columns'):
+                if match := self._pattern.search(field):
+                    return self._scrub_matches(path + (field,), value, match)
         original_rows = cast('list[str]', value['rows'])
         original_columns = cast('list[str]', value['columns'])
         original_data = cast('dict[str, list[dict[str, list[Any]]]]', value['data'])

@@ -349,6 +349,9 @@ class JsonArgsValueFormatter:
 
     def _format_data_frame(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
         schema = schema or {}
+        if not isinstance(value, (Mapping, list)):
+            self._write('', '', False, 0, value, None)
+            return
         if isinstance(value, Mapping):
             value = cast('dict[str, Any]', value)
             columns = cast('list[str]', value['columns'])

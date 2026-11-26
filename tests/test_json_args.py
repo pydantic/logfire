@@ -1076,17 +1076,18 @@ def test_log_dataframe_duplicate_labels(exporter: TestExporter) -> None:
         index=['alice', 'bob', 'alice'],
         columns=['score', 'other', 'score'],
     )
-    logfire.info('frame', frame=frame)
+    with pandas.option_context('display.max_rows', 2, 'display.max_columns', 2):
+        logfire.info('frame', frame=frame)
 
     attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
     recorded = attributes['frame']
-    assert recorded['rows'] == ['alice', 'bob', 'alice']
-    assert recorded['columns'] == ['score', 'other', 'score']
+    assert recorded['rows'] == ['alice', 'alice']
+    assert recorded['columns'] == ['score', 'score']
     assert recorded['data']['alice'] == [
-        {'score': [1, 3], 'other': [2]},
-        {'score': [7, 9], 'other': [8]},
+        {'score': [1, 3]},
+        {'score': [7, 9]},
     ]
-    assert _frame_matrix(recorded) == [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    assert _frame_matrix(recorded) == [[1, 3], [7, 9]]
     assert attributes['logfire.json_schema']['properties']['frame'] == {
         'type': 'object',
         'x-python-datatype': 'DataFrame',
@@ -1164,6 +1165,18 @@ def test_log_dataframe_label_cannot_exempt_cell_from_scrubbing(exporter: TestExp
     attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
     assert attributes['frame']['data']['http.url'][0]['value'] == ["[Scrubbed due to 'password']"]
     assert 'hunter2' not in json.dumps(attributes)
+
+
+def test_log_dataframe_internal_data_pattern_scrubs_frame(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(extra_patterns=['data']))
+    logfire.info('frame', frame=pandas.DataFrame({'score': [7]}, index=['alice']))
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert json.loads(attributes['frame']) == "[Scrubbed due to 'data']"
+    schema = attributes['logfire.json_schema']['properties']['frame']
+    assert json_args_value_formatter(json.loads(attributes['frame']), schema=schema) == "[Scrubbed due to 'data']"
 
 
 @pytest.mark.parametrize(
