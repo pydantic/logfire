@@ -1976,6 +1976,52 @@ def test_replaced_mapping_prunes_nearest_schema_when_path_is_missing(exporter: T
     assert span['attributes']['logfire.json_schema']['properties']['user'] == {'type': 'object'}
 
 
+def test_replaced_mapping_prunes_array_schema_when_prefix_item_is_missing(exporter: TestExporter):
+    schema: dict[str, Any] = {'type': 'object', 'properties': {'data': {'type': 'array', 'prefixItems': []}}}
+    get_tracer(__name__).start_span(
+        'Example',
+        attributes={
+            'data': '[{"sessions":{"tok-active":1}}]',
+            'logfire.json_schema': json.dumps(schema),
+        },
+    ).end()
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.json_schema']['properties']['data'] == {'type': 'array'}
+
+
+def test_replaced_mapping_follows_json_boolean_key_spelling(exporter: TestExporter):
+    schema: dict[str, Any] = {
+        'type': 'object',
+        'properties': {
+            'data': {
+                'type': 'object',
+                'properties': {
+                    'True': {
+                        'type': 'object',
+                        'properties': {
+                            'sessions': {'type': 'object', 'properties': {'tok-active': {'type': 'string'}}}
+                        },
+                    }
+                },
+            }
+        },
+    }
+    get_tracer(__name__).start_span(
+        'Example',
+        attributes={
+            'data': '{"true":{"sessions":{"tok-active":1}}}',
+            'logfire.json_schema': json.dumps(schema),
+        },
+    ).end()
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    sessions_schema = span['attributes']['logfire.json_schema']['properties']['data']['properties']['True'][
+        'properties'
+    ]['sessions']
+    assert sessions_schema == {'type': 'object'}
+
+
 def test_unrepresented_attribute_does_not_prune_other_schema(exporter: TestExporter):
     schema = '{"type":"object","properties":{"created":{"type":"string","format":"date-time"}}}'
     get_tracer(__name__).start_span(
