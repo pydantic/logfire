@@ -19,6 +19,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.trace.propagation import get_current_span
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 import logfire
 from logfire._internal import utils
@@ -2466,3 +2467,225 @@ def test_aws_security_tokens_scrubbed(exporter: TestExporter):
             'security_level': 'high',
         }
     )
+
+
+def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(extra_patterns=['^pin$']))
+    logfire.info(
+        'hi',
+        errors=[
+            {'type': 'string_too_short', 'loc': ['body', 'username'], 'msg': 'short', 'input': 'al'},
+            {'type': 'string_too_short', 'loc': ['body', 'password'], 'msg': 'short', 'input': 'hunter2'},
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'credentials', 'password'],
+                'msg': 'short',
+                'input': 'hunter2',
+            },
+            # A parent name counts too, like a parent key.
+            {'type': 'string_too_short', 'loc': ['body', 'credentials', 'code'], 'msg': 'short', 'input': '12'},
+            # The anchored pattern matches after the `body` prefix, and the list index is skipped.
+            {'type': 'string_too_short', 'loc': ['body', 'cards', 0, 'pin'], 'msg': 'short', 'input': '12'},
+            # The anchor doesn't match `pinned`.
+            {'type': 'bool_parsing', 'loc': ['body', 'pinned'], 'msg': 'invalid', 'input': 'maybe'},
+            # A redacted list stays a list.
+            {'type': 'too_short', 'loc': ['body', 'passwords'], 'msg': 'short', 'input': ['hunter2']},
+        ],
+        # The same field names as keys, for comparison.
+        keys={
+            'username': 'al',
+            'password': 'hunter2',
+            'credentials': {'code': '12'},
+            'pin': '12',
+            'pinned': 'maybe',
+            'passwords': ['hunter2'],
+        },
+        # Without a `loc` list, `input` is an ordinary key, e.g. in LLM tool-use blocks.
+        tool_call={'name': 'search', 'input': 'hunter2'},
+        missing_msg={'loc': ['body', 'password'], 'input': 'hunter2'},
+    )
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['errors'] == snapshot(
+        [
+            {'type': 'string_too_short', 'loc': ['body', 'username'], 'msg': 'short', 'input': 'al'},
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'password'],
+                'msg': 'short',
+                'input': "[Scrubbed due to 'password']",
+            },
+            {
+                'type': 'string_too_short',
+                'loc': ['body', "[Scrubbed due to 'credential']", 'password'],
+                'msg': 'short',
+                'input': "[Scrubbed due to 'password']",
+            },
+            {
+                'type': 'string_too_short',
+                'loc': ['body', "[Scrubbed due to 'credential']", 'code'],
+                'msg': 'short',
+                'input': "[Scrubbed due to 'credential']",
+            },
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'cards', 0, 'pin'],
+                'msg': 'short',
+                'input': "[Scrubbed due to 'pin']",
+            },
+            {'type': 'bool_parsing', 'loc': ['body', 'pinned'], 'msg': 'invalid', 'input': 'maybe'},
+            {
+                'type': 'too_short',
+                'loc': ['body', "[Scrubbed due to 'password']"],
+                'msg': 'short',
+                'input': ["[Scrubbed due to 'password']"],
+            },
+        ]
+    )
+    assert attributes['keys'] == snapshot(
+        {
+            'username': 'al',
+            'password': "[Scrubbed due to 'password']",
+            'credentials': "[Scrubbed due to 'credential']",
+            'pin': "[Scrubbed due to 'pin']",
+            'pinned': 'maybe',
+            'passwords': ["[Scrubbed due to 'password']"],
+        }
+    )
+    assert attributes['tool_call'] == {'name': 'search', 'input': 'hunter2'}
+    assert attributes['missing_msg'] == {'loc': ['body', 'password'], 'input': 'hunter2'}
+    assert [
+        note
+        for note in attributes['logfire.scrubbed']
+        if note['path'][:2] == ['attributes', 'errors'] and note['path'][-1] == 'password'
+    ] == [
+        {'path': ['attributes', 'errors', 1, 'body', 'password'], 'matched_substring': 'password'},
+        {'path': ['attributes', 'errors', 2, 'body', 'credentials', 'password'], 'matched_substring': 'password'},
+    ]
+
+
+def test_validation_error_exception_data_scrubbed(exporter: TestExporter):
+    # With `hide_input_in_errors`, the exception message leaves out the input,
+    # so `exception.logfire.data` is the only place it could appear.
+    class Login(BaseModel):
+        model_config = ConfigDict(hide_input_in_errors=True)
+        password: str = Field(min_length=12)
+
+    # A variable, so that the value doesn't appear in the source line in the traceback.
+    password = 'hunter2'
+    with pytest.raises(ValidationError):
+        with logfire.span('login'):
+            Login(password=password)
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert password not in json.dumps(span)
+    data = span['attributes']['exception.logfire.data']
+    assert span['events'][0]['attributes']['exception.logfire.data'] == data
+    assert data == snapshot(
+        [
+            {
+                'type': 'string_too_short',
+                'loc': ['password'],
+                'msg': 'String should have at least 12 characters',
+                'input': "[Scrubbed due to 'password']",
+                'ctx': {'min_length': 12},
+            }
+        ]
+    )
+
+
+def test_validation_error_input_in_logged_data(exporter: TestExporter):
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    with pytest.raises(ValidationError) as caught:
+        Login(password='hunter2')
+
+    errors = caught.value.errors()
+    logfire.info('bad', errors=errors, response=json.dumps({'detail': errors}))
+
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'][0]['input'] == "[Scrubbed due to 'password']"
+    assert attributes['response']['detail'][0]['input'] == "[Scrubbed due to 'password']"
+
+
+def test_validation_error_input_callback_checks_later_loc_parts(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    matches: list[tuple[Any, ...]] = []
+
+    def callback(match: logfire.ScrubMatch):
+        matches.append((match.path, match.pattern_match.string, match.pattern_match.group(0)))
+        # Session IDs aren't sensitive here, but passwords are.
+        if match.pattern_match.group(0) == 'session':
+            return match.value
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
+    logfire.info(
+        'hi',
+        errors=[
+            {'type': 'string_too_short', 'loc': ['body', 'session', 'password'], 'msg': 'short', 'input': 'hunter2'}
+        ],
+    )
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['errors'] == snapshot(
+        [
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'session', 'password'],
+                'msg': 'short',
+                'input': "[Scrubbed due to 'password']",
+            }
+        ]
+    )
+    assert matches == snapshot([(('attributes', 'errors', 0, 'body', 'session', 'password'), 'password', 'password')])
+
+
+def test_validation_error_input_callback_checks_outer_loc_parts(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    matches: list[tuple[Any, ...]] = []
+
+    def callback(match: logfire.ScrubMatch):
+        if 'loc' not in match.path:
+            matches.append((match.path, match.pattern_match.group(0)))
+        if match.pattern_match.group(0) == 'password':
+            return match.value
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
+    logfire.info(
+        'bad', errors=[{'type': 'too_short', 'loc': ['credentials', 'password'], 'msg': 'short', 'input': 'x'}]
+    )
+
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'][0]['input'] == "[Scrubbed due to 'credential']"
+    assert matches == [
+        (('attributes', 'errors', 0, 'credentials', 'password'), 'password'),
+        (('attributes', 'errors', 0, 'credentials', 'password'), 'credential'),
+    ]
+    assert attributes['logfire.scrubbed'][-1]['path'] == ['attributes', 'errors', 0, 'credentials', 'password']
+
+
+@pytest.mark.parametrize(
+    'error_type',
+    ['missing', 'missing_argument', 'missing_keyword_only_argument', 'missing_positional_only_argument'],
+)
+def test_missing_validation_error_input_skips_absent_field(exporter: TestExporter, error_type: str):
+    logfire.info(
+        'bad',
+        errors=[
+            {
+                'type': error_type,
+                'loc': ['body', 'password'],
+                'msg': 'Field required',
+                'input': {'username': 'alice', 'api_key': 'secret'},
+            },
+            {
+                'type': error_type,
+                'loc': ['body', 'credit_card', 'expiry'],
+                'msg': 'Field required',
+                'input': {'number': '1234'},
+            },
+        ],
+    )
+
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'][0]['input'] == {'username': 'alice', 'api_key': "[Scrubbed due to 'api_key']"}
+    assert attributes['errors'][1]['input'] == "[Scrubbed due to 'credit_card']"
