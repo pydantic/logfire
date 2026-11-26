@@ -1,8 +1,48 @@
 from __future__ import annotations
 
+import math
+from collections.abc import Mapping
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from .semconv import CACHE_CREATION_INPUT_TOKENS, CACHE_READ_INPUT_TOKENS, INPUT_TOKENS, OUTPUT_TOKENS, USAGE_RAW
+
+
+def _parse_gateway_cost(value: object) -> float | None:
+    if not isinstance(value, (str, int, float)) or isinstance(value, bool):
+        return None
+    try:
+        cost = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+    # Validate before float conversion can round a tiny negative cost to zero.
+    if not cost.is_finite() or cost < 0:
+        return None
+    float_cost = float(cost)
+    return float_cost if math.isfinite(float_cost) else None
+
+
+def gateway_reported_cost(usage: Any) -> float | None:
+    """The cost the AI Gateway reported in the `usage` object, if any.
+
+    The gateway's block is an extra field on the usage object, or a key when it's a mapping (e.g. a
+    Gemini `part_metadata`), so this needs neither genai_prices nor a dump of the response.
+    A reported `0` (e.g. a gateway cache hit) is a real cost.
+    """
+    block = (  # pyright: ignore[reportUnknownVariableType]
+        usage.get('logfire_ai_gateway') if isinstance(usage, Mapping) else getattr(usage, 'logfire_ai_gateway', None)  # pyright: ignore[reportUnknownMemberType]
+    )
+    if isinstance(block, dict):
+        return _parse_gateway_cost(block.get('cost'))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+    return None
+
+
+def gateway_header_cost(headers: Mapping[str, str] | None) -> float | None:
+    """The cost in the AI Gateway's `logfire-ai-gateway-cost` response header, e.g. `0.0125USD`, if any."""
+    value = next((v for k, v in (headers or {}).items() if k.lower() == 'logfire-ai-gateway-cost'), None)
+    if value is None or not value.endswith('USD'):
+        return None
+    return _parse_gateway_cost(value[:-3])
 
 
 def get_usage_attributes(
@@ -30,6 +70,10 @@ def get_usage_attributes(
     pydantic-ai's resolution order:
     https://github.com/pydantic/pydantic-ai/blob/28a58d53b4d75b4da6d3b372edb9651f9cbe2411/pydantic_ai_slim/pydantic_ai/usage.py#L327-L329
 
+    A cost reported by the AI Gateway in `usage` takes precedence over the genai_prices estimate,
+    since it is the cost the gateway calculated, including any custom prices.
+    An invalid reported cost is ignored in favor of the estimate.
+
     Token/raw-usage and cost fail independently: a cost error does not prevent tokens
     from being set. Cost errors are silently caught (expected for unknown models etc.).
     """
@@ -49,6 +93,10 @@ def get_usage_attributes(
             result[USAGE_RAW] = usage.model_dump(exclude_none=True)
     except Exception:
         pass
+
+    if (reported_cost := gateway_reported_cost(usage)) is not None:
+        result['operation.cost'] = reported_cost
+        return result
 
     # Resolve the provider the way pydantic-ai's RequestUsage.extract does: the client's
     # base URL first, then the integration's provider id, trying each in turn because

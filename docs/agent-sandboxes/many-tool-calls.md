@@ -59,7 +59,7 @@ Replace their bodies with calls to your own services.
 ```python title="tools.py" skip-run="true" skip-reason="external-connection"
 import asyncio
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 CUSTOMERS = [
     {'id': f'c{i:03}', 'name': f'Customer {i}', 'plan': 'enterprise' if i % 3 == 0 else 'team', 'target': 0.999}
@@ -82,7 +82,7 @@ async def get_request_stats(customer_id: str, days: int) -> list[dict]:
     rnd = random.Random(customer_id)
     rows = []
     for day in range(days):
-        date = (datetime(2026, 10, 23, tzinfo=timezone.utc) - timedelta(days=day)).date().isoformat()
+        date = (datetime(2026, 10, 23, tzinfo=UTC) - timedelta(days=day)).date().isoformat()
         for endpoint in ENDPOINTS:
             requests = rnd.randint(2000, 9000)
             errors = rnd.randint(0, 3)

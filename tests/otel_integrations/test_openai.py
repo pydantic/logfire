@@ -1,17 +1,16 @@
 from __future__ import annotations as _annotations
 
 import json
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from inspect import signature
 from io import BytesIO
 from typing import Any
 
-import httpx
+import httpx2
 import openai
 import pydantic
 import pytest
 from dirty_equals import IsInt, IsNumeric, IsStr
-from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 from openai.types import (
     completion,
@@ -24,7 +23,6 @@ from openai.types import (
     images_response,
 )
 from openai.types.chat import chat_completion, chat_completion_chunk as cc_chunk, chat_completion_message
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 import logfire
 from logfire._internal.utils import get_version, suppress_instrumentation
@@ -38,7 +36,7 @@ pytestmark = [
 ]
 
 
-def request_handler(request: httpx.Request) -> httpx.Response:
+def request_handler(request: httpx2.Request) -> httpx2.Response:
     """Used to mock httpx requests
 
     We do this instead of using pytest-httpx since 1) it's nearly as simple 2) pytest-httpx doesn't support Python 3.8.
@@ -49,7 +47,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
         json_body = json.loads(request.content)
         if json_body.get('stream'):
             if json_body['messages'][0]['content'] == 'empty response chunk':
-                return httpx.Response(200, text='data: []\n\n')
+                return httpx2.Response(200, text='data: []\n\n')
             elif json_body['messages'][0]['content'] == 'empty choices in response chunk':
                 chunk = cc_chunk.ChatCompletionChunk(
                     id='1',
@@ -58,7 +56,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     model='gpt-4',
                     object='chat.completion.chunk',
                 )
-                return httpx.Response(200, text=f'data: {chunk.model_dump_json()}\n\n')
+                return httpx2.Response(200, text=f'data: {chunk.model_dump_json()}\n\n')
             elif json_body['messages'][0]['content'] == 'streamed tool call':
                 chunks = [
                     cc_chunk.ChatCompletionChunk(
@@ -191,7 +189,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                         usage=completion_usage.CompletionUsage(completion_tokens=1, prompt_tokens=2, total_tokens=3),
                     ),
                 ]
-                return httpx.Response(
+                return httpx2.Response(
                     200, text=''.join(f'data: {chunk.model_dump_json(exclude_unset=True)}\n\n' for chunk in chunks)
                 )
             else:
@@ -220,9 +218,9 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                         object='chat.completion.chunk',
                     ),
                 ]
-                return httpx.Response(200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in chunks))
+                return httpx2.Response(200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in chunks))
         else:
-            return httpx.Response(
+            return httpx2.Response(
                 200,
                 json=chat_completion.ChatCompletion(
                     id='test_id',
@@ -274,11 +272,11 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     object='text_completion',
                 ),
             ]
-            return httpx.Response(
+            return httpx2.Response(
                 200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in completion_chunks)
             )
         else:
-            return httpx.Response(
+            return httpx2.Response(
                 200,
                 json=completion.Completion(
                     id='test_id',
@@ -294,7 +292,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 ).model_dump(mode='json'),
             )
     elif request.url == 'https://api.openai.com/v1/embeddings':
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json=create_embedding_response.CreateEmbeddingResponse(
                 data=[
@@ -313,7 +311,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             ).model_dump(mode='json'),
         )
     elif request.url == 'https://api.openai.com/v1/images/generations':
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json=images_response.ImagesResponse(
                 created=123,
@@ -326,7 +324,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             ).model_dump(mode='json'),
         )
     elif request.url == 'https://api.openai.com/v1/files':
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json=file_object.FileObject(
                 id='test_id',
@@ -339,7 +337,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             ).model_dump(mode='json'),
         )
     elif request.url == 'https://api.openai.com/v1/assistants':
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={
                 'id': 'asst_abc123',
@@ -357,7 +355,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             },
         )
     elif request.url == 'https://api.openai.com/v1/threads':
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={'id': 'thread_abc123', 'object': 'thread', 'created_at': 1698107661, 'metadata': {}},
         )
@@ -367,7 +365,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
 
 @pytest.fixture
 def instrumented_client() -> Iterator[openai.Client]:
-    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+    with httpx2.Client(transport=httpx2.MockTransport(request_handler)) as httpx_client:
         # use a hardcoded API key to make sure one in the environment is never used
         openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
 
@@ -384,7 +382,7 @@ def instrumented_client() -> Iterator[openai.Client]:
 
 @pytest.fixture
 async def instrumented_async_client() -> AsyncIterator[openai.AsyncClient]:
-    async with httpx.AsyncClient(transport=MockTransport(request_handler)) as httpx_client:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(request_handler)) as httpx_client:
         # use a hardcoded API key to make sure one in the environment is never used
         openai_client = openai.AsyncClient(api_key='foobar', http_client=httpx_client)
 
@@ -2329,11 +2327,14 @@ def test_sync_chat_completions_version_v1_only(exporter: TestExporter) -> None:
                                 'audio_tokens': 0,
                                 'reasoning_tokens': 0,
                                 'rejected_prediction_tokens': 0,
+                                'text_tokens': None,
                             },
                             'prompt_tokens_details': {
                                 'audio_tokens': 0,
                                 'cache_write_tokens': None,
                                 'cached_tokens': 0,
+                                'image_tokens': None,
+                                'text_tokens': None,
                             },
                         },
                     },
@@ -2745,8 +2746,10 @@ def test_embeddings_version_v1_only(exporter: TestExporter) -> None:
                             'operation.cost': {},
                             'response_data': {
                                 'type': 'object',
-                                'properties': {
-                                    'usage': {'type': 'object', 'title': 'Usage', 'x-python-datatype': 'PydanticModel'}
+                                'additionalProperties': {
+                                    'type': 'object',
+                                    'title': 'Usage',
+                                    'x-python-datatype': 'PydanticModel',
                                 },
                             },
                         },
@@ -2966,11 +2969,11 @@ def test_responses_stream_incomplete_or_failed(final_fields: dict[str, Any], exp
         {'type': f'response.{final_fields["status"]}', 'sequence_number': 1, 'response': final_response},
     ]
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in events)
-        return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream'})
+        return httpx2.Response(200, text=body, headers={'content-type': 'text/event-stream'})
 
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    client = openai.Client(api_key='fake_api_key', http_client=httpx2.Client(transport=httpx2.MockTransport(handler)))
     with logfire.instrument_openai(client):
         list(
             client.responses.create(model='gpt-4.1', input='What is four plus five?', max_output_tokens=16, stream=True)
@@ -3137,8 +3140,10 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
                             'operation.cost': {},
                             'response_data': {
                                 'type': 'object',
-                                'properties': {
-                                    'usage': {'type': 'object', 'title': 'Usage', 'x-python-datatype': 'PydanticModel'}
+                                'additionalProperties': {
+                                    'type': 'object',
+                                    'title': 'Usage',
+                                    'x-python-datatype': 'PydanticModel',
                                 },
                             },
                         },
@@ -3199,15 +3204,9 @@ def test_images(instrumented_client: openai.Client, exporter: TestExporter) -> N
                             'async': {},
                             'response_data': {
                                 'type': 'object',
-                                'properties': {
-                                    'images': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'Image',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    }
+                                'additionalProperties': {
+                                    'type': 'array',
+                                    'items': {'type': 'object', 'title': 'Image', 'x-python-datatype': 'PydanticModel'},
                                 },
                             },
                         },
@@ -3220,12 +3219,12 @@ def test_images(instrumented_client: openai.Client, exporter: TestExporter) -> N
 
 
 def test_dont_suppress_httpx(exporter: TestExporter) -> None:
-    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
-        HTTPXClientInstrumentor().instrument_client(httpx_client)
+    with httpx2.Client(transport=httpx2.MockTransport(request_handler)) as httpx_client:
+        logfire.instrument_httpx(httpx_client)
         # use a hardcoded API key to make sure one in the environment is never used
         openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
 
-        with logfire.instrument_openai(openai_client, suppress_other_instrumentation=False, version=[1, 'latest']):
+        with logfire.instrument_openai(openai_client, version=[1, 'latest']):
             response = openai_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
 
     assert response.choices[0].text == 'Nine'
@@ -3397,12 +3396,12 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
 
 
 def test_suppress_httpx(exporter: TestExporter) -> None:
-    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
-        HTTPXClientInstrumentor().instrument_client(httpx_client)
+    with httpx2.Client(transport=httpx2.MockTransport(request_handler)) as httpx_client:
+        logfire.instrument_httpx(httpx_client)
         # use a hardcoded API key to make sure one in the environment is never used
         openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
 
-        with logfire.instrument_openai(openai_client, version=[1, 'latest']):
+        with logfire.instrument_openai(openai_client, suppress_other_instrumentation=True, version=[1, 'latest']):
             response = openai_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
 
     assert response.choices[0].text == 'Nine'
@@ -5444,7 +5443,9 @@ def test_get_endpoint_config_responses_agent_span() -> None:
 @pytest.mark.parametrize('version', [1, 2, [1, 2]])
 @pytest.mark.parametrize('complete', [False, True])
 def test_stream_response_metadata(version: Any, complete: bool, exporter: TestExporter) -> None:
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(request_handler)))
+    client = openai.Client(
+        api_key='fake_api_key', http_client=httpx2.Client(transport=httpx2.MockTransport(request_handler))
+    )
     with logfire.instrument_openai(client, version=version):
         list(
             client.chat.completions.create(
@@ -5474,7 +5475,9 @@ async def test_internal_exception_in_on_response_keeps_the_response(
         'model': 'gpt-4o',
         'choices': [{'index': 0, 'message': None, 'finish_reason': 'content_filter'}],
     }
-    async with httpx.AsyncClient(transport=MockTransport(lambda _: httpx.Response(200, json=body))) as http_client:
+    async with httpx2.AsyncClient(
+        transport=httpx2.MockTransport(lambda _: httpx2.Response(200, json=body))
+    ) as http_client:
         client = openai.AsyncClient(api_key='foobar', http_client=http_client)
         with logfire.instrument_openai(client):
             response = await client.chat.completions.create(
@@ -5528,10 +5531,10 @@ def test_cached_prompt_tokens_recorded(exporter: TestExporter) -> None:
         },
     }
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=responses_body if request.url.path.endswith('/responses') else chat_body)
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json=responses_body if request.url.path.endswith('/responses') else chat_body)
 
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    client = openai.Client(api_key='fake_api_key', http_client=httpx2.Client(transport=httpx2.MockTransport(handler)))
     with logfire.instrument_openai(client):
         client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
         client.responses.create(model='gpt-4o-mini', input='hi')
@@ -5585,10 +5588,10 @@ def test_cache_write_tokens_recorded(exporter: TestExporter) -> None:
         },
     }
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=responses_body if request.url.path.endswith('/responses') else chat_body)
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json=responses_body if request.url.path.endswith('/responses') else chat_body)
 
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    client = openai.Client(api_key='fake_api_key', http_client=httpx2.Client(transport=httpx2.MockTransport(handler)))
     with logfire.instrument_openai(client):
         client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
         client.responses.create(model='gpt-4o-mini', input='hi')
@@ -5668,14 +5671,14 @@ def test_cache_write_tokens_recorded_from_streams(exporter: TestExporter) -> Non
         },
     ]
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         if request.url.path.endswith('/responses'):
             body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in responses_events)
         else:
             body = ''.join(f'data: {json.dumps(chunk)}\n\n' for chunk in chat_chunks) + 'data: [DONE]\n\n'
-        return httpx.Response(200, text=body, headers={'content-type': 'text/event-stream'})
+        return httpx2.Response(200, text=body, headers={'content-type': 'text/event-stream'})
 
-    client = openai.Client(api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(handler)))
+    client = openai.Client(api_key='fake_api_key', http_client=httpx2.Client(transport=httpx2.MockTransport(handler)))
     with logfire.instrument_openai(client):
         list(
             client.chat.completions.create(
@@ -5753,9 +5756,9 @@ def test_azure_content_filter_chunks_ignored_in_stream(chunks_have_object: bool,
     sse = ''.join(f'data: {json.dumps(chunk)}\n\n' for chunk in chunks) + 'data: [DONE]\n\n'
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(
-            transport=MockTransport(
-                lambda _: httpx.Response(200, text=sse, headers={'content-type': 'text/event-stream'})
+        http_client=httpx2.Client(
+            transport=httpx2.MockTransport(
+                lambda _: httpx2.Response(200, text=sse, headers={'content-type': 'text/event-stream'})
             )
         ),
     )
@@ -5798,7 +5801,7 @@ def test_uncached_prompt_tokens_omit_cache_attribute(exporter: TestExporter) -> 
     }
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+        http_client=httpx2.Client(transport=httpx2.MockTransport(lambda _: httpx2.Response(200, json=body))),
     )
     with logfire.instrument_openai(client):
         client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
@@ -5863,7 +5866,7 @@ def test_responses_finish_reasons(fields: dict[str, Any], expected: list[str] | 
     }
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+        http_client=httpx2.Client(transport=httpx2.MockTransport(lambda _: httpx2.Response(200, json=body))),
     )
     with logfire.instrument_openai(client):
         client.responses.create(model='gpt-4o-mini', input='hi')
@@ -5896,7 +5899,7 @@ def test_responses_custom_tool_calls(exporter: TestExporter) -> None:
     }
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+        http_client=httpx2.Client(transport=httpx2.MockTransport(lambda _: httpx2.Response(200, json=body))),
     )
     with logfire.instrument_openai(client):
         client.responses.create(
@@ -5954,7 +5957,7 @@ def test_responses_refusal_recorded_as_text(exporter: TestExporter) -> None:
     }
     client = openai.Client(
         api_key='fake_api_key',
-        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+        http_client=httpx2.Client(transport=httpx2.MockTransport(lambda _: httpx2.Response(200, json=body))),
     )
     with logfire.instrument_openai(client):
         client.responses.create(model='gpt-4o-mini', input='hi')
@@ -5962,4 +5965,337 @@ def test_responses_refusal_recorded_as_text(exporter: TestExporter) -> None:
     attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
     assert attributes['gen_ai.output.messages'] == snapshot(
         [{'role': 'assistant', 'parts': [{'type': 'text', 'content': "I can't help with that."}]}]
+    )
+
+
+def gateway_client(handler: Callable[[httpx2.Request], httpx2.Response]) -> openai.Client:
+    return openai.Client(api_key='fake_api_key', http_client=httpx2.Client(transport=httpx2.MockTransport(handler)))
+
+
+def sse_response(events: list[dict[str, Any]]) -> httpx2.Response:
+    body = ''.join(f'data: {json.dumps(event)}\n\n' for event in events) + 'data: [DONE]\n\n'
+    return httpx2.Response(200, text=body, headers={'content-type': 'text/event-stream'})
+
+
+GATEWAY_USAGE = {'logfire_ai_gateway': {'cost': '0.5'}}
+
+
+@pytest.mark.parametrize('cost, expected', [('0.5', 0.5), ('0', 0.0)])
+def test_chat_completion_gateway_cost(cost: str, expected: float, exporter: TestExporter) -> None:
+    body: dict[str, Any] = {
+        'id': 'chatcmpl_1',
+        'object': 'chat.completion',
+        'created': 0,
+        'model': 'gpt-4o-mini',
+        'choices': [{'index': 0, 'finish_reason': 'stop', 'message': {'role': 'assistant', 'content': 'hi'}}],
+        'usage': {
+            'prompt_tokens': 10,
+            'completion_tokens': 5,
+            'total_tokens': 15,
+            'logfire_ai_gateway': {'cost': cost},
+        },
+    }
+    client = gateway_client(lambda _: httpx2.Response(200, json=body))
+    with logfire.instrument_openai(client):
+        client.chat.completions.create(model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}])
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['operation.cost'] == expected
+
+
+def test_chat_completion_stream_gateway_cost(exporter: TestExporter) -> None:
+    def chunk(**fields: Any) -> dict[str, Any]:
+        return {'id': 'chatcmpl_1', 'object': 'chat.completion.chunk', 'created': 0, 'model': 'gpt-4o-mini', **fields}
+
+    events = [
+        chunk(choices=[{'index': 0, 'delta': {'role': 'assistant', 'content': 'hi'}, 'finish_reason': None}]),
+        chunk(choices=[{'index': 0, 'delta': {}, 'finish_reason': 'stop'}]),
+        chunk(choices=[], usage={'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15, **GATEWAY_USAGE}),
+    ]
+    client = gateway_client(lambda _: sse_response(events))
+    with logfire.instrument_openai(client):
+        list(
+            client.chat.completions.create(
+                model='gpt-4o-mini', messages=[{'role': 'user', 'content': 'hi'}], stream=True
+            )
+        )
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_chat_completion_stream_gateway_cost',
+                    'code.lineno': 123,
+                    'request_data': {'model': 'gpt-4o-mini'},
+                    'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.request.model': 'gpt-4o-mini',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'hi'}]}],
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4o-mini'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'async': {},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'gpt-4o-mini',
+                },
+            },
+            {
+                'name': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'logfire.msg': "streaming response from 'gpt-4o-mini' took 1.00s",
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_chat_completion_stream_gateway_cost',
+                    'code.lineno': 123,
+                    'duration': 1.0,
+                    'request_data': {'model': 'gpt-4o-mini'},
+                    'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.request.model': 'gpt-4o-mini',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'hi'}]}],
+                    'async': False,
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'hi'}], 'finish_reason': 'stop'}
+                    ],
+                    'gen_ai.response.id': 'chatcmpl_1',
+                    'gen_ai.response.model': 'gpt-4o-mini',
+                    'gen_ai.response.finish_reasons': ['stop'],
+                    'gen_ai.usage.input_tokens': 10,
+                    'gen_ai.usage.output_tokens': 5,
+                    'gen_ai.usage.raw': {
+                        'completion_tokens': 5,
+                        'prompt_tokens': 10,
+                        'total_tokens': 15,
+                        'logfire_ai_gateway': {'cost': '0.5'},
+                    },
+                    'operation.cost': 0.5,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'duration': {},
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                },
+            },
+        ]
+    )
+
+
+GATEWAY_RESPONSE: dict[str, Any] = {
+    'id': 'resp_1',
+    'object': 'response',
+    'created_at': 0,
+    'model': 'gpt-4o-mini',
+    'status': 'completed',
+    'parallel_tool_calls': True,
+    'tool_choice': 'auto',
+    'tools': [],
+    'output': [],
+    'usage': {
+        'input_tokens': 10,
+        'input_tokens_details': {'cached_tokens': 0},
+        'output_tokens': 5,
+        'output_tokens_details': {'reasoning_tokens': 0},
+        'total_tokens': 15,
+        **GATEWAY_USAGE,
+    },
+}
+
+
+def test_responses_gateway_cost(exporter: TestExporter) -> None:
+    client = gateway_client(lambda _: httpx2.Response(200, json=GATEWAY_RESPONSE))
+    with logfire.instrument_openai(client):
+        client.responses.create(model='gpt-4o-mini', input='hi')
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Responses API with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_responses_gateway_cost',
+                    'code.lineno': 123,
+                    'request_data': {'model': 'gpt-4o-mini', 'stream': False},
+                    'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.request.model': 'gpt-4o-mini',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'hi'}]}],
+                    'async': False,
+                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.msg': "Responses API with 'gpt-4o-mini'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'gpt-4o-mini',
+                    'gen_ai.response.id': 'resp_1',
+                    'gen_ai.usage.input_tokens': 10,
+                    'gen_ai.usage.output_tokens': 5,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 10,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 5,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 15,
+                        'logfire_ai_gateway': {'cost': '0.5'},
+                    },
+                    'operation.cost': 0.5,
+                    'gen_ai.response.finish_reasons': ['stop'],
+                    'gen_ai.output.messages': [],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.parametrize(
+    'status, incomplete_details', [('completed', None), ('incomplete', {'reason': 'max_output_tokens'})]
+)
+def test_responses_stream_gateway_cost(
+    status: str, incomplete_details: dict[str, str] | None, exporter: TestExporter
+) -> None:
+    events: list[dict[str, Any]] = [
+        {
+            'type': 'response.created',
+            'sequence_number': 0,
+            'response': {**GATEWAY_RESPONSE, 'status': 'in_progress', 'usage': None},
+        },
+        {
+            'type': f'response.{status}',
+            'sequence_number': 1,
+            'response': {**GATEWAY_RESPONSE, 'status': status, 'incomplete_details': incomplete_details},
+        },
+    ]
+    client = gateway_client(lambda _: sse_response(events))
+    with logfire.instrument_openai(client):
+        list(client.responses.create(model='gpt-4o-mini', input='hi', stream=True))
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
+    assert attributes['operation.cost'] == 0.5
+
+
+def test_embeddings_gateway_cost(exporter: TestExporter) -> None:
+    body: dict[str, Any] = {
+        'object': 'list',
+        'model': 'text-embedding-3-small',
+        'data': [{'object': 'embedding', 'index': 0, 'embedding': [0.1]}],
+        'usage': {'prompt_tokens': 10, 'total_tokens': 10, **GATEWAY_USAGE},
+    }
+    client = gateway_client(lambda _: httpx2.Response(200, json=body))
+    with logfire.instrument_openai(client):
+        client.embeddings.create(model='text-embedding-3-small', input='hi')
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Embedding Creation with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_embeddings_gateway_cost',
+                    'code.lineno': 123,
+                    'request_data': {'model': 'text-embedding-3-small'},
+                    'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.request.model': 'text-embedding-3-small',
+                    'gen_ai.operation.name': 'embeddings',
+                    'async': False,
+                    'logfire.msg_template': 'Embedding Creation with {request_data[model]!r}',
+                    'logfire.msg': "Embedding Creation with 'text-embedding-3-small'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'text-embedding-3-small',
+                    'gen_ai.usage.input_tokens': 10,
+                    'gen_ai.usage.raw': {
+                        'prompt_tokens': 10,
+                        'total_tokens': 10,
+                        'logfire_ai_gateway': {'cost': '0.5'},
+                    },
+                    'operation.cost': 0.5,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
+                            'async': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
+                        },
+                    },
+                },
+            }
+        ]
     )

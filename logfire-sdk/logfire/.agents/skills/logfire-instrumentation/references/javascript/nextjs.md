@@ -66,10 +66,26 @@ export async function POST(request: Request) {
 
 ## Client-Side Browser Tracing
 
-Use the [frontend specialist](https://pydantic.dev/.well-known/agent-skills/logfire-frontend/SKILL.md)
-for client initialization, route grouping, capture policy, and replay. Browser
-setup needs its restricted frontend application token, not this server's write
-token. Keep browser and server telemetry separate.
+Use the [frontend specialist](https://pydantic.dev/.well-known/agent-skills/logfire-frontend/SKILL.md) for browser
+RUM, errors, Web Vitals, and replay. Its
+[browser setup](https://pydantic.dev/.well-known/agent-skills/logfire-frontend/references/setup.md) keeps initialization
+outside server execution, while its
+[capture profiles](https://pydantic.dev/.well-known/agent-skills/logfire-frontend/references/capture-profiles.md) and
+[verification guide](https://pydantic.dev/.well-known/agent-skills/logfire-frontend/references/verification.md) cover
+recording privacy, volume, and matching errors to playable sessions.
+
+Follow the frontend specialist for router instrumentation and route-template grouping.
+
+Use the restricted frontend application token **and its generated regional trace URL**
+in public client config. Never substitute a placeholder or the server's ordinary
+write token. No rewrite is required. If the app already proxies browser telemetry,
+retain it only if it checks the request's `Origin` against an explicitly configured
+frontend origin and rejects requests when either is absent or they differ.
+
+If using a Client Component fallback, import it normally from an App Router
+Server Component. Put `next/dynamic` with `ssr: false` in another Client
+Component; Next.js rejects that option directly in a Server Component.
+
 
 ## Vercel Deployment Notes
 

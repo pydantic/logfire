@@ -6,7 +6,7 @@ Use the package manager detected in [project-detection.md](./project-detection.m
 
 | Runtime | Install |
 | --- | --- |
-| Node.js server, worker, CLI, script | `@pydantic/logfire-node @opentelemetry/auto-instrumentations-node` |
+| Node.js server, worker, CLI, script | Use the [compatible Logfire, auto-instrumentation, and loader packages](./node-runtime.md#install). |
 | Next.js server-side tracing | `@vercel/otel logfire` |
 | Browser/React/Vite client tracing | `@pydantic/logfire-browser` |
 | Cloudflare Workers in-process tracing | `@pydantic/logfire-cf-workers logfire` |
@@ -17,7 +17,15 @@ Use the package manager detected in [project-detection.md](./project-detection.m
 
 ## Environment Variables
 
-Node.js and Cloudflare read Logfire-specific environment values. `LOGFIRE_TOKEN` is optional for local Node.js development specifically: `@pydantic/logfire-node` falls back to `.logfire/logfire_credentials.json` when it's unset, same as the Python SDK. Cloudflare has no equivalent fallback (see [cloudflare-and-deno.md](./cloudflare-and-deno.md)), so set it explicitly there always; for Node.js, set it explicitly only to override the local one — a different token, or production, where it should be a separately-minted token per [auth.md](../auth.md)'s "If the calling skill needs a write token" section.
+Node.js and Cloudflare read Logfire-specific environment values. For local
+Node.js development, `LOGFIRE_TOKEN` is optional:
+`@pydantic/logfire-node` falls back to
+`.logfire/logfire_credentials.json`, like the Python SDK. Set it explicitly
+when production or another project needs a separately minted token; follow
+[the authentication guide](../auth.md#if-the-calling-skill-needs-another-credential).
+
+Cloudflare has no project-file fallback. Always set its token explicitly as
+described in [Cloudflare and Deno](./cloudflare-and-deno.md).
 
 ```bash
 LOGFIRE_TOKEN=your-write-token
@@ -54,8 +62,8 @@ OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://logfire-api.pydantic.dev/v1/metrics
 
 - Put `LOGFIRE_TOKEN` in server-only env files, deployment secrets, or Worker secrets.
 - Do not create `NEXT_PUBLIC_LOGFIRE_TOKEN`, `VITE_LOGFIRE_TOKEN`, `PUBLIC_LOGFIRE_TOKEN`, or any public write-token variable.
-- For browser code, create a frontend application and pass its regional base URL and restricted public token to `configureFrontend({ baseUrl, token })` (`@pydantic/logfire-browser` 0.21.0 or later). Never reuse `LOGFIRE_TOKEN` or another ordinary write token in the browser.
-- A frontend application token is intentionally restricted and public. Embed the generated token and regional base URL directly in the client bundle, or supply them through the app's public build/runtime configuration (for example, `VITE_LOGFIRE_FRONTEND_TOKEN` and `VITE_LOGFIRE_BASE_URL`). Do not deploy the generated example with placeholder values.
+- For browser code, create a frontend application and use its generated regional trace URL and restricted public token. Never reuse `LOGFIRE_TOKEN` or another ordinary write token in the browser.
+- A frontend application token is intentionally restricted and public. Embed the generated token and trace URL directly in the client bundle, or supply them through the app's public build/runtime configuration (for example, `VITE_LOGFIRE_FRONTEND_TOKEN` and `VITE_LOGFIRE_TRACE_URL`). Do not deploy the generated example with placeholder values.
 - Preserve an existing backend telemetry proxy. Add a new one only when the application needs its own authentication, origin checks, or rate limits; hiding the restricted token alone is not a reason.
 - Update `.env.example` or documented env templates with placeholder values, not real tokens.
 - If the app has separate frontend and backend packages, put the write token only in the backend package or hosting environment.

@@ -184,10 +184,12 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                         }
                                     ],
                                     'function_call': None,
-                                    'provider_specific_fields': {'refusal': None},
+                                    'provider_specific_fields': None,
                                     'annotations': [],
+                                    'refusal': None,
                                 },
                                 'provider_specific_fields': {},
+                                'logprobs': None,
                             }
                         ],
                         'usage': {
@@ -197,7 +199,6 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                             'completion_tokens_details': IsPartialDict(),
                             'prompt_tokens_details': IsPartialDict(),
                         },
-                        'moderation': None,
                         'service_tier': 'default',
                     },
                     'output.mime_type': 'application/json',
@@ -234,8 +235,9 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                 }
                             ],
                             'function_call': None,
-                            'provider_specific_fields': {'refusal': None},
+                            'provider_specific_fields': None,
                             'annotations': [],
+                            'refusal': None,
                         }
                     },
                     'gen_ai.request.model': 'gpt-4o-mini',
@@ -243,6 +245,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'gen_ai.usage.input_tokens': 80,
                     'gen_ai.usage.output_tokens': 18,
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.tags': ['LLM'],
                     'logfire.json_schema': {
                         'type': 'object',
@@ -292,8 +295,9 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                     }
                                 ],
                                 'function_call': None,
-                                'provider_specific_fields': {'refusal': None},
+                                'provider_specific_fields': None,
                                 'annotations': [],
+                                'refusal': None,
                             },
                             {
                                 'tool_call_id': 'call_SWFIWhfCI6AeHuaV6EM1MRsJ',
@@ -374,8 +378,9 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                     }
                                 ],
                                 'function_call': None,
-                                'provider_specific_fields': {'refusal': None},
+                                'provider_specific_fields': None,
                                 'annotations': [],
+                                'refusal': None,
                             },
                             {
                                 'tool_call_id': 'call_SWFIWhfCI6AeHuaV6EM1MRsJ',
@@ -395,6 +400,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'gen_ai.response.model': 'gpt-4o-mini',
                     'gen_ai.usage.input_tokens': 62,
                     'gen_ai.usage.output_tokens': 26,
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                     'logfire.tags': ['LLM'],
                     'logfire.json_schema': {
@@ -416,4 +422,31 @@ def test_guess_system():
     assert guess_system('gemini-1.5-pro') == 'google'
     assert guess_system('claude-sonnet') == 'anthropic'
     assert guess_system('other-anthropic') == 'anthropic'
+    assert guess_system('gpt-5') == 'openai'
+    assert guess_system('gpt-5-mini') == 'openai'
+    assert guess_system('GPT-5.1') == 'openai'
+    assert guess_system('gpt-5.2') == 'openai'
+    assert guess_system('gpt-5-codex') == 'openai'
+    assert guess_system('azure/gpt-5-nano') == 'openai'
+    assert guess_system('o1') == 'openai'
+    assert guess_system('o1-mini') == 'openai'
+    assert guess_system('o3') == 'openai'
+    assert guess_system('o3-mini') == 'openai'
+    assert guess_system('o4-mini') == 'openai'
+    assert guess_system('azure/o3-mini') == 'openai'
+    assert guess_system('chatgpt-5-latest') == 'openai'
     assert guess_system('unknown-model', 'litellm') == 'litellm'
+    assert guess_system('o') == ''
+    assert guess_system('o1x') == ''
+    assert guess_system('o2') == ''
+    assert guess_system('orca-mini') == ''
+    assert guess_system('olmo-2') == ''
+    assert guess_system('opus') == ''
+    assert guess_system('marco-o1') == ''
+    assert guess_system('minigpt-5') == ''
+    assert guess_system('gpt-50') == ''
+    assert guess_system('provider/gpt-5x') == ''
+    assert guess_system('gpt-5o') == ''
+    assert guess_system('gpt-neo-2.7b', 'litellm') == 'litellm'
+    assert guess_system('gpt-j-6b') == ''
+    assert guess_system('text-embedding-004', 'litellm') == 'litellm'

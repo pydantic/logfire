@@ -11,6 +11,12 @@ from opentelemetry.util import types as otel_types
 from typing import Any
 
 @dataclass
+class StringValue:
+    """A string value and its path passed to a scrubbing string transformer."""
+    path: tuple[str | int, ...]
+    value: str
+
+@dataclass
 class SpanLevel:
     """A convenience class for comparing span/log levels.
 

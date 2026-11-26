@@ -161,6 +161,12 @@ navigation:
               - "guides/otel-collector/otel-collector-scrubbing"
       # The TypeScript subtree is owned by pydantic/logfire-js/docs/navigation.yml.
       - include: typescript
+      - page: "Browser Source Maps"
+        path: "how-to-guides/browser-source-maps.md"
+        slug: "instrument/browser-source-maps"
+        hidden: true
+        aliases:
+          - "how-to-guides/browser-source-maps"
       - page: "Rust"
         path: "languages/rust.md"
         slug: "instrument/rust"
@@ -620,6 +626,9 @@ navigation:
           - page: "Protect Request Data"
             path: "reference/advanced/gateway/protect-data.md"
             slug: "manage/ai-gateway/protect-data"
+          - page: "Control What the Gateway Stores"
+            path: "reference/advanced/gateway/data-retention.md"
+            slug: "manage/ai-gateway/data-retention"
           - page: "Optimize Requests"
             path: "reference/advanced/gateway/optimizations.md"
             slug: "manage/ai-gateway/optimizations"
@@ -790,6 +799,9 @@ navigation:
       - page: "Services"
         path: "guides/web-ui/services.md"
         slug: "observe/services"
+      - page: "Instrumentation Score"
+        path: "guides/web-ui/instrumentation-score.md"
+        slug: "observe/instrumentation-score"
       - page: "Service Levels"
         path: "guides/web-ui/service-levels.md"
         slug: "observe/service-levels"

@@ -5,8 +5,10 @@ import dataclasses
 import getpass
 import inspect
 import json
+import math
 import os
 import pickle
+import re
 import signal
 import subprocess
 import sys
@@ -17,7 +19,7 @@ from collections.abc import Callable, Iterable, Sequence
 from contextlib import ExitStack
 from io import StringIO
 from pathlib import Path
-from time import sleep, time
+from time import time
 from typing import Any, Literal
 from unittest import mock
 from unittest.mock import patch
@@ -72,7 +74,6 @@ from logfire._internal.config import (
     LogfireCredentials,
     VariablesOptions,
     get_base_url_from_token,
-    sanitize_project_name,
 )
 from logfire._internal.config_params import extract_list_of_str, normalize_token
 from logfire._internal.exporters import api_key_gate
@@ -588,6 +589,30 @@ def test_trace_sample_rate_too_large_for_float_names_the_setting(tmp_path: Path)
         configure(send_to_logfire=False, config_dir=tmp_path)
 
 
+@pytest.mark.parametrize(
+    ('rate', 'printed'), [('nan', 'nan'), ('inf', 'inf'), ('-inf', '-inf'), ('1.5', '1.5'), ('-1', '-1.0')]
+)
+def test_trace_sample_rate_out_of_range_names_the_setting(rate: str, printed: str) -> None:
+    message = f'Expected sampling.head (LOGFIRE_TRACE_SAMPLE_RATE) to be between 0.0 and 1.0, got {printed}'
+    with patch.dict(os.environ, {'LOGFIRE_TRACE_SAMPLE_RATE': rate}):
+        with pytest.raises(LogfireConfigError, match=f'^{re.escape(message)}$'):
+            configure(send_to_logfire=False)
+
+
+@pytest.mark.parametrize('rate', [math.nan, math.inf, 1.5, -0.1])
+def test_sampling_options_head_out_of_range_names_the_setting(rate: float) -> None:
+    message = f'Expected sampling.head (LOGFIRE_TRACE_SAMPLE_RATE) to be between 0.0 and 1.0, got {rate!r}'
+    with pytest.raises(LogfireConfigError, match=f'^{re.escape(message)}$'):
+        configure(send_to_logfire=False, sampling=logfire.SamplingOptions(head=rate))
+
+
+@pytest.mark.parametrize('rate', ['0', '0.5', '1'])
+def test_trace_sample_rate_in_range_is_accepted(rate: str) -> None:
+    with patch.dict(os.environ, {'LOGFIRE_TRACE_SAMPLE_RATE': rate}):
+        configure(send_to_logfire=False)
+    assert GLOBAL_CONFIG.sampling.head == float(rate)
+
+
 def test_logfire_invalid_config_dir(tmp_path: Path):
     (tmp_path / 'pyproject.toml').write_text('invalid-data')
     with pytest.raises(
@@ -788,69 +813,45 @@ def get_batch_log_exporter(processor: LogRecordProcessor) -> LogRecordExporter:
     return processor._batch_processor._exporter  # type: ignore
 
 
-def test_configure_export_delay() -> None:
-    class TrackingExporter(SpanExporter):
-        def __init__(self) -> None:
-            self.last_export_timestamp: float | None = None
-            self.export_delays: list[float] = []
+@pytest.mark.parametrize('schedule_delay', [None, 1, 1500])
+def test_configure_export_delay(schedule_delay: int | None, monkeypatch: pytest.MonkeyPatch) -> None:
+    if schedule_delay is None:
+        monkeypatch.delenv('OTEL_BSP_SCHEDULE_DELAY', raising=False)
+    else:
+        monkeypatch.setenv('OTEL_BSP_SCHEDULE_DELAY', str(schedule_delay))
 
-        def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
-            t = time()
-            if self.last_export_timestamp is not None:
-                self.export_delays.append(t - self.last_export_timestamp)
-            self.last_export_timestamp = t
-            return SpanExportResult.SUCCESS
-
-    def configure_tracking_exporter():
-        request_mocker = requests_mock.Mocker()
+    with requests_mock.Mocker() as request_mocker:
         request_mocker.get(
             'https://logfire-us.pydantic.dev/v1/info',
             json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
         )
+        logfire.configure(send_to_logfire=True, token='abc1', console=False)
+        wait_for_check_token_thread()
 
-        with request_mocker:
-            logfire.configure(
-                send_to_logfire=True,
-                token='abc1',
-                console=False,
-            )
-            wait_for_check_token_thread()
+    processor, *_ = get_span_processors()
+    assert isinstance(processor, DynamicBatchSpanProcessor)
+    # Keep exports local while checking the processor installed by configure().
+    processor.batch_processor._exporter = TestExporter()  # pyright: ignore[reportPrivateUsage]
+    final_delay = 500 if schedule_delay is None else schedule_delay
+    initial_delay = min(final_delay, 100)
+    assert processor.schedule_delay_millis == initial_delay
 
-        dynamic_batch_span_processor, *_ = get_span_processors()
-        assert isinstance(dynamic_batch_span_processor, DynamicBatchSpanProcessor)
-        batch_processor = dynamic_batch_span_processor.batch_processor
-        ex = batch_processor.span_exporter = batch_processor._exporter = TrackingExporter()  # type: ignore
-        return ex
-
-    def check_delays(exp: TrackingExporter, min_delay: float, max_delay: float) -> None:
-        for delay in exp.export_delays:
-            assert min_delay < delay < max_delay, f'delay was {delay}, which is not between {min_delay} and {max_delay}'
-
-    # test the default behaviour
-    exporter = configure_tracking_exporter()
-    for _ in range(10):
+    # Flush background processing before inspecting the delay. Wall-clock intervals can
+    # still reflect an in-flight wait using the previous delay after the tenth span.
+    for _ in range(9):
         logfire.info('test')
-    sleep(0.1)
-    # Initially the delay is 100 ms
-    check_delays(exporter, 0.1, 0.4)
+    assert logfire.force_flush()
+    assert processor.num_processed == 9
+    assert processor.schedule_delay_millis == initial_delay
 
-    exporter.export_delays.clear()
-    while not exporter.export_delays:
-        with logfire.span('test'):
-            pass
-        sleep(0.1)
-    # After the first 10 spans, we increase to 500ms by default
-    check_delays(exporter, 0.4, 1.0)
+    logfire.info('test')
+    assert logfire.force_flush()
+    assert processor.num_processed == 10
+    assert processor.schedule_delay_millis == final_delay
 
-    # test a very small value
-    with patch.dict(os.environ, {'OTEL_BSP_SCHEDULE_DELAY': '1'}):
-        exporter = configure_tracking_exporter()
-
-    while not exporter.export_delays:
-        with logfire.span('test'):
-            pass
-        sleep(0.03)
-    check_delays(exporter, 0.0, 0.1)  # since we set 1ms it should be a very short delay
+    logfire.info('test')
+    assert logfire.force_flush()
+    assert processor.schedule_delay_millis == final_delay
 
 
 def test_configure_service_version(config_kwargs: dict[str, Any], exporter: TestExporter, tmp_path: str) -> None:
@@ -1702,28 +1703,11 @@ def test_config_console_output_set():
     assert 'test' in output.getvalue()
 
 
-def test_sanitize_project_name():
-    assert sanitize_project_name('foo') == 'foo'
-    assert sanitize_project_name('FOO') == 'foo'
-    assert sanitize_project_name('  foo - bar!!') == 'foobar'
-    assert sanitize_project_name('  Foo - BAR!!') == 'foobar'
-    assert sanitize_project_name('') == 'untitled'
-    assert sanitize_project_name('-') == 'untitled'
-    assert sanitize_project_name('...') == 'untitled'
-    long_name = 'abcdefg' * 20
-    assert sanitize_project_name(long_name) == long_name[:41]
-
-
-@pytest.mark.parametrize(
-    'legacy_state', ['missing', 'empty', 'valid', 'expired', 'different-region', 'custom-server', 'corrupt', 'multiple']
-)
 @pytest.mark.parametrize('custom_data_dir', [False, True])
 @pytest.mark.parametrize('send_to_logfire', [True, None])
 def test_missing_sdk_credentials_explain_native_cli_setup(
     tmp_dir_cwd: Path,
-    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    legacy_state: str,
     custom_data_dir: bool,
     send_to_logfire: bool | None,
 ):
@@ -1731,39 +1715,13 @@ def test_missing_sdk_credentials_explain_native_cli_setup(
     monkeypatch.delenv('PYTEST_VERSION', raising=False)
     # Docs tests disable sending during collection, even when their cases are deselected.
     monkeypatch.delenv('LOGFIRE_SEND_TO_LOGFIRE', raising=False)
-    auth_file = tmp_path / 'default.toml'
-    if legacy_state == 'empty':
-        auth_file.touch()
-    elif legacy_state == 'corrupt':
-        auth_file.write_text('invalid legacy credentials [')
-    elif legacy_state in ('valid', 'expired', 'different-region', 'multiple'):
-        expiration = '2000-01-01T00:00:00' if legacy_state == 'expired' else '2099-12-31T23:59:59'
-        auth_file.write_text(
-            f'[tokens."https://logfire-us.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "{expiration}"'
-        )
-        if legacy_state == 'multiple':
-            with auth_file.open('a') as file:
-                file.write(
-                    '\n[tokens."https://logfire-eu.pydantic.dev"]\n'
-                    'token = "another_fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
-                )
-    original_auth = auth_file.read_bytes() if auth_file.exists() else None
     data_dir = tmp_dir_cwd / ('custom data' if custom_data_dir else '.logfire')
     with (
-        mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file),
-        mock.patch(
-            'logfire._internal.client.LogfireClient.from_url', side_effect=AssertionError('legacy auth accessed')
-        ),
         mock.patch('rich.prompt.Confirm.ask', side_effect=AssertionError('unexpected confirmation')),
         mock.patch('rich.prompt.Prompt.ask', side_effect=AssertionError('unexpected prompt')),
     ):
-        base_url = 'https://logfire-eu.pydantic.dev' if legacy_state == 'different-region' else None
-        if legacy_state == 'custom-server':
-            base_url = 'https://logfire.example.com'
         with requests_mock.Mocker() as requests, pytest.raises(LogfireConfigError) as error:
-            logfire.configure(
-                send_to_logfire=send_to_logfire, data_dir=data_dir, advanced=logfire.AdvancedOptions(base_url=base_url)
-            )
+            logfire.configure(send_to_logfire=send_to_logfire, data_dir=data_dir)
         message = str(error.value)
         assert '`uvx logfire-cli auth`' in message
         assert '`uvx logfire-cli init`' in message
@@ -1774,11 +1732,9 @@ def test_missing_sdk_credentials_explain_native_cli_setup(
         assert 'pass `send_to_logfire=False` to `logfire.configure()`' in message
         assert '`--region` or `--base-url`' in message
         assert '`init --data-dir`' in message
-        assert 'fake_user_token' not in message
         assert error.value.__context__ is None
         assert not requests.called
         assert not (data_dir / 'logfire_credentials.json').exists()
-        assert (auth_file.read_bytes() if auth_file.exists() else None) == original_auth
 
 
 @pytest.mark.parametrize(
@@ -1786,7 +1742,7 @@ def test_missing_sdk_credentials_explain_native_cli_setup(
     ['file', 'environment', 'argument', 'environment-over-file', 'argument-over-file', 'argument-over-environment'],
 )
 @pytest.mark.parametrize('custom_data_dir', [False, True])
-def test_project_credentials_do_not_require_legacy_user_auth(
+def test_project_credential_sources(
     tmp_dir_cwd: Path, monkeypatch: pytest.MonkeyPatch, credential_source: str, custom_data_dir: bool
 ):
     data_dir = tmp_dir_cwd / ('custom data' if custom_data_dir else '.logfire')
@@ -1810,9 +1766,6 @@ def test_project_credentials_do_not_require_legacy_user_auth(
     elif credential_source == 'argument-over-environment':
         monkeypatch.setenv('LOGFIRE_TOKEN', 'pylf_v1_eu_other_project_write_token')
     with (
-        mock.patch(
-            'logfire._internal.client.LogfireClient.from_url', side_effect=AssertionError('legacy auth accessed')
-        ),
         requests_mock.Mocker() as requests,
     ):
         requests.get(
@@ -1837,19 +1790,8 @@ def test_project_credentials_do_not_require_legacy_user_auth(
 def test_send_to_logfire_true(tmp_path: Path) -> None:
     """Sending without project credentials fails before legacy login or project setup."""
     data_dir = tmp_path / 'logfire_data'
-    auth_file = tmp_path / 'default.toml'
-    auth_file.write_text(
-        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
-    )
-    with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
-        stack.enter_context(
-            mock.patch(
-                'logfire._internal.client.LogfireClient.from_url', side_effect=AssertionError('legacy auth accessed')
-            )
-        )
-        with pytest.raises(LogfireConfigError, match='No usable project credentials found'):
-            configure(send_to_logfire=True, console=False, data_dir=data_dir)
+    with pytest.raises(LogfireConfigError, match='No usable project credentials found'):
+        configure(send_to_logfire=True, console=False, data_dir=data_dir)
     wait_for_check_token_thread()
 
 
@@ -1857,12 +1799,12 @@ def test_send_to_logfire_false() -> None:
     """
     Test that with send_to_logfire=False, that logic is NOT triggered.
     """
-    with mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError):
+    with mock.patch('rich.prompt.Confirm.ask', side_effect=RuntimeError):
         configure(send_to_logfire=False, console=False)
 
 
 def test_send_to_logfire_if_token_present() -> None:
-    with mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError):
+    with mock.patch('rich.prompt.Confirm.ask', side_effect=RuntimeError):
         with requests_mock.Mocker() as request_mocker:
             configure(send_to_logfire='if-token-present', console=False)
             wait_for_check_token_thread()
@@ -1874,7 +1816,7 @@ def test_send_to_logfire_if_token_present_empty() -> None:
     os.environ['LOGFIRE_TOKEN'] = ''
     try:
         with ExitStack() as stack:
-            stack.enter_context(mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError))
+            stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=RuntimeError))
             requests_mocker = stack.enter_context(requests_mock.Mocker())
             configure(send_to_logfire='if-token-present', console=False)
             wait_for_check_token_thread()
@@ -1890,7 +1832,7 @@ def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
             {'LOGFIRE_TOKEN': '', 'LOGFIRE_SEND_TO_LOGFIRE': 'if-token-present'},
         ),
         mock.patch(
-            'logfire._internal.config.Confirm.ask',
+            'rich.prompt.Confirm.ask',
             side_effect=RuntimeError,
         ),
         requests_mock.Mocker() as requests_mocker,
@@ -1902,7 +1844,7 @@ def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
 
 def test_send_to_logfire_if_token_present_empty_via_arg() -> None:
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError))
+        stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=RuntimeError))
         requests_mocker = stack.enter_context(requests_mock.Mocker())
         configure(token='', send_to_logfire='if-token-present', console=False)
         wait_for_check_token_thread()

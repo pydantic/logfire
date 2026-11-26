@@ -50,7 +50,8 @@ logfire.instrument_openai()  # instrument all OpenAI clients globally
 # or logfire.instrument_openai(client) to instrument a specific client instance
 
 response = client.chat.completions.create(
-    model='gpt-5-mini',
+    model='gpt-6.1-terra',
+    reasoning_effort='none',
     messages=[
         {'role': 'system', 'content': 'You are a helpful assistant.'},
         {'role': 'user', 'content': 'Please write me a limerick about Python logging.'},
@@ -94,6 +95,21 @@ Not seeing your model calls in Logfire? Check these first:
   `OPENAI_API_KEY`), check the span for the recorded exception.
 
 ## Advanced
+
+### Control HTTPX spans in Logfire 6
+
+In Logfire 6, `instrument_openai()` no longer suppresses other OpenTelemetry instrumentation by default.
+If you also enable [HTTPX instrumentation](../http-clients/httpx.md), its request spans appear as children
+of the OpenAI span. This can increase the number of spans you store; it does not enable HTTPX instrumentation for you.
+
+To keep the pre-v6 behavior, explicitly enable suppression:
+
+```python hl_lines="4"
+import logfire
+
+logfire.configure()
+logfire.instrument_openai(suppress_other_instrumentation=True)
+```
 
 ### Keep legacy attributes during migration
 
@@ -182,7 +198,8 @@ async def main():
     console = Console()
     with logfire.span('Asking OpenAI to write some code'):
         response = await client.chat.completions.create(
-            model='gpt-5-mini',
+            model='gpt-6.1-terra',
+            reasoning_effort='none',
             messages=[
                 {'role': 'system', 'content': 'Reply in markdown.'},
                 {'role': 'user', 'content': 'Write Python to show a tree of files.'},

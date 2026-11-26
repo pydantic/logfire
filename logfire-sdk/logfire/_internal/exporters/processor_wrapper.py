@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
@@ -84,16 +85,9 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _transform_litellm_span(span_dict)
             _default_gen_ai_response_model(span_dict)
         with handle_internal_errors:
-            _transform_span_message(span_dict, self.scrubber)
+            self.scrubber.transform_console_fields(span_dict)
         span = ReadableSpan(**span_dict)
         super().on_end(span)
-
-
-def _transform_span_message(span: ReadableSpanDict, scrubber: BaseScrubber):
-    attributes = span['attributes']
-    message = attributes.get(ATTRIBUTES_MESSAGE_KEY) or span['name']
-    if isinstance(message, str) and (transformed := scrubber.transform_message(message)) != message:
-        span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: transformed}
 
 
 def scrub_span(span: ReadableSpan, scrubber: BaseScrubber) -> ReadableSpan:
@@ -695,12 +689,14 @@ def _transform_litellm_span(span: ReadableSpanDict):
 
     try:
         request_model = cast(str, attributes['llm.model_name'])
+        system = guess_system(request_model, 'litellm')
         new_attrs.update(
             {
                 'gen_ai.request.model': request_model,
                 'gen_ai.usage.input_tokens': attributes['llm.token_count.prompt'],
                 'gen_ai.usage.output_tokens': attributes['llm.token_count.completion'],
-                'gen_ai.system': guess_system(request_model, 'litellm'),
+                'gen_ai.system': system,
+                PROVIDER_NAME: system,
             }
         )
     except Exception:  # pragma: no cover
@@ -721,9 +717,17 @@ def _transform_litellm_span(span: ReadableSpanDict):
     }
 
 
+_OPENAI_MODEL_PREFIX = re.compile(r'(?:^|/)(?:gpt-5(?:[-.]|$)|chatgpt-|o[134](?:-|$))')
+
+
 def guess_system(model: str, default: str = ''):
     model_lower = model.lower()
-    if 'openai' in model_lower or 'gpt-4' in model_lower or 'gpt-3.5' in model_lower:
+    if (
+        'openai' in model_lower
+        or 'gpt-4' in model_lower
+        or 'gpt-3.5' in model_lower
+        or _OPENAI_MODEL_PREFIX.search(model_lower)
+    ):
         return 'openai'
     elif 'google' in model_lower or 'gemini' in model_lower:
         return 'google'

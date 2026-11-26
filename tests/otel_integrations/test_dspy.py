@@ -109,6 +109,7 @@ You can install this with:
 
 
 @pytest.mark.vcr()
+@pytest.mark.filterwarnings('ignore:Using extra keyword arguments on:pydantic.warnings.PydanticDeprecatedSince20')
 @pytest.mark.skipif(
     get_version(pydantic.__version__) < get_version('2.11.0'), reason='LiteLLM requires Pydantic >= 2.11'
 )

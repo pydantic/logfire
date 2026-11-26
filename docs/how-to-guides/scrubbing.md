@@ -37,6 +37,11 @@ logfire.info(
 )
 ```
 
+!!! warning "Do not match secret text with `extra_patterns`"
+
+    Use `extra_patterns` to recognize field names such as `customer_pin`, not to match the secret value itself. By default, Logfire copies the matched text into both the `[Scrubbed due to ...]` replacement and the `logfire.scrubbed` attribute.
+    To mask sensitive text inside a string, use [a string transformer](#masking-part-of-a-string).
+
 Here are the default scrubbing patterns:
 
 ```python
@@ -90,7 +95,11 @@ logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback
 
 Logfire scrubs a value before checking whether its key matches a pattern. This includes strings and values inside dictionaries, lists, and JSON-encoded containers. Your callback for a matching key receives the scrubbed value, so it can return that value unchanged or return a subset of a container. If it returns a different value, Logfire uses that replacement without scrubbing it again. For most safe keys, Logfire skips pattern matching inside their values; structured message attributes are treated differently, as described below.
 
-If the callback returns a string unchanged (or returns an equal string of the same type), Logfire checks later positions in the same key or string value for other matches. A different returned string is used as the final value. After 100 allowed matches in one string, Logfire redacts the value to limit the search cost.
+For a Pydantic validation error, Logfire checks field names in `loc` (the path to the field that failed) like keys for `input` (the rejected value). It checks the innermost field first. Your callback receives the full `loc` path for each matching name. For a missing-field error, `input` is the container missing that field, so Logfire skips the absent field name and checks the parent names and keys inside the container.
+
+Logfire also checks JSON-encoded arrays and objects nested inside strings. If scrubbing changes a value inside more than four such strings, Logfire replaces the nested string with `[Scrubbed due to deeply nested JSON]`. The marker also replaces any callback replacement inside that string, along with other data there. JSON with no scrubbing changes stays unchanged.
+
+If the callback returns a value unchanged (or returns an equal copy of the same type), Logfire checks other patterns that match at the same position, then later positions in the same key or string value. The callback may run more than once for one key or value. A different returned value is used as the final value. After 100 allowed matches in one string, Logfire redacts the value to limit the search cost.
 
 !!! warning "Keep scrubbing callbacks simple and pure"
 
@@ -126,6 +135,8 @@ The exported `email` attribute and formatted message contain `[email]`. The call
 
 The callback runs for every string the scrubber reaches, including large values. Logfire excludes control and source metadata such as `logfire.span_type` and `code.filepath`. The email regex above is illustrative and can take quadratic time on long strings containing `@`; the initial `@` check does not prevent that. Check the performance of your matcher on the longest values you expect to log.
 
+Logfire transforms `logfire.msg` when it is a string. If this attribute contains a nonempty, non-string value, Logfire leaves the value and any strings inside it unchanged.
+
 !!! warning "Choose a fallback for masking errors"
 
     If a call to `transform_string` raises an exception, Logfire logs the error and keeps that call's input string. It continues with other strings. Pattern matching still runs where permitted, but a value such as an email address may be exported unchanged.
@@ -140,9 +151,10 @@ It will instead happen on the calling thread if any of the following are true:
 - Console logging is enabled and prints attributes, i.e. `include_attributes` is `True`, or it is unset and `verbose` is `True`.
 - A span processor is included in `additional_span_processors` that implements an `on_end` hook and isn't a `BatchSpanProcessor`.
 
-Message template fields and the message as a whole are always scrubbed on the calling thread,
-so keep objects with large string representations out of messages.
-If you need to log large objects, use a span attribute instead.
+Message template fields are scrubbed on the calling thread. If `transform_string` is configured,
+Logfire also transforms the assembled message, tags, and displayed exception details on that thread.
+Keep objects with large string representations out of messages.
+If neither condition above applies, log large objects as span attributes so they can be scrubbed in the background.
 
 ## Security tips
 
@@ -194,6 +206,25 @@ The `"db.statement"` attribute which is recorded by OpenTelemetry database instr
 
 Use parameterized queries (e.g. prepared statements) so that sensitive data is not interpolated directly into the query string, even if
 you use an interpolation method that's safe from SQL injection.
+
+### Hide rejected values in validation errors
+
+When Pydantic validation fails, the exception message lists each rejected value, for example `input_value='hunter2'`. Logfire doesn't scrub exception messages. When Logfire records the exception on a span, the rejected value appears in the exception message, the stack trace, and the span's status message, even for a field named `password`.
+
+To leave rejected values out of the message, set `hide_input_in_errors=True` in the model's config:
+
+```python
+from pydantic import BaseModel, ConfigDict
+
+
+class Login(BaseModel):
+    model_config = ConfigDict(hide_input_in_errors=True)
+
+    username: str
+    password: str
+```
+
+Logfire still records each error, including the rejected value, in the `exception.logfire.data` attribute, and redacts the value there when its field name matches a scrubbing pattern.
 
 ### LLM and AI messages
 

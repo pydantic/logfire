@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Sequence
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -147,7 +147,7 @@ class Connection:
         self.client.__enter__()
         self.closed = False
         if isinstance(min_timestamp, timedelta):
-            min_timestamp = datetime.now(timezone.utc) - min_timestamp
+            min_timestamp = datetime.now(UTC) - min_timestamp
         self.min_timestamp = min_timestamp
         self.max_timestamp = max_timestamp
         self.limit = limit

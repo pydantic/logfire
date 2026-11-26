@@ -182,7 +182,7 @@ def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
                 content=source.get('data', ''),
             )
             if (media_type := source.get('media_type')) is not None:
-                blob_part['media_type'] = media_type
+                blob_part['mime_type'] = media_type
             return blob_part
         elif source_type == 'url':
             return UriPart(type='uri', uri=source.get('url', ''), modality=modality)
@@ -315,6 +315,9 @@ class AnthropicMessageStreamState(StreamState):
             if 'json_bufs' in signature(accumulate_event).parameters:
                 self._accumulate_kwargs['json_bufs'] = {}
         self._message = self._accumulate_event(event=chunk, current_snapshot=self._message, **self._accumulate_kwargs)
+        # The AI Gateway writes its cost on `message_delta`, but the SDK only accumulates the known usage fields.
+        if (gateway_usage := getattr(getattr(chunk, 'usage', None), 'logfire_ai_gateway', None)) is not None:
+            self._message.usage.logfire_ai_gateway = gateway_usage
         if isinstance(getattr(chunk, 'delta', None), (TextDelta, BetaTextDelta)):
             self._chunk_count += 1
 

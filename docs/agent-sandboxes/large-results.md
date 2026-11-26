@@ -40,14 +40,14 @@ second returns recent deploys. Replace it with a call to your deploy system.
 
 ```python title="tools.py" skip-run="true" skip-reason="external-connection"
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from logfire.query_client import AsyncLogfireQueryClient
 
 
 async def query_logfire(sql: str) -> list[dict]:
     """Run a SQL query against the Logfire project's last 24 hours of data and return the rows."""
-    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    since = datetime.now(UTC) - timedelta(hours=24)
     async with AsyncLogfireQueryClient(read_token=os.environ['LOGFIRE_READ_TOKEN']) as client:
         result = await client.query_json_rows(sql, min_timestamp=since)
     return result['rows']
@@ -55,7 +55,7 @@ async def query_logfire(sql: str) -> list[dict]:
 
 async def list_deploys(since_hours: int) -> list[dict]:
     """List deploys from the last `since_hours` hours, oldest first."""
-    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    now = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
     return [  # replace with a call to your deploy system
         {'service': 'checkout', 'version': 'v412', 'deployed_at': (now - timedelta(hours=4)).isoformat()},
         {'service': 'auth', 'version': 'v88', 'deployed_at': (now - timedelta(hours=3)).isoformat()},
