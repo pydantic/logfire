@@ -29,7 +29,13 @@ from types import GeneratorType
 from typing import Any, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
-from .json_encoder import is_attrs, is_sqlalchemy, json_key, to_json_value
+from .json_encoder import (
+    is_attrs,
+    is_sqlalchemy,
+    json_key,
+    numpy_scalar_to_python,
+    to_json_value,
+)
 from .stack_info import STACK_INFO_KEYS
 from .utils import JsonDict, dump_json, log_internal_error
 
@@ -41,7 +47,6 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
     lookup: dict[type[Any], JsonDict | Callable[[Any, set[int]], JsonDict]] = {
         bytes: _bytes_schema,
         bytearray: _bytearray_schema,
-        Enum: _enum_schema,
         Decimal: {'type': 'string', 'format': 'decimal', 'x-python-datatype': 'Decimal'},
         datetime.datetime: {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
         datetime.date: {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'},
@@ -142,6 +147,8 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
             return _dataclass_schema(obj, seen)
         elif is_attrs(obj_type):
             return _attrs_schema(obj, seen)
+        elif isinstance(obj, Enum):
+            return _enum_schema(obj, seen)
 
         global _type_to_schema
         _type_to_schema = _type_to_schema or type_to_schema()
@@ -153,7 +160,7 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
             else:
                 return schema(obj, seen) if callable(schema) else schema
 
-        # cover subclasses of common types, can't come earlier due to conflicts with IntEnum and StrEnum
+        # cover subclasses of common types
         if isinstance(obj, (str, int, float)):
             return {}
         elif isinstance(obj, Sequence):
@@ -210,23 +217,22 @@ def _bytearray_schema(obj: bytearray, _seen: set[int]) -> JsonDict:
     return schema
 
 
-# NOTE: We don't handle enums where members are not basic types (str, int, bool, float) very well.
-# The "type" will always be "object".
 def _enum_schema(obj: Enum, seen: set[int]) -> JsonDict:
-    enum_values = [e.value for e in obj.__class__]
-    enum_types = set(type(value).__name__ for value in enum_values)
-    if enum_types == {'int', 'float'}:
-        type_ = 'number'
-    elif len(enum_types) == 1 and enum_types <= {'str', 'int', 'bool', 'float'}:
-        type_ = {'str': 'string', 'int': 'integer', 'bool': 'boolean', 'float': 'number'}[next(iter(enum_types))]
-    else:
-        type_ = 'object'
-
+    enum_value = numpy_scalar_to_python(obj.value)
+    scalar_type: str | None = None
+    if isinstance(enum_value, str):
+        scalar_type = 'string'
+    elif isinstance(enum_value, bool):
+        scalar_type = 'boolean'
+    elif isinstance(enum_value, int):
+        scalar_type = 'integer'
+    elif isinstance(enum_value, float):
+        scalar_type = 'number'
     return {
-        'type': type_,
+        **({'type': scalar_type} if scalar_type else {}),
+        **create_json_schema(enum_value, seen),
         'title': obj.__class__.__name__,
         'x-python-datatype': 'Enum',
-        'enum': to_json_value(enum_values, seen),
     }
 
 
