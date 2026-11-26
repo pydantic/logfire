@@ -4,7 +4,7 @@ import contextlib
 import functools
 import inspect
 import warnings
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import AsyncGenerator, Callable, Iterable, Sequence
 from contextlib import AbstractContextManager, asynccontextmanager, contextmanager
 from typing import TYPE_CHECKING, Any, LiteralString, TypeVar
 
@@ -83,19 +83,19 @@ def instrument(
             if not allow_generator:
                 warnings.warn(GENERATOR_WARNING_MESSAGE, stacklevel=2)
 
-            async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # pyright: ignore[reportRedeclaration]
+            async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> AsyncGenerator[Any, Any]:  # pyright: ignore[reportRedeclaration]
                 with open_span(*func_args, **func_kwargs):
                     generator = func(*func_args, **func_kwargs)
                     try:
                         value = await generator.__anext__()
                         while True:
                             try:
-                                yield value
+                                sent = yield value
                             except BaseException as exc:
                                 # Context managers must receive body exceptions, including GeneratorExit on close.
                                 value = await generator.athrow(exc)
                             else:
-                                value = await generator.__anext__()
+                                value = await generator.asend(sent)
                     except StopAsyncIteration:
                         pass
 

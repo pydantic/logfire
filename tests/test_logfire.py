@@ -6,7 +6,7 @@ import os
 import re
 import sys
 import warnings
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
@@ -1899,6 +1899,21 @@ async def test_instrument_async_generator_throw():
     assert await items.__anext__() == 3
     with pytest.raises(StopAsyncIteration):
         await items.__anext__()
+    assert get_current_span() is INVALID_SPAN
+
+
+@pytest.mark.anyio
+async def test_instrument_async_generator_asend():
+    @logfire.instrument(allow_generator=True)
+    async def echo() -> AsyncGenerator[int, int]:
+        received = yield 0
+        while True:
+            received = yield received
+
+    items = echo()
+    assert await items.__anext__() == 0
+    assert [await items.asend(x) for x in (1, 2, 3)] == [1, 2, 3]
+    await items.aclose()
     assert get_current_span() is INVALID_SPAN
 
 
