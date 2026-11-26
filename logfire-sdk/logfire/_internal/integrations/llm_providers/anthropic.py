@@ -7,6 +7,7 @@ from inspect import signature
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 import anthropic
+from anthropic._models import construct_type
 from anthropic._utils import is_given
 from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
 from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
@@ -382,6 +383,26 @@ def get_anthropic_usage_attributes(response: Any, base_url: str | None = None) -
     )
 
 
+def _read_raw_response_message(response: Any) -> Message | BetaMessage | None:
+    """Return the message held by a `with_raw_response` response whose body has already been read.
+
+    `client.messages.with_raw_response.create(...)` hands `on_response` an `APIResponse`
+    (`LegacyAPIResponse` on anthropic 0.x) instead of a `Message`. Its body is already read for
+    non-streaming calls, so it can be decoded here without changing what the caller gets back.
+    A `with_streaming_response` response has an unread body; it is left alone, as reading it
+    here would consume the stream the caller is about to read.
+    """
+    cast_to = getattr(response, '_cast_to', None)
+    http_response = getattr(response, 'http_response', None)
+    if cast_to not in (Message, BetaMessage) or http_response is None or getattr(response, '_is_sse_stream', False):
+        return None
+    try:
+        content = http_response.content
+    except Exception:  # the body has not been read yet
+        return None
+    return cast('Message | BetaMessage', construct_type(type_=cast_to, value=json.loads(content)))
+
+
 @handle_internal_errors
 def on_response(
     response: Any,
@@ -392,6 +413,9 @@ def on_response(
 ) -> None:
     """Updates the span based on the type of response."""
     versions: frozenset[NormalizedSemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
+
+    if (message_from_raw := _read_raw_response_message(response)) is not None:
+        response = message_from_raw
 
     if isinstance(response, (Message, BetaMessage)):
         if 1 in versions:

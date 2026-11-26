@@ -2957,3 +2957,78 @@ def test_message_stream_gateway_cost_spans(exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+RAW_RESPONSE_BODY = {
+    'id': 'msg_raw',
+    'type': 'message',
+    'role': 'assistant',
+    'model': 'claude-haiku-4-5',
+    'content': [{'type': 'text', 'text': 'hi there'}],
+    'stop_reason': 'end_turn',
+    'stop_sequence': None,
+    'usage': {'input_tokens': 7, 'output_tokens': 3},
+}
+
+RAW_RESPONSE_ATTRIBUTES = {
+    'gen_ai.response.id': 'msg_raw',
+    'gen_ai.response.model': 'claude-haiku-4-5',
+    'gen_ai.response.finish_reasons': '["end_turn"]',
+    'gen_ai.usage.input_tokens': 7,
+    'gen_ai.usage.output_tokens': 3,
+}
+
+
+def _raw_response_transport() -> MockTransport:
+    return MockTransport(lambda _: httpx.Response(200, json=RAW_RESPONSE_BODY))
+
+
+@pytest.mark.parametrize('beta', [False, True])
+def test_sync_messages_with_raw_response(beta: bool, exporter: TestExporter) -> None:
+    client = anthropic.Anthropic(api_key='test', http_client=httpx.Client(transport=_raw_response_transport()))
+    messages = client.beta.messages if beta else client.messages
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
+        raw = messages.with_raw_response.create(
+            max_tokens=10, model='claude-haiku-4-5', messages=[{'role': 'user', 'content': 'hello'}]
+        )
+    # The caller still gets the raw response and can parse it.
+    assert raw.parse().id == 'msg_raw'
+
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert {k: attributes.get(k) for k in RAW_RESPONSE_ATTRIBUTES} == RAW_RESPONSE_ATTRIBUTES
+    assert json.loads(attributes['gen_ai.output.messages']) == [
+        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'hi there'}], 'finish_reason': 'end_turn'}
+    ]
+
+
+async def test_async_messages_with_raw_response(exporter: TestExporter) -> None:
+    client = anthropic.AsyncAnthropic(
+        api_key='test', http_client=httpx.AsyncClient(transport=_raw_response_transport())
+    )
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
+        raw = await client.messages.with_raw_response.create(
+            max_tokens=10, model='claude-haiku-4-5', messages=[{'role': 'user', 'content': 'hello'}]
+        )
+    assert (await raw.parse()).id == 'msg_raw'
+
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert {k: attributes.get(k) for k in RAW_RESPONSE_ATTRIBUTES} == RAW_RESPONSE_ATTRIBUTES
+
+
+def test_messages_with_streaming_response_body_is_left_unread(exporter: TestExporter) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        # A generator body stays unread until the caller reads it, like a real network response.
+        return httpx.Response(
+            200, headers={'content-type': 'application/json'}, content=iter([json.dumps(RAW_RESPONSE_BODY).encode()])
+        )
+
+    client = anthropic.Anthropic(api_key='test', http_client=httpx.Client(transport=MockTransport(handler)))
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
+        with client.messages.with_streaming_response.create(
+            max_tokens=10, model='claude-haiku-4-5', messages=[{'role': 'user', 'content': 'hello'}]
+        ) as response:
+            # The instrumentation must not read the body: the caller still gets all of it.
+            assert json.loads(response.read())['id'] == 'msg_raw'
+
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert 'gen_ai.response.id' not in attributes
