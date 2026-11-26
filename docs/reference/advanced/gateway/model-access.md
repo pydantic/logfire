@@ -95,7 +95,7 @@ A BYOK provider answers:
 Cost estimates are currently required but there is no cost data available for `my-model`. Disable required cost estimates to use this model.
 ```
 
-Built-in providers are billed through Logfire, so Gateway never forwards a built-in request that it can't price. A BYOK provider forwards an unpriced request when **Require pricing data** is off, and records the request without a cost.
+Built-in providers are billed through Logfire, so Gateway never forwards a built-in request that it can't price. A BYOK provider forwards an unpriced request when **Require pricing data** is off, and Gateway records no cost for it.
 
 !!! note "A `404` with this message is not a wrong URL"
     The route and the provider exist. Check the model ID first. If the ID is correct, the catalog has no price for that model yet.
