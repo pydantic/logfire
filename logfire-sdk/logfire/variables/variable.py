@@ -524,7 +524,9 @@ class Variable(Generic[T_co]):
         # 2. Provider (label-specific first, falling back to default targeting)
         if label is not None:
             provider_result = provider.get_serialized_value_for_label(name, label)
-            if provider_result.value is None:
+            # Only an unknown label falls back to default targeting. A known label with no value
+            # (a `code_default` ref, or `latest` with no version) means the code default.
+            if provider_result.value is None and provider_result.label is None:
                 provider_result = provider.get_serialized_value(name, targeting_key, attributes)
         else:
             provider_result = provider.get_serialized_value(name, targeting_key, attributes)

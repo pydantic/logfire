@@ -24,6 +24,17 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class StringValue:
+    """A string value and its path passed to a scrubbing string transformer."""
+
+    path: tuple[str | int, ...]
+    """The path to the value, such as `('attributes', 'message')`."""
+
+    value: str
+    """The string to transform."""
+
+
+@dataclass
 class SpanLevel:
     """A convenience class for comparing span/log levels.
 

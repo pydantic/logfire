@@ -1,7 +1,9 @@
+from .exporters.wrapper import WrapperLogProcessor
 from _typeshed import Incomplete
 from collections.abc import Generator
 from contextlib import contextmanager
 from opentelemetry import context
+from opentelemetry.sdk._logs import ReadWriteLogRecord
 from opentelemetry.sdk.trace import Span, SpanProcessor
 
 __all__ = ['get_baggage', 'set_baggage']
@@ -39,3 +41,7 @@ class NoForceFlushSpanProcessor(SpanProcessor):
 
 class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None: ...
+
+class DirectBaggageAttributesLogProcessorWrapper(WrapperLogProcessor):
+    """Add baggage to log records as attributes before the wrapped processor sees them."""
+    def on_emit(self, log_record: ReadWriteLogRecord) -> None: ...

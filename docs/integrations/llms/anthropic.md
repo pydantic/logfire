@@ -90,12 +90,30 @@ Not seeing your model calls in Logfire? Check these first:
   first, then instrument.
 - **You instrument the client you actually call.** `instrument_anthropic()` with no argument covers
   all clients; if you pass a specific client, make sure it's the one making the request.
-- **Your Logfire write token is set.** In local development, run `logfire projects use <your-project>`;
+- **Your Logfire write token is set.** In local development, install [uv](https://docs.astral.sh/uv/getting-started/installation/)
+  if needed, then run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use` from your application's directory;
   in production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **Your Anthropic call succeeded.** If the call itself fails (for example, a missing or invalid
   `ANTHROPIC_API_KEY`), check the span for the recorded exception.
 
 ## Advanced
+
+### Control HTTPX spans in Logfire 6
+
+In Logfire 6, `instrument_anthropic()` no longer suppresses other OpenTelemetry instrumentation by default.
+If you also enable [HTTPX instrumentation](../http-clients/httpx.md), its request spans appear as descendants
+of the Logfire Anthropic span. Recent Anthropic SDKs also emit their own OpenTelemetry spans, which can appear
+between them. This can increase the number of spans you store; it does not enable HTTPX instrumentation for you.
+
+To keep the pre-v6 behavior, explicitly enable suppression:
+
+```python hl_lines="4"
+import logfire
+
+logfire.configure()
+logfire.instrument_anthropic(suppress_other_instrumentation=True)
+```
 
 ### Keep legacy attributes during migration
 

@@ -52,7 +52,7 @@ Then you can update your query to
 
 ## Disabling
 
-If you don't want to add Baggage to span attributes, pass `add_baggage_to_attributes=False` to the
+If you do not want to add Baggage to span and log record attributes, pass `add_baggage_to_attributes=False` to the
 [`logfire.configure()`][logfire.configure] function. This may slightly improve performance.
 The [`set_baggage`][logfire.set_baggage] contextmanager will still update the OpenTelemetry Baggage and propagate it to other services.
 
@@ -61,6 +61,12 @@ The [`set_baggage`][logfire.set_baggage] contextmanager will still update the Op
 While baggage can technically contain any data type, only strings will be set as attributes on spans.
 Additionally, strings longer than 1000 characters will be truncated with a warning,
 in both [`logfire.set_baggage`][logfire.set_baggage] and the span attributes.
+
+Baggage keys beginning with `logfire.` are not added to span or log record attributes, except keys beginning with
+`logfire.variables.`. Logfire uses those keys to carry selected variable labels and versions across services.
+Other `logfire.` keys remain in baggage and can still propagate to other services.
+Baggage keys beginning with `gen_ai.evaluation.` and the `error.type` key are also excluded from span and log
+record attributes.
 
 ## Using with multiple services
 

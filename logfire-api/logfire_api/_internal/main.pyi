@@ -30,7 +30,7 @@ from .integrations.mysql import MySQLConnection as MySQLConnection
 from .integrations.psycopg import Psycopg2Connection as Psycopg2Connection, PsycopgConnection as PsycopgConnection
 from .integrations.sqlite3 import SQLite3Connection as SQLite3Connection
 from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
-from .json_encoder import logfire_json_dumps as logfire_json_dumps
+from .json_encoder import logfire_json_dumps as logfire_json_dumps, numpy_scalar_to_python as numpy_scalar_to_python
 from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
@@ -637,7 +637,7 @@ class Logfire:
                 without waiting for the context manager to be opened,
                 i.e. it's not necessary to use this as a context manager.
         """
-    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 2) -> AbstractContextManager[None]:
+    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = False, version: SemconvVersion | Sequence[SemconvVersion] = 2) -> AbstractContextManager[None]:
         '''Instrument an OpenAI client so that spans are automatically created for each request.
 
         This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
@@ -664,7 +664,8 @@ class Logfire:
         logfire.instrument_openai(client)
 
         response = client.chat.completions.create(
-            model=\'gpt-5-mini\',
+            model=\'gpt-6.1-terra\',
+            reasoning_effort=\'none\',
             messages=[
                 {\'role\': \'system\', \'content\': \'You are a helpful assistant.\'},
                 {\'role\': \'user\', \'content\': \'What is four plus five?\'},
@@ -682,9 +683,8 @@ class Logfire:
                 - An instance of `openai.OpenAI`
                 - An instance of `openai.AsyncOpenAI`
 
-            suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
-                enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
-                OpenAI uses HTTPX to make HTTP requests.
+            suppress_other_instrumentation: Set to True to suppress other OpenTelemetry instrumentation,
+                such as HTTPX. By default, HTTPX request spans can be created as children of the OpenAI span.
 
             version: The version(s) of the span attribute format to use:
 
@@ -708,7 +708,7 @@ class Logfire:
         For instrumentation of the standard OpenAI SDK package,
         see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
-    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | _AnthropicBedrock | _AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[_AnthropicBedrock] | type[_AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 2) -> AbstractContextManager[None]:
+    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | _AnthropicBedrock | _AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[_AnthropicBedrock] | type[_AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = False, version: SemconvVersion | Sequence[SemconvVersion] = 2) -> AbstractContextManager[None]:
         '''Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
@@ -748,9 +748,8 @@ class Logfire:
                 - The `anthropic.AsyncAnthropic` or `anthropic.AsyncAnthropicBedrock` class or subclass
                 - An instance of any of the above classes
 
-            suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
-                enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
-                OpenAI uses HTTPX to make HTTP requests.
+            suppress_other_instrumentation: Set to True to suppress other OpenTelemetry instrumentation,
+                such as HTTPX. By default, HTTPX request spans can be created as children of the Anthropic span.
 
             version: The version(s) of the span attribute format to use:
 

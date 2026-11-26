@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 import logfire
 
 from .._internal.constants import ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_TAGS_KEY
-from .logging import RESERVED_ATTRS as LOGGING_RESERVED_ATTRS
 
 # This file is currently imported eagerly from __init__.py, so it shouldn't import structlog directly
 # since that's not a required dependency.
@@ -16,7 +15,11 @@ if TYPE_CHECKING:
 
     from .. import Logfire
 
-RESERVED_ATTRS = LOGGING_RESERVED_ATTRS | {'level', 'event', 'timestamp'}
+# Only strip the keys structlog itself uses. A structlog event dict has no
+# stdlib LogRecord fields, so reusing the logging integration's reserved set
+# would silently drop user attributes that happen to share a name with a
+# LogRecord field, e.g. `name`, `module` or `process` (see #2865).
+RESERVED_ATTRS = frozenset({'level', 'event', 'timestamp', 'exc_info', 'stack_info'})
 """Attributes to strip from the event before sending to Logfire."""
 
 

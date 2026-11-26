@@ -1,7 +1,8 @@
 from dataclasses import dataclass
+from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.exporters.wrapper import WrapperLogProcessor as WrapperLogProcessor
 from logfire._internal.scrubbing import BaseScrubber as BaseScrubber
-from logfire._internal.utils import is_instrumentation_suppressed as is_instrumentation_suppressed
+from logfire._internal.utils import handle_internal_errors as handle_internal_errors, is_instrumentation_suppressed as is_instrumentation_suppressed
 from opentelemetry.sdk._logs import ReadWriteLogRecord
 
 class CheckSuppressInstrumentationLogProcessorWrapper(WrapperLogProcessor):

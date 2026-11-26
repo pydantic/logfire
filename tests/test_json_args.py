@@ -2,17 +2,16 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from collections import deque
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-from enum import Enum
+from enum import Enum, IntEnum, StrEnum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 from uuid import UUID
 
 import numpy
@@ -21,7 +20,18 @@ import pytest
 from attrs import define, field as attrs_field
 from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
-from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, RootModel, SecretBytes, SecretStr
+from pydantic import (
+    AnyUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    FilePath,
+    NameEmail,
+    RootModel,
+    SecretBytes,
+    SecretStr,
+    computed_field,
+)
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
@@ -33,15 +43,6 @@ import logfire
 from logfire._internal.json_formatter import json_args_value_formatter
 from logfire._internal.json_schema import create_json_schema
 from logfire.testing import TestExporter
-
-if sys.version_info >= (3, 11):  # pragma: no branch
-    from enum import IntEnum, StrEnum
-else:  # pragma: no cover
-
-    class StrEnum(str, Enum): ...
-
-    class IntEnum(int, Enum): ...
-
 
 pandas.set_option('display.max_columns', 10)
 pandas.set_option('display.max_rows', 20)
@@ -165,6 +166,16 @@ class AttrsError(Exception):
 class MyReprAttrs:
     in_repr: int
     not_in_repr: MyDataclass = attrs_field(repr=False)
+
+
+class MyReprModel(BaseModel):
+    in_repr: int
+    not_in_repr: MyDataclass = Field(repr=False)
+
+    @computed_field(repr=False)
+    @property
+    def computed_not_in_repr(self) -> int:
+        return self.in_repr + 1
 
 
 class ListSubclass(_ListSubclass): ...
@@ -370,28 +381,44 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             Enum('Color', ['RED', 'GREEN', 'BLUE']).BLUE,
             'Color.BLUE',
             '3',
-            {
-                'type': 'integer',
-                'title': 'Color',
-                'x-python-datatype': 'Enum',
-                'enum': [1, 2, 3],
-            },
+            {'type': 'integer', 'title': 'Color', 'x-python-datatype': 'Enum'},
             id='enum',
         ),
         pytest.param(
+            Enum('Choice', {'YES': True}).YES,
+            'Choice.YES',
+            'true',
+            {'type': 'boolean', 'title': 'Choice', 'x-python-datatype': 'Enum'},
+            id='bool_enum',
+        ),
+        pytest.param(
+            Enum('FloatChoice', {'VALUE': 1.5}).VALUE,
+            'FloatChoice.VALUE',
+            '1.5',
+            {'type': 'number', 'title': 'FloatChoice', 'x-python-datatype': 'Enum'},
+            id='float_enum',
+        ),
+        pytest.param(
+            Enum('Maybe', {'NONE': None}).NONE,
+            'Maybe.NONE',
+            'null',
+            {'type': 'null', 'title': 'Maybe', 'x-python-datatype': 'Enum'},
+            id='enum_with_none_value',
+        ),
+        pytest.param(
+            Enum('Outer', {'INNER': Enum('Inner', {'ONE': 1}).ONE}).INNER,
+            'Outer.INNER',
+            '1',
+            {'type': 'integer', 'title': 'Outer', 'x-python-datatype': 'Enum'},
+            id='enum_with_enum_value',
+        ),
+        pytest.param(
             {'enum': StrEnum('Color', ['RED', 'GREEN', 'BLUE']).BLUE},
-            "{'enum': <Color.BLUE: 'blue'>}" if sys.version_info >= (3, 11) else "{'enum': <Color.BLUE: '3'>}",
-            '{"enum":"blue"}' if sys.version_info >= (3, 11) else '{"enum":"3"}',
+            "{'enum': <Color.BLUE: 'blue'>}",
+            '{"enum":"blue"}',
             {
                 'type': 'object',
-                'properties': {
-                    'enum': {
-                        'type': 'string',
-                        'title': 'Color',
-                        'x-python-datatype': 'Enum',
-                        'enum': ['red', 'green', 'blue'] if sys.version_info >= (3, 11) else ['1', '2', '3'],
-                    },
-                },
+                'additionalProperties': {'type': 'string', 'title': 'Color', 'x-python-datatype': 'Enum'},
             },
             id='str_enum',
         ),
@@ -399,36 +426,21 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             Enum('Color', {'RED': 1, 'GREEN': 'str', 'BLUE': MyDataclass(t=1)}).BLUE,
             'Color.BLUE',
             '{"t":1}',
-            {
-                'type': 'object',
-                'title': 'Color',
-                'x-python-datatype': 'Enum',
-                'enum': [1, 'str', {'t': 1}],
-            },
+            {'type': 'object', 'title': 'Color', 'x-python-datatype': 'Enum'},
             id='enum_with_complex_values',
         ),
         pytest.param(
             Enum('Color', {'RED': 1, 'GREEN': 'str'}).RED,
             'Color.RED',
             '1',
-            {
-                'type': 'object',
-                'title': 'Color',
-                'x-python-datatype': 'Enum',
-                'enum': [1, 'str'],
-            },
+            {'type': 'integer', 'title': 'Color', 'x-python-datatype': 'Enum'},
             id='enum_with_int_and_str_values',
         ),
         pytest.param(
             Enum('Color', {'RED': 1, 'GREEN': 1.5}).RED,
             'Color.RED',
             '1',
-            {
-                'type': 'number',
-                'title': 'Color',
-                'x-python-datatype': 'Enum',
-                'enum': [1, 1.5],
-            },
+            {'type': 'integer', 'title': 'Color', 'x-python-datatype': 'Enum'},
             id='enum_with_int_and_float_values',
         ),
         pytest.param(
@@ -564,6 +576,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
                 'properties': {'u': {'type': 'string', 'x-python-datatype': ANYURL_REPR_CLASSNAME}},
             },
             id='pydantic_model',
+        ),
+        pytest.param(
+            MyReprModel(in_repr=1, not_in_repr=MyDataclass(2)),
+            'in_repr=1',
+            '{"in_repr":1}',
+            {'type': 'object', 'title': 'MyReprModel', 'x-python-datatype': 'PydanticModel'},
+            id='pydantic_model_repr',
         ),
         pytest.param(
             MyModel.model_validate(dict(x='x', y=10, u='http://test.com', extra_key=MyDataclass(10))),
@@ -708,14 +727,23 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             id='custom_bytes_class',
         ),
         pytest.param(
+            numpy.bytes_(b'test bytes'),
+            "b'test bytes'",
+            '"test bytes"',
+            {
+                'type': 'string',
+                'title': 'bytes_',
+                'x-python-datatype': 'bytes',
+            },
+            id='numpy_bytes',
+        ),
+        pytest.param(
             pandas.DataFrame(data={'col1': [1, 2], 'col2': [3, 4]}),
             '   col1  col2\n0     1     3\n1     2     4',
             '[[1,3],[2,4]]',
             {
-                'type': 'array',
+                'type': 'object',
                 'x-python-datatype': 'DataFrame',
-                'x-columns': ['col1', 'col2'],
-                'x-indices': [0, 1],
                 'x-row-count': 2,
                 'x-column-count': 2,
             },
@@ -750,31 +778,8 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             '[21,42,63,84,105,168,189,210,231,252],'
             '[22,44,66,88,110,176,198,220,242,264]]',
             {
-                'type': 'array',
+                'type': 'object',
                 'x-python-datatype': 'DataFrame',
-                'x-columns': ['col1', 'col2', 'col3', 'col4', 'col5', 'col8', 'col9', 'col10', 'col11', 'col12'],
-                'x-indices': [
-                    'i1',
-                    'i2',
-                    'i3',
-                    'i4',
-                    'i5',
-                    'i6',
-                    'i7',
-                    'i8',
-                    'i9',
-                    'i10',
-                    'i13',
-                    'i14',
-                    'i15',
-                    'i16',
-                    'i17',
-                    'i18',
-                    'i19',
-                    'i20',
-                    'i21',
-                    'i22',
-                ],
                 'x-row-count': 22,
                 'x-column-count': 12,
             },
@@ -891,10 +896,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             {
                 'items': {
                     'type': 'object',
-                    'properties': {
-                        "<class 'str'>": {'type': 'object', 'x-python-datatype': 'unknown'},
-                        "<class 'int'>": {'type': 'object', 'x-python-datatype': 'unknown'},
-                    },
+                    'additionalProperties': {'type': 'object', 'x-python-datatype': 'unknown'},
                 },
                 'type': 'array',
             },
@@ -927,7 +929,7 @@ def test_log_non_scalar_args(
     value: Any,
     value_repr: str,
     value_json: str,
-    json_schema: str,
+    json_schema: dict[str, Any],
 ) -> None:
     logfire.info('test message {var=}', var=value)
 
@@ -937,8 +939,30 @@ def test_log_non_scalar_args(
     assert s.attributes, "Span doesn't have attributes"
     assert isinstance(s.attributes['logfire.msg'], str)
     assert s.attributes['logfire.msg'].startswith(f'test message var={value_repr}')
-    assert s.attributes['var'] == value_json
+    if isinstance(value, pandas.DataFrame):
+        assert isinstance(s.attributes['var'], str)
+        assert _frame_matrix(json.loads(s.attributes['var'])) == json.loads(value_json)
+    else:
+        assert s.attributes['var'] == value_json
     assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema  # type: ignore
+
+
+def test_recursive_enum_value_schema() -> None:
+    member = Enum('Recursive', {'MEMBER': 1}).MEMBER
+    object.__setattr__(member, '_value_', member)
+
+    assert create_json_schema(member, set()) == {'title': 'Recursive', 'x-python-datatype': 'Enum'}
+
+
+def test_bytes_enum_value_schema() -> None:
+    class BytesEnum(bytes, Enum):
+        MEMBER = b'bytes'
+
+    assert create_json_schema(BytesEnum.MEMBER, set()) == {
+        'type': 'string',
+        'title': 'BytesEnum',
+        'x-python-datatype': 'Enum',
+    }
 
 
 def test_attrs_schema_respects_repr() -> None:
@@ -946,6 +970,14 @@ def test_attrs_schema_respects_repr() -> None:
         'type': 'object',
         'title': 'MyReprAttrs',
         'x-python-datatype': 'attrs',
+    }
+
+
+def test_pydantic_model_schema_respects_repr() -> None:
+    assert create_json_schema(MyReprModel(in_repr=1, not_in_repr=MyDataclass(2)), set()) == {
+        'type': 'object',
+        'title': 'MyReprModel',
+        'x-python-datatype': 'PydanticModel',
     }
 
 
@@ -978,6 +1010,24 @@ def test_attrs_falsey_callable_repr(exporter: TestExporter) -> None:
     }
 
 
+def _frame_matrix(value: dict[str, Any]) -> list[list[Any]]:
+    """Read the sampled cells by their queryable row and column paths."""
+    row_occurrences: dict[str, int] = {}
+    result: list[list[Any]] = []
+    for row_label in value['rows']:
+        row_index = row_occurrences.get(row_label, 0)
+        row_occurrences[row_label] = row_index + 1
+        cells = value['data'][row_label][row_index]
+        column_occurrences: dict[str, int] = {}
+        row: list[Any] = []
+        for column_label in value['columns']:
+            column_index = column_occurrences.get(column_label, 0)
+            column_occurrences[column_label] = column_index + 1
+            row.append(cells[column_label][column_index])
+        result.append(row)
+    return result
+
+
 @pytest.mark.parametrize('max_rows,row_positions', [(None, [0, 1, 2]), (2, [0, 2])])
 @pytest.mark.parametrize('max_columns,column_positions', [(None, [0, 1, 2]), (2, [0, 2])])
 def test_log_dataframe_preserves_integer_precision(
@@ -995,7 +1045,7 @@ def test_log_dataframe_preserves_integer_precision(
     attributes = exporter.exported_spans[0].attributes
     assert attributes is not None
     assert isinstance(attributes['frame'], str)
-    assert json.loads(attributes['frame']) == [
+    assert _frame_matrix(json.loads(attributes['frame'])) == [
         [rows[row][column] for column in column_positions] for row in row_positions
     ]
 
@@ -1027,15 +1077,62 @@ def test_log_dataframe_labels_match_data(
     schema = attributes['logfire.json_schema']
     assert isinstance(value, str)
     assert isinstance(schema, str)
-    assert json.loads(value) == [[row * column_count + column for column in column_positions] for row in row_positions]
+    recorded = json.loads(value)
+    assert recorded['rows'] == [f'row{row}' for row in row_positions]
+    assert recorded['columns'] == [f'col{column}' for column in column_positions]
+    assert _frame_matrix(recorded) == [
+        [row * column_count + column for column in column_positions] for row in row_positions
+    ]
     assert json.loads(schema)['properties']['frame'] == {
-        'type': 'array',
+        'type': 'object',
         'x-python-datatype': 'DataFrame',
-        'x-columns': [f'col{column}' for column in column_positions],
-        'x-indices': [f'row{row}' for row in row_positions],
         'x-column-count': column_count,
         'x-row-count': row_count,
     }
+
+
+def test_log_dataframe_duplicate_labels(exporter: TestExporter) -> None:
+    frame = pandas.DataFrame(
+        [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+        index=['alice', 'bob', 'alice'],
+        columns=['score', 'other', 'score'],
+    )
+    with pandas.option_context('display.max_rows', 2, 'display.max_columns', 2):
+        logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    recorded = attributes['frame']
+    assert recorded['rows'] == ['alice', 'alice']
+    assert recorded['columns'] == ['score', 'score']
+    assert recorded['data']['alice'] == [
+        {'score': [1, 3]},
+        {'score': [7, 9]},
+    ]
+    assert _frame_matrix(recorded) == [[1, 3], [7, 9]]
+    assert attributes['logfire.json_schema']['properties']['frame'] == {
+        'type': 'object',
+        'x-python-datatype': 'DataFrame',
+        'x-column-count': 3,
+        'x-row-count': 3,
+    }
+
+
+def test_log_dataframe_password_column_is_scrubbed(exporter: TestExporter) -> None:
+    logfire.info('frame', frame=pandas.DataFrame({'password': ['hunter2'], 'score': [7]}, index=['alice']))
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['frame']['data']['alice'][0]['password'] == ["[Scrubbed due to 'password']"]
+    assert attributes['frame']['data']['alice'][0]['score'] == [7]
+    assert 'hunter2' not in json.dumps(attributes)
+
+
+def test_log_dataframe_scrubbed_value_has_no_labels_in_schema(exporter: TestExporter) -> None:
+    logfire.info('frame', sessions=pandas.DataFrame({'requests': [2]}, index=['tok-abc123']))
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['sessions'] == "[Scrubbed due to 'session']"
+    assert attributes['logfire.json_schema']['properties']['sessions']['type'] == 'object'
+    assert 'tok-abc123' not in json.dumps(attributes)
 
 
 @pytest.mark.parametrize(
@@ -1068,14 +1165,13 @@ def test_log_dataframe_with_unlimited_and_odd_display_limits(
     assert attributes is not None
     assert isinstance(attributes['frame'], str)
     assert isinstance(attributes['logfire.json_schema'], str)
-    assert json.loads(attributes['frame']) == [
-        [row * 5 + column for column in column_positions] for row in row_positions
-    ]
+    recorded = json.loads(attributes['frame'])
+    assert recorded['rows'] == [f'row{row}' for row in row_positions]
+    assert recorded['columns'] == [f'col{column}' for column in column_positions]
+    assert _frame_matrix(recorded) == [[row * 5 + column for column in column_positions] for row in row_positions]
     assert json.loads(attributes['logfire.json_schema'])['properties']['frame'] == {
-        'type': 'array',
+        'type': 'object',
         'x-python-datatype': 'DataFrame',
-        'x-columns': [f'col{column}' for column in column_positions],
-        'x-indices': [f'row{row}' for row in row_positions],
         'x-column-count': 5,
         'x-row-count': 5,
     }
@@ -1125,6 +1221,36 @@ def test_log_dataframe_odd_display_limits_formatting(
             for row in row_labels
         ],
     ]
+
+
+def test_log_dict_with_non_string_keys(exporter: TestExporter) -> None:
+    @dataclass
+    class Wrapper:
+        d: dict[Any, Any]
+
+    d = {True: date(2023, 1, 1), False: date(2023, 1, 2), None: date(2023, 1, 3), 2: date(2023, 1, 4), 1.5: 'x', 'a': 1}
+    logfire.info('test message', d=d, wrapped=Wrapper(d), inf_key={float('inf'): 1})
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    # The keys must be the same whether `json.dumps` converts them natively or the value is nested in another object,
+    # and the schema must use the same keys so that the dates keep their type.
+    expected = {
+        'true': '2023-01-01',
+        'false': '2023-01-02',
+        'null': '2023-01-03',
+        '2': '2023-01-04',
+        '1.5': 'x',
+        'a': 1,
+    }
+    assert json.loads(attributes['d']) == expected  # type: ignore
+    assert json.loads(attributes['wrapped']) == {'d': expected}  # type: ignore
+    assert attributes['inf_key'] == '{"inf":1}'
+    date_schema = {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'}
+    assert json.loads(attributes['logfire.json_schema'])['properties']['d'] == {  # type: ignore
+        'type': 'object',
+        'properties': {'true': date_schema, 'false': date_schema, 'null': date_schema, '2': date_schema},
+    }
 
 
 def test_log_non_finite_scalar_float_args(exporter: TestExporter) -> None:
@@ -1198,7 +1324,7 @@ def test_log_numpy_timedelta_args(exporter: TestExporter) -> None:
     assert attributes['logfire.json_schema'] == IsJson(
         {
             'type': 'object',
-            'properties': {'td': unknown, 'nested': {'type': 'object', 'properties': {'td': unknown}}},
+            'properties': {'td': unknown, 'nested': {'type': 'object', 'additionalProperties': unknown}},
         }
     )
 
@@ -1468,21 +1594,19 @@ def test_recursive_objects(exporter: TestExporter) -> None:
                             'properties': {
                                 'dct': {
                                     'type': 'object',
-                                    'properties': {
-                                        'model': {
-                                            'type': 'object',
-                                            'title': 'Model',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'lst': {
-                                                    'type': 'array',
-                                                    'items': {
-                                                        'type': 'object',
-                                                        'title': 'Dataclass',
-                                                        'x-python-datatype': 'dataclass',
-                                                    },
-                                                }
-                                            },
+                                    'additionalProperties': {
+                                        'type': 'object',
+                                        'title': 'Model',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'lst': {
+                                                'type': 'array',
+                                                'items': {
+                                                    'type': 'object',
+                                                    'title': 'Dataclass',
+                                                    'x-python-datatype': 'dataclass',
+                                                },
+                                            }
                                         },
                                     },
                                 },
@@ -1493,12 +1617,10 @@ def test_recursive_objects(exporter: TestExporter) -> None:
                                     'properties': {
                                         'dct': {
                                             'type': 'object',
-                                            'properties': {
-                                                'model': {
-                                                    'type': 'object',
-                                                    'title': 'Model',
-                                                    'x-python-datatype': 'PydanticModel',
-                                                },
+                                            'additionalProperties': {
+                                                'type': 'object',
+                                                'title': 'Model',
+                                                'x-python-datatype': 'PydanticModel',
                                             },
                                         }
                                     },
@@ -1512,12 +1634,10 @@ def test_recursive_objects(exporter: TestExporter) -> None:
                                         'properties': {
                                             'dct': {
                                                 'type': 'object',
-                                                'properties': {
-                                                    'model': {
-                                                        'type': 'object',
-                                                        'title': 'Model',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
+                                                'additionalProperties': {
+                                                    'type': 'object',
+                                                    'title': 'Model',
+                                                    'x-python-datatype': 'PydanticModel',
                                                 },
                                             }
                                         },
@@ -1827,19 +1947,9 @@ def test_pydantic_root_model(exporter: TestExporter):
                         'with_none': {'type': 'null'},
                         'with_none_inner': {'type': 'null'},
                         'with_color': {'type': 'string', 'x-python-datatype': 'str', 'title': 'Color'},
-                        'with_color_inner': {
-                            'type': 'string',
-                            'title': 'Color',
-                            'x-python-datatype': 'Enum',
-                            'enum': ['RED'],
-                        },
+                        'with_color_inner': {'type': 'string', 'title': 'Color', 'x-python-datatype': 'Enum'},
                         'with_order': {'type': 'integer', 'x-python-datatype': 'int', 'title': 'Order'},
-                        'with_order_inner': {
-                            'type': 'integer',
-                            'title': 'Order',
-                            'x-python-datatype': 'Enum',
-                            'enum': [1],
-                        },
+                        'with_order_inner': {'type': 'integer', 'title': 'Order', 'x-python-datatype': 'Enum'},
                     },
                 },
             },
@@ -1910,17 +2020,14 @@ def test_array_schema_reuses_consecutive_equal_schemas():
     assert prefix_items[3] is prefix_items[4]
 
 
-def test_homogeneous_dict_schema():
-    """Small dicts (≤10 keys) always use per-key properties."""
-    # All values are datetimes → small dict → per-key properties
+def test_small_dict_schema():
+    """Small dicts share schemas for equal values and use per-key properties for different values."""
+    # All values are datetimes → one shared schema
     d = {'a': datetime(2023, 1, 1), 'b': datetime(2023, 6, 15)}
     schema = create_json_schema(d, set())
     assert schema == {
         'type': 'object',
-        'properties': {
-            'a': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
-            'b': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
-        },
+        'additionalProperties': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
     }
 
     # All values are plain (strings) → just {'type': 'object'}
@@ -1977,6 +2084,21 @@ def test_medium_dict_schema():
     # Medium homogeneous with plain values → just {'type': 'object'}
     d_medium_plain = {f'key_{i}': 'hello' for i in range(20)}
     assert create_json_schema(d_medium_plain, set()) == {'type': 'object'}
+
+    # Different plain schemas still need no per-key properties.
+    d_medium_plain_hetero = {f'key_{i}': (None if i % 2 else 0) for i in range(11)}
+    assert create_json_schema(d_medium_plain_hetero, set()) == {'type': 'object'}
+
+
+def test_nested_medium_dict_schema_is_generated_once_per_value():
+    nested: object = 0
+    for _ in range(12):
+        nested = {'nested': nested, **{f'key_{i}': 0 for i in range(10)}}
+
+    with patch('logfire._internal.json_schema.create_json_schema', wraps=create_json_schema) as schema_spy:
+        assert schema_spy(nested, set()) == {'type': 'object'}
+
+    assert schema_spy.call_count == 133
 
 
 def test_large_dict_schema():

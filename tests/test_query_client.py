@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, cast
 
 import pytest
@@ -37,7 +37,7 @@ CLIENT_BASE_URL = 'http://localhost:3000'
 CLIENT_READ_TOKEN = 'pylf_v1_local_ZQHXp1vFjkR0dWxyQ8jCB4DPDlpd4752XWjpcNtdsPB6'
 # Disable compression so cassettes record human-readable response bodies:
 CLIENT_KWARGS: dict[str, Any] = {'headers': {'accept-encoding': 'identity'}}
-MIN_TIMESTAMP = datetime(2020, 1, 1, tzinfo=timezone.utc)
+MIN_TIMESTAMP = datetime(2020, 1, 1, tzinfo=UTC)
 pytestmark = pytest.mark.vcr()
 
 
@@ -278,7 +278,7 @@ is_exception,count(*)
 false,37
 true,1
 """)
-        assert client.query_csv(sql, min_timestamp=datetime(2030, 1, 1, tzinfo=timezone.utc)) == snapshot("""\
+        assert client.query_csv(sql, min_timestamp=datetime(2030, 1, 1, tzinfo=UTC)) == snapshot("""\
 is_exception,count(*)
 """)
         assert client.query_csv(sql, min_timestamp=MIN_TIMESTAMP, max_timestamp=MIN_TIMESTAMP) == snapshot("""\
@@ -306,7 +306,7 @@ is_exception,count(*)
 false,37
 true,1
 """)
-        assert await client.query_csv(sql, min_timestamp=datetime(2030, 1, 1, tzinfo=timezone.utc)) == snapshot("""\
+        assert await client.query_csv(sql, min_timestamp=datetime(2030, 1, 1, tzinfo=UTC)) == snapshot("""\
 is_exception,count(*)
 """)
         assert await client.query_csv(sql, min_timestamp=MIN_TIMESTAMP, max_timestamp=MIN_TIMESTAMP) == snapshot("""\

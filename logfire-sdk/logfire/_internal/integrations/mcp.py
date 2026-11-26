@@ -72,10 +72,13 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
         if method := getattr(root, 'method', None):  # pragma: no branch
             span_name += f': {method}'
             attributes['rpc.method'] = method
-            if isinstance(root, CallToolRequest):
-                span_name += f' {root.params.name}'
 
-        with logfire_instance.span(span_name, **attributes) as span:
+        message_template = span_name
+        if isinstance(root, CallToolRequest):
+            message_template += ' {request.params.name}'
+            span_name += f' {root.params.name}'
+
+        with logfire_instance.span(message_template, _span_name=span_name, **attributes) as span:
             _attach_context_to_request(root)
             result = await original_send_request(self, request, *args, **kwargs)
             span.set_attribute('response', result)

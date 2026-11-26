@@ -16,6 +16,7 @@ from typing import (  # NOQA UP035
     Any,
     Callable,
     Literal,
+    LiteralString,
     Type,
     TypeVar,
     cast,
@@ -30,7 +31,7 @@ from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
-from typing_extensions import LiteralString, ParamSpec
+from typing_extensions import ParamSpec
 
 from ..version import VERSION
 from . import async_
@@ -771,7 +772,7 @@ class Logfire:
 
             attributes = attributes or {}
             merged_attributes = {**stack_info, **attributes}
-            if (msg := attributes.pop(ATTRIBUTES_MESSAGE_KEY, None)) is None:
+            if ATTRIBUTES_MESSAGE_KEY not in attributes:
                 fstring_frame = None
                 if self._config.inspect_arguments:
                     fstring_frame = inspect.currentframe()
@@ -793,8 +794,8 @@ class Logfire:
                     attributes = {**attributes, **extra_attrs}
             else:
                 # The message has already been filled in, presumably by a logging integration.
-                # Make sure it's a string.
-                msg = merged_attributes[ATTRIBUTES_MESSAGE_KEY] = str(msg)
+                # Make sure it's a string, including when the value is None.
+                msg = merged_attributes[ATTRIBUTES_MESSAGE_KEY] = str(attributes.pop(ATTRIBUTES_MESSAGE_KEY))
                 msg_template = str(msg_template)
 
             otlp_attributes = prepare_otlp_attributes(merged_attributes)
@@ -1416,7 +1417,7 @@ class Logfire:
         | type[openai.AsyncOpenAI]
         | None = None,
         *,
-        suppress_other_instrumentation: bool = True,
+        suppress_other_instrumentation: bool = False,
         version: SemconvVersion | Sequence[SemconvVersion] = 2,
     ) -> AbstractContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
@@ -1445,7 +1446,8 @@ class Logfire:
         logfire.instrument_openai(client)
 
         response = client.chat.completions.create(
-            model='gpt-5-mini',
+            model='gpt-6.1-terra',
+            reasoning_effort='none',
             messages=[
                 {'role': 'system', 'content': 'You are a helpful assistant.'},
                 {'role': 'user', 'content': 'What is four plus five?'},
@@ -1463,9 +1465,8 @@ class Logfire:
                 - An instance of `openai.OpenAI`
                 - An instance of `openai.AsyncOpenAI`
 
-            suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
-                enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
-                OpenAI uses HTTPX to make HTTP requests.
+            suppress_other_instrumentation: Set to True to suppress other OpenTelemetry instrumentation,
+                such as HTTPX. By default, HTTPX request spans can be created as children of the OpenAI span.
 
             version: The version(s) of the span attribute format to use:
 
@@ -1527,7 +1528,7 @@ class Logfire:
             | None
         ) = None,
         *,
-        suppress_other_instrumentation: bool = True,
+        suppress_other_instrumentation: bool = False,
         version: SemconvVersion | Sequence[SemconvVersion] = 2,
     ) -> AbstractContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
@@ -1569,9 +1570,8 @@ class Logfire:
                 - The `anthropic.AsyncAnthropic` or `anthropic.AsyncAnthropicBedrock` class or subclass
                 - An instance of any of the above classes
 
-            suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
-                enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
-                OpenAI uses HTTPX to make HTTP requests.
+            suppress_other_instrumentation: Set to True to suppress other OpenTelemetry instrumentation,
+                such as HTTPX. By default, HTTPX request spans can be created as children of the Anthropic span.
 
             version: The version(s) of the span attribute format to use:
 
@@ -3390,7 +3390,13 @@ class LogfireSpan(ReadableSpan):
     @handle_internal_errors
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         self._detach()
-        if self._span and self._span.is_recording() and isinstance(exc_value, BaseException):
+        if (
+            self._span
+            and self._span.is_recording()
+            and isinstance(exc_value, BaseException)
+            # GeneratorExit means a generator was closed early (e.g. `break`), which is not an error.
+            and not isinstance(exc_value, GeneratorExit)
+        ):
             self._span.record_exception(exc_value, escaped=True)
         self._end()
 
@@ -3586,6 +3592,7 @@ def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
         return logfire_json_dumps(value)
 
 
+@handle_internal_errors
 def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None:
     if not span.is_recording():
         return

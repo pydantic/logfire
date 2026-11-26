@@ -90,7 +90,9 @@ Not seeing your queries in Logfire? Check these first:
 - **`logfire.configure()` runs before `logfire.instrument_asyncpg()`.** Configure the connection
   first, then instrument.
 - **You call `instrument_asyncpg()` exactly once.**
-- **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
+- **Your write token is set.** In local development, install [uv](https://docs.astral.sh/uv/getting-started/installation/)
+  if needed, then run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use` from your application's directory; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **You actually ran a query.** Spans appear only after a statement executes.
 

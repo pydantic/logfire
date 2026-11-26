@@ -11,6 +11,12 @@ from opentelemetry.util import types as otel_types
 from typing import Any
 
 @dataclass
+class StringValue:
+    """A string value and its path passed to a scrubbing string transformer."""
+    path: tuple[str | int, ...]
+    value: str
+
+@dataclass
 class SpanLevel:
     """A convenience class for comparing span/log levels.
 
@@ -18,6 +24,9 @@ class SpanLevel:
     `<`, `>`, `<=`, or `>=`, so e.g. `level >= 'error'` is valid.
 
     Will raise an exception if compared to a non-string or an invalid level name.
+
+    Hashing a level warns and uses its name, so `level in {'warn', 'error'}` works,
+    but `level in {13}` does not. Prefer `level.name in {...}`.
     """
     number: int
     @classmethod

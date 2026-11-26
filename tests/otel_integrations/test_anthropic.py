@@ -56,6 +56,50 @@ def test_semconv_version_defaults() -> None:
     ]
 
 
+def test_get_endpoint_config_materializes_generator_messages() -> None:
+    from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
+
+    def as_generator():
+        yield {'role': 'user', 'content': 'Hello'}
+
+    class MockOptions:
+        url = '/v1/messages'
+        json_data = {'model': 'claude-haiku-4-5', 'messages': as_generator()}
+
+    options = MockOptions()
+    config = get_endpoint_config(options)  # type: ignore
+
+    # The generator must be materialized into a list and written back so the SDK
+    # serializes the messages instead of sending an empty request body.
+    assert isinstance(options.json_data['messages'], list)
+    assert options.json_data['messages'] == [{'role': 'user', 'content': 'Hello'}]
+    assert config.span_data['gen_ai.input.messages'] == [
+        {'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}
+    ]
+
+
+def test_get_endpoint_config_materializes_generator_for_legacy_request_data() -> None:
+    from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
+
+    def as_generator():
+        yield {'role': 'user', 'content': 'Hello'}
+
+    class MockOptions:
+        url = '/v1/messages'
+        json_data = {'model': 'claude-haiku-4-5', 'messages': as_generator()}
+
+    options = MockOptions()
+    # Combined semconv versions (v1 + v2): the legacy `request_data` attribute backs
+    # onto the filtered `json_data` copy, so it must also hold the materialized list.
+    config = get_endpoint_config(options, version=frozenset({1, 2}))  # type: ignore
+
+    assert options.json_data['messages'] == [{'role': 'user', 'content': 'Hello'}]
+    assert config.span_data['request_data']['messages'] == [{'role': 'user', 'content': 'Hello'}]
+    assert config.span_data['gen_ai.input.messages'] == [
+        {'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}
+    ]
+
+
 def request_handler(request: httpx.Request) -> httpx.Response:
     """Used to mock httpx requests
 
@@ -158,7 +202,7 @@ def instrumented_client() -> Iterator[anthropic.Anthropic]:
         # use a hardcoded API key to make sure one in the environment is never used
         anthropic_client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
 
-        with logfire.instrument_anthropic(anthropic_client, version=[1, 'latest']):
+        with logfire.instrument_anthropic(anthropic_client, version=[1, 'latest'], suppress_other_instrumentation=True):
             yield anthropic_client
 
 
@@ -169,8 +213,47 @@ async def instrumented_async_client() -> AsyncIterator[anthropic.AsyncAnthropic]
         anthropic_client = anthropic.AsyncAnthropic(api_key='foobar', http_client=httpx_client)
 
         # Test instrumenting EVERYTHING
-        with logfire.instrument_anthropic(version=[1, 'latest']):
+        with logfire.instrument_anthropic(version=[1, 'latest'], suppress_other_instrumentation=True):
             yield anthropic_client
+
+
+@pytest.mark.parametrize('suppress_httpx', [False, True], ids=['default', 'suppressed'])
+def test_httpx_spans_follow_suppression(exporter: TestExporter, suppress_httpx: bool) -> None:
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        logfire.instrument_httpx(httpx_client)
+        client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
+        instrumentation = (
+            logfire.instrument_anthropic(client, suppress_other_instrumentation=True)
+            if suppress_httpx
+            else logfire.instrument_anthropic(client)
+        )
+        with instrumentation:
+            response = client.messages.create(
+                max_tokens=1000,
+                model='claude-3-haiku-20240307',
+                system='You are a helpful assistant.',
+                messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+            )
+
+    assert isinstance(response.content[0], TextBlock)
+    assert response.content[0].text == 'Nine'
+    spans = exporter.exported_spans_as_dict(include_instrumentation_scope=True)
+    [llm_span] = [
+        span for span in spans if span['instrumentation_scope'].startswith('logfire') and span['parent'] is None
+    ]
+    if suppress_httpx:
+        assert spans == [llm_span]
+    else:
+        [httpx_span] = [
+            span for span in spans if span['instrumentation_scope'] == 'opentelemetry.instrumentation.httpx'
+        ]
+        parent = httpx_span['parent']
+        for _ in spans:
+            if parent == llm_span['context']:
+                break
+            parent = next((span['parent'] for span in spans if span['context'] == parent), None)
+        else:
+            pytest.fail('HTTPX span is not a descendant of the Logfire Anthropic span')
 
 
 def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
@@ -767,7 +850,7 @@ def test_streamed_tool_arguments(beta: bool, exporter: TestExporter) -> None:
         api_key='test',
         http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, text=body))),
     )
-    with logfire.instrument_anthropic(client):
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
         messages = client.beta.messages if beta else client.messages
         with messages.create(
             model='claude-haiku-4-5',
@@ -1470,7 +1553,7 @@ def test_get_endpoint_config_v2_messages_no_system() -> None:
 def test_sync_messages_version_latest(exporter: TestExporter) -> None:
     """Test that version='latest' uses semconv attributes with minimal request_data and no response_data."""
     client = anthropic.Anthropic(api_key='foobar')
-    logfire.instrument_anthropic(client, version='latest')
+    logfire.instrument_anthropic(client, version='latest', suppress_other_instrumentation=True)
     response = client.messages.create(
         max_tokens=1000,
         model='claude-sonnet-4-20250514',
@@ -1560,7 +1643,7 @@ def test_sync_messages_version_latest(exporter: TestExporter) -> None:
 def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
     """Test that version=1 does not emit gen_ai.input.messages or gen_ai.output.messages."""
     client = anthropic.Anthropic(api_key='foobar')
-    logfire.instrument_anthropic(client, version=1)
+    logfire.instrument_anthropic(client, version=1, suppress_other_instrumentation=True)
     response = client.messages.create(
         max_tokens=1000,
         model='claude-sonnet-4-20250514',
@@ -1676,7 +1759,7 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
 def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
     """Test that streaming with version='latest' emits semconv attributes without response_data."""
     client = anthropic.Anthropic(api_key='foobar')
-    logfire.instrument_anthropic(client, version='latest')
+    logfire.instrument_anthropic(client, version='latest', suppress_other_instrumentation=True)
     response = client.messages.create(
         max_tokens=1000,
         model='claude-sonnet-4-20250514',
@@ -1817,7 +1900,7 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
 def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
     """Test that streaming with version=1 emits response_data without semconv message attributes."""
     client = anthropic.Anthropic(api_key='foobar')
-    logfire.instrument_anthropic(client, version=1)
+    logfire.instrument_anthropic(client, version=1, suppress_other_instrumentation=True)
     response = client.messages.create(
         max_tokens=1000,
         model='claude-sonnet-4-20250514',
@@ -1952,7 +2035,7 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
 @pytest.mark.vcr(match_on=['method', 'scheme', 'host', 'port', 'path'])
 def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
     client = anthropic.Anthropic(api_key='foobar')
-    logfire.instrument_anthropic(client, version=['latest', 1])
+    logfire.instrument_anthropic(client, version=['latest', 1], suppress_other_instrumentation=True)
     response = client.beta.messages.create(
         max_tokens=1000,
         model='claude-sonnet-4-20250514',
@@ -2111,7 +2194,7 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
 @pytest.mark.vcr(match_on=['method', 'scheme', 'host', 'port', 'path'])
 async def test_async_beta_messages(exporter: TestExporter) -> None:
     client = anthropic.AsyncAnthropic()
-    logfire.instrument_anthropic(client, version=['latest', 1])
+    logfire.instrument_anthropic(client, version=['latest', 1], suppress_other_instrumentation=True)
     response = await client.beta.messages.create(
         max_tokens=1000,
         model='claude-3-haiku-20240307',
@@ -2241,7 +2324,7 @@ def test_stream_response_metadata(version: Any, complete: bool, exporter: TestEx
     client = anthropic.Anthropic(
         api_key='fake_api_key', http_client=httpx.Client(transport=MockTransport(request_handler))
     )
-    with logfire.instrument_anthropic(client, version=version):
+    with logfire.instrument_anthropic(client, version=version, suppress_other_instrumentation=True):
         list(
             client.messages.create(
                 model='claude-3-haiku-20240307',
@@ -2280,7 +2363,7 @@ def test_internal_exception_in_on_response_keeps_the_response(
         api_key='test',
         http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
     )
-    with logfire.instrument_anthropic(client):
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
         response = client.messages.create(
             max_tokens=1000,
             model='claude-haiku-4-5',
@@ -2331,7 +2414,7 @@ def test_internal_exception_in_stream_attributes_keeps_the_stream(
             )
         ),
     )
-    with logfire.instrument_anthropic(client):
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
         stream = client.messages.create(
             max_tokens=1000,
             model='claude-haiku-4-5',
@@ -2369,7 +2452,7 @@ def test_messages_records_cache_token_attributes(exporter: TestExporter) -> None
         api_key='test',
         http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
     )
-    with logfire.instrument_anthropic(client):
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
         client.messages.create(
             max_tokens=1000,
             model='claude-haiku-4-5',
@@ -2397,7 +2480,7 @@ def test_messages_without_cache_tokens_omits_cache_attributes(exporter: TestExpo
         api_key='test',
         http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
     )
-    with logfire.instrument_anthropic(client):
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
         client.messages.create(
             max_tokens=1000,
             model='claude-haiku-4-5',
@@ -2549,7 +2632,7 @@ def test_convert_messages_document_and_file_image_parts() -> None:
         {
             'role': 'user',
             'parts': [
-                {'type': 'blob', 'modality': 'document', 'content': 'JVBER', 'media_type': 'application/pdf'},
+                {'type': 'blob', 'modality': 'document', 'content': 'JVBER', 'mime_type': 'application/pdf'},
                 {'type': 'uri', 'uri': 'https://example.com/report.pdf', 'modality': 'document'},
                 {'type': 'file', 'file_id': 'file_doc_1', 'modality': 'document'},
                 {'type': 'file', 'file_id': 'file_img_1', 'modality': 'image'},
@@ -2645,10 +2728,10 @@ def test_convert_messages_unknown_document_and_image_sources_stay_unchanged() ->
             ],
             [
                 {'type': 'text', 'content': 'Screenshot taken'},
-                {'type': 'blob', 'modality': 'image', 'content': 'iVBOR', 'media_type': 'image/png'},
+                {'type': 'blob', 'modality': 'image', 'content': 'iVBOR', 'mime_type': 'image/png'},
                 {'type': 'text', 'content': 'See attachment'},
                 {'type': 'uri', 'uri': 'https://example.com/image.png', 'modality': 'image'},
-                {'type': 'blob', 'modality': 'document', 'content': 'JVBER', 'media_type': 'application/pdf'},
+                {'type': 'blob', 'modality': 'document', 'content': 'JVBER', 'mime_type': 'application/pdf'},
             ],
             id='mixed-content',
         ),
@@ -2676,3 +2759,201 @@ def test_tool_result_content_parts(
     assert attributes['gen_ai.input.messages'] == [
         {'role': 'user', 'parts': [{'type': 'tool_call_response', 'id': 'toolu_1', 'response': expected_response}]}
     ]
+
+
+@pytest.mark.parametrize('cost, expected', [('0.5', 0.5), ('0', 0.0)])
+def test_message_gateway_cost(cost: str, expected: float, exporter: TestExporter) -> None:
+    body = {
+        'id': 'msg_1',
+        'type': 'message',
+        'role': 'assistant',
+        'model': 'claude-3-haiku-20240307',
+        'content': [{'type': 'text', 'text': 'hi'}],
+        'stop_reason': 'end_turn',
+        'usage': {'input_tokens': 10, 'output_tokens': 5, 'logfire_ai_gateway': {'cost': cost}},
+    }
+    client = anthropic.Anthropic(
+        api_key='fake_api_key',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, json=body))),
+    )
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
+        client.messages.create(
+            model='claude-3-haiku-20240307', max_tokens=10, messages=[{'role': 'user', 'content': 'hi'}]
+        )
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['operation.cost'] == expected
+
+
+@pytest.mark.parametrize('beta', [False, True])
+@pytest.mark.parametrize('cost, expected', [('0.5', 0.5), ('0', 0.0)])
+def test_message_stream_gateway_cost(beta: bool, cost: str, expected: float, exporter: TestExporter) -> None:
+    """The gateway writes the cost on `message_delta`, whose extra usage fields the SDK does not accumulate."""
+    events: list[dict[str, Any]] = [
+        {
+            'type': 'message_start',
+            'message': {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'model': 'claude-3-haiku-20240307',
+                'content': [],
+                'usage': {'input_tokens': 10, 'output_tokens': 1},
+            },
+        },
+        {
+            'type': 'message_delta',
+            'delta': {'stop_reason': 'end_turn'},
+            'usage': {'output_tokens': 5, 'logfire_ai_gateway': {'cost': cost}},
+        },
+        {'type': 'message_stop'},
+    ]
+    body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in events)
+    client = anthropic.Anthropic(
+        api_key='fake_api_key',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, text=body))),
+    )
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
+        messages = client.beta.messages if beta else client.messages
+        with messages.create(
+            model='claude-3-haiku-20240307',
+            max_tokens=10,
+            messages=[{'role': 'user', 'content': 'hi'}],
+            stream=True,
+        ) as stream:
+            list(stream)
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']
+    assert attributes['operation.cost'] == expected
+
+
+def test_message_stream_gateway_cost_spans(exporter: TestExporter) -> None:
+    events: list[dict[str, Any]] = [
+        {
+            'type': 'message_start',
+            'message': {
+                'id': 'msg_1',
+                'type': 'message',
+                'role': 'assistant',
+                'model': 'claude-3-haiku-20240307',
+                'content': [],
+                'usage': {'input_tokens': 10, 'output_tokens': 1},
+            },
+        },
+        {
+            'type': 'message_delta',
+            'delta': {'stop_reason': 'end_turn'},
+            'usage': {'output_tokens': 5, 'logfire_ai_gateway': {'cost': '0.5'}},
+        },
+        {'type': 'message_stop'},
+    ]
+    body = ''.join(f'event: {event["type"]}\ndata: {json.dumps(event)}\n\n' for event in events)
+    client = anthropic.Anthropic(
+        api_key='fake_api_key',
+        http_client=httpx.Client(transport=MockTransport(lambda _: httpx.Response(200, text=body))),
+    )
+    with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
+        with client.messages.create(
+            model='claude-3-haiku-20240307',
+            max_tokens=10,
+            messages=[{'role': 'user', 'content': 'hi'}],
+            stream=True,
+        ) as stream:
+            list(stream)
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Message with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': 'test_message_stream_gateway_cost_spans',
+                    'code.lineno': 123,
+                    'request_data': {'model': 'claude-3-haiku-20240307'},
+                    'gen_ai.system': 'anthropic',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.max_tokens': 10,
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'hi'}]}],
+                    'async': False,
+                    'logfire.msg_template': 'Message with {request_data[model]!r}',
+                    'logfire.msg': "Message with 'claude-3-haiku-20240307'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.max_tokens': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'async': {},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
+                },
+            },
+            {
+                'name': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'logfire.msg': "streaming response from 'claude-3-haiku-20240307' took 1.00s",
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': 'test_message_stream_gateway_cost_spans',
+                    'code.lineno': 123,
+                    'duration': 1.0,
+                    'request_data': {'model': 'claude-3-haiku-20240307'},
+                    'gen_ai.system': 'anthropic',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.max_tokens': 10,
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'hi'}]}],
+                    'async': False,
+                    'gen_ai.response.id': 'msg_1',
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
+                    'gen_ai.response.finish_reasons': ['end_turn'],
+                    'gen_ai.usage.input_tokens': 10,
+                    'gen_ai.usage.output_tokens': 5,
+                    'gen_ai.usage.raw': {'input_tokens': 10, 'output_tokens': 5, 'logfire_ai_gateway': {'cost': '0.5'}},
+                    'operation.cost': 0.5,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'duration': {},
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.max_tokens': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                },
+            },
+        ]
+    )

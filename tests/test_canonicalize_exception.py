@@ -1,4 +1,3 @@
-import sys
 from collections.abc import Callable
 
 import pytest
@@ -74,12 +73,9 @@ tests.test_canonicalize_exception.bar2
    raise TypeError\
 """)
 
-    if sys.version_info < (3, 11):
-        return
-
     try:
-        raise BaseExceptionGroup('group', [e1, e1_b, e5])  # type: ignore  # noqa
-    except BaseExceptionGroup as group:  # noqa
+        raise BaseExceptionGroup('group', [e1, e1_b, e5])  # type: ignore
+    except BaseExceptionGroup as group:
         try:
             raise Exception from group
         except Exception as e6:
@@ -95,7 +91,7 @@ __cause__:
 builtins.ExceptionGroup
 ----
 tests.test_canonicalize_exception.test_canonicalize_exception_func
-   raise BaseExceptionGroup('group', [e1, e1_b, e5])  # type: ignore  # noqa
+   raise BaseExceptionGroup('group', [e1, e1_b, e5])  # type: ignore
 
 <ExceptionGroup>
 
@@ -210,11 +206,10 @@ tests.test_canonicalize_exception.test_cyclic_exception_cause
 """)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason='ExceptionGroup is not available in Python < 3.11')
 def test_cyclic_exception_group():
     try:
-        raise ExceptionGroup('group', [ValueError('test')])  # noqa
-    except ExceptionGroup as group:  # noqa
+        raise ExceptionGroup('group', [ValueError('test')])
+    except ExceptionGroup as group:
         try:
             raise group.exceptions[0]
         except Exception as e:
@@ -230,7 +225,7 @@ __context__:
 builtins.ExceptionGroup
 ----
 tests.test_canonicalize_exception.test_cyclic_exception_group
-   raise ExceptionGroup('group', [ValueError('test')])  # noqa
+   raise ExceptionGroup('group', [ValueError('test')])
 
 <ExceptionGroup>
 

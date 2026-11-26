@@ -259,7 +259,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self.is_recording():
-            if isinstance(exc_value, BaseException):
+            if isinstance(exc_value, BaseException) and not isinstance(exc_value, GeneratorExit):
                 self.record_exception(exc_value, escaped=True)
             self.end()
 
