@@ -312,7 +312,7 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
             return [to_json_value(item, seen) for item in o]  # pyright: ignore[reportUnknownVariableType]
         elif isinstance(o, Mapping):
             return {
-                key if isinstance(key, str) else safe_repr(key): to_json_value(value, seen)
+                json_key(key): to_json_value(value, seen)
                 for key, value in o.items()  # pyright: ignore[reportUnknownVariableType]
             }
 
@@ -350,6 +350,27 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
 
     # In case we don't know how to encode, use `repr()`.
     return safe_repr(o)
+
+
+def json_key(key: Any) -> str:
+    """Convert a mapping key to a string the same way `json.dumps` does, falling back to `repr()`.
+
+    `logfire_json_dumps` usually lets `json.dumps` convert the keys, so this keeps the keys the same
+    when a mapping is encoded by `to_json_value` instead, e.g. inside a dataclass.
+    """
+    if isinstance(key, str):
+        return key
+    if key is True:
+        return 'true'
+    if key is False:
+        return 'false'
+    if key is None:
+        return 'null'
+    if isinstance(key, int):
+        return int.__repr__(key)
+    if isinstance(key, float) and math.isfinite(key):
+        return float.__repr__(key)
+    return safe_repr(key)
 
 
 def logfire_json_dumps(obj: Any) -> str:

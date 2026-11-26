@@ -65,6 +65,8 @@ in both [`logfire.set_baggage`][logfire.set_baggage] and the span attributes.
 Baggage keys beginning with `logfire.` are not added to span or log record attributes, except keys beginning with
 `logfire.variables.`. Logfire uses those keys to carry selected variable labels and versions across services.
 Other `logfire.` keys remain in baggage and can still propagate to other services.
+Baggage keys beginning with `gen_ai.evaluation.` and the `error.type` key are also excluded from span and log
+record attributes.
 
 ## Using with multiple services
 

@@ -31,9 +31,9 @@ from types import GeneratorType
 from typing import Any, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
-from .json_encoder import is_attrs, is_sqlalchemy, pandas_display_slices, to_json_value
+from .json_encoder import is_attrs, is_sqlalchemy, json_key, pandas_display_slices, to_json_value
 from .stack_info import STACK_INFO_KEYS
-from .utils import JsonDict, dump_json, log_internal_error, safe_repr
+from .utils import JsonDict, dump_json, log_internal_error
 
 __all__ = 'create_json_schema', 'attributes_json_schema_properties', 'attributes_json_schema', 'JsonSchemaProperties'
 
@@ -280,7 +280,7 @@ def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
             else:
                 is_homogeneous = False
             if value_schema not in PLAIN_SCHEMAS:
-                value_schemas[key if isinstance(key, str) else safe_repr(key)] = value_schema
+                value_schemas[json_key(key)] = value_schema
 
         if is_homogeneous and common_schema is not None and common_schema not in PLAIN_SCHEMAS:
             schema['additionalProperties'] = common_schema

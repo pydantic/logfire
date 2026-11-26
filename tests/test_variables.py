@@ -5870,6 +5870,56 @@ class TestVariableGetWithExplicitLabel:
         assert result.value == 'control_value'
         assert result.label == 'control'
 
+    @staticmethod
+    def _ref_config() -> VariablesConfig:
+        return VariablesConfig(
+            variables={
+                'label_ref_test': VariableConfig(
+                    name='label_ref_test',
+                    labels={
+                        'production': LabeledValue(version=1, serialized_value='"from production"'),
+                        'canary': LabelRef(ref='code_default'),
+                        'next': LabelRef(ref='latest'),
+                    },
+                    rollout=Rollout(labels={'production': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+
+    def test_explicit_label_code_default_ref_uses_code_default(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=self._ref_config())
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='label_ref_test', default='code default', type=str)
+        result = var.get(label='canary')
+        assert result.value == 'code default'
+        assert result.reason == 'code_default'
+        assert result.label is None
+        assert result.version is None
+
+    def test_explicit_label_latest_ref_without_version_uses_code_default(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=self._ref_config())
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='label_ref_test', default='code default', type=str)
+        result = var.get(label='next')
+        assert result.value == 'code default'
+        assert result.reason == 'code_default'
+        assert result.label is None
+        assert result.version is None
+
+    def test_explicit_label_with_version_and_no_label_are_unchanged(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=self._ref_config())
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='label_ref_test', default='code default', type=str)
+        for result in (var.get(label='production'), var.get(label='missing'), var.get()):
+            assert result.value == 'from production'
+            assert result.label == 'production'
+            assert result.version == 1
+            assert result.reason == 'resolved'
+
 
 # =============================================================================
 # Test Lazy Variable Provider Initialization
