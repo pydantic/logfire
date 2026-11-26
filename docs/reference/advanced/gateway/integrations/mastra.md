@@ -67,7 +67,7 @@ const result = await mastra.getAgent('weatherAgent').generate('What is the weath
 console.log(result.text);
 ```
 
-`store: false` makes the model send earlier steps in full. Without it, every step after the first refers to items stored in the provider account, and a [built-in OpenAI provider](../data-retention.md#built-in-openai-providers-never-store-a-response) refuses that. With `store: false`, the results of OpenAI-hosted tools, such as web search or code interpreter, are not sent to later steps.
+`store: false` makes the AI SDK that Mastra uses send earlier steps in full. Without it, every step after the first refers to items stored in the provider account, and a [built-in OpenAI provider](../data-retention.md#built-in-openai-providers-never-store-a-response) refuses that. With `store: false`, the results of OpenAI-hosted tools, such as web search or code interpreter, are not sent to later steps.
 
 ## Verify it worked
 
