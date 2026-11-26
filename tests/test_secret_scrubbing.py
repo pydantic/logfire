@@ -2660,3 +2660,31 @@ def test_validation_error_input_callback_checks_outer_loc_parts(exporter: TestEx
         (('attributes', 'errors', 0, 'credentials', 'password'), 'password'),
         (('attributes', 'errors', 0, 'credentials'), 'credential'),
     ]
+
+
+@pytest.mark.parametrize(
+    'error_type',
+    ['missing', 'missing_argument', 'missing_keyword_only_argument', 'missing_positional_only_argument'],
+)
+def test_missing_validation_error_input_skips_absent_field(exporter: TestExporter, error_type: str):
+    logfire.info(
+        'bad',
+        errors=[
+            {
+                'type': error_type,
+                'loc': ['body', 'password'],
+                'msg': 'Field required',
+                'input': {'username': 'alice', 'api_key': 'secret'},
+            },
+            {
+                'type': error_type,
+                'loc': ['body', 'credit_card', 'expiry'],
+                'msg': 'Field required',
+                'input': {'number': '1234'},
+            },
+        ],
+    )
+
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'][0]['input'] == {'username': 'alice', 'api_key': "[Scrubbed due to 'api_key']"}
+    assert attributes['errors'][1]['input'] == "[Scrubbed due to 'credit_card']"

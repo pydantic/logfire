@@ -2214,6 +2214,20 @@ def test_scrubbing_validation_error_input(client: TestClient, exporter: TestExpo
     assert 'hunter2' not in json.dumps(exporter.exported_spans_as_dict())
 
 
+def test_scrubbing_missing_validation_error_input(client: TestClient, exporter: TestExporter) -> None:
+    response = client.post('/signup', json={'username': 'alice', 'api_key': 'secret-value'})
+    assert response.status_code == 422
+
+    [attributes] = [
+        span['attributes']
+        for span in exporter.exported_spans_as_dict(parse_json_attributes=True)
+        if 'fastapi.arguments.errors' in span['attributes']
+    ]
+    [error] = attributes['fastapi.arguments.errors']
+    assert error['loc'] == ['body', 'password']
+    assert error['input'] == {'username': 'alice', 'api_key': "[Scrubbed due to 'api_key']"}
+
+
 def make_request_hook_spans(record_send_receive: bool):
     # Instrument an app with request hooks to make sure that they work.
     # We make a new app here instead of using the fixtures because the same app can't be instrumented twice.

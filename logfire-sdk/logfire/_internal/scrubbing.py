@@ -78,6 +78,9 @@ _DEFAULT_PATTERN = rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(DEFAULT_P
 _MAX_UNCHANGED_MATCHES = 100
 _MAX_SCRUBBED_NOTES = 50
 _MAX_JSON_STRING_DEPTH = 4
+_MISSING_ERROR_TYPES = frozenset(
+    {'missing', 'missing_argument', 'missing_keyword_only_argument', 'missing_positional_only_argument'}
+)
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
@@ -577,20 +580,26 @@ class SpanScrubber:
                         result[k] = scrubbed
             if not in_safe_key and 'input' in mapping and _is_validation_error_detail(mapping):
                 result['input'] = self._scrub_validation_error_input(
-                    path, cast('list[Any] | tuple[Any, ...]', mapping['loc']), result['input']
+                    path,
+                    cast('list[Any] | tuple[Any, ...]', mapping['loc']),
+                    result['input'],
+                    mapping['type'] in _MISSING_ERROR_TYPES,
                 )
             return result
         return value
 
-    def _scrub_validation_error_input(self, error_path: JsonPath, loc: list[Any] | tuple[Any, ...], value: Any) -> Any:
+    def _scrub_validation_error_input(
+        self, error_path: JsonPath, loc: list[Any] | tuple[Any, ...], value: Any, missing: bool
+    ) -> Any:
         """Redacts the `input` of a Pydantic validation error when a field name in its `loc` matches.
 
         For example, in `{'loc': ['body', 'password'], 'input': 'hunter2'}` the field name and the rejected value
         are separate entries, so checking each key and value on its own never connects them.
         String names are checked from innermost to outermost, with a path ending at the matching field name.
+        For a missing-field error, the last name is skipped because `input` is the container missing that field.
         `value` is the already scrubbed `input`.
         """
-        for index in range(len(loc) - 1, -1, -1):
+        for index in range(len(loc) - 1 - missing, -1, -1):
             part = loc[index]
             if isinstance(part, str) and (match := self._pattern.search(part)):
                 redacted = self._scrub_matches(error_path + tuple(loc[: index + 1]), value, match)
