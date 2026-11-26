@@ -1179,6 +1179,23 @@ def test_log_dataframe_internal_data_pattern_scrubs_frame(
     assert json_args_value_formatter(json.loads(attributes['frame']), schema=schema) == "[Scrubbed due to 'data']"
 
 
+def test_log_dataframe_allowed_internal_field_still_scrubs_cells(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    logfire.configure(
+        **config_kwargs,
+        scrubbing=logfire.ScrubbingOptions(
+            extra_patterns=['rows'],
+            callback=lambda match: match.value if match.path[-1] == 'rows' else None,
+        ),
+    )
+    logfire.info('frame', frame=pandas.DataFrame({'password': ['hunter2']}, index=['alice']))
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['frame']['data']['alice'][0]['password'] == ["[Scrubbed due to 'password']"]
+    assert 'hunter2' not in json.dumps(attributes)
+
+
 @pytest.mark.parametrize('replacement', [0, False])
 def test_log_dataframe_column_callback_scalar(
     exporter: TestExporter, config_kwargs: dict[str, Any], replacement: int | bool

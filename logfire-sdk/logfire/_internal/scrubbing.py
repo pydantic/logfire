@@ -483,7 +483,9 @@ class SpanScrubber:
         if not in_safe_key:
             for field in ('data', 'rows', 'columns'):
                 if match := self._pattern.search(field):
-                    return self._scrub_matches(path + (field,), value, match)
+                    scrubbed = self._scrub_matches(path + (field,), value, match)
+                    if not _is_unchanged_value(value, scrubbed):
+                        return scrubbed
         original_rows = cast('list[str]', value['rows'])
         original_columns = cast('list[str]', value['columns'])
         original_data = cast('dict[str, list[dict[str, list[Any]]]]', value['data'])
