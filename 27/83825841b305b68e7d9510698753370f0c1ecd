@@ -1,0 +1,20 @@
+tests/test_secret_scrubbing.py
+  s_e3f95029849411::t_76d3badbdadd47 1980,1994,2002-2004,2019-2021
+  s_e3f95029849411::t_873103cecdf33d 1979,1981-1993,1995-2001,2005-2018,2022-2024
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2783825841b305b68e7d9510698753370f0c1ecd",
+  "prompts": {},
+  "sessions": {
+    "s_e3f95029849411": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a217d5-39c0-7f22-94a4-871c414a0732",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
