@@ -1,0 +1,28 @@
+logfire-sdk/logfire/_internal/json_encoder.py
+  h_d9dd17644dded9 77,83-85,88-96
+logfire-sdk/logfire/_internal/json_formatter.py
+  h_d9dd17644dded9 350,352-414,416-418
+logfire-sdk/logfire/_internal/json_schema.py
+  h_d9dd17644dded9 412
+logfire-sdk/logfire/_internal/scrubbing.py
+  h_d9dd17644dded9 388,427,483,527-581,636,648-650,663-664,674
+tests/test_console_exporter.py
+  h_d9dd17644dded9 147-148
+tests/test_json_args.py
+  h_d9dd17644dded9 745,781,942-946,1013-1030,1048,1080-1085,1087,1094-1137,1168-1171,1173
+tests/test_json_args_formatting.py
+  h_d9dd17644dded9 400-408,410-417,421-431,809-837
+tests/test_secret_scrubbing.py
+  h_d9dd17644dded9 6-7,12,25,1863-2021,2685,2691,2704,2754-2805
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5b95121092187ce4f744ab729c4cd47827c3ae82",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
