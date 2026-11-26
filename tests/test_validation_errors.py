@@ -55,7 +55,7 @@ def test_custom_error_rebuilds() -> None:
         @field_validator('password')
         @classmethod
         def reject(cls, value: str) -> str:
-            raise PydanticCustomError('weak_password', 'Weak {kind}', {'kind': 'password'})
+            raise PydanticCustomError('weak_value', 'Weak {kind}', {'kind': 'value'})
 
     try:
         Login(password='hunter2')
@@ -63,6 +63,29 @@ def test_custom_error_rebuilds() -> None:
         rebuilt = scrubbed_validation_error(original, Scrubber(None), PATH)
         assert rebuilt is not None
         assert 'hunter2' not in str(rebuilt)
+        assert 'Weak value' in str(rebuilt)
+        assert 'weak_value' in str(rebuilt)
+    else:
+        raise AssertionError('Expected validation to fail')
+
+
+def test_hidden_input_with_custom_message_mentioning_input_value() -> None:
+    class Login(BaseModel):
+        model_config = ConfigDict(hide_input_in_errors=True)
+        password: str
+
+        @field_validator('password')
+        @classmethod
+        def reject(cls, value: str) -> str:
+            raise PydanticCustomError('weak_password', 'input_value= is not a valid prefix')
+
+    try:
+        Login(password='hunter2')
+    except ValidationError as original:
+        rebuilt = scrubbed_validation_error(original, Scrubber(None), PATH)
+        assert rebuilt is not None
+        assert 'input_value= is not a valid prefix' in str(rebuilt)
+        assert 'input_type=' not in str(rebuilt)
     else:
         raise AssertionError('Expected validation to fail')
 
@@ -98,9 +121,10 @@ def test_replaces_implicit_context_and_group() -> None:
     class Login(BaseModel):
         password: str = Field(min_length=12)
 
+    password = 'hunter2'
     try:
         try:
-            Login(password='hunter2')
+            Login(password=password)
         except ValidationError:
             raise RuntimeError('login failed')
     except RuntimeError as original:
@@ -111,6 +135,7 @@ def test_replaces_implicit_context_and_group() -> None:
         children = cast('ExceptionGroup[Exception]', rebuilt).exceptions
         assert children[0].__context__ is not original.__context__
         assert children[1] is group.exceptions[1]
+        assert password not in ''.join(traceback.format_exception(cast(BaseException, rebuilt)))
         assert original.__context__ is not None
         assert 'hunter2' in str(original.__context__)
     else:

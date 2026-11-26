@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any, LiteralString, cast, get_args
 
 from pydantic import ValidationError
@@ -36,7 +37,10 @@ def scrubbed_validation_error(exc: ValidationError, scrubber: BaseScrubber, path
                 )
             line_errors.append(error)
 
-        hide_input = 'input_value=' not in str(exc) and any('input' in error for error in original_errors)
+        # Pydantic does not expose hide_input_in_errors on the exception. Match
+        # its rendered metadata rather than arbitrary text in a custom message.
+        visible_input = re.search(r'\[type=[^\n]*, input_value=.+, input_type=[^\n]+\]$', str(exc), re.MULTILINE)
+        hide_input = visible_input is None and any('input' in error for error in original_errors)
         rebuilt = ValidationError.from_exception_data(
             exc.title, cast('list[InitErrorDetails]', line_errors), hide_input=hide_input
         )
