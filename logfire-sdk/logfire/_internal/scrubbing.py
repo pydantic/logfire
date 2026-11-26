@@ -510,9 +510,9 @@ class SpanScrubber:
                 scrubbed = self.scrub(cell_path, original_values, in_safe_key, key_only)
                 if not in_safe_key and (match := self._pattern.search(original_column)):
                     scrubbed = self._scrub_matches(cell_path, scrubbed, match)
-                    if isinstance(scrubbed, str):
+                    if not isinstance(scrubbed, list):
                         scrubbed = [scrubbed]
-                cells.setdefault(column_labels[original_column], []).extend(scrubbed)
+                cells.setdefault(column_labels[original_column], []).extend(cast('list[Any]', scrubbed))
             if not in_safe_key and (match := self._pattern.search(original_row)):
                 data.setdefault(row_labels[original_row], []).append(
                     self._scrub_matches(path + ('data', original_row, row_offset), cells, match)
@@ -520,6 +520,43 @@ class SpanScrubber:
             else:
                 data.setdefault(row_labels[original_row], []).append(cells)
         return {'data': data, 'rows': rows, 'columns': columns}
+
+    @staticmethod
+    def _is_dataframe_value(value: Mapping[str, Any]) -> bool:
+        if set(value) != {'data', 'rows', 'columns'}:
+            return False
+        data, rows, columns = value['data'], value['rows'], value['columns']
+        if not isinstance(data, Mapping) or not isinstance(rows, list) or not isinstance(columns, list):
+            return False
+        data = cast('Mapping[str, Any]', data)
+        rows = cast('list[Any]', rows)
+        columns = cast('list[Any]', columns)
+        if not all(isinstance(label, str) for label in rows + columns):
+            return False
+        rows = cast('list[str]', rows)
+        columns = cast('list[str]', columns)
+        row_counts: dict[str, int] = {}
+        column_counts: dict[str, int] = {}
+        for label in rows:
+            row_counts[label] = row_counts.get(label, 0) + 1
+        for label in columns:
+            column_counts[label] = column_counts.get(label, 0) + 1
+        if set(data) != set(row_counts):
+            return False
+        for label, count in row_counts.items():
+            entries = data[label]
+            if not isinstance(entries, list) or len(cast('list[Any]', entries)) != count:
+                return False
+            for cells in cast('list[Any]', entries):
+                if not isinstance(cells, Mapping) or set(cast('Mapping[str, Any]', cells)) != set(column_counts):
+                    return False
+                cells = cast('Mapping[str, Any]', cells)
+                if any(
+                    not isinstance(cells[column], list) or len(cells[column]) != length
+                    for column, length in column_counts.items()
+                ):
+                    return False
+        return True
 
     def scrub(self, path: JsonPath, value: Any, in_safe_key: bool = False, key_only: bool = False) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
@@ -574,12 +611,7 @@ class SpanScrubber:
             ]
         elif isinstance(value, Mapping):
             mapping_value = cast('Mapping[str, Any]', value)
-            if (
-                set(mapping_value) == {'data', 'rows', 'columns'}
-                and isinstance(mapping_value.get('data'), Mapping)
-                and isinstance(mapping_value.get('rows'), list)
-                and isinstance(mapping_value.get('columns'), list)
-            ):
+            if self._is_dataframe_value(mapping_value):
                 return self._scrub_dataframe(path, mapping_value, in_safe_key, key_only)
             result: dict[Any, Any] = {}
             legacy_attributes = self._is_legacy_llm_scope and path == ('attributes',)

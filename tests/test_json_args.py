@@ -1179,6 +1179,30 @@ def test_log_dataframe_internal_data_pattern_scrubs_frame(
     assert json_args_value_formatter(json.loads(attributes['frame']), schema=schema) == "[Scrubbed due to 'data']"
 
 
+@pytest.mark.parametrize('replacement', [0, False])
+def test_log_dataframe_column_callback_scalar(
+    exporter: TestExporter, config_kwargs: dict[str, Any], replacement: int | bool
+) -> None:
+    logfire.configure(
+        **config_kwargs,
+        scrubbing=logfire.ScrubbingOptions(
+            callback=lambda match: replacement if match.path[-1] == 'password' else None
+        ),
+    )
+    logfire.info('frame', frame=pandas.DataFrame({'password': ['hunter2']}, index=['alice']))
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['frame']['data']['alice'][0]['password'] == [replacement]
+    assert 'hunter2' not in json.dumps(attributes)
+
+
+def test_log_dataframe_like_mapping_does_not_skip_scrubbing(exporter: TestExporter) -> None:
+    logfire.info('frame', frame={'data': {}, 'rows': ['r'], 'columns': []}, password='hunter2')
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['password'] == "[Scrubbed due to 'password']"
+
+
 @pytest.mark.parametrize(
     'max_rows,max_columns,row_positions,column_positions',
     [
