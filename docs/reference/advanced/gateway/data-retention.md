@@ -215,16 +215,20 @@ The Gateway appends its own name to `User-Agent`.
 
 The OpenAI Responses API stores each response in the provider account unless the request says otherwise. A built-in provider account is shared across organizations, so a stored response there could be named by a request from another organization.
 
-On a built-in OpenAI or Azure OpenAI provider, the Gateway sets `store` to `false` on every Responses and Chat Completions request. A `store=True` in your request has no effect. The Gateway also refuses, with a `400` that names the field, a request that refers to an object the provider account stores:
+On a built-in OpenAI or Azure OpenAI provider, the Gateway sets `store` to `false` on every Responses and Chat Completions request. A `store=True` in your request has no effect. Nothing from an earlier request stays in the provider account, so the Gateway refuses a request that points at stored state. The `400` error names the field, for example: "`item_reference` inputs are not available with Logfire-managed OpenAI credentials."
 
 | Refused on a built-in provider | Why |
 | --- | --- |
 | `previous_response_id`, `conversation` | They name a stored response or conversation. |
-| An input item that refers to a stored item by `id`, such as an `item_reference` | The provider loads the stored item into the model's context. |
+| An `item_reference` input item | It names a stored item by its ID. |
+| A `reasoning` input item without `encrypted_content` | The provider would load the reasoning from storage. |
+| An `image_generation_call` input item | It refers to a generated image in the provider account. |
 | A container ID on a tool or an input item | The container belongs to the shared account. `container: {"type": "auto"}` still works. |
-| A Chat Completions message with `audio.id` | It names stored audio. |
+| An audio ID, such as `audio.id` on a Chat Completions message | It names stored audio. |
 
-To continue a conversation on a built-in provider, send the full message history in each request. To use stored responses, [add your own provider](byok-providers.md).
+To continue a conversation on a built-in provider, send the full conversation history in `input` on every request. For a reasoning model, add `reasoning.encrypted_content` to `include`, and send the reasoning items back with their `encrypted_content`. Custom providers are not affected. To use stored responses, [add your own provider](byok-providers.md).
+
+Some SDKs refer to stored items by default. These guides show the setting that turns this off: [Vercel AI SDK](integrations/vercel-ai-sdk.md), [Mastra](integrations/mastra.md), and the [OpenAI Agents SDK for TypeScript](integrations/openai-agents-sdk.md).
 
 ### Ask OpenAI not to store a response on a custom provider
 
@@ -299,6 +303,7 @@ The Gateway removes the header before it forwards the request. Realtime sessions
 - **A span still shows prompts after you turned off Include messages.** The span is older than the change, or the request used a key from another project. The setting is per project. Check the **Telemetry** card for the project that owns the key.
 - **`X-Cache-Status` is `HIT` on a request that must not be cached.** The key has **Response caching** set to **Enabled**. Send `Cache-Control: no-store` on that request, or set the key to **Disabled**.
 - **A request returns `403` with `zero_data_retention_required`.** No provider of that route is confirmed as ZDR. Use a route with a custom provider, or remove the requirement.
+- **A request returns `400` with `not available with Logfire-managed OpenAI credentials`.** The request points at state stored in the provider account, such as `previous_response_id` or an `item_reference`, and the route uses a built-in OpenAI provider. Send the full conversation history in `input` instead. See [Built-in OpenAI providers never store a response](#built-in-openai-providers-never-store-a-response). To keep stored state, [add your own provider](byok-providers.md).
 - **A request to a files or batches endpoint returns `404`.** The route uses a built-in provider. [Add your own provider](byok-providers.md) and send the request through it.
 
 ## Next steps
