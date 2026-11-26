@@ -493,11 +493,19 @@ class SpanScrubber:
         row_labels: dict[str, str] = {}
         for i, label in enumerate(original_rows):
             if label not in row_labels:
-                row_labels[label] = self.scrub(path + ('rows', i), label, in_safe_key, key_only)
+                scrubbed_label = self.scrub(path + ('rows', i), label, in_safe_key, key_only)
+                if not isinstance(scrubbed_label, str):
+                    self.scrub_count += 1
+                    return '[Scrubbed due to invalid DataFrame label]'
+                row_labels[label] = scrubbed_label
         column_labels: dict[str, str] = {}
         for i, label in enumerate(original_columns):
             if label not in column_labels:
-                column_labels[label] = self.scrub(path + ('columns', i), label, in_safe_key, key_only)
+                scrubbed_label = self.scrub(path + ('columns', i), label, in_safe_key, key_only)
+                if not isinstance(scrubbed_label, str):
+                    self.scrub_count += 1
+                    return '[Scrubbed due to invalid DataFrame label]'
+                column_labels[label] = scrubbed_label
         rows = [row_labels[label] for label in original_rows]
         columns = [column_labels[label] for label in original_columns]
         data: dict[str, list[Any]] = {}
@@ -506,15 +514,26 @@ class SpanScrubber:
             row_offset = row_offsets.get(original_row, 0)
             row_offsets[original_row] = row_offset + 1
             original_cells = original_data[original_row][row_offset]
-            cells: dict[str, list[Any]] = {}
+            scrubbed_columns: dict[str, list[Any]] = {}
             for original_column, original_values in original_cells.items():
                 cell_path = path + ('data', original_row, row_offset, original_column)
                 scrubbed = self.scrub(cell_path, original_values, in_safe_key, key_only)
                 if not in_safe_key and (match := self._pattern.search(original_column)):
                     scrubbed = self._scrub_matches(cell_path, scrubbed, match)
-                    if not isinstance(scrubbed, list):
-                        scrubbed = [scrubbed]
-                cells.setdefault(column_labels[original_column], []).extend(cast('list[Any]', scrubbed))
+                if not isinstance(scrubbed, list):
+                    scrubbed = [scrubbed] * len(original_values)
+                if len(cast('list[Any]', scrubbed)) != len(original_values):
+                    self.scrub_count += 1
+                    return '[Scrubbed due to invalid DataFrame cells]'
+                scrubbed_columns[original_column] = scrubbed
+            cells: dict[str, list[Any]] = {}
+            column_offsets: dict[str, int] = {}
+            for original_column in original_columns:
+                column_offset = column_offsets.get(original_column, 0)
+                column_offsets[original_column] = column_offset + 1
+                cells.setdefault(column_labels[original_column], []).append(
+                    scrubbed_columns[original_column][column_offset]
+                )
             if not in_safe_key and (match := self._pattern.search(original_row)):
                 data.setdefault(row_labels[original_row], []).append(
                     self._scrub_matches(path + ('data', original_row, row_offset), cells, match)

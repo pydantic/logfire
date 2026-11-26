@@ -1159,6 +1159,44 @@ def test_log_dataframe_masked_labels_keep_lookup_keys(exporter: TestExporter, co
     assert '@example.com' not in json.dumps(attributes)
 
 
+def test_log_dataframe_masked_duplicate_columns_keep_order(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    logfire.configure(
+        **config_kwargs,
+        scrubbing=logfire.ScrubbingOptions(
+            transform_string=lambda value: '[label]' if value.value in {'a', 'b'} else value.value
+        ),
+    )
+    frame = pandas.DataFrame([[1, 2, 3]], index=['row'], columns=['a', 'b', 'a'])
+    logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    recorded = attributes['frame']
+    assert recorded['columns'] == ['[label]', '[label]', '[label]']
+    assert recorded['data']['row'][0]['[label]'] == [1, 2, 3]
+    assert _frame_matrix(recorded) == [[1, 2, 3]]
+
+
+@pytest.mark.parametrize('label_kind', ['row', 'column'])
+def test_log_dataframe_non_string_callback_label_scrubs_frame(
+    exporter: TestExporter, config_kwargs: dict[str, Any], label_kind: str
+) -> None:
+    label = 'session-id' if label_kind == 'row' else 'password-column'
+    logfire.configure(
+        **config_kwargs,
+        scrubbing=logfire.ScrubbingOptions(
+            callback=lambda match: ['replacement'] if match.pattern_match.string == label else None
+        ),
+    )
+    frame = pandas.DataFrame([['hunter2']], index=['session-id'], columns=['password-column'])
+    logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert json.loads(attributes['frame']) == '[Scrubbed due to invalid DataFrame label]'
+    assert 'hunter2' not in json.dumps(attributes)
+
+
 def test_log_dataframe_label_cannot_exempt_cell_from_scrubbing(exporter: TestExporter) -> None:
     logfire.info('frame', frame=pandas.DataFrame({'value': ['password=hunter2']}, index=['http.url']))
 
