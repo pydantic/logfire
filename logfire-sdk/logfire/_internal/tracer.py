@@ -48,6 +48,7 @@ from .utils import (
 if TYPE_CHECKING:
     from ..types import ExceptionCallback
     from .config import LogfireConfig
+    from .scrubbing import BaseScrubber
 
 try:
     from pydantic import ValidationError
@@ -158,6 +159,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     record_metrics: bool
     metrics: dict[str, SpanMetric] = field(default_factory=lambda: defaultdict(SpanMetric))
     exception_callback: ExceptionCallback | None = None
+    scrubber: BaseScrubber | None = None
 
     def __post_init__(self):
         # A suppressed span shares the current span's context, so it mustn't replace that span's entry.
@@ -234,6 +236,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
             timestamp=timestamp,
             escaped=escaped,
             callback=self.exception_callback,
+            scrubber=self.scrubber,
         )
 
     def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None:
@@ -310,6 +313,7 @@ class _ProxyTracer(Tracer):
         ns_timestamp_generator = config.advanced.ns_timestamp_generator
         record_metrics: bool = not isinstance(config.metrics, (bool, type(None))) and config.metrics.collect_in_spans
         exception_callback = config.advanced.exception_callback
+        scrubber = config.scrubber
 
         if is_instrumentation_suppressed():
             # Suppressed spans are never exported, so don't give them span IDs of their own.
@@ -320,6 +324,7 @@ class _ProxyTracer(Tracer):
                 ns_timestamp_generator=ns_timestamp_generator,
                 record_metrics=record_metrics,
                 exception_callback=exception_callback,
+                scrubber=scrubber,
             )
 
         start_time = start_time or ns_timestamp_generator()
@@ -350,6 +355,7 @@ class _ProxyTracer(Tracer):
             ns_timestamp_generator=ns_timestamp_generator,
             record_metrics=record_metrics,
             exception_callback=exception_callback,
+            scrubber=scrubber,
         )
 
     # This means that `with start_as_current_span(...):`
@@ -461,9 +467,12 @@ def record_exception(
     timestamp: int | None = None,
     escaped: bool = False,
     callback: ExceptionCallback | None = None,
+    scrubber: BaseScrubber | None = None,
 ) -> None:
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
     from ..types import ExceptionCallbackHelper
+
+    del scrubber  # Passed through for the recording-time scrubbing step.
 
     if not span.is_recording():
         return
