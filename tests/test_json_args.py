@@ -1284,8 +1284,48 @@ def test_log_dataframe_column_callback_scalar(
     assert 'hunter2' not in json.dumps(attributes)
 
 
-def test_log_dataframe_like_mapping_does_not_skip_scrubbing(exporter: TestExporter) -> None:
-    logfire.info('frame', frame={'data': {}, 'rows': ['r'], 'columns': []}, password='hunter2')
+def test_log_dataframe_column_callback_wrong_length_scrubs_frame(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    logfire.configure(
+        **config_kwargs,
+        scrubbing=logfire.ScrubbingOptions(
+            callback=lambda match: [0, 1] if match.pattern_match.string == 'password' else None
+        ),
+    )
+    logfire.info('frame', frame=pandas.DataFrame({'password': ['hunter2']}, index=['alice']))
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert json.loads(attributes['frame']) == '[Scrubbed due to invalid DataFrame cells]'
+    assert 'hunter2' not in json.dumps(attributes)
+
+
+def test_log_dataframe_in_safe_key_with_transform_string(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    logfire.configure(
+        **config_kwargs,
+        scrubbing=logfire.ScrubbingOptions(transform_string=lambda value: value.value),
+    )
+    frame = pandas.DataFrame({'password': ['hunter2']}, index=['alice'])
+    attributes_to_log: dict[str, Any] = {'http.url': frame}
+    logfire.info('frame', **attributes_to_log)
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['http.url']['data']['alice'][0]['password'] == ['hunter2']
+
+
+MALFORMED_DATAFRAME_VALUES: list[dict[str, Any]] = [
+    {'data': {}, 'rows': ['r'], 'columns': []},
+    {'data': [], 'rows': ['r'], 'columns': []},
+    {'data': {'r': [{}]}, 'rows': [1], 'columns': []},
+    {'data': {'r': []}, 'rows': ['r'], 'columns': []},
+    {'data': {'r': [{}]}, 'rows': ['r'], 'columns': ['c']},
+    {'data': {'r': [{'c': []}]}, 'rows': ['r'], 'columns': ['c']},
+]
+
+
+@pytest.mark.parametrize('frame', MALFORMED_DATAFRAME_VALUES)
+def test_log_dataframe_like_mapping_does_not_skip_scrubbing(exporter: TestExporter, frame: dict[str, Any]) -> None:
+    logfire.info('frame', frame=frame, password='hunter2')
 
     attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
     assert attributes['password'] == "[Scrubbed due to 'password']"

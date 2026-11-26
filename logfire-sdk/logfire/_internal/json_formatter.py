@@ -382,7 +382,7 @@ class JsonArgsValueFormatter:
                     )
                     for entries in data_value.values()
                 )
-                and all(isinstance(data_value.get(row), list) for row in rows_value)
+                and all(isinstance(data_value.get(row), list) and bool(data_value[row]) for row in rows_value)
             ):
                 self._format_items('{', ': ', '}', True, _indent_current, value, None)
                 return
@@ -395,10 +395,7 @@ class JsonArgsValueFormatter:
             for index in indices:
                 row_offset = row_offsets.get(index, 0)
                 row_offsets[index] = row_offset + 1
-                entries = data.get(index)
-                if not entries:
-                    rows.append([index] * len(columns))
-                    continue
+                entries = data[index]
                 row_data = entries[min(row_offset, len(entries) - 1)]
                 if not isinstance(row_data, Mapping):
                     rows.append([row_data] * len(columns))
