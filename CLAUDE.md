@@ -1,4 +1,4 @@
-**Pydantic Logfire** is an observability platform built on OpenTelemetry. This repository contains the Python SDK for Logfire and documentation. The server application for recording and displaying data is closed source.
+**Pydantic Logfire** is an observability platform built on OpenTelemetry. This repository contains the Python SDK for Logfire and documentation. The server application for recording and displaying data is closed source. For Logfire developers, the backend typically lives in a sibling directory named `platform` (`../platform`).
 
 Key aspects:
 - Opinionated wrapper around OpenTelemetry (traces, metrics, logs)
