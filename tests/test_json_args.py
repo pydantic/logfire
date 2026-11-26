@@ -1180,6 +1180,36 @@ def test_log_dataframe_odd_display_limits_formatting(
     ]
 
 
+def test_log_dict_with_non_string_keys(exporter: TestExporter) -> None:
+    @dataclass
+    class Wrapper:
+        d: dict[Any, Any]
+
+    d = {True: date(2023, 1, 1), False: date(2023, 1, 2), None: date(2023, 1, 3), 2: date(2023, 1, 4), 1.5: 'x', 'a': 1}
+    logfire.info('test message', d=d, wrapped=Wrapper(d), inf_key={float('inf'): 1})
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    # The keys must be the same whether `json.dumps` converts them natively or the value is nested in another object,
+    # and the schema must use the same keys so that the dates keep their type.
+    expected = {
+        'true': '2023-01-01',
+        'false': '2023-01-02',
+        'null': '2023-01-03',
+        '2': '2023-01-04',
+        '1.5': 'x',
+        'a': 1,
+    }
+    assert json.loads(attributes['d']) == expected  # type: ignore
+    assert json.loads(attributes['wrapped']) == {'d': expected}  # type: ignore
+    assert attributes['inf_key'] == '{"inf":1}'
+    date_schema = {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'}
+    assert json.loads(attributes['logfire.json_schema'])['properties']['d'] == {  # type: ignore
+        'type': 'object',
+        'properties': {'true': date_schema, 'false': date_schema, 'null': date_schema, '2': date_schema},
+    }
+
+
 def test_log_non_finite_scalar_float_args(exporter: TestExporter) -> None:
     logfire.info(
         'test message',
