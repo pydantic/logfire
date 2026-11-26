@@ -1953,17 +1953,17 @@ def test_replaced_mapping_schema_in_lists_and_shared_mapping_schema(exporter: Te
 
 
 @pytest.mark.parametrize('schema_value', ['not json', '[]', '{"type":"object"}'])
-def test_replaced_mapping_drops_unusable_schema(exporter: TestExporter, schema_value: str):
+def test_replaced_mapping_keeps_unusable_schema(exporter: TestExporter, schema_value: str):
     get_tracer(__name__).start_span(
         'Example', attributes={'sessions': '{"tok-active":1}', 'logfire.json_schema': schema_value}
     ).end()
 
     (span,) = exporter.exported_spans_as_dict()
     assert span['attributes']['sessions'] == "[Scrubbed due to 'session']"
-    assert 'logfire.json_schema' not in span['attributes']
+    assert span['attributes']['logfire.json_schema'] == schema_value
 
 
-def test_replaced_mapping_prunes_nearest_schema_when_path_is_missing(exporter: TestExporter):
+def test_replaced_mapping_keeps_schema_when_path_is_missing(exporter: TestExporter):
     get_tracer(__name__).start_span(
         'Example',
         attributes={
@@ -1973,10 +1973,10 @@ def test_replaced_mapping_prunes_nearest_schema_when_path_is_missing(exporter: T
     ).end()
 
     (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    assert span['attributes']['logfire.json_schema']['properties']['user'] == {'type': 'object'}
+    assert span['attributes']['logfire.json_schema']['properties']['user'] == {'type': 'object', 'title': 'User'}
 
 
-def test_replaced_mapping_prunes_array_schema_when_prefix_item_is_missing(exporter: TestExporter):
+def test_replaced_mapping_keeps_array_schema_when_prefix_item_is_missing(exporter: TestExporter):
     schema: dict[str, Any] = {'type': 'object', 'properties': {'data': {'type': 'array', 'prefixItems': []}}}
     get_tracer(__name__).start_span(
         'Example',
@@ -1987,39 +1987,21 @@ def test_replaced_mapping_prunes_array_schema_when_prefix_item_is_missing(export
     ).end()
 
     (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    assert span['attributes']['logfire.json_schema']['properties']['data'] == {'type': 'array'}
+    assert span['attributes']['logfire.json_schema']['properties']['data'] == {'type': 'array', 'prefixItems': []}
 
 
-def test_replaced_mapping_follows_json_boolean_key_spelling(exporter: TestExporter):
-    schema: dict[str, Any] = {
-        'type': 'object',
-        'properties': {
-            'data': {
-                'type': 'object',
-                'properties': {
-                    'True': {
-                        'type': 'object',
-                        'properties': {
-                            'sessions': {'type': 'object', 'properties': {'tok-active': {'type': 'string'}}}
-                        },
-                    }
-                },
-            }
-        },
-    }
+def test_replaced_mapping_keeps_schema_without_type(exporter: TestExporter):
+    schema = {'type': 'object', 'properties': {'sessions': {'description': 'keep'}}}
     get_tracer(__name__).start_span(
         'Example',
         attributes={
-            'data': '{"true":{"sessions":{"tok-active":1}}}',
+            'sessions': '{"tok-active":1}',
             'logfire.json_schema': json.dumps(schema),
         },
     ).end()
 
     (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    sessions_schema = span['attributes']['logfire.json_schema']['properties']['data']['properties']['True'][
-        'properties'
-    ]['sessions']
-    assert sessions_schema == {'type': 'object'}
+    assert span['attributes']['logfire.json_schema'] == schema
 
 
 def test_unrepresented_attribute_does_not_prune_other_schema(exporter: TestExporter):

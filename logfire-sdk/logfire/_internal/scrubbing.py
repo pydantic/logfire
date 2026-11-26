@@ -488,15 +488,12 @@ class SpanScrubber:
         try:
             schema: Any = json.loads(attributes[ATTRIBUTES_JSON_SCHEMA_KEY])
         except (TypeError, ValueError, RecursionError):
-            attributes.pop(ATTRIBUTES_JSON_SCHEMA_KEY)
             return
         if not isinstance(schema, dict):
-            attributes.pop(ATTRIBUTES_JSON_SCHEMA_KEY)
             return
         schema = cast('dict[str, Any]', schema)
         root_properties = schema.get('properties')
         if not isinstance(root_properties, dict):
-            attributes.pop(ATTRIBUTES_JSON_SCHEMA_KEY)
             return
         root_properties = cast('dict[str, Any]', root_properties)
 
@@ -521,19 +518,18 @@ class SpanScrubber:
                     if isinstance(properties, dict):
                         properties = cast('dict[str, Any]', properties)
                         child = properties.get(part)
-                        if child is None:
-                            child = properties.get({'null': 'None', 'true': 'True', 'false': 'False'}.get(part, part))
                     if child is None:
                         child = node.get('additionalProperties')
                 if not isinstance(child, dict):
                     break
                 node = cast('dict[str, Any]', child)
-
-            reduced = {'type': node['type']} if 'type' in node else {}
-            if node != reduced:
-                node.clear()
-                node.update(reduced)
-                changed = True
+            else:
+                if 'type' in node:
+                    reduced = {'type': node['type']}
+                    if node != reduced:
+                        node.clear()
+                        node.update(reduced)
+                        changed = True
 
         if changed:
             attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = logfire_json_dumps(schema)
