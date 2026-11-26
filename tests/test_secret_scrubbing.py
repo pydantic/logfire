@@ -2560,7 +2560,10 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
         if note['path'][:2] == ['attributes', 'errors'] and note['path'][-1] == 'password'
     ] == [
         {'path': ['attributes', 'errors', 1, 'body', 'password'], 'matched_substring': 'password'},
-        {'path': ['attributes', 'errors', 2, 'body', 'credentials', 'password'], 'matched_substring': 'password'},
+        {
+            'path': ['attributes', 'errors', 2, 'body', "[Scrubbed due to 'credential']", 'password'],
+            'matched_substring': 'password',
+        },
     ]
 
 
@@ -2660,6 +2663,15 @@ def test_validation_error_input_callback_checks_outer_loc_parts(exporter: TestEx
         (('attributes', 'errors', 0, 'credentials', 'password'), 'password'),
         (('attributes', 'errors', 0, 'credentials'), 'credential'),
     ]
+
+
+def test_validation_error_notes_do_not_expose_secret_location(exporter: TestExporter):
+    secret_location = 'pylf_v1_actual_secret_token'
+    logfire.info('bad', errors=[{'type': 'value_error', 'loc': ['body', secret_location], 'msg': 'bad', 'input': 'x'}])
+
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert secret_location not in json.dumps(attributes)
+    assert attributes['errors'][0]['input'] == "[Scrubbed due to 'pylf_v1_']"
 
 
 @pytest.mark.parametrize(
