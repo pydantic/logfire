@@ -207,24 +207,13 @@ The `"db.statement"` attribute which is recorded by OpenTelemetry database instr
 Use parameterized queries (e.g. prepared statements) so that sensitive data is not interpolated directly into the query string, even if
 you use an interpolation method that's safe from SQL injection.
 
-### Hide rejected values in validation errors
+### Scrub rejected values in validation errors
 
-When Pydantic validation fails, the exception message lists each rejected value, for example `input_value='hunter2'`. Logfire doesn't scrub exception messages. When Logfire records the exception on a span, the rejected value appears in the exception message, the stack trace, and the span's status message, even for a field named `password`.
+Pydantic validation errors store the rejected value under `input` and the field's path under `loc`. Logfire checks each field name in `loc` against your scrubbing patterns and redacts a matching field's `input`. This applies to recorded validation exceptions, FastAPI and Pydantic integration errors, and error data you log yourself. Field names in `loc` stay visible so you can identify which field failed. A scrubbing callback receives the field path when it decides whether to redact the value.
 
-To leave rejected values out of the message, set `hide_input_in_errors=True` in the model's config:
+When Logfire records a Pydantic `ValidationError`, it also uses the redacted value in the exception message, stack trace, and span status. For example, a rejected password appears as `input_value="[Scrubbed due to 'password']"` instead of the original value. The exception in your application is unchanged.
 
-```python
-from pydantic import BaseModel, ConfigDict
-
-
-class Login(BaseModel):
-    model_config = ConfigDict(hide_input_in_errors=True)
-
-    username: str
-    password: str
-```
-
-Logfire still records each error, including the rejected value, in the `exception.logfire.data` attribute, and redacts the value there when its field name matches a scrubbing pattern.
+Custom validation messages can contain the rejected value in other text. If a validator writes the value into its error message or derives text from it, that text may still reveal it. Avoid including sensitive values in custom error messages. You can also use Pydantic's `hide_input_in_errors=True` model setting to omit rejected values from its rendered validation errors entirely.
 
 ### LLM and AI messages
 
