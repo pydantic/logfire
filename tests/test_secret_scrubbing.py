@@ -37,7 +37,7 @@ from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
 from logfire._internal.utils import ReadableSpanDict
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
-from logfire.types import StringValue
+from logfire.types import ExceptionCallbackHelper, StringValue
 
 
 def test_span_processor_group_flushes_after_failure():
@@ -2879,6 +2879,41 @@ def test_chained_validation_error_text_scrubbed(exporter: TestExporter):
     assert "[Scrubbed due to 'password']" in stacktrace
     assert caught.value.__cause__ is not None
     assert password in str(caught.value.__cause__)
+
+
+def test_otel_context_manager_status_scrubbed(exporter: TestExporter):
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    password = 'hunter2'
+    with pytest.raises(ValidationError):
+        with get_tracer('test').start_as_current_span('login'):
+            Login(password=password)
+
+    raw_span = next(span for span in reversed(exporter.exported_spans) if span.name == 'login')
+    assert password not in cast(str, raw_span.status.description)
+    assert "[Scrubbed due to 'password']" in cast(str, raw_span.status.description)
+
+
+def test_status_scrubbed_when_exception_event_disabled(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    def exception_callback(helper: ExceptionCallbackHelper) -> None:
+        helper.no_record_exception()
+
+    config_kwargs['advanced'].exception_callback = exception_callback
+    logfire.configure(**config_kwargs)
+
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    password = 'hunter2'
+    with pytest.raises(ValidationError):
+        with logfire.span('login'):
+            Login(password=password)
+
+    raw_span = next(span for span in reversed(exporter.exported_spans) if span.name == 'login')
+    assert raw_span.events == ()
+    assert password not in cast(str, raw_span.status.description)
+    assert "[Scrubbed due to 'password']" in cast(str, raw_span.status.description)
 
 
 def test_validation_error_input_in_logged_data(exporter: TestExporter):

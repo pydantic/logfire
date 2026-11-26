@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import json
+import sys
 import traceback
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
@@ -219,6 +220,21 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         status: Status | StatusCode,
         description: str | None = None,
     ) -> None:
+        if (
+            self.scrubber is not None
+            and ValidationError is not None
+            and isinstance(status, Status)
+            and status.status_code is StatusCode.ERROR
+            and (exception := sys.exception()) is not None
+            and status.description == f'{type(exception).__name__}: {exception}'
+        ):
+            from .validation_errors import replace_validation_errors
+
+            recorded = replace_validation_errors(
+                exception, self.scrubber, ('attributes', ATTRIBUTES_VALIDATION_ERROR_KEY)
+            )
+            if recorded is not exception:
+                status = Status(StatusCode.ERROR, f'{type(recorded).__name__}: {recorded}')
         self.span.set_status(status, description)
 
     def record_exception(
@@ -494,7 +510,7 @@ def record_exception(
             callback(helper)
 
     recorded = exception
-    if helper._record_exception and scrubber is not None and ValidationError is not None:  # pyright: ignore[reportPrivateUsage]
+    if scrubber is not None and ValidationError is not None:
         from .validation_errors import replace_validation_errors
 
         recorded = replace_validation_errors(exception, scrubber, ('attributes', ATTRIBUTES_VALIDATION_ERROR_KEY))
