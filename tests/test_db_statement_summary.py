@@ -1,3 +1,4 @@
+import pytest
 from inline_snapshot import snapshot
 
 from logfire._internal.db_statement_summary import message_from_db_statement
@@ -87,6 +88,13 @@ def test_from_subquery():
     q = 'select * from (select * from table) as sub where aaaaa_bbbb_cccccc=1 offset 12345678901234567890'
     # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
     assert message_from_db_statement(attrs(q), None, 'SELECT') == 'SELECT * FROM (select * from table) AS sub WHERE …'
+
+
+@pytest.mark.timeout(2)
+def test_from_subqueries_without_as():
+    # Without `AS` before the aliases, finding the subquery alias used to be quadratic in the length of the query.
+    q = ' UNION ALL '.join(f'SELECT * FROM (SELECT * FROM t{i}) s{i}' for i in range(8_000))
+    assert message_from_db_statement(attrs(q), None, 'SELECT') == snapshot('SELECT * FROM (SELECT * FROM t0')
 
 
 def test_from_quoted():
