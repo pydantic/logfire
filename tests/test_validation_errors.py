@@ -147,3 +147,21 @@ def test_cycle_does_not_mutate_original() -> None:
     outer.__cause__ = outer
     assert replace_validation_errors(outer, Scrubber(None), PATH) is outer
     assert outer.__cause__ is outer
+
+
+def test_repeated_error_in_group_is_scrubbed_everywhere() -> None:
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    password = 'hunter2'
+    try:
+        try:
+            Login(password=password)
+        except ValidationError as error:
+            raise ExceptionGroup('errors', [error])
+    except ExceptionGroup as original:
+        rebuilt = replace_validation_errors(original, Scrubber(None), PATH)
+        assert password not in ''.join(traceback.format_exception(rebuilt))
+        assert password in ''.join(traceback.format_exception(original))
+    else:
+        raise AssertionError('Expected exception group')

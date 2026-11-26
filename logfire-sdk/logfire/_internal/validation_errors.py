@@ -58,12 +58,16 @@ def scrubbed_validation_error(exc: ValidationError, scrubber: BaseScrubber, path
 
 def replace_validation_errors(exc: BaseException, scrubber: BaseScrubber, path: JsonPath) -> BaseException:
     """Return a scrubbed copy of an exception chain without changing application exceptions."""
-    seen: set[int] = set()
+    active: set[int] = set()
+    memo: dict[int, BaseException] = {}
 
     def replace(current: BaseException) -> BaseException:
-        if id(current) in seen:
+        key = id(current)
+        if key in memo:
+            return memo[key]
+        if key in active:
             return current
-        seen.add(id(current))
+        active.add(key)
 
         cause = replace(current.__cause__) if current.__cause__ is not None else None
         context = replace(current.__context__) if current.__context__ is not None else None
@@ -83,6 +87,8 @@ def replace_validation_errors(exc: BaseException, scrubber: BaseScrubber, path: 
         if rebuilt is not None:
             changed = True
         if not changed:
+            active.remove(key)
+            memo[key] = base_current
             return base_current
 
         try:
@@ -101,8 +107,11 @@ def replace_validation_errors(exc: BaseException, scrubber: BaseScrubber, path: 
             clone.__suppress_context__ = base_current.__suppress_context__
             if hasattr(base_current, '__notes__'):
                 clone.__notes__ = base_current.__notes__.copy()
-            return clone
+            result = clone
         except Exception:
-            return base_current
+            result = base_current
+        active.remove(key)
+        memo[key] = result
+        return result
 
     return replace(exc)
