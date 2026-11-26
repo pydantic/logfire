@@ -347,12 +347,75 @@ class JsonArgsValueFormatter:
         # write summary
         self._stream.write(f'\n[{real_row_count} rows x {real_column_count} columns]')
 
-    def _format_data_frame(self, _indent_current: int, value: list[Any], schema: JSONSchema | None) -> None:
+    def _format_data_frame(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
         schema = schema or {}
+        if not isinstance(value, (Mapping, list)):
+            self._write('', '', False, 0, value, None)
+            return
+        if isinstance(value, Mapping):
+            value = cast('Mapping[str, Any]', value)
+            data_value = value.get('data')
+            rows_value = value.get('rows')
+            columns_value = value.get('columns')
+            if (
+                set(value) != {'data', 'rows', 'columns'}
+                or not isinstance(data_value, Mapping)
+                or not isinstance(rows_value, list)
+                or not isinstance(columns_value, list)
+            ):
+                self._format_items('{', ': ', '}', True, _indent_current, value, None)
+                return
+            data_value = cast('Mapping[str, Any]', data_value)
+            rows_value = cast('list[Any]', rows_value)
+            columns_value = cast('list[Any]', columns_value)
+            if not (
+                all(isinstance(label, str) for label in rows_value + columns_value)
+                and all(
+                    isinstance(entries, list)
+                    and all(
+                        isinstance(entry, str)
+                        or (
+                            isinstance(entry, Mapping)
+                            and all(isinstance(cells, list) for cells in cast('Mapping[str, Any]', entry).values())
+                        )
+                        for entry in cast('list[Any]', entries)
+                    )
+                    for entries in data_value.values()
+                )
+                and all(isinstance(data_value.get(row), list) and bool(data_value[row]) for row in rows_value)
+            ):
+                self._format_items('{', ': ', '}', True, _indent_current, value, None)
+                return
+            value = cast('dict[str, Any]', value)
+            columns = cast('list[str]', value['columns'])
+            indices = cast('list[str]', value['rows'])
+            data = cast('dict[str, list[Any]]', value['data'])
+            row_offsets: dict[str, int] = {}
+            rows: list[list[Any]] = []
+            for index in indices:
+                row_offset = row_offsets.get(index, 0)
+                row_offsets[index] = row_offset + 1
+                entries = data[index]
+                row_data = entries[min(row_offset, len(entries) - 1)]
+                if not isinstance(row_data, Mapping):
+                    rows.append([row_data] * len(columns))
+                    continue
+                row_data = cast('dict[str, list[Any]]', row_data)
+                column_offsets: dict[str, int] = {}
+                row: list[Any] = []
+                for column in columns:
+                    column_offset = column_offsets.get(column, 0)
+                    column_offsets[column] = column_offset + 1
+                    values = row_data.get(column)
+                    row.append(values[min(column_offset, len(values) - 1)] if values else column)
+                rows.append(row)
+        else:
+            self._write('', '', False, 0, value, None)
+            return
         self._format_table(
-            columns=schema.get('x-columns', []),
-            indices=schema.get('x-indices', []),
-            rows=value,
+            columns=columns,
+            indices=indices,
+            rows=rows,
             real_column_count=schema.get('x-column-count', 0),
             real_row_count=schema.get('x-row-count', 0),
         )

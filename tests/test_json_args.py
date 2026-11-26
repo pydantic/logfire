@@ -742,10 +742,8 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             '   col1  col2\n0     1     3\n1     2     4',
             '[[1,3],[2,4]]',
             {
-                'type': 'array',
+                'type': 'object',
                 'x-python-datatype': 'DataFrame',
-                'x-columns': ['col1', 'col2'],
-                'x-indices': [0, 1],
                 'x-row-count': 2,
                 'x-column-count': 2,
             },
@@ -780,31 +778,8 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             '[21,42,63,84,105,168,189,210,231,252],'
             '[22,44,66,88,110,176,198,220,242,264]]',
             {
-                'type': 'array',
+                'type': 'object',
                 'x-python-datatype': 'DataFrame',
-                'x-columns': ['col1', 'col2', 'col3', 'col4', 'col5', 'col8', 'col9', 'col10', 'col11', 'col12'],
-                'x-indices': [
-                    'i1',
-                    'i2',
-                    'i3',
-                    'i4',
-                    'i5',
-                    'i6',
-                    'i7',
-                    'i8',
-                    'i9',
-                    'i10',
-                    'i13',
-                    'i14',
-                    'i15',
-                    'i16',
-                    'i17',
-                    'i18',
-                    'i19',
-                    'i20',
-                    'i21',
-                    'i22',
-                ],
                 'x-row-count': 22,
                 'x-column-count': 12,
             },
@@ -964,7 +939,11 @@ def test_log_non_scalar_args(
     assert s.attributes, "Span doesn't have attributes"
     assert isinstance(s.attributes['logfire.msg'], str)
     assert s.attributes['logfire.msg'].startswith(f'test message var={value_repr}')
-    assert s.attributes['var'] == value_json
+    if isinstance(value, pandas.DataFrame):
+        assert isinstance(s.attributes['var'], str)
+        assert _frame_matrix(json.loads(s.attributes['var'])) == json.loads(value_json)
+    else:
+        assert s.attributes['var'] == value_json
     assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema  # type: ignore
 
 
@@ -1031,6 +1010,24 @@ def test_attrs_falsey_callable_repr(exporter: TestExporter) -> None:
     }
 
 
+def _frame_matrix(value: dict[str, Any]) -> list[list[Any]]:
+    """Read the sampled cells by their queryable row and column paths."""
+    row_occurrences: dict[str, int] = {}
+    result: list[list[Any]] = []
+    for row_label in value['rows']:
+        row_index = row_occurrences.get(row_label, 0)
+        row_occurrences[row_label] = row_index + 1
+        cells = value['data'][row_label][row_index]
+        column_occurrences: dict[str, int] = {}
+        row: list[Any] = []
+        for column_label in value['columns']:
+            column_index = column_occurrences.get(column_label, 0)
+            column_occurrences[column_label] = column_index + 1
+            row.append(cells[column_label][column_index])
+        result.append(row)
+    return result
+
+
 @pytest.mark.parametrize('max_rows,row_positions', [(None, [0, 1, 2]), (2, [0, 2])])
 @pytest.mark.parametrize('max_columns,column_positions', [(None, [0, 1, 2]), (2, [0, 2])])
 def test_log_dataframe_preserves_integer_precision(
@@ -1048,7 +1045,7 @@ def test_log_dataframe_preserves_integer_precision(
     attributes = exporter.exported_spans[0].attributes
     assert attributes is not None
     assert isinstance(attributes['frame'], str)
-    assert json.loads(attributes['frame']) == [
+    assert _frame_matrix(json.loads(attributes['frame'])) == [
         [rows[row][column] for column in column_positions] for row in row_positions
     ]
 
@@ -1080,15 +1077,62 @@ def test_log_dataframe_labels_match_data(
     schema = attributes['logfire.json_schema']
     assert isinstance(value, str)
     assert isinstance(schema, str)
-    assert json.loads(value) == [[row * column_count + column for column in column_positions] for row in row_positions]
+    recorded = json.loads(value)
+    assert recorded['rows'] == [f'row{row}' for row in row_positions]
+    assert recorded['columns'] == [f'col{column}' for column in column_positions]
+    assert _frame_matrix(recorded) == [
+        [row * column_count + column for column in column_positions] for row in row_positions
+    ]
     assert json.loads(schema)['properties']['frame'] == {
-        'type': 'array',
+        'type': 'object',
         'x-python-datatype': 'DataFrame',
-        'x-columns': [f'col{column}' for column in column_positions],
-        'x-indices': [f'row{row}' for row in row_positions],
         'x-column-count': column_count,
         'x-row-count': row_count,
     }
+
+
+def test_log_dataframe_duplicate_labels(exporter: TestExporter) -> None:
+    frame = pandas.DataFrame(
+        [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+        index=['alice', 'bob', 'alice'],
+        columns=['score', 'other', 'score'],
+    )
+    with pandas.option_context('display.max_rows', 2, 'display.max_columns', 2):
+        logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    recorded = attributes['frame']
+    assert recorded['rows'] == ['alice', 'alice']
+    assert recorded['columns'] == ['score', 'score']
+    assert recorded['data']['alice'] == [
+        {'score': [1, 3]},
+        {'score': [7, 9]},
+    ]
+    assert _frame_matrix(recorded) == [[1, 3], [7, 9]]
+    assert attributes['logfire.json_schema']['properties']['frame'] == {
+        'type': 'object',
+        'x-python-datatype': 'DataFrame',
+        'x-column-count': 3,
+        'x-row-count': 3,
+    }
+
+
+def test_log_dataframe_password_column_is_scrubbed(exporter: TestExporter) -> None:
+    logfire.info('frame', frame=pandas.DataFrame({'password': ['hunter2'], 'score': [7]}, index=['alice']))
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['frame']['data']['alice'][0]['password'] == ["[Scrubbed due to 'password']"]
+    assert attributes['frame']['data']['alice'][0]['score'] == [7]
+    assert 'hunter2' not in json.dumps(attributes)
+
+
+def test_log_dataframe_scrubbed_value_has_no_labels_in_schema(exporter: TestExporter) -> None:
+    logfire.info('frame', sessions=pandas.DataFrame({'requests': [2]}, index=['tok-abc123']))
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['sessions'] == "[Scrubbed due to 'session']"
+    assert attributes['logfire.json_schema']['properties']['sessions']['type'] == 'object'
+    assert 'tok-abc123' not in json.dumps(attributes)
 
 
 @pytest.mark.parametrize(
@@ -1121,14 +1165,13 @@ def test_log_dataframe_with_unlimited_and_odd_display_limits(
     assert attributes is not None
     assert isinstance(attributes['frame'], str)
     assert isinstance(attributes['logfire.json_schema'], str)
-    assert json.loads(attributes['frame']) == [
-        [row * 5 + column for column in column_positions] for row in row_positions
-    ]
+    recorded = json.loads(attributes['frame'])
+    assert recorded['rows'] == [f'row{row}' for row in row_positions]
+    assert recorded['columns'] == [f'col{column}' for column in column_positions]
+    assert _frame_matrix(recorded) == [[row * 5 + column for column in column_positions] for row in row_positions]
     assert json.loads(attributes['logfire.json_schema'])['properties']['frame'] == {
-        'type': 'array',
+        'type': 'object',
         'x-python-datatype': 'DataFrame',
-        'x-columns': [f'col{column}' for column in column_positions],
-        'x-indices': [f'row{row}' for row in row_positions],
         'x-column-count': 5,
         'x-row-count': 5,
     }

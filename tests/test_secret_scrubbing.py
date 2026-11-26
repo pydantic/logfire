@@ -3,10 +3,13 @@ from __future__ import annotations
 import builtins
 import json
 import re
+from datetime import datetime
+from enum import Enum
 from io import StringIO
 from pathlib import Path
 from threading import Event, get_ident
 from typing import Any, cast
+from uuid import UUID
 
 import pydantic_core
 import pytest
@@ -19,7 +22,7 @@ from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.sdk.trace import ConcurrentMultiSpanProcessor, Event as SpanEvent, ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
-from opentelemetry.trace import Status, StatusCode
+from opentelemetry.trace import Status, StatusCode, get_tracer
 from opentelemetry.trace.propagation import get_current_span
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from pydantic_core import PydanticCustomError
@@ -1857,6 +1860,165 @@ def test_callback_receives_scrubbed_container_before_returning_subset():
     assert notes == [{'path': ('attributes', 'password_hint', 'password'), 'matched_substring': 'password'}]
 
 
+def test_replaced_mapping_schema_does_not_keep_mapping_keys(exporter: TestExporter):
+    mixed = {
+        'tok-active': datetime(2030, 1, 1),
+        'tok-revoked': UUID('12345678-1234-5678-1234-567812345678'),
+    }
+    logfire.info('Example', sessions=mixed, user={'sessions': mixed, 'created': datetime(2030, 1, 1)}, public=mixed)
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attributes = span['attributes']
+    assert attributes['sessions'] == "[Scrubbed due to 'session']"
+    assert attributes['user']['sessions'] == "[Scrubbed due to 'session']"
+    properties = attributes['logfire.json_schema']['properties']
+    assert properties['sessions'] == {'type': 'object'}
+    assert properties['user']['properties']['sessions'] == {'type': 'object'}
+    assert properties['user']['properties']['created'] == {
+        'type': 'string',
+        'format': 'date-time',
+        'x-python-datatype': 'datetime',
+    }
+    assert set(properties['public']['properties']) == set(mixed)
+    assert 'tok-active' not in json.dumps(attributes['logfire.json_schema']['properties']['sessions'])
+    assert 'tok-revoked' not in json.dumps(attributes['logfire.json_schema']['properties']['user'])
+
+
+def test_callback_reduced_mapping_schema_does_not_keep_removed_keys(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'sessions'):
+            return json.dumps({'count': len(json.loads(match.value))})
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
+    logfire.info(
+        'Example',
+        sessions={
+            'tok-active': datetime(2030, 1, 1),
+            'tok-revoked': UUID('12345678-1234-5678-1234-567812345678'),
+        },
+    )
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attributes = span['attributes']
+    assert attributes['sessions'] == {'count': 2}
+    assert attributes['logfire.json_schema']['properties']['sessions'] == {'type': 'object'}
+    assert 'tok-' not in json.dumps(attributes)
+
+
+def test_callback_allowed_mapping_keeps_its_schema(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    def callback(match: logfire.ScrubMatch):
+        if match.path == ('attributes', 'sessions'):
+            return match.value
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
+    logfire.info(
+        'Example',
+        sessions={
+            'tok-active': datetime(2030, 1, 1),
+            'tok-revoked': UUID('12345678-1234-5678-1234-567812345678'),
+        },
+    )
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert set(span['attributes']['logfire.json_schema']['properties']['sessions']['properties']) == {
+        'tok-active',
+        'tok-revoked',
+    }
+
+
+def test_value_scrubbed_before_matching_key_also_loses_schema_detail(exporter: TestExporter):
+    class Secret(Enum):
+        PASSWORD = 'password=hunter2'
+
+    logfire.info('Example', password=Secret.PASSWORD)
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['password'] == "[Scrubbed due to 'password']"
+    assert span['attributes']['logfire.json_schema']['properties']['password'] == {'type': 'string'}
+    assert 'hunter2' not in json.dumps(span['attributes'])
+
+
+def test_replaced_mapping_schema_in_lists_and_shared_mapping_schema(exporter: TestExporter):
+    mixed = {'tok-active': datetime(2030, 1, 1), 'tok-revoked': UUID('12345678-1234-5678-1234-567812345678')}
+    logfire.info(
+        'Example',
+        users=[{'sessions': mixed}, {'sessions': mixed, 'created': datetime(2030, 1, 1)}],
+        users_by_name={'alice': {'sessions': mixed}, 'bob': {'sessions': mixed}},
+    )
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    schema = span['attributes']['logfire.json_schema']['properties']
+    assert schema['users']['prefixItems'][0]['additionalProperties'] == {'type': 'object'}
+    assert schema['users']['prefixItems'][1]['properties']['sessions'] == {'type': 'object'}
+    assert schema['users_by_name']['additionalProperties']['additionalProperties'] == {'type': 'object'}
+    assert 'tok-' not in json.dumps(schema)
+
+
+@pytest.mark.parametrize('schema_value', ['not json', '[]', '{"type":"object"}'])
+def test_replaced_mapping_keeps_unusable_schema(exporter: TestExporter, schema_value: str):
+    get_tracer(__name__).start_span(
+        'Example', attributes={'sessions': '{"tok-active":1}', 'logfire.json_schema': schema_value}
+    ).end()
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['sessions'] == "[Scrubbed due to 'session']"
+    assert span['attributes']['logfire.json_schema'] == schema_value
+
+
+def test_replaced_mapping_keeps_schema_when_path_is_missing(exporter: TestExporter):
+    get_tracer(__name__).start_span(
+        'Example',
+        attributes={
+            'user': '{"sessions":{"tok-active":1}}',
+            'logfire.json_schema': '{"type":"object","properties":{"user":{"type":"object","title":"User"}}}',
+        },
+    ).end()
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.json_schema']['properties']['user'] == {'type': 'object', 'title': 'User'}
+
+
+def test_replaced_mapping_keeps_array_schema_when_prefix_item_is_missing(exporter: TestExporter):
+    schema: dict[str, Any] = {'type': 'object', 'properties': {'data': {'type': 'array', 'prefixItems': []}}}
+    get_tracer(__name__).start_span(
+        'Example',
+        attributes={
+            'data': '[{"sessions":{"tok-active":1}}]',
+            'logfire.json_schema': json.dumps(schema),
+        },
+    ).end()
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.json_schema']['properties']['data'] == {'type': 'array', 'prefixItems': []}
+
+
+def test_replaced_mapping_keeps_schema_without_type(exporter: TestExporter):
+    schema = {'type': 'object', 'properties': {'sessions': {'description': 'keep'}}}
+    get_tracer(__name__).start_span(
+        'Example',
+        attributes={
+            'sessions': '{"tok-active":1}',
+            'logfire.json_schema': json.dumps(schema),
+        },
+    ).end()
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.json_schema'] == schema
+
+
+def test_unrepresented_attribute_does_not_prune_other_schema(exporter: TestExporter):
+    schema = '{"type":"object","properties":{"created":{"type":"string","format":"date-time"}}}'
+    get_tracer(__name__).start_span(
+        'Example', attributes={'sessions': '{"tok-active":1}', 'logfire.json_schema': schema}
+    ).end()
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['sessions'] == "[Scrubbed due to 'session']"
+    assert span['attributes']['logfire.json_schema'] == schema
+
+
 def test_non_string_child_key_does_not_prevent_parent_redaction():
     result, notes = Scrubber(None).scrub_value(('attributes',), {'credentials': {1: 'enabled'}})
 
@@ -2520,13 +2682,13 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
             },
             {
                 'type': 'string_too_short',
-                'loc': ['body', "[Scrubbed due to 'credential']", 'password'],
+                'loc': ['body', 'credentials', 'password'],
                 'msg': 'short',
                 'input': "[Scrubbed due to 'password']",
             },
             {
                 'type': 'string_too_short',
-                'loc': ['body', "[Scrubbed due to 'credential']", 'code'],
+                'loc': ['body', 'credentials', 'code'],
                 'msg': 'short',
                 'input': "[Scrubbed due to 'credential']",
             },
@@ -2539,7 +2701,7 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
             {'type': 'bool_parsing', 'loc': ['body', 'pinned'], 'msg': 'invalid', 'input': 'maybe'},
             {
                 'type': 'too_short',
-                'loc': ['body', "[Scrubbed due to 'password']"],
+                'loc': ['body', 'passwords'],
                 'msg': 'short',
                 'input': ["[Scrubbed due to 'password']"],
             },
@@ -2587,6 +2749,58 @@ def test_builtin_error_message_skips_context_placeholders(monkeypatch: pytest.Mo
     assert not scrubbing._is_builtin_error_message(  # pyright: ignore[reportPrivateUsage]
         'string_too_short', 'bad x', {'min_length': '{tag}' * 2000}
     )
+
+
+def test_validation_error_loc_keeps_field_names(exporter: TestExporter):
+    logfire.info(
+        'x',
+        errors=[
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'new_password', 'x_api_key'],
+                'msg': 'short',
+                'input': 'ok',
+            }
+        ],
+        ordinary_list=['new_password'],
+        incomplete_error={'loc': ['new_password'], 'input': 'ok'},
+        invalid_loc={'type': 'string_too_short', 'loc': ['new_password', None], 'msg': 'short', 'input': 'ok'},
+    )
+
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'][0]['loc'] == ['body', 'new_password', 'x_api_key']
+    assert attributes['errors'][0]['input'] == "[Scrubbed due to 'api_key']"
+    assert attributes['ordinary_list'] == ["[Scrubbed due to 'password']"]
+    assert attributes['incomplete_error'] == {
+        'loc': ["[Scrubbed due to 'password']"],
+        'input': 'ok',
+    }
+    assert attributes['invalid_loc']['loc'] == ["[Scrubbed due to 'password']", None]
+
+
+def test_validation_error_loc_transforms_strings(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    logfire.info(
+        'x',
+        errors=[
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'new_password', 'alice@example.com', 0],
+                'msg': 'short',
+                'input': 'ok',
+            }
+        ],
+    )
+
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'][0]['loc'] == ['body', 'new_password', '[email]', 0]
+    assert StringValue(('attributes', 'errors', 0, 'loc', 2), 'alice@example.com') in seen
 
 
 def test_validation_error_exception_data_scrubbed(exporter: TestExporter):
