@@ -1197,6 +1197,8 @@ def test_console_exporter_rich_argument_preserves_expanded_tab() -> None:
 
 
 def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
+    import numpy
+
     logfire.configure(
         send_to_logfire=False,
         console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
@@ -1217,6 +1219,9 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
 
         INT = 1
 
+    class MyNumpyEnum(enum.Enum):
+        INT = numpy.int64(1)
+
     logfire.info(
         'hi',
         d=datetime(2020, 12, 31, 12, 34, 56),
@@ -1225,6 +1230,7 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
         e=MyEnum.ABC,
         se=MyStrEnum.STR,
         ie=MyIntEnum.INT,
+        ne=MyNumpyEnum.INT,
         rp=re.compile(r'^[\w\.-]+@[\w\.-]+\.\w+$'),
     )
 
@@ -1238,6 +1244,7 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
             "│ e=MyEnum('abc')",
             "│ se=MyStrEnum('str_val')",
             '│ ie=MyIntEnum(1)',
+            '│ ne=MyNumpyEnum(1)',
             '│ rp=^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$',
         ]
     )
