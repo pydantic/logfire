@@ -704,27 +704,30 @@ class SpanScrubber:
             # A callback may have kept every location match, or there may be no matching name.
             return
 
-        original_input = mapping['input']
+        # The input key preserves a list as a list, but msg and ctx strings need its single replacement string.
+        replacement = result['input']
+        if isinstance(replacement, list):
+            replacement_items = cast('list[Any]', replacement)
+            if len(replacement_items) == 1:
+                replacement = replacement_items[0]
+        input_text = str(mapping['input'])
         if (
-            not isinstance(result['input'], str)
-            or not (original_input is None or isinstance(original_input, (str, int, float, bool)))
-            or not (input_text := str(original_input))
+            not isinstance(replacement, str)
+            or not input_text
             or _is_builtin_error_message(mapping['type'], mapping['msg'], mapping.get('ctx'))
         ):
-            # Container inputs have no reliable text form; built-in messages use templates, not the input.
+            # Built-in messages use templates, so matching their numbers could hide harmless text.
             return
 
         # The normal scrub pass may have changed `msg`, so search its original text for the rejected input.
         if input_text in mapping['msg']:
-            result['msg'] = result['input']
+            result['msg'] = replacement
         original_ctx = mapping.get('ctx')
         if isinstance(original_ctx, Mapping) and isinstance(result.get('ctx'), Mapping):
             original_ctx = cast('Mapping[Any, Any]', original_ctx)
             # Only direct string values are checked; Pydantic's `ctx.error` is a string after JSON encoding.
             result['ctx'] = {
-                key: result['input']
-                if isinstance(original_ctx.get(key), str) and input_text in original_ctx[key]
-                else item
+                key: replacement if isinstance(original_ctx.get(key), str) and input_text in original_ctx[key] else item
                 for key, item in result['ctx'].items()
             }
 

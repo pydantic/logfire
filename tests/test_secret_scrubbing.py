@@ -2955,6 +2955,31 @@ def test_validation_error_message_uses_input_placeholder_after_normal_scrubbing(
     assert error['msg'] == error['input'] == error['ctx']['error'] == "[Scrubbed due to 'password']"
 
 
+@pytest.mark.parametrize('input_value', [{'name': 'alice'}, ['alice'], None])
+def test_validation_error_custom_text_containing_container_or_none_input_scrubbed(
+    exporter: TestExporter, input_value: Any
+):
+    logfire.info(
+        'bad',
+        errors=[
+            {
+                'type': 'custom_error',
+                'loc': ['password'],
+                'msg': f'Rejected {input_value}',
+                'input': input_value,
+                'ctx': {'detail': f'Rejected {input_value}'},
+            }
+        ],
+    )
+
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    error = attributes['errors'][0]
+    placeholder = "[Scrubbed due to 'password']"
+    expected_input = [placeholder] if isinstance(input_value, list) else placeholder
+    assert error['input'] == expected_input
+    assert error['msg'] == error['ctx']['detail'] == placeholder
+
+
 def test_validation_error_input_callback_checks_later_loc_parts(exporter: TestExporter, config_kwargs: dict[str, Any]):
     matches: list[tuple[Any, ...]] = []
 
