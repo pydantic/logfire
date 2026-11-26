@@ -609,45 +609,24 @@ class SpanScrubber:
                     else:
                         result[k] = scrubbed
             if not in_safe_key and 'input' in mapping and _is_validation_error_detail(mapping):
-                result['input'], redacted_by_loc = self._scrub_validation_error_input(
-                    path,
-                    cast('list[Any] | tuple[Any, ...]', mapping['loc']),
-                    result['input'],
-                    mapping['type'] in _MISSING_ERROR_TYPES,
-                )
-                original_input = mapping['input']
-                if (
-                    redacted_by_loc
-                    and isinstance(result['input'], str)
-                    and (original_input is None or isinstance(original_input, (str, int, float, bool)))
-                    and (input_text := str(original_input))
-                    and not _is_builtin_error_message(mapping['type'], mapping['msg'], mapping.get('ctx'))
-                ):
-                    if input_text in mapping['msg']:
-                        result['msg'] = result['input']
-                    original_ctx = mapping.get('ctx')
-                    if isinstance(original_ctx, Mapping) and isinstance(result.get('ctx'), Mapping):
-                        original_ctx = cast('Mapping[Any, Any]', original_ctx)
-                        result['ctx'] = {
-                            key: result['input']
-                            if isinstance(original_ctx.get(key), str) and input_text in original_ctx[key]
-                            else item
-                            for key, item in result['ctx'].items()
-                        }
+                self._scrub_validation_error_input(path, result, mapping)
             return result
         return value
 
     def _scrub_validation_error_input(
-        self, error_path: JsonPath, loc: list[Any] | tuple[Any, ...], value: Any, missing: bool
-    ) -> tuple[Any, bool]:
-        """Redacts the `input` of a Pydantic validation error when a field name in its `loc` matches.
+        self, error_path: JsonPath, result: dict[Any, Any], mapping: Mapping[Any, Any]
+    ) -> None:
+        """Redact a validation error's input and any custom text containing that input.
 
         For example, in `{'loc': ['body', 'password'], 'input': 'hunter2'}` the field name and the rejected value
         are separate entries, so checking each key and value on its own never connects them.
         String names are checked from innermost to outermost, with the full `loc` in each match path.
         For a missing-field error, the last name is skipped because `input` is the container missing that field.
-        `value` is the already scrubbed `input`.
+        `result` has already been scrubbed by the normal key and value rules; `mapping` holds the original values.
         """
+        loc = cast('list[Any] | tuple[Any, ...]', mapping['loc'])
+        value = result['input']
+        missing = mapping['type'] in _MISSING_ERROR_TYPES
         for index in range(len(loc) - 1 - missing, -1, -1):
             part = loc[index]
             if isinstance(part, str) and (match := self._pattern.search(part)):
@@ -656,8 +635,35 @@ class SpanScrubber:
                     # Like the key rule, keep a sequence a sequence. `scrub` returns every sequence as a list.
                     if isinstance(redacted, str) and isinstance(value, list):
                         redacted = [redacted]
-                    return redacted, True
-        return value, False
+                    result['input'] = redacted
+                    break
+        else:
+            # A callback may have kept every location match, or there may be no matching name.
+            return
+
+        original_input = mapping['input']
+        if (
+            not isinstance(result['input'], str)
+            or not (original_input is None or isinstance(original_input, (str, int, float, bool)))
+            or not (input_text := str(original_input))
+            or _is_builtin_error_message(mapping['type'], mapping['msg'], mapping.get('ctx'))
+        ):
+            # Container inputs have no reliable text form; built-in messages use templates, not the input.
+            return
+
+        # The normal scrub pass may have changed `msg`, so search its original text for the rejected input.
+        if input_text in mapping['msg']:
+            result['msg'] = result['input']
+        original_ctx = mapping.get('ctx')
+        if isinstance(original_ctx, Mapping) and isinstance(result.get('ctx'), Mapping):
+            original_ctx = cast('Mapping[Any, Any]', original_ctx)
+            # Only direct string values are checked; Pydantic's `ctx.error` is a string after JSON encoding.
+            result['ctx'] = {
+                key: result['input']
+                if isinstance(original_ctx.get(key), str) and input_text in original_ctx[key]
+                else item
+                for key, item in result['ctx'].items()
+            }
 
     def _scrub_matches(self, path: JsonPath, value: Any, match: re.Match[str]) -> Any:
         text = match.string
