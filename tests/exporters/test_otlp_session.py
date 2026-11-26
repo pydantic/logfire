@@ -718,6 +718,70 @@ def test_disk_retryer_cleanup_after_logfire_shutdown(tmp_path: Path) -> None:
     assert not retryer_dir.exists()
 
 
+def test_disk_retryer_close_waits_for_a_file_being_read() -> None:
+    """Deleting the directory while the retry thread has a file open fails on Windows."""
+    retryer = DiskRetryer({})
+    path = retryer.dir / 'task'
+    path.write_bytes(b'data')
+    retryer.tasks.append((path, {'url': 'http://localhost/'}))
+    reading = threading.Event()
+    release = threading.Event()
+    closed = threading.Event()
+    real_read_bytes = Path.read_bytes
+
+    def read_bytes(self: Path) -> bytes:
+        if self == path:
+            reading.set()
+            assert release.wait(timeout=10)
+        return real_read_bytes(self)
+
+    def sleep(_: float) -> None:
+        closed.wait(timeout=10)
+
+    def post(*args: Any, **kwargs: Any) -> Response:
+        raise requests.exceptions.RequestException('boom')
+
+    retry_thread = threading.Thread(target=retryer._run)  # pyright: ignore[reportPrivateUsage]
+    close_thread = threading.Thread(target=lambda: (retryer.close(), closed.set()))
+    try:
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setattr(Path, 'read_bytes', read_bytes)
+            # After reading, the retry thread waits for the close to finish instead of sleeping.
+            monkeypatch.setattr(time, 'sleep', sleep)
+            monkeypatch.setattr(retryer.session, 'post', post)
+            retry_thread.start()
+            assert reading.wait(timeout=10)
+            close_thread.start()
+            # Closing has to wait for the read, so the directory is still there.
+            assert not closed.wait(timeout=0.2)
+            assert path.exists()
+            release.set()
+            assert closed.wait(timeout=10)
+            retry_thread.join(timeout=10)
+            assert not retry_thread.is_alive()
+        assert not retryer.dir.exists()
+    finally:
+        release.set()
+        retry_thread.join(timeout=10)
+        close_thread.join(timeout=10)
+        retryer.close()
+
+
+def test_disk_retryer_does_not_read_tasks_after_close(monkeypatch: pytest.MonkeyPatch) -> None:
+    retryer = DiskRetryer({})
+    try:
+        path = retryer.dir / 'task'
+        path.write_bytes(b'data')
+        monkeypatch.setattr(Path, 'read_bytes', lambda self: pytest.fail('read after close'))  # pyright: ignore[reportUnknownLambdaType]
+        retryer.closed = True
+        retryer.tasks.append((path, {'url': 'http://localhost/'}))
+        retryer._run()  # pyright: ignore[reportPrivateUsage]
+        assert not retryer.tasks
+        assert path.exists()
+    finally:
+        retryer.close()
+
+
 def test_closing_the_session_discards_pending_disk_retries() -> None:
     """Characterize the current durability boundary: the disk queue does not survive process exit."""
     session = OTLPExporterHttpSession()
