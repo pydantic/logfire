@@ -1,0 +1,43 @@
+tests/test_json_args.py
+  s_c4e4e1b95ad7c2::t_981a70ce57e737 940
+  s_c4e4e1b95ad7c2::t_c448d9cc5ac97d 1107-1120
+  s_c4e4e1b95ad7c2::t_ca51822a724504 1154
+  s_c4e4e1b95ad7c2::t_82b0067b62a624 1073-1106
+  s_c4e4e1b95ad7c2::t_4e57896970a86c 742,778,939,941-943
+  s_c4e4e1b95ad7c2::t_1f1675b4a1d2f8 992-1009,1027,1059-1064,1066,1151-1153,1156
+logfire-sdk/logfire/_internal/json_schema.py
+  s_c4e4e1b95ad7c2::t_0204c1c28a953d 406
+  s_c4e4e1b95ad7c2::t_f3a6ccc517d5e7 32
+tests/test_json_args_formatting.py
+  s_c4e4e1b95ad7c2::t_7c9bc6cb2cb004 412-431
+  s_bbcea922897264::t_32d12c0b7529e5 411
+logfire-sdk/logfire/_internal/json_encoder.py
+  s_c4e4e1b95ad7c2::t_0e7a2ae7a34dfd 77,83-85,88-96
+logfire-sdk/logfire/_internal/json_formatter.py
+  s_c4e4e1b95ad7c2::t_1b912529ca6630 353-356,375
+  s_c4e4e1b95ad7c2::t_cd72bb074bf13c 350,352,357-374,377-379
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d43d90c8d25d30a3cfb3f438a40c689228712fbd",
+  "prompts": {},
+  "sessions": {
+    "s_bbcea922897264": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20e3b-23de-7ee2-a82d-27f149fca099",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_c4e4e1b95ad7c2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20e65-7157-7eb2-87ac-7c80b5a93446",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
