@@ -615,7 +615,7 @@ class SpanScrubber:
                     )
                     if not in_safe_key and isinstance(k, str) and (match := self._pattern.search(k)):
                         redacted = self._scrub_matches(child_path, scrubbed, match)
-                        if not _is_unchanged_value(scrubbed, redacted):
+                        if not _is_unchanged_value(v, redacted):
                             self._replaced_paths.append(child_path)
                         if (
                             isinstance(redacted, str)

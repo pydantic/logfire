@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime
+from enum import Enum
 from io import StringIO
 from pathlib import Path
 from threading import Event, get_ident
@@ -1921,6 +1922,18 @@ def test_callback_allowed_mapping_keeps_its_schema(exporter: TestExporter, confi
         'tok-active',
         'tok-revoked',
     }
+
+
+def test_value_scrubbed_before_matching_key_also_loses_schema_detail(exporter: TestExporter):
+    class Secret(Enum):
+        PASSWORD = 'password=hunter2'
+
+    logfire.info('Example', password=Secret.PASSWORD)
+
+    (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['password'] == "[Scrubbed due to 'password']"
+    assert span['attributes']['logfire.json_schema']['properties']['password'] == {'type': 'string'}
+    assert 'hunter2' not in json.dumps(span['attributes'])
 
 
 def test_replaced_mapping_schema_in_lists_and_shared_mapping_schema(exporter: TestExporter):
