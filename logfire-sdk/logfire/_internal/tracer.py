@@ -494,7 +494,7 @@ def record_exception(
             callback(helper)
 
     recorded = exception
-    if helper._record_exception and scrubber is not None:  # pyright: ignore[reportPrivateUsage]
+    if helper._record_exception and scrubber is not None and ValidationError is not None:  # pyright: ignore[reportPrivateUsage]
         from .validation_errors import replace_validation_errors
 
         recorded = replace_validation_errors(exception, scrubber, ('attributes', ATTRIBUTES_VALIDATION_ERROR_KEY))

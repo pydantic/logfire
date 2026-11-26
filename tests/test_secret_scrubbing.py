@@ -2850,6 +2850,16 @@ def test_disabled_scrubbing_preserves_validation_error_text(exporter: TestExport
     assert password in span['events'][0]['attributes']['exception.message']
 
 
+def test_exception_recording_without_pydantic(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr('logfire._internal.tracer.ValidationError', None)
+    with pytest.raises(ValueError):
+        with logfire.span('work'):
+            raise ValueError('failed')
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['events'][0]['attributes']['exception.message'] == 'failed'
+
+
 def test_chained_validation_error_text_scrubbed(exporter: TestExporter):
     class Login(BaseModel):
         password: str = Field(min_length=12)
