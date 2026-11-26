@@ -1125,9 +1125,45 @@ def test_log_dataframe_scrubbed_duplicate_row_formats(exporter: TestExporter) ->
     attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
     recorded = attributes['frame']
     schema = attributes['logfire.json_schema']['properties']['frame']
-    assert recorded['data']['session-1'] == ["[Scrubbed due to 'session']"]
+    marker = "[Scrubbed due to 'session']"
+    assert recorded['rows'] == [marker, marker]
+    assert recorded['data'][marker] == [marker, marker]
     formatted = json_args_value_formatter(recorded, schema=schema)
-    assert formatted.count("[Scrubbed due to 'session']") == 4
+    assert formatted.count(marker) == 4
+
+
+def test_log_dataframe_masked_labels_keep_lookup_keys(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    logfire.configure(
+        **config_kwargs,
+        scrubbing=logfire.ScrubbingOptions(
+            transform_string=lambda value: '[email]' if '@' in value.value else value.value
+        ),
+    )
+    frame = pandas.DataFrame(
+        [[1, 2], [3, 4]],
+        index=['alice@example.com', 'bob@example.com'],
+        columns=['a@example.com', 'b@example.com'],
+    )
+    logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    recorded = attributes['frame']
+    assert recorded['rows'] == ['[email]', '[email]']
+    assert recorded['columns'] == ['[email]', '[email]']
+    assert recorded['data']['[email]'] == [
+        {'[email]': [1, 2]},
+        {'[email]': [3, 4]},
+    ]
+    assert _frame_matrix(recorded) == [[1, 2], [3, 4]]
+    assert '@example.com' not in json.dumps(attributes)
+
+
+def test_log_dataframe_label_cannot_exempt_cell_from_scrubbing(exporter: TestExporter) -> None:
+    logfire.info('frame', frame=pandas.DataFrame({'value': ['password=hunter2']}, index=['http.url']))
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['frame']['data']['http.url'][0]['value'] == ["[Scrubbed due to 'password']"]
+    assert 'hunter2' not in json.dumps(attributes)
 
 
 @pytest.mark.parametrize(

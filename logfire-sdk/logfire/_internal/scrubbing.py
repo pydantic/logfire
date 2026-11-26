@@ -478,6 +478,45 @@ class SpanScrubber:
         # We used to scrub exception messages here, git blame this line if you want to restore that logic.
         return new_attributes
 
+    def _scrub_dataframe(self, path: JsonPath, value: Mapping[str, Any], in_safe_key: bool, key_only: bool) -> Any:
+        """Scrub DataFrame labels as data while keeping query keys and display order aligned."""
+        original_rows = cast('list[str]', value['rows'])
+        original_columns = cast('list[str]', value['columns'])
+        original_data = cast('dict[str, list[dict[str, list[Any]]]]', value['data'])
+
+        row_labels: dict[str, str] = {}
+        for i, label in enumerate(original_rows):
+            if label not in row_labels:
+                row_labels[label] = self.scrub(path + ('rows', i), label, in_safe_key, key_only)
+        column_labels: dict[str, str] = {}
+        for i, label in enumerate(original_columns):
+            if label not in column_labels:
+                column_labels[label] = self.scrub(path + ('columns', i), label, in_safe_key, key_only)
+        rows = [row_labels[label] for label in original_rows]
+        columns = [column_labels[label] for label in original_columns]
+        data: dict[str, list[Any]] = {}
+        row_offsets: dict[str, int] = {}
+        for original_row in original_rows:
+            row_offset = row_offsets.get(original_row, 0)
+            row_offsets[original_row] = row_offset + 1
+            original_cells = original_data[original_row][row_offset]
+            cells: dict[str, list[Any]] = {}
+            for original_column, original_values in original_cells.items():
+                cell_path = path + ('data', original_row, row_offset, original_column)
+                scrubbed = self.scrub(cell_path, original_values, in_safe_key, key_only)
+                if not in_safe_key and (match := self._pattern.search(original_column)):
+                    scrubbed = self._scrub_matches(cell_path, scrubbed, match)
+                    if isinstance(scrubbed, str):
+                        scrubbed = [scrubbed]
+                cells.setdefault(column_labels[original_column], []).extend(scrubbed)
+            if not in_safe_key and (match := self._pattern.search(original_row)):
+                data.setdefault(row_labels[original_row], []).append(
+                    self._scrub_matches(path + ('data', original_row, row_offset), cells, match)
+                )
+            else:
+                data.setdefault(row_labels[original_row], []).append(cells)
+        return {'data': data, 'rows': rows, 'columns': columns}
+
     def scrub(self, path: JsonPath, value: Any, in_safe_key: bool = False, key_only: bool = False) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
 
@@ -530,6 +569,14 @@ class SpanScrubber:
                 self.scrub(path + (i,), x, in_safe_key, key_only) for i, x in enumerate(cast('Sequence[Any]', value))
             ]
         elif isinstance(value, Mapping):
+            mapping_value = cast('Mapping[str, Any]', value)
+            if (
+                set(mapping_value) == {'data', 'rows', 'columns'}
+                and isinstance(mapping_value.get('data'), Mapping)
+                and isinstance(mapping_value.get('rows'), list)
+                and isinstance(mapping_value.get('columns'), list)
+            ):
+                return self._scrub_dataframe(path, mapping_value, in_safe_key, key_only)
             result: dict[Any, Any] = {}
             legacy_attributes = self._is_legacy_llm_scope and path == ('attributes',)
             legacy_request = self._is_legacy_llm_scope and path == ('attributes', 'request_data')
