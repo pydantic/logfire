@@ -2750,9 +2750,9 @@ def test_validation_error_loc_keeps_field_names(exporter: TestExporter):
     [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
     assert attributes['errors'][0]['loc'] == ('body', 'new_password', 'x_api_key')
     assert attributes['errors'][0]['input'] == "[Scrubbed due to 'api_key']"
-    assert attributes['ordinary_list'] == ["[Scrubbed due to 'password']"]
+    assert attributes['ordinary_list'] == ("[Scrubbed due to 'password']",)
     assert attributes['incomplete_error'] == {
-        'loc': ["[Scrubbed due to 'password']"],
+        'loc': ("[Scrubbed due to 'password']",),
         'input': 'ok',
     }
     assert attributes['invalid_loc']['loc'] == ["[Scrubbed due to 'password']", None]
