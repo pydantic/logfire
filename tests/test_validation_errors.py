@@ -183,7 +183,56 @@ def test_native_exception_cause_is_scrubbed() -> None:
     except OSError as original:
         rebuilt = replace_validation_errors(original, Scrubber(None), PATH)
         assert rebuilt is not original
+        assert isinstance(rebuilt.__cause__, ValidationError)
+        assert rebuilt.__cause__ is not original.__cause__
         assert password not in ''.join(traceback.format_exception(rebuilt))
         assert password in ''.join(traceback.format_exception(original))
     else:
         raise AssertionError('Expected operating system error')
+
+
+def test_keyword_only_new_exception_cause_is_scrubbed() -> None:
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    class AppError(Exception):
+        def __new__(cls, *, code: int) -> AppError:
+            return super().__new__(cls)
+
+        def __init__(self, *, code: int) -> None:
+            super().__init__(f'login failed: {code}')
+
+    password = 'hunter2'
+    try:
+        try:
+            Login(password=password)
+        except ValidationError as error:
+            raise AppError(code=401) from error
+    except AppError as original:
+        rebuilt = replace_validation_errors(original, Scrubber(None), PATH)
+        assert rebuilt is not original
+        assert isinstance(rebuilt.__cause__, ValidationError)
+        assert password not in ''.join(traceback.format_exception(rebuilt))
+    else:
+        raise AssertionError('Expected application error')
+
+
+def test_uncomparable_input_does_not_cancel_other_redactions() -> None:
+    class Uncomparable:
+        def __eq__(self, other: object) -> bool:
+            raise ValueError('cannot compare')
+
+    class Login(BaseModel):
+        name: str
+        password: str = Field(min_length=12)
+
+    password = 'hunter2'
+    try:
+        Login.model_validate({'name': Uncomparable(), 'password': password})
+    except ValidationError as original:
+        rebuilt = scrubbed_validation_error(original, Scrubber(None), PATH)
+        assert rebuilt is not None
+        assert password not in str(rebuilt)
+        assert "[Scrubbed due to 'password']" in str(rebuilt)
+    else:
+        raise AssertionError('Expected validation to fail')

@@ -5,7 +5,7 @@ from typing import Any, LiteralString, cast, get_args
 from pydantic import ValidationError
 from pydantic_core import InitErrorDetails, PydanticCustomError, core_schema
 
-from .scrubbing import BaseScrubber, JsonPath
+from .scrubbing import BaseScrubber, JsonPath, _is_unchanged_value  # pyright: ignore[reportPrivateUsage]
 
 _BUILTIN_ERROR_TYPES = frozenset(get_args(core_schema.ErrorType))
 
@@ -48,7 +48,10 @@ def scrubbed_validation_error(exc: ValidationError, scrubber: BaseScrubber, path
         if not isinstance(scrubbed, list):
             return None
         errors = cast('list[dict[str, Any]]', scrubbed)
-        if not any(original.get('input') != changed.get('input') for original, changed in zip(original_errors, errors)):
+        if not any(
+            not _is_unchanged_value(original.get('input'), changed.get('input'))
+            for original, changed in zip(original_errors, errors)
+        ):
             return None
 
         line_errors: list[dict[str, Any]] = []
@@ -122,7 +125,10 @@ def replace_validation_errors(exc: BaseException, scrubber: BaseScrubber, path: 
             elif children is not None and group is not None:
                 clone = group.derive(children)
             else:
-                clone = type(base_current).__new__(type(base_current), *base_current.args)
+                try:
+                    clone = type(base_current).__new__(type(base_current), *base_current.args)
+                except Exception:
+                    clone = BaseException.__new__(type(base_current), *base_current.args)
             clone.__dict__.update(base_current.__dict__)
             if rebuilt is None:
                 clone.args = base_current.args
