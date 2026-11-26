@@ -117,7 +117,7 @@ low‑overhead signal about the overall health and performance of your services.
 !!! info
     Good news: Logfire's [integrations](integrations/index.md) automatically set up many common metrics for you out of the box.
 
-    You can also explore our [standard dashboards](guides/web-ui/dashboards.md) which provide pre-built visualizations for **Web Server Metrics**, **Basic System Metrics (Logfire)** and **Basic System Metrics (OpenTelemetry)**.
+    You can also explore our [standard dashboards](guides/web-ui/standard-dashboards.md) which provide pre-built visualizations for **Web Server Metrics**, **Basic System Metrics (Logfire)** and **Basic System Metrics (OpenTelemetry)**.
 
 ### Example - Duration of HTTP requests
 
