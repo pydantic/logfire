@@ -396,19 +396,6 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
             id='repr',
         ),
         pytest.param(
-            [[1, 3], [2, 4]],
-            {
-                'type': 'array',
-                'x-python-datatype': 'DataFrame',
-                'x-columns': ['col1', 'col2'],
-                'x-indices': ['0', '1'],
-                'x-row-count': 2,
-                'x-column-count': 2,
-            },
-            '  | col1 | col2\n--+------+-----\n0 | 1    | 3   \n1 | 2    | 4   \n\n[2 rows x 2 columns]',
-            id='dataframe',
-        ),
-        pytest.param(
             {
                 'data': {
                     'alice': [
@@ -430,12 +417,19 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
             id='dataframe_duplicate_labels',
         ),
         pytest.param(
-            [[1, 2, 4, 5], [2, 4, 8, 10], [4, 8, 16, 20], [5, 10, 20, 25]],
             {
-                'type': 'array',
+                'data': {
+                    'a': [{'col1': [1], 'col2': [2], 'col4': [4], 'col5': [5]}],
+                    'b': [{'col1': [2], 'col2': [4], 'col4': [8], 'col5': [10]}],
+                    'd': [{'col1': [4], 'col2': [8], 'col4': [16], 'col5': [20]}],
+                    'e': [{'col1': [5], 'col2': [10], 'col4': [20], 'col5': [25]}],
+                },
+                'rows': ['a', 'b', 'd', 'e'],
+                'columns': ['col1', 'col2', 'col4', 'col5'],
+            },
+            {
+                'type': 'object',
                 'x-python-datatype': 'DataFrame',
-                'x-columns': ['col1', 'col2', 'col4', 'col5'],
-                'x-indices': ['a', 'b', 'd', 'e'],
                 'x-row-count': 5,
                 'x-column-count': 5,
             },
@@ -826,9 +820,10 @@ def test_dataframe_formatter_handles_mapping_replacement(formatter: Any, value: 
 
 
 @pytest.mark.parametrize('formatter', [json_args_value_formatter, json_args_value_formatter_compact])
-def test_dataframe_formatter_handles_scalar_replacement(formatter: Any) -> None:
+@pytest.mark.parametrize('value,expected', [('[Scrubbed]', '[Scrubbed]'), ([1, 2], '[1, 2]')])
+def test_dataframe_formatter_handles_non_mapping_replacement(formatter: Any, value: Any, expected: str) -> None:
     schema = cast(JSONSchema, {'type': 'object', 'x-python-datatype': 'DataFrame'})
-    assert formatter('[Scrubbed]', schema=schema) == '[Scrubbed]'
+    assert formatter(value, schema=schema) == expected
 
 
 @pytest.mark.parametrize('formatter', [json_args_value_formatter, json_args_value_formatter_compact])

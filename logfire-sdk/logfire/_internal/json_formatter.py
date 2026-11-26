@@ -410,10 +410,8 @@ class JsonArgsValueFormatter:
                     row.append(values[min(column_offset, len(values) - 1)] if values else column)
                 rows.append(row)
         else:
-            # Spans recorded by older SDK versions contain an array of arrays.
-            columns = schema.get('x-columns', [])
-            indices = schema.get('x-indices', [])
-            rows = cast('list[Any]', value)
+            self._write('', '', False, 0, value, None)
+            return
         self._format_table(
             columns=columns,
             indices=indices,
