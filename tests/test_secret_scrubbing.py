@@ -2577,6 +2577,7 @@ def test_validation_error_loc_keeps_field_names(exporter: TestExporter):
         ],
         ordinary_list=['new_password'],
         incomplete_error={'loc': ['new_password'], 'input': 'ok'},
+        invalid_loc={'type': 'string_too_short', 'loc': ['new_password', None], 'msg': 'short', 'input': 'ok'},
     )
 
     [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
@@ -2587,6 +2588,7 @@ def test_validation_error_loc_keeps_field_names(exporter: TestExporter):
         'loc': ["[Scrubbed due to 'password']"],
         'input': 'ok',
     }
+    assert attributes['invalid_loc']['loc'] == ["[Scrubbed due to 'password']", None]
 
 
 def test_validation_error_exception_data_scrubbed(exporter: TestExporter):

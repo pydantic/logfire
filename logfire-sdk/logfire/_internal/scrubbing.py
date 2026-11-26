@@ -374,6 +374,7 @@ class Scrubber(BaseScrubber):
 def _is_validation_error_detail(value: Mapping[Any, Any]) -> bool:
     return (
         isinstance(value.get('loc'), (list, tuple))
+        and all(type(part) in (str, int) for part in value['loc'])
         and isinstance(value.get('type'), str)
         and isinstance(value.get('msg'), str)
     )
