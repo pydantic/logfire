@@ -374,6 +374,7 @@ class Scrubber(BaseScrubber):
 def _is_validation_error_detail(value: Mapping[Any, Any]) -> bool:
     return (
         isinstance(value.get('loc'), (list, tuple))
+        and all(type(part) in (str, int) for part in value['loc'])
         and isinstance(value.get('type'), str)
         and isinstance(value.get('msg'), str)
     )
@@ -602,6 +603,7 @@ class SpanScrubber:
         elif isinstance(value, Mapping):
             result: dict[Any, Any] = {}
             mapping = cast('Mapping[Any, Any]', value)
+            validation_error_detail = 'loc' in mapping and _is_validation_error_detail(mapping)
             legacy_attributes = self._is_legacy_llm_scope and path == ('attributes',)
             legacy_request = self._is_legacy_llm_scope and path == ('attributes', 'request_data')
             for k, v in mapping.items():
@@ -613,7 +615,9 @@ class SpanScrubber:
                 # Tool and response schemas describe argument names. Preserve those keys,
                 # while still allowing transform_string to change their string values.
                 legacy_definition = legacy_request and k in ('tools', 'functions', 'response_format')
-                if path == ('attributes',) and k in BaseScrubber.NO_TRANSFORM_KEYS:
+                if validation_error_detail and k == 'loc':
+                    result[k] = self.scrub(path + (k,), v, in_safe_key=True)
+                elif path == ('attributes',) and k in BaseScrubber.NO_TRANSFORM_KEYS:
                     result[k] = v
                 elif legacy_definition or (k in BaseScrubber.SAFE_KEYS and k not in BaseScrubber.KEY_ONLY_KEYS):
                     result[k] = (
@@ -637,7 +641,7 @@ class SpanScrubber:
                         result[k] = redacted
                     else:
                         result[k] = scrubbed
-            if not in_safe_key and 'input' in mapping and _is_validation_error_detail(mapping):
+            if not in_safe_key and 'input' in mapping and validation_error_detail:
                 result['input'] = self._scrub_validation_error_input(
                     path,
                     cast('list[Any] | tuple[Any, ...]', mapping['loc']),
