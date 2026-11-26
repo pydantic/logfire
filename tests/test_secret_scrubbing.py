@@ -1885,7 +1885,7 @@ def test_callback_reduced_mapping_schema_does_not_keep_removed_keys(
 ):
     def callback(match: logfire.ScrubMatch):
         if match.path == ('attributes', 'sessions'):
-            return {'count': len(json.loads(match.value))}
+            return json.dumps({'count': len(json.loads(match.value))})
 
     logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
     logfire.info(
