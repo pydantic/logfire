@@ -823,3 +823,20 @@ def test_dataframe_formatter_handles_mapping_replacement(formatter: Any, value: 
     formatted = formatter(value, schema=schema)
     assert formatted.startswith('{')
     assert formatted.endswith('}')
+
+
+@pytest.mark.parametrize('formatter', [json_args_value_formatter, json_args_value_formatter_compact])
+def test_dataframe_formatter_handles_scalar_replacement(formatter: Any) -> None:
+    schema = cast(JSONSchema, {'type': 'object', 'x-python-datatype': 'DataFrame'})
+    assert formatter('[Scrubbed]', schema=schema) == '[Scrubbed]'
+
+
+@pytest.mark.parametrize('formatter', [json_args_value_formatter, json_args_value_formatter_compact])
+def test_dataframe_formatter_handles_scrubbed_row(formatter: Any) -> None:
+    schema = cast(
+        JSONSchema, {'type': 'object', 'x-python-datatype': 'DataFrame', 'x-row-count': 1, 'x-column-count': 1}
+    )
+    value = {'data': {'row': ['[Scrubbed]']}, 'rows': ['row'], 'columns': ['column']}
+    formatted = formatter(value, schema=schema)
+    assert '[Scrubbed]' in formatted
+    assert '[1 rows x 1 columns]' in formatted
