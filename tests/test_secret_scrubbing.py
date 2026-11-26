@@ -19,7 +19,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.trace.propagation import get_current_span
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic_core import PydanticCustomError
 
 import logfire
 from logfire._internal import utils
@@ -2607,6 +2608,70 @@ def test_validation_error_input_in_logged_data(exporter: TestExporter):
     [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
     assert attributes['errors'][0]['input'] == "[Scrubbed due to 'password']"
     assert attributes['response']['detail'][0]['input'] == "[Scrubbed due to 'password']"
+
+
+def test_validation_error_custom_message_containing_input_scrubbed(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    class Login(BaseModel):
+        password: str
+        nickname: str
+        pin: str
+
+        @field_validator('password', 'nickname')
+        @classmethod
+        def check_name(cls, value: str) -> str:
+            raise ValueError(f'{value} is too weak')
+
+        @field_validator('pin')
+        @classmethod
+        def check_pin(cls, value: str) -> str:
+            raise PydanticCustomError('weak_pin', 'PIN {pin} is too weak', {'pin': value})
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(extra_patterns=['^pin$']))
+    with pytest.raises(ValidationError) as caught:
+        Login(password='a', nickname='bob', pin='1234')
+
+    logfire.info('bad', errors=caught.value.errors(include_url=False))
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'] == snapshot(
+        [
+            {
+                'type': 'value_error',
+                'loc': ['password'],
+                'msg': "[Scrubbed due to 'password']",
+                'input': "[Scrubbed due to 'password']",
+                'ctx': {'error': "[Scrubbed due to 'password']"},
+            },
+            {
+                'type': 'value_error',
+                'loc': ['nickname'],
+                'msg': 'Value error, bob is too weak',
+                'input': 'bob',
+                'ctx': {'error': 'bob is too weak'},
+            },
+            {
+                'type': 'weak_pin',
+                'loc': ['pin'],
+                'msg': "[Scrubbed due to 'pin']",
+                'input': "[Scrubbed due to 'pin']",
+                'ctx': {'pin': "[Scrubbed due to 'pin']"},
+            },
+        ]
+    )
+
+
+def test_validation_error_builtin_message_containing_input_kept(exporter: TestExporter):
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    with pytest.raises(ValidationError) as caught:
+        Login(password='12')
+
+    logfire.info('bad', errors=caught.value.errors())
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'][0]['msg'] == 'String should have at least 12 characters'
+    assert attributes['errors'][0]['input'] == "[Scrubbed due to 'password']"
 
 
 def test_validation_error_input_callback_checks_later_loc_parts(exporter: TestExporter, config_kwargs: dict[str, Any]):

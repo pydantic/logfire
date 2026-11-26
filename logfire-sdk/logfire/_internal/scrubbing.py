@@ -6,7 +6,7 @@ import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, TypedDict, cast
+from typing import Any, TypedDict, cast, get_args
 
 import typing_extensions
 from opentelemetry._logs import LogRecord
@@ -36,6 +36,15 @@ from .integrations.llm_providers import semconv as gen_ai_semconv
 from .json_encoder import logfire_json_dumps
 from .stack_info import STACK_INFO_KEYS
 from .utils import ReadableSpanDict, handle_internal_errors, truncate_string
+
+try:
+    from pydantic_core.core_schema import ErrorType
+except ImportError:  # Pydantic is optional.
+    builtin_error_types: frozenset[str] = frozenset()
+else:
+    builtin_error_types = frozenset(get_args(ErrorType)) - {'value_error', 'assertion_error'}
+
+_BUILTIN_ERROR_TYPES = builtin_error_types
 
 DEFAULT_PATTERNS = [
     'password',
@@ -579,18 +588,33 @@ class SpanScrubber:
                     else:
                         result[k] = scrubbed
             if not in_safe_key and 'input' in mapping and _is_validation_error_detail(mapping):
-                result['input'] = self._scrub_validation_error_input(
+                result['input'], redacted_by_loc = self._scrub_validation_error_input(
                     path,
                     cast('list[Any] | tuple[Any, ...]', mapping['loc']),
                     result['input'],
                     mapping['type'] in _MISSING_ERROR_TYPES,
                 )
+                original_input = mapping['input']
+                if (
+                    redacted_by_loc
+                    and mapping['type'] not in _BUILTIN_ERROR_TYPES
+                    and isinstance(result['input'], str)
+                    and (original_input is None or isinstance(original_input, (str, int, float, bool)))
+                    and (input_text := str(original_input))
+                ):
+                    if isinstance(result['msg'], str) and input_text in result['msg']:
+                        result['msg'] = result['input']
+                    if isinstance(result.get('ctx'), Mapping):
+                        result['ctx'] = {
+                            key: result['input'] if isinstance(item, str) and input_text in item else item
+                            for key, item in result['ctx'].items()
+                        }
             return result
         return value
 
     def _scrub_validation_error_input(
         self, error_path: JsonPath, loc: list[Any] | tuple[Any, ...], value: Any, missing: bool
-    ) -> Any:
+    ) -> tuple[Any, bool]:
         """Redacts the `input` of a Pydantic validation error when a field name in its `loc` matches.
 
         For example, in `{'loc': ['body', 'password'], 'input': 'hunter2'}` the field name and the rejected value
@@ -607,8 +631,8 @@ class SpanScrubber:
                     # Like the key rule, keep a sequence a sequence. `scrub` returns every sequence as a list.
                     if isinstance(redacted, str) and isinstance(value, list):
                         redacted = [redacted]
-                    return redacted
-        return value
+                    return redacted, True
+        return value, False
 
     def _scrub_matches(self, path: JsonPath, value: Any, match: re.Match[str]) -> Any:
         text = match.string
