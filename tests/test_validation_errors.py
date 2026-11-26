@@ -73,19 +73,22 @@ def test_hidden_input_with_custom_message_mentioning_input_value() -> None:
     class Login(BaseModel):
         model_config = ConfigDict(hide_input_in_errors=True)
         password: str
+        pin: str = Field(min_length=10)
 
         @field_validator('password')
         @classmethod
         def reject(cls, value: str) -> str:
-            raise PydanticCustomError('weak_password', 'input_value= is not a valid prefix')
+            raise PydanticCustomError('weak_password', '[type=x, input_value=x, input_type=str]')
 
     try:
-        Login(password='hunter2')
+        Login(password='hunter2', pin='1234')
     except ValidationError as original:
-        rebuilt = scrubbed_validation_error(original, Scrubber(None), PATH)
+        rebuilt = scrubbed_validation_error(original, Scrubber(['^pin$']), PATH)
         assert rebuilt is not None
-        assert 'input_value= is not a valid prefix' in str(rebuilt)
-        assert 'input_type=' not in str(rebuilt)
+        assert '[type=x, input_value=x, input_type=str]' in str(rebuilt)
+        assert 'hunter2' not in str(rebuilt)
+        assert '1234' not in str(rebuilt)
+        assert 'input_value="' not in str(rebuilt)
     else:
         raise AssertionError('Expected validation to fail')
 
@@ -165,3 +168,22 @@ def test_repeated_error_in_group_is_scrubbed_everywhere() -> None:
         assert password in ''.join(traceback.format_exception(original))
     else:
         raise AssertionError('Expected exception group')
+
+
+def test_native_exception_cause_is_scrubbed() -> None:
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    password = 'hunter2'
+    try:
+        try:
+            Login(password=password)
+        except ValidationError as error:
+            raise OSError('login failed') from error
+    except OSError as original:
+        rebuilt = replace_validation_errors(original, Scrubber(None), PATH)
+        assert rebuilt is not original
+        assert password not in ''.join(traceback.format_exception(rebuilt))
+        assert password in ''.join(traceback.format_exception(original))
+    else:
+        raise AssertionError('Expected operating system error')

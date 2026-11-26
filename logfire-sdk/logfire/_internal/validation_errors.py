@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import Any, LiteralString, cast, get_args
 
 from pydantic import ValidationError
@@ -37,10 +36,11 @@ def scrubbed_validation_error(exc: ValidationError, scrubber: BaseScrubber, path
                 )
             line_errors.append(error)
 
-        # Pydantic does not expose hide_input_in_errors on the exception. Match
-        # its rendered metadata rather than arbitrary text in a custom message.
-        visible_input = re.search(r'\[type=[^\n]*, input_value=.+, input_type=[^\n]+\]$', str(exc), re.MULTILINE)
-        hide_input = visible_input is None and any('input' in error for error in original_errors)
+        # The flag is serialized by pydantic-core even though it has no public attribute.
+        reduction = exc.__reduce__()
+        reduction_args = reduction[1] if len(reduction) > 1 else ()
+        hidden_flag = reduction_args[3] if len(reduction_args) > 3 else None
+        hide_input = hidden_flag if isinstance(hidden_flag, bool) else True
         rebuilt = ValidationError.from_exception_data(
             exc.title, cast('list[InitErrorDetails]', line_errors), hide_input=hide_input
         )
@@ -97,7 +97,7 @@ def replace_validation_errors(exc: BaseException, scrubber: BaseScrubber, path: 
             elif children is not None and group is not None:
                 clone = group.derive(children)
             else:
-                clone = BaseException.__new__(type(base_current), *base_current.args)
+                clone = type(base_current).__new__(type(base_current), *base_current.args)
             clone.__dict__.update(base_current.__dict__)
             if rebuilt is None:
                 clone.args = base_current.args
