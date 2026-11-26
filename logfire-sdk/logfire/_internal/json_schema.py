@@ -4,8 +4,6 @@ There are custom keywords in the generated JSON Schema. They are prefixed with `
 conflicts with the official keywords. The custom keywords are:
 
 - `x-python-datatype`: The Python data type of the value. It is used to generate the Python type hints.
-- `x-columns`: The column names of the data frame. It is used to generate the Python type.
-- `x-indices`: The index names of the data frame. It is used to generate the Python type.
 - `x-column-count`: The number of columns in the data frame. It is used to generate the Python type.
 - `x-row-count`: The number of rows in the data frame. It is used to generate the Python type.
 - `x-shape`: The shape of the numpy array. It is used to generate the Python type.
@@ -31,7 +29,7 @@ from types import GeneratorType
 from typing import Any, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
-from .json_encoder import is_attrs, is_sqlalchemy, json_key, pandas_display_slices, to_json_value
+from .json_encoder import is_attrs, is_sqlalchemy, json_key, to_json_value
 from .stack_info import STACK_INFO_KEYS
 from .utils import JsonDict, dump_json, log_internal_error
 
@@ -404,20 +402,10 @@ def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:
 
     row_count, column_count = obj.shape
 
-    columns: list[Any] = []
-    for column_slice in pandas_display_slices(column_count, pandas.get_option('display.max_columns')):
-        columns.extend(cast(Iterable[Any], obj.columns[column_slice]))
-
-    indices: list[Any] = []
-    for row_slice in pandas_display_slices(row_count, pandas.get_option('display.max_rows')):
-        indices.extend(cast(Iterable[Any], obj.index[row_slice]))
-
     return {
-        'type': 'array',
+        'type': 'object',
         'x-python-datatype': 'DataFrame',
-        'x-columns': columns,
         'x-column-count': column_count,
-        'x-indices': indices,
         'x-row-count': row_count,
     }
 

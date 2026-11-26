@@ -347,12 +347,36 @@ class JsonArgsValueFormatter:
         # write summary
         self._stream.write(f'\n[{real_row_count} rows x {real_column_count} columns]')
 
-    def _format_data_frame(self, _indent_current: int, value: list[Any], schema: JSONSchema | None) -> None:
+    def _format_data_frame(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
         schema = schema or {}
+        if isinstance(value, Mapping):
+            value = cast('dict[str, Any]', value)
+            columns = cast('list[str]', value['columns'])
+            indices = cast('list[str]', value['rows'])
+            data = cast('dict[str, list[dict[str, list[Any]]]]', value['data'])
+            row_offsets: dict[str, int] = {}
+            rows: list[list[Any]] = []
+            for index in indices:
+                row_offset = row_offsets.get(index, 0)
+                row_offsets[index] = row_offset + 1
+                row_data = data[index][row_offset]
+                column_offsets: dict[str, int] = {}
+                row: list[Any] = []
+                for column in columns:
+                    column_offset = column_offsets.get(column, 0)
+                    column_offsets[column] = column_offset + 1
+                    values = row_data[column]
+                    row.append(values[min(column_offset, len(values) - 1)])
+                rows.append(row)
+        else:
+            # Spans recorded by older SDK versions contain an array of arrays.
+            columns = schema.get('x-columns', [])
+            indices = schema.get('x-indices', [])
+            rows = cast('list[Any]', value)
         self._format_table(
-            columns=schema.get('x-columns', []),
-            indices=schema.get('x-indices', []),
-            rows=value,
+            columns=columns,
+            indices=indices,
+            rows=rows,
             real_column_count=schema.get('x-column-count', 0),
             real_row_count=schema.get('x-row-count', 0),
         )

@@ -409,6 +409,27 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
             id='dataframe',
         ),
         pytest.param(
+            {
+                'data': {
+                    'alice': [
+                        {'score': [1, 3], 'other': [2]},
+                        {'score': [7, 9], 'other': [8]},
+                    ],
+                    'bob': [{'score': [4, 6], 'other': [5]}],
+                },
+                'rows': ['alice', 'bob', 'alice'],
+                'columns': ['score', 'other', 'score'],
+            },
+            {'type': 'object', 'x-python-datatype': 'DataFrame', 'x-row-count': 3, 'x-column-count': 3},
+            '      | score | other | score\n'
+            '------+-------+-------+------\n'
+            'alice | 1     | 2     | 3    \n'
+            'bob   | 4     | 5     | 6    \n'
+            'alice | 7     | 8     | 9    \n\n'
+            '[3 rows x 3 columns]',
+            id='dataframe_duplicate_labels',
+        ),
+        pytest.param(
             [[1, 2, 4, 5], [2, 4, 8, 10], [4, 8, 16, 20], [5, 10, 20, 25]],
             {
                 'type': 'array',

@@ -74,37 +74,26 @@ def pandas_display_slices(count: int, limit: int | None) -> tuple[slice, ...]:
 
 
 def _pandas_data_frame_encoder(o: Any, seen: set[int]) -> JsonValue:
-    """Encode pandas data frame by extracting important information.
-
-    It summarizes rows and columns if they are more than limit.
-    e.g. The data part of a data frame like:
-    [
-        [1, 2, 3, 4, 5],
-        [2, 3, 6, 8, 10],
-        [3, 6, 9, 12, 15],
-        [4, 8, 12, 16, 20],
-        [5, 10, 15, 20, 25],
-    ]
-    will be summarized to:
-    [
-        [1, 2, 4, 5],
-        [2, 3, 8, 10],
-        [4, 8, 16, 20],
-        [5, 10, 20, 25],
-    ]
-    """
+    """Encode sampled cells under their row and column labels."""
     import pandas
 
     row_slices = pandas_display_slices(len(o), pandas.get_option('display.max_rows'))
     column_slices = pandas_display_slices(len(o.columns), pandas.get_option('display.max_columns'))
 
-    rows: list[Any] = []
+    columns = [json_key(label) for column_slice in column_slices for label in o.columns[column_slice]]
+    rows: list[str] = []
+    data: dict[str, list[dict[str, list[Any]]]] = {}
     for row_slice in row_slices:
         # Including the index preserves rows when the frame has no columns.
-        for _, *row in o.iloc[row_slice].itertuples(name=None):
-            rows.append([item for column_slice in column_slices for item in row[column_slice]])
+        for index, *row in o.iloc[row_slice].itertuples(name=None):
+            row_label = json_key(index)
+            rows.append(row_label)
+            row_data: dict[str, list[Any]] = {}
+            for column, value in zip(columns, (item for column_slice in column_slices for item in row[column_slice])):
+                row_data.setdefault(column, []).append(value)
+            data.setdefault(row_label, []).append(row_data)
 
-    return to_json_value(rows, seen)
+    return to_json_value({'data': data, 'rows': rows, 'columns': columns}, seen)
 
 
 def _numpy_array_encoder(o: Any, seen: set[int]) -> JsonValue:
