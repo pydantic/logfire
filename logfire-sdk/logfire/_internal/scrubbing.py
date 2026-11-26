@@ -478,107 +478,6 @@ class SpanScrubber:
         # We used to scrub exception messages here, git blame this line if you want to restore that logic.
         return new_attributes
 
-    def _scrub_dataframe(self, path: JsonPath, value: Mapping[str, Any], in_safe_key: bool, key_only: bool) -> Any:
-        """Scrub DataFrame labels as data while keeping query keys and display order aligned."""
-        if not in_safe_key:
-            for field in ('data', 'rows', 'columns'):
-                if match := self._pattern.search(field):
-                    scrubbed = self._scrub_matches(path + (field,), value, match)
-                    if not _is_unchanged_value(value, scrubbed):
-                        return scrubbed
-        original_rows = cast('list[str]', value['rows'])
-        original_columns = cast('list[str]', value['columns'])
-        original_data = cast('dict[str, list[dict[str, list[Any]]]]', value['data'])
-
-        row_labels: dict[str, str] = {}
-        for i, label in enumerate(original_rows):
-            if label not in row_labels:
-                scrubbed_label = self.scrub(path + ('rows', i), label, in_safe_key, key_only)
-                if not isinstance(scrubbed_label, str):
-                    self.scrub_count += 1
-                    return '[Scrubbed due to invalid DataFrame label]'
-                row_labels[label] = scrubbed_label
-        column_labels: dict[str, str] = {}
-        for i, label in enumerate(original_columns):
-            if label not in column_labels:
-                scrubbed_label = self.scrub(path + ('columns', i), label, in_safe_key, key_only)
-                if not isinstance(scrubbed_label, str):
-                    self.scrub_count += 1
-                    return '[Scrubbed due to invalid DataFrame label]'
-                column_labels[label] = scrubbed_label
-        rows = [row_labels[label] for label in original_rows]
-        columns = [column_labels[label] for label in original_columns]
-        data: dict[str, list[Any]] = {}
-        row_offsets: dict[str, int] = {}
-        for row_index, original_row in enumerate(original_rows):
-            row_offset = row_offsets.get(original_row, 0)
-            row_offsets[original_row] = row_offset + 1
-            original_cells = original_data[original_row][row_offset]
-            scrubbed_columns: dict[str, list[Any]] = {}
-            for column_index, (original_column, original_values) in enumerate(original_cells.items()):
-                cell_path = path + ('data', row_index, column_index)
-                scrubbed = self.scrub(cell_path, original_values, in_safe_key, key_only)
-                if not in_safe_key and (match := self._pattern.search(original_column)):
-                    scrubbed = self._scrub_matches(cell_path, scrubbed, match)
-                if not isinstance(scrubbed, list):
-                    scrubbed = [scrubbed] * len(original_values)
-                if len(cast('list[Any]', scrubbed)) != len(original_values):
-                    self.scrub_count += 1
-                    return '[Scrubbed due to invalid DataFrame cells]'
-                scrubbed_columns[original_column] = scrubbed
-            cells: dict[str, list[Any]] = {}
-            column_offsets: dict[str, int] = {}
-            for original_column in original_columns:
-                column_offset = column_offsets.get(original_column, 0)
-                column_offsets[original_column] = column_offset + 1
-                cells.setdefault(column_labels[original_column], []).append(
-                    scrubbed_columns[original_column][column_offset]
-                )
-            if not in_safe_key and (match := self._pattern.search(original_row)):
-                data.setdefault(row_labels[original_row], []).append(
-                    self._scrub_matches(path + ('data', row_index), cells, match)
-                )
-            else:
-                data.setdefault(row_labels[original_row], []).append(cells)
-        return {'data': data, 'rows': rows, 'columns': columns}
-
-    @staticmethod
-    def _is_dataframe_value(value: Mapping[str, Any]) -> bool:
-        if set(value) != {'data', 'rows', 'columns'}:
-            return False
-        data, rows, columns = value['data'], value['rows'], value['columns']
-        if not isinstance(data, Mapping) or not isinstance(rows, list) or not isinstance(columns, list):
-            return False
-        data = cast('Mapping[str, Any]', data)
-        rows = cast('list[Any]', rows)
-        columns = cast('list[Any]', columns)
-        if not all(isinstance(label, str) for label in rows + columns):
-            return False
-        rows = cast('list[str]', rows)
-        columns = cast('list[str]', columns)
-        row_counts: dict[str, int] = {}
-        column_counts: dict[str, int] = {}
-        for label in rows:
-            row_counts[label] = row_counts.get(label, 0) + 1
-        for label in columns:
-            column_counts[label] = column_counts.get(label, 0) + 1
-        if set(data) != set(row_counts):
-            return False
-        for label, count in row_counts.items():
-            entries = data[label]
-            if not isinstance(entries, list) or len(cast('list[Any]', entries)) != count:
-                return False
-            for cells in cast('list[Any]', entries):
-                if not isinstance(cells, Mapping) or set(cast('Mapping[str, Any]', cells)) != set(column_counts):
-                    return False
-                cells = cast('Mapping[str, Any]', cells)
-                if any(
-                    not isinstance(cells[column], list) or len(cells[column]) != length
-                    for column, length in column_counts.items()
-                ):
-                    return False
-        return True
-
     def scrub(self, path: JsonPath, value: Any, in_safe_key: bool = False, key_only: bool = False) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
 
@@ -631,9 +530,6 @@ class SpanScrubber:
                 self.scrub(path + (i,), x, in_safe_key, key_only) for i, x in enumerate(cast('Sequence[Any]', value))
             ]
         elif isinstance(value, Mapping):
-            mapping_value = cast('Mapping[str, Any]', value)
-            if self._is_dataframe_value(mapping_value):
-                return self._scrub_dataframe(path, mapping_value, in_safe_key, key_only)
             result: dict[Any, Any] = {}
             legacy_attributes = self._is_legacy_llm_scope and path == ('attributes',)
             legacy_request = self._is_legacy_llm_scope and path == ('attributes', 'request_data')
