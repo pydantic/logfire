@@ -1,0 +1,26 @@
+logfire-sdk/logfire/_internal/json_types.py
+  s_c4e4e1b95ad7c2::t_885bbc342064ed 114
+tests/test_json_args.py
+  s_c4e4e1b95ad7c2::t_885bbc342064ed 384,387-414,421,429,436,443,932,950-967,2106,2108
+tests/test_console_exporter.py
+  s_c4e4e1b95ad7c2::t_885bbc342064ed 1200-1201,1222-1224,1233,1247
+  s_c4e4e1b95ad7c2::t_9995797a617bae 147-148
+logfire-sdk/logfire/_internal/json_schema.py
+  s_c4e4e1b95ad7c2::t_885bbc342064ed 32-38,150-151,163,221-230,232-233
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dd64272ef41b4d2950e7e37744b9e66790ab095a",
+  "prompts": {},
+  "sessions": {
+    "s_c4e4e1b95ad7c2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20e65-7157-7eb2-87ac-7c80b5a93446",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
