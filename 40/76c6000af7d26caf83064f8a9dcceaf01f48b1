@@ -1,0 +1,24 @@
+tests/test_secret_scrubbing.py
+  s_9994dcfa39e276::t_458963116cec15 2673-2684
+  s_9994dcfa39e276::t_b4a1c33a31366b 2663-2672,2685-2690
+logfire-sdk/logfire/_internal/scrubbing.py
+  s_9994dcfa39e276::t_87016a391e5e03 81-83,583-586,591-593,599,602
+tests/otel_integrations/test_fastapi.py
+  s_9994dcfa39e276::t_e783d6d15abf76 2217-2230
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4076c6000af7d26caf83064f8a9dcceaf01f48b1",
+  "prompts": {},
+  "sessions": {
+    "s_9994dcfa39e276": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a217c5-86cb-79a3-91df-102df1f35cec",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
