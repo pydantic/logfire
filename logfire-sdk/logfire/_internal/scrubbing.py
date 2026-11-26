@@ -393,6 +393,7 @@ class SpanScrubber:
         self._transform_string = parent._transform_string  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
+        self._replaced_paths: list[JsonPath] = []
         self._json_string_depth = 0
         self._is_legacy_llm_scope = scope_name in ('logfire.openai', 'logfire.anthropic')
         self._is_legacy_openai_scope = scope_name == 'logfire.openai'
@@ -448,6 +449,7 @@ class SpanScrubber:
         #      BoundedAttributes handles it according to the installed OTEL version.
         # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
         new_attributes = self.scrub(('attributes',), span['attributes'])
+        self._scrub_json_schema(new_attributes)
         if self.scrub_count:
             span['attributes'] = BoundedAttributes(attributes=new_attributes)
 
@@ -490,6 +492,61 @@ class SpanScrubber:
         new_attributes = self.scrub(path, attributes)
         # We used to scrub exception messages here, git blame this line if you want to restore that logic.
         return new_attributes
+
+    @handle_internal_errors
+    def _scrub_json_schema(self, attributes: dict[str, Any] | None) -> None:
+        """Remove value-derived schema details for attributes replaced under matching keys."""
+        if not attributes or not self._replaced_paths or ATTRIBUTES_JSON_SCHEMA_KEY not in attributes:
+            return
+
+        try:
+            schema: Any = json.loads(attributes[ATTRIBUTES_JSON_SCHEMA_KEY])
+        except (TypeError, ValueError, RecursionError):
+            return
+        if not isinstance(schema, dict):
+            return
+        schema = cast('dict[str, Any]', schema)
+        root_properties = schema.get('properties')
+        if not isinstance(root_properties, dict):
+            return
+        root_properties = cast('dict[str, Any]', root_properties)
+
+        changed = False
+        for path in self._replaced_paths:
+            # OpenTelemetry attributes may not be represented in Logfire's schema.
+            if path[1] not in root_properties:
+                continue
+            node = schema
+            for part in path[1:]:
+                child: Any = None
+                if isinstance(part, int):
+                    prefix_items = node.get('prefixItems')
+                    if isinstance(prefix_items, list):
+                        prefix_items = cast('list[Any]', prefix_items)
+                        if 0 <= part < len(prefix_items):
+                            child = prefix_items[part]
+                    if child is None:
+                        child = node.get('items')
+                else:
+                    properties = node.get('properties')
+                    if isinstance(properties, dict):
+                        properties = cast('dict[str, Any]', properties)
+                        child = properties.get(part)
+                    if child is None:
+                        child = node.get('additionalProperties')
+                if not isinstance(child, dict):
+                    break
+                node = cast('dict[str, Any]', child)
+            else:
+                if 'type' in node:
+                    reduced = {'type': node['type']}
+                    if node != reduced:
+                        node.clear()
+                        node.update(reduced)
+                        changed = True
+
+        if changed:
+            attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = logfire_json_dumps(schema)
 
     def scrub(self, path: JsonPath, value: Any, in_safe_key: bool = False, key_only: bool = False) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
@@ -569,6 +626,8 @@ class SpanScrubber:
                     )
                     if not in_safe_key and isinstance(k, str) and (match := self._pattern.search(k)):
                         redacted = self._scrub_matches(child_path, scrubbed, match)
+                        if not _is_unchanged_value(v, redacted):
+                            self._replaced_paths.append(child_path)
                         if (
                             isinstance(redacted, str)
                             and isinstance(v, Sequence)
