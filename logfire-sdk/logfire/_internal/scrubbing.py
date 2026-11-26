@@ -480,6 +480,7 @@ class SpanScrubber:
         # We used to scrub exception messages here, git blame this line if you want to restore that logic.
         return new_attributes
 
+    @handle_internal_errors
     def _scrub_json_schema(self, attributes: dict[str, Any] | None) -> None:
         """Remove value-derived schema details for attributes replaced under matching keys."""
         if not attributes or not self._replaced_paths or ATTRIBUTES_JSON_SCHEMA_KEY not in attributes:
