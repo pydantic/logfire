@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import traceback
-from typing import cast
+from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from pydantic_core import PydanticCustomError
 
-from logfire._internal.scrubbing import NOOP_SCRUBBER, Scrubber
-from logfire._internal.validation_errors import replace_validation_errors, scrubbed_validation_error
+from logfire._internal.scrubbing import NOOP_SCRUBBER, JsonPath, ScrubbedNote, Scrubber
+from logfire._internal.validation_errors import _hides_input, replace_validation_errors, scrubbed_validation_error  # pyright: ignore[reportPrivateUsage]
 
 PATH = ('attributes', 'exception.logfire.data')
 
@@ -21,12 +21,15 @@ def test_scrubbed_validation_error() -> None:
     try:
         Login.model_validate({'password': password, 'age': 'bad'})
     except ValidationError as original:
+        original.add_note('safe note')
         rebuilt = scrubbed_validation_error(original, Scrubber(None), PATH)
         assert rebuilt is not None
         assert password not in str(rebuilt)
         assert "[Scrubbed due to 'password']" in str(rebuilt)
         assert "input_value='bad'" in str(rebuilt)
         assert rebuilt.__traceback__ is original.__traceback__
+        assert rebuilt.__notes__ == ['safe note']
+        assert rebuilt.__notes__ is not original.__notes__
         assert scrubbed_validation_error(original, NOOP_SCRUBBER, PATH) is None
         assert password in str(original)
     else:
@@ -65,6 +68,8 @@ def test_custom_error_rebuilds() -> None:
         assert 'hunter2' not in str(rebuilt)
         assert 'Weak value' in str(rebuilt)
         assert 'weak_value' in str(rebuilt)
+        original.__reduce__ = lambda: (ValidationError, ())
+        assert _hides_input(original, cast('list[dict[str, Any]]', original.errors(include_url=False))) is False
     else:
         raise AssertionError('Expected validation to fail')
 
@@ -93,6 +98,81 @@ def test_hidden_input_with_custom_message_mentioning_input_value() -> None:
         raise AssertionError('Expected validation to fail')
 
 
+def test_older_pydantic_hidden_input_fallback() -> None:
+    for hidden in (False, True):
+
+        class Login(BaseModel):
+            model_config = ConfigDict(hide_input_in_errors=hidden)
+            password: str = Field(min_length=12)
+
+        try:
+            Login(password='hunter2')
+        except ValidationError as original:
+            # Pydantic 2.4 returns no reduction arguments.
+            original.__reduce__ = lambda: (ValidationError, ())
+            assert _hides_input(original, cast('list[dict[str, Any]]', original.errors(include_url=False))) is hidden
+            assert _hides_input(original, [{}]) is True
+        else:
+            raise AssertionError('Expected validation to fail')
+
+    class UnmatchableError:
+        title = 'Login'
+
+        def __reduce__(self) -> tuple[Any, ...]:
+            return ValidationError, ()
+
+        def __str__(self) -> str:
+            return 'unmatchable'
+
+    assert (
+        _hides_input(
+            cast(ValidationError, UnmatchableError()),
+            [
+                {
+                    'type': 'string_too_short',
+                    'loc': ('password',),
+                    'msg': 'String should have at least 12 characters',
+                    'input': 'hunter2',
+                    'ctx': {'min_length': 12},
+                }
+            ],
+        )
+        is True
+    )
+
+
+def test_invalid_scrubber_result_falls_back() -> None:
+    class InvalidScrubber(Scrubber):
+        def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
+            return {'input': 'changed'}, []
+
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    try:
+        Login(password='hunter2')
+    except ValidationError as original:
+        assert scrubbed_validation_error(original, InvalidScrubber(None), PATH) is None
+    else:
+        raise AssertionError('Expected validation to fail')
+
+
+def test_invalid_rebuilt_error_falls_back() -> None:
+    class InvalidScrubber(Scrubber):
+        def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
+            return [{'input': 'changed'}], []
+
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    try:
+        Login(password='hunter2')
+    except ValidationError as original:
+        assert scrubbed_validation_error(original, InvalidScrubber(None), PATH) is None
+    else:
+        raise AssertionError('Expected validation to fail')
+
+
 def test_replaces_explicit_chain_without_mutating_it() -> None:
     class Login(BaseModel):
         password: str = Field(min_length=12)
@@ -108,9 +188,12 @@ def test_replaces_explicit_chain_without_mutating_it() -> None:
         except ValidationError as error:
             raise AppError(message='login failed') from error
     except AppError as original:
+        original.add_note('safe note')
         rebuilt = replace_validation_errors(original, Scrubber(None), PATH)
         assert rebuilt is not original
         assert rebuilt.__cause__ is not original.__cause__
+        assert rebuilt.__notes__ == ['safe note']
+        assert rebuilt.__notes__ is not original.__notes__
         assert password not in ''.join(traceback.format_exception(rebuilt))
         assert password in ''.join(traceback.format_exception(original))
         assert len(traceback.format_exception(rebuilt)) == len(traceback.format_exception(original))
@@ -236,3 +319,25 @@ def test_uncomparable_input_does_not_cancel_other_redactions() -> None:
         assert "[Scrubbed due to 'password']" in str(rebuilt)
     else:
         raise AssertionError('Expected validation to fail')
+
+
+def test_uncloneable_exception_keeps_original_chain() -> None:
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    class StrictOSError(OSError):
+        def __new__(cls, *, code: int) -> StrictOSError:
+            return super().__new__(cls, f'failed: {code}')
+
+        def __init__(self, *, code: int) -> None:
+            super().__init__(f'failed: {code}')
+
+    try:
+        try:
+            Login(password='hunter2')
+        except ValidationError as error:
+            raise StrictOSError(code=401) from error
+    except StrictOSError as original:
+        assert replace_validation_errors(original, Scrubber(None), PATH) is original
+    else:
+        raise AssertionError('Expected operating system error')
