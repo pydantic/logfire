@@ -6,7 +6,7 @@ import inspect
 import warnings
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import AbstractContextManager, asynccontextmanager, contextmanager
-from typing import TYPE_CHECKING, Any, LiteralString, TypeVar
+from typing import TYPE_CHECKING, Any, LiteralString, TypeVar, cast
 
 from opentelemetry import trace
 from opentelemetry.util import types as otel_types
@@ -49,6 +49,23 @@ GENERATOR_WARNING_MESSAGE = (
 )
 
 
+def _call_target(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Return the callable to inspect and to call, which for a callable object is its `__call__`.
+
+    A plain object is not a coroutine function, so its `__call__` decides whether it is async.
+    Functions, methods, classes, partials and anything `inspect` already sees as a coroutine function
+    (such as `AsyncMock`) are returned as is.
+    """
+    if (
+        inspect.isroutine(func)
+        or inspect.isclass(func)
+        or isinstance(func, functools.partial)
+        or inspect.iscoroutinefunction(func)
+    ):
+        return cast(Callable[..., Any], func)
+    return func.__call__
+
+
 def instrument(
     logfire: Logfire,
     tags: Sequence[str],
@@ -72,20 +89,22 @@ def instrument(
         attributes = get_attributes(func, msg_template, tags)
         open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_trace, level=level)
 
-        if inspect.isgeneratorfunction(func):
+        call = _call_target(func)
+
+        if inspect.isgeneratorfunction(call):
             if not allow_generator:
                 warnings.warn(GENERATOR_WARNING_MESSAGE, stacklevel=2)
 
             def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # pyright: ignore[reportUnknownParameterType, reportRedeclaration]
                 with open_span(*func_args, **func_kwargs):
-                    yield from func(*func_args, **func_kwargs)
-        elif inspect.isasyncgenfunction(func):
+                    yield from call(*func_args, **func_kwargs)
+        elif inspect.isasyncgenfunction(call):
             if not allow_generator:
                 warnings.warn(GENERATOR_WARNING_MESSAGE, stacklevel=2)
 
             async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # pyright: ignore[reportRedeclaration]
                 with open_span(*func_args, **func_kwargs):
-                    generator = func(*func_args, **func_kwargs)
+                    generator = call(*func_args, **func_kwargs)
                     try:
                         value = await generator.__anext__()
                         while True:
@@ -99,11 +118,11 @@ def instrument(
                     except StopAsyncIteration:
                         pass
 
-        elif inspect.iscoroutinefunction(func):
+        elif inspect.iscoroutinefunction(call):
 
             async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:  # pyright: ignore[reportRedeclaration]
                 with open_span(*func_args, **func_kwargs) as span:
-                    result = await func(*func_args, **func_kwargs)
+                    result = await call(*func_args, **func_kwargs)
                     if record_return:
                         # open_span returns a FastLogfireSpan, so we can't use span.set_attribute for complex types.
                         # This isn't great because it has to parse the JSON schema.

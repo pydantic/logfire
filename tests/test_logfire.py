@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from functools import partial
 from logging import getLogger
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import cloudpickle
 import pytest
@@ -1447,6 +1447,121 @@ def test_instrument_other_callable(exporter: TestExporter):
                     'a': 456,
                     'logfire.span_type': 'span',
                 },
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_instrument_other_callable_async(exporter: TestExporter):
+    class Instrumented:
+        async def __call__(self, a: int) -> str:
+            logfire.info('inside')
+            return f'hello {a}'
+
+        def __repr__(self):
+            return '<Instrumented>'
+
+    inst = logfire.instrument(record_return=True)(Instrumented())
+
+    assert await inst(456) == 'hello 456'
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'inside',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_other_callable_async.<locals>.Instrumented.__call__',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'inside',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'inside',
+                    'logfire.span_type': 'log',
+                },
+            },
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_other_callable_async.<locals>.Instrumented.__call__',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_other_callable_async.<locals>.Instrumented.__call__',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_other_callable_async.<locals>.Instrumented.__call__',
+                    'code.filepath': 'test_logfire.py',
+                    'a': 456,
+                    'code.function': 'test_instrument_other_callable_async.<locals>.Instrumented.__call__',
+                    'code.lineno': 123,
+                    'return': 'hello 456',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_instrument_async_mock(exporter: TestExporter):
+    inst = logfire.instrument(record_return=True)(AsyncMock(return_value=1))
+
+    assert await inst() == 1
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['return'] == 1
+
+
+@pytest.mark.anyio
+async def test_instrument_other_callable_async_exception(exporter: TestExporter):
+    class Instrumented:
+        async def __call__(self, a: int) -> str:
+            raise ValueError(f'bad {a}')
+
+        def __repr__(self):
+            return '<Instrumented>'
+
+    inst = logfire.instrument()(Instrumented())
+
+    with pytest.raises(ValueError, match='bad 456'):
+        await inst(456)
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_other_callable_async_exception.<locals>.Instrumented.__call__',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_other_callable_async_exception.<locals>.Instrumented.__call__',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_other_callable_async_exception.<locals>.Instrumented.__call__',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_other_callable_async_exception.<locals>.Instrumented.__call__',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'a': 456,
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 17,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'ValueError',
+                            'exception.message': 'bad 456',
+                            'exception.stacktrace': 'ValueError: bad 456',
+                            'exception.escaped': 'True',
+                        },
+                    }
+                ],
             }
         ]
     )
