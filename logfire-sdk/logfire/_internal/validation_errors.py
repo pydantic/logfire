@@ -10,6 +10,36 @@ from .scrubbing import BaseScrubber, JsonPath
 _BUILTIN_ERROR_TYPES = frozenset(get_args(core_schema.ErrorType))
 
 
+def _hides_input(exc: ValidationError, errors: list[dict[str, Any]]) -> bool:
+    reduction = exc.__reduce__()
+    reduction_args = reduction[1] if len(reduction) > 1 else ()
+    hidden_flag = reduction_args[3] if len(reduction_args) > 3 else None
+    if isinstance(hidden_flag, bool):
+        return hidden_flag
+
+    # Older pydantic-core versions omit the flag from __reduce__. Compare full
+    # rendered errors, so a custom message containing input_value= cannot spoof it.
+    try:
+        original_line_errors: list[dict[str, Any]] = []
+        for original in errors:
+            line = dict(original)
+            if line['type'] not in _BUILTIN_ERROR_TYPES:
+                line['type'] = PydanticCustomError(
+                    cast(LiteralString, str(line['type'])), cast(LiteralString, str(line['msg']))
+                )
+            original_line_errors.append(line)
+        original_text = str(exc)
+        for hide_input in (True, False):
+            rendered = ValidationError.from_exception_data(
+                exc.title, cast('list[InitErrorDetails]', original_line_errors), hide_input=hide_input
+            )
+            if str(rendered) == original_text:
+                return hide_input
+    except Exception:
+        pass
+    return True
+
+
 def scrubbed_validation_error(exc: ValidationError, scrubber: BaseScrubber, path: JsonPath) -> ValidationError | None:
     """Rebuild a validation error so its rendered text uses scrubbed inputs."""
     try:
@@ -36,13 +66,8 @@ def scrubbed_validation_error(exc: ValidationError, scrubber: BaseScrubber, path
                 )
             line_errors.append(error)
 
-        # The flag is serialized by pydantic-core even though it has no public attribute.
-        reduction = exc.__reduce__()
-        reduction_args = reduction[1] if len(reduction) > 1 else ()
-        hidden_flag = reduction_args[3] if len(reduction_args) > 3 else None
-        hide_input = hidden_flag if isinstance(hidden_flag, bool) else True
         rebuilt = ValidationError.from_exception_data(
-            exc.title, cast('list[InitErrorDetails]', line_errors), hide_input=hide_input
+            exc.title, cast('list[InitErrorDetails]', line_errors), hide_input=_hides_input(exc, original_errors)
         )
         rebuilt.__traceback__ = exc.__traceback__
         rebuilt.__cause__ = exc.__cause__
