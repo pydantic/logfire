@@ -1,0 +1,28 @@
+tests/test_pydantic_plugin.py
+  s_9994dcfa39e276::t_feafc333d3f1dc 950
+tests/test_secret_scrubbing.py
+  s_9994dcfa39e276::t_35fc0cadee7a49 2479-2484,2518-2519,2557-2561,2653-2654
+  s_9994dcfa39e276::t_dc3650bd91c4b0 2520-2523,2562-2564,2640-2646,2649-2652,2656-2662
+  s_9994dcfa39e276::t_feafc333d3f1dc 2647-2648
+logfire-sdk/logfire/_internal/scrubbing.py
+  s_9994dcfa39e276::t_01fede22cffb19 579-581
+  s_9994dcfa39e276::t_7b2c88146bf330 585,590,593-594,596
+tests/otel_integrations/test_fastapi.py
+  s_9994dcfa39e276::t_feafc333d3f1dc 2212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9058d84761850afc928d65cc5825a6ae16d25f6d",
+  "prompts": {},
+  "sessions": {
+    "s_9994dcfa39e276": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a217c5-86cb-79a3-91df-102df1f35cec",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
