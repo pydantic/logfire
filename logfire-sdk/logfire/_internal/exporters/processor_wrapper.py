@@ -28,7 +28,7 @@ from ..constants import (
     log_level_attributes,
 )
 from ..db_statement_summary import message_from_db_statement
-from ..integrations.llm_providers.semconv import PROVIDER_NAME
+from ..integrations.llm_providers.semconv import PROVIDER_NAME, RESPONSE_FINISH_REASONS
 from ..json_schema import JsonSchemaProperties, attributes_json_schema
 from ..scrubbing import BaseScrubber
 from ..utils import (
@@ -687,20 +687,18 @@ def _transform_litellm_span(span: ReadableSpanDict):
     except Exception:  # pragma: no cover
         return
 
-    try:
-        request_model = cast(str, attributes['llm.model_name'])
-        system = guess_system(request_model, 'litellm')
-        new_attrs.update(
-            {
-                'gen_ai.request.model': request_model,
-                'gen_ai.usage.input_tokens': attributes['llm.token_count.prompt'],
-                'gen_ai.usage.output_tokens': attributes['llm.token_count.completion'],
-                'gen_ai.system': system,
-                PROVIDER_NAME: system,
-            }
-        )
-    except Exception:  # pragma: no cover
-        pass
+    request_model = cast('str | None', attributes.get('llm.model_name'))
+    system = guess_system(request_model, 'litellm') if request_model else None
+    finish_reason = attributes.get('llm.finish_reason')
+    optional_attrs: dict[str, Any] = {
+        'gen_ai.request.model': request_model,
+        'gen_ai.usage.input_tokens': attributes.get('llm.token_count.prompt'),
+        'gen_ai.usage.output_tokens': attributes.get('llm.token_count.completion'),
+        'gen_ai.system': system,
+        PROVIDER_NAME: system,
+        RESPONSE_FINISH_REASONS: [finish_reason] if finish_reason else None,
+    }
+    new_attrs.update({key: value for key, value in optional_attrs.items() if value is not None})
 
     span['attributes'] = {
         **attributes,

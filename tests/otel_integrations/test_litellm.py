@@ -246,6 +246,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'gen_ai.usage.output_tokens': 18,
                     'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.response.finish_reasons': ['tool_calls'],
                     'logfire.tags': ['LLM'],
                     'logfire.json_schema': {
                         'type': 'object',
@@ -401,6 +402,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'gen_ai.usage.input_tokens': 62,
                     'gen_ai.usage.output_tokens': 26,
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'gen_ai.system': 'openai',
                     'logfire.tags': ['LLM'],
                     'logfire.json_schema': {
@@ -450,3 +452,66 @@ def test_guess_system():
     assert guess_system('gpt-neo-2.7b', 'litellm') == 'litellm'
     assert guess_system('gpt-j-6b') == ''
     assert guess_system('text-embedding-004', 'litellm') == 'litellm'
+
+
+@pytest.mark.skipif(
+    get_version(pydantic.__version__) < get_version('2.11.0'), reason='LiteLLM requires Pydantic >= 2.11'
+)
+def test_litellm_stream_without_usage(exporter: TestExporter) -> None:
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=DeprecationWarning)
+        import litellm
+
+    logging.getLogger('LiteLLM').disabled = True
+    logfire.instrument_litellm()
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=UserWarning)
+        response = litellm.completion(
+            model='gpt-4o-mini',
+            messages=[{'role': 'user', 'content': 'hello'}],
+            mock_response='hi',
+            stream=True,
+        )
+        for _ in response:  # type: ignore
+            pass
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'completion',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'completion',
+                    'llm.model_name': 'gpt-4o-mini',
+                    'llm.provider': 'openai',
+                    'llm.input_messages.0.message.role': 'user',
+                    'llm.input_messages.0.message.content': 'hello',
+                    'input.value': {'messages': [{'role': 'user', 'content': 'hello'}]},
+                    'input.mime_type': 'application/json',
+                    'llm.invocation_parameters': {'model': 'gpt-4o-mini', 'mock_response': 'hi', 'stream': True},
+                    'output.value': 'hi',
+                    'llm.finish_reason': 'stop',
+                    'llm.output_messages.0.message.role': 'assistant',
+                    'llm.output_messages.0.message.content': 'hi',
+                    'openinference.span.kind': 'LLM',
+                    'request_data': {'messages': [{'role': 'user', 'content': 'hello'}]},
+                    'response_data': {'message': {'content': 'hi', 'role': 'assistant'}},
+                    'gen_ai.request.model': 'gpt-4o-mini',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.response.finish_reasons': ['stop'],
+                    'logfire.tags': ['LLM'],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'request_data': {'type': 'object'}, 'response_data': {'type': 'object'}},
+                    },
+                    'gen_ai.response.model': 'gpt-4o-mini',
+                },
+            }
+        ]
+    )
