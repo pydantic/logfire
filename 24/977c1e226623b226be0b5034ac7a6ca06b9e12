@@ -1,0 +1,68 @@
+tests/test_baggage.py
+  s_bbcea922897264::t_8858f80954cb10 334,346-347,363-364
+tests/otel_integrations/test_llm_request_errors.py
+  s_bbcea922897264::t_8858f80954cb10 1-363
+logfire-sdk/logfire/_internal/exporters/processor_wrapper.py
+  s_bbcea922897264::t_8858f80954cb10 4,692,698-699,720-722,725-730
+docs/guides/web-ui/dashboards.md
+  s_bbcea922897264::t_8858f80954cb10 376-414
+logfire-sdk/logfire/_internal/integrations/openai_agents.py
+  s_bbcea922897264::t_8858f80954cb10 43,379,421
+logfire-sdk/logfire/_internal/json_encoder.py
+  s_bbcea922897264::t_8858f80954cb10 315,355-373
+  s_bbcea922897264::t_bb647beb12a208 374-375
+logfire-sdk/logfire/_internal/integrations/llm_providers/llm_provider.py
+  s_bbcea922897264::t_8858f80954cb10 16,169,183,215-223,269
+docs/how-to-guides/scrubbing.md
+  s_bbcea922897264::t_8858f80954cb10 98-99
+docs/how-to-guides/browser-source-maps.md
+  s_bbcea922897264::t_8858f80954cb10 114,327
+  s_bbcea922897264::t_52502393226b96 328
+docs/reference/advanced/baggage.md
+  s_bbcea922897264::t_8858f80954cb10 68-69
+docs/navigation.yml
+  s_bbcea922897264::t_8858f80954cb10 629-631
+docs/reference/advanced/gateway/data-retention.md
+  s_bbcea922897264::t_8858f80954cb10 1-308
+logfire-sdk/logfire/_internal/baggage.py
+  s_bbcea922897264::t_8858f80954cb10 95-99
+tests/test_secret_scrubbing.py
+  s_bbcea922897264::t_8858f80954cb10 1769-1802
+CLAUDE.md
+  s_bbcea922897264::t_8858f80954cb10 1
+logfire-sdk/logfire/_internal/json_schema.py
+  s_bbcea922897264::t_5a772329ee9066 34-41
+  s_bbcea922897264::t_8858f80954cb10 43,290
+logfire-sdk/logfire/variables/variable.py
+  s_bbcea922897264::t_8858f80954cb10 527-529
+tests/otel_integrations/test_litellm.py
+  s_bbcea922897264::t_8858f80954cb10 248,403,425-437,439-452
+tests/otel_integrations/test_openai_agents_mcp.py
+  s_bbcea922897264::t_8858f80954cb10 271,304,450,468,571,650,675,706,724
+tests/test_variables.py
+  s_bbcea922897264::t_8858f80954cb10 5873-5922
+docs/how-to-guides/mcp-server.md
+  s_bbcea922897264::t_8858f80954cb10 487
+logfire-sdk/logfire/_internal/scrubbing.py
+  s_bbcea922897264::t_8858f80954cb10 80,383,494-504
+tests/otel_integrations/test_openai_agents.py
+  s_bbcea922897264::t_8858f80954cb10 109,118,258,267,290,299,434,438-443,464,474,594,646,662,681,711,742,853,883,902,974,1002,1040,1070,1089,1148,1168,1193,1212,1288,1326,1356,1375,1466,1471-1476,1497,1501-1506,1604,1686,1724,1754,1773,1810,1866,1896,1915,1992,2050,2080,2099,2136,2227,2257,2276,2351,2399,2434,2474,2549,2579,2598,2673,2703,2742,2769,2785,2816,2833,2885-2886
+tests/test_json_args.py
+  s_bbcea922897264::t_8858f80954cb10 1183-1212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "24977c1e226623b226be0b5034ac7a6ca06b9e12",
+  "prompts": {},
+  "sessions": {
+    "s_bbcea922897264": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20e3b-23de-7ee2-a82d-27f149fca099",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
