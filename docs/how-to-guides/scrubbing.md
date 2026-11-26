@@ -209,7 +209,7 @@ you use an interpolation method that's safe from SQL injection.
 
 ### Scrub rejected values in validation errors
 
-Pydantic validation errors store the rejected value under `input` and the field's path under `loc`. Logfire checks each field name in `loc` against your scrubbing patterns and redacts a matching field's `input`. This applies to recorded validation exceptions, FastAPI and Pydantic integration errors, and error data you log yourself. Field names in `loc` stay visible so you can identify which field failed. A scrubbing callback receives the field path when it decides whether to redact the value.
+Pydantic validation errors store the rejected value under `input` and the field's path under `loc`. Logfire checks each field name in `loc` against your scrubbing patterns and redacts a matching field's `input`. This applies to recorded validation exceptions, FastAPI and Pydantic integration errors, and error data you log yourself. Pattern scrubbing leaves field names in `loc` visible so you can identify which field failed; a configured `transform_string` callback can still change them. A scrubbing callback receives the field path when it decides whether to redact the value.
 
 When Logfire records a Pydantic `ValidationError`, it also uses the redacted value in the exception message, stack trace, and span status. For example, a rejected password appears as `input_value="[Scrubbed due to 'password']"` instead of the original value. The exception in your application is unchanged.
 
