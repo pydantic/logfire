@@ -472,8 +472,6 @@ def record_exception(
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
     from ..types import ExceptionCallbackHelper
 
-    del scrubber  # Passed through for the recording-time scrubbing step.
-
     if not span.is_recording():
         return
 
@@ -495,9 +493,15 @@ def record_exception(
         with handle_internal_errors:
             callback(helper)
 
+    recorded = exception
+    if helper._record_exception and scrubber is not None:  # pyright: ignore[reportPrivateUsage]
+        from .validation_errors import replace_validation_errors
+
+        recorded = replace_validation_errors(exception, scrubber, ('attributes', ATTRIBUTES_VALIDATION_ERROR_KEY))
+
     # A status set by the callback (e.g. to keep the exception message out of the description) wins.
     if helper.level >= 'error' and getattr(span, 'status', None) is status_before_callback:
-        set_exception_status(span, exception)
+        set_exception_status(span, recorded)
 
     if not helper._record_exception:  # pyright: ignore[reportPrivateUsage]
         return
@@ -530,17 +534,17 @@ def record_exception(
             span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, fingerprint)
 
     try:
-        span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+        span.record_exception(recorded, attributes=attributes, timestamp=timestamp, escaped=escaped)
     except Exception:
         # `str(exception)` can raise (e.g. an exception that was never fully initialised)
         # and the OTEL SDK calls it without guarding, which would lose the whole event.
         span.add_event(
             name='exception',
             attributes={
-                'exception.type': f'{type(exception).__module__}.{type(exception).__qualname__}',
-                'exception.message': safe_str(exception),
+                'exception.type': f'{type(recorded).__module__}.{type(recorded).__qualname__}',
+                'exception.message': safe_str(recorded),
                 'exception.stacktrace': ''.join(
-                    _patched_format_exception(type(exception), exception, exception.__traceback__)
+                    _patched_format_exception(type(recorded), recorded, recorded.__traceback__)
                 ),
                 'exception.escaped': str(escaped),
                 **(attributes or {}),

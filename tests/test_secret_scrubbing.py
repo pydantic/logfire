@@ -2808,6 +2808,69 @@ def test_validation_error_exception_data_scrubbed(exporter: TestExporter):
     )
 
 
+def test_validation_error_exception_text_scrubbed(exporter: TestExporter):
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+        age: int
+
+    password = 'hunter2'
+    with pytest.raises(ValidationError) as caught:
+        with logfire.span('login'):
+            Login.model_validate({'password': password, 'age': 'bad'})
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    event = span['events'][0]['attributes']
+    assert password not in json.dumps(span)
+    assert password in str(caught.value)
+    assert "[Scrubbed due to 'password']" in event['exception.message']
+    assert "input_value='bad'" in event['exception.message']
+    raw_span = next(span for span in exporter.exported_spans if span.events)
+    assert raw_span.events[0].attributes is not None
+    stacktrace = cast(str, raw_span.events[0].attributes['exception.stacktrace'])
+    assert "[Scrubbed due to 'password']" in stacktrace
+    assert password not in stacktrace
+    assert "[Scrubbed due to 'password']" in cast(str, raw_span.status.description)
+    assert event['exception.logfire.data'] == span['attributes']['exception.logfire.data']
+    assert event['exception.logfire.data'][0]['loc'] == ['password']
+    assert event['exception.logfire.data'][0]['input'] == "[Scrubbed due to 'password']"
+
+
+def test_disabled_scrubbing_preserves_validation_error_text(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    logfire.configure(**config_kwargs, scrubbing=False)
+
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    password = 'hunter2'
+    with pytest.raises(ValidationError):
+        with logfire.span('login'):
+            Login(password=password)
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert password in span['events'][0]['attributes']['exception.message']
+
+
+def test_chained_validation_error_text_scrubbed(exporter: TestExporter):
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    password = 'hunter2'
+    with pytest.raises(RuntimeError) as caught:
+        with logfire.span('login'):
+            try:
+                Login(password=password)
+            except ValidationError as error:
+                raise RuntimeError('login failed') from error
+
+    raw_span = next(span for span in exporter.exported_spans if span.events)
+    assert raw_span.events[0].attributes is not None
+    stacktrace = cast(str, raw_span.events[0].attributes['exception.stacktrace'])
+    assert password not in stacktrace
+    assert "[Scrubbed due to 'password']" in stacktrace
+    assert caught.value.__cause__ is not None
+    assert password in str(caught.value.__cause__)
+
+
 def test_validation_error_input_in_logged_data(exporter: TestExporter):
     class Login(BaseModel):
         password: str = Field(min_length=12)
