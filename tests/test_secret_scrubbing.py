@@ -2674,6 +2674,49 @@ def test_validation_error_builtin_message_containing_input_kept(exporter: TestEx
     assert attributes['errors'][0]['input'] == "[Scrubbed due to 'password']"
 
 
+def test_validation_error_custom_message_using_builtin_code_scrubbed(exporter: TestExporter):
+    class Login(BaseModel):
+        password: str
+
+        @field_validator('password')
+        @classmethod
+        def check_password(cls, value: str) -> str:
+            raise PydanticCustomError('string_too_short', 'Rejected {value}', {'min_length': 12, 'value': value})
+
+    with pytest.raises(ValidationError) as caught:
+        Login(password='1234')
+
+    logfire.info('bad', errors=caught.value.errors(include_url=False))
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'][0] == snapshot(
+        {
+            'type': 'string_too_short',
+            'loc': ['password'],
+            'msg': "[Scrubbed due to 'password']",
+            'input': "[Scrubbed due to 'password']",
+            'ctx': {'min_length': 12, 'value': "[Scrubbed due to 'password']"},
+        }
+    )
+
+
+def test_validation_error_message_uses_input_placeholder_after_normal_scrubbing(exporter: TestExporter):
+    class Login(BaseModel):
+        password: str
+
+        @field_validator('password')
+        @classmethod
+        def check_password(cls, value: str) -> str:
+            raise ValueError(f'{value} is too weak')
+
+    with pytest.raises(ValidationError) as caught:
+        Login(password='mypassword1')
+
+    logfire.info('bad', errors=caught.value.errors(include_url=False))
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    error = attributes['errors'][0]
+    assert error['msg'] == error['input'] == error['ctx']['error'] == "[Scrubbed due to 'password']"
+
+
 def test_validation_error_input_callback_checks_later_loc_parts(exporter: TestExporter, config_kwargs: dict[str, Any]):
     matches: list[tuple[Any, ...]] = []
 

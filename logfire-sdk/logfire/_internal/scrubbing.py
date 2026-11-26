@@ -388,6 +388,20 @@ def _is_validation_error_detail(value: Mapping[Any, Any]) -> bool:
     )
 
 
+def _is_builtin_error_message(error_type: str, message: str, ctx: Any) -> bool:
+    if error_type not in _BUILTIN_ERROR_TYPES:
+        return False
+    try:
+        from pydantic_core import PydanticKnownError
+
+        known_error = PydanticKnownError(
+            cast(Any, error_type), dict(cast('Mapping[Any, Any]', ctx)) if isinstance(ctx, Mapping) else None
+        )
+        return known_error.message() == message
+    except (TypeError, ValueError, KeyError):
+        return False
+
+
 class SpanScrubber:
     """Does the actual scrubbing work.
 
@@ -597,16 +611,20 @@ class SpanScrubber:
                 original_input = mapping['input']
                 if (
                     redacted_by_loc
-                    and mapping['type'] not in _BUILTIN_ERROR_TYPES
                     and isinstance(result['input'], str)
                     and (original_input is None or isinstance(original_input, (str, int, float, bool)))
                     and (input_text := str(original_input))
+                    and not _is_builtin_error_message(mapping['type'], mapping['msg'], mapping.get('ctx'))
                 ):
-                    if isinstance(result['msg'], str) and input_text in result['msg']:
+                    if input_text in mapping['msg']:
                         result['msg'] = result['input']
-                    if isinstance(result.get('ctx'), Mapping):
+                    original_ctx = mapping.get('ctx')
+                    if isinstance(original_ctx, Mapping) and isinstance(result.get('ctx'), Mapping):
+                        original_ctx = cast('Mapping[Any, Any]', original_ctx)
                         result['ctx'] = {
-                            key: result['input'] if isinstance(item, str) and input_text in item else item
+                            key: result['input']
+                            if isinstance(original_ctx.get(key), str) and input_text in original_ctx[key]
+                            else item
                             for key, item in result['ctx'].items()
                         }
             return result
