@@ -353,20 +353,28 @@ class JsonArgsValueFormatter:
             value = cast('dict[str, Any]', value)
             columns = cast('list[str]', value['columns'])
             indices = cast('list[str]', value['rows'])
-            data = cast('dict[str, list[dict[str, list[Any]]]]', value['data'])
+            data = cast('dict[str, list[Any]]', value['data'])
             row_offsets: dict[str, int] = {}
             rows: list[list[Any]] = []
             for index in indices:
                 row_offset = row_offsets.get(index, 0)
                 row_offsets[index] = row_offset + 1
-                row_data = data[index][row_offset]
+                entries = data.get(index)
+                if not entries:
+                    rows.append([index] * len(columns))
+                    continue
+                row_data = entries[min(row_offset, len(entries) - 1)]
+                if not isinstance(row_data, Mapping):
+                    rows.append([row_data] * len(columns))
+                    continue
+                row_data = cast('dict[str, list[Any]]', row_data)
                 column_offsets: dict[str, int] = {}
                 row: list[Any] = []
                 for column in columns:
                     column_offset = column_offsets.get(column, 0)
                     column_offsets[column] = column_offset + 1
-                    values = row_data[column]
-                    row.append(values[min(column_offset, len(values) - 1)])
+                    values = row_data.get(column)
+                    row.append(values[min(column_offset, len(values) - 1)] if values else column)
                 rows.append(row)
         else:
             # Spans recorded by older SDK versions contain an array of arrays.

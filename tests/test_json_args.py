@@ -1118,6 +1118,18 @@ def test_log_dataframe_scrubbed_value_has_no_labels_in_schema(exporter: TestExpo
     assert 'tok-abc123' not in json.dumps(attributes)
 
 
+def test_log_dataframe_scrubbed_duplicate_row_formats(exporter: TestExporter) -> None:
+    frame = pandas.DataFrame({'score': [1, 2]}, index=['session-1', 'session-1'])
+    logfire.info('frame', frame=frame)
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    recorded = attributes['frame']
+    schema = attributes['logfire.json_schema']['properties']['frame']
+    assert recorded['data']['session-1'] == ["[Scrubbed due to 'session']"]
+    formatted = json_args_value_formatter(recorded, schema=schema)
+    assert formatted.count("[Scrubbed due to 'session']") == 4
+
+
 @pytest.mark.parametrize(
     'max_rows,max_columns,row_positions,column_positions',
     [
