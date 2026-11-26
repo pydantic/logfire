@@ -2591,6 +2591,31 @@ def test_validation_error_loc_keeps_field_names(exporter: TestExporter):
     assert attributes['invalid_loc']['loc'] == ["[Scrubbed due to 'password']", None]
 
 
+def test_validation_error_loc_transforms_strings(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    logfire.info(
+        'x',
+        errors=[
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'new_password', 'alice@example.com', 0],
+                'msg': 'short',
+                'input': 'ok',
+            }
+        ],
+    )
+
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'][0]['loc'] == ['body', 'new_password', '[email]', 0]
+    assert StringValue(('attributes', 'errors', 0, 'loc', 2), 'alice@example.com') in seen
+
+
 def test_validation_error_exception_data_scrubbed(exporter: TestExporter):
     # With `hide_input_in_errors`, the exception message leaves out the input,
     # so `exception.logfire.data` is the only place it could appear.

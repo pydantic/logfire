@@ -559,7 +559,7 @@ class SpanScrubber:
                 # while still allowing transform_string to change their string values.
                 legacy_definition = legacy_request and k in ('tools', 'functions', 'response_format')
                 if validation_error_detail and k == 'loc':
-                    result[k] = v
+                    result[k] = self.scrub(path + (k,), v, in_safe_key=True)
                 elif path == ('attributes',) and k in BaseScrubber.NO_TRANSFORM_KEYS:
                     result[k] = v
                 elif legacy_definition or (k in BaseScrubber.SAFE_KEYS and k not in BaseScrubber.KEY_ONLY_KEYS):
