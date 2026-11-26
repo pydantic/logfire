@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 import logfire
 
 from .._internal.constants import ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_TAGS_KEY
-from .logging import RESERVED_ATTRS as LOGGING_RESERVED_ATTRS
 
 # This file is currently imported eagerly from __init__.py, so it shouldn't import structlog directly
 # since that's not a required dependency.
@@ -16,7 +15,11 @@ if TYPE_CHECKING:
 
     from .. import Logfire
 
-RESERVED_ATTRS = LOGGING_RESERVED_ATTRS | {'level', 'event', 'timestamp'}
+# Only strip the keys structlog itself uses. A structlog event dict has no
+# stdlib LogRecord fields, so reusing the logging integration's reserved set
+# would silently drop user attributes that happen to share a name with a
+# LogRecord field, e.g. `name`, `module` or `process` (see #2865).
+RESERVED_ATTRS = frozenset({'level', 'event', 'timestamp', 'exc_info', 'stack_info'})
 """Attributes to strip from the event before sending to Logfire."""
 
 
@@ -38,6 +41,9 @@ class LogfireProcessor:
         """A middleware to process structlog event, and send it to **Logfire**."""
         attributes = {k: v for k, v in event_dict.items() if k not in RESERVED_ATTRS}
         level = event_dict.get('level', 'info').lower()
+        if level == 'critical':
+            # structlog's name for its top level, which is 'fatal' in Logfire, as with stdlib CRITICAL
+            level = 'fatal'
         # NOTE: An event can be `None` in structlog. We may want to create a default msg in those cases.
         msg_template = event_dict.get('event') or 'structlog event'
         attributes.setdefault(ATTRIBUTES_MESSAGE_KEY, msg_template)

@@ -4,6 +4,7 @@ from collections.abc import Callable, Collection, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from logfire._internal.utils import get_version as get_version
+from opentelemetry.instrumentation.dependencies import DependencyConflict
 from rich.console import Console
 from rich.text import Text
 
@@ -48,9 +49,23 @@ def is_uv_installed() -> bool:
 def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: dict[str, str]) -> list[str]:
     """Call every `logfire.instrument_x()` we can based on what's installed.
 
+    Packages without a Logfire method fall back to their own OpenTelemetry instrumentors.
+
     Returns a list of packages that were successfully instrumented.
     """
 def instrument_package(import_name: str, *args: str) -> None: ...
+def warn_on_version_conflict(source: str, conflict: DependencyConflict) -> None:
+    """Warn when an instrumented library is installed at a version its instrumentation doesn't support.
+
+    A library that isn't installed at all is skipped quietly, as `opentelemetry-instrument` does.
+    """
+def instrument_with_entry_points(otel_pkg_name: str) -> bool:
+    """Call the `opentelemetry_instrumentor` entry points registered by an OpenTelemetry instrumentation package.
+
+    This follows `opentelemetry-instrument`, but passes Logfire's providers and warns on every failure,
+    including a missing module, where `opentelemetry-instrument` raises or only logs.
+    Returns whether at least one instrumentor was activated.
+    """
 def find_recommended_instrumentations_to_install(instrument_pkg_map: dict[str, str], installed_otel_pkgs: set[str], installed_pkgs: set[str], installed_versions: Mapping[str, str] | None = None) -> set[InstrumentationRecommendation]:
     """Determine which OpenTelemetry instrumentation packages are recommended for installation.
 

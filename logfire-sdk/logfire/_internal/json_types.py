@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict, TypeVar
-
-from typing_extensions import NotRequired
+from typing import Any, Literal, NotRequired, TypedDict, TypeVar
 
 T = TypeVar('T')
 
@@ -31,7 +29,7 @@ DataType = Literal[
     'IPv6Address',
     'IPv6Interface',
     'IPv6Network',
-    'PosixPath',
+    'Path',
     'Pattern',
     # iterable types
     'set',

@@ -30,11 +30,14 @@ exporters:
       Authorization: '${env:LOGFIRE_TOKEN}'
 ```
 
-Use the project-scoped write token created by the authentication flow's `projects use`
-command. Follow its [credential handoff instructions](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session) to place only the token value into a gitignored env file, Kubernetes Secret, or the deployment's existing secret manager without printing it. Set that credential as `LOGFIRE_TOKEN` wherever the Collector runs -- `${env:NAME}` is the Collector's own config-substitution syntax, resolved at startup, never hardcoded into the Collector config. Add the exporter to your metrics (and/or logs/traces) pipelines.
+Use the project-scoped write token created by `init use` for a local smoke test.
+From the confirmed application directory, pass only the saved project credential's
+`token` field to the Collector child's `LOGFIRE_TOKEN` programmatically, without printing it.
+For a persistent Collector, capture a separate `logfire token write` credential
+through the [credential handoff instructions](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-another-credential) and place only its value into a gitignored, owner-only env file (mode `0600` on POSIX), Kubernetes Secret, or the deployment's existing secret manager without printing it. Set that credential as `LOGFIRE_TOKEN` wherever the Collector runs -- `${env:NAME}` is the Collector's own config-substitution syntax, resolved at startup, never hardcoded into the Collector config. Add the exporter to your metrics (and/or logs/traces) pipelines.
 
 Full setup, topologies, and processors:
-https://pydantic.dev/docs/logfire/guides/otel-collector/otel-collector-overview/
+<https://pydantic.dev/docs/logfire/guides/otel-collector/otel-collector-overview/>
 
 ## Host metrics → Hosts page
 
@@ -78,7 +81,28 @@ service:
 
 Set `host.name` (and other host resource attributes) so hosts are identified
 correctly. Guide:
-https://pydantic.dev/docs/logfire/guides/otel-collector/host-monitoring/
+<https://pydantic.dev/docs/logfire/guides/otel-collector/host-monitoring/>
+
+After validation, use the host's existing service manager when the Collector is
+already installed. For a first foreground smoke test, set `COLLECTOR_BIN` to the
+executable that validated this configuration. Use the same `COLLECTOR_CONFIG` path,
+and trigger at least one collection interval:
+
+```bash
+timeout 5m "$COLLECTOR_BIN" --config="$COLLECTOR_CONFIG"
+```
+
+If GNU `timeout` is unavailable, enforce the same five-minute bound through the
+agent's process runner and stop the Collector with SIGINT after a sample. Never
+leave the foreground smoke test running indefinitely.
+
+The foreground process is not a completed monitoring deployment. After the smoke
+test, install the validated configuration through the host's existing persistent
+service/container mechanism, enable it across restarts, record its start time,
+and verify a newer sample while that persistent deployment is running. If no
+deployment mechanism is available or the binary is not installed, stop and ask
+which supported installation path to use rather than reporting transient data as
+complete host monitoring.
 
 **App-only alternative:** if you can't run a Collector but the app process should
 report its host's metrics, call `logfire.instrument_system_metrics()` (Python,
@@ -92,6 +116,7 @@ Use the `docker_stats` receiver — **Contrib-only, not in the core Collector im
 ```yaml
 receivers:
   docker_stats:
+    collection_interval: 60s
     endpoint: unix:///var/run/docker.sock
     api_version: "1.44"   # quoted string -- a bare float like 1.44 is rejected
 
@@ -138,11 +163,13 @@ service:
 ```
 
 ```bash
-HOST_NAME=$(hostname) docker compose up
+HOST_NAME=$(hostname) docker compose up -d --no-deps otel-collector
 ```
 
 A literal `$(hostname)` inside a Compose value does not expand -- it has to
-come in from the shell.
+come in from the shell. If the repository uses another Collector service name
+or a task runner, use that targeted service/task instead of starting the whole
+Compose application.
 
 If the collector runs in a container and the Logfire base URL is a
 localhost/LAN address (self-hosted or local dev), reach the host via
@@ -150,7 +177,85 @@ localhost/LAN address (self-hosted or local dev), reach the host via
 in Compose), not `localhost` -- inside the container, `localhost` is the
 collector itself. A public cloud Logfire URL needs no change.
 
+### Container logs
+
+`docker_stats` sends metrics only. When the user also wants container stdout
+and stderr, tail the JSON log file Docker writes per container. Plain `filelog`
+over `/var/lib/docker/containers/*/*-json.log` only learns the container ID from
+the path, so the logs arrive without a container name. Use the `docker_observer`
+extension with `receiver_creator` instead: it starts one `filelog` receiver per
+running container and stamps the container's name, image, ID and Compose labels
+on its logs.
+
+```yaml
+extensions:
+  docker_observer:
+    include_all_containers: true
+    excluded_images: ["*opentelemetry-collector*"]   # skip the Collector's own logs
+
+receivers:
+  receiver_creator/docker_logs:
+    watch_observers: [docker_observer]
+    receivers:
+      filelog:
+        rule: type == "container" and port == 0
+        config:
+          include:
+            - /var/lib/docker/containers/`container_id`/`container_id`-json.log
+          operators:
+            - type: container
+              format: docker
+              add_metadata_from_filepath: false
+        resource_attributes:
+          container.id: '`container_id`'
+          compose.project: '`labels["com.docker.compose.project"]`'
+          compose.service: '`labels["com.docker.compose.service"]`'
+
+processors:
+  resource/docker_logs:
+    attributes:
+      - key: container.runtime
+        value: docker
+        action: upsert
+
+service:
+  extensions: [docker_observer]
+  pipelines:
+    logs:
+      receivers: [receiver_creator/docker_logs]
+      processors: [resourcedetection, resource/docker_logs]
+      exporters: [otlphttp/logfire]
+```
+
+Details that matter:
+
+- Keep `include_all_containers: true` and `port == 0` together. The observer
+  reports a container once per exposed port, and `include_all_containers` adds
+  one port-less endpoint per container. Matching only `port == 0` reads each
+  log file once. Without it, a container with three ports sends every line
+  three times, and containers with no exposed ports send nothing.
+- `add_metadata_from_filepath: false` is required. The `container` operator
+  defaults to parsing Kubernetes pod log paths and logs an error on every
+  Docker line otherwise.
+- `container.runtime: docker` is what the Docker view and Infrastructure logs
+  filter on. Logs without it do not show up there.
+- Add the same `resourcedetection` processor as the metrics pipeline so the logs
+  carry the same `host.name` as the container metrics.
+- Mount the log directory read-only next to the socket:
+  `-v /var/lib/docker/containers:/var/lib/docker/containers:ro`. Only root can
+  read that directory, so the Collector runs as `user: "0:0"`.
+- Only containers using Docker's default `json-file` logging driver write these
+  files. Containers on `journald`, `syslog` or another driver are skipped.
+- Readers start at the end of each file, so existing history is not sent, only
+  new lines. Every line sent is stored in Logfire and counts toward usage, so
+  add noisy images to `excluded_images` before enabling this.
+
+Verify by querying for `kind = 'log'` records with
+`otel_resource_attributes->>'container.name'` set to one of the user's
+containers within the last few minutes.
+
 Guide: https://pydantic.dev/docs/logfire/observe/docker/
+
 
 ## Kubernetes → Kubernetes page
 
@@ -163,7 +268,15 @@ pattern is two Collectors — a Deployment for cluster-level state
 `k8s.*` attributes onto traces from your applications.
 
 Guide:
-https://pydantic.dev/docs/logfire/guides/otel-collector/kubernetes-monitoring/
+<https://pydantic.dev/docs/logfire/guides/otel-collector/kubernetes-monitoring/>
+
+For a standard new deployment, follow that guide's pinned
+`opentelemetry-kube-stack` Helm flow end to end: create the `observability`
+namespace, put the write token in the `logfire-token` Secret without printing
+it, set a real `clusterName`, configure `collectors.daemon` with the exact
+regional OTLP endpoint, and wait for the Operator and Collector pods. Do not
+invent a partial Deployment/DaemonSet or omit the chart's RBAC. If the guide is
+unavailable, stop rather than claiming an incomplete cluster setup succeeded.
 
 ## Database / queue / cache servers → Metrics & Dashboards
 
@@ -207,7 +320,7 @@ the receiver to the services the project actually depends on (read
   `GetMetricStatistics` / `ListMetrics` IAM permissions.
 
 Full setup, IAM policies, and example ECS/Cloud Run deployments:
-https://pydantic.dev/docs/logfire/guides/cloud-metrics/
+<https://pydantic.dev/docs/logfire/guides/cloud-metrics/>
 
 ## Service & resource metadata
 

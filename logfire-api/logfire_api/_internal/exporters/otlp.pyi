@@ -9,7 +9,6 @@ from .wrapper import WrapperLogExporter as WrapperLogExporter, WrapperSpanExport
 from _typeshed import Incomplete
 from collections import deque
 from collections.abc import Mapping, Sequence
-from functools import cached_property
 from logfire._internal.utils import handle_internal_errors as handle_internal_errors
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk._logs import ReadableLogRecord as ReadableLogRecord
@@ -60,7 +59,7 @@ class OTLPExporterHttpSession(Session):
     def __init__(self, *, _use_zstd: bool = False) -> None: ...
     def request(self, method: str, url: str, **kwargs: Any): ...
     def post(self, url: str, data: bytes, **kwargs: Any): ...
-    @cached_property
+    @property
     def retryer(self) -> DiskRetryer: ...
     def close(self) -> None: ...
 
@@ -76,6 +75,7 @@ class DiskRetryer:
     tasks: deque[tuple[Path, dict[str, Any]]]
     total_size: int
     closed: bool
+    pid: Incomplete
     session: Incomplete
     dir: Incomplete
     last_log_time: Incomplete

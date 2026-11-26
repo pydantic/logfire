@@ -22,6 +22,7 @@ import logfire
 from logfire import configure
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire._internal.exporters.test import TestLogExporter
+from logfire._internal.tracer import OPEN_SPANS
 from logfire._internal.utils import get_version
 from logfire.integrations.pydantic import set_pydantic_plugin_config
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
@@ -159,6 +160,8 @@ def config_kwargs(
 
 @pytest.fixture(autouse=True)
 def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
+    # Tests reuse trace/span IDs; retained spans from earlier tests must not collide.
+    OPEN_SPANS.clear()
     logfire.DEFAULT_LOGFIRE_INSTANCE.variables_clear()
     configure(
         **config_kwargs,
@@ -192,48 +195,6 @@ def tmp_dir_cwd(tmp_path: Path):
         yield tmp_path
     finally:
         os.chdir(cwd)
-
-
-@pytest.fixture
-def default_credentials(tmp_path: Path) -> Path:
-    auth_file = tmp_path / 'default.toml'
-    auth_file.write_text(
-        """
-        [tokens."https://logfire-us.pydantic.dev"]
-        token = "pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
-        expiration = "2099-12-31T23:59:59"
-        """
-    )
-    return auth_file
-
-
-@pytest.fixture
-def expired_credentials(tmp_path: Path) -> Path:
-    auth_file = tmp_path / 'default.toml'
-    auth_file.write_text(
-        """
-        [tokens."https://logfire-us.pydantic.dev"]
-        token = "pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
-        expiration = "1970-01-01T00:00:00"
-        """
-    )
-    return auth_file
-
-
-@pytest.fixture
-def multiple_credentials(tmp_path: Path) -> Path:
-    auth_file = tmp_path / 'default.toml'
-    auth_file.write_text(
-        """
-        [tokens."https://logfire-us.pydantic.dev"]
-        token = "pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
-        expiration = "2099-12-31T23:59:59"
-        [tokens."https://logfire-eu.pydantic.dev"]
-        token = "pylf_v1_eu_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
-        expiration = "2099-12-31T23:59:59"
-        """
-    )
-    return auth_file
 
 
 SENSITIVE_HEADERS = [

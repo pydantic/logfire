@@ -50,7 +50,8 @@ logfire.instrument_openai()  # instrument all OpenAI clients globally
 # or logfire.instrument_openai(client) to instrument a specific client instance
 
 response = client.chat.completions.create(
-    model='gpt-5-mini',
+    model='gpt-6.1-terra',
+    reasoning_effort='none',
     messages=[
         {'role': 'system', 'content': 'You are a helpful assistant.'},
         {'role': 'user', 'content': 'Please write me a limerick about Python logging.'},
@@ -86,12 +87,29 @@ Not seeing your model calls in Logfire? Check these first:
   first, then instrument.
 - **You instrument the client you actually call.** `instrument_openai()` with no argument covers all
   clients; if you pass a specific client, make sure it's the one making the request.
-- **Your Logfire write token is set.** In local development, run `logfire projects use <your-project>`;
+- **Your Logfire write token is set.** In local development, install [uv](https://docs.astral.sh/uv/getting-started/installation/)
+  if needed, then run `uvx logfire-cli auth` if needed, then
+  `uvx logfire-cli init use` from your application's directory;
   in production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **Your OpenAI call succeeded.** If the call itself fails (for example, a missing or invalid
   `OPENAI_API_KEY`), check the span for the recorded exception.
 
 ## Advanced
+
+### Control HTTPX spans in Logfire 6
+
+In Logfire 6, `instrument_openai()` no longer suppresses other OpenTelemetry instrumentation by default.
+If you also enable [HTTPX instrumentation](../http-clients/httpx.md), its request spans appear as children
+of the OpenAI span. This can increase the number of spans you store; it does not enable HTTPX instrumentation for you.
+
+To keep the pre-v6 behavior, explicitly enable suppression:
+
+```python hl_lines="4"
+import logfire
+
+logfire.configure()
+logfire.instrument_openai(suppress_other_instrumentation=True)
+```
 
 ### Keep legacy attributes during migration
 
@@ -180,7 +198,8 @@ async def main():
     console = Console()
     with logfire.span('Asking OpenAI to write some code'):
         response = await client.chat.completions.create(
-            model='gpt-4',
+            model='gpt-6.1-terra',
+            reasoning_effort='none',
             messages=[
                 {'role': 'system', 'content': 'Reply in markdown.'},
                 {'role': 'user', 'content': 'Write Python to show a tree of files.'},

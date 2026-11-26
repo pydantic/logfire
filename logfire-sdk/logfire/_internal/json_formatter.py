@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import io
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import date, datetime, time, timedelta
 from functools import partial
 from typing import Any, cast
@@ -29,16 +29,16 @@ class JsonArgsValueFormatter:
             'tuple': partial(self._format_list_like, '(', ')'),
             'Sequence': partial(self._format_sequence, '([', '])'),
             'range': self._format_range,
-            'set': partial(self._format_list_like, '{', '}'),
-            'frozenset': partial(self._format_list_like, 'frozenset({', '})'),
+            'set': partial(self._format_set_like, 'set()', '{', '}'),
+            'frozenset': partial(self._format_set_like, 'frozenset()', 'frozenset({', '})'),
             'deque': partial(self._format_list_like, 'deque([', '])'),
-            'generator': partial(self._format_list_like, 'generator((', '))'),
+            'generator': self._format_generator,
             'bytes': self._format_bytes,
             'bytearray': self._format_bytearray,
             'Decimal': partial(self._write, 'Decimal(', ')', True),
-            'date': self._format_date,
-            'datetime': self._format_datetime,
-            'time': self._format_time,
+            'date': partial(self._format_iso, date.fromisoformat),
+            'datetime': partial(self._format_iso, datetime.fromisoformat),
+            'time': partial(self._format_iso, time.fromisoformat),
             'timedelta': self._format_timedelta,
             'Enum': partial(self._write, '(', ')', True),
             'IPv4Address': partial(self._write, 'IPv4Address(', ')', True),
@@ -49,7 +49,7 @@ class JsonArgsValueFormatter:
             'IPv6Address': partial(self._write, 'IPv6Address(', ')', True),
             'IPv6Interface': partial(self._write, 'IPv6Interface(', ')', True),
             'IPv6Network': partial(self._write, 'IPv6Network(', ')', True),
-            'PosixPath': partial(self._write, 'PosixPath(', ')', True),
+            'Path': partial(self._write, 'Path(', ')', True),
             'Pattern': partial(self._write, 're.compile(', ')', True),
             'SecretBytes': partial(self._write, 'SecretBytes(', ')', False),
             'SecretStr': partial(self._write, 'SecretStr(', ')', True),
@@ -133,6 +133,13 @@ class JsonArgsValueFormatter:
             args = '0, 0'
         self._write('range(', ')', False, 0, args, None)
 
+    def _format_generator(self, indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        if isinstance(value, str):
+            # The JSON encoder stores a generator as its repr() rather than consuming it.
+            self._write('', '', False, 0, value, None)
+        else:
+            self._format_list_like('generator((', '))', indent_current, value, schema)
+
     def _format_ndarray(self, indent_current: int, value: Any, schema: JSONSchema | None) -> None:
         if schema is not None and schema.get('x-shape') == []:
             # A zero-dimensional ndarray is encoded by tolist() as its scalar value.
@@ -175,6 +182,15 @@ class JsonArgsValueFormatter:
             self._stream.write(comma)
         self._stream.write(indent_current * ' ' + close_)
 
+    def _format_set_like(
+        self, empty: str, open_: str, close_: str, indent_current: int, value: Any, schema: JSONSchema | None
+    ) -> None:
+        if value:
+            self._format_list_like(open_, close_, indent_current, value, schema)
+        else:
+            # `{}` would read as an empty dict, so match repr() instead.
+            self._stream.write(empty)
+
     def _format_items(
         self,
         open_: str,
@@ -185,6 +201,11 @@ class JsonArgsValueFormatter:
         value: Any,
         schema: JSONSchema | None,
     ) -> None:
+        if not isinstance(value, Mapping):
+            # A custom model serializer can produce a non-object value.
+            self._write('', '', True, indent_current, value, None)
+            return
+
         indent_new = indent_current + self._indent_step
         before_ = indent_new * ' '
         comma = ',\n' if self._newlines else ', '
@@ -196,7 +217,7 @@ class JsonArgsValueFormatter:
         first = True
         properties = schema.get('properties', {})
         additional = schema.get('additionalProperties')
-        for k, v in value.items():
+        for k, v in cast('Mapping[str, Any]', value).items():
             if first:
                 if self._newlines:
                     self._stream.write('\n')
@@ -304,7 +325,7 @@ class JsonArgsValueFormatter:
             # add index at the beginning of row
             if column_count < real_column_count:
                 row = insert_into_list_middle(row, '...')
-            row = [indices[i]] + [str(x) for x in row]
+            row = [str(indices[i])] + [str(x) for x in row]
             converted_rows.append(row)
 
         if len(rows) < real_row_count:
@@ -336,14 +357,15 @@ class JsonArgsValueFormatter:
             real_row_count=schema.get('x-row-count', 0),
         )
 
-    def _format_date(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
-        self._write('', '', True, 0, date.fromisoformat(value) if isinstance(value, str) else value, schema)
-
-    def _format_datetime(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
-        self._write('', '', True, 0, datetime.fromisoformat(value) if isinstance(value, str) else value, schema)
-
-    def _format_time(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
-        self._write('', '', True, 0, time.fromisoformat(value) if isinstance(value, str) else value, schema)
+    def _format_iso(
+        self, parse: Callable[[str], Any], _indent_current: int, value: Any, schema: JSONSchema | None
+    ) -> None:
+        try:
+            value = parse(value)
+        except (TypeError, ValueError):
+            # The encoded value isn't always an ISO formatted string, e.g. pandas.NaT is encoded as 'NaT'.
+            pass
+        self._write('', '', True, 0, value, schema)
 
 
 json_args_value_formatter = JsonArgsValueFormatter(indent=4)

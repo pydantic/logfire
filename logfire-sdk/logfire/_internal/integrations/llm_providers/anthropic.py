@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import contextlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from inspect import signature
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import anthropic
 from anthropic._utils import is_given
@@ -31,6 +31,7 @@ from .semconv import (
     TOOL_DEFINITIONS,
     BlobPart,
     ChatMessage,
+    FilePart,
     InputMessages,
     MessagePart,
     NormalizedSemconvVersion,
@@ -116,9 +117,21 @@ def get_endpoint_config(
 
         if 2 in versions:
             # Convert messages to semantic convention format
-            messages: list[dict[str, Any]] = json_data.get('messages', [])
+            messages: Iterable[dict[str, Any]] = json_data.get('messages', [])
             system: str | list[dict[str, Any]] | None = json_data.get('system')
             if messages or system:
+                # The Anthropic SDK accepts `messages` as any iterable. Materialize a
+                # generator (or any non-list iterable) into a list and store it back on
+                # the request options, so recording the input here doesn't consume the
+                # generator before the SDK serializes the request body (which would
+                # otherwise send an empty request).
+                if not isinstance(messages, list):
+                    messages = list(messages)
+                    # Write back to `options.json_data` (not the filtered copy above),
+                    # so the SDK serializes the materialized list instead of the now
+                    # consumed generator.
+                    cast('dict[str, Any]', raw_json_data)['messages'] = messages
+                    json_data['messages'] = messages
                 input_messages, system_instructions = convert_messages_to_semconv(messages, system)
                 span_data[INPUT_MESSAGES] = input_messages
                 if system_instructions:
@@ -148,6 +161,9 @@ def _convert_content_part_or_parts(content: object) -> list[MessagePart]:
 
 def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
     """Convert a single Anthropic content part to semconv format."""
+    if isinstance(part, anthropic.BaseModel):
+        # Content blocks of an earlier response sent back as-is, e.g. `{'role': 'assistant', 'content': message.content}`.
+        part = part.model_dump()
     if not isinstance(part, dict):
         return TextPart(type='text', content=str(part))
 
@@ -155,21 +171,25 @@ def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
     part_type = part.get('type', 'text')
     if part_type == 'text':
         return TextPart(type='text', content=part.get('text', ''))
-    elif part_type == 'image':  # pragma: no cover
+    elif part_type in ('image', 'document'):
+        modality: Literal['image', 'document'] = 'image' if part_type == 'image' else 'document'
         source = part.get('source', {})
-        if source.get('type') == 'base64':
+        source_type = source.get('type')
+        if source_type == 'base64':
             blob_part = BlobPart(
                 type='blob',
-                modality='image',
+                modality=modality,
                 content=source.get('data', ''),
             )
             if (media_type := source.get('media_type')) is not None:
-                blob_part['media_type'] = media_type
+                blob_part['mime_type'] = media_type
             return blob_part
-        elif source.get('type') == 'url':
-            return UriPart(type='uri', uri=source.get('url', ''), modality='image')
+        elif source_type == 'url':
+            return UriPart(type='uri', uri=source.get('url', ''), modality=modality)
+        elif source_type == 'file':
+            return FilePart(type='file', file_id=source.get('file_id', ''), modality=modality)
         else:
-            return {'type': 'image', **part}
+            return {'type': part_type, **part}
     elif part_type == 'tool_use':
         return make_tool_call_part(
             tool_call_id=part.get('id', ''),
@@ -251,6 +271,10 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
             block_dict = block.model_dump() if hasattr(block, 'model_dump') else dict(block)
             parts.append(block_dict)
 
+    # A refused response has no content blocks; the reason is in `stop_details`.
+    if refusal_explanation := _refusal_explanation(message):
+        parts.append(TextPart(type='text', content=refusal_explanation))
+
     result = OutputMessage(
         role=message.role,
         parts=parts,
@@ -259,6 +283,13 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
         result['finish_reason'] = message.stop_reason
 
     return result
+
+
+def _refusal_explanation(message: Any) -> str | None:
+    if getattr(message, 'stop_reason', None) != 'refusal':
+        return None
+    explanation = getattr(getattr(message, 'stop_details', None), 'explanation', None)
+    return explanation if isinstance(explanation, str) and explanation else None
 
 
 class AnthropicMessageStreamState(StreamState):
@@ -284,6 +315,9 @@ class AnthropicMessageStreamState(StreamState):
             if 'json_bufs' in signature(accumulate_event).parameters:
                 self._accumulate_kwargs['json_bufs'] = {}
         self._message = self._accumulate_event(event=chunk, current_snapshot=self._message, **self._accumulate_kwargs)
+        # The AI Gateway writes its cost on `message_delta`, but the SDK only accumulates the known usage fields.
+        if (gateway_usage := getattr(getattr(chunk, 'usage', None), 'logfire_ai_gateway', None)) is not None:
+            self._message.usage.logfire_ai_gateway = gateway_usage
         if isinstance(getattr(chunk, 'delta', None), (TextDelta, BetaTextDelta)):
             self._chunk_count += 1
 
@@ -302,7 +336,7 @@ class AnthropicMessageStreamState(StreamState):
         result = dict(**span_data)
         if 1 in versions:
             result['response_data'] = self.get_response_data()
-        if 2 in versions and self._message and self._message.content:
+        if 2 in versions and self._message and (self._message.content or _refusal_explanation(self._message)):
             result[OUTPUT_MESSAGES] = [convert_response_to_semconv(self._message)]
         if self._message is not None:
             result[RESPONSE_ID] = self._message.id

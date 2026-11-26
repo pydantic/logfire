@@ -1,3 +1,4 @@
+import dataclasses
 from ..constants import ONE_SECOND_IN_NANOSECONDS as ONE_SECOND_IN_NANOSECONDS
 from ..main import Logfire as Logfire, NoopSpan as NoopSpan, set_user_attributes_on_raw_span as set_user_attributes_on_raw_span
 from ..stack_info import StackInfo as StackInfo, get_code_object_info as get_code_object_info
@@ -8,21 +9,43 @@ from collections.abc import Awaitable, Callable, Iterable
 from contextlib import AbstractContextManager, contextmanager
 from fastapi import FastAPI
 from functools import lru_cache
+from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
 from opentelemetry.trace import Span
 from starlette.requests import Request
+from starlette.types import Receive, Scope, Send
 from starlette.websockets import WebSocket
 from typing import Any
+from weakref import WeakKeyDictionary
 
 def find_mounted_apps(app: FastAPI) -> list[FastAPI]:
     """Fetch all sub-apps mounted to a FastAPI app, including nested sub-apps."""
-def instrument_fastapi(logfire_instance: Logfire, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
+def instrument_fastapi(logfire_instance: Logfire, app: FastAPI | None = None, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
     """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
     See `Logfire.instrument_fastapi` for more details.
     """
+
+class OncePerRequest:
+    """Run only the outermost FastAPI OpenTelemetry middleware for each ASGI request.
+
+    This way mounted apps don't start duplicate spans for the same request,
+    and they don't trace requests that were excluded by their outer app.
+    """
+    app: Incomplete
+    def __init__(self, app: OpenTelemetryMiddleware) -> None: ...
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None: ...
+
+@dataclasses.dataclass
+class _FastAPIRegistry:
+    """Track Logfire instrumentation settings for FastAPI apps."""
+    global_instrumentation: FastAPIInstrumentation | None = ...
+    per_app: WeakKeyDictionary[FastAPI, FastAPIInstrumentation] = dataclasses.field(default_factory=Incomplete)
+    def get_instrumentation(self, app: FastAPI) -> FastAPIInstrumentation | None:
+        """Get the instrumentation for a specific app, or the global instrumentation if none is set."""
+
 @lru_cache
-def patch_fastapi():
-    """Globally monkeypatch fastapi functions and return a dictionary for recording instrumentation config per app."""
+def patch_fastapi() -> _FastAPIRegistry:
+    """Globally monkeypatch fastapi functions and return their instrumentation registry."""
 
 class FastAPIInstrumentation:
     logfire_instance: Incomplete

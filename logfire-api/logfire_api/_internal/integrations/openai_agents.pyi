@@ -7,7 +7,8 @@ from agents.tracing.spans import SpanError, TSpanData
 from dataclasses import dataclass
 from logfire import Logfire as Logfire, LogfireSpan as LogfireSpan
 from logfire._internal.formatter import logfire_format as logfire_format
-from logfire._internal.integrations.llm_providers.openai import get_openai_usage_attributes as get_openai_usage_attributes, inputs_to_events as inputs_to_events, responses_output_events as responses_output_events
+from logfire._internal.integrations.llm_providers.openai import get_openai_usage_attributes as get_openai_usage_attributes, inputs_to_events as inputs_to_events, responses_finish_reasons as responses_finish_reasons, responses_output_events as responses_output_events
+from logfire._internal.integrations.llm_providers.semconv import RESPONSE_FINISH_REASONS as RESPONSE_FINISH_REASONS, RESPONSE_ID as RESPONSE_ID
 from logfire._internal.scrubbing import NOOP_SCRUBBER as NOOP_SCRUBBER
 from logfire._internal.utils import handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, truncate_string as truncate_string
 from openai.types.responses import Response

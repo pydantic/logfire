@@ -5,7 +5,7 @@ from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientRe
 from starlette.applications import Starlette
 from typing import Any
 
-def instrument_starlette(logfire_instance: Logfire, app: Starlette, *, record_send_receive: bool = False, capture_headers: bool = False, server_request_hook: ServerRequestHook | None = None, client_request_hook: ClientRequestHook | None = None, client_response_hook: ClientResponseHook | None = None, **kwargs: Any):
+def instrument_starlette(logfire_instance: Logfire, app: Starlette | None = None, *, record_send_receive: bool = False, capture_headers: bool = False, server_request_hook: ServerRequestHook | None = None, client_request_hook: ClientRequestHook | None = None, client_response_hook: ClientResponseHook | None = None, **kwargs: Any) -> None:
     """Instrument `app` so that spans are automatically created for each request.
 
     See the `Logfire.instrument_starlette` method for details.

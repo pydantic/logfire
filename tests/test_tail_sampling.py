@@ -468,8 +468,10 @@ def test_span_levels():
     assert not (warn <= 'debug')
 
     assert warn == 'warn'
+    assert warn == 'warning'
     assert warn != 'error'
     assert not (warn != 'warn')
+    assert not (warn != 'warning')
     assert not (warn == 'error')
     assert warn == warn.number
     assert warn != 123
@@ -488,7 +490,19 @@ def test_span_levels():
     assert not (warn == [1, 2, 3])
     assert not ([1, 2, 3] == warn)
 
-    assert {warn, SpanLevel(LEVEL_NUMBERS['warn'])} == {warn}
+    with pytest.warns(UserWarning, match='Hashing a SpanLevel is discouraged'):
+        assert {warn, SpanLevel(LEVEL_NUMBERS['warn'])} == {warn}
+
+
+def test_span_level_hashes_as_its_name():
+    warn = SpanLevel(LEVEL_NUMBERS['warn'])
+
+    with pytest.warns(UserWarning, match='Hashing a SpanLevel is discouraged'):
+        assert warn in {'warn', 'error'}
+        assert warn not in {'info', 'error'}
+        by_name: dict[object, int] = {'warn': 1}
+        assert by_name[warn] == 1
+        assert hash(SpanLevel(1234)) == hash(None)
 
 
 def test_invalid_rates():

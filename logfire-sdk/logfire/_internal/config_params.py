@@ -1,10 +1,9 @@
 from __future__ import annotations as _annotations
 
 import os
-import sys
 import typing
 import warnings
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -106,8 +105,8 @@ PYDANTIC_PLUGIN_EXCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE
 """Set of items that should be excluded from Logfire Pydantic plugin instrumentation."""
 TRACE_SAMPLE_RATE = ConfigParam(env_vars=['LOGFIRE_TRACE_SAMPLE_RATE', 'OTEL_TRACES_SAMPLER_ARG'], allow_file_config=True, default=1.0, tp=float)
 """Head sampling rate for traces."""
-INSPECT_ARGUMENTS = ConfigParam(env_vars=['LOGFIRE_INSPECT_ARGUMENTS'], allow_file_config=True, default=sys.version_info[:2] >= (3, 11), tp=bool)
-"""Whether to enable the f-string magic feature. On by default for Python 3.11 and above."""
+INSPECT_ARGUMENTS = ConfigParam(env_vars=['LOGFIRE_INSPECT_ARGUMENTS'], allow_file_config=True, default=True, tp=bool)
+"""Whether to enable the f-string magic feature. On by default."""
 IGNORE_NO_CONFIG = ConfigParam(env_vars=['LOGFIRE_IGNORE_NO_CONFIG'], allow_file_config=True, default=False, tp=bool)
 """Whether to show a warning message if logfire if used without calling logfire.configure()"""
 BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, default=None, tp=str)
@@ -120,6 +119,8 @@ PENDING_SPANS = ConfigParam(
     env_vars=['LOGFIRE_PENDING_SPANS'], allow_file_config=True, default=True, tp=bool
 )
 """Whether to send pending spans (placeholders for spans that are still running) to Logfire."""
+FLEET = ConfigParam(env_vars=['LOGFIRE_FLEET'], allow_file_config=True, default=False, tp=bool)
+"""Whether to manage the SDK from Logfire Fleet (needs the `fleet` extra)."""
 COMPRESSION = ConfigParam(env_vars=['LOGFIRE_COMPRESSION'], allow_file_config=True, default='gzip', tp=CompressionValues)
 """Compression for data sent to Logfire: `gzip` (default) or `zstd`."""
 
@@ -161,6 +162,7 @@ CONFIG_PARAMS = {
     'emit_configuration_span': EMIT_CONFIGURATION_SPAN,
     'pending_spans': PENDING_SPANS,
     'compression': COMPRESSION,
+    'fleet': FLEET,
     # Instrumentation packages parameters
     'httpx_capture_all': HTTPX_CAPTURE_ALL,
     'aiohttp_client_capture_all': AIOHTTP_CLIENT_CAPTURE_ALL,
@@ -239,7 +241,10 @@ class ParamManager:
         if tp is bool:
             return _check_bool(value, name)  # pyright: ignore[reportReturnType]
         if tp is float:
-            return float(value)  # pyright: ignore[reportReturnType]
+            try:
+                return float(value)  # pyright: ignore[reportReturnType]
+            except (TypeError, ValueError, OverflowError):
+                raise LogfireConfigError(f'Expected {name} to be a number, got {value!r}') from None
         if tp is Path:
             return Path(value)  # pyright: ignore[reportReturnType]
         if get_origin(tp) is set and get_args(tp) == (str,):  # pragma: no branch
@@ -273,8 +278,10 @@ def _check_bool(value: Any, name: str) -> bool | None:
     raise LogfireConfigError(f'Expected {name} to be a boolean, got {value!r}')  # pragma: no cover
 
 
-def _extract_set_of_str(value: str | set[str]) -> set[str]:
-    return set(map(str.strip, value.split(','))) if isinstance(value, str) else value
+def _extract_set_of_str(value: str | Iterable[str]) -> set[str]:
+    """Extract a set of strings from a comma-separated string or a collection of strings, skipping empty items."""
+    items = value.split(',') if isinstance(value, str) else value
+    return {item.strip() for item in items if item.strip()}
 
 
 def _extract_dict_of_str(value: str | Mapping[str, str] | None) -> dict[str, str] | None:

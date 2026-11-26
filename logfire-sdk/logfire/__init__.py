@@ -11,7 +11,6 @@ from . import variables as variables
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
 from ._internal.baggage import get_baggage, set_baggage
-from ._internal.cli import logfire_info
 from ._internal.config import (
     AdvancedOptions,
     CodeSource,
@@ -23,6 +22,7 @@ from ._internal.config import (
     configure,
 )
 from ._internal.constants import LevelName
+from ._internal.logfire_info import logfire_info
 from ._internal.main import Logfire, LogfireSpan
 from ._internal.scrubbing import ScrubbingOptions, ScrubMatch
 from ._internal.stack_info import add_non_user_code_prefix
@@ -40,6 +40,7 @@ install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
 instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
 instrument_pydantic_ai = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic_ai
 instrument_monty = DEFAULT_LOGFIRE_INSTANCE.instrument_monty
+agent_sandboxes = DEFAULT_LOGFIRE_INSTANCE.agent_sandboxes
 instrument_asgi = DEFAULT_LOGFIRE_INSTANCE.instrument_asgi
 instrument_wsgi = DEFAULT_LOGFIRE_INSTANCE.instrument_wsgi
 instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
@@ -114,15 +115,19 @@ variables_pull_config = DEFAULT_LOGFIRE_INSTANCE.variables_pull_config
 variables_build_config = DEFAULT_LOGFIRE_INSTANCE.variables_build_config
 
 
-def loguru_handler() -> Any:
+def loguru_handler(*, console_log: bool = True) -> Any:
     """Create a **Logfire** handler for Loguru.
+
+    Args:
+        console_log: Whether Logfire also prints these logs to the console.
+            Set to `False` to keep Loguru's own console output without duplicates.
 
     Returns:
         A dictionary with the handler and format for Loguru.
     """
     from .integrations import loguru
 
-    return {'sink': loguru.LogfireHandler(), 'format': '{message}'}
+    return {'sink': loguru.LogfireHandler(console_log=console_log), 'format': '{message}'}
 
 
 __version__ = VERSION
@@ -156,6 +161,7 @@ __all__ = (
     'instrument_pydantic',
     'instrument_pydantic_ai',
     'instrument_monty',
+    'agent_sandboxes',
     'instrument_fastapi',
     'instrument_openai',
     'instrument_openai_agents',

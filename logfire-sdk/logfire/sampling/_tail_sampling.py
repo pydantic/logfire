@@ -4,12 +4,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
 from threading import Lock
-from typing import Literal
+from typing import Literal, Self
 
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.sampling import Sampler, TraceIdRatioBased
-from typing_extensions import Self
 
 from logfire._internal.constants import (
     ONE_SECOND_IN_NANOSECONDS,
@@ -48,7 +47,7 @@ class TailSamplingSpanInfo:
 
     span: ReadableSpan
     """
-    Raw span object being started or ended.
+    Span being started or ended. Its attributes are available before scrubbing.
     """
 
     context: context.Context | None
@@ -166,10 +165,13 @@ class TailSamplingProcessor(WrapperSpanProcessor):
         processor: SpanProcessor,
         get_tail_sample_rate: Callable[[TailSamplingSpanInfo], float],
         deferred_processor: SpanProcessor | None = None,
+        *,
+        prepare_ended_span: Callable[[ReadableSpan], ReadableSpan] | None = None,
     ) -> None:
         super().__init__(processor)
         self.get_tail_sample_rate = get_tail_sample_rate
         self.deferred_processor = deferred_processor
+        self.prepare_ended_span = prepare_ended_span
 
         # A TraceBuffer is typically created for each new trace.
         # If a span meets the sampling criteria, the buffer is dropped and all buffered spans
@@ -241,6 +243,8 @@ class TailSamplingProcessor(WrapperSpanProcessor):
         if buffer is None:
             # No buffer for this trace, meaning it was already sampled/discarded, or never tracked.
             # Pass on_end through immediately to both processors.
+            if self.prepare_ended_span is not None:
+                span = self.prepare_ended_span(span)
             super().on_end(span)
             if self.deferred_processor is not None:
                 self.deferred_processor.on_end(span)
@@ -262,16 +266,19 @@ class TailSamplingProcessor(WrapperSpanProcessor):
         del self.traces[buffer.trace_id]
 
     def push_buffer(self, buffer: TraceBuffer) -> None:
+        ended = buffer.ended
+        if self.prepare_ended_span is not None:
+            ended = [self.prepare_ended_span(span) for span in ended]
         # For the deferred processor, replay both on_start and on_end.
         if self.deferred_processor is not None:
             for started in buffer.started:
                 self.deferred_processor.on_start(*started)
-            for span in buffer.ended:
+            for span in ended:
                 self.deferred_processor.on_end(span)
 
         # For the main processor, on_start was already called immediately.
         # Only replay on_end.
-        for span in buffer.ended:
+        for span in ended:
             super().on_end(span)
 
     def shutdown(self) -> None:

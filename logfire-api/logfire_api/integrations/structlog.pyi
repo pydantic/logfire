@@ -1,5 +1,5 @@
 from .. import Logfire as Logfire
-from .._internal.constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY
+from .._internal.constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY
 from _typeshed import Incomplete
 from structlog.types import EventDict, WrappedLogger
 

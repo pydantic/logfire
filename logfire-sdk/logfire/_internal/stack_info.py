@@ -45,11 +45,7 @@ def add_non_user_code_prefix(path: str | Path) -> None:
     global NON_USER_CODE_PREFIXES
     path = str(Path(path).absolute())
     NON_USER_CODE_PREFIXES += (path,)  # pyright: ignore[reportConstantRedefinition]
-
-
-add_non_user_code_prefix(Path(opentelemetry.sdk.trace.__file__).parent.parent.parent.parent)
-add_non_user_code_prefix(Path(inspect.__file__).parent)
-add_non_user_code_prefix(Path(logfire.__file__).parent)
+    _is_user_code.cache_clear()
 
 
 def get_filepath_attribute(file: str) -> StackInfo:
@@ -63,12 +59,19 @@ def get_filepath_attribute(file: str) -> StackInfo:
     return {'code.filepath': str(path)}
 
 
-@lru_cache(maxsize=2048)
 def get_code_object_info(code: CodeType) -> StackInfo:
-    result = get_filepath_attribute(code.co_filename)
-    if code.co_name != '<module>':  # pragma: no branch
-        result['code.function'] = code.co_qualname if sys.version_info >= (3, 11) else code.co_name
-    result['code.lineno'] = code.co_firstlineno
+    # Code objects that differ only in co_filename or co_qualname compare equal,
+    # so the cache is keyed on the values the result is built from rather than on the code object.
+    function = code.co_qualname if sys.version_info >= (3, 11) else code.co_name
+    return _get_code_object_info(code.co_filename, function, code.co_firstlineno)
+
+
+@lru_cache(maxsize=2048)
+def _get_code_object_info(filename: str, function: str, lineno: int) -> StackInfo:
+    result = get_filepath_attribute(filename)
+    if function != '<module>':  # pragma: no branch
+        result['code.function'] = function
+    result['code.lineno'] = lineno
     return result
 
 
@@ -122,7 +125,6 @@ def is_non_user_path(path: str | Path) -> bool:
     return any(path.is_relative_to(prefix) for prefix in NON_USER_CODE_PREFIXES)
 
 
-@lru_cache(maxsize=8192)
 def is_user_code(code: CodeType) -> bool:
     """Check if the code object is from user code.
 
@@ -135,11 +137,21 @@ def is_user_code(code: CodeType) -> bool:
         and they are always called directly from the enclosing function so it makes sense to skip them.
         On the other hand, generator expressions and lambdas might be called far away from where they are defined.
     """
+    # Code objects that differ only in co_filename compare equal,
+    # so the cache is keyed on the filename and name rather than on the code object.
+    return _is_user_code(code.co_filename, code.co_name)
+
+
+@lru_cache(maxsize=8192)
+def _is_user_code(filename: str, name: str) -> bool:
     return not (
-        is_non_user_path(code.co_filename)
-        or code.co_filename.startswith('<')
-        or code.co_name in ('<listcomp>', '<dictcomp>', '<setcomp>')
+        is_non_user_path(filename) or filename.startswith('<') or name in ('<listcomp>', '<dictcomp>', '<setcomp>')
     )
+
+
+add_non_user_code_prefix(Path(opentelemetry.sdk.trace.__file__).parent.parent.parent.parent)
+add_non_user_code_prefix(Path(inspect.__file__).parent)
+add_non_user_code_prefix(Path(logfire.__file__).parent)
 
 
 def warn_at_user_stacklevel(msg: str, category: type[Warning]):

@@ -1,18 +1,13 @@
 """Contracts for the `logfire` distribution split."""
 
-import sys
 from importlib import metadata
 from pathlib import Path
+from tomllib import loads
 from typing import Any
 
 from packaging.requirements import Requirement
 
 import logfire
-
-if sys.version_info >= (3, 11):
-    from tomllib import loads
-else:
-    from tomli import loads
 
 ROOT = Path(__file__).parents[1]
 
@@ -35,19 +30,29 @@ def test_distribution_versions_and_dependencies_stay_in_sync() -> None:
     assert sdk['name'] == 'logfire-sdk'
     assert meta['name'] == 'logfire'
     assert sdk['version'] == meta['version'] == api['version']
+    assert workspace['project']['requires-python'] == sdk['requires-python'] == api['requires-python'] == '>=3.11'
     assert meta['requires-python'] == sdk['requires-python']
     assert meta['authors'] == sdk['authors']
     assert meta['classifiers'] == sdk['classifiers']
+    assert 'Programming Language :: Python :: 3.10' not in sdk['classifiers']
     assert meta['urls'] == sdk['urls']
     assert meta['license-files'] == ['LICENSE']
 
     requirements = [Requirement(item) for item in meta['dependencies']]
     dependencies = {requirement.name: requirement for requirement in requirements}
     assert str(dependencies['logfire-sdk'].specifier) == f'=={sdk["version"]}'
-    assert str(dependencies['logfire-cli'].specifier) == '>=0.1.8'
+    assert set(dependencies) == {'logfire-sdk', 'logfire-cli'}
 
     sdk_requirements = {requirement.name: requirement for requirement in map(Requirement, sdk['dependencies'])}
     assert str(sdk_requirements['requests'].specifier) == '>=2.31.0'
+
+
+def test_workspace_installs_compatibility_package() -> None:
+    """Keep the SDK and standalone CLI in the local development environment."""
+    workspace = load_pyproject(ROOT / 'pyproject.toml')
+
+    assert workspace['project']['dependencies'] == ['logfire']
+    assert workspace['tool']['uv']['sources']['logfire'] == {'workspace': True}
 
 
 def test_meta_package_forwards_every_sdk_extra() -> None:
@@ -61,7 +66,7 @@ def test_meta_package_forwards_every_sdk_extra() -> None:
 
 
 def test_sdk_does_not_own_the_logfire_executable() -> None:
-    """Let the compatibility package own the `logfire` command for the native CLI."""
+    """Let the compatibility package own the `logfire` command for the standalone CLI."""
     sdk = load_pyproject(ROOT / 'logfire-sdk' / 'pyproject.toml')['project']
     meta = load_pyproject(ROOT / 'logfire' / 'pyproject.toml')['project']
 

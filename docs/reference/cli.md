@@ -1,10 +1,49 @@
 ---
 title: "Logfire SDK CLI: SDK Command Line Interface Guide"
-description: "Use the Logfire CLI to simplify project management. Use commands to authenticate, create new projects, and manage read/write tokens."
+description: "Reference for the Python CLI shipped with Logfire 5.x, with equivalents for the standalone Rust CLI."
 ---
 # SDK Command Line Interface
 
-**Logfire** comes with a CLI used for authentication and project management:
+This page documents the **Python CLI shipped with Logfire 5.x**, not the standalone
+Rust CLI distributed as `logfire-cli`.
+In Logfire 6, the Python CLI's `projects` and `read-tokens` commands are unavailable;
+use the Rust CLI's `init`, `project`, and `token` commands for those tasks.
+
+For full guided onboarding with optional coding-agent assistance, run
+`uvx logfire-cli wizard`. These `uvx` commands require
+[uv](https://docs.astral.sh/uv/getting-started/installation/) to be installed.
+To connect an existing project without instrumentation
+setup, run these commands from your application's directory:
+
+```bash
+uvx logfire-cli auth
+uvx logfire-cli init use
+```
+
+Skip `auth` if you are already signed in. `init use` lets you choose an existing
+project, creates a write token, and saves it locally; it does not create a project
+or launch a coding agent. Pass `--name my-project` to select the project by name.
+Use `init new --name my-project` to create a project, or bare `init` to choose
+between creating and connecting one. If you work with multiple organizations,
+add `--org` with the real organization name to `auth` and `init`.
+
+The two CLIs use different command names for some tasks:
+
+| Task | Python CLI (this page) | Standalone Rust CLI |
+| --- | --- | --- |
+| Connect an existing project | `logfire projects use my-project` | `uvx logfire-cli init use --name my-project` |
+| Create and connect a project | `logfire projects new my-project` | `uvx logfire-cli init new --name my-project` |
+| Show Python and SDK versions | `logfire info` | `uvx logfire-cli doctor python` |
+
+The Rust CLI keeps browser sign-in in the OS credential store and writes an SDK
+write token to `.logfire/logfire_credentials.json` when you run `init`.
+The Python SDK reads that project file by default. A token passed to
+`logfire.configure(token=...)` or set in `LOGFIRE_TOKEN` takes priority over the file.
+Browser sign-in alone does not configure your app.
+See [project configuration](configuration.md#programmatically-via-configure) for
+custom credential directories and deployed applications.
+
+The remaining commands and generated help below apply to the Python CLI:
 
 ```
 {{ logfire_help }}
@@ -273,6 +312,8 @@ Console commands are resolved from the selected Python environment's installed
 that runs it. This keeps automatic instrumentation in the same
 Python process on macOS, Linux, and Windows, including platforms where package
 installers generate native launcher executables.
+
+Most packages are instrumented through Logfire's own integrations. Some packages have no Logfire integration, but have an OpenTelemetry instrumentation package: a separate package that adds tracing to one library. If one of these is installed, `logfire run` turns it on instead. For example, installing `opentelemetry-instrumentation-botocore` lets `logfire run` trace AWS calls made with `boto3`. `logfire run` doesn't support every OpenTelemetry instrumentation package.
 
 By default a summary box is printed to stderr showing which packages were instrumented; disable it with `--no-summary`. Use `--exclude` to skip instrumenting specific packages:
 

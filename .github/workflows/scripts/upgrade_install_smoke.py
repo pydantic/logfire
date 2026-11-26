@@ -1,4 +1,4 @@
-"""Verify distribution ownership and behavior throughout a v6 upgrade."""
+"""Verify distribution ownership and behavior throughout a split-package upgrade."""
 
 import sqlite3
 import sys
@@ -73,11 +73,11 @@ def assert_sdk(expected_version: str, *, meta: bool, cli: bool) -> None:
 
 
 def main() -> None:
-    """Run the assertions for the expected major version."""
+    """Run the assertions for the expected installation state."""
     state, expected_version = sys.argv[1:]
     if state == 'legacy':
         assert_legacy(expected_version)
-    elif state == 'split':
+    elif state in ('beta', 'split'):
         assert_sdk(expected_version, meta=True, cli=True)
     elif state == 'sdk-and-cli':
         assert_sdk(expected_version, meta=False, cli=True)

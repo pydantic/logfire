@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import os
 from typing import Any
 
@@ -13,7 +14,7 @@ from openai.types.responses import Response
 import logfire
 from logfire._internal.exporters.test import TestExporter
 
-pytest.importorskip('agents', reason='openai-agents requires python 3.10', exc_type=ImportError)
+pytest.importorskip('agents', reason='openai-agents requires a newer pydantic', exc_type=ImportError)
 
 from agents import (
     Agent,
@@ -359,6 +360,42 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
     )
 
 
+def test_generator_close(exporter: TestExporter, caplog: pytest.LogCaptureFixture):
+    logfire.instrument_openai_agents()
+
+    def traced_generator(name: str):
+        with trace(name):
+            with custom_span('span_name'):
+                yield
+
+    # Closed from the context that advanced it, e.g. by breaking out of a loop over it.
+    generator = traced_generator('trace 1')
+    next(generator)
+    generator.close()
+    assert get_current_span() is None
+    assert get_current_trace() is None
+
+    # So starting the next trace doesn't make openai-agents warn that a trace already exists.
+    with trace('trace 2'):
+        pass
+    assert 'Trace already exists' not in caplog.text
+
+    # Finalized from another context, which can't reset the context the generator ran in: no error.
+    generator = traced_generator('trace 3')
+    contextvars.copy_context().run(next, generator)
+    generator.close()
+
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot(
+        [
+            'Custom span: {name}',
+            'OpenAI Agents trace: {name}',
+            'OpenAI Agents trace: {name}',
+            'Custom span: {name}',
+            'OpenAI Agents trace: {name}',
+        ]
+    )
+
+
 def test_manual_parents(exporter: TestExporter):
     logfire.instrument_openai_agents()
 
@@ -532,7 +569,11 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                         'input_tokens': 0,
                         'output_tokens': 0,
                         'total_tokens': 0,
-                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
+                        'input_tokens_details': {
+                            'cache_write_tokens': 0,
+                            'cached_tokens': 0,
+                            'cache_write_tokens_details': None,
+                        },
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.request.model': 'gpt-4o',
@@ -671,7 +712,11 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                         'input_tokens': 89,
                         'output_tokens': 18,
                         'total_tokens': 107,
-                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
+                        'input_tokens_details': {
+                            'cache_write_tokens': 0,
+                            'cached_tokens': 0,
+                            'cache_write_tokens_details': None,
+                        },
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'logfire.msg': "Responses API with 'gpt-4o'",
@@ -922,7 +967,11 @@ async def test_input_guardrails(exporter: TestExporter):
                         'input_tokens': 29,
                         'output_tokens': 9,
                         'total_tokens': 38,
-                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
+                        'input_tokens_details': {
+                            'cache_write_tokens': 0,
+                            'cached_tokens': 0,
+                            'cache_write_tokens_details': None,
+                        },
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.request.model': 'gpt-4o',
@@ -1197,7 +1246,11 @@ async def test_chat_completions(exporter: TestExporter):
                         'input_tokens': 11,
                         'output_tokens': 8,
                         'total_tokens': 19,
-                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
+                        'input_tokens_details': {
+                            'cache_write_tokens': 0,
+                            'cached_tokens': 0,
+                            'cache_write_tokens_details': None,
+                        },
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.system': 'openai',
@@ -1573,7 +1626,11 @@ async def test_responses_simple(exporter: TestExporter):
                         'input_tokens': 11,
                         'output_tokens': 8,
                         'total_tokens': 19,
-                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
+                        'input_tokens_details': {
+                            'cache_write_tokens': 0,
+                            'cached_tokens': 0,
+                            'cache_write_tokens_details': None,
+                        },
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.request.model': 'gpt-4o',
@@ -1687,7 +1744,11 @@ async def test_responses_simple(exporter: TestExporter):
                         'input_tokens': 28,
                         'output_tokens': 6,
                         'total_tokens': 34,
-                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
+                        'input_tokens_details': {
+                            'cache_write_tokens': 0,
+                            'cached_tokens': 0,
+                            'cache_write_tokens_details': None,
+                        },
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.system': 'openai',
@@ -1863,7 +1924,11 @@ async def test_file_search(exporter: TestExporter):
                         'input_tokens': 1144,
                         'output_tokens': 38,
                         'total_tokens': 1182,
-                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
+                        'input_tokens_details': {
+                            'cache_write_tokens': 0,
+                            'cached_tokens': 0,
+                            'cache_write_tokens_details': None,
+                        },
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.request.model': 'gpt-4o',
@@ -1997,7 +2062,11 @@ See JSON for details\
                         'input_tokens': 862,
                         'output_tokens': 10,
                         'total_tokens': 872,
-                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
+                        'input_tokens_details': {
+                            'cache_write_tokens': 0,
+                            'cached_tokens': 0,
+                            'cache_write_tokens_details': None,
+                        },
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.system': 'openai',
@@ -2206,7 +2275,11 @@ async def test_function_tool_exception(exporter: TestExporter):
                         'input_tokens': 244,
                         'output_tokens': 10,
                         'total_tokens': 254,
-                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
+                        'input_tokens_details': {
+                            'cache_write_tokens': 0,
+                            'cached_tokens': 0,
+                            'cache_write_tokens_details': None,
+                        },
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
@@ -2322,7 +2395,11 @@ async def test_function_tool_exception(exporter: TestExporter):
                         'input_tokens': 283,
                         'output_tokens': 30,
                         'total_tokens': 313,
-                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
+                        'input_tokens_details': {
+                            'cache_write_tokens': 0,
+                            'cached_tokens': 0,
+                            'cache_write_tokens_details': None,
+                        },
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
@@ -2542,7 +2619,11 @@ async def test_voice_pipeline(exporter: TestExporter):
                         'input_tokens': 10,
                         'output_tokens': 41,
                         'total_tokens': 51,
-                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
+                        'input_tokens_details': {
+                            'cache_write_tokens': 0,
+                            'cached_tokens': 0,
+                            'cache_write_tokens_details': None,
+                        },
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.operation.name': 'chat',
@@ -2722,3 +2803,30 @@ def test_response_id_and_finish_reasons(fields: dict[str, Any], expected: list[s
 
     assert attributes['gen_ai.response.id'] == 'resp_1'
     assert attributes.get('gen_ai.response.finish_reasons') == expected
+
+
+def test_response_span_gateway_cost() -> None:
+    """The deduplicated Agents span reports the same gateway cost as the OpenAI span it replaces."""
+    response = Response.model_validate(
+        {
+            'id': 'resp_1',
+            'object': 'response',
+            'created_at': 0,
+            'model': 'gpt-4o-mini',
+            'status': 'completed',
+            'parallel_tool_calls': True,
+            'tool_choice': 'auto',
+            'tools': [],
+            'output': [],
+            'usage': {
+                'input_tokens': 10,
+                'input_tokens_details': {'cached_tokens': 0, 'cache_write_tokens': 0},
+                'output_tokens': 5,
+                'output_tokens_details': {'reasoning_tokens': 0},
+                'total_tokens': 15,
+                'logfire_ai_gateway': {'cost': '0.5'},
+            },
+        }
+    )
+    attributes = openai_agents.attributes_from_span_data(ResponseSpanData(response=response), 'Responses API')
+    assert attributes['operation.cost'] == 0.5

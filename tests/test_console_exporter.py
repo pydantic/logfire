@@ -6,9 +6,8 @@ import enum
 import io
 import json
 import re
-import sys
 from datetime import datetime
-from enum import Enum
+from enum import IntEnum, StrEnum
 from pathlib import Path
 from typing import Any, Literal
 from unittest import mock
@@ -32,15 +31,6 @@ from logfire._internal.exporters.console import (
 )
 from logfire.testing import TestExporter
 from tests.utils import ReadableSpanModel, SpanContextModel, exported_spans_as_models
-
-if sys.version_info >= (3, 11):  # pragma: no branch
-    from enum import IntEnum, StrEnum
-else:  # pragma: no cover
-
-    class StrEnum(str, Enum): ...
-
-    class IntEnum(int, Enum): ...
-
 
 tracer = trace.get_tracer('test')
 
@@ -122,6 +112,21 @@ def test_console_range_attributes(
     assert not caplog.records
 
 
+def test_console_generator_attribute(config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture) -> None:
+    # A generator is encoded as its repr() without being consumed, so the console prints that repr as is.
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    gen = (x for x in [1, 2])
+    logfire.info('loaded', values=gen, count=2)
+
+    assert output.getvalue() == f'loaded\n│ values={gen!r}\n│ count=2\n'
+    assert list(gen) == [1, 2]
+    assert not caplog.records
+
+
 def test_console_bytearray_attribute(config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture) -> None:
     output = io.StringIO()
     config_kwargs['console'] = ConsoleOptions(
@@ -131,6 +136,55 @@ def test_console_bytearray_attribute(config_kwargs: dict[str, Any], caplog: pyte
     logfire.info('loaded', data=bytearray(b'a\nb'), count=3)
 
     assert output.getvalue() == 'loaded\n│ data=bytearray(a\\nb)\n│ count=3\n'
+    assert not caplog.records
+
+
+@pytest.mark.parametrize(
+    'index,formatted',
+    [
+        (None, ['  | a', '--+--', '0 | 3', '1 | 4']),
+        ([1.5, 2.5], ['    | a', '----+--', '1.5 | 3', '2.5 | 4']),
+        ([True, False], ['      | a', '------+--', 'True  | 3', 'False | 4']),
+        ([('x', 1), ('y', 2)], ['         | a', '---------+--', "['x', 1] | 3", "['y', 2] | 4"]),
+    ],
+)
+def test_console_dataframe_non_string_index(
+    config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture, index: list[Any] | None, formatted: list[str]
+) -> None:
+    import pandas
+
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('loaded', df=pandas.DataFrame({'a': [3, 4]}, index=index), count=2)
+
+    header, separator, *rows = formatted
+    assert output.getvalue() == '\n'.join(
+        [
+            'loaded',
+            f'│ df={header}',
+            *(f'│    {line}' for line in [separator, *rows, '', '[2 rows x 1 columns]']),
+            '│ count=2',
+            '',
+        ]
+    )
+    assert not caplog.records
+
+
+@pytest.mark.parametrize('value', [b'', re.compile('')])
+def test_console_empty_formatted_attribute(
+    config_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture, value: object
+) -> None:
+    output = io.StringIO()
+    config_kwargs['console'] = ConsoleOptions(
+        output=output, colors='never', include_timestamps=False, include_attributes=True
+    )
+    logfire.configure(**config_kwargs)
+    logfire.info('loaded', data=value, count=0)
+
+    assert output.getvalue() == 'loaded\n│ data=\n│ count=0\n'
     assert not caplog.records
 
 
@@ -924,40 +978,23 @@ def test_exception(exporter: TestExporter) -> None:
 
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, colors='never').export(exporter.exported_spans)
-    if sys.version_info >= (3, 11):
-        assert out.getvalue().splitlines() == snapshot(
-            [
-                '00:00:01.000 error!!! test',
-                '             │ ZeroDivisionError: division by zero',
-                '             │ Traceback (most recent call last):',
-                IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
-                '             │     1 / 0  # type: ignore',
-                '             │     ~~^~~',
-                '             │ ZeroDivisionError: division by zero',
-                '',
-            ]
-        )
-    else:
-        assert out.getvalue().splitlines() == snapshot(
-            [
-                '00:00:01.000 error!!! test',
-                '             │ ZeroDivisionError: division by zero',
-                '             │ Traceback (most recent call last):',
-                IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
-                '             │     1 / 0  # type: ignore',
-                '             │ ZeroDivisionError: division by zero',
-                '',
-            ]
-        )
-
-    issue_lines = (
+    assert out.getvalue().splitlines() == snapshot(
         [
-            '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m     '
-            '\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m^\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m',
+            '00:00:01.000 error!!! test',
+            '             │ ZeroDivisionError: division by zero',
+            '             │ Traceback (most recent call last):',
+            IsStr(regex=rf'             │   File "{__file__}", line \d+, in test_exception'),
+            '             │     1 / 0  # type: ignore',
+            '             │     ~~^~~',
+            '             │ ZeroDivisionError: division by zero',
+            '',
         ]
-        if sys.version_info >= (3, 11)
-        else []
     )
+
+    issue_lines = [
+        '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m     '
+        '\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m^\x1b[0m\x1b[91;49m~\x1b[0m\x1b[91;49m~\x1b[0m',
+    ]
 
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, colors='always').export(exporter.exported_spans)
@@ -1170,7 +1207,7 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
 
         ABC = 'abc'
 
-    class MyStrEnum(str, enum.Enum):
+    class MyStrEnum(enum.StrEnum):
         """String-based Enum."""
 
         STR = 'str_val'
@@ -1237,6 +1274,46 @@ def test_console_exporter_list_data_with_object_schema_mismatch(capsys: pytest.C
             "│ bar={'name': 'Alice', 'age': 30}",
         ]
     )
+
+
+@pytest.mark.parametrize(
+    'serialized,expected',
+    [('Ada', "│ user='Ada'"), (['Ada', 'Grace'], "│ user=['Ada', 'Grace']")],
+    ids=['string', 'list'],
+)
+def test_console_exporter_log_pydantic_model_serializer(
+    capsys: pytest.CaptureFixture[str], serialized: str | list[str], expected: str
+) -> None:
+    from pydantic import BaseModel, model_serializer
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+    )
+
+    class User(BaseModel):
+        name: str
+
+        @model_serializer
+        def serialize(self) -> str | list[str]:
+            return serialized
+
+    logfire.info('hello {user}', user=User(name='Ada'), count=1)
+
+    assert capsys.readouterr().out.splitlines()[2:] == [expected, '│ count=1']
+
+
+def test_console_exporter_log_pandas_nat(capsys: pytest.CaptureFixture[str]) -> None:
+    import pandas
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+    )
+
+    logfire.info('hello', when=pandas.NaT, count=1)
+
+    assert capsys.readouterr().out.splitlines()[2:] == snapshot(["│ when='NaT'", '│ count=1'])
 
 
 def test_console_exporter_log_pydantic_root_model(capsys: pytest.CaptureFixture[str]) -> None:

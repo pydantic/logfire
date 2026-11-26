@@ -4,10 +4,10 @@ import contextvars
 import inspect
 import sys
 from abc import abstractmethod
-from contextlib import nullcontext
+from contextlib import nullcontext, suppress
 from dataclasses import dataclass
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar, cast
 
 import agents
 from agents import (
@@ -32,7 +32,6 @@ from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanError, TSpanData
 from agents.tracing.traces import NoOpTrace
 from opentelemetry.trace import NonRecordingSpan, use_span
-from typing_extensions import Self
 
 from logfire._internal.formatter import logfire_format
 from logfire._internal.integrations.llm_providers.openai import (
@@ -231,9 +230,16 @@ class LogfireWrapperBase(Generic[T]):
     def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType) -> None:
         self.on_ending()
         self.span_helper.__exit__(exc_type, exc_val, exc_tb)
-        self.wrapped.finish()
-        if exc_type is not GeneratorExit:  # pragma: no branch
-            self.detach()
+        try:
+            self.wrapped.finish()
+        finally:
+            if exc_type is GeneratorExit:
+                # A generator closed from the context that advanced it must still reset the current trace/span.
+                # One finalized from another context can't: a token can only be reset in the context that created it.
+                with suppress(ValueError):
+                    self.detach()
+            else:
+                self.detach()
 
     @abstractmethod
     def on_ending(self): ...

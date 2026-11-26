@@ -4,7 +4,7 @@ import dataclasses
 import inspect
 from collections.abc import Awaitable, Callable, Generator, Iterable
 from contextlib import AbstractContextManager, contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import lru_cache, wraps
 from typing import Any
 from weakref import WeakKeyDictionary
@@ -263,7 +263,7 @@ class FastAPIInstrumentation:
         """Record start and end timestamps in the root span, and possibly exceptions."""
 
         def set_timestamp(attribute_name: str):
-            dt = datetime.fromtimestamp(self.timestamp_generator() / ONE_SECOND_IN_NANOSECONDS, tz=timezone.utc)
+            dt = datetime.fromtimestamp(self.timestamp_generator() / ONE_SECOND_IN_NANOSECONDS, tz=UTC)
             value = dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             root_span.set_attribute(f'fastapi.{namespace}.{attribute_name}', value)
 

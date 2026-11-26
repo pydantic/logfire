@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import ast
+import os
+import re
 import types
+from _string import formatter_field_name_split  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
 from collections.abc import Iterator
 from functools import lru_cache
+from pathlib import Path
 from string import Formatter
 from types import CodeType
-from typing import Any, Literal
+from typing import Any, Literal, NotRequired, cast
 
 import executing
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 import logfire
 
@@ -164,7 +168,14 @@ class ChunksFormatter(Formatter):
         # We currently don't use positional arguments
         args = ()
         value_cleaner = MessageValueCleaner(scrubber, check_keys=False)
-        for literal_text, field_name, format_spec, conversion in self.parse(format_string):
+        try:
+            fields = list(self.parse(format_string))
+        except ValueError as exc:
+            # `str.Formatter.parse` raises for things like unbalanced braces,
+            # which are common in messages that aren't really templates, e.g. JSON fragments or code snippets.
+            # Just use the message as-is (with a nice warning) instead of reporting an internal error.
+            raise KnownFormattingError(str(exc)) from None
+        for literal_text, field_name, format_spec, conversion in fields:
             # output the literal text
             if literal_text:
                 result.append({'v': literal_text, 't': 'lit'})
@@ -187,6 +198,15 @@ class ChunksFormatter(Formatter):
                 # given the field_name, find the object it references
                 #  and the argument it came from
                 try:
+                    # Validate all bracket keys before resolving the field.
+                    _, lookups = cast(
+                        'tuple[str | int, Iterator[tuple[bool, str | int]]]', formatter_field_name_split(field_name)
+                    )
+                    for is_attribute, key in lookups:
+                        if not is_attribute and isinstance(key, str) and not re.fullmatch(r'[\w .-]+', key):
+                            raise ValueError(
+                                'Square bracket lookup keys may only contain word characters, spaces, dots, and hyphens.'
+                            )
                     obj, _arg_used = self.get_field(field_name, args, kwargs)
                 except IndexError:
                     raise KnownFormattingError('Numeric field names are not allowed.')
@@ -244,7 +264,7 @@ def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: BaseScr
 
 
 def logfire_format_with_magic(
-    format_string: str,
+    format_string: Any,
     kwargs: dict[str, Any],
     scrubber: BaseScrubber,
     fstring_frame: types.FrameType | None = None,
@@ -254,6 +274,19 @@ def logfire_format_with_magic(
     # 2. A dictionary of extra attributes to add to the span/log.
     #      These can come from evaluating values in f-strings.
     # 3. The final message template, which may differ from `format_string` if it was an f-string.
+    # Lazy proxies can report __class__ as str without being real strings.
+    if not issubclass(type(format_string), str):
+        warn_formatting(f'The message template must be a string, not {type(format_string).__name__}.')
+        message = str(format_string)
+        return message, {}, message
+
+    if fstring_frame and fstring_frame.f_back and is_logfire_code(fstring_frame.f_back.f_code):
+        # Spans and logs opened by logfire itself (variables, integrations, etc.) never pass an f-string,
+        # so skip the magic. Otherwise `executing` parses the calling module on its first call.
+        if os.environ.get('PYTEST_CURRENT_TEST'):
+            _check_not_fstring(format_string, kwargs, scrubber, fstring_frame)
+        fstring_frame = None
+
     try:
         chunks, extra_attrs, new_template = chunks_formatter.chunks(
             format_string,
@@ -275,6 +308,31 @@ def logfire_format_with_magic(
     return format_string, {}, format_string
 
 
+LOGFIRE_PACKAGE_DIR = Path(logfire.__file__).parent
+
+
+@lru_cache(maxsize=2048)
+def is_logfire_code(code: CodeType) -> bool:
+    return Path(code.co_filename).absolute().is_relative_to(LOGFIRE_PACKAGE_DIR)
+
+
+def _check_not_fstring(
+    format_string: str, kwargs: dict[str, Any], scrubber: BaseScrubber, fstring_frame: types.FrameType
+) -> None:
+    """Fail in tests if logfire passes itself an f-string, since the magic is skipped for its own calls."""
+    try:
+        _chunks, _extra_attrs, template = chunks_formatter.chunks(
+            format_string, kwargs, scrubber=scrubber, fstring_frame=fstring_frame
+        )
+    except KnownFormattingError:  # pragma: no cover
+        # Only raised when formatting a plain template, which the normal path in `logfire_format_with_magic`
+        # reports. Anything else, e.g. an error re-evaluating an f-string expression, should fail the test.
+        return
+    assert template == format_string, (
+        f'Logfire called itself with an f-string message template, {template!r}. Pass the values as attributes instead.'
+    )
+
+
 @lru_cache
 def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Source) -> tuple[str, CodeType, CodeType]:
     """Returns three things that can be expensive to compute.
@@ -285,10 +343,19 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     """
     source = get_node_source_text(node.value, ex_source)
 
-    # Check if the expression contains await before attempting to compile
-    for sub_node in ast.walk(node.value):
+    # Check for unsupported expressions before attempting to compile.
+    for sub_node in ast.walk(node):
         if isinstance(sub_node, ast.Await):
             raise FStringAwaitError(source)
+
+        # `eval` with a separate locals dict only lets the top level of the expression see those locals.
+        # A lambda or generator expression (and a comprehension before Python 3.12) looks them up in globals instead.
+        # Rather than evaluating such an expression again, ask the user to extract it.
+        if isinstance(sub_node, (ast.Lambda, ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
+            raise KnownFormattingError(
+                f'Cannot evaluate the f-string value {{{source}}} because it contains a lambda, generator expression '
+                f'or comprehension. Assign the value to a variable before logging.'
+            )
 
     value_code = compile(source, '<fvalue1>', 'eval')
     expr = ast.Expression(
@@ -311,7 +378,41 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     )
     ast.fix_missing_locations(expr)
     formatted_code = compile(expr, '<fvalue2>', 'eval')
+
+    # Inside a class, the compiler rewrites a private name like `self.__x` to `self._ClassName__x`,
+    # stripping leading underscores from the class name.
+    # The code above is compiled on its own, so apply the same rewrite to the names it looks up.
+    if class_name := enclosing_class_name(node).lstrip('_'):
+        value_code = mangle_private_names(value_code, class_name)
+        formatted_code = mangle_private_names(formatted_code, class_name)
     return source, value_code, formatted_code
+
+
+def enclosing_class_name(node: ast.AST) -> str:
+    """Returns the name of the innermost class whose body contains `node`, or an empty string if there isn't one.
+
+    Uses the parent links that `executing` sets on the nodes.
+    """
+    child, parent = node, getattr(node, 'parent', None)
+    while parent is not None:
+        # Decorators and base classes are evaluated outside the class body.
+        if isinstance(parent, ast.ClassDef) and child in parent.body:
+            return parent.name
+        child, parent = parent, getattr(parent, 'parent', None)
+    return ''
+
+
+def mangle_private_names(code: CodeType, class_name: str) -> CodeType:
+    """Prefixes the private names that `code` looks up, e.g. `__x` becomes `_ClassName__x`.
+
+    See https://docs.python.org/3/reference/expressions.html#private-name-mangling
+    """
+    return code.replace(
+        co_names=tuple(
+            f'_{class_name}{name}' if name.startswith('__') and not name.endswith('__') else name
+            for name in code.co_names
+        )
+    )
 
 
 class KnownFormattingError(Exception):

@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import functools
 import inspect
-import sys
+import os
 import types
 import warnings
 from abc import ABC, abstractmethod
@@ -180,12 +180,13 @@ class CallNodeFinder(ABC):
             return None
 
         msg = '`executing` failed to find a node.'
-        if sys.version_info[:2] < (3, 11):  # pragma: no cover
-            # inspect_arguments is only on by default for 3.11+ for this reason.
-            # The AST modifications made by auto-tracing
-            # mean that the bytecode doesn't match the source code seen by `executing`.
-            # In 3.11+, a different algorithm is used by `executing` which can deal with this.
-            msg += ' This may be caused by a combination of using Python < 3.11 and auto-tracing.'
+
+        filename = self.frame.f_code.co_filename
+        if not (os.path.isabs(filename) or (filename.startswith('<') and filename.endswith('>'))):
+            self.warn_inspect_arguments(
+                msg + ' The filename is relative, so the fallback cannot reliably locate the source.'
+            )
+            return None
 
         # Simple fallback heuristic: check if there's only one possible call node.
         call_nodes = [
