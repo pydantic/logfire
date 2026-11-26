@@ -2679,13 +2679,13 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
             },
             {
                 'type': 'string_too_short',
-                'loc': ['body', "[Scrubbed due to 'credential']", 'password'],
+                'loc': ['body', 'credentials', 'password'],
                 'msg': 'short',
                 'input': "[Scrubbed due to 'password']",
             },
             {
                 'type': 'string_too_short',
-                'loc': ['body', "[Scrubbed due to 'credential']", 'code'],
+                'loc': ['body', 'credentials', 'code'],
                 'msg': 'short',
                 'input': "[Scrubbed due to 'credential']",
             },
@@ -2698,7 +2698,7 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
             {'type': 'bool_parsing', 'loc': ['body', 'pinned'], 'msg': 'invalid', 'input': 'maybe'},
             {
                 'type': 'too_short',
-                'loc': ['body', "[Scrubbed due to 'password']"],
+                'loc': ['body', 'passwords'],
                 'msg': 'short',
                 'input': ["[Scrubbed due to 'password']"],
             },
@@ -2724,6 +2724,58 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
         {'path': ['attributes', 'errors', 1, 'body', 'password'], 'matched_substring': 'password'},
         {'path': ['attributes', 'errors', 2, 'body', 'credentials', 'password'], 'matched_substring': 'password'},
     ]
+
+
+def test_validation_error_loc_keeps_field_names(exporter: TestExporter):
+    logfire.info(
+        'x',
+        errors=[
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'new_password', 'x_api_key'],
+                'msg': 'short',
+                'input': 'ok',
+            }
+        ],
+        ordinary_list=['new_password'],
+        incomplete_error={'loc': ['new_password'], 'input': 'ok'},
+        invalid_loc={'type': 'string_too_short', 'loc': ['new_password', None], 'msg': 'short', 'input': 'ok'},
+    )
+
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'][0]['loc'] == ['body', 'new_password', 'x_api_key']
+    assert attributes['errors'][0]['input'] == "[Scrubbed due to 'api_key']"
+    assert attributes['ordinary_list'] == ["[Scrubbed due to 'password']"]
+    assert attributes['incomplete_error'] == {
+        'loc': ["[Scrubbed due to 'password']"],
+        'input': 'ok',
+    }
+    assert attributes['invalid_loc']['loc'] == ["[Scrubbed due to 'password']", None]
+
+
+def test_validation_error_loc_transforms_strings(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    seen: list[StringValue] = []
+
+    def transform(value: StringValue) -> str:
+        seen.append(value)
+        return value.value.replace('alice@example.com', '[email]')
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(transform_string=transform))
+    logfire.info(
+        'x',
+        errors=[
+            {
+                'type': 'string_too_short',
+                'loc': ['body', 'new_password', 'alice@example.com', 0],
+                'msg': 'short',
+                'input': 'ok',
+            }
+        ],
+    )
+
+    [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert attributes['errors'][0]['loc'] == ['body', 'new_password', '[email]', 0]
+    assert StringValue(('attributes', 'errors', 0, 'loc', 2), 'alice@example.com') in seen
 
 
 def test_validation_error_exception_data_scrubbed(exporter: TestExporter):
