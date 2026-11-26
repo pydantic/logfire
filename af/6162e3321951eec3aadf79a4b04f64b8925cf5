@@ -1,0 +1,24 @@
+docs/reference/advanced/baggage.md
+  s_4b293c82ccde6c::t_2c02600d166bf2 68-69
+logfire-sdk/logfire/_internal/baggage.py
+  s_4b293c82ccde6c::t_a79440309c1986 95-99
+tests/test_baggage.py
+  s_4b293c82ccde6c::t_a79440309c1986 346-347,363-364
+  s_4b293c82ccde6c::t_2c02600d166bf2 334
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "af6162e3321951eec3aadf79a4b04f64b8925cf5",
+  "prompts": {},
+  "sessions": {
+    "s_4b293c82ccde6c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a2175e-7d9a-7d63-aede-4d946b740940",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
