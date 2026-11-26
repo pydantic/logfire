@@ -28,7 +28,7 @@ Each application has its own **settings** in Fleet. They set only what you choos
 
     === "Python with Logfire"
 
-        Requires Python 3.11+ and Logfire 5.5.0 or a later 5.x release. If you are upgrading from 4.x, read the [5.x upgrade notes](../../../release-notes.md#upgrading-from-4x-to-5x) first.
+        Requires Python 3.11+ and Logfire 5.5.0 or later. If you are upgrading from 4.x, read the [5.x upgrade notes](../../../release-notes.md#upgrading-from-4x-to-5x) first.
 
         ```bash
         pip install --upgrade 'logfire[fleet]'
