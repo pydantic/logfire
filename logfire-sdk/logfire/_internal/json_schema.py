@@ -4,8 +4,6 @@ There are custom keywords in the generated JSON Schema. They are prefixed with `
 conflicts with the official keywords. The custom keywords are:
 
 - `x-python-datatype`: The Python data type of the value. It is used to generate the Python type hints.
-- `x-columns`: The column names of the data frame. It is used to generate the Python type.
-- `x-indices`: The index names of the data frame. It is used to generate the Python type.
 - `x-column-count`: The number of columns in the data frame. It is used to generate the Python type.
 - `x-row-count`: The number of rows in the data frame. It is used to generate the Python type.
 - `x-shape`: The shape of the numpy array. It is used to generate the Python type.
@@ -31,9 +29,16 @@ from types import GeneratorType
 from typing import Any, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
-from .json_encoder import is_attrs, is_sqlalchemy, pandas_display_slices, to_json_value, to_otlp_value
+from .json_encoder import (
+    is_attrs,
+    is_sqlalchemy,
+    json_key,
+    numpy_scalar_to_python,
+    to_json_value,
+    to_otlp_value,
+)
 from .stack_info import STACK_INFO_KEYS
-from .utils import JsonDict, log_internal_error, safe_repr
+from .utils import JsonDict, log_internal_error
 
 __all__ = 'create_json_schema', 'attributes_json_schema_properties', 'attributes_json_schema', 'JsonSchemaProperties'
 
@@ -43,7 +48,6 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
     lookup: dict[type[Any], JsonDict | Callable[[Any, set[int]], JsonDict]] = {
         bytes: _bytes_schema,
         bytearray: _bytearray_schema,
-        Enum: _enum_schema,
         Decimal: {'type': 'string', 'format': 'decimal', 'x-python-datatype': 'Decimal'},
         datetime.datetime: {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
         datetime.date: {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'},
@@ -144,6 +148,8 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
             return _dataclass_schema(obj, seen)
         elif is_attrs(obj_type):
             return _attrs_schema(obj, seen)
+        elif isinstance(obj, Enum):
+            return _enum_schema(obj, seen)
 
         global _type_to_schema
         _type_to_schema = _type_to_schema or type_to_schema()
@@ -155,7 +161,7 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
             else:
                 return schema(obj, seen) if callable(schema) else schema
 
-        # cover subclasses of common types, can't come earlier due to conflicts with IntEnum and StrEnum
+        # cover subclasses of common types
         if isinstance(obj, (str, int, float)):
             return {}
         elif isinstance(obj, Sequence):
@@ -212,23 +218,22 @@ def _bytearray_schema(obj: bytearray, _seen: set[int]) -> JsonDict:
     return schema
 
 
-# NOTE: We don't handle enums where members are not basic types (str, int, bool, float) very well.
-# The "type" will always be "object".
 def _enum_schema(obj: Enum, seen: set[int]) -> JsonDict:
-    enum_values = [e.value for e in obj.__class__]
-    enum_types = set(type(value).__name__ for value in enum_values)
-    if enum_types == {'int', 'float'}:
-        type_ = 'number'
-    elif len(enum_types) == 1 and enum_types <= {'str', 'int', 'bool', 'float'}:
-        type_ = {'str': 'string', 'int': 'integer', 'bool': 'boolean', 'float': 'number'}[next(iter(enum_types))]
-    else:
-        type_ = 'object'
-
+    enum_value = numpy_scalar_to_python(obj.value)
+    scalar_type: str | None = None
+    if isinstance(enum_value, str):
+        scalar_type = 'string'
+    elif isinstance(enum_value, bool):
+        scalar_type = 'boolean'
+    elif isinstance(enum_value, int):
+        scalar_type = 'integer'
+    elif isinstance(enum_value, float):
+        scalar_type = 'number'
     return {
-        'type': type_,
+        **({'type': scalar_type} if scalar_type else {}),
+        **create_json_schema(enum_value, seen),
         'title': obj.__class__.__name__,
         'x-python-datatype': 'Enum',
-        'enum': to_json_value(enum_values, seen),
     }
 
 
@@ -280,7 +285,7 @@ def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
             else:
                 is_homogeneous = False
             if value_schema not in PLAIN_SCHEMAS:
-                value_schemas[key if isinstance(key, str) else safe_repr(key)] = value_schema
+                value_schemas[json_key(key)] = value_schema
 
         if is_homogeneous and common_schema is not None and common_schema not in PLAIN_SCHEMAS:
             schema['additionalProperties'] = common_schema
@@ -404,20 +409,10 @@ def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:
 
     row_count, column_count = obj.shape
 
-    columns: list[Any] = []
-    for column_slice in pandas_display_slices(column_count, pandas.get_option('display.max_columns')):
-        columns.extend(cast(Iterable[Any], obj.columns[column_slice]))
-
-    indices: list[Any] = []
-    for row_slice in pandas_display_slices(row_count, pandas.get_option('display.max_rows')):
-        indices.extend(cast(Iterable[Any], obj.index[row_slice]))
-
     return {
-        'type': 'array',
+        'type': 'object',
         'x-python-datatype': 'DataFrame',
-        'x-columns': columns,
         'x-column-count': column_count,
-        'x-indices': indices,
         'x-row-count': row_count,
     }
 

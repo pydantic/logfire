@@ -106,6 +106,7 @@ def test_openai_agent_tracing(exporter: TestExporter):
                     'tools': 'null',
                     'output_type': 'null',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -114,6 +115,7 @@ def test_openai_agent_tracing(exporter: TestExporter):
                             'tools': {'type': 'null'},
                             'output_type': {'type': 'null'},
                             'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
                         },
                     },
                     'logfire.msg': "Agent run: 'agent_name'",
@@ -253,6 +255,7 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                     'tools': 'null',
                     'output_type': 'null',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -261,6 +264,7 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                             'tools': {'type': 'null'},
                             'output_type': {'type': 'null'},
                             'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
                         },
                     },
                     'logfire.msg': "Agent run: 'agent_name2'",
@@ -283,6 +287,7 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                     'tools': 'null',
                     'output_type': 'null',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -291,6 +296,7 @@ def test_openai_agent_tracing_manual_start_end(exporter: TestExporter):
                             'tools': {'type': 'null'},
                             'output_type': {'type': 'null'},
                             'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
                         },
                     },
                     'logfire.msg': "Agent run: 'agent_name'",
@@ -425,10 +431,11 @@ def test_manual_parents(exporter: TestExporter):
                     'name': 'my_custom_span',
                     'data': {},
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.msg': 'Custom span: my_custom_span',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'data': {}, 'gen_ai.system': {}},
+                        'properties': {'name': {}, 'data': {}, 'gen_ai.system': {}, 'gen_ai.provider.name': {}},
                     },
                 },
             },
@@ -449,6 +456,7 @@ def test_manual_parents(exporter: TestExporter):
                     'tools': 'null',
                     'output_type': 'null',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.msg': "Agent run: 'my_span'",
                     'logfire.json_schema': {
                         'type': 'object',
@@ -458,6 +466,7 @@ def test_manual_parents(exporter: TestExporter):
                             'tools': {'type': 'null'},
                             'output_type': {'type': 'null'},
                             'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
                         },
                     },
                 },
@@ -577,6 +586,7 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.request.model': 'gpt-4o',
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.response.id': 'resp_67ced68228748191b31ea5d9172a7b4b',
@@ -628,6 +638,7 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                     'input': {},
                     'mcp_data': 'null',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'output': 4,
                 },
             },
@@ -643,6 +654,7 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                     'logfire.msg': 'Handoff: agent1 → agent2',
                     'from_agent': 'agent1',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'to_agent': 'agent2',
                 },
             },
@@ -661,6 +673,7 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                     'type': 'custom',
                     'logfire.msg': 'Turn 1 for agent agent1',
                     'sdk_span_type': 'turn',
+                    'gen_ai.provider.name': 'openai',
                     'turn': 1,
                     'agent_name': 'agent1',
                     'usage': {
@@ -690,6 +703,7 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                     'tools': ('random_number',),
                     'output_type': 'str',
                     'logfire.msg': "Agent run: 'agent1'",
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                 },
             },
@@ -720,6 +734,7 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'logfire.msg': "Responses API with 'gpt-4o'",
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.response.id': 'resp_67ced68425f48191a5fb0c2b61cb27dd',
@@ -830,6 +845,7 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                     'gen_ai.system': 'openai',
                     'logfire.msg_template': 'Turn {turn} for agent agent2',
                     'sdk_span_type': 'turn',
+                    'gen_ai.provider.name': 'openai',
                     'turn': 2,
                     'agent_name': 'agent2',
                     'usage': {
@@ -859,6 +875,7 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                     'tools': (),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.msg': "Agent run: 'agent2'",
                 },
             },
@@ -877,6 +894,7 @@ async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
                     'type': 'custom',
                     'name': 'Agent workflow',
                     'sdk_span_type': 'task',
+                    'gen_ai.provider.name': 'openai',
                     'usage': {
                         'input_tokens': 89,
                         'output_tokens': 18,
@@ -948,6 +966,7 @@ async def test_input_guardrails(exporter: TestExporter):
                     'logfire.msg': "Guardrail 'zero_guardrail' triggered=False",
                     'name': 'zero_guardrail',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'triggered': False,
                 },
             },
@@ -975,6 +994,7 @@ async def test_input_guardrails(exporter: TestExporter):
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.request.model': 'gpt-4o',
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.response.id': 'resp_67cee263c6e0819184efdc0fe2624cc8',
@@ -1012,6 +1032,7 @@ async def test_input_guardrails(exporter: TestExporter):
                     'type': 'custom',
                     'logfire.msg': 'Turn 1 for agent my_agent',
                     'sdk_span_type': 'turn',
+                    'gen_ai.provider.name': 'openai',
                     'turn': 1,
                     'agent_name': 'my_agent',
                     'usage': {
@@ -1041,6 +1062,7 @@ async def test_input_guardrails(exporter: TestExporter):
                     'gen_ai.system': 'openai',
                     'logfire.msg_template': 'Agent run: {name!r}',
                     'logfire.msg': "Agent run: 'my_agent'",
+                    'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'span',
                 },
             },
@@ -1059,6 +1081,7 @@ async def test_input_guardrails(exporter: TestExporter):
                     'type': 'custom',
                     'logfire.msg': 'Task: Agent workflow',
                     'sdk_span_type': 'task',
+                    'gen_ai.provider.name': 'openai',
                     'usage': {
                         'input_tokens': 29,
                         'output_tokens': 9,
@@ -1117,6 +1140,7 @@ async def test_input_guardrails(exporter: TestExporter):
                     'name': 'zero_guardrail',
                     'logfire.msg_template': 'Guardrail {name!r} {triggered=}',
                     'logfire.msg': "Guardrail 'zero_guardrail' triggered=True",
+                    'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'span',
                 },
             },
@@ -1136,6 +1160,7 @@ async def test_input_guardrails(exporter: TestExporter):
                     'type': 'custom',
                     'name': 'turn',
                     'sdk_span_type': 'turn',
+                    'gen_ai.provider.name': 'openai',
                     'turn': 1,
                     'agent_name': 'my_agent',
                     'gen_ai.system': 'openai',
@@ -1160,6 +1185,7 @@ async def test_input_guardrails(exporter: TestExporter):
                     'tools': (),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.msg': "Agent run: 'my_agent'",
                 },
             },
@@ -1178,6 +1204,7 @@ async def test_input_guardrails(exporter: TestExporter):
                     'type': 'custom',
                     'name': 'Agent workflow',
                     'sdk_span_type': 'task',
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                     'logfire.msg': 'Task: Agent workflow',
                 },
@@ -1253,6 +1280,7 @@ async def test_chat_completions(exporter: TestExporter):
                         },
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4o',
                     'gen_ai.response.model': 'gpt-4o',
@@ -1290,6 +1318,7 @@ async def test_chat_completions(exporter: TestExporter):
                     'type': 'custom',
                     'logfire.msg': 'Turn 1 for agent my_agent',
                     'sdk_span_type': 'turn',
+                    'gen_ai.provider.name': 'openai',
                     'turn': 1,
                     'agent_name': 'my_agent',
                     'usage': {
@@ -1319,6 +1348,7 @@ async def test_chat_completions(exporter: TestExporter):
                     'gen_ai.system': 'openai',
                     'logfire.msg_template': 'Agent run: {name!r}',
                     'logfire.msg': "Agent run: 'my_agent'",
+                    'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'span',
                 },
             },
@@ -1337,6 +1367,7 @@ async def test_chat_completions(exporter: TestExporter):
                     'type': 'custom',
                     'name': 'Agent workflow',
                     'sdk_span_type': 'task',
+                    'gen_ai.provider.name': 'openai',
                     'usage': {
                         'input_tokens': 11,
                         'output_tokens': 8,
@@ -1427,11 +1458,12 @@ def test_custom_span(exporter: TestExporter):
                     'name': 'my_span',
                     'data': {},
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.msg_template': 'Custom span: {name}',
                     'logfire.msg': 'Custom span: my_span',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'data': {}, 'gen_ai.system': {}},
+                        'properties': {'name': {}, 'data': {}, 'gen_ai.system': {}, 'gen_ai.provider.name': {}},
                     },
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000001',
@@ -1452,10 +1484,11 @@ def test_custom_span(exporter: TestExporter):
                     'logfire.msg': 'Custom span: my_span2',
                     'name': 'my_span2',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'data': {'foo': 'bar'},
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'name': {}, 'data': {}, 'gen_ai.system': {}},
+                        'properties': {'name': {}, 'data': {}, 'gen_ai.system': {}, 'gen_ai.provider.name': {}},
                     },
                 },
             },
@@ -1553,6 +1586,7 @@ def test_unknown_span(exporter: TestExporter):
                     'logfire.msg': 'OpenAI agents: my_span span',
                     'foo': 'bar',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'type': 'my_span',
                 },
             },
@@ -1634,6 +1668,7 @@ async def test_responses_simple(exporter: TestExporter):
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.request.model': 'gpt-4o',
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.response.id': 'resp_01544eeb9f4d9c9100699336d86b9481a1aeace2b855734b8a',
@@ -1671,6 +1706,7 @@ async def test_responses_simple(exporter: TestExporter):
                     'type': 'custom',
                     'logfire.msg': 'Turn 1 for agent agent1',
                     'sdk_span_type': 'turn',
+                    'gen_ai.provider.name': 'openai',
                     'turn': 1,
                     'agent_name': 'agent1',
                     'usage': {
@@ -1700,6 +1736,7 @@ async def test_responses_simple(exporter: TestExporter):
                     'tools': (),
                     'output_type': 'str',
                     'logfire.msg': "Agent run: 'agent1'",
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                 },
             },
@@ -1718,6 +1755,7 @@ async def test_responses_simple(exporter: TestExporter):
                     'type': 'custom',
                     'logfire.msg': 'Task: Agent workflow',
                     'sdk_span_type': 'task',
+                    'gen_ai.provider.name': 'openai',
                     'usage': {
                         'input_tokens': 11,
                         'output_tokens': 8,
@@ -1754,6 +1792,7 @@ async def test_responses_simple(exporter: TestExporter):
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.response.id': 'resp_01544eeb9f4d9c9100699336da82d081a1a2b74cadabbd9a07',
                     'raw_input': (
                         {'content': '2+2?', 'role': 'user'},
@@ -1809,6 +1848,7 @@ async def test_responses_simple(exporter: TestExporter):
                     'type': 'custom',
                     'name': 'turn',
                     'sdk_span_type': 'turn',
+                    'gen_ai.provider.name': 'openai',
                     'turn': 1,
                     'agent_name': 'agent1',
                     'usage': {
@@ -1838,6 +1878,7 @@ async def test_responses_simple(exporter: TestExporter):
                     'tools': (),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.msg': "Agent run: 'agent1'",
                 },
             },
@@ -1856,6 +1897,7 @@ async def test_responses_simple(exporter: TestExporter):
                     'type': 'custom',
                     'name': 'Agent workflow',
                     'sdk_span_type': 'task',
+                    'gen_ai.provider.name': 'openai',
                     'usage': {
                         'input_tokens': 28,
                         'output_tokens': 6,
@@ -1932,6 +1974,7 @@ async def test_file_search(exporter: TestExporter):
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.request.model': 'gpt-4o',
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.response.id': 'resp_05cdfcc11457b63e0069933708a22881a08d070f84c840a8c8',
@@ -1989,6 +2032,7 @@ See JSON for details\
                     'type': 'custom',
                     'logfire.msg': 'Turn 1 for agent agent',
                     'sdk_span_type': 'turn',
+                    'gen_ai.provider.name': 'openai',
                     'turn': 1,
                     'agent_name': 'agent',
                     'usage': {
@@ -2018,6 +2062,7 @@ See JSON for details\
                     'tools': ('file_search',),
                     'output_type': 'str',
                     'logfire.msg': "Agent run: 'agent'",
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                 },
             },
@@ -2036,6 +2081,7 @@ See JSON for details\
                     'type': 'custom',
                     'logfire.msg': 'Task: Agent workflow',
                     'sdk_span_type': 'task',
+                    'gen_ai.provider.name': 'openai',
                     'usage': {
                         'input_tokens': 1144,
                         'output_tokens': 38,
@@ -2072,6 +2118,7 @@ See JSON for details\
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.response.id': 'resp_05cdfcc11457b63e006993370c20d881a0ac8a9082d4d1b977',
                     'raw_input': (
                         {'content': 'Who made Logfire?', 'role': 'user'},
@@ -2162,6 +2209,7 @@ See JSON for details\
                     'type': 'custom',
                     'name': 'turn',
                     'sdk_span_type': 'turn',
+                    'gen_ai.provider.name': 'openai',
                     'turn': 1,
                     'agent_name': 'agent',
                     'usage': {
@@ -2191,6 +2239,7 @@ See JSON for details\
                     'tools': ('file_search',),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.msg': "Agent run: 'agent'",
                 },
             },
@@ -2209,6 +2258,7 @@ See JSON for details\
                     'type': 'custom',
                     'name': 'Agent workflow',
                     'sdk_span_type': 'task',
+                    'gen_ai.provider.name': 'openai',
                     'usage': {
                         'input_tokens': 862,
                         'output_tokens': 10,
@@ -2283,6 +2333,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.response.id': 'resp_67d17435ebcc8191b68300d26c22b0f90273f8a636c82b58',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
@@ -2330,6 +2381,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'output': "An error occurred while running the tool. Please try again. Error: Ouch, don't do that again!",
                     'mcp_data': 'null',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'error': {
                         'message': 'Error running tool (non-fatal)',
                         'data': {'tool_name': 'tool', 'error': "Ouch, don't do that again!"},
@@ -2364,6 +2416,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'name': 'turn',
                     'logfire.span_type': 'span',
                     'sdk_span_type': 'turn',
+                    'gen_ai.provider.name': 'openai',
                     'turn': 1,
                     'agent_name': 'Start Agent',
                     'usage': {
@@ -2403,6 +2456,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.response.id': 'resp_67d17436e29481919a2bd269518a8a3e0273f8a636c82b58',
                     'gen_ai.operation.name': 'chat',
                     'raw_input': (
@@ -2477,6 +2531,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'gen_ai.system': 'openai',
                     'logfire.msg_template': 'Turn {turn} for agent Start Agent',
                     'sdk_span_type': 'turn',
+                    'gen_ai.provider.name': 'openai',
                     'turn': 2,
                     'agent_name': 'Start Agent',
                     'usage': {
@@ -2506,6 +2561,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'tools': ('tool',),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.msg': "Agent run: 'Start Agent'",
                 },
             },
@@ -2524,6 +2580,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'type': 'custom',
                     'name': 'Agent workflow',
                     'sdk_span_type': 'task',
+                    'gen_ai.provider.name': 'openai',
                     'usage': {
                         'input_tokens': 527,
                         'output_tokens': 40,
@@ -2598,6 +2655,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                     'output': 'あたし',
                     'gen_ai.request.model': 'gpt-4o-transcribe',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'model_config': {'temperature': None, 'language': None, 'prompt': None},
                     'gen_ai.response.model': 'gpt-4o-transcribe',
                     'logfire.msg': "Speech → Text with 'gpt-4o-transcribe': あたし",
@@ -2627,6 +2685,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.response.id': 'resp_0f4c5a783ebc79bc00699336f0df488194bddca1fa9a623a2e',
                     'raw_input': ({'role': 'user', 'content': 'あたし'},),
                     'events': (
@@ -2665,6 +2724,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                     'type': 'custom',
                     'logfire.span_type': 'span',
                     'sdk_span_type': 'turn',
+                    'gen_ai.provider.name': 'openai',
                     'turn': 1,
                     'agent_name': 'Assistant',
                     'usage': {
@@ -2691,6 +2751,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                     'tools': (),
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.msg': "Agent run: 'Assistant'",
                 },
             },
@@ -2706,6 +2767,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                     'type': 'custom',
                     'name': 'Agent workflow',
                     'sdk_span_type': 'task',
+                    'gen_ai.provider.name': 'openai',
                     'usage': {
                         'input_tokens': 10,
                         'output_tokens': 41,
@@ -2736,6 +2798,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4o-mini-tts',
                     'gen_ai.response.model': 'gpt-4o-mini-tts',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.msg_template': 'Text → Speech',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'Text → Speech: 「"あたし"」は日本語で「私」を意味する女性が多く使う一人称です。何か特定のことについてお話ししますか？',
@@ -2752,6 +2815,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'input': '「"あたし"」は日本語で「私」を意味する女性が多く使う一人称です。何か特定のことについてお話ししますか？',
                     'gen_ai.system': 'openai',
+                    'gen_ai.provider.name': 'openai',
                     'logfire.msg': 'Text → Speech group: 「"あたし"」は日本語で「私」を意味する女性が多く使う一人称です。何か特定のことについてお話ししますか？',
                 },
             },
@@ -2803,6 +2867,8 @@ def test_response_id_and_finish_reasons(fields: dict[str, Any], expected: list[s
 
     assert attributes['gen_ai.response.id'] == 'resp_1'
     assert attributes.get('gen_ai.response.finish_reasons') == expected
+    assert attributes['gen_ai.system'] == 'openai'
+    assert attributes['gen_ai.provider.name'] == 'openai'
 
 
 def test_response_span_gateway_cost() -> None:

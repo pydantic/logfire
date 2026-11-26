@@ -144,8 +144,8 @@ def test_console_bytearray_attribute(config_kwargs: dict[str, Any], caplog: pyte
     [
         (None, ['  | a', '--+--', '0 | 3', '1 | 4']),
         ([1.5, 2.5], ['    | a', '----+--', '1.5 | 3', '2.5 | 4']),
-        ([True, False], ['      | a', '------+--', 'True  | 3', 'False | 4']),
-        ([('x', 1), ('y', 2)], ['         | a', '---------+--', "['x', 1] | 3", "['y', 2] | 4"]),
+        ([True, False], ['      | a', '------+--', 'true  | 3', 'false | 4']),
+        ([('x', 1), ('y', 2)], ['         | a', '---------+--', "('x', 1) | 3", "('y', 2) | 4"]),
     ],
 )
 def test_console_dataframe_non_string_index(
@@ -1298,6 +1298,8 @@ def test_console_exporter_rich_argument_preserves_expanded_tab() -> None:
 
 
 def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
+    import numpy
+
     logfire.configure(
         send_to_logfire=False,
         console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
@@ -1318,6 +1320,9 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
 
         INT = 1
 
+    class MyNumpyEnum(enum.Enum):
+        INT = numpy.int64(1)
+
     logfire.info(
         'hi',
         d=datetime(2020, 12, 31, 12, 34, 56),
@@ -1326,6 +1331,7 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
         e=MyEnum.ABC,
         se=MyStrEnum.STR,
         ie=MyIntEnum.INT,
+        ne=MyNumpyEnum.INT,
         rp=re.compile(r'^[\w\.-]+@[\w\.-]+\.\w+$'),
     )
 
@@ -1339,6 +1345,7 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
             "│ e=MyEnum('abc')",
             "│ se=MyStrEnum('str_val')",
             '│ ie=MyIntEnum(1)',
+            '│ ne=MyNumpyEnum(1)',
             '│ rp=^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$',
         ]
     )

@@ -41,7 +41,7 @@ from sqlalchemy.sql.schema import ForeignKey
 from sqlmodel import SQLModel
 
 import logfire
-from logfire._internal.json_encoder import logfire_json_dumps
+from logfire._internal.json_encoder import load_json_attribute, logfire_json_dumps
 from logfire._internal.json_formatter import json_args_value_formatter
 from logfire._internal.json_schema import create_json_schema
 from logfire._internal.main import set_json_text_attribute_on_raw_span
@@ -390,13 +390,36 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             Enum('Color', ['RED', 'GREEN', 'BLUE']).BLUE,
             'Color.BLUE',
             '3',
-            {
-                'type': 'integer',
-                'title': 'Color',
-                'x-python-datatype': 'Enum',
-                'enum': [1, 2, 3],
-            },
+            {'type': 'integer', 'title': 'Color', 'x-python-datatype': 'Enum'},
             id='enum',
+        ),
+        pytest.param(
+            Enum('Choice', {'YES': True}).YES,
+            'Choice.YES',
+            'true',
+            {'type': 'boolean', 'title': 'Choice', 'x-python-datatype': 'Enum'},
+            id='bool_enum',
+        ),
+        pytest.param(
+            Enum('FloatChoice', {'VALUE': 1.5}).VALUE,
+            'FloatChoice.VALUE',
+            '1.5',
+            {'type': 'number', 'title': 'FloatChoice', 'x-python-datatype': 'Enum'},
+            id='float_enum',
+        ),
+        pytest.param(
+            Enum('Maybe', {'NONE': None}).NONE,
+            'Maybe.NONE',
+            'null',
+            {'type': 'null', 'title': 'Maybe', 'x-python-datatype': 'Enum'},
+            id='enum_with_none_value',
+        ),
+        pytest.param(
+            Enum('Outer', {'INNER': Enum('Inner', {'ONE': 1}).ONE}).INNER,
+            'Outer.INNER',
+            '1',
+            {'type': 'integer', 'title': 'Outer', 'x-python-datatype': 'Enum'},
+            id='enum_with_enum_value',
         ),
         pytest.param(
             {'enum': StrEnum('Color', ['RED', 'GREEN', 'BLUE']).BLUE},
@@ -404,12 +427,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             '{"enum":"blue"}',
             {
                 'type': 'object',
-                'additionalProperties': {
-                    'type': 'string',
-                    'title': 'Color',
-                    'x-python-datatype': 'Enum',
-                    'enum': ['red', 'green', 'blue'],
-                },
+                'additionalProperties': {'type': 'string', 'title': 'Color', 'x-python-datatype': 'Enum'},
             },
             id='str_enum',
         ),
@@ -417,36 +435,21 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             Enum('Color', {'RED': 1, 'GREEN': 'str', 'BLUE': MyDataclass(t=1)}).BLUE,
             'Color.BLUE',
             '{"t":1}',
-            {
-                'type': 'object',
-                'title': 'Color',
-                'x-python-datatype': 'Enum',
-                'enum': [1, 'str', {'t': 1}],
-            },
+            {'type': 'object', 'title': 'Color', 'x-python-datatype': 'Enum'},
             id='enum_with_complex_values',
         ),
         pytest.param(
             Enum('Color', {'RED': 1, 'GREEN': 'str'}).RED,
             'Color.RED',
             '1',
-            {
-                'type': 'object',
-                'title': 'Color',
-                'x-python-datatype': 'Enum',
-                'enum': [1, 'str'],
-            },
+            {'type': 'integer', 'title': 'Color', 'x-python-datatype': 'Enum'},
             id='enum_with_int_and_str_values',
         ),
         pytest.param(
             Enum('Color', {'RED': 1, 'GREEN': 1.5}).RED,
             'Color.RED',
             '1',
-            {
-                'type': 'number',
-                'title': 'Color',
-                'x-python-datatype': 'Enum',
-                'enum': [1, 1.5],
-            },
+            {'type': 'integer', 'title': 'Color', 'x-python-datatype': 'Enum'},
             id='enum_with_int_and_float_values',
         ),
         pytest.param(
@@ -748,10 +751,8 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             '   col1  col2\n0     1     3\n1     2     4',
             '[[1,3],[2,4]]',
             {
-                'type': 'array',
+                'type': 'object',
                 'x-python-datatype': 'DataFrame',
-                'x-columns': ['col1', 'col2'],
-                'x-indices': [0, 1],
                 'x-row-count': 2,
                 'x-column-count': 2,
             },
@@ -786,31 +787,8 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             '[21,42,63,84,105,168,189,210,231,252],'
             '[22,44,66,88,110,176,198,220,242,264]]',
             {
-                'type': 'array',
+                'type': 'object',
                 'x-python-datatype': 'DataFrame',
-                'x-columns': ['col1', 'col2', 'col3', 'col4', 'col5', 'col8', 'col9', 'col10', 'col11', 'col12'],
-                'x-indices': [
-                    'i1',
-                    'i2',
-                    'i3',
-                    'i4',
-                    'i5',
-                    'i6',
-                    'i7',
-                    'i8',
-                    'i9',
-                    'i10',
-                    'i13',
-                    'i14',
-                    'i15',
-                    'i16',
-                    'i17',
-                    'i18',
-                    'i19',
-                    'i20',
-                    'i21',
-                    'i22',
-                ],
                 'x-row-count': 22,
                 'x-column-count': 12,
             },
@@ -960,7 +938,7 @@ def test_log_non_scalar_args(
     value: Any,
     value_repr: str,
     value_json: str,
-    json_schema: str,
+    json_schema: dict[str, Any],
 ) -> None:
     logfire.info('test message {var=}', var=value)
 
@@ -971,15 +949,36 @@ def test_log_non_scalar_args(
     assert isinstance(s.attributes['logfire.msg'], str)
     assert s.attributes['logfire.msg'].startswith(f'test message var={value_repr}')
     var = s.attributes['var']
-    if not isinstance(var, str):
+    if isinstance(value, pandas.DataFrame):
+        assert _frame_matrix(load_json_attribute(var)) == json.loads(value_json)
+    elif isinstance(var, str):
+        assert var == value_json
+    else:
         # Plain dicts and lists are sent as structured OTLP values instead of JSON strings.
-        var = json.dumps(var, separators=(',', ':'), ensure_ascii=False)
-    assert var == value_json
+        assert load_json_attribute(var) == json.loads(value_json)
     var_schema = as_json(s.attributes['logfire.json_schema'])['properties']['var']
-    if not isinstance(s.attributes['var'], str) and json_schema in ({'type': 'object'}, {'type': 'array'}):  # type: ignore
-        # The backend doesn't need a schema to know that a structured value is an object or an array.
+    if not isinstance(var, str) and json_schema in ({'type': 'object'}, {'type': 'array'}):
+        # The backend does not need a schema to know that a structured value is an object or an array.
         json_schema = {}
     assert var_schema == json_schema
+
+
+def test_recursive_enum_value_schema() -> None:
+    member = Enum('Recursive', {'MEMBER': 1}).MEMBER
+    object.__setattr__(member, '_value_', member)
+
+    assert create_json_schema(member, set()) == {'title': 'Recursive', 'x-python-datatype': 'Enum'}
+
+
+def test_bytes_enum_value_schema() -> None:
+    class BytesEnum(bytes, Enum):
+        MEMBER = b'bytes'
+
+    assert create_json_schema(BytesEnum.MEMBER, set()) == {
+        'type': 'string',
+        'title': 'BytesEnum',
+        'x-python-datatype': 'Enum',
+    }
 
 
 def test_attrs_schema_respects_repr() -> None:
@@ -1027,6 +1026,24 @@ def test_attrs_falsey_callable_repr(exporter: TestExporter) -> None:
     }
 
 
+def _frame_matrix(value: dict[str, Any]) -> list[list[Any]]:
+    """Read the sampled cells by their queryable row and column paths."""
+    row_occurrences: dict[str, int] = {}
+    result: list[list[Any]] = []
+    for row_label in value['rows']:
+        row_index = row_occurrences.get(row_label, 0)
+        row_occurrences[row_label] = row_index + 1
+        cells = value['data'][row_label][row_index]
+        column_occurrences: dict[str, int] = {}
+        row: list[Any] = []
+        for column_label in value['columns']:
+            column_index = column_occurrences.get(column_label, 0)
+            column_occurrences[column_label] = column_index + 1
+            row.append(cells[column_label][column_index])
+        result.append(row)
+    return result
+
+
 @pytest.mark.parametrize('max_rows,row_positions', [(None, [0, 1, 2]), (2, [0, 2])])
 @pytest.mark.parametrize('max_columns,column_positions', [(None, [0, 1, 2]), (2, [0, 2])])
 def test_log_dataframe_preserves_integer_precision(
@@ -1044,7 +1061,7 @@ def test_log_dataframe_preserves_integer_precision(
     attributes = exporter.exported_spans[0].attributes
     assert attributes is not None
     assert isinstance(attributes['frame'], str)
-    assert json.loads(attributes['frame']) == [
+    assert _frame_matrix(json.loads(attributes['frame'])) == [
         [rows[row][column] for column in column_positions] for row in row_positions
     ]
 
@@ -1074,15 +1091,62 @@ def test_log_dataframe_labels_match_data(
     assert attributes is not None
     value = attributes['frame']
     schema = attributes['logfire.json_schema']
-    assert value == tuple(tuple(row * column_count + column for column in column_positions) for row in row_positions)
-    assert as_json(schema)['properties']['frame'] == {
-        'type': 'array',
+    recorded = load_json_attribute(value)
+    assert recorded['rows'] == [f'row{row}' for row in row_positions]
+    assert recorded['columns'] == [f'col{column}' for column in column_positions]
+    assert _frame_matrix(recorded) == [
+        [row * column_count + column for column in column_positions] for row in row_positions
+    ]
+    assert load_json_attribute(schema)['properties']['frame'] == {
+        'type': 'object',
         'x-python-datatype': 'DataFrame',
-        'x-columns': [f'col{column}' for column in column_positions],
-        'x-indices': [f'row{row}' for row in row_positions],
         'x-column-count': column_count,
         'x-row-count': row_count,
     }
+
+
+def test_log_dataframe_duplicate_labels(exporter: TestExporter) -> None:
+    frame = pandas.DataFrame(
+        [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+        index=['alice', 'bob', 'alice'],
+        columns=['score', 'other', 'score'],
+    )
+    with pandas.option_context('display.max_rows', 2, 'display.max_columns', 2):
+        logfire.info('frame', frame=frame)
+
+    attributes = as_json(exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes'])
+    recorded = attributes['frame']
+    assert recorded['rows'] == ['alice', 'alice']
+    assert recorded['columns'] == ['score', 'score']
+    assert recorded['data']['alice'] == [
+        {'score': [1, 3]},
+        {'score': [7, 9]},
+    ]
+    assert _frame_matrix(recorded) == [[1, 3], [7, 9]]
+    assert attributes['logfire.json_schema']['properties']['frame'] == {
+        'type': 'object',
+        'x-python-datatype': 'DataFrame',
+        'x-column-count': 3,
+        'x-row-count': 3,
+    }
+
+
+def test_log_dataframe_password_column_is_scrubbed(exporter: TestExporter) -> None:
+    logfire.info('frame', frame=pandas.DataFrame({'password': ['hunter2'], 'score': [7]}, index=['alice']))
+
+    attributes = as_json(exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes'])
+    assert attributes['frame']['data']['alice'][0]['password'] == ["[Scrubbed due to 'password']"]
+    assert attributes['frame']['data']['alice'][0]['score'] == [7]
+    assert 'hunter2' not in json.dumps(attributes)
+
+
+def test_log_dataframe_scrubbed_value_has_no_labels_in_schema(exporter: TestExporter) -> None:
+    logfire.info('frame', sessions=pandas.DataFrame({'requests': [2]}, index=['tok-abc123']))
+
+    attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
+    assert attributes['sessions'] == "[Scrubbed due to 'session']"
+    assert attributes['logfire.json_schema']['properties']['sessions']['type'] == 'object'
+    assert 'tok-abc123' not in json.dumps(attributes)
 
 
 @pytest.mark.parametrize(
@@ -1113,12 +1177,13 @@ def test_log_dataframe_with_unlimited_and_odd_display_limits(
 
     attributes = exporter.exported_spans[0].attributes
     assert attributes is not None
-    assert attributes['frame'] == tuple(tuple(row * 5 + column for column in column_positions) for row in row_positions)
+    recorded = as_json(attributes['frame'])
+    assert recorded['rows'] == [f'row{row}' for row in row_positions]
+    assert recorded['columns'] == [f'col{column}' for column in column_positions]
+    assert _frame_matrix(recorded) == [[row * 5 + column for column in column_positions] for row in row_positions]
     assert as_json(attributes['logfire.json_schema'])['properties']['frame'] == {
-        'type': 'array',
+        'type': 'object',
         'x-python-datatype': 'DataFrame',
-        'x-columns': [f'col{column}' for column in column_positions],
-        'x-indices': [f'row{row}' for row in row_positions],
         'x-column-count': 5,
         'x-row-count': 5,
     }
@@ -1150,9 +1215,9 @@ def test_log_dataframe_odd_display_limits_formatting(
     attributes = exporter.exported_spans[0].attributes
     assert attributes is not None
     frame_value = attributes['frame']
-    assert isinstance(frame_value, tuple)
+    assert isinstance(frame_value, Mapping)
     formatted = json_args_value_formatter(
-        json.loads(json.dumps(frame_value)),
+        as_json(frame_value),
         schema=as_json(attributes['logfire.json_schema'])['properties']['frame'],
     )
     cells = [[cell.strip() for cell in line.split('|')] for line in formatted.splitlines() if '|' in line]
@@ -1169,6 +1234,36 @@ def test_log_dataframe_odd_display_limits_formatting(
             for row in row_labels
         ],
     ]
+
+
+def test_log_dict_with_non_string_keys(exporter: TestExporter) -> None:
+    @dataclass
+    class Wrapper:
+        d: dict[Any, Any]
+
+    d = {True: date(2023, 1, 1), False: date(2023, 1, 2), None: date(2023, 1, 3), 2: date(2023, 1, 4), 1.5: 'x', 'a': 1}
+    logfire.info('test message', d=d, wrapped=Wrapper(d), inf_key={float('inf'): 1})
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    # The keys must be the same whether `json.dumps` converts them natively or the value is nested in another object,
+    # and the schema must use the same keys so that the dates keep their type.
+    expected = {
+        'true': '2023-01-01',
+        'false': '2023-01-02',
+        'null': '2023-01-03',
+        '2': '2023-01-04',
+        '1.5': 'x',
+        'a': 1,
+    }
+    assert attributes['d'] == expected
+    assert attributes['wrapped'] == {'d': expected}
+    assert attributes['inf_key'] == {'inf': 1}
+    date_schema = {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'}
+    assert as_json(attributes['logfire.json_schema'])['properties']['d'] == {
+        'type': 'object',
+        'properties': {'true': date_schema, 'false': date_schema, 'null': date_schema, '2': date_schema},
+    }
 
 
 def test_log_non_finite_scalar_float_args(exporter: TestExporter) -> None:
@@ -2000,19 +2095,9 @@ def test_pydantic_root_model(exporter: TestExporter):
                             'with_none': {'type': 'null'},
                             'with_none_inner': {'type': 'null'},
                             'with_color': {'type': 'string', 'x-python-datatype': 'str', 'title': 'Color'},
-                            'with_color_inner': {
-                                'type': 'string',
-                                'title': 'Color',
-                                'x-python-datatype': 'Enum',
-                                'enum': ('RED',),
-                            },
+                            'with_color_inner': {'type': 'string', 'title': 'Color', 'x-python-datatype': 'Enum'},
                             'with_order': {'type': 'integer', 'x-python-datatype': 'int', 'title': 'Order'},
-                            'with_order_inner': {
-                                'type': 'integer',
-                                'title': 'Order',
-                                'x-python-datatype': 'Enum',
-                                'enum': (1,),
-                            },
+                            'with_order_inner': {'type': 'integer', 'title': 'Order', 'x-python-datatype': 'Enum'},
                         },
                     },
                 },

@@ -16,6 +16,7 @@ from pydantic import (
     AfterValidator,
     BaseModel,
     ConfigDict,
+    Field,
     TypeAdapter,
     ValidationError,
     __version__ as pydantic_version,
@@ -1206,6 +1207,35 @@ def test_pydantic_plugin_python_exception(exporter: TestExporter) -> None:
                 ],
             }
         ]
+    )
+
+
+def test_pydantic_plugin_record_failure_scrubs_input(exporter: TestExporter) -> None:
+    class Signup(BaseModel, plugin_settings={'logfire': {'record': 'failure'}}):
+        password: str = Field(min_length=12)
+
+    with pytest.raises(ValidationError):
+        Signup(password='hunter2')
+
+    [log] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attributes = log['attributes']
+    assert {k: attributes[k] for k in ('errors', 'input_data', 'logfire.scrubbed')} == snapshot(
+        {
+            'errors': (
+                {
+                    'type': 'string_too_short',
+                    'loc': ('password',),
+                    'msg': 'String should have at least 12 characters',
+                    'input': "[Scrubbed due to 'password']",
+                    'ctx': {'min_length': 12},
+                },
+            ),
+            'input_data': {'password': "[Scrubbed due to 'password']"},
+            'logfire.scrubbed': [
+                {'path': ['attributes', 'errors', 0, 'password'], 'matched_substring': 'password'},
+                {'path': ['attributes', 'input_data', 'password'], 'matched_substring': 'password'},
+            ],
+        }
     )
 
 

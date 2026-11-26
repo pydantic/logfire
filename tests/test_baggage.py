@@ -331,7 +331,7 @@ def test_baggage_respects_log_record_attribute_limits(
     assert attributes.dropped == 1
 
 
-def test_logfire_baggage_keys_do_not_become_attributes(
+def test_reserved_baggage_keys_do_not_become_attributes(
     config_kwargs: dict[str, Any], exporter: TestExporter, logs_exporter: TestLogExporter
 ) -> None:
     config_kwargs['add_baggage_to_attributes'] = True
@@ -343,6 +343,8 @@ def test_logfire_baggage_keys_do_not_become_attributes(
         'logfire.variables.feature': 'candidate',
         'logfire.variables.feature.version': '2',
         'customer.id': '123',
+        'gen_ai.evaluation.score.value': '1.0',
+        'error.type': 'ValueError',
     }
     with logfire.set_baggage(**baggage_values):
         assert logfire.get_baggage() == baggage_values
@@ -358,6 +360,8 @@ def test_logfire_baggage_keys_do_not_become_attributes(
         assert attributes['customer.id'] == '123'
         assert 'logfire.sample_rate' not in attributes
         assert 'logfire.scrubbed' not in attributes
+        assert 'gen_ai.evaluation.score.value' not in attributes
+        assert 'error.type' not in attributes
         assert 'baggage_conflict.logfire.msg_template' not in attributes
     assert span['attributes']['logfire.msg_template'] == 'span'
     assert 'logfire.msg_template' not in log['attributes']
