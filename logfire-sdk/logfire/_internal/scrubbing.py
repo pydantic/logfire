@@ -595,14 +595,14 @@ class SpanScrubber:
 
         For example, in `{'loc': ['body', 'password'], 'input': 'hunter2'}` the field name and the rejected value
         are separate entries, so checking each key and value on its own never connects them.
-        String names are checked from innermost to outermost, with a path ending at the matching field name.
+        String names are checked from innermost to outermost, with the full `loc` in each match path.
         For a missing-field error, the last name is skipped because `input` is the container missing that field.
         `value` is the already scrubbed `input`.
         """
         for index in range(len(loc) - 1 - missing, -1, -1):
             part = loc[index]
             if isinstance(part, str) and (match := self._pattern.search(part)):
-                redacted = self._scrub_matches(error_path + tuple(loc[: index + 1]), value, match)
+                redacted = self._scrub_matches(error_path + tuple(loc), value, match)
                 if not _is_unchanged_value(value, redacted):
                     # Like the key rule, keep a sequence a sequence. `scrub` returns every sequence as a list.
                     if isinstance(redacted, str) and isinstance(value, list):

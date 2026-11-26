@@ -2658,8 +2658,9 @@ def test_validation_error_input_callback_checks_outer_loc_parts(exporter: TestEx
     assert attributes['errors'][0]['input'] == "[Scrubbed due to 'credential']"
     assert matches == [
         (('attributes', 'errors', 0, 'credentials', 'password'), 'password'),
-        (('attributes', 'errors', 0, 'credentials'), 'credential'),
+        (('attributes', 'errors', 0, 'credentials', 'password'), 'credential'),
     ]
+    assert attributes['logfire.scrubbed'][-1]['path'] == ['attributes', 'errors', 0, 'credentials', 'password']
 
 
 @pytest.mark.parametrize(
