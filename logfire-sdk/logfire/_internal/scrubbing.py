@@ -582,7 +582,6 @@ class SpanScrubber:
                 result['input'] = self._scrub_validation_error_input(
                     path,
                     cast('list[Any] | tuple[Any, ...]', mapping['loc']),
-                    cast('list[Any] | tuple[Any, ...]', result['loc']),
                     result['input'],
                     mapping['type'] in _MISSING_ERROR_TYPES,
                 )
@@ -590,12 +589,7 @@ class SpanScrubber:
         return value
 
     def _scrub_validation_error_input(
-        self,
-        error_path: JsonPath,
-        loc: list[Any] | tuple[Any, ...],
-        scrubbed_loc: list[Any] | tuple[Any, ...],
-        value: Any,
-        missing: bool,
+        self, error_path: JsonPath, loc: list[Any] | tuple[Any, ...], value: Any, missing: bool
     ) -> Any:
         """Redacts the `input` of a Pydantic validation error when a field name in its `loc` matches.
 
@@ -608,12 +602,7 @@ class SpanScrubber:
         for index in range(len(loc) - 1 - missing, -1, -1):
             part = loc[index]
             if isinstance(part, str) and (match := self._pattern.search(part)):
-                redacted = self._scrub_matches(
-                    error_path + tuple(loc[: index + 1]),
-                    value,
-                    match,
-                    note_path=error_path + tuple(scrubbed_loc[: index + 1]),
-                )
+                redacted = self._scrub_matches(error_path + tuple(loc[: index + 1]), value, match)
                 if not _is_unchanged_value(value, redacted):
                     # Like the key rule, keep a sequence a sequence. `scrub` returns every sequence as a list.
                     if isinstance(redacted, str) and isinstance(value, list):
@@ -621,13 +610,11 @@ class SpanScrubber:
                     return redacted
         return value
 
-    def _scrub_matches(
-        self, path: JsonPath, value: Any, match: re.Match[str], note_path: JsonPath | None = None
-    ) -> Any:
+    def _scrub_matches(self, path: JsonPath, value: Any, match: re.Match[str]) -> Any:
         text = match.string
         unchanged_matches = 0
         while True:
-            result = self._redact(ScrubMatch(path, value, match), note_path)
+            result = self._redact(ScrubMatch(path, value, match))
             if not _is_unchanged_value(value, result):
                 return result
             unchanged_matches += 1
@@ -644,7 +631,7 @@ class SpanScrubber:
                 if first_candidate:
                     first_candidate = False
                     continue
-                result = self._redact(ScrubMatch(path, value, candidate), note_path)
+                result = self._redact(ScrubMatch(path, value, candidate))
                 if not _is_unchanged_value(value, result):
                     return result
                 unchanged_matches += 1
@@ -660,7 +647,7 @@ class SpanScrubber:
                 return result
             match = next_match
 
-    def _redact(self, match: ScrubMatch, note_path: JsonPath | None = None) -> Any:
+    def _redact(self, match: ScrubMatch) -> Any:
         result = None
         if self._callback:
             with handle_internal_errors:
@@ -672,11 +659,7 @@ class SpanScrubber:
         self.scrub_count += 1
         matched_substring = match.pattern_match.group(0)
         if len(self.scrubbed) < _MAX_SCRUBBED_NOTES:
-            self.scrubbed.append(
-                ScrubbedNote(
-                    path=note_path if note_path is not None else match.path, matched_substring=matched_substring
-                )
-            )
+            self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
         return f'[Scrubbed due to {matched_substring!r}]'
 
 
