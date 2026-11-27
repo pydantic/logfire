@@ -57,6 +57,23 @@ except ImportError:  # pragma: no cover
     ValidationError = None
 
 
+def _recorded_exception(exception: BaseException, scrubber: BaseScrubber | None) -> BaseException:
+    if scrubber is None or ValidationError is None or not hasattr(ValidationError, 'from_exception_data'):
+        return exception
+
+    from .scrubbing import NOOP_SCRUBBER
+
+    if scrubber is NOOP_SCRUBBER:
+        return exception
+
+    recorded = exception
+    with handle_internal_errors:
+        from .validation_errors import replace_validation_errors
+
+        recorded = replace_validation_errors(exception, scrubber, ('attributes', ATTRIBUTES_VALIDATION_ERROR_KEY))
+    return recorded
+
+
 OPEN_SPANS: WeakValueDictionary[tuple[int, int], _LogfireWrappedSpan] = WeakValueDictionary()
 
 
@@ -220,21 +237,18 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         status: Status | StatusCode,
         description: str | None = None,
     ) -> None:
-        if (
-            self.scrubber is not None
-            and ValidationError is not None
-            and isinstance(status, Status)
-            and status.status_code is StatusCode.ERROR
-            and (exception := sys.exception()) is not None
-            and status.description == f'{type(exception).__name__}: {exception}'
-        ):
-            from .validation_errors import replace_validation_errors
-
-            recorded = replace_validation_errors(
-                exception, self.scrubber, ('attributes', ATTRIBUTES_VALIDATION_ERROR_KEY)
-            )
-            if recorded is not exception:
-                status = Status(StatusCode.ERROR, f'{type(recorded).__name__}: {recorded}')
+        with handle_internal_errors:
+            if (
+                self.scrubber is not None
+                and ValidationError is not None
+                and isinstance(status, Status)
+                and status.status_code is StatusCode.ERROR
+                and (exception := sys.exception()) is not None
+                and status.description == f'{type(exception).__name__}: {exception}'
+            ):
+                recorded = _recorded_exception(exception, self.scrubber)
+                if recorded is not exception:
+                    status = Status(StatusCode.ERROR, f'{type(recorded).__name__}: {recorded}')
         self.span.set_status(status, description)
 
     def record_exception(
@@ -509,11 +523,7 @@ def record_exception(
         with handle_internal_errors:
             callback(helper)
 
-    recorded = exception
-    if scrubber is not None and ValidationError is not None:
-        from .validation_errors import replace_validation_errors
-
-        recorded = replace_validation_errors(exception, scrubber, ('attributes', ATTRIBUTES_VALIDATION_ERROR_KEY))
+    recorded = _recorded_exception(exception, scrubber)
 
     # A status set by the callback (e.g. to keep the exception message out of the description) wins.
     if helper.level >= 'error' and getattr(span, 'status', None) is status_before_callback:

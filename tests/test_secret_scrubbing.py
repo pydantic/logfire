@@ -2860,6 +2860,67 @@ def test_exception_recording_without_pydantic(exporter: TestExporter, monkeypatc
     assert span['events'][0]['attributes']['exception.message'] == 'failed'
 
 
+def test_exception_recording_with_pydantic_v1_like_error(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    class V1LikeValidationError(Exception):
+        pass
+
+    monkeypatch.setattr('logfire._internal.tracer.ValidationError', V1LikeValidationError)
+    with pytest.raises(ValueError):
+        with logfire.span('work'):
+            raise ValueError('failed')
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['events'][0]['attributes']['exception.message'] == 'failed'
+
+
+def test_exception_rebuilding_import_failure_preserves_recording(
+    exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
+):
+    import builtins
+
+    monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
+    original_import = builtins.__import__
+
+    def fail_validation_error_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'validation_errors':
+            raise ImportError('pydantic_core unavailable')
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', fail_validation_error_import)
+    with pytest.raises(ValueError):
+        with logfire.span('work'):
+            raise ValueError('failed')
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['events'][0]['attributes']['exception.message'] == 'failed'
+
+
+def test_exception_rebuilding_failure_preserves_recording(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
+
+    def fail(*args: Any) -> BaseException:
+        raise ValueError('rebuilding failed')
+
+    monkeypatch.setattr('logfire._internal.validation_errors.replace_validation_errors', fail)
+
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    with pytest.raises(ValidationError):
+        with logfire.span('logfire'):
+            Login(password='hunter2')
+    with pytest.raises(ValidationError):
+        with get_tracer('test').start_as_current_span('otel'):
+            Login(password='hunter2')
+
+    spans = [span for span in exporter.exported_spans if span.name in ('logfire', 'otel') and span.events]
+    assert len(spans) == 2
+    for span in spans:
+        assert span.events and span.events[0].attributes
+        assert 'hunter2' in cast(str, span.events[0].attributes['exception.message'])
+        assert span.status.status_code is StatusCode.ERROR
+
+
 def test_chained_validation_error_text_scrubbed(exporter: TestExporter):
     class Login(BaseModel):
         password: str = Field(min_length=12)
