@@ -78,6 +78,7 @@ def scrubbed_validation_error(exc: ValidationError, scrubber: BaseScrubber, path
                 pass
         if not any(
             not _is_unchanged_value(original.get('input'), changed.get('input'))
+            or original.get('msg') != changed.get('msg')
             for original, changed in zip(original_errors, errors)
         ):
             return None

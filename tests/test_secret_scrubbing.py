@@ -24,6 +24,7 @@ from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace import Status, StatusCode, get_tracer
 from opentelemetry.trace.propagation import get_current_span
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic_core import PydanticCustomError
 
 import logfire
 from logfire._internal import utils
@@ -2849,6 +2850,27 @@ def test_dataclass_validation_input_scrubbed_from_exception_text(exporter: TestE
     with pytest.raises(ValidationError):
         with logfire.span('login'):
             Login.model_validate(LoginInput(password))
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert password not in json.dumps(span)
+    assert "[Scrubbed due to 'password']" in span['events'][0]['attributes']['exception.message']
+
+
+def test_custom_validation_message_scrubbed_without_input_change(exporter: TestExporter):
+    password = 'hunter2'
+    error = ValidationError.from_exception_data(
+        'Login',
+        [
+            {
+                'type': PydanticCustomError('invalid_login', f'Invalid password: {password}'),
+                'loc': ('username',),
+                'input': 'alice',
+            }
+        ],
+    )
+    with pytest.raises(ValidationError):
+        with logfire.span('login'):
+            raise error
 
     [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
     assert password not in json.dumps(span)
