@@ -277,6 +277,9 @@ class BaseScrubber(ABC):
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...
 
     @abstractmethod
+    def scrub_value_with_changes(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote], bool]: ...
+
+    @abstractmethod
     def transform_message(self, value: str) -> str: ...
 
     @abstractmethod
@@ -296,6 +299,9 @@ class NoopScrubber(BaseScrubber):
 
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
         return value, []
+
+    def scrub_value_with_changes(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote], bool]:
+        return value, [], False
 
     def transform_message(self, value: str) -> str:
         return value
@@ -341,9 +347,13 @@ class Scrubber(BaseScrubber):
             span['attributes'] = {**attributes, ATTRIBUTES_SCRUBBED_KEY: limited_notes}
 
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
+        result, notes, _ = self.scrub_value_with_changes(path, value)
+        return result, notes
+
+    def scrub_value_with_changes(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote], bool]:
         span_scrubber = SpanScrubber(self)
         result = span_scrubber.scrub(path, value)
-        return result, span_scrubber.scrubbed
+        return result, span_scrubber.scrubbed, bool(span_scrubber.scrub_count)
 
     def transform_message(self, value: str) -> str:
         if self._transform_string is None:
