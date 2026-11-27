@@ -102,21 +102,24 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
         span_data[TOOL_DEFINITIONS] = json.dumps(_without_credentials(tools))
 
 
-def _without_credentials(value: Any, *, keep_authorization: bool = False) -> Any:
+def _without_credentials(value: Any, *, keep_authorization: bool = False, in_mcp_tool: bool = False) -> Any:
     """Copy request data for telemetry, omitting hosted tool credentials without changing the request."""
     if isinstance(value, (list, tuple)):
         value = cast('list[Any] | tuple[Any, ...]', value)
-        items = [_without_credentials(item, keep_authorization=keep_authorization) for item in value]
+        items = [
+            _without_credentials(item, keep_authorization=keep_authorization, in_mcp_tool=in_mcp_tool) for item in value
+        ]
         return items if any(new is not old for new, old in zip(items, value)) else value
     if not isinstance(value, dict):
         return value
 
     value = cast('dict[str, Any]', value)
+    in_mcp_tool = in_mcp_tool or value.get('type') == 'mcp'
     removed = ('headers',) if keep_authorization else ('authorization', 'headers')
-    if value.get('type') != 'mcp':
+    if not in_mcp_tool:
         removed = ()
     result = {
-        key: _without_credentials(item, keep_authorization=keep_authorization)
+        key: _without_credentials(item, keep_authorization=keep_authorization, in_mcp_tool=in_mcp_tool)
         for key, item in value.items()
         if key not in removed
     }
