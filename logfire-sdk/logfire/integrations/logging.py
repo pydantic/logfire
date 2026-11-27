@@ -166,31 +166,8 @@ def _scrub_container(scrubber: BaseScrubber, path: tuple[str | int, ...], value:
     """Scrub only containers; scalar strings and object string representations retain logging's behavior."""
     if not isinstance(value, (dict, list)):
         return value, False
-    scrubbed, notes = scrubber.scrub_value(path, value)
-    if notes:
-        return scrubbed, True
-    # A callback can replace a value without recording a scrub note. Ignore the scrubber's
-    # tuple-to-list normalization when deciding whether the rendered message must change.
-    return scrubbed, not _same_container_contents(value, scrubbed)
-
-
-def _same_container_contents(original: Any, scrubbed: Any) -> bool:
-    if isinstance(original, Mapping) and isinstance(scrubbed, Mapping):
-        original_mapping = cast('Mapping[Any, Any]', original)
-        scrubbed_mapping = cast('Mapping[Any, Any]', scrubbed)
-        return original_mapping.keys() == scrubbed_mapping.keys() and all(
-            _same_container_contents(original_mapping[key], scrubbed_mapping[key]) for key in original_mapping
-        )
-    if isinstance(original, (list, tuple)) and isinstance(scrubbed, (list, tuple)):
-        original_sequence = cast('list[Any] | tuple[Any, ...]', original)
-        scrubbed_sequence = cast('list[Any] | tuple[Any, ...]', scrubbed)
-        return len(original_sequence) == len(scrubbed_sequence) and all(
-            _same_container_contents(left, right) for left, right in zip(original_sequence, scrubbed_sequence)
-        )
-    try:
-        return bool(original == scrubbed)
-    except Exception:
-        return False
+    scrubbed, _, changed = scrubber.scrub_value_with_changes(path, value)
+    return scrubbed, changed
 
 
 def _format_message(record: LogRecord, scrubber: BaseScrubber) -> tuple[str, Mapping[str, Any]]:

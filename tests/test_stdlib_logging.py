@@ -598,6 +598,29 @@ def test_logging_renders_callback_replacements(
     assert span['attributes']['logfire.logging_args'] == [{'password': 'replacement'}]
 
 
+def test_logging_renders_callback_container_type_replacement(
+    exporter: TestExporter, logger: Logger, config_kwargs: dict[str, Any]
+) -> None:
+    def replace_password(match: logfire.ScrubMatch) -> tuple[str, ...] | None:
+        return ('replacement',) if match.path[-1] == 'password' else None
+
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=replace_password))
+    logger.error('value: %s', {'password': ['hunter2']})
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == "value: {'password': ('replacement',)}"
+
+
+def test_logging_cyclic_container_with_scrubbing_disabled(config_kwargs: dict[str, Any]) -> None:
+    logfire.configure(**config_kwargs, scrubbing=False)
+    handler = LogfireLoggingHandler()
+    container: dict[str, Any] = {}
+    container['self'] = container
+    record = logging.LogRecord(__name__, logging.ERROR, __file__, 1, 'value: %s', (container,), None)
+
+    assert handler.fill_attributes(record)['logfire.msg'] == "value: {'self': {...}}"
+
+
 def test_logging_redacted_container_format_error_scrubs_arguments(
     exporter: TestExporter, capsys: pytest.CaptureFixture[str]
 ) -> None:
