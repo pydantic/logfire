@@ -37,48 +37,97 @@ The main model reads a few rows. The contract text never enters its context wind
 
 ## Give the script a function that asks a fast model
 
-`extract()` is a normal host function. It runs in your application, and it sends one small request to a fast model.
-The script chooses the fields, so the same function serves many different questions.
-
-The first two functions return sample contracts, so you can run the example. Replace them with calls to your
+Save these sample contracts as `contracts.py`. The renewal and fee terms use different wording from one contract to
+the next, and the other clauses contain dates and percentages that do not answer the question. Each contract also
+stores its correct values in `answer`, so you can check what the fast model returns. Replace this file with your
 document store.
 
-```python title="tools.py" skip-run="true" skip-reason="external-connection"
-import asyncio
+```python title="contracts.py" skip-run="true" skip-reason="external-connection"
 import random
-
-from pydantic_ai import Agent
+from datetime import date, timedelta
 
 VENDORS = ['Acme Hosting', 'Globex Data', 'Initech Support', 'Umbrella Logistics', 'Hooli Cloud', 'Stark Tooling']
-RENEWAL = [
-    'This Agreement renews automatically for successive one-year terms unless either party gives notice.',
-    'The term extends by twelve months at each anniversary without further action by the parties.',
-    'This Agreement ends on the renewal date unless both parties sign an extension.',
-    'Renewal requires a new order form signed by the Customer.',
+RENEWAL = [  # (clause, renews without action by the customer)
+    ('This Agreement renews automatically for successive one-year terms unless either party gives notice.', True),
+    ('The term extends by twelve months at each anniversary without further action by the parties.', True),
+    ('Unless the Customer terminates in writing before the renewal date, the Services continue for one year.', True),
+    ('The Customer may end this Agreement on the renewal date. Otherwise it rolls over for a further year.', True),
+    ('This Agreement never renews automatically. Any renewal needs a new order form signed by the Customer.', False),
+    ('This Agreement ends on the renewal date unless both parties sign an extension.', False),
+    ('Neither party must renew. The Supplier sends a renewal quote 90 days before the renewal date.', False),
 ]
-INCREASE = [
-    'Fees for each renewal term increase by {pct}% over the fees for the previous term.',
-    'The Supplier may raise its charges at renewal by no more than {pct} percent.',
-    'Fees stay fixed for any renewal term.',
+FEES = [  # (clause, the clause allows an increase of {p}%)
+    ('Fees for each renewal term increase by {p}% over the fees for the previous term.', True),
+    ('The Supplier may raise its charges at renewal by no more than {p} percent.', True),
+    ('At renewal, fees change with the consumer price index, capped at {p}%.', True),
+    ('Fees stay fixed for any renewal term.', False),
+    ('Renewal fees equal the current fees, less a loyalty discount of {p}%.', False),
 ]
+BOILERPLATE = [
+    'Payment. The Customer pays each invoice within 30 days. Late amounts accrue interest at {late}% per year.',
+    (
+        'Service levels. If monthly availability falls below 99.5%, the Customer receives a credit of {credit}% of the '
+        "month's fees."
+    ),
+    "Liability. Each party's total liability is capped at 150% of the fees paid in the twelve months before a claim.",
+    (
+        'Confidentiality. Each party protects the confidential information of the other party with reasonable care, '
+        'during the term and for five years after it ends.'
+    ),
+    (
+        "Data protection. The Supplier processes personal data only on the Customer's documented instructions, and "
+        'deletes it within 30 days after this Agreement ends.'
+    ),
+    'Insurance. The Supplier keeps professional liability insurance of at least 2,000,000 USD during the term.',
+    (
+        'Termination for breach. Either party may terminate on 30 days written notice if the other party does not cure '
+        'a material breach in that time.'
+    ),
+    (
+        'Assignment. Neither party may assign this Agreement without the written consent of the other party, which the '
+        'other party may not unreasonably withhold.'
+    ),
+    'Notices. Notices are given in writing to the addresses on the order form, and take effect on receipt.',
+    'Governing law. The laws of the State of New York govern this Agreement.',
+]
+
+
+def _format_date(d: date, style: int) -> str:
+    return [d.isoformat(), f'{d:%B} {d.day}, {d.year}', f'{d.day} {d:%B} {d.year}'][style]
 
 
 def _contract(i: int) -> dict:
     rnd = random.Random(i)
-    renewal, increase = rnd.randrange(4), rnd.randrange(3)
-    month, day, pct = rnd.randint(1, 12), rnd.randint(1, 28), rnd.choice([3, 4, 6, 8, 10])
-    year = 2027 if month < 11 else 2026
+    renewal_date = date(2026, 11, 12) + timedelta(days=rnd.randint(1, 240))
+    signed = date(rnd.randint(2022, 2025), rnd.randint(1, 12), rnd.randint(1, 28))
+    renewal, (fees, allows_increase) = rnd.choice(RENEWAL), rnd.choice(FEES)
+    pct = rnd.choice([3, 4, 6, 8, 10])
+    clauses = [
+        f'Term. The current term ends on {_format_date(renewal_date, rnd.randrange(3))} (the "renewal date").',
+        f'Renewal. {renewal[0]}',
+        f'Fees. {fees.format(p=pct)}',
+        *(c.format(late=rnd.choice([1.5, 8, 12]), credit=rnd.choice([5, 10, 25])) for c in BOILERPLATE),
+    ]
+    rnd.shuffle(clauses)
     text = (
-        f'MASTER SERVICES AGREEMENT between the Customer and {VENDORS[i % 6]} (Contract C-{i:03}).\n'
-        f'1. Term. The current term ends on {year}-{month:02}-{day:02} (the "renewal date").\n'
-        f'2. Renewal. {RENEWAL[renewal]}\n'
-        f'3. Fees. {INCREASE[increase].format(pct=pct)}\n'
-        '4. Confidentiality. Each party protects the confidential information of the other party.\n'
+        f'MASTER SERVICES AGREEMENT between the Customer and {VENDORS[i % 6]} (Contract C-{i:03}), signed on '
+        f'{_format_date(signed, rnd.randrange(3))}.\n' + '\n'.join(f'{n}. {c}' for n, c in enumerate(clauses, 1))
     )
-    return {'id': f'C-{i:03}', 'vendor': VENDORS[i % 6], 'text': text}
+    answer = {'auto_renews': renewal[1], 'renewal_date': renewal_date, 'increase': pct if allows_increase else 0}
+    return {'id': f'C-{i:03}', 'vendor': VENDORS[i % 6], 'text': text, 'answer': answer}
 
 
 CONTRACTS = [_contract(i) for i in range(60)]
+```
+
+`extract()` is a normal host function. It runs in your application, and it sends one small request to a fast model.
+The script chooses the fields, so the same function serves many different questions.
+
+```python title="tools.py" skip-run="true" skip-reason="external-connection"
+import asyncio
+
+from contracts import CONTRACTS
+from pydantic_ai import Agent
 
 
 async def list_contracts() -> list[dict]:
@@ -150,7 +199,7 @@ texts = await asyncio.gather(*[get_contract_text(c['id']) for c in contracts])
 fields = {
     'auto_renews': "'yes' if the contract renews without action by the customer, else 'no'",
     'renewal_date': 'the renewal date as YYYY-MM-DD',
-    'increase_percent': "the largest fee increase allowed at renewal, as a number, or '0' if fees stay fixed",
+    'increase_percent': "the largest fee increase allowed at renewal, as a number, or '0' if fees cannot increase",
 }
 terms = await asyncio.gather(*[extract(text, fields) for text in texts])
 
@@ -177,19 +226,20 @@ async def main():
 asyncio.run(main())
 ```
 
-Run `python main.py`. For the sample contracts, the correct answer is these five rows. If your rows differ, the
-fast model misread a contract: the `extract` spans in the trace show what it returned for each one.
+Run `python main.py`. For the sample contracts, the correct answer is these six rows. If your rows differ, the
+fast model misread a contract: compare the `extract` spans in the trace with the contract's `answer`.
 
 ```
-{'id': 'C-018', 'vendor': 'Acme Hosting', 'renews_in_days': 3, 'increase_percent': 6.0}
-{'id': 'C-056', 'vendor': 'Initech Support', 'renews_in_days': 5, 'increase_percent': 6.0}
-{'id': 'C-021', 'vendor': 'Umbrella Logistics', 'renews_in_days': 32, 'increase_percent': 6.0}
-{'id': 'C-046', 'vendor': 'Hooli Cloud', 'renews_in_days': 68, 'increase_percent': 10.0}
-{'id': 'C-022', 'vendor': 'Hooli Cloud', 'renews_in_days': 69, 'increase_percent': 8.0}
+{'id': 'C-057', 'vendor': 'Umbrella Logistics', 'renews_in_days': 11, 'increase_percent': 10.0}
+{'id': 'C-039', 'vendor': 'Umbrella Logistics', 'renews_in_days': 54, 'increase_percent': 8.0}
+{'id': 'C-059', 'vendor': 'Stark Tooling', 'renews_in_days': 58, 'increase_percent': 6.0}
+{'id': 'C-052', 'vendor': 'Hooli Cloud', 'renews_in_days': 69, 'increase_percent': 8.0}
+{'id': 'C-045', 'vendor': 'Umbrella Logistics', 'renews_in_days': 70, 'increase_percent': 6.0}
+{'id': 'C-007', 'vendor': 'Globex Data', 'renews_in_days': 83, 'increase_percent': 10.0}
 ```
 
 The script made 121 calls to your functions: one list, 60 contract reads, and 60 fast-model requests.
-The main model reads five rows.
+The main model reads six rows.
 
 Three details in the script matter:
 
