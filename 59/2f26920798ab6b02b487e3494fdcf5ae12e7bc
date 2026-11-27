@@ -1,0 +1,21 @@
+docs/integrations/logging.md
+  s_6b68abf9e42f1d::t_d8c32f33dff9cc 133
+docs/integrations/structlog.md
+  s_6b68abf9e42f1d::t_58e65c69af3eb7 107-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "592f26920798ab6b02b487e3494fdcf5ae12e7bc",
+  "prompts": {},
+  "sessions": {
+    "s_6b68abf9e42f1d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4c89995b-2df9-42e5-ad61-0b44734d68cf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
