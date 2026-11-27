@@ -100,7 +100,8 @@ structlog. If you want to log with Logfire's console output as well, use
     The string `'Fred'` will not be collected by the processor as an attribute, just formatted with
     the message.
 
-    Logfire doesn't [scrub](../how-to-guides/scrubbing.md) (redact) sensitive values in that message.
+    Logfire's [pattern matching](../how-to-guides/scrubbing.md) doesn't redact sensitive values in that
+    message. A configured `transform_string` callback still applies to it.
     The message also becomes the log's span name, so a sensitive positional argument appears in both,
     and there is no redacted copy in an attribute. Pass sensitive values as key-value fields instead,
     such as `logger.info('Login', form=form)`: Logfire records each field as an attribute and scrubs it.

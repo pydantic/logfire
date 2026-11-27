@@ -194,8 +194,9 @@ In short, don't format the message yourself. This is also a good practice in gen
 
 The `transform_string` callback *will* run on the assembled message.
 
-Logging libraries format their own messages, so the same applies to them: Logfire scrubs the arguments
-it records as attributes, but not the formatted message. See
+Logging libraries format their own messages, so the same applies to them: pattern matching checks the
+arguments Logfire records as attributes, but not the formatted message. The `transform_string` callback
+still runs on that message. See
 [standard library logging](../integrations/logging.md#keep-sensitive-values-out-of-log-messages),
 [Loguru](../integrations/loguru.md#scrubbing), and
 [structlog positional arguments](../integrations/structlog.md#positional-arguments).

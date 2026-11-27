@@ -117,8 +117,9 @@ WARNING:__main__:Hello, World!
 
 ### Keep sensitive values out of log messages
 
-Logfire [scrubs](../how-to-guides/scrubbing.md) (redacts) sensitive values in the arguments of each log
-record, but not in the message that `logging` formats from those arguments. For example:
+Logfire's [pattern matching](../how-to-guides/scrubbing.md) redacts sensitive values in the arguments of
+each log record, but not in the message that `logging` formats from those arguments. A configured
+`transform_string` callback still applies to the message. For example:
 
 ```py skip="true" skip-reason="incomplete"
 logger.info('Login attempt: %s', {'username': 'alice', 'password': 'hunter2'})
