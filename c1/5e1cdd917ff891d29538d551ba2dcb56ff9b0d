@@ -1,0 +1,21 @@
+logfire-sdk/logfire/_internal/formatter.py
+  s_e5289991e55f3b::t_4a9f63c0a793ee 241-243
+tests/test_formatter.py
+  s_e5289991e55f3b::t_b8666c75d903cf 154-171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c15e1cdd917ff891d29538d551ba2dcb56ff9b0d",
+  "prompts": {},
+  "sessions": {
+    "s_e5289991e55f3b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a21d3f-bc9a-7473-ae0c-11afbd9981f5",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
