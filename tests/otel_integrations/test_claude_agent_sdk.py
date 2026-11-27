@@ -617,6 +617,51 @@ async def test_tool_hooks_find_their_conversation(exporter: TestExporter) -> Non
 
 
 @pytest.mark.anyio
+async def test_waiting_tool_hook_finds_announcing_conversation() -> None:
+    """A waiting hook follows the announcement from A, even when B is the newest conversation."""
+    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
+
+    with logfire_instance.span('conversation A') as root_a, logfire_instance.span('conversation B') as root_b:
+        state_a = _ConversationState(logfire=logfire_instance, root_span=root_a, input_messages=[])
+        state_b = _ConversationState(logfire=logfire_instance, root_span=root_b, input_messages=[])
+        _set_state(state_a)
+        _set_state(state_b)
+        try:
+            hook_finished = anyio.Event()
+
+            async def call_hook() -> None:
+                await pre_tool_use_hook(
+                    {'tool_name': 'Bash', 'tool_input': {}, 'tool_use_id': 'tool_a'},
+                    'tool_a',
+                    {'signal': None},
+                )
+                hook_finished.set()
+
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(call_hook)
+                with anyio.fail_after(1):
+                    while not _announcement_waiters():
+                        await anyio.sleep(0)
+                assert not state_a.active_tool_spans
+                assert not state_b.active_tool_spans
+
+                state_a.handle_assistant_message(
+                    AssistantMessage(
+                        content=[ToolUseBlock(id='tool_a', name='Bash', input={})],
+                        model='claude-sonnet-4-6',
+                    )
+                )
+                await hook_finished.wait()
+
+            assert 'tool_a' in state_a.active_tool_spans
+            assert not state_b.active_tool_spans
+            state_a.close()
+            state_b.close()
+        finally:
+            _get_states().clear()
+
+
+@pytest.mark.anyio
 async def test_unannounced_tool_goes_to_conversation_still_running() -> None:
     """The newest conversation can end while a hook waits for an announcement; the span must not open in it."""
     logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
