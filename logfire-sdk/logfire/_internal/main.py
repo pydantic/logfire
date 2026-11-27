@@ -160,6 +160,13 @@ _UNSET = _Unset.UNSET
 """Distinguish omitted pool options from explicit values, including `None`."""
 
 
+def _tags_tuple(tags: Sequence[str] | None) -> tuple[str, ...]:
+    """Convert tags to a tuple, treating a single string as one tag and an empty string as no tags."""
+    if isinstance(tags, str):
+        return (tags,) if tags else ()
+    return tuple(tags or ())
+
+
 class Logfire:
     """The main logfire class."""
 
@@ -172,7 +179,7 @@ class Logfire:
         console_log: bool = True,
         otel_scope: str = 'logfire',
     ) -> None:
-        self._tags = tuple(tags)
+        self._tags = _tags_tuple(tags)
         self._config = config
         self._sample_rate = sample_rate
         self._console_log = console_log
@@ -266,7 +273,7 @@ class Logfire:
             if json_schema_properties:
                 otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
-            tags = (self._tags or ()) + tuple(_tags or ())
+            tags = (self._tags or ()) + _tags_tuple(_tags)
             if tags:
                 otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
@@ -817,7 +824,7 @@ class Logfire:
             ):
                 otlp_attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
-            tags = self._tags + tuple(tags or ())
+            tags = self._tags + _tags_tuple(tags)
             if tags:
                 otlp_attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
 
@@ -921,7 +928,7 @@ class Logfire:
         # TODO add sample_rate once it's more stable
         return Logfire(
             config=self._config,
-            tags=self._tags + tuple(tags),
+            tags=self._tags + _tags_tuple(tags),
             sample_rate=self._sample_rate,
             console_log=self._console_log if console_log is None else console_log,
             otel_scope=self._otel_scope if custom_scope_suffix is None else f'logfire.{custom_scope_suffix}',
@@ -3420,9 +3427,7 @@ class LogfireSpan(ReadableSpan):
     @handle_internal_errors
     def tags(self, new_tags: Sequence[str]) -> None:
         """Set or add tags to the span."""
-        if isinstance(new_tags, str):
-            new_tags = (new_tags,)
-        self._set_attribute(ATTRIBUTES_TAGS_KEY, tuple(uniquify_sequence(new_tags)))
+        self._set_attribute(ATTRIBUTES_TAGS_KEY, tuple(uniquify_sequence(_tags_tuple(new_tags))))
 
     @property
     def message(self) -> str:

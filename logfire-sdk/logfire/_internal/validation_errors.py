@@ -1,0 +1,177 @@
+from __future__ import annotations
+
+import json
+from collections.abc import Mapping, Sequence
+from typing import Any, LiteralString, cast, get_args
+
+from pydantic import ValidationError
+from pydantic_core import InitErrorDetails, PydanticCustomError, core_schema
+
+from .scrubbing import BaseScrubber, JsonPath, _is_unchanged_value  # pyright: ignore[reportPrivateUsage]
+
+_BUILTIN_ERROR_TYPES = frozenset(get_args(core_schema.ErrorType))
+
+
+def _hides_input(exc: ValidationError, errors: list[dict[str, Any]]) -> bool:
+    try:
+        reduction = exc.__reduce__()
+        reduction_args = reduction[1] if len(reduction) > 1 else ()
+        hidden_flag = reduction_args[3] if len(reduction_args) > 3 else None
+        if isinstance(hidden_flag, bool):
+            return hidden_flag
+
+        # Older pydantic-core versions omit the flag from __reduce__. Compare full
+        # rendered errors, so a custom message containing input_value= cannot spoof it.
+        original_line_errors: list[dict[str, Any]] = []
+        for original in errors:
+            line = dict(original)
+            if line['type'] not in _BUILTIN_ERROR_TYPES:
+                line['type'] = PydanticCustomError(
+                    cast(LiteralString, str(line['type'])), cast(LiteralString, str(line['msg']))
+                )
+            original_line_errors.append(line)
+        original_text = str(exc)
+        for hide_input in (True, False):
+            rendered = ValidationError.from_exception_data(
+                exc.title, cast('list[InitErrorDetails]', original_line_errors), hide_input=hide_input
+            )
+            if str(rendered) == original_text:
+                return hide_input
+    except Exception:
+        pass
+    return True
+
+
+def scrubbed_validation_error(exc: ValidationError, scrubber: BaseScrubber, path: JsonPath) -> ValidationError | None:
+    """Rebuild a validation error so its rendered text uses scrubbed inputs."""
+    try:
+        original_errors = cast('list[dict[str, Any]]', exc.errors(include_url=False))
+        scrubbed, _ = scrubber.scrub_value(path, original_errors)
+        if not isinstance(scrubbed, list):
+            return None
+        errors = cast('list[dict[str, Any]]', scrubbed)
+        if any(
+            'input' in original
+            and _is_unchanged_value(original['input'], changed.get('input'))
+            and not isinstance(original['input'], (str, bytes, int, float, bool, type(None), Mapping, Sequence))
+            for original, changed in zip(original_errors, errors)
+        ):
+            # Pydantic can render an opaque object's repr in the exception text.
+            # Its JSON error form exposes fields that the scrubber can inspect.
+            try:
+                serialized = cast('list[dict[str, Any]]', json.loads(exc.json(include_url=False)))
+                scrubbed_serialized, _ = scrubber.scrub_value(path, serialized)
+                if isinstance(scrubbed_serialized, list):
+                    for original, changed, serialized_error, scrubbed_error in zip(
+                        original_errors, errors, serialized, cast('list[Any]', scrubbed_serialized)
+                    ):
+                        if not isinstance(scrubbed_error, dict):
+                            continue
+                        scrubbed_error = cast('dict[str, Any]', scrubbed_error)
+                        if (
+                            'input' in original
+                            and _is_unchanged_value(original['input'], changed.get('input'))
+                            and not _is_unchanged_value(serialized_error.get('input'), scrubbed_error.get('input'))
+                        ):
+                            changed['input'] = scrubbed_error['input']
+            except Exception:
+                pass
+        if not any(
+            not _is_unchanged_value(original.get('input'), changed.get('input'))
+            or original.get('msg') != changed.get('msg')
+            for original, changed in zip(original_errors, errors)
+        ):
+            return None
+
+        line_errors: list[dict[str, Any]] = []
+        for original, changed in zip(original_errors, errors):
+            error = dict(changed)
+            if (
+                error['type'] not in _BUILTIN_ERROR_TYPES
+                or error.get('msg') != original.get('msg')
+                or error.get('ctx') != original.get('ctx')
+            ):
+                # The rebuilt error is used only for rendered text. The original error
+                # still supplies structured data, so avoid interpolating context again.
+                error['type'] = PydanticCustomError(
+                    cast(LiteralString, str(error['type'])), cast(LiteralString, str(error['msg']))
+                )
+            line_errors.append(error)
+
+        rebuilt = ValidationError.from_exception_data(
+            exc.title, cast('list[InitErrorDetails]', line_errors), hide_input=_hides_input(exc, original_errors)
+        )
+        rebuilt.__traceback__ = exc.__traceback__
+        rebuilt.__cause__ = exc.__cause__
+        rebuilt.__context__ = exc.__context__
+        rebuilt.__suppress_context__ = exc.__suppress_context__
+        if hasattr(exc, '__notes__'):
+            rebuilt.__notes__ = exc.__notes__.copy()
+        return rebuilt
+    except Exception:
+        # A custom error or an older Pydantic version may reject rebuilding.
+        return None
+
+
+def replace_validation_errors(exc: BaseException, scrubber: BaseScrubber, path: JsonPath) -> BaseException:
+    """Return a scrubbed copy of an exception chain without changing application exceptions."""
+    active: set[int] = set()
+    memo: dict[int, BaseException] = {}
+
+    def replace(current: BaseException) -> BaseException:
+        key = id(current)
+        if key in memo:
+            return memo[key]
+        if key in active:
+            return current
+        active.add(key)
+
+        cause = replace(current.__cause__) if current.__cause__ is not None else None
+        context = replace(current.__context__) if current.__context__ is not None else None
+        group = cast('BaseExceptionGroup[BaseException]', current) if isinstance(current, BaseExceptionGroup) else None
+        children = tuple(replace(child) for child in group.exceptions) if group is not None else None
+        changed = (
+            cause is not current.__cause__
+            or context is not current.__context__
+            or (
+                children is not None
+                and group is not None
+                and any(new is not old for new, old in zip(children, group.exceptions))
+            )
+        )
+        rebuilt = scrubbed_validation_error(current, scrubber, path) if isinstance(current, ValidationError) else None
+        base_current = cast(BaseException, current)
+        if rebuilt is not None:
+            changed = True
+        if not changed:
+            active.remove(key)
+            memo[key] = base_current
+            return base_current
+
+        try:
+            if rebuilt is not None:
+                clone: BaseException = rebuilt
+            elif children is not None and group is not None:
+                clone = group.derive(children)
+            else:
+                try:
+                    clone = type(base_current).__new__(type(base_current), *base_current.args)
+                except Exception:
+                    clone = BaseException.__new__(type(base_current), *base_current.args)
+            clone.__dict__.update(base_current.__dict__)
+            if rebuilt is None:
+                clone.args = base_current.args
+            clone.__traceback__ = base_current.__traceback__
+            clone.__cause__ = cause
+            clone.__context__ = context
+            clone.__suppress_context__ = base_current.__suppress_context__
+            if hasattr(base_current, '__notes__'):
+                clone.__notes__ = base_current.__notes__.copy()
+            result = clone
+        except Exception:
+            result = base_current
+        active.remove(key)
+        memo[key] = result
+        return result
+
+    return replace(exc)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import sys
 import traceback
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
@@ -48,11 +49,29 @@ from .utils import (
 if TYPE_CHECKING:
     from ..types import ExceptionCallback
     from .config import LogfireConfig
+    from .scrubbing import BaseScrubber
 
 try:
     from pydantic import ValidationError
 except ImportError:  # pragma: no cover
     ValidationError = None
+
+
+def _recorded_exception(exception: BaseException, scrubber: BaseScrubber | None) -> BaseException:
+    if scrubber is None or ValidationError is None or not hasattr(ValidationError, 'from_exception_data'):
+        return exception
+
+    from .scrubbing import NOOP_SCRUBBER
+
+    if scrubber is NOOP_SCRUBBER:
+        return exception
+
+    recorded = exception
+    with handle_internal_errors:
+        from .validation_errors import replace_validation_errors
+
+        recorded = replace_validation_errors(exception, scrubber, ('attributes', ATTRIBUTES_VALIDATION_ERROR_KEY))
+    return recorded
 
 
 OPEN_SPANS: WeakValueDictionary[tuple[int, int], _LogfireWrappedSpan] = WeakValueDictionary()
@@ -158,6 +177,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     record_metrics: bool
     metrics: dict[str, SpanMetric] = field(default_factory=lambda: defaultdict(SpanMetric))
     exception_callback: ExceptionCallback | None = None
+    scrubber: BaseScrubber | None = None
 
     def __post_init__(self):
         # A suppressed span shares the current span's context, so it mustn't replace that span's entry.
@@ -217,6 +237,18 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         status: Status | StatusCode,
         description: str | None = None,
     ) -> None:
+        with handle_internal_errors:
+            if (
+                self.scrubber is not None
+                and ValidationError is not None
+                and isinstance(status, Status)
+                and status.status_code is StatusCode.ERROR
+                and (exception := sys.exception()) is not None
+                and status.description == f'{type(exception).__name__}: {exception}'
+            ):
+                recorded = _recorded_exception(exception, self.scrubber)
+                if recorded is not exception:
+                    status = Status(StatusCode.ERROR, f'{type(recorded).__name__}: {recorded}')
         self.span.set_status(status, description)
 
     def record_exception(
@@ -234,6 +266,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
             timestamp=timestamp,
             escaped=escaped,
             callback=self.exception_callback,
+            scrubber=self.scrubber,
         )
 
     def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None:
@@ -310,6 +343,7 @@ class _ProxyTracer(Tracer):
         ns_timestamp_generator = config.advanced.ns_timestamp_generator
         record_metrics: bool = not isinstance(config.metrics, (bool, type(None))) and config.metrics.collect_in_spans
         exception_callback = config.advanced.exception_callback
+        scrubber = config.scrubber
 
         if is_instrumentation_suppressed():
             # Suppressed spans are never exported, so don't give them span IDs of their own.
@@ -320,6 +354,7 @@ class _ProxyTracer(Tracer):
                 ns_timestamp_generator=ns_timestamp_generator,
                 record_metrics=record_metrics,
                 exception_callback=exception_callback,
+                scrubber=scrubber,
             )
 
         start_time = start_time or ns_timestamp_generator()
@@ -350,6 +385,7 @@ class _ProxyTracer(Tracer):
             ns_timestamp_generator=ns_timestamp_generator,
             record_metrics=record_metrics,
             exception_callback=exception_callback,
+            scrubber=scrubber,
         )
 
     # This means that `with start_as_current_span(...):`
@@ -461,6 +497,7 @@ def record_exception(
     timestamp: int | None = None,
     escaped: bool = False,
     callback: ExceptionCallback | None = None,
+    scrubber: BaseScrubber | None = None,
 ) -> None:
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
     from ..types import ExceptionCallbackHelper
@@ -486,9 +523,11 @@ def record_exception(
         with handle_internal_errors:
             callback(helper)
 
+    recorded = _recorded_exception(exception, scrubber)
+
     # A status set by the callback (e.g. to keep the exception message out of the description) wins.
     if helper.level >= 'error' and getattr(span, 'status', None) is status_before_callback:
-        set_exception_status(span, exception)
+        set_exception_status(span, recorded)
 
     if not helper._record_exception:  # pyright: ignore[reportPrivateUsage]
         return
@@ -521,17 +560,17 @@ def record_exception(
             span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, fingerprint)
 
     try:
-        span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+        span.record_exception(recorded, attributes=attributes, timestamp=timestamp, escaped=escaped)
     except Exception:
         # `str(exception)` can raise (e.g. an exception that was never fully initialised)
         # and the OTEL SDK calls it without guarding, which would lose the whole event.
         span.add_event(
             name='exception',
             attributes={
-                'exception.type': f'{type(exception).__module__}.{type(exception).__qualname__}',
-                'exception.message': safe_str(exception),
+                'exception.type': f'{type(recorded).__module__}.{type(recorded).__qualname__}',
+                'exception.message': safe_str(recorded),
                 'exception.stacktrace': ''.join(
-                    _patched_format_exception(type(exception), exception, exception.__traceback__)
+                    _patched_format_exception(type(recorded), recorded, recorded.__traceback__)
                 ),
                 'exception.escaped': str(escaped),
                 **(attributes or {}),
