@@ -102,12 +102,17 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
         span_data[TOOL_DEFINITIONS] = json.dumps(_without_credentials(tools))
 
 
-def _without_credentials(value: Any, *, keep_authorization: bool = False, in_mcp_tool: bool = False) -> Any:
+def _without_credentials(
+    value: Any, *, keep_authorization: bool = False, in_mcp_tool: bool = False, in_hosted_tool: bool = False
+) -> Any:
     """Copy request data for telemetry, omitting hosted tool credentials without changing the request."""
     if isinstance(value, (list, tuple)):
         value = cast('list[Any] | tuple[Any, ...]', value)
         items = [
-            _without_credentials(item, keep_authorization=keep_authorization, in_mcp_tool=in_mcp_tool) for item in value
+            _without_credentials(
+                item, keep_authorization=keep_authorization, in_mcp_tool=in_mcp_tool, in_hosted_tool=in_hosted_tool
+            )
+            for item in value
         ]
         return items if any(new is not old for new, old in zip(items, value)) else value
     if not isinstance(value, dict):
@@ -115,16 +120,19 @@ def _without_credentials(value: Any, *, keep_authorization: bool = False, in_mcp
 
     value = cast('dict[str, Any]', value)
     in_mcp_tool = in_mcp_tool or value.get('type') == 'mcp'
+    in_hosted_tool = in_hosted_tool or in_mcp_tool or value.get('type') in ('code_interpreter', 'shell')
     removed = ('headers',) if keep_authorization else ('authorization', 'headers')
     if not in_mcp_tool:
         removed = ()
     result = {
-        key: _without_credentials(item, keep_authorization=keep_authorization, in_mcp_tool=in_mcp_tool)
+        key: _without_credentials(
+            item, keep_authorization=keep_authorization, in_mcp_tool=in_mcp_tool, in_hosted_tool=in_hosted_tool
+        )
         for key, item in value.items()
         if key not in removed
     }
     network_policy = result.get('network_policy')
-    if isinstance(network_policy, dict) and 'domain_secrets' in network_policy:
+    if in_hosted_tool and isinstance(network_policy, dict) and 'domain_secrets' in network_policy:
         network_policy = cast('dict[str, Any]', network_policy)
         result['network_policy'] = {key: item for key, item in network_policy.items() if key != 'domain_secrets'}
     if len(result) == len(value) and all(result[key] is item for key, item in value.items()):
@@ -160,7 +168,12 @@ def get_endpoint_config(
     model = json_data.get('model')
     # Legacy request fields scrub nested authorization keys into markers, but neutral MCP header names can escape.
     # Version 2 records semantic input messages without that legacy scrubbing, so remove both credential keys.
-    json_data = cast('dict[str, Any]', _without_credentials(json_data, keep_authorization=versions == frozenset({1})))
+    json_data = cast(
+        'dict[str, Any]',
+        _without_credentials(
+            json_data, keep_authorization=versions == frozenset({1}), in_hosted_tool=url.startswith('/containers')
+        ),
+    )
     if 1 in versions and (tools := json_data.get('tools')) is not None:
         safe_tools = _without_credentials(tools)
         if safe_tools is not tools:

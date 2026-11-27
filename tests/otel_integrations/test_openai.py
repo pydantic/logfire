@@ -818,7 +818,16 @@ def test_openai_tool_definitions_omit_hosted_credentials() -> None:
         'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp', 'headers': {'X-Key': 'transport-secret'}},
     }
     tools = [
-        {'type': 'function', 'name': 'lookup', 'parameters': {'properties': {'password': {'type': 'string'}}}},
+        {
+            'type': 'function',
+            'name': 'lookup',
+            'parameters': {
+                'properties': {
+                    'password': {'type': 'string'},
+                    'network_policy': {'domain_secrets': {'type': 'string'}},
+                }
+            },
+        },
         mcp_tool,
         {'type': 'code_interpreter', 'container': {'network_policy': network_policy}},
         {'type': 'shell', 'environment': {'network_policy': network_policy}},
@@ -909,6 +918,11 @@ def test_openai_legacy_request_data_omits_hosted_credentials() -> None:
     MockOptions.url = '/chat/completions'
     config = get_endpoint_config(MockOptions(), version=1)  # type: ignore
     assert config.span_data['request_data'] is unchanged
+
+    MockOptions.url = '/containers'
+    MockOptions.json_data = {'network_policy': network_policy}
+    config = get_endpoint_config(MockOptions(), version=1)  # type: ignore
+    assert config.span_data['request_data'] == {'network_policy': {'allowed_domains': ['example.com']}}
 
 
 def test_openai_nested_mcp_headers_are_not_exported(exporter: TestExporter) -> None:
