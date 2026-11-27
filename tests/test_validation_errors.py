@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import traceback
+from dataclasses import dataclass
 from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -34,6 +35,66 @@ def test_scrubbed_validation_error() -> None:
         assert password in str(original)
     else:
         raise AssertionError('Expected validation to fail')
+
+
+def test_dataclass_input_is_scrubbed() -> None:
+    @dataclass
+    class LoginInput:
+        password: str
+
+    class Login(BaseModel):
+        model_config = ConfigDict(from_attributes=True)
+        username: str
+
+    password = 'hunter2'
+    try:
+        Login.model_validate(LoginInput(password))
+    except ValidationError as original:
+        rebuilt = scrubbed_validation_error(original, Scrubber(None), PATH)
+        assert rebuilt is not None
+        assert password not in str(rebuilt)
+        assert "[Scrubbed due to 'password']" in str(rebuilt)
+        assert password in str(original)
+    else:
+        raise AssertionError('Expected validation to fail')
+
+
+def test_opaque_input_serialization_failure_preserves_original() -> None:
+    class UnserializableValidationError(ValidationError):
+        def json(self, *args: Any, **kwargs: Any) -> str:
+            raise ValueError('serialization failed')
+
+    @dataclass
+    class LoginInput:
+        password: str
+
+    error = UnserializableValidationError.from_exception_data(
+        'Login', [{'type': 'missing', 'loc': ('username',), 'input': LoginInput('hunter2')}]
+    )
+    assert scrubbed_validation_error(error, Scrubber(None), PATH) is None
+
+
+def test_invalid_serialized_scrubber_result_preserves_original() -> None:
+    @dataclass
+    class LoginInput:
+        password: str
+
+    error = ValidationError.from_exception_data(
+        'Login', [{'type': 'missing', 'loc': ('username',), 'input': LoginInput('hunter2')}]
+    )
+
+    for invalid_result in ({'input': 'changed'}, [None]):
+
+        class InvalidSerializedScrubber(Scrubber):
+            calls = 0
+
+            def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
+                self.calls += 1
+                if self.calls == 2:
+                    return invalid_result, []
+                return super().scrub_value(path, value)
+
+        assert scrubbed_validation_error(error, InvalidSerializedScrubber(None), PATH) is None
 
 
 def test_hidden_input_stays_hidden() -> None:

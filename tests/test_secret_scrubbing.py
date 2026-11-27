@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from io import StringIO
@@ -2833,6 +2834,25 @@ def test_validation_error_exception_text_scrubbed(exporter: TestExporter):
     assert event['exception.logfire.data'] == span['attributes']['exception.logfire.data']
     assert event['exception.logfire.data'][0]['loc'] == ['password']
     assert event['exception.logfire.data'][0]['input'] == "[Scrubbed due to 'password']"
+
+
+def test_dataclass_validation_input_scrubbed_from_exception_text(exporter: TestExporter):
+    @dataclass
+    class LoginInput:
+        password: str
+
+    class Login(BaseModel):
+        model_config = ConfigDict(from_attributes=True)
+        username: str
+
+    password = 'hunter2'
+    with pytest.raises(ValidationError):
+        with logfire.span('login'):
+            Login.model_validate(LoginInput(password))
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert password not in json.dumps(span)
+    assert "[Scrubbed due to 'password']" in span['events'][0]['attributes']['exception.message']
 
 
 def test_disabled_scrubbing_preserves_validation_error_text(exporter: TestExporter, config_kwargs: dict[str, Any]):

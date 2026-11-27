@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping, Sequence
 from typing import Any, LiteralString, cast, get_args
 
 from pydantic import ValidationError
@@ -48,6 +50,32 @@ def scrubbed_validation_error(exc: ValidationError, scrubber: BaseScrubber, path
         if not isinstance(scrubbed, list):
             return None
         errors = cast('list[dict[str, Any]]', scrubbed)
+        if any(
+            'input' in original
+            and _is_unchanged_value(original['input'], changed.get('input'))
+            and not isinstance(original['input'], (str, bytes, int, float, bool, type(None), Mapping, Sequence))
+            for original, changed in zip(original_errors, errors)
+        ):
+            # Pydantic can render an opaque object's repr in the exception text.
+            # Its JSON error form exposes fields that the scrubber can inspect.
+            try:
+                serialized = cast('list[dict[str, Any]]', json.loads(exc.json(include_url=False)))
+                scrubbed_serialized, _ = scrubber.scrub_value(path, serialized)
+                if isinstance(scrubbed_serialized, list):
+                    for original, changed, serialized_error, scrubbed_error in zip(
+                        original_errors, errors, serialized, cast('list[Any]', scrubbed_serialized)
+                    ):
+                        if not isinstance(scrubbed_error, dict):
+                            continue
+                        scrubbed_error = cast('dict[str, Any]', scrubbed_error)
+                        if (
+                            'input' in original
+                            and _is_unchanged_value(original['input'], changed.get('input'))
+                            and not _is_unchanged_value(serialized_error.get('input'), scrubbed_error.get('input'))
+                        ):
+                            changed['input'] = scrubbed_error['input']
+            except Exception:
+                pass
         if not any(
             not _is_unchanged_value(original.get('input'), changed.get('input'))
             for original, changed in zip(original_errors, errors)
