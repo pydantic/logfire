@@ -149,6 +149,10 @@ def get_endpoint_config(
         raw_json_data = {}
     json_data = cast('dict[str, Any]', raw_json_data)
     model = json_data.get('model')
+    if 1 in versions and (tools := json_data.get('tools')) is not None:
+        safe_tools = _without_credentials(tools)
+        if safe_tools is not tools:
+            json_data = {**json_data, 'tools': safe_tools}
     request_data = json_data if 1 in versions else {'model': model}
 
     def common_attrs(operation: str = '') -> dict[str, Any]:

@@ -841,6 +841,61 @@ def test_openai_tool_definitions_omit_hosted_credentials() -> None:
     assert network_policy['domain_secrets'][0]['value'] == 'container-secret'
 
 
+def test_openai_legacy_request_data_omits_hosted_credentials() -> None:
+    from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+
+    mcp_tool = {
+        'type': 'mcp',
+        'server_label': 'crm',
+        'authorization': 'oauth-token',
+        'headers': {'X-Key': 'header-secret'},
+    }
+    network_policy: dict[str, Any] = {
+        'allowed_domains': ['example.com'],
+        'domain_secrets': [{'domain': 'example.com', 'value': 'container-secret'}],
+    }
+    original: dict[str, Any] = {
+        'model': 'gpt-5',
+        'input': [{'type': 'additional_tools', 'tools': (mcp_tool,)}],
+        'tools': [mcp_tool, {'type': 'code_interpreter', 'container': {'network_policy': network_policy}}],
+    }
+
+    class MockOptions:
+        url = '/responses/input_tokens/count'
+        json_data: dict[str, Any] = original
+
+    expected_tool = {'type': 'mcp', 'server_label': 'crm'}
+    expected = {
+        'model': 'gpt-5',
+        'input': original['input'],
+        'tools': [
+            expected_tool,
+            {'type': 'code_interpreter', 'container': {'network_policy': {'allowed_domains': ['example.com']}}},
+        ],
+    }
+    for version in (1, frozenset({1, 2})):
+        config = get_endpoint_config(MockOptions(), version=version)  # type: ignore
+        assert config.span_data['request_data'] == expected
+        assert json.loads(config.span_data['gen_ai.tool.definitions']) == expected['tools']
+
+    assert original['tools'][0]['authorization'] == 'oauth-token'
+    assert network_policy['domain_secrets'][0]['value'] == 'container-secret'
+
+    config = get_endpoint_config(MockOptions(), version=2)  # type: ignore
+    assert config.span_data['request_data'] == {'model': 'gpt-5'}
+
+    MockOptions.url = '/responses'
+    config = get_endpoint_config(MockOptions(), version=1)  # type: ignore
+    assert config.span_data['request_data'] == {'model': 'gpt-5', 'stream': False}
+    assert config.span_data['events'][0]['data'] == original['input'][0]
+
+    unchanged = {'model': 'gpt-5', 'tools': [{'type': 'function', 'name': 'lookup'}]}
+    MockOptions.json_data = unchanged
+    MockOptions.url = '/chat/completions'
+    config = get_endpoint_config(MockOptions(), version=1)  # type: ignore
+    assert config.span_data['request_data'] is unchanged
+
+
 def test_normalize_versions_validation() -> None:
     from logfire._internal.integrations.llm_providers.semconv import normalize_versions
 
