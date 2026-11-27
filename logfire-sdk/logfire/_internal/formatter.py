@@ -238,6 +238,9 @@ class ChunksFormatter(Formatter):
                 )
                 format_spec = ''.join(chunk['v'] for chunk in format_spec_chunks)
 
+                if re.search(r'\d{5}', format_spec):
+                    raise KnownFormattingError('Format specs may not contain numbers with five or more digits.')
+
                 try:
                     value = self.format_field(obj, format_spec)
                 except Exception as exc:

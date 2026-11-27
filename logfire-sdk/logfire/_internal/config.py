@@ -744,10 +744,10 @@ class _LogfireConfigData:
     send_to_logfire: bool | Literal['if-token-present']
     """Whether to send logs and spans to Logfire."""
 
-    token: str | list[str] | None
+    token: str | list[str] | None = field(repr=False)
     """The Logfire write token(s) to use. Multiple tokens enable sending to multiple projects."""
 
-    api_key: str | None
+    api_key: str | None = field(repr=False)
     """API key for the Logfire API. Loaded from LOGFIRE_API_KEY if not provided."""
 
     service_name: str

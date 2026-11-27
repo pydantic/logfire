@@ -1112,6 +1112,14 @@ def test_gen_ai_definition_keeps_schema_keys_and_transforms_values():
     assert notes == []
 
 
+def test_semconv_input_messages_scrub_nested_authorization(exporter: TestExporter):
+    attributes: dict[str, Any] = {'gen_ai.input.messages': {'authorization': 'foo'}}
+    logfire.info('hi', **attributes)
+
+    span = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]
+    assert span['attributes']['gen_ai.input.messages'] == {'authorization': "[Scrubbed due to 'auth']"}
+
+
 @pytest.mark.parametrize(
     'path',
     [
@@ -3119,3 +3127,23 @@ def test_missing_validation_error_input_skips_absent_field(exporter: TestExporte
     [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
     assert attributes['errors'][0]['input'] == {'username': 'alice', 'api_key': "[Scrubbed due to 'api_key']"}
     assert attributes['errors'][1]['input'] == "[Scrubbed due to 'credit_card']"
+
+
+@pytest.mark.parametrize('token', ['pylf_v1_us_0123456789abcdef', 'legacy-write-token-0123456789abcdef'])
+def test_logfire_credentials_not_in_tracer_repr_or_telemetry(
+    exporter: TestExporter, config_kwargs: dict[str, Any], token: str
+):
+    api_key = 'pylf_v2_us_fedcba9876543210'
+    logfire.configure(**config_kwargs, token=token, api_key=api_key)
+    tracer = get_tracer('test')
+
+    assert token not in repr(tracer)
+    assert api_key not in repr(tracer)
+
+    with pytest.raises(ValueError):
+        with logfire.span('hi', tracer=tracer):
+            raise ValueError(f'Bad tracer: {tracer}')
+
+    exported = json.dumps(exporter.exported_spans_as_dict(parse_json_attributes=True))
+    assert token not in exported
+    assert api_key not in exported
