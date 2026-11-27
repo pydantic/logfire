@@ -73,7 +73,9 @@ def _set_state(state: _ConversationState) -> None:
 
 
 def _clear_state(state: _ConversationState) -> None:
-    _get_states().remove(state)
+    states = _get_states()
+    if state in states:
+        states.remove(state)
 
 
 def _announcement_waiters() -> list[anyio.Event]:

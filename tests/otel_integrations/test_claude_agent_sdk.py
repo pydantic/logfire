@@ -661,6 +661,22 @@ async def test_waiting_tool_hook_finds_announcing_conversation() -> None:
             _get_states().clear()
 
 
+def test_clear_state_tolerates_already_removed_state() -> None:
+    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
+
+    with logfire_instance.span('root') as root_span:
+        state_a = _ConversationState(logfire=logfire_instance, root_span=root_span, input_messages=[])
+        state_b = _ConversationState(logfire=logfire_instance, root_span=root_span, input_messages=[])
+        _set_state(state_a)
+        _set_state(state_b)
+        try:
+            _clear_state(state_a)
+            _clear_state(state_a)
+            assert _get_states() == [state_b]
+        finally:
+            _get_states().clear()
+
+
 @pytest.mark.anyio
 async def test_unannounced_tool_goes_to_conversation_still_running() -> None:
     """The newest conversation can end while a hook waits for an announcement; the span must not open in it."""
