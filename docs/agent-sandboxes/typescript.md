@@ -91,7 +91,7 @@ You should see a session span with a `run code` span inside it, showing the code
   `project:execute_agent_sandboxes` scope. Check that Agent Sandboxes are enabled for the project. If you set
   `LOGFIRE_BASE_URL`, check that it is in the key's region.
 - **`AgentSandboxConnectionError`**: the pool could not reach the sandboxes server. The message names the URL that it
-  tried and the original error.
+  tried and the original error, and `error.cause` holds the original exception.
 - **`SyntaxError` at `await using`**: your runtime does not support the syntax. Use TypeScript 5.2 or later, or
   Node.js 24 or later for plain JavaScript, or call `close()` in a `finally` block.
 

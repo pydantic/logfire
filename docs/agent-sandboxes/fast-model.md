@@ -25,11 +25,11 @@ out of its context window.
 
 ## What this changes
 
-We asked the question at the top of this page of a Pydantic AI agent three times with plain tool calls, and three
-times with Agent Sandboxes through [Code Mode](pydantic-ai.md), with the instructions from the [agent
-example](#see-the-script-your-agent-writes). Both agents had the same three tools from this page: `list_contracts`,
-`get_contract_text`, and `extract`. The 60 sample contracts are about 2,000 words each, about 150,000 tokens in total.
-The fast model in `extract()` was `gpt-6-luna`.
+We asked the question at the top of this page of a [Pydantic AI](https://pydantic.dev/docs/ai/overview/) agent three
+times with plain tool calls, and three times with Agent Sandboxes through [Code Mode](pydantic-ai.md), with the
+instructions from the [agent example](#see-the-script-your-agent-writes). Both agents had the same three tools from
+this page: `list_contracts`, `get_contract_text`, and `extract`. The 60 sample contracts are about 2,000 words each,
+about 150,000 tokens in total. The fast model in `extract()` was `gpt-6-luna`.
 
 |                                      | Plain tool calls | Agent Sandboxes |
 | ------------------------------------ | ---------------- | --------------- |
@@ -63,7 +63,8 @@ The savings depend on the script reading the contracts with `extract()`. Without
 - Follow [Run code from Python](python.md) to install `logfire[agent-sandboxes]` and set `LOGFIRE_API_KEY` to a key
   with permission to run code in agent sandboxes.
 - This page uses [Pydantic AI](https://pydantic.dev/docs/ai/overview/) to call the fast model. Install it with
-  `pip install pydantic-ai`.
+  `pip install pydantic-ai`. The [Code Mode example](#see-the-script-your-agent-writes) also needs
+  `pip install 'pydantic-ai-harness[codemode]>=0.67.0'`.
 - Set `OPENAI_API_KEY` to a key from the [OpenAI API keys page](https://platform.openai.com/api-keys).
 
 !!! warning "Documents and model answers leave your application"
@@ -346,7 +347,11 @@ model returns. Replace this file with your document store.
         header = f'MASTER SERVICES AGREEMENT between the Customer and {vendor} (Contract C-{i:03}), signed on {signed_on}.'
         numbered = [f'{n}. {c}' for n, c in enumerate(clauses, 1)]
         text = '\n'.join([header, *numbered, 'SCHEDULE 1. SERVICES AND CHARGES', *services])
-        answer = {'auto_renews': renewal[1], 'renewal_date': renewal_date, 'increase': pct if allows_increase else 0}
+        answer = {
+            'auto_renews': 'yes' if renewal[1] else 'no',
+            'renewal_date': renewal_date.isoformat(),
+            'increase_percent': str(pct if allows_increase else 0),
+        }
         return {'id': f'C-{i:03}', 'vendor': vendor, 'text': text, 'answer': answer}
 
 
@@ -404,10 +409,10 @@ Two details matter:
 - **The semaphore.** A script can start hundreds of `extract()` calls at once with `asyncio.gather`. The semaphore
   lets ten of them reach the model provider at a time. It limits this process only, so set the number to fit your
   provider's rate limit.
-- **The fast model returns strings.** `extract()` returns every field that the script asked for, with `None` when
-  the model leaves one out, so the script can index the result. The script asks for a format in each field
-  description, such as `YYYY-MM-DD`, and converts the values in Python. A conversion error names the bad value, and
-  the main model can correct the script.
+- **The fast model returns strings or `None`.** `extract()` returns every field that the script asked for, with
+  `None` when the model leaves one out, so the script can index the result. The script asks for a format in each
+  field description, such as `YYYY-MM-DD`, and converts the values in Python. A conversion error names the bad value,
+  and the main model can correct the script.
 
 ## See the script your agent writes
 
