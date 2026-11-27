@@ -1,0 +1,24 @@
+logfire-sdk/logfire/_internal/integrations/llm_providers/openai.py
+  s_b90973f72b3b01::t_5da6e846729ac3 153-155
+  s_b90973f72b3b01::t_0a682821dd40b1 152
+tests/otel_integrations/test_openai.py
+  s_b90973f72b3b01::t_34edd2eff16495 844-852,854-856,858-864,866-869,871-889,891-898
+  s_b90973f72b3b01::t_30156f8cdc0acc 853,857,865
+  s_b90973f72b3b01::t_f158bcb50cf245 870,890
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "43a5bcb648745ba1c45538a2bba2ea50d6ab53bf",
+  "prompts": {},
+  "sessions": {
+    "s_b90973f72b3b01": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a21d37-133d-75e2-941b-0c85cbff59fe",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
