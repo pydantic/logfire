@@ -5,32 +5,24 @@ description: Route broad requests to set up Pydantic Logfire across application 
 
 # Set Up Logfire
 
-Route each explicitly requested surface to its specialist below; leave installation
-and verification to those specialists. Do not expand an otherwise scoped request.
-
-Proceed through ordinary, reversible setup with short updates without asking
-approval; no clean tree, branch, commits, or plan is required. Pause for browser
-auth, unresolved app/project ambiguity, material production cost or telemetry
-increases, deploy/infra changes, or destructive/unrelated work, then ask one
-concrete question. Report only
-verification observed in this session.
+Load the specialist for the requested task. Proceed with reversible setup;
+pause for browser consent, an ambiguous target, materially more telemetry or cost,
+deployment changes, or destructive work.
 
 ## Step 1: Authenticate and Select the Exact Project
 
-If the request is already scoped to frontend observability, application Gateway,
-coding-agent setup, querying, or opening the UI, load that specialist from the
-table below first. Its credential requirements differ from ordinary SDK
-instrumentation; do not create a project write token merely to route the request.
+For frontend, Gateway, coding agents, query or UI work, load that specialist
+first. Do not create an SDK write token just to route a request.
 
-For ordinary SDK instrumentation, confirm the exact project with `whoami`
-before inspecting or running application files.
-
-Use [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there.
-
+Read-only repository inspection does not require login. Before modifying the app
+or sending telemetry, follow [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md).
+For standalone SDK setup, confirm the target with `project current` when configured.
+If the wizard already prepared this project, reuse its target and send-only SDK write token.
+Never broaden it. Mint a separate credential only if a later task needs one.
 
 ## Step 2: Understand the Repo
 
-Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and package manager. Then match what you find against the table below to decide what to fetch next:
+Read the repository instructions and identify the runtime and package manager.
 
 | Surface | Covers | Skill |
 |---------|--------|-------|
@@ -45,14 +37,23 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 | Coding agents | Record Claude/Codex sessions or configure coding-agent Gateway routing | [`logfire-coding-agents`](https://pydantic.dev/.well-known/agent-skills/logfire-coding-agents/SKILL.md) |
 
 - With no specific scope, get one representative application service to verified first data. Incidental Docker/eval files do not expand the task. Route infrastructure-only repositories to `logfire-infrastructure`.
-- A request already scoped to one surface ("monitor my Postgres server", "set up evals for this agent") → fetch that skill directly, skipping the rest of this table.
-- Genuinely ambiguous between two adjacent surfaces (e.g. "watch my Postgres" could mean Collector-level infrastructure metrics or app-level query instrumentation)? Ask one clarifying question rather than guessing — loading the wrong skill wastes the user's time reading instructions for a job they didn't ask for.
+- If "monitor Postgres" could mean server metrics or application queries, ask which.
 
 ## Step 3: Fetch the Right Skill(s)
 
-Load the selected skill and follow its credential workflow. SDK specialists
-verify the project with `whoami`; CLI specialists preserve prepared handoffs,
-and query/UI skills can use existing native MCP access. Do not force one
-authentication method across all surfaces.
+Load the selected specialist, not the entire catalog. In a CLI wizard handoff,
+use that executable to read the release-matched instructions offline: for example,
+`logfire-cli skill prompt logfire-instrumentation --no-input --output json`
+returns `data.prompt`, and `skill read` returns the selected reference in
+`data.contents`. Otherwise open the linked specialist or its installed copy.
+A query or link request does not require an SDK write token.
 
-Never print, log, hard-code, commit, or echo a token, in any of these skills, at any point. The one exception — reading `.logfire/logfire_credentials.json`'s `token` key programmatically to hand a non-native-SDK application its write token, never to display it — is in [auth.md](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session).
+Never print, log, or commit credentials. See the
+[credential handoff instructions](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-another-credential)
+if a later step needs a separate credential. After verification, share the clean
+project link and report what you actually observed. With the CLI, use
+`mcp link project --project <confirmed-project>` with `--no-input --output json`
+and without `--open`; return `data.url`. Prefer the verified trace or
+experiment link when available. If link creation fails, say so; never invent
+a URL or treat creating one as proof of ingestion. Do not rerun
+`project current` after a parent-prepared handoff.

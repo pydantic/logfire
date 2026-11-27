@@ -165,6 +165,53 @@ def test_stdlib_logging_with_custom_parenthesis_params(exporter: TestExporter, l
     )
 
 
+@pytest.mark.parametrize('source', ['args', 'extra'])
+@pytest.mark.parametrize('message', [None, 'custom message'])
+def test_stdlib_logging_message_template(
+    exporter: TestExporter, logger: Logger, source: str, message: str | None
+) -> None:
+    attributes = {
+        'username': 'bob',
+        'logfire.msg_template': '{username:>1000}',
+        'logfire.msg': message,
+        'logfire.tags': ['custom'],
+        'logfire.logger_name': 'custom',
+    }
+    if source == 'args':
+        logger.error('hello %(username)s', attributes)
+    else:
+        logger.error('hello %(username)s', {'username': 'bob'}, extra=attributes)
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['name'] == 'hello %(username)s'
+    assert span['attributes']['logfire.msg_template'] == 'hello %(username)s'
+    assert span['attributes']['logfire.msg'] == (str(message) if source == 'args' else 'hello bob')
+    assert span['attributes']['logfire.tags'] == ('custom',)
+    assert span['attributes']['logfire.logger_name'] == ('custom' if source == 'args' else __name__)
+
+
+def test_stdlib_logging_custom_message_template(exporter: TestExporter) -> None:
+    class CustomHandler(LogfireLoggingHandler):
+        def fill_attributes(self, record: logging.LogRecord) -> dict[str, Any]:
+            attributes = super().fill_attributes(record)
+            attributes['logfire.msg_template'] = 'custom template'
+            return attributes
+
+    custom_logger = getLogger(f'{__name__}.custom_template')
+    custom_logger.propagate = False
+    handler = CustomHandler()
+    custom_logger.addHandler(handler)
+    try:
+        custom_logger.error('hello %(username)s', {'username': 'bob'}, extra={'logfire.msg_template': 'other template'})
+    finally:
+        custom_logger.removeHandler(handler)
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['name'] == 'custom template'
+    assert span['attributes']['logfire.msg_template'] == 'custom template'
+    assert span['attributes']['logfire.msg'] == 'hello bob'
+
+
 def test_stdlib_logging_warning(exporter: TestExporter, logger: Logger) -> None:
     logger.warning('%s is in some trouble', 'Fred')
 

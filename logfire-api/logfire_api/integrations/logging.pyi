@@ -31,7 +31,7 @@ class LogfireLoggingHandler(LoggingHandler):
     def fill_attributes(self, record: LogRecord) -> dict[str, Any]:
         """Fill the attributes to send to Logfire.
 
-        This method can be overridden to add more attributes.
+        This method can be overridden to add more attributes or customize `logfire.msg_template`.
 
         Args:
             record: The log record.

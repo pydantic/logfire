@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict, TypeVar
-
-from typing_extensions import NotRequired
+from typing import Any, Literal, NotRequired, TypedDict, TypeVar
 
 T = TypeVar('T')
 
@@ -68,37 +66,6 @@ IPFormat = Literal['ipv4', 'ipv4interface', 'ipv4network', 'ipv6', 'ipv6interfac
 Format = Literal['decimal', 'path', 'regex', 'uuid'] | DateFormat | IPFormat
 
 
-_EnumBase = TypedDict('_EnumBase', {'x-python-datatype': Literal['Enum']})
-
-
-class _EnumAny(_EnumBase):
-    type: Literal['object']
-    enum: list[Any]
-
-
-class _EnumString(_EnumBase):
-    type: Literal['string']
-    enum: list[str]
-
-
-class _EnumInt(_EnumBase):
-    type: Literal['integer']
-    enum: list[int]
-
-
-class _EnumFloat(_EnumBase):
-    type: Literal['number']
-    enum: list[float]
-
-
-class _EnumBool(_EnumBase):
-    type: Literal['boolean']
-    enum: list[bool]
-
-
-EnumSchema = _EnumString | _EnumInt | _EnumFloat | _EnumBool | _EnumAny
-
-
 class _Items(TypedDict):
     items: JSONSchema
 
@@ -144,4 +111,4 @@ class _Property(_PropertyDataType, total=False):
     additionalProperties: JSONSchema
 
 
-JSONSchema = EnumSchema | ArraySchema | _Property
+JSONSchema = ArraySchema | _Property

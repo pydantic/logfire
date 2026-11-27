@@ -197,3 +197,32 @@ def test_structlog_critical_is_fatal(exporter: TestExporter, logger: structlog.B
             }
         ]
     )
+
+
+@pytest.mark.parametrize('attributes', [{}, {'logfire.msg': None}])
+def test_structlog_message_is_not_formatted(
+    exporter: TestExporter, logger: structlog.BoundLogger, attributes: dict[str, str | None]
+) -> None:
+    logger.info('hello {name:>1000}', name='world', **attributes)
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg_template'] == 'hello {name:>1000}'
+    assert span['attributes']['logfire.msg'] == ('None' if attributes else 'hello {name:>1000}')
+
+
+def test_structlog_keeps_log_record_named_attributes(exporter: TestExporter, logger: structlog.BoundLogger) -> None:
+    # https://github.com/pydantic/logfire/issues/2865: keys that happen to share
+    # a name with a stdlib LogRecord field are user attributes in a structlog
+    # event dict, so they must reach Logfire.
+    logger.info('user login', name='alice', module='auth', process=123, user_id=3)
+
+    [span] = exporter.exported_spans_as_dict()
+    attributes = span['attributes']
+    assert attributes['name'] == 'alice'
+    assert attributes['module'] == 'auth'
+    assert attributes['process'] == 123
+    assert attributes['user_id'] == 3
+    # structlog's own keys are still stripped.
+    assert 'level' not in attributes
+    assert 'event' not in attributes
+    assert 'timestamp' not in attributes

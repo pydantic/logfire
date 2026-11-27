@@ -38,15 +38,6 @@ from requests import RequestException, Response
 from logfire._internal.stack_info import is_user_code
 from logfire._internal.ulid import ulid
 
-try:
-    _ = BaseExceptionGroup
-except NameError:
-    if not TYPE_CHECKING:
-
-        class BaseExceptionGroup(BaseException):
-            """Stub for BaseExceptionGroup for Python < 3.11."""
-
-
 if TYPE_CHECKING:
     from typing import ParamSpec
 
@@ -148,12 +139,9 @@ def truncate_sequence(seq: Truncatable, *, max_length: int, middle: Truncatable)
 def read_toml_file(path: Path) -> dict[str, Any]:
     """Read a TOML file and return the parsed data.
 
-    It wraps the `tomllib.load` function from Python 3.11 or the `tomli.load` function from older versions.
+    It wraps `tomllib.load`.
     """
-    if sys.version_info >= (3, 11):  # pragma: no branch
-        from tomllib import load as load_toml
-    else:
-        from tomli import load as load_toml  # pragma: no cover
+    from tomllib import load as load_toml
 
     with path.open('rb') as f:
         data = load_toml(f)
@@ -234,45 +222,6 @@ class UnexpectedResponse(RequestException):
         """Like the requests method, but raises a more informative exception."""
         if response.status_code not in range(200, 300):
             raise cls(response)
-
-
-READ_TOKEN_FILENAME = 'read_token.json'
-"""Where `logfire read-tokens create --save` stores a read token.
-
-Deliberately NOT a new key inside `logfire_credentials.json`: that file is loaded with
-`LogfireCredentials(**data)`, so an unrecognised key raises `LogfireConfigError` in every
-SDK version released before it. A separate file cannot break an older reader.
-"""
-
-DATA_DIR_FILENAMES = {'.gitignore', 'logfire_credentials.json', READ_TOKEN_FILENAME}
-"""The files that Logfire itself writes into a data directory.
-
-Membership is load-bearing beyond bookkeeping: `ensure_data_dir_exists` only seeds the
-`.gitignore` when the directory holds nothing else, so a file omitted here would stop the
-ignore rule being restored for a directory containing it -- and this one holds a
-credential.
-"""
-
-
-def ensure_data_dir_exists(data_dir: Path) -> None:
-    if data_dir.exists():
-        if not data_dir.is_dir():  # pragma: no cover
-            raise ValueError(f'Data directory {data_dir} exists but is not a directory')
-    else:
-        data_dir.mkdir(parents=True, exist_ok=True)
-    # Seed the .gitignore for a newly created directory, and for an existing one holding nothing
-    # but the files Logfire writes itself. That covers a directory emptied by `logfire clean`, and
-    # restores the ignore rule for one left with an unignored credentials file, since this runs
-    # before that file is rewritten. Skip a directory with any other contents: `--data-dir` can
-    # point at a directory of the user's own, and a `.gitignore` of `*` there would ignore all of it.
-    if {path.name for path in data_dir.iterdir()} <= DATA_DIR_FILENAMES:
-        try:
-            # Exclusive creation, so an existing .gitignore keeps its rules, and a symlink planted
-            # in a data directory that arrived from elsewhere is refused rather than followed.
-            with (data_dir / '.gitignore').open('x') as gitignore:
-                gitignore.write('*')
-        except FileExistsError:
-            pass
 
 
 def get_version(version: str) -> Version:

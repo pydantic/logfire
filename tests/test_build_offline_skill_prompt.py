@@ -120,7 +120,9 @@ def test_full_build_has_no_dead_reference_links() -> None:
     full = build(include_references=True)
     headings = _appendix_headings(full)
     assert headings, 'full build produced no Reference Files appendix at all'
-    assert '[credential handoff instructions](#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session)' in full
+    section = 'if-the-calling-skill-needs-another-credential'
+    assert f'[credential handoff instructions](#{section})' in full
+    assert '## If the calling skill needs another credential'.casefold() in full.casefold()
 
     assert not REFERENCE_LINK.findall(full), 'full build left filesystem-relative reference links unresolved'
 

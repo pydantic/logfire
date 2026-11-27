@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 import pytest
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
@@ -122,6 +122,9 @@ def capfire() -> CaptureLogfire:
 
 def get_collected_metrics(metrics_reader: InMemoryMetricReader) -> list[dict[str, Any]]:
     """Get the collected metrics as a list of dictionaries."""
-    exported_metrics = json.loads(cast(MetricsData, metrics_reader.get_metrics_data()).to_json())
+    metrics_data: MetricsData | None = metrics_reader.get_metrics_data()
+    if metrics_data is None:
+        return []
+    exported_metrics = json.loads(metrics_data.to_json())
     [resource_metric] = exported_metrics['resource_metrics']
     return [metric for scope_metric in resource_metric['scope_metrics'] for metric in scope_metric['metrics']]

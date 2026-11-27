@@ -62,6 +62,12 @@ While baggage can technically contain any data type, only strings will be set as
 Additionally, strings longer than 1000 characters will be truncated with a warning,
 in both [`logfire.set_baggage`][logfire.set_baggage] and the span attributes.
 
+Baggage keys beginning with `logfire.` are not added to span or log record attributes, except keys beginning with
+`logfire.variables.`. Logfire uses those keys to carry selected variable labels and versions across services.
+Other `logfire.` keys remain in baggage and can still propagate to other services.
+Baggage keys beginning with `gen_ai.evaluation.` and the `error.type` key are also excluded from span and log
+record attributes.
+
 ## Using with multiple services
 
 Baggage is propagated automatically to other processes along with the trace context if you've instrumented

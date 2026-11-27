@@ -74,6 +74,32 @@ If the provider answers with a dated version of the model you requested, such as
 
 To return to the catalog price, turn the override off and click **Save model**. Built-in providers always use the catalog price.
 
+## Requests for a model with no price
+
+Gateway refuses a request before it reaches the provider when it needs a price for the model and has none.
+
+| Provider | When | Status |
+| --- | --- | --- |
+| Built-in | The catalog has no price for the model | `404` |
+| BYOK with **Require pricing data** turned on | The model has no catalog price and no custom price | `400` |
+
+A built-in provider answers:
+
+```
+No cost data available for model `my-model`. If you expected this to work, please let us know on Slack: https://pydantic.dev/docs/logfire/join-slack/
+```
+
+A BYOK provider answers:
+
+```
+Cost estimates are currently required but there is no cost data available for `my-model`. Disable required cost estimates to use this model.
+```
+
+Built-in providers are billed through Logfire, so Gateway never forwards a built-in request that it can't price. A BYOK provider forwards an unpriced request when **Require pricing data** is off, and Gateway records no cost for it.
+
+!!! note "A `404` with this message is not a wrong URL"
+    The route and the provider exist. Check the model ID first. If the ID is correct, the catalog has no price for that model yet.
+
 ## Verify it worked
 
 Open **Playground** from the sidebar, choose the provider and model, and send a short message. The Playground needs a project API key; if it shows **project key required**, click **Create project key** first.
@@ -85,7 +111,7 @@ Open **Playground** from the sidebar, choose the provider and model, and send a 
 
 - **A model is rejected unexpectedly:** check the model's own setting, then **Default model access**. With the default set to **Block**, every model you have not allowed is rejected, including newly released ones.
 - **A blocked model still works:** check which provider handled the request. Settings are per provider, so an endpoint can still reach the model through another provider.
-- **No pricing data error:** the provider has **Require pricing data** turned on in its **Settings** tab and the model has no price. Set a custom price, or turn that setting off.
+- **No pricing data error:** on a BYOK provider, **Require pricing data** is turned on in its **Settings** tab and the model has no price. Set a custom price, or turn that setting off. On a built-in provider, the catalog has no price for the model, so check the model ID. See [Requests for a model with no price](#requests-for-a-model-with-no-price).
 - **Batch or file requests fail with `403`:** on a BYOK provider that blocks any model, Gateway rejects requests whose model it can't read, such as requests it passes through without parsing.
 - **A custom price is ignored:** check which model the response reports. The Playground shows it under each reply. If it is not the model you requested or a dated version of it, set the price on the reported model ID.
 - **Costs look wrong:** prices are per **million** tokens. Check whether cache prices are set; empty ones use the input price.

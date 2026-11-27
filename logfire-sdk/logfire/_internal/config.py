@@ -6,7 +6,6 @@ import functools
 import json
 import os
 import platform
-import re
 import socket
 import sys
 import time
@@ -19,7 +18,7 @@ from datetime import timedelta
 from importlib.metadata import entry_points
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, assert_type
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -70,10 +69,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from rich.console import Console
-from rich.prompt import Confirm, Prompt
-from typing_extensions import Self, assert_type
 
-from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesLogProcessorWrapper, DirectBaggageAttributesSpanProcessor
 from logfire._internal.collect_system_info import collect_package_info
 from logfire.exceptions import LogfireConfigError
@@ -84,7 +80,6 @@ from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
-from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import CompressionValues, ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
     ATTRIBUTES_CONFIG,
@@ -138,16 +133,15 @@ from .fleet import FleetOptions, LogfireFleetWarning, load_fleet
 from .forwarding import OTLPForwardingManager
 from .http_transport import install_connection_policy
 from .integrations.executors import instrument_executors
-from .interactive import ask_or_default, ask_required, require_answer
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
+from .regions import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
 from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .stack_info import warn_at_user_stacklevel
 from .tracer import OPEN_SPANS, PendingSpanProcessor, ProxyTracerProvider
 from .utils import (
     SeededRandomIdGenerator,
-    ensure_data_dir_exists,
     handle_internal_errors,
     platform_is_aws_lambda,
     platform_is_emscripten,
@@ -175,7 +169,6 @@ API_KEY_CANNOT_WRITE_HINT = (
 )
 """Warning text for a 401 on a token that is the configured `api_key`."""
 
-PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
 
 METRICS_PREFERRED_TEMPORALITY = {
     Counter: AggregationTemporality.DELTA,
@@ -904,6 +897,11 @@ class _LogfireConfigData:
         elif sampling is None:
             sampling = SamplingOptions(
                 head=param_manager.load_param('trace_sample_rate'),
+            )
+        head = sampling.head
+        if isinstance(head, (int, float)) and not 0.0 <= head <= 1.0:
+            raise LogfireConfigError(
+                f'Expected sampling.head (LOGFIRE_TRACE_SAMPLE_RATE) to be between 0.0 and 1.0, got {head!r}'
             )
         self.sampling = sampling
 
@@ -1766,7 +1764,7 @@ class LogfireConfig(_LogfireConfigData):
             # PendingSpanProcessor creates the record from on_start. The wrapper normalizes it
             # before sending it to pending.on_end.
             deferred_processors.append(
-                PendingSpanProcessor(self.advanced.id_generator, MainSpanProcessorWrapper(pending))
+                PendingSpanProcessor(self.advanced.id_generator, MainSpanProcessorWrapper(pending, self.scrubber))
             )
         deferred_processors.extend(user_deferred_processors)
 
@@ -1784,7 +1782,7 @@ class LogfireConfig(_LogfireConfigData):
                 main.add_span_processor(processor)
 
         # Skip suppressed instrumentation and normalize completed spans before routing them.
-        return CheckSuppressInstrumentationProcessorWrapper(MainSpanProcessorWrapper(completed))
+        return CheckSuppressInstrumentationProcessorWrapper(MainSpanProcessorWrapper(completed, self.scrubber))
 
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
         """Force flush all telemetry and forwarding pipelines.
@@ -2209,288 +2207,6 @@ class LogfireCredentials:
             logfire_api_url=base_url,
         )
 
-    @classmethod
-    def use_existing_project(
-        cls,
-        *,
-        client: LogfireClient,
-        projects: list[dict[str, Any]],
-        organization: str | None = None,
-        project_name: str | None = None,
-    ) -> dict[str, Any] | None:
-        """Configure one of the user projects to be used by Logfire.
-
-        It configures the project if organization/project_name is a valid project that
-        the user has access to it. Otherwise, it asks the user to select a project interactively.
-
-        Args:
-            client: The Logfire client to use when making requests.
-            projects: List of user projects.
-            organization: Project organization.
-            project_name: Name of project that has to be used.
-
-        Returns:
-            The configured project information.
-
-        Raises:
-            LogfireConfigError: If there was an error configuring the project.
-        """
-        org_message = ''
-        org_flag = ''
-        project_message = 'projects'
-        filtered_projects = projects
-
-        console = Console(file=sys.stderr)
-
-        if organization is not None:
-            filtered_projects = [p for p in projects if p['organization_name'] == organization]
-            org_message = f' in organization `{organization}`'
-            org_flag = f' --org {organization}'
-
-        if project_name is not None:
-            project_message = f'projects with name `{project_name}`'
-            filtered_projects = [p for p in filtered_projects if p['project_name'] == project_name]
-
-        if project_name is not None and len(filtered_projects) == 1:
-            # exact match to requested project
-            organization = filtered_projects[0]['organization_name']
-            project_name = filtered_projects[0]['project_name']
-        elif not filtered_projects:
-            if not projects:
-                console.print(
-                    'No projects found for the current user. You can create a new project with `logfire projects new`'
-                )
-                return None
-            else:
-                require_answer(
-                    f'No {project_message} found for the current user{org_message}.',
-                    'logfire projects use PROJECT_NAME --org ORGANIZATION',
-                )
-                expand_search = ask_or_default(
-                    lambda: Prompt.ask(
-                        f'No {project_message} found for the current user{org_message}. Choose from all projects?',
-                        choices=['y', 'n'],
-                        default='y',
-                    ),
-                    'y',
-                )
-                if expand_search == 'n':
-                    # user didn't want to expand search, print a hint and quit
-                    console.print(f'You can create a new project{org_message} with `logfire projects new{org_flag}`')
-                    return None
-            # try all projects
-            filtered_projects = projects
-            organization = None
-            project_name = None
-        else:
-            # multiple matches
-            if project_name is not None and organization is None:
-                # only bother printing if the user asked for a specific project
-                # but didn't specify an organization
-                console.print(f'Found multiple {project_message}.')
-            organization = None
-            project_name = None
-
-        if organization is None or project_name is None:
-            project_choices = {
-                str(index + 1): (item['organization_name'], item['project_name'])
-                for index, item in enumerate(filtered_projects)
-            }
-            project_choices_str = '\n'.join(
-                [f'{index}. {item[0]}/{item[1]}' for index, item in project_choices.items()]
-            )
-            require_answer(
-                f'Several projects are available:\n{project_choices_str}',
-                'logfire projects use PROJECT_NAME --org ORGANIZATION',
-            )
-            selected_project_key = ask_or_default(
-                lambda: Prompt.ask(
-                    f"Please select one of the following projects by number (requires the 'write_token' permission):\n{project_choices_str}\n",
-                    choices=list(project_choices.keys()),
-                    default='1',
-                ),
-                '1',
-            )
-            project_info_tuple: tuple[str, str] = project_choices[selected_project_key]
-            organization = project_info_tuple[0]
-            project_name = project_info_tuple[1]
-
-        return client.create_write_token(organization, project_name)
-
-    @classmethod
-    def create_new_project(
-        cls,
-        *,
-        client: LogfireClient,
-        organization: str | None = None,
-        default_organization: bool = False,
-        project_name: str | None = None,
-    ) -> dict[str, Any]:
-        """Create a new project and configure it to be used by Logfire.
-
-        It creates the project under the organization if both project and organization are valid.
-        Otherwise, it asks the user to select organization and enter a valid project name interactively.
-
-        Args:
-            client: The Logfire client to use when making requests.
-            organization: The organization name of the new project.
-            default_organization: Whether to create the project under the user default organization.
-            project_name: The default name of the project.
-
-        Returns:
-            The created project information.
-
-        Raises:
-            LogfireConfigError: If there was an error creating projects.
-        """
-        organizations: list[str] = [item['organization_name'] for item in client.get_user_organizations()]
-        if not organizations:
-            raise LogfireConfigError(
-                'No organizations are available for project creation. '
-                'Create or join an organization in Logfire, then try again.'
-            )
-
-        if organization not in organizations:
-            if len(organizations) > 1:
-                # Get user default organization
-                user_details = client.get_user_information()
-                user_default_organization: dict[str, str] | None = user_details.get('default_organization')
-                user_default_organization_name = (
-                    user_default_organization.get('organization_name') if user_default_organization else None
-                )
-
-                if default_organization and user_default_organization_name:
-                    organization = user_default_organization_name
-                else:
-                    question = 'Several organizations are available and none was selected: ' + ', '.join(organizations)
-                    org_remedy = 'logfire projects new PROJECT_NAME --org ORGANIZATION'
-                    if user_default_organization_name:
-                        require_answer(question, org_remedy, 'logfire projects new PROJECT_NAME --default-org')
-                    else:
-                        require_answer(question, org_remedy)
-                    org_default = user_default_organization_name or organizations[0]
-                    organization = ask_or_default(
-                        lambda: Prompt.ask(
-                            '\nTo create and use a new project, please provide the following information:\n'
-                            'Select the organization to create the project in',
-                            choices=organizations,
-                            default=org_default,
-                        ),
-                        org_default,
-                    )
-            else:
-                organization = organizations[0]
-                if not default_organization:
-                    # Creating a project is a side effect, so this is never assumed --
-                    # `--default-org` is how a caller says yes ahead of time.
-                    require_answer(
-                        f'This would create a project in the organization "{organization}".',
-                        f'logfire projects new PROJECT_NAME --org {organization}',
-                        'logfire projects new PROJECT_NAME --default-org',
-                    )
-                    confirm = ask_or_default(
-                        lambda: Confirm.ask(
-                            f'The project will be created in the organization "{organization}". Continue?',
-                            default=True,
-                        ),
-                        True,
-                    )
-                    if not confirm:
-                        sys.exit(1)
-
-        project_name_default: str = default_project_name()
-        project_name_prompt = 'Enter the project name'
-        name_rejected = False
-
-        # The organization is settled by this point -- every branch above either kept the
-        # one that was passed or assigned one -- so the suggestion can name it outright.
-        # Suggestions must carry it: a bare `projects new PROJECT_NAME` handed to someone
-        # who passed `--org` stops at the prompt they had already answered.
-        #
-        # Always `--org <name>`, never `--default-org`, even when that is how the
-        # organization was chosen. Naming it explicitly reproduces the same result either
-        # way, and it cannot go wrong when BOTH flags were passed -- where `--default-org`
-        # would send the retry to the default organization rather than the requested one.
-        def name_remedy(name: str) -> str:
-            """A runnable `projects new`, carrying the organization already settled on."""
-            return f'logfire projects new {name} --org {organization}'
-
-        def ask_project_name(prompt: str) -> str:
-            """Ask for a project name, falling back to `project_name_default` on EOF.
-
-            Unless it is the `...` sentinel, in which case there is no safe name to fall
-            back on (see the comment below), so an exhausted stdin gets the same
-            `NonInteractiveError` guidance `--non-interactive` would rather than silently
-            creating a project called Ellipsis.
-            """
-            if project_name_default is ...:  # pyright: ignore[reportUnnecessaryComparison]  # it really can be
-                return ask_required(
-                    lambda: Prompt.ask(prompt, default=project_name_default),
-                    prompt.strip(),
-                    name_remedy('PROJECT_NAME'),
-                )
-            return ask_or_default(lambda: Prompt.ask(prompt, default=project_name_default), project_name_default)
-
-        while True:
-            if not project_name:
-                # `project_name_prompt` carries WHY a name is being asked for -- it is
-                # rewritten below when the backend rejects one -- so the refusal repeats
-                # the real reason rather than the generic "none was given".
-                #
-                # Once a name has been rejected there is no good name to suggest: the
-                # default WAS the rejected one, and `project_name_default` is set to `...`
-                # on that path, so suggesting it produces `logfire projects new Ellipsis`
-                # -- which runs, and creates a project called Ellipsis.
-                require_answer(
-                    project_name_prompt.strip(),
-                    name_remedy('PROJECT_NAME' if name_rejected else project_name_default),
-                )
-            project_name = project_name or ask_project_name(project_name_prompt)
-            while project_name and not re.match(PROJECT_NAME_PATTERN, project_name):
-                # A name that was SUPPLIED and is malformed skips the guard above, so
-                # without this the recovery prompt below reads stdin and hangs.
-                require_answer(
-                    f'The project name {project_name!r} is invalid: it may contain lowercase '
-                    'alphanumeric characters and single hyphens, and may not start or end with '
-                    'a hyphen.',
-                    name_remedy('PROJECT_NAME'),
-                )
-                project_name = ask_project_name(
-                    "\nThe project name you've entered is invalid. Valid project names:\n"
-                    '  * may contain lowercase alphanumeric characters\n'
-                    '  * may contain single hyphens\n'
-                    '  * may not start or end with a hyphen\n\n'
-                    'Enter the project name you want to use:'
-                )
-
-            try:
-                project = client.create_new_project(organization, project_name)
-            except ProjectAlreadyExists:
-                name_rejected = True
-                project_name_default = ...  # pyright: ignore[reportAssignmentType]  # this means the value is required
-                project_name_prompt = (
-                    f"\nA project with the name '{project_name}' already exists. Please enter a different project name"
-                )
-                project_name = None
-                continue
-            except InvalidProjectName as exc:
-                name_rejected = True
-                project_name_default = ...  # pyright: ignore[reportAssignmentType]  # this means the value is required
-                project_name_prompt = (
-                    f'\nThe project name you entered is invalid:\n{exc.reason}\nPlease enter a different project name'
-                )
-                project_name = None
-                continue
-            else:
-                return project
-
-    def write_creds_file(self, creds_dir: Path) -> None:
-        """Write a credentials file to the given path."""
-        ensure_data_dir_exists(creds_dir)
-        data = dataclasses.asdict(self)
-        path = _get_creds_file(creds_dir)
-        path.write_text(json.dumps(data, indent=2) + '\n')
-
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""
         if self.project_url:  # pragma: no branch
@@ -2501,7 +2217,6 @@ class LogfireCredentials:
 
 
 def _print_summary(message: str, min_content_width: int) -> None:
-    from rich.console import Console
 
     console = Console(stderr=True)
     if console.width < min_content_width + 4:  # pragma: no cover
@@ -2559,17 +2274,6 @@ def get_git_revision_hash() -> str:
         .decode('ascii')
         .strip()
     )
-
-
-def sanitize_project_name(name: str) -> str:
-    """Convert `name` to a string suitable for the `requested_project_name` API parameter."""
-    # Project names are limited to 50 characters, but the backend may also add 9 characters
-    # if the project name already exists, so we limit it to 41 characters.
-    return re.sub(r'[^a-zA-Z0-9]', '', name).lower()[:41] or 'untitled'
-
-
-def default_project_name():
-    return sanitize_project_name(os.path.basename(os.getcwd()))
 
 
 def _load_resource_detectors(detectors: Sequence[ResourceDetector | str]) -> list[ResourceDetector]:

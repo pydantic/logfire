@@ -132,22 +132,25 @@ The smallest path from an empty project to a populated LLMs row, using the OpenA
 ```bash
 pip install logfire openai
 export LOGFIRE_TOKEN=<your write token from project Settings → Write tokens>
+export OPENAI_API_KEY="your-openai-api-key"
 ```
 
 ```py skip="true" skip-reason="external-connection"
-import logfire
 import openai
+
+import logfire
 
 logfire.configure()
 logfire.instrument_openai()
 
 openai.OpenAI().chat.completions.create(
-    model='gpt-4o-mini',
+    model='gpt-6-luna',
+    reasoning_effort='none',
     messages=[{'role': 'user', 'content': 'hi'}],
 )
 ```
 
-Refresh the LLMs page. A row for `gpt-4o-mini` (provider `openai`) should appear within a minute. For other instrumentations, the [LLM Panels guide](llm-panels.md#supported-instrumentations) has the per-provider list.
+Refresh the LLMs page. A row for `gpt-6-luna` (provider `openai`) should appear within a minute. For other instrumentations, the [LLM Panels guide](llm-panels.md#supported-instrumentations) has the per-provider list.
 
 ## Slicing by environment, agent or user
 

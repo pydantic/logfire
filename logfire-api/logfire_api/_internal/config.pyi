@@ -33,7 +33,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
 from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN as LOGFIRE_TOKEN_REGION_PATTERN, REGIONS as REGIONS
-from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor as DirectBaggageAttributesSpanProcessor
+from logfire._internal.baggage import DirectBaggageAttributesLogProcessorWrapper as DirectBaggageAttributesLogProcessorWrapper, DirectBaggageAttributesSpanProcessor as DirectBaggageAttributesSpanProcessor
 from logfire._internal.collect_system_info import collect_package_info as collect_package_info
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.sampling import SamplingOptions as SamplingOptions
@@ -42,7 +42,7 @@ from logfire.variables import VariablesConfig as VariablesConfig
 from logfire.variables.abstract import NoOpVariableProvider as NoOpVariableProvider, VariableProvider as VariableProvider
 from logfire.variables.variable import TemplateVariable as TemplateVariable, Variable as Variable
 from logfire.version import VERSION as VERSION
-from opentelemetry.sdk._logs import LogRecordProcessor as LogRecordProcessor
+from opentelemetry.sdk._logs import LogRecordProcessor
 from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
 from opentelemetry.sdk.metrics.view import View
 from opentelemetry.sdk.resources import ResourceDetector
@@ -226,7 +226,7 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
             filtered `logfire.span` context manager.
             If set to `None`, uses the `LOGFIRE_MIN_LEVEL` environment variable; if that is not set, there is no minimum level.
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
-        add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
+        add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans and log records as attributes.
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
         variables: Options related to managed variables.

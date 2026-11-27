@@ -1,6 +1,8 @@
 # JavaScript / TypeScript Project Detection
 
-Read this before editing a JS/TS project. Instrument every runtime in the app, not just the first `package.json` you find.
+Read this before editing a JS/TS project. Detect every runtime in the app, not
+just the first `package.json` you find. Instrument one representative service
+first, verify its telemetry, and note the remaining runtimes for follow-up.
 
 ## Locate The Package Boundary
 

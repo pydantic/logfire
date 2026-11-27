@@ -13,6 +13,7 @@ from logfire.propagate import ContextCarrier
 
 from ...constants import ONE_SECOND_IN_NANOSECONDS
 from ...utils import is_instrumentation_suppressed, log_internal_error, suppress_instrumentation
+from .semconv import ERROR_TYPE
 
 if TYPE_CHECKING:
     from ...main import Logfire, LogfireSpan
@@ -165,7 +166,7 @@ def instrument_llm_provider(
         if message_template is None:
             return original_request_method(*args, **kwargs)
         with logfire_llm.span(message_template, _span_kind=SpanKind.CLIENT, **span_data) as span:
-            with maybe_suppress_instrumentation(suppress_otel):
+            with record_error_type(span), maybe_suppress_instrumentation(suppress_otel):
                 if kwargs.get('stream'):
                     return original_request_method(*args, **kwargs)
                 else:
@@ -179,7 +180,7 @@ def instrument_llm_provider(
         if message_template is None:
             return await original_request_method(*args, **kwargs)
         with logfire_llm.span(message_template, _span_kind=SpanKind.CLIENT, **span_data) as span:
-            with maybe_suppress_instrumentation(suppress_otel):
+            with record_error_type(span), maybe_suppress_instrumentation(suppress_otel):
                 if kwargs.get('stream'):
                     return await original_request_method(*args, **kwargs)
                 else:
@@ -209,6 +210,15 @@ def instrument_llm_provider(
             client._is_instrumented_by_logfire = False
 
     return uninstrument_context()
+
+
+@contextmanager
+def record_error_type(span: LogfireSpan) -> Generator[None]:
+    try:
+        yield
+    except (Exception, asyncio.CancelledError) as exc:
+        span.set_attribute(ERROR_TYPE, type(exc).__name__)
+        raise
 
 
 @contextmanager
@@ -256,7 +266,7 @@ def record_streaming(
                 log_internal_error()
                 attributes = dict(span_data)
             if stream_error is not None:
-                attributes['error.type'] = type(stream_error).__name__
+                attributes[ERROR_TYPE] = type(stream_error).__name__
             logire_llm.log(
                 'error' if stream_error is not None else 'info',
                 'streaming response from {request_data[model]!r} took {duration:.2f}s',
