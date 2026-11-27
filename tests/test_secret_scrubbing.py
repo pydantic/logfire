@@ -1102,6 +1102,14 @@ def test_gen_ai_definition_keeps_schema_keys_and_transforms_values():
     assert notes == []
 
 
+def test_semconv_input_messages_scrub_nested_authorization(exporter: TestExporter):
+    attributes: dict[str, Any] = {'gen_ai.input.messages': {'authorization': 'foo'}}
+    logfire.info('hi', **attributes)
+
+    span = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]
+    assert span['attributes']['gen_ai.input.messages'] == {'authorization': "[Scrubbed due to 'auth']"}
+
+
 @pytest.mark.parametrize(
     'path',
     [
