@@ -1,0 +1,19 @@
+logfire-sdk/logfire/_internal/instrument.py
+  s_8a8976c2906001::t_86164121e6e9f5 81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d3ea14a1ff1c7ace7575c3a0a0c260bfb199dcbe",
+  "prompts": {},
+  "sessions": {
+    "s_8a8976c2906001": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a21c87-b108-7d40-825f-76490cd8494f",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
