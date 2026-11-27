@@ -195,17 +195,16 @@ To make a Gateway span part of the trace that your app already records, and to c
 
 ## Using the gateway with AI coding tools
 
-The Logfire CLI can run a local authenticating proxy and launch supported AI coding tools against the gateway with short-lived credentials:
+The standalone Logfire CLI can run a temporary local proxy and launch supported AI coding tools with short-lived credentials. This feature is in beta. Sign in with `uvx logfire-cli auth` and connect the current directory with `uvx logfire-cli init` first:
 
 ```bash
-pip install "logfire[gateway]"
-logfire gateway launch claude
+uvx logfire-cli --beta agent proxy launch claude
 ```
 
 !!! note
-    For self-hosted Logfire, set `LOGFIRE_BASE_URL` to your Logfire URL or pass `--base-url "https://<your-logfire-host>"` before `gateway`. If the Gateway is exposed at a different URL, set `LOGFIRE_GATEWAY_URL` or append `--gateway-url "https://<your-gateway-host>"`.
+    For self-hosted Logfire, pass `--base-url "https://<your-logfire-host>"` before `--beta`. If the Gateway has a separate URL, pass `--gateway-url "https://<your-gateway-host>"` to `agent proxy launch`.
 
-Or run just the proxy and configure a tool manually with `logfire gateway serve`. See the [CLI reference](../../cli.md#ai-gateway-gateway) for details.
+To configure another client yourself, run `uvx logfire-cli --beta agent proxy serve`. See the [standalone CLI proxy reference](https://github.com/pydantic/logfire-cli/blob/main/docs/commands/proxy.md) for supported tools and options.
 
 ## See also
 

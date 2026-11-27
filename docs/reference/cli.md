@@ -1,335 +1,51 @@
 ---
-title: "Logfire SDK CLI: SDK Command Line Interface Guide"
-description: "Reference for the Python CLI shipped with Logfire 5.x, with equivalents for the standalone Rust CLI."
+title: "Use the Logfire CLI"
+description: "Set up a project, check Python instrumentation, and run an application with the current Logfire CLI."
 ---
-# SDK Command Line Interface
 
-This page documents the **Python CLI shipped with Logfire 5.x**, not the standalone
-Rust CLI distributed as `logfire-cli`.
-In Logfire 6, the Python CLI's `projects` and `read-tokens` commands are unavailable;
-use the Rust CLI's `init`, `project`, and `token` commands for those tasks.
+# Use the Logfire CLI
 
-For full guided onboarding with optional coding-agent assistance, run
-`uvx logfire-cli wizard`. These `uvx` commands require
-[uv](https://docs.astral.sh/uv/getting-started/installation/) to be installed.
-To connect an existing project without instrumentation
-setup, run these commands from your application's directory:
+The Logfire CLI connects your application to a project and helps you check its instrumentation. Install the `logfire` package to get the `logfire` command, or run the standalone CLI as `uvx logfire-cli`. The examples below use `logfire`; replace it with `uvx logfire-cli` if you have not installed the package. The `uvx` form requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
-```bash
-uvx logfire-cli auth
-uvx logfire-cli init use
-```
+## Connect this directory to a project
 
-Skip `auth` if you are already signed in. `init use` lets you choose an existing
-project, creates a write token, and saves it locally; it does not create a project
-or launch a coding agent. Pass `--name my-project` to select the project by name.
-Use `init new --name my-project` to create a project, or bare `init` to choose
-between creating and connecting one. If you work with multiple organizations,
-add `--org` with the real organization name to `auth` and `init`.
-
-The two CLIs use different command names for some tasks:
-
-| Task | Python CLI (this page) | Standalone Rust CLI |
-| --- | --- | --- |
-| Connect an existing project | `logfire projects use my-project` | `uvx logfire-cli init use --name my-project` |
-| Create and connect a project | `logfire projects new my-project` | `uvx logfire-cli init new --name my-project` |
-| Show Python and SDK versions | `logfire info` | `uvx logfire-cli doctor python` |
-
-The Rust CLI keeps browser sign-in in the OS credential store and writes an SDK
-write token to `.logfire/logfire_credentials.json` when you run `init`.
-The Python SDK reads that project file by default. A token passed to
-`logfire.configure(token=...)` or set in `LOGFIRE_TOKEN` takes priority over the file.
-Browser sign-in alone does not configure your app.
-See [project configuration](configuration.md#programmatically-via-configure) for
-custom credential directories and deployed applications.
-
-The remaining commands and generated help below apply to the Python CLI:
-
-```
-{{ logfire_help }}
-```
-
-## Authentication (`auth`)
-
-You need to be authenticated to use the **Logfire**.
-
-!!! abstract
-    Read the [Terms of Service][terms-of-service] and [Privacy Policy][privacy_policy] if you want
-    to know how we handle your data. :nerd_face:
-
-To authenticate yourself, run the `auth` command in the terminal:
+Sign in and choose an existing project from your application's directory:
 
 ```bash
 logfire auth
+logfire init use
 ```
 
-You will be prompted to select a [data region](./data-regions.md) (EU or US). To specify this
-via the cli instead of interactively, use `logfire --region eu auth` or `logfire --region us auth`
-
-!!! note
-    If you're using a [self-hosted Logfire instance](./self-hosted/overview.md), you can authenticate by specifying your instance's URL using the `--base-url` flag:
-    `logfire --base-url="https://<your_logfire_hostname>" auth`
-    Alternatively, set `LOGFIRE_BASE_URL`, which is also read by the SDK, to authenticate against the same instance:
-    `LOGFIRE_BASE_URL="https://<your_logfire_hostname>" logfire auth`
-
-Then you will be given the option to open logfire in your browser:
-![Terminal screenshot with Logfire auth command](../images/cli/terminal-screenshot-auth-1.png)
-
-
-After pressing `"Enter"`, you will be redirected to the browser to log in to your account.
-
-![Browser screenshot with Logfire login page](../images/cli/browser-screenshot-auth.png)
-
-Then, if you go back to the terminal, you'll see that you are authenticated! :tada:
-
-![Terminal screenshot with successful authentication](../images/cli/terminal-screenshot-auth-2.png)
-
-### Log out (`auth logout`)
-
-To log out and remove the locally stored credentials, run:
-
-!!! warning "Logout scope"
-    Without `--region`, `--base-url`, or a non-empty `LOGFIRE_BASE_URL`, this removes user tokens for **all** stored regions and servers.
-    Otherwise, only the selected region or server's user token is removed.
-
-```bash
-logfire auth logout
-```
-
-To switch accounts in one region, log out of that region, then authenticate again:
-
-```bash
-logfire --region us auth logout
-logfire --region us auth
-```
-
-For a self-hosted instance, use the same `--base-url` value in both commands instead of `--region`.
-
-## Clean (`clean`)
-
-To clean _most_ the files created by **Logfire**, run the following command:
-
-```bash
-logfire clean
-```
-
-The clean command doesn't remove the logs, and the authentication information stored in the `~/.logfire` directory.
-
-To also remove the logs, you can run the following command:
-
-```bash
-logfire clean --logs
-```
-
-## AI Gateway (`gateway`)
-
-The gateway command runs a local OAuth proxy for the Logfire AI Gateway and can launch supported AI coding tools with short-lived credentials.
-
-Install the optional dependencies before using it:
-
-=== "uv"
-
-    ```bash
-    uv add "logfire[gateway]"
-    ```
-
-=== "pip"
-
-    ```bash
-    pip install "logfire[gateway]"
-    ```
-
-=== "poetry"
-
-    ```bash
-    poetry add "logfire[gateway]"
-    ```
-
-Launch a supported integration through the proxy:
-
-```bash
-logfire gateway launch claude
-```
-
-!!! note
-    For self-hosted Logfire, set `LOGFIRE_BASE_URL` to your Logfire URL or pass `--base-url "https://<your-logfire-host>"` before `gateway`. If the Gateway is exposed at a different URL, set `LOGFIRE_GATEWAY_URL` or append `--gateway-url "https://<your-gateway-host>"`.
-
-You can also run only the proxy and configure a tool manually:
-
-```bash
-logfire gateway serve
-```
-
-Use `--device-flow` if browser callback authorization is not available, or pass `--region eu` / `--region us` before `gateway` to select the Logfire region.
+`init use` saves a write token in `.logfire/logfire_credentials.json`. The Python SDK reads that file when your application calls `logfire.configure()`. To create a project instead, use `logfire init new`. A token passed to `logfire.configure(token=...)` or set in `LOGFIRE_TOKEN` takes priority over the file. See [project configuration](configuration.md#programmatically-via-configure) for deployed applications and custom credential directories.
 
 ## Inspect (`inspect`)
 
-The inspect command is used to identify the missing OpenTelemetry instrumentation packages in your project.
-
-To inspect your project, run the following command:
+Check which installed Python packages could use additional OpenTelemetry instrumentation (packages that add tracing to a library or framework):
 
 ```bash
 logfire inspect
+logfire inspect --ignore requests,httpx
 ```
 
-This will output the projects you need to install to have optimal OpenTelemetry instrumentation.
-
-![Terminal screenshot with Logfire inspect command](../images/cli/terminal-screenshot-inspect.png)
-
-## Info (`info`)
-
-To print the versions of `logfire`, your operating system, and related (OpenTelemetry) packages (useful when reporting a bug) run:
-
-```bash
-logfire info
-```
-
-## Who Am I (`whoami`)
-
-To show the currently authenticated user and the URL of the current **Logfire** project, run:
-
-```bash
-logfire whoami
-```
-
-If you have one or more tokens configured (e.g. via the `LOGFIRE_TOKEN` environment variable), this shows the project each token belongs to instead.
-
-## Projects
-
-### List (`projects list`)
-
-To check the projects you have access to, run the following command:
-
-```bash
-logfire projects list
-```
-
-You'll see something like this:
-
-```bash
-❯ logfire projects list
-┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
-┃ Organization ┃ Project        ┃
-┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
-│ Kludex       │ backend        │
-│ Kludex       │ worker         │
-└──────────────┴────────────────┘
-```
-
-### Use (`projects use`)
-
-To use an already created project, run the following command:
-
-```bash
-logfire projects use <project-name>
-```
-
-For example, to use the `backend` project, you can run:
-
-```bash
-logfire projects use backend
-```
-
-### Create (`projects new`)
-
-To create a new project, run the following command:
-
-```bash
-logfire projects new <project-name>
-```
-
-Follow the instructions, and you'll have a new project created in no time! :partying_face:
-
-### Status (`projects status`)
-
-To see what telemetry has actually reached a project, run:
-
-```bash
-logfire projects status
-```
-
-```bash
-Project  my-org/orders
-         https://logfire-us.pydantic.dev/my-org/orders
-
- Service         | Records | Last seen
------------------|---------|---------------------------------
- orders-web      | 87      | 2026-08-19T01:01:29.717170+00:00
- orders-worker   | 84      | 2026-08-19T01:01:29.716577+00:00
-```
-
-One row per service, so a partly-instrumented system shows up as one: if you instrumented a web app and a worker but only the web app appears, the worker is not reporting.
-
-This needs a saved read token — see below — and reports the last hour. Write credentials
-(`projects use`/`new`) are not required: a saved read token already records which project
-it belongs to, so `read-tokens --project ORGANIZATION/PROJECT_NAME create --save` on its
-own is enough. If this directory IS linked to a project, the saved token must match it.
-Add `--json` for machine-readable output.
-
-## Read tokens (`read-tokens`)
-
-To create a [read token](../how-to-guides/query-api.md) for a project and print it to stdout, run:
-
-```bash
-logfire read-tokens --project <org>/<project> create
-```
-
-Because the token is printed to stdout, this composes well with other tools, e.g. configuring the [Logfire MCP server](../how-to-guides/mcp-server.md):
-
-```bash
-claude mcp add logfire -e LOGFIRE_READ_TOKEN=$(logfire read-tokens --project <org>/<project> create) -- uvx logfire-mcp@latest
-```
-
-### Saving a token instead of printing it
-
-To store the token in the data directory rather than printing it, use `--save`:
-
-```bash
-logfire read-tokens create --save
-```
-
-With no `--project`, this uses the project the current directory is linked to. The token is written to `.logfire/read_token.json`, readable only by you, in the same gitignored directory that already holds your write credentials — and it is never printed, so it cannot end up in your terminal history, a CI log, or a coding agent's transcript.
-
-`logfire projects status` uses this token. A saved token expires after 30 days; run the command again to replace it.
-
-!!! note
-    A read token can read everything in the project, which may include personal data captured in span attributes. Keep `.logfire/` out of version control — the CLI adds a `.gitignore` for you — and use `logfire clean` to remove stored credentials.
+The CLI selects your active Python environment, then a local `.venv`, then system Python. Use `--python .venv/bin/python` to choose one explicitly. That environment must have the Logfire SDK installed. `inspect` does not run your application or install packages. It exits with status 1 when it recommends packages, so read its report before treating that status as a failure. See the [standalone CLI inspect reference](https://github.com/pydantic/logfire-cli/blob/main/docs/commands/inspect.md) for options.
 
 ## Run (`run`)
 
-To run a Python script or module with **Logfire** instrumentation enabled automatically for all installed packages that have an available OpenTelemetry instrumentation, run:
+Start a Python script, module, or installed Python command with automatic instrumentation:
 
 ```bash
-logfire run script.py
-# or run a module, forwarding any arguments after it:
-logfire run -m my_module --my-arg
-# or run an installed Python console command:
+logfire run app.py
+logfire run -m uvicorn main:app
 logfire run pytest tests/
 ```
 
-Console commands are resolved from the selected Python environment's installed
-`console_scripts` metadata, which maps each command name to the Python function
-that runs it. This keeps automatic instrumentation in the same
-Python process on macOS, Linux, and Windows, including platforms where package
-installers generate native launcher executables.
+`run` uses the selected Python environment's Logfire SDK. Pass `--no-summary` to hide the instrumentation report or `--exclude fastapi` to skip an integration. See the [standalone CLI run reference](https://github.com/pydantic/logfire-cli/blob/main/docs/commands/run.md) for interpreter selection and argument forwarding.
 
-Most packages are instrumented through Logfire's own integrations. Some packages have no Logfire integration, but have an OpenTelemetry instrumentation package: a separate package that adds tracing to one library. If one of these is installed, `logfire run` turns it on instead. For example, installing `opentelemetry-instrumentation-botocore` lets `logfire run` trace AWS calls made with `boto3`. `logfire run` doesn't support every OpenTelemetry instrumentation package.
+## Find other commands
 
-By default a summary box is printed to stderr showing which packages were instrumented; disable it with `--no-summary`. Use `--exclude` to skip instrumenting specific packages:
+- `logfire doctor python` prints Python, SDK, operating system, and related package versions.
+- `logfire whoami` shows the account selected by the standalone CLI.
+- `logfire project current` shows the project connected to this directory.
+- `logfire token read` creates a read token for querying that project.
 
-```bash
-logfire run --exclude sqlalchemy,fastapi script.py
-```
-
-## Prompt (`prompt`)
-
-To generate a prompt for an LLM to investigate an issue in your project (assuming the [Logfire MCP server](../how-to-guides/mcp-server.md) is configured), run:
-
-```bash
-logfire prompt "why are my requests slow?"
-```
-
-Use `--claude`, `--codex`, or `--opencode` to verify (and set up) the MCP configuration for the respective coding tool, `--update` to replace an existing Logfire MCP server configuration, and `--project <org>/<project>` to select the project.
-
-[terms-of-service]: https://pydantic.dev/legal/terms-of-service
-[privacy_policy]: https://pydantic.dev/legal/privacy-policy
+Run `logfire --help` for the installed command list. See the [standalone CLI command reference](https://github.com/pydantic/logfire-cli/blob/main/docs/README.md) for authentication, projects, tokens, queries, and coding-agent tools.
