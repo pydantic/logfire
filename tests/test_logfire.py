@@ -6,7 +6,7 @@ import os
 import re
 import sys
 import warnings
-from collections.abc import Callable, Generator
+from collections.abc import AsyncGenerator, Callable, Generator
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
@@ -1915,6 +1915,36 @@ async def test_instrument_async_generator_throw():
     assert await items.__anext__() == 3
     with pytest.raises(StopAsyncIteration):
         await items.__anext__()
+    assert get_current_span() is INVALID_SPAN
+
+
+@pytest.mark.anyio
+async def test_instrument_async_generator_forwards_protocol():
+    handled = ValueError('handled')
+    closed: list[str] = []
+
+    async def generator() -> AsyncGenerator[int | None, int | None]:
+        try:
+            received = yield 0
+            while True:
+                try:
+                    received = yield received
+                except ValueError as exc:
+                    assert exc is handled
+                    received = yield 4
+        finally:
+            closed.append('closed')
+
+    instrumented = logfire.instrument(allow_generator=True)(generator)
+    for make_generator in (generator, instrumented):
+        items = make_generator()
+        assert await anext(items) == 0
+        assert await items.asend(1) == 1
+        assert await items.athrow(handled) == 4
+        assert await items.asend(2) == 2
+        await items.aclose()
+
+    assert closed == ['closed', 'closed']
     assert get_current_span() is INVALID_SPAN
 
 
