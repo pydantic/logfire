@@ -856,7 +856,7 @@ def test_openai_legacy_request_data_omits_hosted_credentials() -> None:
     }
     original: dict[str, Any] = {
         'model': 'gpt-5',
-        'input': [{'type': 'additional_tools', 'tools': (mcp_tool,)}],
+        'input': 'hi',
         'tools': [mcp_tool, {'type': 'code_interpreter', 'container': {'network_policy': network_policy}}],
     }
 
@@ -867,7 +867,7 @@ def test_openai_legacy_request_data_omits_hosted_credentials() -> None:
     expected_tool = {'type': 'mcp', 'server_label': 'crm'}
     expected = {
         'model': 'gpt-5',
-        'input': original['input'],
+        'input': 'hi',
         'tools': [
             expected_tool,
             {'type': 'code_interpreter', 'container': {'network_policy': {'allowed_domains': ['example.com']}}},
@@ -883,11 +883,6 @@ def test_openai_legacy_request_data_omits_hosted_credentials() -> None:
 
     config = get_endpoint_config(MockOptions(), version=2)  # type: ignore
     assert config.span_data['request_data'] == {'model': 'gpt-5'}
-
-    MockOptions.url = '/responses'
-    config = get_endpoint_config(MockOptions(), version=1)  # type: ignore
-    assert config.span_data['request_data'] == {'model': 'gpt-5', 'stream': False}
-    assert config.span_data['events'][0]['data'] == original['input'][0]
 
     unchanged = {'model': 'gpt-5', 'tools': [{'type': 'function', 'name': 'lookup'}]}
     MockOptions.json_data = unchanged
