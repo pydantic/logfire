@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import os
+from importlib.metadata import PackageNotFoundError, version as package_version
 from typing import Any
 
 import logfire
 from logfire._internal.integrations.llm_providers.usage import gateway_header_cost, gateway_reported_cost
-from logfire._internal.utils import handle_internal_errors, safe_repr
+from logfire._internal.stack_info import warn_at_user_stacklevel
+from logfire._internal.utils import get_version, handle_internal_errors, safe_repr
 
 CAPTURE_MESSAGE_CONTENT_ENV_VAR = 'OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'
 LEGACY_CAPTURE_MESSAGE_CONTENT_VALUES = {'true': 'SPAN_ONLY', 'false': 'NO_CONTENT'}
@@ -73,7 +75,42 @@ with handle_internal_errors:
     generate_content._apply_response_attributes = wrapped_apply_response_attributes  # pyright: ignore[reportPrivateUsage]
 
 
+def _warn_if_google_genai_version_unsupported() -> None:
+    """Warn loudly when the installed google-genai can't be fully instrumented.
+
+    `opentelemetry-instrumentation-google-genai` only supports `google-genai >= 1.69.0, < 3`
+    (the range the `logfire[google-genai]` extra pins). Outside it the failure is silent:
+    with 3.x the upstream instrumentor logs one line and instruments nothing, so no spans,
+    token counts or `operation.cost` are recorded; below 1.69.0 streamed AI Gateway costs
+    (read from `part_metadata`, see #2702) are missing. A warning is used instead of
+    raising so apps that call `instrument_google_genai()` unconditionally keep working.
+    See https://github.com/pydantic/logfire/issues/2880.
+    """
+    try:
+        installed_version = get_version(package_version('google-genai'))
+    except PackageNotFoundError:  # pragma: no cover - google-genai is always installed here
+        return
+    if installed_version >= get_version('3.0.0.dev0'):
+        # Compare against 3.0.0.dev0, not 3: pre-releases such as 3.0.0rc1 sort below 3,
+        # so comparing against 3 would miss them and they'd get no warning.
+        warn_at_user_stacklevel(
+            f'Logfire cannot instrument google-genai {installed_version}: '
+            'opentelemetry-instrumentation-google-genai only supports google-genai >=1.69.0,<3, '
+            'so no spans will be created. Pin google-genai to <3 until upstream supports 3.x, e.g. '
+            "pip install 'google-genai<3'. See https://github.com/pydantic/logfire/issues/2880.",
+            UserWarning,
+        )
+    elif installed_version < get_version('1.69.0'):
+        warn_at_user_stacklevel(
+            f'google-genai {installed_version} is older than 1.69.0: streamed AI Gateway costs '
+            '(operation.cost) will not be recorded. Upgrade to google-genai>=1.69.0,<3.',
+            UserWarning,
+        )
+
+
 def instrument_google_genai(logfire_instance: logfire.Logfire, **kwargs: Any):
+    _warn_if_google_genai_version_unsupported()
+
     capture_message_content = os.getenv(CAPTURE_MESSAGE_CONTENT_ENV_VAR)
     if capture_message_content is not None:
         canonical_value = LEGACY_CAPTURE_MESSAGE_CONTENT_VALUES.get(capture_message_content.strip().lower())
