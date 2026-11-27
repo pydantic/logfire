@@ -1,0 +1,19 @@
+tests/test_validation_errors.py
+  s_b3cf862834cd1c::t_f86370ea348b3e 67,70-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "24bbb80bb6f3f5f7e38fa2763518db5b6ba6968e",
+  "prompts": {},
+  "sessions": {
+    "s_b3cf862834cd1c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a21918-fa3d-7520-b242-05c73e092357",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
