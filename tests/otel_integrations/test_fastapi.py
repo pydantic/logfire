@@ -10,6 +10,7 @@ import pytest
 from dirty_equals import IsFloat, IsInt
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
+from opentelemetry.trace import SpanKind
 from pydantic import BaseModel, Field
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
@@ -1688,6 +1689,41 @@ def test_second_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestE
             },
         ]
     )
+
+
+@pytest.mark.parametrize('mount_first', [True, False], ids=['before', 'after'])
+def test_mounted_app_instrumentation_order(exporter: TestExporter, mount_first: bool) -> None:
+    parent = FastAPI()
+    child = FastAPI()
+
+    @child.get('/items/{item_id}')
+    def get_item(item_id: int) -> dict[str, int]:
+        return {'item_id': item_id}
+
+    if mount_first:
+        parent.mount('/api', child)
+
+    with logfire.instrument_fastapi(parent):
+        if not mount_first:
+            parent.mount('/api', child)
+        with TestClient(parent) as client:
+            response = client.get('/api/items/42')
+
+    assert response.status_code == 200
+    assert response.json() == {'item_id': 42}
+    server_spans = [
+        span
+        for span in exporter.exported_spans
+        if span.kind is SpanKind.SERVER and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+    ]
+    assert len(server_spans) == 1
+    attributes = server_spans[0].attributes
+    assert attributes is not None
+    values = attributes.get('fastapi.arguments.values')
+    assert isinstance(values, str)
+    assert json.loads(values) == {'item_id': 42}
+    assert attributes['fastapi.endpoint_function.start_timestamp'] == '1970-01-01T00:00:04.000000Z'
+    assert attributes['fastapi.endpoint_function.end_timestamp'] == '1970-01-01T00:00:05.000000Z'
 
 
 def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter) -> None:
