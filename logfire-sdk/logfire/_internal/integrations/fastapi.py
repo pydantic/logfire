@@ -421,7 +421,8 @@ def _server_request_hook(user_hook: ServerRequestHook | None, app: FastAPI | Non
         scope[LOGFIRE_SPAN_SCOPE_KEY] = span
         if app is not None:
             # Mounted apps replace scope['app'] before FastAPI resolves dependencies.
-            scope[LOGFIRE_APP_SCOPE_KEY] = app
+            # An explicitly instrumented sub-app runs this hook again, so keep the outermost app.
+            scope.setdefault(LOGFIRE_APP_SCOPE_KEY, app)
         # FastAPI's native telemetry detects legacy OTel on the root app, but not
         # mounted apps. Its scope marker keeps those apps from starting new traces.
         scope.setdefault('fastapi.telemetry', None)

@@ -1799,6 +1799,59 @@ def test_sub_app_mounted_in_two_instrumented_apps(
     )
 
 
+def test_instrumented_sub_app_mounted_in_instrumented_app(exporter: TestExporter) -> None:
+    child = FastAPI()
+
+    @child.get('/items/{item_id}')
+    def get_item(item_id: int) -> dict[str, int]:
+        return {'item_id': item_id}
+
+    parent = FastAPI()
+
+    def child_mapper(request: Request | WebSocket, attributes: dict[str, Any]) -> dict[str, Any]:
+        return {**attributes, 'root': 'child'}
+
+    def parent_mapper(request: Request | WebSocket, attributes: dict[str, Any]) -> dict[str, Any]:
+        return {**attributes, 'root': 'parent'}
+
+    with (
+        logfire.instrument_fastapi(child, request_attributes_mapper=child_mapper),
+        logfire.instrument_fastapi(parent, request_attributes_mapper=parent_mapper),
+    ):
+        # Mounting after instrumenting keeps the child's own registration.
+        parent.mount('/api', child)
+        with TestClient(parent) as client:
+            assert client.get('/api/items/1').json() == {'item_id': 1}
+        through_parent = _request_span_summaries(exporter)
+        exporter.clear()
+
+        with TestClient(child) as client:
+            assert client.get('/items/2').json() == {'item_id': 2}
+        direct = _request_span_summaries(exporter)
+
+    assert through_parent == snapshot(
+        [
+            {'name': 'GET /api', 'http.route': '/api'},
+            {
+                'name': 'GET /items/{item_id}',
+                'http.route': '/items/{item_id}',
+                'root': 'parent',
+                'fastapi.arguments.values': {'item_id': 1},
+            },
+        ]
+    )
+    assert direct == snapshot(
+        [
+            {
+                'name': 'GET /items/{item_id}',
+                'http.route': '/items/{item_id}',
+                'root': 'child',
+                'fastapi.arguments.values': {'item_id': 2},
+            }
+        ]
+    )
+
+
 def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter) -> None:
     with pytest.raises(ValueError):
         client.get('/exception')
