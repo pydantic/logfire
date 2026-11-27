@@ -1,0 +1,19 @@
+tests/test_logfire.py
+  s_45dd4a29c2d3b1::t_e6bd995158c268 1906-1910,1912-1929,1931
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1a019f919ce29559b14bc3e50eab7c6e2906086d",
+  "prompts": {},
+  "sessions": {
+    "s_45dd4a29c2d3b1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a21c8f-8184-7730-95a7-289dff5f59d7",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
