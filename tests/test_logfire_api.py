@@ -295,6 +295,9 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     # pydantic-ai-slim 2.54 requires pydantic >=2.12.
     if get_version(pydantic_version) >= get_version('2.12.0'):
         logfire_api.instrument_pydantic_ai()
+    if module_name == 'logfire_api.':
+        model = MagicMock()
+        assert logfire_api.instrument_pydantic_ai(model) is model
     logfire__all__.remove('instrument_pydantic_ai')
 
     assert hasattr(logfire_api, 'instrument_mcp')

@@ -155,7 +155,8 @@ except ImportError:
 
             def instrument_pydantic(self, *args, **kwargs) -> None: ...
 
-            def instrument_pydantic_ai(self, *args, **kwargs) -> None: ...
+            def instrument_pydantic_ai(self, obj=None, /, *args, **kwargs):
+                return obj
 
             def instrument_monty(self, *args, **kwargs) -> None: ...
 
