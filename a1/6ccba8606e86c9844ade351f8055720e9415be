@@ -1,0 +1,19 @@
+tests/otel_integrations/test_openai.py
+  s_b90973f72b3b01::t_f4ab148654d01c 854,884
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a16ccba8606e86c9844ade351f8055720e9415be",
+  "prompts": {},
+  "sessions": {
+    "s_b90973f72b3b01": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a21d37-133d-75e2-941b-0c85cbff59fe",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
