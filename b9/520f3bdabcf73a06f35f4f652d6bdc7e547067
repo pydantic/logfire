@@ -1,0 +1,19 @@
+logfire-sdk/logfire/_internal/cli/run.py
+  s_6b68abf9e42f1d::t_534af22d19a179 184,193-210
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b9520f3bdabcf73a06f35f4f652d6bdc7e547067",
+  "prompts": {},
+  "sessions": {
+    "s_6b68abf9e42f1d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4c89995b-2df9-42e5-ad61-0b44734d68cf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
