@@ -41,6 +41,8 @@ def instrument_llm_provider(
     get_endpoint_config_fn: Callable[[Any], EndpointConfig],
     on_response_fn: OnResponseFn,
     is_async_client_fn: Callable[[type[Any]], bool],
+    *,
+    is_copy: bool = False,
 ) -> AbstractContextManager[None]:
     """Instruments the provided `client` (or clients) with `logfire`.
 
@@ -48,6 +50,9 @@ def instrument_llm_provider(
     - a single client instance, e.g. an instance of `openai.OpenAI`,
     - a class of a client, or
     - an iterable of clients/classes.
+
+    `is_copy` is set for a client returned by `copy()` or `with_options()` on an instrumented
+    instance, which gets its own instrumentation like that instance has.
 
     Returns:
         A context manager that will revert the instrumentation when exited.
@@ -79,7 +84,10 @@ def instrument_llm_provider(
 
         return uninstrument_context()
 
-    if getattr(client, '_is_instrumented_by_logfire', False):
+    # A new copy only inherits the flag from its class. Instrument it anyway: the class's
+    # instrumentation may be removed while the copy is in use, and the instance it was
+    # copied from keeps its own instrumentation in that case.
+    if not is_copy and getattr(client, '_is_instrumented_by_logfire', False):
         # Do nothing if already instrumented.
         return nullcontext()
 
@@ -92,6 +100,13 @@ def instrument_llm_provider(
     except AttributeError:  # pragma: no cover  # for older versions
         original_request_method = client._request
         attr_name = '_request'
+
+    client_class: Any = getattr(client, '__class__')
+    if is_copy and getattr(client_class, '_is_instrumented_by_logfire', False):
+        # While the class is instrumented, `client.request` is the class's wrapper.
+        # Wrap the class's original method instead, so each request is recorded once.
+        class_original: Any = getattr(client_class, '_original_request_method')
+        original_request_method = class_original.__get__(client)
 
     client._original_request_method = original_request_method
 
@@ -213,6 +228,7 @@ def instrument_llm_provider(
                 get_endpoint_config_fn,
                 on_response_fn,
                 is_async_client_fn,
+                is_copy=True,
             )
             return new_client
 

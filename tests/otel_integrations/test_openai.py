@@ -446,6 +446,28 @@ def test_copies_of_instrumented_client_are_instrumented(exporter: TestExporter) 
     )
 
 
+def test_copy_keeps_instance_instrumentation_after_class_instrumentation(exporter: TestExporter) -> None:
+    with httpx2.Client(transport=httpx2.MockTransport(request_handler)) as httpx_client:
+        client = openai.Client(api_key='foobar', http_client=httpx_client)
+
+        with logfire.instrument_openai(client, version=1):
+            with logfire.instrument_openai(openai.Client, version=2):
+                copied = client.with_options(timeout=30)
+                copied.chat.completions.create(model='gpt-4', messages=COPY_TEST_MESSAGES)
+            # The copy is still recorded once the class's instrumentation is removed, like `client` is.
+            copied.chat.completions.create(model='gpt-4', messages=COPY_TEST_MESSAGES)
+            client.chat.completions.create(model='gpt-4', messages=COPY_TEST_MESSAGES)
+
+    # One span per request, each with the instance's settings (`version=1`) rather than the class's.
+    assert _recorded_requests(exporter) == snapshot(
+        [
+            {'message': "Chat Completion with 'gpt-4'", 'request_data_has_messages': True},
+            {'message': "Chat Completion with 'gpt-4'", 'request_data_has_messages': True},
+            {'message': "Chat Completion with 'gpt-4'", 'request_data_has_messages': True},
+        ]
+    )
+
+
 @pytest.mark.anyio
 async def test_copies_of_instrumented_async_client_are_instrumented(exporter: TestExporter) -> None:
     async with httpx2.AsyncClient(transport=httpx2.MockTransport(request_handler)) as httpx_client:
