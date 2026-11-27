@@ -1,0 +1,22 @@
+tests/test_stdlib_logging.py
+  s_b5cd1a73157459::t_6ce22a6acec2eb 568-578
+  s_b5cd1a73157459::t_6151d16fbd9fe8 586,589
+  s_b5cd1a73157459::t_d3e55c0f88103f 600-603
+  s_b5cd1a73157459::t_bf642efe45bbe1 537-567,579-585,587-588,590-599
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7aaecc5618a265a76e16e8ef103a1a26de24cf9a",
+  "prompts": {},
+  "sessions": {
+    "s_b5cd1a73157459": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a21d58-1ab7-7571-a3db-f1225d017670",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
