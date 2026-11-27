@@ -396,25 +396,40 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
             id='repr',
         ),
         pytest.param(
-            [[1, 3], [2, 4]],
             {
-                'type': 'array',
-                'x-python-datatype': 'DataFrame',
-                'x-columns': ['col1', 'col2'],
-                'x-indices': ['0', '1'],
-                'x-row-count': 2,
-                'x-column-count': 2,
+                'data': {
+                    'alice': [
+                        {'score': [1, 3], 'other': [2]},
+                        {'score': [7, 9], 'other': [8]},
+                    ],
+                    'bob': [{'score': [4, 6], 'other': [5]}],
+                },
+                'rows': ['alice', 'bob', 'alice'],
+                'columns': ['score', 'other', 'score'],
             },
-            '  | col1 | col2\n--+------+-----\n0 | 1    | 3   \n1 | 2    | 4   \n\n[2 rows x 2 columns]',
-            id='dataframe',
+            {'type': 'object', 'x-python-datatype': 'DataFrame', 'x-row-count': 3, 'x-column-count': 3},
+            '      | score | other | score\n'
+            '------+-------+-------+------\n'
+            'alice | 1     | 2     | 3    \n'
+            'bob   | 4     | 5     | 6    \n'
+            'alice | 7     | 8     | 9    \n\n'
+            '[3 rows x 3 columns]',
+            id='dataframe_duplicate_labels',
         ),
         pytest.param(
-            [[1, 2, 4, 5], [2, 4, 8, 10], [4, 8, 16, 20], [5, 10, 20, 25]],
             {
-                'type': 'array',
+                'data': {
+                    'a': [{'col1': [1], 'col2': [2], 'col4': [4], 'col5': [5]}],
+                    'b': [{'col1': [2], 'col2': [4], 'col4': [8], 'col5': [10]}],
+                    'd': [{'col1': [4], 'col2': [8], 'col4': [16], 'col5': [20]}],
+                    'e': [{'col1': [5], 'col2': [10], 'col4': [20], 'col5': [25]}],
+                },
+                'rows': ['a', 'b', 'd', 'e'],
+                'columns': ['col1', 'col2', 'col4', 'col5'],
+            },
+            {
+                'type': 'object',
                 'x-python-datatype': 'DataFrame',
-                'x-columns': ['col1', 'col2', 'col4', 'col5'],
-                'x-indices': ['a', 'b', 'd', 'e'],
                 'x-row-count': 5,
                 'x-column-count': 5,
             },
@@ -791,3 +806,32 @@ def test_all_types_covered():
 def test_zero_dimensional_ndarray_formatting(formatter: Any, value: Any, formatted: str) -> None:
     schema: JSONSchema = {'type': 'array', 'x-python-datatype': 'ndarray', 'x-shape': [], 'x-dtype': 'object'}
     assert formatter(value, schema=schema) == formatted
+
+
+@pytest.mark.parametrize('formatter', [json_args_value_formatter, json_args_value_formatter_compact])
+@pytest.mark.parametrize('value', [{'replacement': 1}, {'data': {}, 'rows': ['missing'], 'columns': []}])
+def test_dataframe_formatter_handles_mapping_replacement(formatter: Any, value: dict[str, Any]) -> None:
+    schema = cast(
+        JSONSchema, {'type': 'object', 'x-python-datatype': 'DataFrame', 'x-row-count': 1, 'x-column-count': 1}
+    )
+    formatted = formatter(value, schema=schema)
+    assert formatted.startswith('{')
+    assert formatted.endswith('}')
+
+
+@pytest.mark.parametrize('formatter', [json_args_value_formatter, json_args_value_formatter_compact])
+@pytest.mark.parametrize('value,expected', [('[Scrubbed]', '[Scrubbed]'), ([1, 2], '[1, 2]')])
+def test_dataframe_formatter_handles_non_mapping_replacement(formatter: Any, value: Any, expected: str) -> None:
+    schema = cast(JSONSchema, {'type': 'object', 'x-python-datatype': 'DataFrame'})
+    assert formatter(value, schema=schema) == expected
+
+
+@pytest.mark.parametrize('formatter', [json_args_value_formatter, json_args_value_formatter_compact])
+def test_dataframe_formatter_handles_scrubbed_row(formatter: Any) -> None:
+    schema = cast(
+        JSONSchema, {'type': 'object', 'x-python-datatype': 'DataFrame', 'x-row-count': 1, 'x-column-count': 1}
+    )
+    value = {'data': {'row': ['[Scrubbed]']}, 'rows': ['row'], 'columns': ['column']}
+    formatted = formatter(value, schema=schema)
+    assert '[Scrubbed]' in formatted
+    assert '[1 rows x 1 columns]' in formatted

@@ -802,6 +802,169 @@ def test_extract_request_parameters_max_completion_tokens() -> None:
     assert span_data['gen_ai.request.max_tokens'] == 100
 
 
+def test_openai_tool_definitions_omit_hosted_credentials() -> None:
+    from logfire._internal.integrations.llm_providers.openai import (
+        _extract_request_parameters,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    network_policy: dict[str, Any] = {
+        'type': 'allowlist',
+        'allowed_domains': ['example.com'],
+        'domain_secrets': [{'domain': 'example.com', 'name': 'API_KEY', 'value': 'container-secret'}],
+    }
+    mcp_tool = {
+        'type': 'mcp',
+        'server_label': 'crm',
+        'authorization': 'oauth-token',
+        'headers': {'X-Key': 'header-secret'},
+        'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp', 'headers': {'X-Key': 'transport-secret'}},
+    }
+    tools = [
+        {
+            'type': 'function',
+            'name': 'lookup',
+            'parameters': {
+                'properties': {
+                    'password': {'type': 'string'},
+                    'network_policy': {'domain_secrets': {'type': 'string'}},
+                }
+            },
+        },
+        mcp_tool,
+        {'type': 'code_interpreter', 'container': {'network_policy': network_policy}},
+        {'type': 'shell', 'environment': {'network_policy': network_policy}},
+        'other-tool',
+    ]
+    span_data: dict[str, Any] = {}
+
+    _extract_request_parameters({'tools': tools}, span_data)
+
+    assert json.loads(span_data['gen_ai.tool.definitions']) == [
+        tools[0],
+        {'type': 'mcp', 'server_label': 'crm', 'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp'}},
+        {
+            'type': 'code_interpreter',
+            'container': {'network_policy': {'type': 'allowlist', 'allowed_domains': ['example.com']}},
+        },
+        {'type': 'shell', 'environment': {'network_policy': {'type': 'allowlist', 'allowed_domains': ['example.com']}}},
+        'other-tool',
+    ]
+    assert mcp_tool['authorization'] == 'oauth-token'
+    assert network_policy['domain_secrets'][0]['value'] == 'container-secret'
+
+
+def test_openai_legacy_top_level_tools_omit_credentials() -> None:
+    from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+
+    mcp_tool = {
+        'type': 'mcp',
+        'server_label': 'crm',
+        'authorization': 'oauth-token',
+        'headers': {'X-Key': 'header-secret'},
+        'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp', 'headers': {'X-Key': 'transport-secret'}},
+    }
+    network_policy: dict[str, Any] = {
+        'allowed_domains': ['example.com'],
+        'domain_secrets': [{'domain': 'example.com', 'value': 'container-secret'}],
+    }
+    original: dict[str, Any] = {
+        'model': 'gpt-5',
+        'input': 'hi',
+        'agent': {'tools': [mcp_tool]},
+        'tools': [mcp_tool, {'type': 'code_interpreter', 'container': {'network_policy': network_policy}}],
+    }
+
+    class MockOptions:
+        url = '/responses/input_tokens/count'
+        json_data: dict[str, Any] = original
+
+    expected_tool = {
+        'type': 'mcp',
+        'server_label': 'crm',
+        'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp'},
+    }
+    # This is pre-export span data: nested authorization is marked by the span scrubber, while headers are removed here.
+    expected: dict[str, Any] = {
+        'model': 'gpt-5',
+        'input': 'hi',
+        'agent': {
+            'tools': [
+                {
+                    'type': 'mcp',
+                    'server_label': 'crm',
+                    'authorization': 'oauth-token',
+                    'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp'},
+                }
+            ]
+        },
+        'tools': [
+            expected_tool,
+            {'type': 'code_interpreter', 'container': {'network_policy': {'allowed_domains': ['example.com']}}},
+        ],
+    }
+    for version in (1, frozenset({1, 2})):
+        config = get_endpoint_config(MockOptions(), version=version)  # type: ignore
+        assert config.span_data['request_data'] == expected
+        assert json.loads(config.span_data['gen_ai.tool.definitions']) == expected['tools']
+
+    assert original['tools'][0]['authorization'] == 'oauth-token'
+    assert network_policy['domain_secrets'][0]['value'] == 'container-secret'
+
+    config = get_endpoint_config(MockOptions(), version=2)  # type: ignore
+    assert config.span_data['request_data'] == {'model': 'gpt-5'}
+
+    unchanged = {'model': 'gpt-5', 'tools': [{'type': 'function', 'name': 'lookup'}]}
+    MockOptions.json_data = unchanged
+    MockOptions.url = '/chat/completions'
+    config = get_endpoint_config(MockOptions(), version=1)  # type: ignore
+    assert config.span_data['request_data'] is unchanged
+
+    MockOptions.url = '/containers'
+    MockOptions.json_data = {'network_policy': network_policy}
+    config = get_endpoint_config(MockOptions(), version=1)  # type: ignore
+    assert config.span_data['request_data'] == {'network_policy': {'allowed_domains': ['example.com']}}
+
+
+def test_openai_nested_mcp_headers_are_not_exported(exporter: TestExporter) -> None:
+    sent: list[dict[str, Any]] = []
+
+    def handle(request: httpx2.Request) -> httpx2.Response:
+        sent.append(json.loads(request.content))
+        if request.url.path.endswith('/input_tokens'):
+            return httpx2.Response(200, json={'object': 'response.input_tokens', 'input_tokens': 3})
+        return httpx2.Response(200, json={'output': []})
+
+    client = openai.OpenAI(api_key='sk-test', http_client=httpx2.Client(transport=httpx2.MockTransport(handle)))
+    tool = {
+        'type': 'mcp',
+        'server_label': 'crm',
+        'authorization': 'oauth-token',
+        'headers': {'X-Key': 'header-secret'},
+        'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp', 'headers': {'X-Key': 'transport-secret'}},
+    }
+    input_items = [{'type': 'additional_tools', 'tools': [tool]}]
+
+    # The client forwards additional_tools items even though its current input type does not include them.
+    with logfire.instrument_openai(client, version=1):
+        client.responses.input_tokens.count(model='gpt-5', input=input_items)  # pyright: ignore[reportArgumentType]
+        client.responses.create(model='gpt-5', input=input_items)  # pyright: ignore[reportArgumentType]
+
+    spans = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    count_span = next(attrs for attrs in spans if attrs.get('url') == '/responses/input_tokens')
+    response_span = next(
+        attrs for attrs in spans if attrs.get('logfire.msg_template') == 'Responses API with {gen_ai.request.model!r}'
+    )
+    recorded_tool = count_span['request_data']['input'][0]['tools'][0]
+    assert recorded_tool == {
+        'type': 'mcp',
+        'server_label': 'crm',
+        'authorization': "[Scrubbed due to 'auth']",
+        'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp'},
+    }
+    assert response_span['events'][0]['data']['tools'][0] == recorded_tool
+    assert all(body['input'][0]['tools'][0] == tool for body in sent)
+
+
 def test_normalize_versions_validation() -> None:
     from logfire._internal.integrations.llm_providers.semconv import normalize_versions
 

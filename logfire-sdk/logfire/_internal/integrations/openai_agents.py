@@ -40,7 +40,7 @@ from logfire._internal.integrations.llm_providers.openai import (
     responses_finish_reasons,
     responses_output_events,
 )
-from logfire._internal.integrations.llm_providers.semconv import RESPONSE_FINISH_REASONS, RESPONSE_ID
+from logfire._internal.integrations.llm_providers.semconv import RESPONSE_FINISH_REASONS, RESPONSE_ID, provider_attrs
 from logfire._internal.scrubbing import NOOP_SCRUBBER
 from logfire._internal.utils import handle_internal_errors, log_internal_error, truncate_string
 
@@ -376,7 +376,7 @@ def attributes_from_span_data(
         attributes = span_data.export()
         if '{type}' not in msg_template and attributes.get('type') == span_data.type:
             del attributes['type']
-        attributes['gen_ai.system'] = 'openai'
+        attributes.update(provider_attrs('openai'))
         if isinstance(attributes.get('model'), str):
             attributes['gen_ai.request.model'] = attributes['gen_ai.response.model'] = attributes.pop('model')
         if isinstance(span_data, ResponseSpanData):
@@ -418,7 +418,7 @@ def get_basic_response_attributes(response: Response):
         RESPONSE_ID: response.id,
         'gen_ai.response.model': getattr(response, 'model', None),
         'response': response,
-        'gen_ai.system': 'openai',
+        **provider_attrs('openai'),
         'gen_ai.operation.name': 'chat',
     }
     if finish_reasons := responses_finish_reasons(response):

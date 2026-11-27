@@ -30,5 +30,8 @@ def instrument_mysql(
     See the `Logfire.instrument_mysql` method for details.
     """
     if conn is not None:
-        return MySQLInstrumentor().instrument_connection(conn, tracer_provider=tracer_provider)  # pyright: ignore[reportUnknownMemberType]
+        # `instrument_connection` has no `meter_provider` or `skip_dep_check` parameter.
+        kwargs.pop('meter_provider', None)
+        kwargs.pop('skip_dep_check', None)
+        return MySQLInstrumentor().instrument_connection(conn, tracer_provider=tracer_provider, **kwargs)  # pyright: ignore[reportUnknownMemberType]
     return MySQLInstrumentor().instrument(**kwargs, tracer_provider=tracer_provider)  # pyright: ignore[reportReturnType]

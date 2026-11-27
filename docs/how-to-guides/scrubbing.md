@@ -95,6 +95,8 @@ logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback
 
 Logfire scrubs a value before checking whether its key matches a pattern. This includes strings and values inside dictionaries, lists, and JSON-encoded containers. Your callback for a matching key receives the scrubbed value, so it can return that value unchanged or return a subset of a container. If it returns a different value, Logfire uses that replacement without scrubbing it again. For most safe keys, Logfire skips pattern matching inside their values; structured message attributes are treated differently, as described below.
 
+For a Pydantic validation error, Logfire checks field names in `loc` (the path to the field that failed) like keys for `input` (the rejected value). It checks the innermost field first. Your callback receives the full `loc` path for each matching name. For a missing-field error, `input` is the container missing that field, so Logfire skips the absent field name and checks the parent names and keys inside the container.
+
 Logfire also checks JSON-encoded arrays and objects nested inside strings. If scrubbing changes a value inside more than four such strings, Logfire replaces the nested string with `[Scrubbed due to deeply nested JSON]`. The marker also replaces any callback replacement inside that string, along with other data there. JSON with no scrubbing changes stays unchanged.
 
 If the callback returns a value unchanged (or returns an equal copy of the same type), Logfire checks other patterns that match at the same position, then later positions in the same key or string value. The callback may run more than once for one key or value. A different returned value is used as the final value. After 100 allowed matches in one string, Logfire redacts the value to limit the search cost.
@@ -192,6 +194,13 @@ In short, don't format the message yourself. This is also a good practice in gen
 
 The `transform_string` callback *will* run on the assembled message.
 
+Logging libraries format their own messages, so the same applies to them: pattern matching checks the
+arguments Logfire records as attributes, but not the formatted message. The `transform_string` callback
+still runs on that message. See
+[standard library logging](../integrations/logging.md#keep-sensitive-values-out-of-log-messages),
+[Loguru](../integrations/loguru.md#scrubbing), and
+[structlog positional arguments](../integrations/structlog.md#positional-arguments).
+
 ### Keep sensitive data out of URLs
 
 The attribute `"http.url"` which is recorded by OpenTelemetry instrumentation libraries is considered safe so that URLs like `"http://example.com/users/123/authenticate"` are not redacted.
@@ -204,6 +213,14 @@ The `"db.statement"` attribute which is recorded by OpenTelemetry database instr
 
 Use parameterized queries (e.g. prepared statements) so that sensitive data is not interpolated directly into the query string, even if
 you use an interpolation method that's safe from SQL injection.
+
+### Scrub rejected values in validation errors
+
+Pydantic validation errors store the rejected value under `input` and the field's path under `loc`. Logfire checks each field name in `loc` against your scrubbing patterns and redacts a matching field's `input`. This applies to recorded validation exceptions, FastAPI and Pydantic integration errors, and error data you log yourself. Pattern scrubbing leaves field names in `loc` visible so you can identify which field failed; a configured `transform_string` callback can still change them. A scrubbing callback receives the field path when it decides whether to redact the value.
+
+When Logfire records a Pydantic `ValidationError`, it also uses the redacted value in the exception message, stack trace, and span status. For example, a rejected password appears as `input_value="[Scrubbed due to 'password']"` instead of the original value. The exception in your application is unchanged.
+
+Custom validation messages can contain the rejected value in other text. If a validator writes the value into its error message or derives text from it, that text may still reveal it. Avoid including sensitive values in custom error messages. You can also use Pydantic's `hide_input_in_errors=True` model setting to omit rejected values from its rendered validation errors entirely.
 
 ### LLM and AI messages
 

@@ -4,6 +4,7 @@ import logging
 from collections.abc import Sequence
 from contextlib import contextmanager
 from logging import Logger, getLogger
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -542,3 +543,24 @@ def test_stdlib_logging_levels_above_critical(exporter: TestExporter, logger: Lo
     level = SpanLevel.from_span(span)
     assert level.number == 21
     assert level.name == 'fatal'
+
+
+def test_stdlib_logging_source_filepath(exporter: TestExporter, logger: Logger) -> None:
+    logfire.info('From Logfire')
+    logger.warning('From logging')
+
+    direct, integrated = exporter.exported_spans_as_dict(strip_filepaths=False)
+    expected = str(Path(__file__).resolve().relative_to(Path.cwd().resolve()))
+    assert direct['attributes']['code.filepath'] == expected
+    assert integrated['attributes']['code.filepath'] == expected
+
+
+def test_stdlib_logging_preserves_relative_and_external_filepaths(exporter: TestExporter, logger: Logger) -> None:
+    cwd = Path.cwd().resolve()
+    paths = [str(Path('package') / 'module.py'), str(cwd.parent / f'{cwd.name}-external' / 'module.py')]
+    for path in paths:
+        record = logger.makeRecord(logger.name, logging.WARNING, path, 1, 'From logging', (), None)
+        logger.handle(record)
+
+    spans = exporter.exported_spans_as_dict(strip_filepaths=False)
+    assert [span['attributes']['code.filepath'] for span in spans] == paths
