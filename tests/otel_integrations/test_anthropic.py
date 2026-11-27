@@ -261,7 +261,8 @@ def test_copies_of_instrumented_client_are_instrumented(exporter: TestExporter) 
         client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
 
         with logfire.instrument_anthropic(client, suppress_other_instrumentation=True):
-            for copied in [client.with_options(timeout=30), client.copy(max_retries=5)]:
+            earlier_copy = client.with_options(timeout=30)
+            for copied in [earlier_copy, client.copy(max_retries=5), earlier_copy.with_options(max_retries=1)]:
                 copied.messages.create(
                     max_tokens=1000,
                     model='claude-3-haiku-20240307',
@@ -270,7 +271,11 @@ def test_copies_of_instrumented_client_are_instrumented(exporter: TestExporter) 
                 )
 
     assert [span['attributes']['logfire.msg'] for span in exporter.exported_spans_as_dict()] == snapshot(
-        ["Message with 'claude-3-haiku-20240307'", "Message with 'claude-3-haiku-20240307'"]
+        [
+            "Message with 'claude-3-haiku-20240307'",
+            "Message with 'claude-3-haiku-20240307'",
+            "Message with 'claude-3-haiku-20240307'",
+        ]
     )
 
 
