@@ -104,7 +104,8 @@ structlog. If you want to log with Logfire's console output as well, use
     message. A configured `transform_string` callback still applies to it.
     The message also becomes the log's span name, so a sensitive positional argument appears in both,
     and there is no redacted copy in an attribute. Pass sensitive values as key-value fields instead,
-    such as `logger.info('Login', form=form)`: Logfire records each field as an attribute and scrubs it.
+    such as `logger.info('Login', form=form)`: Logfire records each field as an attribute, and pattern
+    matching redacts values whose key or content matches a sensitive pattern such as `password`.
     If this limitation affects you, describe your use case in
     [issue #2952](https://github.com/pydantic/logfire/issues/2952).
 

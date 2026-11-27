@@ -130,7 +130,7 @@ message still reads `Login attempt: {'username': 'alice', 'password': 'hunter2'}
 in Logfire's console output, exactly as `logging` formats it.
 
 To keep a value out of the message, pass it in `extra` instead. Logfire records each `extra` field as
-its own attribute and scrubs it:
+its own attribute, and pattern matching checks it like any other attribute:
 
 ```py skip="true" skip-reason="incomplete"
 logger.info('Login attempt', extra={'form': {'username': 'alice', 'password': 'hunter2'}})
