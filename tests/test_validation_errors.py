@@ -60,17 +60,18 @@ def test_dataclass_input_is_scrubbed() -> None:
 
 
 def test_opaque_input_serialization_failure_preserves_original() -> None:
-    class UnserializableValidationError(ValidationError):
-        def json(self, *args: Any, **kwargs: Any) -> str:
-            raise ValueError('serialization failed')
-
     @dataclass
     class LoginInput:
         password: str
 
-    error = UnserializableValidationError.from_exception_data(
+    error = ValidationError.from_exception_data(
         'Login', [{'type': 'missing', 'loc': ('username',), 'input': LoginInput('hunter2')}]
     )
+
+    def fail_json(*args: Any, **kwargs: Any) -> str:
+        raise ValueError('serialization failed')
+
+    setattr(error, 'json', fail_json)
     assert scrubbed_validation_error(error, Scrubber(None), PATH) is None
 
 
