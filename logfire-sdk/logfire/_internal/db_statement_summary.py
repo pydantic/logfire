@@ -48,7 +48,10 @@ def message_from_db_statement(attributes: Mapping[str, Any], message: str | None
 TABLE_RE = '[\\w."\'`-]+'
 SELECT_RE = re.compile(rf'SELECT (.+?) FROM ({TABLE_RE})', flags=re.I | re.DOTALL)
 SELECT_CTE_RE = re.compile(rf'WITH (.+?) SELECT (.+?) FROM ({TABLE_RE})', flags=re.I | re.DOTALL)
-SELECT_SUBQUERY_RE = re.compile(rf'SELECT (.+?) FROM (\(.+?\)) AS ({TABLE_RE})', flags=re.I | re.DOTALL)
+# The subquery alias is found with a separate search because a single regex retries every later 'FROM (' when the
+# alias is missing, which is quadratic in the length of the query.
+SELECT_SUBQUERY_RE = re.compile(r'SELECT (.+?) FROM \(', flags=re.I | re.DOTALL)
+SUBQUERY_ALIAS_RE = re.compile(rf'\) AS ({TABLE_RE})', flags=re.I)
 INSERT_RE = re.compile(rf'INSERT INTO ({TABLE_RE}) (\(.+?\)) VALUES (\(.+?\))', flags=re.I)
 
 
@@ -74,9 +77,17 @@ def summarize_query(db_statement: str) -> str | None:
     if len(db_statement) <= MAX_QUERY_MESSAGE_LENGTH:
         return db_statement
 
-    if select_match := SELECT_SUBQUERY_RE.match(db_statement):
-        expr, subquery, table = select_match.groups()
-        return select(expr, table, match_end=select_match.end(), db_statement=db_statement, sub_query=subquery)
+    if (select_match := SELECT_SUBQUERY_RE.match(db_statement)) and (
+        alias_match := SUBQUERY_ALIAS_RE.search(db_statement, select_match.end() + 1)  # the subquery can't be empty
+    ):
+        subquery = db_statement[select_match.end() - 1 : alias_match.start() + 1]
+        return select(
+            select_match.group(1),
+            alias_match.group(1),
+            match_end=alias_match.end(),
+            db_statement=db_statement,
+            sub_query=subquery,
+        )
     elif select_match := SELECT_RE.match(db_statement):
         return select(*select_match.groups(), match_end=select_match.end(), db_statement=db_statement)
     elif select_match := SELECT_CTE_RE.match(db_statement):
