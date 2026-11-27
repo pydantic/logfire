@@ -5,7 +5,7 @@ from unittest import mock
 
 import mysql.connector
 import pytest
-from dirty_equals import IsInt
+from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.mysql import MySQLInstrumentor
 from testcontainers.mysql import MySqlContainer
@@ -125,6 +125,21 @@ def test_instrument_mysql_connection(exporter: TestExporter, mysql_container: My
             cursor.execute('INSERT INTO test (id, name) VALUES (2, "test-2")')
 
         assert len(exporter.exported_spans_as_dict(parse_json_attributes=True)) == 1
+
+
+def test_instrument_mysql_connection_with_commenter(exporter: TestExporter, mysql_container: MySqlContainer):
+    with get_mysql_connection(mysql_container) as conn:
+        conn = logfire.instrument_mysql(
+            conn, enable_commenter=True, enable_attribute_commenter=True, skip_dep_check=True
+        )
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT 1')
+            cursor.fetchall()
+
+        [span] = exporter.exported_spans_as_dict()
+        assert span['attributes']['db.statement'] == IsStr(regex=r"SELECT 1 /\*.*traceparent='00-0+1-0+1-01'\*/")
+
+        MySQLInstrumentor().uninstrument_connection(conn)  # type: ignore
 
 
 def test_missing_opentelemetry_dependency() -> None:
