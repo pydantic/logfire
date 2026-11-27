@@ -97,7 +97,7 @@ def instrument_fastapi(
     maybe_capture_server_headers(capture_headers)
     opentelemetry_kwargs = {
         'excluded_urls': excluded_urls,
-        'server_request_hook': _server_request_hook(opentelemetry_kwargs.pop('server_request_hook', None)),
+        'server_request_hook': _server_request_hook(opentelemetry_kwargs.pop('server_request_hook', None), app),
         'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
         'meter_provider': logfire_instance.config.get_meter_provider(),
         **opentelemetry_kwargs,
@@ -197,9 +197,12 @@ class _FastAPIRegistry:
         default_factory=lambda: WeakKeyDictionary[FastAPI, FastAPIInstrumentation]()
     )
 
-    def get_instrumentation(self, app: FastAPI) -> FastAPIInstrumentation | None:
-        """Get the instrumentation for a specific app, or the global instrumentation if none is set."""
-        return self.per_app.get(app) or self.global_instrumentation
+    def get_instrumentation(self, request: Request | WebSocket) -> FastAPIInstrumentation | None:
+        """Get instrumentation for the routed app, the app that started the span, or the global setup."""
+        instrumentation = self.per_app.get(request.app)
+        if instrumentation is None and (app := request.scope.get(LOGFIRE_APP_SCOPE_KEY)) is not None:
+            instrumentation = self.per_app.get(app)
+        return instrumentation or self.global_instrumentation
 
 
 @lru_cache  # only patch once
@@ -212,7 +215,7 @@ def patch_fastapi() -> _FastAPIRegistry:
     @wraps(original_solve_dependencies)
     async def patched_solve_dependencies(*, request: Request | WebSocket, **kwargs: Any) -> Any:
         original = original_solve_dependencies(request=request, **kwargs)
-        if instrumentation := registry.get_instrumentation(request.app):
+        if instrumentation := registry.get_instrumentation(request):
             return await instrumentation.solve_dependencies(request, original)
         else:
             return await original  # pragma: no cover
@@ -229,7 +232,7 @@ def patch_fastapi() -> _FastAPIRegistry:
     async def patched_run_endpoint_function(*, dependant: Any, values: dict[str, Any], **kwargs: Any) -> Any:
         if isinstance(values, _InstrumentedValues):
             request = values.request
-            if instrumentation := registry.get_instrumentation(request.app):  # pragma: no branch
+            if instrumentation := registry.get_instrumentation(request):  # pragma: no branch
                 return await instrumentation.run_endpoint_function(
                     original_run_endpoint_function, request, dependant, values, **kwargs
                 )
@@ -402,13 +405,17 @@ class _InstrumentedValues(dict):  # pyright: ignore[reportMissingTypeArgument]
 
 
 LOGFIRE_SPAN_SCOPE_KEY = 'logfire.span'
+LOGFIRE_APP_SCOPE_KEY = 'logfire.instrumented_app'
 
 
-def _server_request_hook(user_hook: ServerRequestHook | None):
+def _server_request_hook(user_hook: ServerRequestHook | None, app: FastAPI | None):
     # Add the span to the request scope so that we can access it in `solve_dependencies`.
     # Also call the user's hook if they passed one.
     def hook(span: Span, scope: dict[str, Any]):
         scope[LOGFIRE_SPAN_SCOPE_KEY] = span
+        if app is not None:
+            # Mounted apps replace scope['app'] before FastAPI resolves dependencies.
+            scope[LOGFIRE_APP_SCOPE_KEY] = app
         # FastAPI's native telemetry detects legacy OTel on the root app, but not
         # mounted apps. Its scope marker keeps those apps from starting new traces.
         scope.setdefault('fastapi.telemetry', None)
