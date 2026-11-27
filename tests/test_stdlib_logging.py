@@ -534,6 +534,73 @@ def test_logging_error_scrubs_arguments(exporter: TestExporter, capsys: pytest.C
     assert exporter.exported_spans == []
 
 
+@pytest.mark.parametrize(
+    ('template', 'argument', 'expected'),
+    [
+        (
+            'value: %s',
+            {'password': 'hunter2', 'visible': 'yes'},
+            "value: {'password': \"[Scrubbed due to 'password']\", 'visible': 'yes'}",
+        ),
+        ('value: %s', [{'password': 'hunter2'}], "value: [{'password': \"[Scrubbed due to 'password']\"}]"),
+        ('value: %(item)s', {'item': {'password': 'hunter2'}}, "value: {'password': \"[Scrubbed due to 'password']\"}"),
+        ('value: %(password)s', {'password': 'hunter2'}, "value: [Scrubbed due to 'password']"),
+    ],
+)
+def test_logging_scrubs_container_message_arguments(
+    exporter: TestExporter, logger: Logger, template: str, argument: Any, expected: str
+) -> None:
+    logger.error(template, argument)
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['logfire.msg'] == expected
+    assert 'hunter2' not in str(span)
+
+
+def test_logging_keeps_non_container_message_formatting(exporter: TestExporter, logger: Logger) -> None:
+    class URL:
+        def __str__(self) -> str:
+            return 'https://example.com/?password=hunter2'
+
+    logger.error('plain: %s', 'password=hunter2')
+    logger.error('url: %s', URL())
+
+    messages = [span['attributes']['logfire.msg'] for span in exporter.exported_spans_as_dict()]
+    assert messages == ['plain: password=hunter2', 'url: https://example.com/?password=hunter2']
+
+
+def test_logging_keeps_unredacted_container_formatting(exporter: TestExporter, logger: Logger) -> None:
+    class DisplayDict(dict[str, str]):
+        def __str__(self) -> str:
+            return 'custom display'
+
+    logger.error('value: %s', DisplayDict(visible='yes'))
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['attributes']['logfire.msg'] == 'value: custom display'
+
+
+def test_logging_redacted_container_format_error_scrubs_arguments(
+    exporter: TestExporter, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bad_logger = getLogger('tests.test_stdlib_logging.redacted_format_error')
+    bad_logger.propagate = False
+    handler = LogfireLoggingHandler()
+    bad_logger.addHandler(handler)
+    secret_number = int('123' + '456')
+    try:
+        # The original value fits %d, but the redacted replacement does not.
+        bad_logger.error('password: %(password)d', {'password': secret_number})
+    finally:
+        bad_logger.removeHandler(handler)
+
+    errors = capsys.readouterr().err
+    assert '--- Logging error ---' in errors
+    assert '123456' not in errors
+    assert "[Scrubbed due to 'password']" in errors
+    assert exporter.exported_spans == []
+
+
 @pytest.mark.parametrize('levelno', [logging.CRITICAL, logging.CRITICAL + 1, 60, 100])
 def test_stdlib_logging_levels_above_critical(exporter: TestExporter, logger: Logger, levelno: int) -> None:
     logger.log(levelno, 'severe')
