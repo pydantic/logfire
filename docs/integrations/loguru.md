@@ -89,6 +89,9 @@ controls whether Logfire prints Loguru's logs. It doesn't change the format of L
     # > 14:58:26.085 Foo: secret_value
     ```
 
+    If this limitation affects you, describe your use case in
+    [issue #2952](https://github.com/pydantic/logfire/issues/2952).
+
 ## Troubleshooting
 
 Not seeing your logs in Logfire? Check that `logfire.configure()` ran first, your write token is set,
