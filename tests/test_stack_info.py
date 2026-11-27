@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -49,3 +50,21 @@ def test_code_objects_differing_only_in_filename_are_cached_separately(
     user_info = stack_info.get_code_object_info(user_code)
     assert library_info == {**stack_info.get_filepath_attribute(library_file), 'code.lineno': 1}
     assert user_info == {**stack_info.get_filepath_attribute(user_file), 'code.lineno': 1}
+
+
+def test_filepath_attribute_caches_normalization_without_sharing_attributes(tmp_path: Path) -> None:
+    filename = str(tmp_path / 'module.py')
+    code = compile('', filename, 'exec')
+
+    with patch.object(stack_info, 'Path', wraps=Path) as make_path:
+        assert stack_info.get_code_object_info(code) == {'code.filepath': filename, 'code.lineno': 1}
+        assert stack_info.get_filepath_attribute(filename) == {'code.filepath': filename}
+
+    make_path.assert_called_once_with(filename)
+
+
+def test_filepath_attribute_uses_initial_working_directory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    filename = str(Path('startup-cwd-module.py').resolve())
+    monkeypatch.chdir(tmp_path)
+
+    assert stack_info.get_filepath_attribute(filename) == {'code.filepath': 'startup-cwd-module.py'}
