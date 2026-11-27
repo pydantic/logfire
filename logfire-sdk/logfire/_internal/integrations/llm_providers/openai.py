@@ -1105,7 +1105,12 @@ class _WsSessionTracker:
             ):
                 entry = _SkippedWsResponse()
             else:
-                span_data = _build_responses_span_data(event_dict, self.versions, stream=True)
+                # Like `get_endpoint_config`, record a copy without MCP headers and leave the sent event unchanged.
+                span_data = _build_responses_span_data(
+                    cast('dict[str, Any]', _without_credentials(event_dict, keep_authorization=True)),
+                    self.versions,
+                    stream=True,
+                )
                 span_data['async'] = self.is_async
                 stream_state = cast(
                     'OpenaiResponsesStreamState',

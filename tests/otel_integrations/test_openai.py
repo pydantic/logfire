@@ -6658,6 +6658,45 @@ def test_responses_websocket(exporter: TestExporter) -> None:
         assert exporter.exported_spans == []
 
 
+def test_responses_websocket_nested_mcp_headers_are_not_exported(exporter: TestExporter) -> None:
+    sent: list[dict[str, Any]] = []
+
+    def handler(ws: Any) -> None:
+        from websockets.exceptions import ConnectionClosed
+
+        with suppress(ConnectionClosed):
+            for i, raw in enumerate(ws):
+                request = json.loads(raw)
+                sent.append(request)
+                for event in _ws_response_events(f'resp_{i}', request['model'], f'reply {i}'):
+                    ws.send(json.dumps(event))
+
+    tool = {
+        'type': 'mcp',
+        'server_label': 'crm',
+        'authorization': 'oauth-token',
+        'headers': {'X-Key': 'header-secret'},
+        'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp', 'headers': {'X-Key': 'transport-secret'}},
+    }
+    input_items = [{'type': 'additional_tools', 'tools': [tool]}]
+
+    with _ws_client(handler) as client:
+        with logfire.instrument_openai(client, version=[1, 2]):
+            with client.responses.connect() as conn:
+                conn.response.create(model='gpt-4.1', input=input_items)  # pyright: ignore[reportArgumentType]
+                _event_types_until_completed(conn)
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['events'][0]['data']['tools'][0] == {
+        'type': 'mcp',
+        'server_label': 'crm',
+        'authorization': "[Scrubbed due to 'auth']",
+        'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp'},
+    }
+    assert 'secret' not in json.dumps(span['attributes'])
+    assert [request['input'][0]['tools'][0] for request in sent] == [tool]
+
+
 def test_responses_websocket_multiple_turns(exporter: TestExporter) -> None:
     with _ws_client(_reply_to_each_request) as client:
         logfire.instrument_openai(client)
