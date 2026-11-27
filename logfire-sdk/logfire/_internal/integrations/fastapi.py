@@ -198,10 +198,16 @@ class _FastAPIRegistry:
     )
 
     def get_instrumentation(self, request: Request | WebSocket) -> FastAPIInstrumentation | None:
-        """Get instrumentation for the routed app, the app that started the span, or the global setup."""
-        instrumentation = self.per_app.get(request.app)
-        if instrumentation is None and (app := request.scope.get(LOGFIRE_APP_SCOPE_KEY)) is not None:
+        """Get instrumentation for the app that started the request span, the routed app, or the global setup.
+
+        The instrumented app that started the request span takes precedence over the routed app
+        because a sub-app can be mounted in several instrumented apps with different settings.
+        """
+        instrumentation = None
+        if (app := request.scope.get(LOGFIRE_APP_SCOPE_KEY)) is not None:
             instrumentation = self.per_app.get(app)
+        if instrumentation is None:
+            instrumentation = self.per_app.get(request.app)
         return instrumentation or self.global_instrumentation
 
 

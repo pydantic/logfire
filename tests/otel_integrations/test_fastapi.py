@@ -10,6 +10,7 @@ import pytest
 from dirty_equals import IsFloat, IsInt
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.trace import SpanKind
 from pydantic import BaseModel, Field
 from starlette.requests import Request
@@ -1724,6 +1725,78 @@ def test_mounted_app_instrumentation_order(exporter: TestExporter, mount_first: 
     assert json.loads(values) == {'item_id': 42}
     assert attributes['fastapi.endpoint_function.start_timestamp'] == '1970-01-01T00:00:04.000000Z'
     assert attributes['fastapi.endpoint_function.end_timestamp'] == '1970-01-01T00:00:05.000000Z'
+
+
+def _request_span_summaries(exporter: TestExporter) -> list[dict[str, Any]]:
+    return [
+        {
+            'name': span['name'],
+            **{
+                key: value
+                for key, value in span['attributes'].items()
+                if key in ('root', 'fastapi.arguments.values', 'http.route')
+            },
+        }
+        for span in exporter.exported_spans_as_dict(parse_json_attributes=True)
+    ]
+
+
+@pytest.mark.parametrize('public_first', [True, False], ids=['public_first', 'internal_first'])
+def test_sub_app_mounted_in_two_instrumented_apps(
+    exporter: TestExporter, config_kwargs: dict[str, Any], public_first: bool
+) -> None:
+    child = FastAPI()
+
+    @child.get('/items/{item_id}')
+    def get_item(item_id: int) -> dict[str, int]:
+        return {'item_id': item_id}
+
+    public = FastAPI()
+    public.mount('/api', child)
+    internal = FastAPI()
+    internal.mount('/api', child)
+
+    internal_exporter = TestExporter()
+    config_kwargs['additional_span_processors'] = [SimpleSpanProcessor(internal_exporter)]
+    internal_logfire = logfire.configure(local=True, **config_kwargs)
+
+    def public_mapper(request: Request | WebSocket, attributes: dict[str, Any]) -> dict[str, Any]:
+        return {'root': 'public'}
+
+    def internal_mapper(request: Request | WebSocket, attributes: dict[str, Any]) -> dict[str, Any]:
+        return {**attributes, 'root': 'internal'}
+
+    def instrument_public() -> Any:
+        return logfire.instrument_fastapi(public, request_attributes_mapper=public_mapper)
+
+    def instrument_internal() -> Any:
+        return internal_logfire.instrument_fastapi(
+            internal, request_attributes_mapper=internal_mapper, extra_spans=True
+        )
+
+    first, second = (
+        (instrument_public, instrument_internal) if public_first else (instrument_internal, instrument_public)
+    )
+    with first(), second():
+        with TestClient(public) as client:
+            assert client.get('/api/items/1').json() == {'item_id': 1}
+        public_spans = _request_span_summaries(exporter)
+        assert _request_span_summaries(internal_exporter) == []
+        exporter.clear()
+
+        with TestClient(internal) as client:
+            assert client.get('/api/items/2').json() == {'item_id': 2}
+        assert _request_span_summaries(exporter) == []
+        internal_spans = _request_span_summaries(internal_exporter)
+
+    assert public_spans == snapshot([{'name': 'GET /api', 'http.route': '/api', 'root': 'public'}])
+    assert internal_spans == snapshot(
+        [
+            {'name': 'FastAPI arguments', 'http.route': '/items/{item_id}', 'root': 'internal'},
+            {'name': '{method} {http.route} ({code.function})', 'http.route': '/items/{item_id}'},
+            {'name': 'GET /api', 'http.route': '/api', 'root': 'internal', 'fastapi.arguments.values': {'item_id': 2}},
+        ]
+    )
 
 
 def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter) -> None:
