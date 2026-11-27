@@ -208,3 +208,26 @@ def test_ctes_with_parentheses_in_literals():
     q = "WITH foo AS (SELECT * FROM t WHERE name LIKE '%(%'), bar AS (SELECT ')' AS paren FROM foo) SELECT * FROM bar"
     # insert_assert(message_from_db_statement(attrs(q), None, 'SELECT'))
     assert message_from_db_statement(attrs(q), None, 'SELECT') == 'WITH …[2 CTEs] SELECT * FROM bar'
+
+
+def test_multiline_ctes():
+    q = """
+    WITH active_users AS (
+        SELECT id, email FROM users WHERE active = true
+    ),
+    recent_orders AS (
+        SELECT user_id, total FROM orders WHERE total > 100
+    )
+    SELECT * FROM recent_orders
+    """
+    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'WITH …[2 CTEs] SELECT * FROM recent_orders'
+
+
+def test_cte_with_spaces_inside_parens():
+    q = 'WITH foobar AS ( SELECT apple, banana, carrot, durian FROM table ) SELECT * FROM foobar where x = 1'
+    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'WITH foobar AS (…) SELECT * FROM foobar WHERE …'
+
+
+def test_multiline_select_without_indentation():
+    q = 'SELECT apple, banana, carrot, durian, egg, fig\nFROM table\nWHERE apple = 1 and banana = 2'
+    assert message_from_db_statement(attrs(q), None, 'SELECT') == 'SELECT apple, ban…, egg, fig FROM table WHERE …'

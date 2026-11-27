@@ -47,7 +47,6 @@ def message_from_db_statement(attributes: Mapping[str, Any], message: str | None
 # we don't use \S here since that includes "(" which is not valid in a table name
 TABLE_RE = '[\\w."\'`-]+'
 SELECT_RE = re.compile(rf'SELECT (.+?) FROM ({TABLE_RE})', flags=re.I | re.DOTALL)
-SELECT_CTE_RE = re.compile(rf'WITH (.+?) SELECT (.+?) FROM ({TABLE_RE})', flags=re.I | re.DOTALL)
 # The subquery alias is found with a separate search because a single regex retries every later 'FROM (' when the
 # alias is missing, which is quadratic in the length of the query.
 SELECT_SUBQUERY_RE = re.compile(r'SELECT (.+?) FROM \(', flags=re.I | re.DOTALL)
@@ -71,9 +70,9 @@ def summarize_query(db_statement: str) -> str | None:
     # remove comments
     db_statement = re.sub(r'^[ \t]*--.*', '', db_statement, flags=re.MULTILINE)
 
-    # collapse multiple white spaces to a single space, warning - this can break/change string literals
+    # collapse white spaces to a single space, warning - this can break/change string literals
     # but I think that's okay in this scenario
-    db_statement = re.sub(r'\s{2,}', ' ', db_statement).strip()
+    db_statement = re.sub(r'\s+', ' ', db_statement).strip()
     if len(db_statement) <= MAX_QUERY_MESSAGE_LENGTH:
         return db_statement
 
@@ -90,9 +89,9 @@ def summarize_query(db_statement: str) -> str | None:
         )
     elif select_match := SELECT_RE.match(db_statement):
         return select(*select_match.groups(), match_end=select_match.end(), db_statement=db_statement)
-    elif select_match := SELECT_CTE_RE.match(db_statement):
-        ctes, expr, table = select_match.groups()
-        return select(expr, table, match_end=select_match.end(), db_statement=db_statement, ctes=ctes)
+    elif cte_match := match_cte_select(db_statement):
+        ctes, expr, table, match_end = cte_match
+        return select(expr, table, match_end=match_end, db_statement=db_statement, ctes=ctes)
     elif insert_match := INSERT_RE.match(db_statement):
         table, columns, values = insert_match.groups()
         suffix = f' {truncate(columns, 25)} VALUES {truncate(values, 25)}'
@@ -101,6 +100,33 @@ def summarize_query(db_statement: str) -> str | None:
         return f'INSERT INTO {table}{suffix}'
     else:
         return fallback(db_statement)
+
+
+def match_cte_select(s: str) -> tuple[str, str, str, int] | None:
+    """Match a WITH ... SELECT ... FROM <table> query without matching inner CTE SELECTs."""
+    if s[:5].upper() != 'WITH ':
+        return None
+    depth = 0
+    quote: str | None = None
+    for i in range(5, len(s)):
+        char = s[i]
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in '\'"`':
+            quote = char
+        elif char == '(':
+            depth += 1
+        elif char == ')' and depth > 0:
+            depth -= 1
+            if depth == 0:
+                rest_start = i + 1
+                while rest_start < len(s) and s[rest_start] == ' ':
+                    rest_start += 1
+                if select_match := SELECT_RE.match(s, rest_start):
+                    expr, table = select_match.groups()
+                    return s[5 : i + 1], expr, table, select_match.end()
+    return None
 
 
 def select(
