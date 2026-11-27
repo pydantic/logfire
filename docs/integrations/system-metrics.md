@@ -44,9 +44,9 @@ Your metrics then show up in several places in the Logfire UI:
   load, disk, network and process-count charts per host.
 - **[Metrics explorer](../guides/web-ui/metrics-explorer.md)**: browse the `system.*` metrics by namespace and
   break them down by dimension, no SQL required.
-- **[Dashboards](../guides/web-ui/dashboards.md)**: enable the built-in **Basic System Metrics (Logfire)**
+- **[Dashboards](../guides/web-ui/standard-dashboards.md)**: enable the built-in **Basic System Metrics (Logfire)**
   standard dashboard. Standard dashboards are read-only; to adjust it,
-  [use it as a template](../guides/web-ui/dashboards.md#using-a-standard-dashboard-as-a-template) for a custom
+  [duplicate it](../guides/web-ui/standard-dashboards.md#customize-a-standard-dashboard) into a custom
   dashboard.
 
 You can also query the metrics directly in [SQL Workbench](../guides/web-ui/explore.md) via the `metrics`

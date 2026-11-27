@@ -14,8 +14,6 @@ from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
 from urllib3.poolmanager import PoolManager
 
 import logfire
-from logfire._internal.auth import UserToken
-from logfire._internal.client import LogfireClient
 from logfire._internal.config import LogfireCredentials, VariablesOptions
 from logfire._internal.exporters.otlp import OTLPExporterHttpSession
 from logfire._internal.http_transport import (
@@ -419,11 +417,6 @@ def _otlp_exporter_session() -> requests.Session:
     return OTLPExporterHttpSession()
 
 
-def _logfire_client_session() -> requests.Session:
-    token = UserToken(token='abc', base_url='http://localhost', expiration='2099-12-31T23:59:59')
-    return LogfireClient(user_token=token)._session  # pyright: ignore[reportPrivateUsage]
-
-
 def _remote_variables_session() -> requests.Session:
     provider = LogfireRemoteVariableProvider(base_url='https://x', token='t', options=VariablesOptions())
     return provider._session  # pyright: ignore[reportPrivateUsage]
@@ -475,7 +468,6 @@ def test_the_sse_stream_session_gets_the_policy() -> None:
     'make_session',
     [
         pytest.param(_otlp_exporter_session, id='otlp-exporter'),
-        pytest.param(_logfire_client_session, id='logfire-client'),
         pytest.param(_remote_variables_session, id='remote-variables'),
     ],
 )

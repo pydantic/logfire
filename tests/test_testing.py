@@ -87,3 +87,16 @@ def test_time_generator():
     assert t() == 1000000000
     assert t() == 2000000000
     assert repr(t) == 'TimeGenerator(ns_time=2000000000)'
+
+
+def test_capfire_get_collected_metrics(capfire: CaptureLogfire) -> None:
+    assert capfire.get_collected_metrics() == []
+
+    logfire.metric_counter('counter').add(3)
+
+    [metric] = capfire.get_collected_metrics()
+    assert metric['name'] == 'counter'
+    assert metric['data']['data_points'][0]['value'] == 3
+
+    # Counters are reported as deltas, so nothing is left to read after the first collection.
+    assert capfire.get_collected_metrics() == []

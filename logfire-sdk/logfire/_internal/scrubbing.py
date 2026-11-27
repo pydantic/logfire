@@ -76,6 +76,11 @@ DEFAULT_PATTERNS = [
 _DEFAULT_PATTERN_START_CHARS = 'pmsacljx_rbih'
 _DEFAULT_PATTERN = rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(DEFAULT_PATTERNS)})'
 _MAX_UNCHANGED_MATCHES = 100
+_MAX_SCRUBBED_NOTES = 50
+_MAX_JSON_STRING_DEPTH = 4
+_MISSING_ERROR_TYPES = frozenset(
+    {'missing', 'missing_argument', 'missing_keyword_only_argument', 'missing_positional_only_argument'}
+)
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
@@ -105,6 +110,23 @@ class ScrubbedNote(TypedDict):
     matched_substring: str
 
 
+def _limited_scrubbed_notes(attributes: Mapping[str, Any], notes: list[ScrubbedNote]) -> str | None:
+    raw_notes = attributes.get(ATTRIBUTES_SCRUBBED_KEY)
+    if raw_notes is None and not notes:
+        return None
+    try:
+        parsed: Any = json.loads(raw_notes) if isinstance(raw_notes, str) else []
+    except (TypeError, ValueError, RecursionError):
+        parsed = []
+    if isinstance(parsed, list):
+        existing = cast('list[ScrubbedNote]', parsed)
+    else:  # pragma: no cover
+        existing = []
+    if not notes and len(existing) <= _MAX_SCRUBBED_NOTES:
+        return None
+    return json.dumps((existing + notes)[:_MAX_SCRUBBED_NOTES])
+
+
 def _is_unchanged_value(value: Any, result: Any) -> bool:
     if result is value:
         return True
@@ -128,6 +150,8 @@ class ScrubbingOptions:
     Otherwise, the returned value replaces the matched value.
     Logfire scrubs each value before checking whether its key matches. A callback for a matching key
     receives that scrubbed value. A different value returned by the callback is treated as final.
+    For a Pydantic validation error detail with `loc`, `type`, and `msg`, each string in `loc`
+    is checked like a key for its `input` value.
     If a value is returned unchanged or as an equal copy of the same type, Logfire checks other patterns at the
     same position, then later matches in the string. This applies to both matching keys and string values.
     After 100 allowed matches in one string, Logfire redacts the value to bound the search cost.
@@ -312,17 +336,9 @@ class Scrubber(BaseScrubber):
         scope = span['instrumentation_scope']
         span_scrubber = SpanScrubber(self, scope_name=scope.name if scope else None)
         span_scrubber.scrub_span(span)
-        if span_scrubber.scrubbed:
-            attributes = span['attributes']
-            already_scrubbed = cast('str', attributes.get(ATTRIBUTES_SCRUBBED_KEY, '[]'))
-            try:
-                already_scrubbed = cast('list[ScrubbedNote]', json.loads(already_scrubbed))
-            except json.JSONDecodeError:  # pragma: no cover
-                already_scrubbed = []
-            span['attributes'] = {
-                **attributes,
-                ATTRIBUTES_SCRUBBED_KEY: json.dumps(already_scrubbed + span_scrubber.scrubbed),
-            }
+        attributes = span['attributes']
+        if limited_notes := _limited_scrubbed_notes(attributes, span_scrubber.scrubbed):
+            span['attributes'] = {**attributes, ATTRIBUTES_SCRUBBED_KEY: limited_notes}
 
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
         span_scrubber = SpanScrubber(self)
@@ -355,6 +371,15 @@ class Scrubber(BaseScrubber):
         return SpanScrubber(self)._safely_transform_string(('otel_log_event_name',), value)  # pyright: ignore[reportPrivateUsage]
 
 
+def _is_validation_error_detail(value: Mapping[Any, Any]) -> bool:
+    return (
+        isinstance(value.get('loc'), (list, tuple))
+        and all(type(part) in (str, int) for part in value['loc'])
+        and isinstance(value.get('type'), str)
+        and isinstance(value.get('msg'), str)
+    )
+
+
 class SpanScrubber:
     """Does the actual scrubbing work.
 
@@ -369,6 +394,8 @@ class SpanScrubber:
         self._transform_string = parent._transform_string  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.scrub_count = 0
+        self._replaced_paths: list[JsonPath] = []
+        self._json_string_depth = 0
         self._is_legacy_llm_scope = scope_name in ('logfire.openai', 'logfire.anthropic')
         self._is_legacy_openai_scope = scope_name == 'logfire.openai'
 
@@ -423,6 +450,7 @@ class SpanScrubber:
         #      BoundedAttributes handles it according to the installed OTEL version.
         # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
         new_attributes = self.scrub(('attributes',), span['attributes'])
+        self._scrub_json_schema(new_attributes)
         if self.scrub_count:
             span['attributes'] = BoundedAttributes(attributes=new_attributes)
 
@@ -445,13 +473,14 @@ class SpanScrubber:
     def scrub_log(self, log: LogRecord) -> LogRecord:
         new_attributes: dict[str, Any] | None = self.scrub(('attributes',), log.attributes)
         new_body = self.scrub(('log_body',), log.body)
+        limited_notes = _limited_scrubbed_notes(new_attributes or {}, self.scrubbed)
 
-        if not self.scrub_count:
+        if not self.scrub_count and limited_notes is None:
             return log
 
-        if self.scrubbed:
+        if limited_notes is not None:
             new_attributes = new_attributes or {}
-            new_attributes[ATTRIBUTES_SCRUBBED_KEY] = json.dumps(self.scrubbed)
+            new_attributes[ATTRIBUTES_SCRUBBED_KEY] = limited_notes
 
         result = copy.copy(log)
         result.attributes = BoundedAttributes(attributes=new_attributes)
@@ -464,6 +493,61 @@ class SpanScrubber:
         new_attributes = self.scrub(path, attributes)
         # We used to scrub exception messages here, git blame this line if you want to restore that logic.
         return new_attributes
+
+    @handle_internal_errors
+    def _scrub_json_schema(self, attributes: dict[str, Any] | None) -> None:
+        """Remove value-derived schema details for attributes replaced under matching keys."""
+        if not attributes or not self._replaced_paths or ATTRIBUTES_JSON_SCHEMA_KEY not in attributes:
+            return
+
+        try:
+            schema: Any = json.loads(attributes[ATTRIBUTES_JSON_SCHEMA_KEY])
+        except (TypeError, ValueError, RecursionError):
+            return
+        if not isinstance(schema, dict):
+            return
+        schema = cast('dict[str, Any]', schema)
+        root_properties = schema.get('properties')
+        if not isinstance(root_properties, dict):
+            return
+        root_properties = cast('dict[str, Any]', root_properties)
+
+        changed = False
+        for path in self._replaced_paths:
+            # OpenTelemetry attributes may not be represented in Logfire's schema.
+            if path[1] not in root_properties:
+                continue
+            node = schema
+            for part in path[1:]:
+                child: Any = None
+                if isinstance(part, int):
+                    prefix_items = node.get('prefixItems')
+                    if isinstance(prefix_items, list):
+                        prefix_items = cast('list[Any]', prefix_items)
+                        if 0 <= part < len(prefix_items):
+                            child = prefix_items[part]
+                    if child is None:
+                        child = node.get('items')
+                else:
+                    properties = node.get('properties')
+                    if isinstance(properties, dict):
+                        properties = cast('dict[str, Any]', properties)
+                        child = properties.get(part)
+                    if child is None:
+                        child = node.get('additionalProperties')
+                if not isinstance(child, dict):
+                    break
+                node = cast('dict[str, Any]', child)
+            else:
+                if 'type' in node:
+                    reduced = {'type': node['type']}
+                    if node != reduced:
+                        node.clear()
+                        node.update(reduced)
+                        changed = True
+
+        if changed:
+            attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = logfire_json_dumps(schema)
 
     def scrub(self, path: JsonPath, value: Any, in_safe_key: bool = False, key_only: bool = False) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
@@ -478,8 +562,17 @@ class SpanScrubber:
                 try:
                     decoded = json.loads(value)
                     scrub_count_before = self.scrub_count
-                    scrubbed = self.scrub(path, decoded, in_safe_key, key_only)
-                    return logfire_json_dumps(scrubbed) if self.scrub_count != scrub_count_before else value
+                    self._json_string_depth += 1
+                    try:
+                        scrubbed = self.scrub(path, decoded, in_safe_key, key_only)
+                    finally:
+                        self._json_string_depth -= 1
+                    if self.scrub_count == scrub_count_before:
+                        return value
+                    # Re-encoding many nested JSON strings can grow exponentially.
+                    if self._json_string_depth >= _MAX_JSON_STRING_DEPTH:
+                        return '[Scrubbed due to deeply nested JSON]'
+                    return logfire_json_dumps(scrubbed)
                 except (ValueError, RecursionError):
                     pass
             transformed = self._safely_transform_string(path, value)
@@ -509,9 +602,11 @@ class SpanScrubber:
             ]
         elif isinstance(value, Mapping):
             result: dict[Any, Any] = {}
+            mapping = cast('Mapping[Any, Any]', value)
+            validation_error_detail = 'loc' in mapping and _is_validation_error_detail(mapping)
             legacy_attributes = self._is_legacy_llm_scope and path == ('attributes',)
             legacy_request = self._is_legacy_llm_scope and path == ('attributes', 'request_data')
-            for k, v in cast('Mapping[Any, Any]', value).items():
+            for k, v in mapping.items():
                 # Legacy provider payloads can contain user text. Match nested keys such as
                 # tool-call "password", but do not treat words in message text as secrets.
                 scoped_content = legacy_attributes and (
@@ -520,7 +615,9 @@ class SpanScrubber:
                 # Tool and response schemas describe argument names. Preserve those keys,
                 # while still allowing transform_string to change their string values.
                 legacy_definition = legacy_request and k in ('tools', 'functions', 'response_format')
-                if path == ('attributes',) and k in BaseScrubber.NO_TRANSFORM_KEYS:
+                if validation_error_detail and k == 'loc':
+                    result[k] = self.scrub(path + (k,), v, in_safe_key=True)
+                elif path == ('attributes',) and k in BaseScrubber.NO_TRANSFORM_KEYS:
                     result[k] = v
                 elif legacy_definition or (k in BaseScrubber.SAFE_KEYS and k not in BaseScrubber.KEY_ONLY_KEYS):
                     result[k] = (
@@ -533,6 +630,8 @@ class SpanScrubber:
                     )
                     if not in_safe_key and isinstance(k, str) and (match := self._pattern.search(k)):
                         redacted = self._scrub_matches(child_path, scrubbed, match)
+                        if not _is_unchanged_value(v, redacted):
+                            self._replaced_paths.append(child_path)
                         if (
                             isinstance(redacted, str)
                             and isinstance(v, Sequence)
@@ -542,7 +641,36 @@ class SpanScrubber:
                         result[k] = redacted
                     else:
                         result[k] = scrubbed
+            if not in_safe_key and 'input' in mapping and validation_error_detail:
+                result['input'] = self._scrub_validation_error_input(
+                    path,
+                    cast('list[Any] | tuple[Any, ...]', mapping['loc']),
+                    result['input'],
+                    mapping['type'] in _MISSING_ERROR_TYPES,
+                )
             return result
+        return value
+
+    def _scrub_validation_error_input(
+        self, error_path: JsonPath, loc: list[Any] | tuple[Any, ...], value: Any, missing: bool
+    ) -> Any:
+        """Redacts the `input` of a Pydantic validation error when a field name in its `loc` matches.
+
+        For example, in `{'loc': ['body', 'password'], 'input': 'hunter2'}` the field name and the rejected value
+        are separate entries, so checking each key and value on its own never connects them.
+        String names are checked from innermost to outermost, with the full `loc` in each match path.
+        For a missing-field error, the last name is skipped because `input` is the container missing that field.
+        `value` is the already scrubbed `input`.
+        """
+        for index in range(len(loc) - 1 - missing, -1, -1):
+            part = loc[index]
+            if isinstance(part, str) and (match := self._pattern.search(part)):
+                redacted = self._scrub_matches(error_path + tuple(loc), value, match)
+                if not _is_unchanged_value(value, redacted):
+                    # Like the key rule, keep a sequence a sequence. `scrub` returns every sequence as a list.
+                    if isinstance(redacted, str) and isinstance(value, list):
+                        redacted = [redacted]
+                    return redacted
         return value
 
     def _scrub_matches(self, path: JsonPath, value: Any, match: re.Match[str]) -> Any:
@@ -593,7 +721,8 @@ class SpanScrubber:
             return result
         self.scrub_count += 1
         matched_substring = match.pattern_match.group(0)
-        self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
+        if len(self.scrubbed) < _MAX_SCRUBBED_NOTES:
+            self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
         return f'[Scrubbed due to {matched_substring!r}]'
 
 
@@ -631,7 +760,7 @@ class MessageValueCleaner:
             # Whereas having the key in the path doesn't affect the scrubbing result,
             # so this only looks at `value` itself.
             value, scrubbed_notes = self.scrubber.scrub_value(('message', field_name), value)
-        self.scrubbed.extend(scrubbed_notes)
+        self.scrubbed.extend(scrubbed_notes[: _MAX_SCRUBBED_NOTES - len(self.scrubbed)])
         return self.truncate(value)
 
     def truncate(self, value: str) -> str:

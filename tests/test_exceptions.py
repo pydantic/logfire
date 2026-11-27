@@ -1,5 +1,4 @@
 import asyncio
-import sys
 import types
 from typing import Any
 
@@ -428,7 +427,6 @@ def test_record_exception_directly(exporter: TestExporter, config_kwargs: dict[s
     )
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason='co_positions traceback formatting was added in Python 3.11')
 def test_span_records_exception_when_traceback_formatting_fails(exporter: TestExporter) -> None:
     """Regression test for CPython traceback failures from malformed bytecode position metadata."""
 

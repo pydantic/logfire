@@ -10,10 +10,10 @@ from functools import lru_cache
 from pathlib import Path
 from string import Formatter
 from types import CodeType
-from typing import Any, Literal, cast
+from typing import Any, Literal, NotRequired, cast
 
 import executing
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 import logfire
 
@@ -237,6 +237,9 @@ class ChunksFormatter(Formatter):
                     format_spec or '', kwargs, scrubber=NOOP_SCRUBBER, recursion_depth=recursion_depth - 1
                 )
                 format_spec = ''.join(chunk['v'] for chunk in format_spec_chunks)
+
+                if re.search(r'\d{5}', format_spec):
+                    raise KnownFormattingError('Format specs may not contain numbers with five or more digits.')
 
                 try:
                     value = self.format_field(obj, format_spec)

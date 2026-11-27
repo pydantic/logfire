@@ -14,6 +14,7 @@ Replaying (default, no real CLI needed):
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import shutil
 import stat
@@ -45,13 +46,15 @@ from claude_agent_sdk import (
     ToolResultBlock,
     ToolUseBlock,
 )
-from claude_agent_sdk.types import HookContext
+from claude_agent_sdk.types import HookContext, HookEvent
 
 from logfire._internal.integrations.claude_agent_sdk import (
+    _announcement_waiters,
     _clear_state,
     _content_blocks_to_output_messages,
     _ConversationState,
     _extract_usage,
+    _get_states,
     _inject_tracing_hooks,
     _record_result,
     _set_state,
@@ -310,7 +313,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                 {'signal': None},
             )
         finally:
-            _clear_state()
+            _clear_state(state)
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
@@ -443,7 +446,7 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
             assert 'orphan_1' not in state.active_tool_spans
             assert len(state.active_tool_spans) == 0
         finally:
-            _clear_state()
+            _clear_state(state)
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
@@ -509,7 +512,7 @@ async def test_tool_name_is_data(exporter: TestExporter, tool_name: str) -> None
             )
             state.close()
         finally:
-            _clear_state()
+            _clear_state(state)
 
     [tool_span, _root] = exporter.exported_spans_as_dict()
     assert tool_span['name'] == f'execute_tool {tool_name}'
@@ -551,7 +554,7 @@ async def test_pre_hook_waits_for_tool_announcement() -> None:
             assert 'tool_1' in state.active_tool_spans
             state.close()
         finally:
-            _clear_state()
+            _clear_state(state)
 
 
 @pytest.mark.anyio
@@ -572,7 +575,161 @@ async def test_pre_hook_announcement_timeout() -> None:
             assert 'tool_never' in state.active_tool_spans
             state.close()
         finally:
-            _clear_state()
+            _clear_state(state)
+
+
+@pytest.mark.anyio
+async def test_tool_hooks_find_their_conversation(exporter: TestExporter) -> None:
+    """Conversations running concurrently on one event loop share the hooks; each tool call goes to its own."""
+    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
+
+    with logfire_instance.span('conversation A') as root_a, logfire_instance.span('conversation B') as root_b:
+        state_a = _ConversationState(logfire=logfire_instance, root_span=root_a, input_messages=[])
+        state_b = _ConversationState(logfire=logfire_instance, root_span=root_b, input_messages=[])
+        state_a.announced_tool_ids.add('tool_a')
+        state_b.announced_tool_ids.add('tool_b')
+        _set_state(state_a)
+        _set_state(state_b)
+        try:
+            ctx: HookContext = {'signal': None}
+            await pre_tool_use_hook({'tool_name': 'Bash', 'tool_input': {}}, 'tool_a', ctx)
+            await pre_tool_use_hook({'tool_name': 'Read', 'tool_input': {}}, 'tool_b', ctx)
+            await post_tool_use_hook({'tool_name': 'Read', 'tool_response': 'b'}, 'tool_b', ctx)
+            state_b.close()
+            _clear_state(state_b)  # conversation B ends while A's tool is still running
+            await post_tool_use_failure_hook({'tool_name': 'Bash', 'error': 'a failed'}, 'tool_a', ctx)
+            state_a.close()
+        finally:
+            _get_states().clear()
+
+    spans = exporter.exported_spans_as_dict()
+    names = {span['context']['span_id']: span['name'] for span in spans}
+    tool_spans = {
+        span['name']: (
+            names[span['parent']['span_id']],
+            span['attributes'].get('gen_ai.tool.call.result') or span['attributes'].get('error.type'),
+        )
+        for span in spans
+        if span['name'].startswith('execute_tool')
+    }
+    assert tool_spans == snapshot(
+        {'execute_tool Read': ('conversation B', 'b'), 'execute_tool Bash': ('conversation A', 'a failed')}
+    )
+
+
+@pytest.mark.anyio
+async def test_waiting_tool_hook_finds_announcing_conversation() -> None:
+    """A waiting hook follows the announcement from A, even when B is the newest conversation."""
+    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
+
+    with logfire_instance.span('conversation A') as root_a, logfire_instance.span('conversation B') as root_b:
+        state_a = _ConversationState(logfire=logfire_instance, root_span=root_a, input_messages=[])
+        state_b = _ConversationState(logfire=logfire_instance, root_span=root_b, input_messages=[])
+        _set_state(state_a)
+        _set_state(state_b)
+        try:
+            hook_finished = anyio.Event()
+
+            async def call_hook() -> None:
+                await pre_tool_use_hook(
+                    {'tool_name': 'Bash', 'tool_input': {}, 'tool_use_id': 'tool_a'},
+                    'tool_a',
+                    {'signal': None},
+                )
+                hook_finished.set()
+
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(call_hook)
+                with anyio.fail_after(1):
+                    while not _announcement_waiters():
+                        await anyio.sleep(0)
+                assert not state_a.active_tool_spans
+                assert not state_b.active_tool_spans
+
+                state_a.handle_assistant_message(
+                    AssistantMessage(
+                        content=[ToolUseBlock(id='tool_a', name='Bash', input={})],
+                        model='claude-sonnet-4-6',
+                    )
+                )
+                await hook_finished.wait()
+
+            assert 'tool_a' in state_a.active_tool_spans
+            assert not state_b.active_tool_spans
+            state_a.close()
+            state_b.close()
+        finally:
+            _get_states().clear()
+
+
+def test_clear_state_tolerates_already_removed_state() -> None:
+    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
+
+    with logfire_instance.span('root') as root_span:
+        state_a = _ConversationState(logfire=logfire_instance, root_span=root_span, input_messages=[])
+        state_b = _ConversationState(logfire=logfire_instance, root_span=root_span, input_messages=[])
+        _set_state(state_a)
+        _set_state(state_b)
+        try:
+            _clear_state(state_a)
+            _clear_state(state_a)
+            assert _get_states() == [state_b]
+        finally:
+            _get_states().clear()
+
+
+@pytest.mark.anyio
+async def test_unannounced_tool_goes_to_conversation_still_running() -> None:
+    """The newest conversation can end while a hook waits for an announcement; the span must not open in it."""
+    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
+
+    with logfire_instance.span('conversation A') as root_a, logfire_instance.span('conversation B') as root_b:
+        state_a = _ConversationState(logfire=logfire_instance, root_span=root_a, input_messages=[])
+        state_b = _ConversationState(logfire=logfire_instance, root_span=root_b, input_messages=[])
+        state_b.tool_announcement_timeout = 0.05
+        _set_state(state_a)
+        _set_state(state_b)
+        try:
+
+            async def end_b() -> None:
+                await anyio.sleep(0.01)
+                state_b.close()
+                _clear_state(state_b)
+
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(end_b)
+                await pre_tool_use_hook({'tool_name': 'Bash', 'tool_input': {}}, 'tool_x', {'signal': None})
+            assert 'tool_x' in state_a.active_tool_spans
+            assert not state_b.active_tool_spans
+            # The hook that timed out did not leave its waiter behind.
+            assert _announcement_waiters() == []
+            state_a.close()
+        finally:
+            _get_states().clear()
+
+
+@pytest.mark.anyio
+async def test_unannounced_tool_after_last_conversation_ended() -> None:
+    """If every conversation ended while the hook waited, there is nowhere to put the span."""
+    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
+
+    with logfire_instance.span('conversation') as root:
+        state = _ConversationState(logfire=logfire_instance, root_span=root, input_messages=[])
+        state.tool_announcement_timeout = 0.05
+        _set_state(state)
+        try:
+
+            async def end_conversation() -> None:
+                await anyio.sleep(0.01)
+                state.close()
+                _clear_state(state)
+
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(end_conversation)
+                await pre_tool_use_hook({'tool_name': 'Bash', 'tool_input': {}}, 'tool_x', {'signal': None})
+            assert not state.active_tool_spans
+        finally:
+            _get_states().clear()
 
 
 @pytest.mark.anyio
@@ -586,7 +743,7 @@ async def test_hook_edge_cases() -> None:
     assert await post_tool_use_failure_hook({}, None, ctx) == {}
 
     # No state set — hooks bail out
-    _clear_state()
+    _get_states().clear()
     assert await pre_tool_use_hook({'tool_name': 'Bash', 'tool_input': {}}, 'tool_1', ctx) == {}
     assert await post_tool_use_hook({'tool_response': 'test'}, 'nonexistent', ctx) == {}
     assert await post_tool_use_failure_hook({'error': 'test'}, 'nonexistent', ctx) == {}
@@ -627,6 +784,33 @@ def test_inject_hooks_with_existing_events() -> None:
     assert options.hooks is not None
     assert len(options.hooks['PreToolUse']) == 2
     assert options.hooks['PreToolUse'][1] is existing_hook
+
+
+def test_inject_hooks_shared_hooks_dict() -> None:
+    """Clients whose options share a hooks dict, e.g. via `dataclasses.replace`, get the tracing hooks once.
+
+    Each extra copy makes the CLI call the hooks again for every tool call,
+    starting another `execute_tool` span that is never ended.
+    """
+    hooks: dict[HookEvent, list[HookMatcher]] = {}
+    options = ClaudeAgentOptions(hooks=hooks)
+    client = ClaudeSDKClient(options=options)
+
+    # The tracing hooks are injected in place, so a hook added to the dict later still reaches the client.
+    user_matcher = HookMatcher(matcher='Bash')
+    hooks['PreToolUse'].append(user_matcher)
+    assert client.options.hooks is not None
+    assert client.options.hooks['PreToolUse'][-1] is user_matcher
+
+    ClaudeSDKClient(options=options)
+    ClaudeSDKClient(options=ClaudeAgentOptions(hooks=hooks))
+    ClaudeSDKClient(options=dataclasses.replace(options, max_turns=1))
+
+    assert hooks == {
+        'PreToolUse': [HookMatcher(matcher=None, hooks=[pre_tool_use_hook]), user_matcher],
+        'PostToolUse': [HookMatcher(matcher=None, hooks=[post_tool_use_hook])],
+        'PostToolUseFailure': [HookMatcher(matcher=None, hooks=[post_tool_use_failure_hook])],
+    }
 
 
 @pytest.mark.anyio

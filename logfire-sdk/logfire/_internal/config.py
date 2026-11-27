@@ -18,7 +18,7 @@ from datetime import timedelta
 from importlib.metadata import entry_points
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, assert_type
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -69,9 +69,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from rich.console import Console
-from typing_extensions import Self, assert_type
 
-from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesLogProcessorWrapper, DirectBaggageAttributesSpanProcessor
 from logfire._internal.collect_system_info import collect_package_info
 from logfire.exceptions import LogfireConfigError
@@ -137,13 +135,13 @@ from .http_transport import install_connection_policy
 from .integrations.executors import instrument_executors
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
+from .regions import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
 from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .stack_info import warn_at_user_stacklevel
 from .tracer import OPEN_SPANS, PendingSpanProcessor, ProxyTracerProvider
 from .utils import (
     SeededRandomIdGenerator,
-    ensure_data_dir_exists,
     handle_internal_errors,
     platform_is_aws_lambda,
     platform_is_emscripten,
@@ -746,10 +744,10 @@ class _LogfireConfigData:
     send_to_logfire: bool | Literal['if-token-present']
     """Whether to send logs and spans to Logfire."""
 
-    token: str | list[str] | None
+    token: str | list[str] | None = field(repr=False)
     """The Logfire write token(s) to use. Multiple tokens enable sending to multiple projects."""
 
-    api_key: str | None
+    api_key: str | None = field(repr=False)
     """API key for the Logfire API. Loaded from LOGFIRE_API_KEY if not provided."""
 
     service_name: str
@@ -2208,13 +2206,6 @@ class LogfireCredentials:
             project_url=data['project_url'],
             logfire_api_url=base_url,
         )
-
-    def write_creds_file(self, creds_dir: Path) -> None:
-        """Write a credentials file to the given path."""
-        ensure_data_dir_exists(creds_dir)
-        data = dataclasses.asdict(self)
-        path = _get_creds_file(creds_dir)
-        path.write_text(json.dumps(data, indent=2) + '\n')
 
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""

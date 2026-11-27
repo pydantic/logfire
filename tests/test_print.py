@@ -1,5 +1,4 @@
 import re
-import sys
 from typing import Any
 
 import pytest
@@ -154,7 +153,6 @@ after uninstrument
     )
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason='Testing behaviour in Python 3.11+')
 def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
     warning_message = """\
 Failed to introspect calling code. Please report this issue to Logfire. Using `logfire.print_args` as the fallback attribute key for all print arguments. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:

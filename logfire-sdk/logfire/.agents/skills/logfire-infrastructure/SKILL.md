@@ -13,10 +13,14 @@ The OpenTelemetry Collector ships host, container, cluster, and infrastructure-s
 
 ## Step 1: Authenticate and Select the Exact Project
 
-Do not open, read, or run any infrastructure config file (`docker-compose.yml`, a Kubernetes manifest, or similar) until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's being monitored. Auth is also the one step that can block on a human (browser sign-in), so starting it first means that wait begins on turn one, not after Step 2's detection work.
+Read the repository's agent instructions first. Read-only inspection of infrastructure configuration does not require login. Before changing or starting an exporter, confirm the target and project through the shared authentication reference below, and obtain approval for deployment changes.
 
-Use [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there, including its safe handoff for the write credential created by `projects use`.
-
+If the parent wizard already prepared the project, use its confirmed target and
+project without rerunning account commands. Otherwise, use [Authenticate and
+Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md) for the
+Rust CLI's target-aware identity check, OAuth session, and explicit
+project selection, including its safe handoff for the write credential created
+by `init use`.
 
 ## Step 2: Identify What to Monitor
 
@@ -38,23 +42,48 @@ Set the same service & resource metadata conventions the [collector reference](.
 
 Before starting or restarting the Collector, validate the config file — a receiver typo or bad indentation should surface as a validation error, not a Collector that starts, logs nothing useful, and silently drops the pipeline:
 
+Set `COLLECTOR_CONFIG` to the existing config path, or the file you created in Step 3. Reuse
+that exact path for validation, the smoke test, and persistent deployment.
+
 ```bash
-otelcol-contrib validate --config=collector-config.yaml
-# or, for the core (non-Contrib) distribution: otelcol validate --config=...
+otelcol-contrib validate --config="$COLLECTOR_CONFIG"
+# or, for the core (non-Contrib) distribution: otelcol validate --config="$COLLECTOR_CONFIG"
 ```
 
 If neither binary is on `PATH`, inspect the running Collector container (for example with `kubectl exec`) or use the deployment-specific validation command from the image entrypoint, systemd unit, or Helm chart. `docker compose config` or `kubectl get pod <name> -o yaml` can show the command when it is explicitly configured.
 
 ## Step 4: Verify
 
-Wiring a receiver isn't done when the Collector starts cleanly — confirm the data actually reached the right page for the right host/container/cluster, not just that something arrived. **Never report a metric as "arrived" without having queried for it in this same session** — a plausible-sounding summary that wasn't checked is worse than saying you couldn't verify.
+Wiring a receiver isn't done when the Collector starts cleanly — confirm the
+data reached the right page for the right host, container, or cluster. **Never
+report a metric as "arrived" without checking it in this same session** — by an
+exact query when MCP or API access is available, or by finding the same exact
+identifier in the relevant Logfire page.
 
-1. **Restart the Collector** after any config change (having validated it, above).
-2. **Query for the exact resource you configured, not just any data on the page.** If a Logfire MCP server or API is connected in this session, query for the specific `host.name` / container / cluster you set in Step 3 within the last few minutes — a query that returns zero rows for that exact identifier means it didn't land, even if the page shows data from something else. Otherwise, open the specific product page — **Hosts**, **Docker**, or **Kubernetes** — or the **Metrics** explorer for database/queue/cache/cloud sources, and look for that same exact identifier.
+1. **Record the restart time, then restart the Collector** after any config
+   change (having validated it, above).
+2. **Query for the exact resource you configured, not just any data on the
+   page.** If a Logfire MCP server or API is connected in this session, query
+   for the specific `host.name` / container / cluster you set in Step 3 and
+   require a datapoint newer than the recorded restart time — a query that
+   returns zero fresh rows for that exact identifier means it didn't land, even
+   if the page shows older data from something else. Otherwise, open the
+   specific product page — **Hosts**, **Docker**, or **Kubernetes** — or the
+   **Metrics** explorer for database/queue/cache/cloud sources, select a recent
+   time range, and inspect a latest timestamp/sample after the restart time for
+   that same exact identifier.
 3. **If nothing appears**, check in order: the exporter endpoint/region and write token, that the receiver is in an active pipeline (not defined but never referenced under `service.pipelines`), and that resource attributes (`host.name`, `service.name`) are set — the [reference's own Verify section](./references/collector/host-and-infra-metrics.md) has the full troubleshooting path.
 4. **Fix and re-check** until the specific source is visible, not just "some" data.
 
-Close with a final report built from what you just confirmed — org/project/region from `whoami`, which receiver(s) are active, and the exact host/container/cluster identifier you verified — not a template. **Include a direct link to the relevant view** (`/hosts`, `/docker`, `/kubernetes`, or `/metrics`, based on the source) using the project's URL from `whoami`, so the user can see their own source arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
+Close with a final report built from what you just confirmed — the exact
+org/project/region, active receiver(s), and host/container/cluster identifier,
+not a template. **Include a direct link to the relevant view** (`/hosts`,
+`/docker`, `/kubernetes`, or `/metrics`, based on the source) so the user can see
+their own source arrive. Append the selected view's path to the validated project URL from `project current`
+for standalone setup. After a parent-prepared wizard handoff, use
+`project open --no-open` with the same target/org and `--no-input --output json`, then append the same path;
+do not rerun `project current`. If the link cannot be resolved, report that
+separately from telemetry verification rather than returning a placeholder.
 
 ## References
 

@@ -111,7 +111,7 @@ npx logfire-cli --beta --region us sourcemap upload .next/static \
 !!! warning "Your source code is in the maps"
     Most bundlers embed your original source code in each map, in the `sourcesContent` field. By default, `upload` sends it to Logfire, and Logfire stores it with the map. Pass `--strip-sources` to send the maps without the source text. Frames still resolve to the original file, line and column.
 
-    Logfire has no page and no API that returns an uploaded map or its source text. Everyone who can read the project's data sees the resolved stack traces, which contain your original file names, and your original function names when the map has a `names` field. You cannot delete an uploaded map yourself. Logfire deletes it at the end of its [retention](#retention).
+    Logfire has no page and no API that returns an uploaded map or its source text. Everyone who can read the project's data sees the resolved stack traces, which contain your original file names, and your original function names when the map has a `names` field. You cannot delete one uploaded map yourself. Logfire deletes it at the end of its [retention](#retention). If you delete the project, Logfire deletes all of its maps.
     <!-- TODO: confirm whether Logfire shows source lines from `sourcesContent`. The ingest step does not use the source text today. -->
 
 ### Deploy the files you built
@@ -323,6 +323,8 @@ The CLI prints one line per bundle with its debug ID and the result, then a summ
 ### Retention
 
 Logfire deletes an uploaded source map 90 days after it was last used to resolve an exception. A map that no exception uses is deleted 90 days after its upload. This retention is separate from your data retention. Exceptions that were already resolved keep their resolved stack trace.
+
+If you delete a project, Logfire deletes all of the source maps that were uploaded to it. Logfire does this in the background, so the maps can stay in storage for a short time after the project is gone.
 
 ### Quotas and billing
 

@@ -6,7 +6,7 @@ import os
 import re
 import sys
 import warnings
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable, Generator
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
@@ -899,6 +899,61 @@ def test_log_with_multiple_tags(exporter: TestExporter):
     assert s.attributes[ATTRIBUTES_TAGS_KEY] == ('tag1', 'tag2', 'tag3', 'tag4')
 
 
+def test_single_string_tag(exporter: TestExporter):
+    logfire.info('a log', _tags='abc')
+    with logfire.span('a span', _tags='abc'):
+        pass
+    logfire.log('info', 'another log', tags='abc')
+    logfire.with_settings(tags='abc').info('a settings log', _tags='def')
+
+    tags = {
+        span.name: span.attributes[ATTRIBUTES_TAGS_KEY]
+        for span in exporter.exported_spans
+        if span.attributes and span.attributes.get('logfire.span_type') != 'pending_span'
+    }
+    assert tags == {
+        'a log': ('abc',),
+        'a span': ('abc',),
+        'another log': ('abc',),
+        'a settings log': ('abc', 'def'),
+    }
+
+
+def test_single_string_tag_constructor(exporter: TestExporter):
+    tagged = Logfire(tags='abc')
+    assert tagged._tags == ('abc',)  # pyright: ignore[reportPrivateUsage]
+    tagged.info('a constructor log', _tags='def')
+
+    exported = [
+        span
+        for span in exporter.exported_spans
+        if span.attributes and span.attributes.get('logfire.span_type') != 'pending_span'
+    ]
+    assert [span.attributes[ATTRIBUTES_TAGS_KEY] for span in exported if span.attributes] == [('abc', 'def')]
+
+
+def test_empty_string_means_no_tags(exporter: TestExporter):
+    assert Logfire(tags='')._tags == ()  # pyright: ignore[reportPrivateUsage]
+    assert logfire.with_settings(tags='')._tags == ()  # pyright: ignore[reportPrivateUsage]
+
+    logfire.info('a log', _tags='')
+    with logfire.span('a span', _tags='') as span:
+        span.tags = ''
+        assert span.tags == ()
+    logfire.log('info', 'another log', tags='')
+    logfire.with_settings(tags='abc').info('a settings log', _tags='')
+
+    exported = {
+        span.name: span.attributes
+        for span in exporter.exported_spans
+        if span.attributes and span.attributes.get('logfire.span_type') != 'pending_span'
+    }
+    assert ATTRIBUTES_TAGS_KEY not in exported['a log']
+    assert exported['a span'][ATTRIBUTES_TAGS_KEY] == ()
+    assert ATTRIBUTES_TAGS_KEY not in exported['another log']
+    assert exported['a settings log'][ATTRIBUTES_TAGS_KEY] == ('abc',)
+
+
 def test_instrument(exporter: TestExporter):
     tagged = logfire.with_tags('test_instrument')
 
@@ -1535,6 +1590,22 @@ def test_instrument_generator_warning(exporter: TestExporter):
     )
 
 
+def test_instrument_generator_preserves_return_value():
+    @logfire.instrument(allow_generator=True)
+    def generator() -> Generator[str, int, int]:
+        received = yield 'ready'
+        return received + 7
+
+    with logfire.span('parent'):
+        parent = get_current_span()
+        items = generator()
+        assert next(items) == 'ready'
+        with pytest.raises(StopIteration) as result:
+            items.send(5)
+        assert result.value.value == 12
+        assert get_current_span() is parent
+
+
 def test_instrument_contextmanager_warning(exporter: TestExporter):
     @contextmanager
     def foo():
@@ -1899,6 +1970,36 @@ async def test_instrument_async_generator_throw():
     assert await items.__anext__() == 3
     with pytest.raises(StopAsyncIteration):
         await items.__anext__()
+    assert get_current_span() is INVALID_SPAN
+
+
+@pytest.mark.anyio
+async def test_instrument_async_generator_protocol():
+    handled = ValueError('handled')
+    closed: list[str] = []
+
+    async def echo() -> AsyncGenerator[int | None, int | None]:
+        received = yield 0
+        try:
+            while True:
+                try:
+                    received = yield received
+                except ValueError as exc:
+                    assert exc is handled
+                    received = yield 4
+        finally:
+            closed.append('closed')
+
+    instrumented = logfire.instrument(allow_generator=True)(echo)
+    for make_generator in (echo, instrumented):
+        items = make_generator()
+        assert await anext(items) == 0
+        assert await items.asend(1) == 1
+        assert await items.athrow(handled) == 4
+        assert await items.asend(2) == 2
+        await items.aclose()
+
+    assert closed == ['closed', 'closed']
     assert get_current_span() is INVALID_SPAN
 
 
@@ -3513,7 +3614,6 @@ def test_inspect_arguments(exporter: TestExporter):
     )
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason='Testing behaviour in Python 3.11+')
 def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
     # We're about to 'disable' `executing` which `snapshot` also uses, so make the snapshot first.
     expected_spans = snapshot(
