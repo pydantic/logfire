@@ -981,6 +981,35 @@ def test_pydantic_model_schema_respects_repr() -> None:
     }
 
 
+def test_pydantic_model_schema_includes_computed_fields(exporter: TestExporter) -> None:
+    class ComputedModel(BaseModel):
+        start: datetime
+
+        @computed_field
+        @property
+        def end(self) -> datetime:
+            return self.start + timedelta(hours=1)
+
+        @computed_field(repr=False)
+        @property
+        def hidden_end(self) -> datetime:  # pragma: no cover
+            return self.end
+
+    logfire.info('test message {var=}', var=ComputedModel(start=datetime(2024, 1, 1)))
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes is not None
+    assert json.loads(attributes['var']) == {'start': '2024-01-01T00:00:00', 'end': '2024-01-01T01:00:00'}  # type: ignore
+    assert json.loads(attributes['logfire.json_schema'])['properties']['var'] == {  # type: ignore
+        'type': 'object',
+        'title': 'ComputedModel',
+        'x-python-datatype': 'PydanticModel',
+        'properties': {
+            'start': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+            'end': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+        },
+    }
+
+
 def test_attrs_falsey_callable_repr(exporter: TestExporter) -> None:
     class FalseyRepr:
         def __call__(self, value: Any) -> str:
