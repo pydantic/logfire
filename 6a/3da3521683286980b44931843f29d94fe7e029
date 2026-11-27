@@ -1,0 +1,19 @@
+docs/reference/advanced/generators.md
+  s_45dd4a29c2d3b1::t_de9fb7454cfecf 247-248
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6a3da3521683286980b44931843f29d94fe7e029",
+  "prompts": {},
+  "sessions": {
+    "s_45dd4a29c2d3b1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a21c8f-8184-7730-95a7-289dff5f59d7",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
