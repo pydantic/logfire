@@ -1,0 +1,19 @@
+logfire-sdk/logfire/_internal/integrations/claude_agent_sdk.py
+  s_a0bf4a6230c775::t_6052c7870c1b7c 112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "75ac2343f2914b2f42f84e44b80976d717246d3a",
+  "prompts": {},
+  "sessions": {
+    "s_a0bf4a6230c775": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a21dde-e1bf-7eb0-b936-92faf1d7fb70",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
