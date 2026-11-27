@@ -99,7 +99,28 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
         span_data[REQUEST_PRESENCE_PENALTY] = presence_penalty
 
     if (tools := json_data.get('tools')) is not None:
-        span_data[TOOL_DEFINITIONS] = json.dumps(tools)
+        span_data[TOOL_DEFINITIONS] = json.dumps(_without_credentials(tools))
+
+
+def _without_credentials(value: Any) -> Any:
+    """Copy request data for telemetry, omitting hosted tool credentials without changing the request."""
+    if isinstance(value, (list, tuple)):
+        value = cast('list[Any] | tuple[Any, ...]', value)
+        items = [_without_credentials(item) for item in value]
+        return items if any(new is not old for new, old in zip(items, value)) else value
+    if not isinstance(value, dict):
+        return value
+
+    value = cast('dict[str, Any]', value)
+    removed = ('authorization', 'headers') if value.get('type') == 'mcp' else ()
+    result = {key: _without_credentials(item) for key, item in value.items() if key not in removed}
+    network_policy = result.get('network_policy')
+    if isinstance(network_policy, dict) and 'domain_secrets' in network_policy:
+        network_policy = cast('dict[str, Any]', network_policy)
+        result['network_policy'] = {key: item for key, item in network_policy.items() if key != 'domain_secrets'}
+    if len(result) == len(value) and all(result[key] is item for key, item in value.items()):
+        return value
+    return result
 
 
 def _versioned_stream_cls(

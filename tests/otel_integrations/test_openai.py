@@ -800,6 +800,47 @@ def test_extract_request_parameters_max_completion_tokens() -> None:
     assert span_data['gen_ai.request.max_tokens'] == 100
 
 
+def test_openai_tool_definitions_omit_hosted_credentials() -> None:
+    from logfire._internal.integrations.llm_providers.openai import (
+        _extract_request_parameters,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    network_policy: dict[str, Any] = {
+        'type': 'allowlist',
+        'allowed_domains': ['example.com'],
+        'domain_secrets': [{'domain': 'example.com', 'name': 'API_KEY', 'value': 'container-secret'}],
+    }
+    mcp_tool = {
+        'type': 'mcp',
+        'server_label': 'crm',
+        'authorization': 'oauth-token',
+        'headers': {'X-Key': 'header-secret'},
+    }
+    tools = [
+        {'type': 'function', 'name': 'lookup', 'parameters': {'properties': {'password': {'type': 'string'}}}},
+        mcp_tool,
+        {'type': 'code_interpreter', 'container': {'network_policy': network_policy}},
+        {'type': 'shell', 'environment': {'network_policy': network_policy}},
+        'other-tool',
+    ]
+    span_data: dict[str, Any] = {}
+
+    _extract_request_parameters({'tools': tools}, span_data)
+
+    assert json.loads(span_data['gen_ai.tool.definitions']) == [
+        tools[0],
+        {'type': 'mcp', 'server_label': 'crm'},
+        {
+            'type': 'code_interpreter',
+            'container': {'network_policy': {'type': 'allowlist', 'allowed_domains': ['example.com']}},
+        },
+        {'type': 'shell', 'environment': {'network_policy': {'type': 'allowlist', 'allowed_domains': ['example.com']}}},
+        'other-tool',
+    ]
+    assert mcp_tool['authorization'] == 'oauth-token'
+    assert network_policy['domain_secrets'][0]['value'] == 'container-secret'
+
+
 def test_normalize_versions_validation() -> None:
     from logfire._internal.integrations.llm_providers.semconv import normalize_versions
 
