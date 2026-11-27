@@ -98,20 +98,20 @@ LIMIT 10
 
 For starters:
 
-1. Create a panel in a [new or existing custom (not standard) dashboard](../guides/web-ui/dashboards.md#creating-custom-dashboards).
-2. Click the **Type** dropdown and select **Table**.
-3. Paste your query into the SQL editor.
-4. Give your panel a name.
-5. Click **Apply** to save it.
+1. Open a [custom (not standard) dashboard](../guides/web-ui/dashboards.md#build-a-custom-dashboard) and click **Edit**.
+2. Click **Add a panel** in the **Edit dashboard** side panel and pick **Table**.
+3. Replace the example query in the SQL editor with your query. Press `Cmd+Enter` (`Ctrl+Enter` on Windows and Linux) to run it.
+4. Enter a **Title** for your panel.
+5. Click **Save** to save the dashboard.
 
 Tables are easy and flexible. They can handle any number of `GROUP BY` columns, and don't really need a `LIMIT` to be practical. But they're not very pretty. Try making a bar chart instead:
 
-1. Click the pencil icon to edit your panel.
-2. Change the **Type** to **Bar Chart**.
+1. In edit mode, click the pencil icon on your panel to edit it.
+2. Pick **Change what kind of panel this is** in the side panel, then pick **Bar chart**.
 3. Add `LIMIT 10` or so at the end of your query if there are too many bars.
-4. If you have multiple `GROUP BY` columns, you will need to convert them to one expression by concatenating strings. Replace each `,` in the `GROUP BY` clause with `|| ' - ' ||` to create a single string with dashes between the values, e.g. replace `service_name, span_name` with `service_name || ' -  ' || span_name`. Do this in both the `SELECT` and `GROUP BY` clauses. You can optionally add an `AS` alias to the concatenated string in the `SELECT` clause, like `service_name || ' - ' || span_name AS service_and_span`, and then use that alias in the `GROUP BY` clause instead of repeating the concatenation.
+4. The bar chart labels each bar with the first text column. If you have multiple `GROUP BY` columns, convert them to one expression by concatenating strings. Replace each `,` in the `GROUP BY` clause with `|| ' - ' ||` to create a single string with dashes between the values, e.g. replace `service_name, span_name` with `service_name || ' - ' || span_name`. Do this in both the `SELECT` and `GROUP BY` clauses. You can optionally add an `AS` alias to the concatenated string in the `SELECT` clause, like `service_name || ' - ' || span_name AS service_and_span`, and then use that alias in the `GROUP BY` clause instead of repeating the concatenation. Alternatively, pick **Choose the columns for the bar labels and the stacks** to split each bar into segments by a second text column.
 5. If your grouping column happens to be a number, add `::text` to it to convert it to a string so that it's recognized as a category by the chart.
-6. Bar charts generally put the first rows in the query result at the bottom. If you want the most common items at the top, wrap the whole query in `SELECT * FROM (<original query>) ORDER BY count ASC` to flip the order. Now the inner `ORDER BY count DESC` ensures that we have the most common items (before the limit is applied) and the outer `ORDER BY count ASC` is for appearance.
+6. Bars follow the row order of the query result, with the first row at the top, so `ORDER BY count DESC` puts the most common items first. To sort by value regardless of the query, pick **Change the bar layout** and set **Order**.
 
 For a complete example, you can replace this:
 
@@ -128,18 +128,16 @@ ORDER BY count DESC
 with:
 
 ```sql
-SELECT * FROM (
-    SELECT
-        COUNT() AS count,
-        service_name || ' - ' || span_name AS service_and_span
-    FROM records
-    GROUP BY service_and_span
-    ORDER BY count DESC
-    LIMIT 10
-) ORDER BY count ASC
+SELECT
+    COUNT() AS count,
+    service_name || ' - ' || span_name AS service_and_span
+FROM records
+GROUP BY service_and_span
+ORDER BY count DESC
+LIMIT 10
 ```
 
-Finally, check the **Settings** tab in the panel editor to tweak the appearance of your chart.
+Finally, use the options in the side panel, such as **Change the unit and format** and **Change the bar layout**, to tweak the appearance of your chart.
 
 ## Aggregating Numerical Data
 
@@ -184,7 +182,7 @@ This query calculates the 95th percentile of the `duration` for each `span_name`
 
 ## Time series
 
-Create a new panel in a dashboard, and by default it will have the type **Time Series Chart** with a query like this:
+Add a panel to a dashboard and pick **Lines**. It starts with a query like this:
 
 ```sql
 SELECT
@@ -194,7 +192,7 @@ FROM records
 GROUP BY x
 ```
 
-Here the `time_bucket($resolution, start_timestamp)` is essential. [`$resolution` is a special variable that exists in all dashboards](../guides/web-ui/dashboards.md#resolution-variable) and adjusts automatically based on the time range. It doesn't exist in SQL Workbench, so you have to use a concrete interval like `time_bucket('1 hour', start_timestamp)` there. Tick **Show rendered query** in the panel editor to fill in the resolution and other variables so that you can copy the query to SQL Workbench.
+Here the `time_bucket($resolution, start_timestamp)` is essential. [`$resolution` is a special variable that exists in all dashboards](../guides/web-ui/dashboards.md#resolution-variable) and adjusts automatically based on the time range. It doesn't exist in SQL Workbench, so you have to use a concrete interval like `time_bucket('1 hour', start_timestamp)` there. Tick **Show rendered query** in the panel's SQL editor to fill in the resolution and other variables so that you can copy the query to SQL Workbench.
 
 !!! warning
     If you're querying `metrics`, use `recorded_timestamp` instead of `start_timestamp`.
@@ -215,7 +213,7 @@ GROUP BY x
 
 ### Grouping by Dimension
 
-You can make time series charts with multiple lines (series) for the same numerical metric by grouping by a dimension. This means adding a column to the `SELECT` and `GROUP BY` clauses and then selecting it from the 'Dimension' dropdown next to the SQL editor.
+You can make time series charts with multiple lines (series) for the same numerical metric by grouping by a dimension. This means adding a text column to the `SELECT` and `GROUP BY` clauses. Logfire splits the values into one series for each value of the first text column. The choices under the SQL editor let you split by a different text column, or **Combine them** into one series, and pick which number columns to show.
 
 #### Low cardinality dimensions
 
@@ -230,12 +228,10 @@ FROM records
 GROUP BY x, level
 ```
 
-Then set the **Dimension** dropdown to `level` and the **Metrics** dropdown to `log_count`. This will create a time series chart with multiple lines, one for each log level (e.g. 'info', 'warning', 'error'). Here's what the configuration and result would look like:
-
-![Time Series Chart with Multiple Lines](../images/guide/dashboard-queries-level-dimension.png)
+Logfire splits the values by `level`, so the chart has one line for each log level (e.g. 'info', 'warning', 'error').
 
 !!! note
-    You can only set one dimension, but you can set multiple metrics.
+    You can split by only one text column, but you can show several number columns.
 
 Here we use `log(count())` instead of just `count()` because you probably have way more 'info' records than 'error' records, making it hard to notice any spikes in the number of errors. This compresses the y-axis into a logarithmic scale to make it more visually useful, but the numbers are harder to interpret. The `level_name(level)` function converts the numeric [`level`](../reference/sql.md#level) value to a human-readable string.
 
@@ -272,7 +268,7 @@ FROM records
 GROUP BY x, service_and_level
 ```
 
-Then set the 'Dimension' dropdown to `service_and_level`. This will create a time series chart with a line for each combination of `service_name` and `level`. Of course this increases the cardinality quickly, making the next section more relevant.
+This will create a time series chart with a line for each combination of `service_name` and `level`. Of course this increases the cardinality quickly, making the next section more relevant.
 
 #### High cardinality dimensions
 
@@ -333,7 +329,7 @@ FROM records
 GROUP BY x, dimension
 ```
 
-Fill in `<aggregation_expression>` with your desired aggregation (e.g. `count()`, `SUM(duration)`, etc.) and `<dimension_expression>` with the column(s) you want to group by (e.g. `span_name`). Set the 'Dimension' dropdown to `dimension` and the 'Metrics' dropdown to `metric`. That should give you a working (but probably cluttered) time series chart. Then simply paste it into `<original_query>` in the following template:
+Fill in `<aggregation_expression>` with your desired aggregation (e.g. `count()`, `SUM(duration)`, etc.) and `<dimension_expression>` with the column(s) you want to group by (e.g. `span_name`). Logfire splits the values by `dimension`. That should give you a working (but probably cluttered) time series chart. Then simply paste it into `<original_query>` in the following template:
 
 ```sql
 WITH original AS (
@@ -428,7 +424,7 @@ SELECT round(mid, 3)::text as approx_amount, COALESCE(count, 0) as count
 FROM midpoints m LEFT JOIN actual_counts c ON m.ind = c.ind ORDER BY mid;
 ```
 
-Then set the chart type to **Bar Chart**. Each bar represents a 'bucket' that actual values are placed into. The x-axis will show the approximate amount that the values in the bucket can be rounded to, and the y-axis will show the count of rows in each bucket. This is an exponential histogram, meaning that the buckets are wider for larger values, which is useful for data that has a long tail distribution.
+Then show it in a **Bar chart** panel. Each bar represents a 'bucket' that actual values are placed into. Each bar is labeled with the approximate amount that the values in the bucket can be rounded to, and its length shows the count of rows in the bucket. For upright bars, pick **Change the bar layout** and turn off **Horizontal**. This is an exponential histogram, meaning that the buckets are wider for larger values, which is useful for data that has a long tail distribution.
 
 ??? question "How does this work?"
     Here's the query again with detailed comments:
