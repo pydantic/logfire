@@ -6,7 +6,7 @@ import os
 import re
 import sys
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
@@ -1533,6 +1533,22 @@ def test_instrument_generator_warning(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_instrument_generator_preserves_return_value():
+    @logfire.instrument(allow_generator=True)
+    def generator() -> Generator[str, int, int]:
+        received = yield 'ready'
+        return received + 7
+
+    with logfire.span('parent'):
+        parent = get_current_span()
+        items = generator()
+        assert next(items) == 'ready'
+        with pytest.raises(StopIteration) as result:
+            items.send(5)
+        assert result.value.value == 12
+        assert get_current_span() is parent
 
 
 def test_instrument_contextmanager_warning(exporter: TestExporter):
