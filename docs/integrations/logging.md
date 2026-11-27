@@ -125,8 +125,8 @@ each log record, but not in the message that `logging` formats from those argume
 logger.info('Login attempt: %s', {'username': 'alice', 'password': 'hunter2'})
 ```
 
-Logfire records the argument with the password redacted, in the `logfire.logging_args` attribute. The
-message still reads `Login attempt: {'username': 'alice', 'password': 'hunter2'}`, both in Logfire and
+Logfire records the argument with the password redacted, in the `logfire.logging_args` attribute. With
+default scrubbing settings, the message still reads `Login attempt: {'username': 'alice', 'password': 'hunter2'}`, both in Logfire and
 in Logfire's console output, exactly as `logging` formats it.
 
 To keep a value out of the message, pass it in `extra` instead. Logfire records each `extra` field as
