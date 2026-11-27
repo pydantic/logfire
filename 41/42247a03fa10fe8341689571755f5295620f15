@@ -1,0 +1,22 @@
+tests/test_logfire.py
+  s_45dd4a29c2d3b1::t_4a49371ef6c0b7 9,1921-1947
+  s_45dd4a29c2d3b1::t_b31395a947298d 1948-1950
+logfire-sdk/logfire/_internal/instrument.py
+  s_45dd4a29c2d3b1::t_7d98e8d9721c00 7,86,93,98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4142247a03fa10fe8341689571755f5295620f15",
+  "prompts": {},
+  "sessions": {
+    "s_45dd4a29c2d3b1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a21c8f-8184-7730-95a7-289dff5f59d7",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
