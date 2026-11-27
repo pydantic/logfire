@@ -109,6 +109,7 @@ async def _state_for_new_tool(tool_use_id: str) -> _ConversationState | None:
                 if announced in waiters:
                     waiters.remove(announced)
     # Never announced: guess the newest conversation still running, not one that ended while we waited.
+    # This can misattribute the span when conversations overlap, but preserves the tool call span.
     return states[-1] if states else None
 
 
