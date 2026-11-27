@@ -891,6 +891,35 @@ def test_openai_legacy_request_data_omits_hosted_credentials() -> None:
     assert config.span_data['request_data'] is unchanged
 
 
+def test_openai_nested_mcp_headers_are_not_exported(exporter: TestExporter) -> None:
+    sent: list[dict[str, Any]] = []
+
+    def handle(request: httpx2.Request) -> httpx2.Response:
+        sent.append(json.loads(request.content))
+        if request.url.path.endswith('/input_tokens'):
+            return httpx2.Response(200, json={'object': 'response.input_tokens', 'input_tokens': 3})
+        return httpx2.Response(200, json={'output': []})
+
+    client = openai.OpenAI(api_key='sk-test', http_client=httpx2.Client(transport=httpx2.MockTransport(handle)))
+    tool = {'type': 'mcp', 'server_label': 'crm', 'authorization': 'oauth-token', 'headers': {'X-Key': 'header-secret'}}
+    input_items = [{'type': 'additional_tools', 'tools': [tool]}]
+
+    # The client forwards additional_tools items even though its current input type does not include them.
+    with logfire.instrument_openai(client, version=1):
+        client.responses.input_tokens.count(model='gpt-5', input=input_items)  # pyright: ignore[reportArgumentType]
+        client.responses.create(model='gpt-5', input=input_items)  # pyright: ignore[reportArgumentType]
+
+    spans = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    count_span = next(attrs for attrs in spans if attrs.get('url') == '/responses/input_tokens')
+    response_span = next(
+        attrs for attrs in spans if attrs.get('logfire.msg_template') == 'Responses API with {gen_ai.request.model!r}'
+    )
+    recorded_tool = count_span['request_data']['input'][0]['tools'][0]
+    assert recorded_tool == {'type': 'mcp', 'server_label': 'crm', 'authorization': "[Scrubbed due to 'auth']"}
+    assert response_span['events'][0]['data']['tools'][0] == recorded_tool
+    assert all(body['input'][0]['tools'][0] == tool for body in sent)
+
+
 def test_normalize_versions_validation() -> None:
     from logfire._internal.integrations.llm_providers.semconv import normalize_versions
 

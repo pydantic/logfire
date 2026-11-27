@@ -102,18 +102,24 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
         span_data[TOOL_DEFINITIONS] = json.dumps(_without_credentials(tools))
 
 
-def _without_credentials(value: Any) -> Any:
+def _without_credentials(value: Any, *, keep_authorization: bool = False) -> Any:
     """Copy request data for telemetry, omitting hosted tool credentials without changing the request."""
     if isinstance(value, (list, tuple)):
         value = cast('list[Any] | tuple[Any, ...]', value)
-        items = [_without_credentials(item) for item in value]
+        items = [_without_credentials(item, keep_authorization=keep_authorization) for item in value]
         return items if any(new is not old for new, old in zip(items, value)) else value
     if not isinstance(value, dict):
         return value
 
     value = cast('dict[str, Any]', value)
-    removed = ('authorization', 'headers') if value.get('type') == 'mcp' else ()
-    result = {key: _without_credentials(item) for key, item in value.items() if key not in removed}
+    removed = ('headers',) if keep_authorization else ('authorization', 'headers')
+    if value.get('type') != 'mcp':
+        removed = ()
+    result = {
+        key: _without_credentials(item, keep_authorization=keep_authorization)
+        for key, item in value.items()
+        if key not in removed
+    }
     network_policy = result.get('network_policy')
     if isinstance(network_policy, dict) and 'domain_secrets' in network_policy:
         network_policy = cast('dict[str, Any]', network_policy)
@@ -149,6 +155,9 @@ def get_endpoint_config(
         raw_json_data = {}
     json_data = cast('dict[str, Any]', raw_json_data)
     model = json_data.get('model')
+    # Legacy request fields scrub nested authorization keys into markers, but neutral MCP header names can escape.
+    # Version 2 records semantic input messages without that legacy scrubbing, so remove both credential keys.
+    json_data = cast('dict[str, Any]', _without_credentials(json_data, keep_authorization=versions == frozenset({1})))
     if 1 in versions and (tools := json_data.get('tools')) is not None:
         safe_tools = _without_credentials(tools)
         if safe_tools is not tools:
