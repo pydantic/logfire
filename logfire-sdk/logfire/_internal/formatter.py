@@ -132,10 +132,8 @@ class ChunksFormatter(Formatter):
                 assert isinstance(node_value, ast.FormattedValue)
 
                 # This is cached.
-                source, value_code, formatted_code, has_bare_super = compile_formatted_value(
-                    node_value, node_finder.source
-                )
-                if has_bare_super:
+                compiled = compile_formatted_value(node_value, node_finder.source)
+                if compiled is None:
                     # Treat a direct zero-argument super() call as the builtin during inspection.
                     # The original rendered message may contain values that have not been scrubbed.
                     # Keep the cleaned prefix and stop before evaluating any remaining fields.
@@ -144,6 +142,7 @@ class ChunksFormatter(Formatter):
                     raise FStringSuperError(
                         (''.join(chunk['v'] for chunk in result) + omitted, extra_attrs, new_template + omitted)
                     )
+                source, value_code, formatted_code = compiled
 
                 # Note that this doesn't include:
                 # - The format spec, e.g. `:0.2f`
@@ -353,18 +352,18 @@ def _check_not_fstring(
 @lru_cache
 def compile_formatted_value(
     node: ast.FormattedValue, ex_source: executing.Source
-) -> tuple[str, CodeType, CodeType, bool]:
+) -> tuple[str, CodeType, CodeType] | None:
     """Returns the cached information for reevaluating and formatting an f-string value.
 
     1. Source code corresponding to the node value (excluding the format spec).
     2. A compiled code object which can be evaluated to calculate the value.
     3. Another code object which formats the value.
-    4. Whether the value or format spec contains a bare call to super().
+
+    Returns None if the value or format spec contains a bare call to super().
     """
     source = get_node_source_text(node.value, ex_source)
 
     # Check for unsupported expressions before attempting to compile.
-    has_bare_super = False
     for sub_node in ast.walk(node):
         if isinstance(sub_node, ast.Await):
             raise FStringAwaitError(source)
@@ -385,7 +384,7 @@ def compile_formatted_value(
             and not sub_node.args
             and not sub_node.keywords
         ):
-            has_bare_super = True
+            return None
 
     value_code = compile(source, '<fvalue1>', 'eval')
     expr = ast.Expression(
@@ -415,7 +414,7 @@ def compile_formatted_value(
     if class_name := enclosing_class_name(node).lstrip('_'):
         value_code = mangle_private_names(value_code, class_name)
         formatted_code = mangle_private_names(formatted_code, class_name)
-    return source, value_code, formatted_code, has_bare_super
+    return source, value_code, formatted_code
 
 
 def enclosing_class_name(node: ast.AST) -> str:
