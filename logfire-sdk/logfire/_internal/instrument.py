@@ -4,9 +4,9 @@ import contextlib
 import functools
 import inspect
 import warnings
-from collections.abc import AsyncGenerator, Callable, Iterable, Sequence
+from collections.abc import AsyncGenerator, Callable, Generator, Iterable, Sequence
 from contextlib import AbstractContextManager, asynccontextmanager, contextmanager
-from typing import TYPE_CHECKING, Any, LiteralString, TypeVar
+from typing import TYPE_CHECKING, Any, LiteralString, TypeVar, cast
 
 from opentelemetry import trace
 from opentelemetry.util import types as otel_types
@@ -78,7 +78,7 @@ def instrument(
 
             def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # pyright: ignore[reportUnknownParameterType, reportRedeclaration]
                 with open_span(*func_args, **func_kwargs):
-                    yield from func(*func_args, **func_kwargs)
+                    return (yield from cast(Generator[Any, Any, Any], func(*func_args, **func_kwargs)))
         elif inspect.isasyncgenfunction(func):
             if not allow_generator:
                 warnings.warn(GENERATOR_WARNING_MESSAGE, stacklevel=2)

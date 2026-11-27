@@ -391,7 +391,12 @@ class DiskRetryer:
 
             try:
                 path, kwargs = task
-                data = path.read_bytes()
+                # Read under the lock so that `close` never deletes the directory
+                # while this thread has one of its files open, which fails on Windows.
+                with self.lock:
+                    if self.closed:
+                        return
+                    data = path.read_bytes()
                 while True:
                     if self.closed:
                         return
