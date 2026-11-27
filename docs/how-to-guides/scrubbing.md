@@ -194,6 +194,12 @@ In short, don't format the message yourself. This is also a good practice in gen
 
 The `transform_string` callback *will* run on the assembled message.
 
+Logging libraries format their own messages, so the same applies to them: Logfire scrubs the arguments
+it records as attributes, but not the formatted message. See
+[standard library logging](../integrations/logging.md#keep-sensitive-values-out-of-log-messages),
+[Loguru](../integrations/loguru.md#scrubbing), and
+[structlog positional arguments](../integrations/structlog.md#positional-arguments).
+
 ### Keep sensitive data out of URLs
 
 The attribute `"http.url"` which is recorded by OpenTelemetry instrumentation libraries is considered safe so that URLs like `"http://example.com/users/123/authenticate"` are not redacted.
