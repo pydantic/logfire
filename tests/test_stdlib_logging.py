@@ -575,9 +575,13 @@ def test_logging_keeps_unredacted_container_formatting(exporter: TestExporter, l
             return 'custom display'
 
     logger.error('value: %s', DisplayDict(visible='yes'))
+    logger.error('coords: %s', {'coords': (1, 2)})
 
-    [span] = exporter.exported_spans_as_dict()
-    assert span['attributes']['logfire.msg'] == 'value: custom display'
+    spans = exporter.exported_spans_as_dict()
+    assert [span['attributes']['logfire.msg'] for span in spans] == [
+        'value: custom display',
+        "coords: {'coords': (1, 2)}",
+    ]
 
 
 def test_logging_renders_callback_replacements(
