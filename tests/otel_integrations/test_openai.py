@@ -851,7 +851,7 @@ def test_openai_tool_definitions_omit_hosted_credentials() -> None:
     assert network_policy['domain_secrets'][0]['value'] == 'container-secret'
 
 
-def test_openai_legacy_request_data_omits_hosted_credentials() -> None:
+def test_openai_legacy_top_level_tools_omit_credentials() -> None:
     from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
 
     mcp_tool = {
@@ -881,6 +881,7 @@ def test_openai_legacy_request_data_omits_hosted_credentials() -> None:
         'server_label': 'crm',
         'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp'},
     }
+    # This is pre-export span data: nested authorization is marked by the span scrubber, while headers are removed here.
     expected: dict[str, Any] = {
         'model': 'gpt-5',
         'input': 'hi',
