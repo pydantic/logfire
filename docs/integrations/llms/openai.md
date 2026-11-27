@@ -86,7 +86,8 @@ Not seeing your model calls in Logfire? Check these first:
 - **`logfire.configure()` runs before `logfire.instrument_openai()`.** Configure the connection
   first, then instrument.
 - **You instrument the client you actually call.** `instrument_openai()` with no argument covers all
-  clients; if you pass a specific client, make sure it's the one making the request.
+  clients; if you pass a specific client, make sure it's the one making the request. Clients made
+  from it with `with_options()` or `copy()` are instrumented too.
 - **Your Logfire write token is set.** In local development, install [uv](https://docs.astral.sh/uv/getting-started/installation/)
   if needed, then run `uvx logfire-cli auth` if needed, then
   `uvx logfire-cli init use` from your application's directory;

@@ -194,6 +194,31 @@ def instrument_llm_provider(
         new_request_method = instrumented_llm_request_sync
     setattr(client, attr_name, new_request_method)
 
+    # The patched `request` belongs to this instance only, so a client returned by
+    # `copy()` or its alias `with_options()` would make uninstrumented requests.
+    # Instrument each copy with the same settings. Instrumenting a class needs none of this,
+    # because copies are instances of the same class.
+    original_copy: Any = None if isinstance(client, type) else getattr(client, 'copy', None)
+    instruments_copies = callable(original_copy)
+    if instruments_copies:
+
+        @wraps(original_copy)
+        def instrumented_copy(*args: Any, **kwargs: Any) -> Any:
+            new_client = original_copy(*args, **kwargs)
+            instrument_llm_provider(
+                logfire,
+                new_client,
+                suppress_otel,
+                scope_suffix,
+                get_endpoint_config_fn,
+                on_response_fn,
+                is_async_client_fn,
+            )
+            return new_client
+
+        # The SDKs define `with_options = copy` on the class, so the alias must be patched too.
+        client.copy = client.with_options = instrumented_copy
+
     @contextmanager
     def uninstrument_context():
         """Context manager to remove instrumentation from the LLM client.
@@ -201,6 +226,9 @@ def instrument_llm_provider(
         The user isn't required (or even expected) to use this context manager,
         which is why the instrumenting has already happened before.
         It exists mostly for tests and just in case users want it.
+
+        Copies made while instrumented keep their own instrumentation.
+        Tracking them so they could be uninstrumented too would keep every copy alive.
         """
         try:
             yield
@@ -208,6 +236,10 @@ def instrument_llm_provider(
             setattr(client, attr_name, client._original_request_method)  # pyright: ignore[reportUnknownMemberType]
             del client._original_request_method
             client._is_instrumented_by_logfire = False
+            if instruments_copies:
+                # Removing the instance attributes restores the class's own `copy` and `with_options`.
+                del client.copy
+                del client.with_options
 
     return uninstrument_context()
 

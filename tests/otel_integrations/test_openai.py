@@ -408,6 +408,57 @@ def test_sync_chat_completions_max_completion_tokens(
     assert span['attributes']['gen_ai.request.max_tokens'] == 300
 
 
+COPY_TEST_MESSAGES: Any = [{'role': 'user', 'content': 'What is four plus five?'}]
+
+
+def _recorded_requests(exporter: TestExporter) -> list[dict[str, Any]]:
+    return [
+        {
+            'message': span['attributes']['logfire.msg'],
+            # Only the legacy `version=1` format records the messages in `request_data`.
+            'request_data_has_messages': 'messages' in span['attributes']['request_data'],
+        }
+        for span in exporter.exported_spans_as_dict(parse_json_attributes=True)
+    ]
+
+
+def test_copies_of_instrumented_client_are_instrumented(exporter: TestExporter) -> None:
+    with httpx2.Client(transport=httpx2.MockTransport(request_handler)) as httpx_client:
+        client = openai.Client(api_key='foobar', http_client=httpx_client)
+
+        with logfire.instrument_openai(client, version=1):
+            earlier_copy = client.with_options(timeout=30)
+            for copied in [earlier_copy, client.copy(max_retries=5), earlier_copy.with_options(max_retries=1)]:
+                copied.chat.completions.create(model='gpt-4', messages=COPY_TEST_MESSAGES)
+
+        # Copies made while instrumented stay instrumented, new ones are not.
+        earlier_copy.chat.completions.create(model='gpt-4', messages=COPY_TEST_MESSAGES)
+        client.with_options(timeout=30).chat.completions.create(model='gpt-4', messages=COPY_TEST_MESSAGES)
+        client.chat.completions.create(model='gpt-4', messages=COPY_TEST_MESSAGES)
+
+    assert _recorded_requests(exporter) == snapshot(
+        [
+            {'message': "Chat Completion with 'gpt-4'", 'request_data_has_messages': True},
+            {'message': "Chat Completion with 'gpt-4'", 'request_data_has_messages': True},
+            {'message': "Chat Completion with 'gpt-4'", 'request_data_has_messages': True},
+            {'message': "Chat Completion with 'gpt-4'", 'request_data_has_messages': True},
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_copies_of_instrumented_async_client_are_instrumented(exporter: TestExporter) -> None:
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(request_handler)) as httpx_client:
+        client = openai.AsyncClient(api_key='foobar', http_client=httpx_client)
+
+        with logfire.instrument_openai(client, version=1):
+            await client.with_options(timeout=30).chat.completions.create(model='gpt-4', messages=COPY_TEST_MESSAGES)
+
+    assert _recorded_requests(exporter) == snapshot(
+        [{'message': "Chat Completion with 'gpt-4'", 'request_data_has_messages': True}]
+    )
+
+
 def test_sync_chat_completions(instrumented_client: openai.Client, exporter: TestExporter) -> None:
     response = instrumented_client.chat.completions.create(
         model='gpt-4',
