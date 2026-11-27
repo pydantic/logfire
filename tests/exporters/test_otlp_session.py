@@ -768,11 +768,14 @@ def test_disk_retryer_close_waits_for_a_file_being_read() -> None:
 
 
 def test_disk_retryer_does_not_read_tasks_after_close(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_read(self: Path) -> bytes:
+        pytest.fail('read after close')
+
     retryer = DiskRetryer({})
     try:
         path = retryer.dir / 'task'
         path.write_bytes(b'data')
-        monkeypatch.setattr(Path, 'read_bytes', lambda self: pytest.fail('read after close'))  # pyright: ignore[reportUnknownLambdaType]
+        monkeypatch.setattr(Path, 'read_bytes', fail_read)
         retryer.closed = True
         retryer.tasks.append((path, {'url': 'http://localhost/'}))
         retryer._run()  # pyright: ignore[reportPrivateUsage]
