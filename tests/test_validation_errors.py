@@ -140,6 +140,12 @@ def test_older_pydantic_hidden_input_fallback() -> None:
         is True
     )
 
+    class UnreducibleError(UnmatchableError):
+        def __reduce__(self) -> tuple[Any, ...]:
+            raise ValueError('cannot inspect reduction')
+
+    assert _hides_input(cast(ValidationError, UnreducibleError()), []) is True
+
 
 def test_invalid_scrubber_result_falls_back() -> None:
     class InvalidScrubber(Scrubber):

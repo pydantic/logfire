@@ -11,15 +11,15 @@ _BUILTIN_ERROR_TYPES = frozenset(get_args(core_schema.ErrorType))
 
 
 def _hides_input(exc: ValidationError, errors: list[dict[str, Any]]) -> bool:
-    reduction = exc.__reduce__()
-    reduction_args = reduction[1] if len(reduction) > 1 else ()
-    hidden_flag = reduction_args[3] if len(reduction_args) > 3 else None
-    if isinstance(hidden_flag, bool):
-        return hidden_flag
-
-    # Older pydantic-core versions omit the flag from __reduce__. Compare full
-    # rendered errors, so a custom message containing input_value= cannot spoof it.
     try:
+        reduction = exc.__reduce__()
+        reduction_args = reduction[1] if len(reduction) > 1 else ()
+        hidden_flag = reduction_args[3] if len(reduction_args) > 3 else None
+        if isinstance(hidden_flag, bool):
+            return hidden_flag
+
+        # Older pydantic-core versions omit the flag from __reduce__. Compare full
+        # rendered errors, so a custom message containing input_value= cannot spoof it.
         original_line_errors: list[dict[str, Any]] = []
         for original in errors:
             line = dict(original)
