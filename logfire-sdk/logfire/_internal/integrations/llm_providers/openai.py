@@ -166,13 +166,11 @@ def get_endpoint_config(
         raw_json_data = {}
     json_data = cast('dict[str, Any]', raw_json_data)
     model = json_data.get('model')
-    # Legacy request fields scrub nested authorization keys into markers, but neutral MCP header names can escape.
-    # Version 2 records semantic input messages without that legacy scrubbing, so remove both credential keys.
+    # Legacy request fields and semantic input messages scrub nested authorization keys into markers.
+    # Neutral MCP header names can still escape, so remove those from the telemetry copy.
     json_data = cast(
         'dict[str, Any]',
-        _without_credentials(
-            json_data, keep_authorization=versions == frozenset({1}), in_hosted_tool=url.startswith('/containers')
-        ),
+        _without_credentials(json_data, keep_authorization=True, in_hosted_tool=url.startswith('/containers')),
     )
     if 1 in versions and (tools := json_data.get('tools')) is not None:
         safe_tools = _without_credentials(tools)

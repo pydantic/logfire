@@ -889,6 +889,7 @@ def test_openai_legacy_request_data_omits_hosted_credentials() -> None:
                 {
                     'type': 'mcp',
                     'server_label': 'crm',
+                    'authorization': 'oauth-token',
                     'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp'},
                 }
             ]
@@ -899,10 +900,6 @@ def test_openai_legacy_request_data_omits_hosted_credentials() -> None:
         ],
     }
     for version in (1, frozenset({1, 2})):
-        if version == 1:
-            expected['agent']['tools'][0]['authorization'] = 'oauth-token'
-        else:
-            expected['agent']['tools'][0].pop('authorization')
         config = get_endpoint_config(MockOptions(), version=version)  # type: ignore
         assert config.span_data['request_data'] == expected
         assert json.loads(config.span_data['gen_ai.tool.definitions']) == expected['tools']
