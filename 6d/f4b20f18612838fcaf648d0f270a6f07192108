@@ -1,0 +1,20 @@
+tests/otel_integrations/test_claude_agent_sdk.py
+  s_a0bf4a6230c775::t_351b201bd38e08 620-663
+  s_a0bf4a6230c775::t_48b2e62e933410 619
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6df4b20f18612838fcaf648d0f270a6f07192108",
+  "prompts": {},
+  "sessions": {
+    "s_a0bf4a6230c775": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a21dde-e1bf-7eb0-b936-92faf1d7fb70",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
