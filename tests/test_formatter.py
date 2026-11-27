@@ -151,6 +151,24 @@ def test_format_spec_error():
         logfire_format('{a:{b:c}}', {'a': '1', 'b': '2'}, NOOP_SCRUBBER)
 
 
+@pytest.mark.parametrize(
+    ('template', 'kwargs'),
+    [
+        ('{value:10000}', {'value': 1}),
+        ('{value:50000000}', {'value': 1}),
+        ('{value:{width}}', {'value': 1, 'width': 10000}),
+        ('{value:{width}d}', {'value': 1, 'width': 50000000}),
+    ],
+)
+def test_reject_large_format_spec_numbers(template: str, kwargs: dict[str, int]):
+    with warns_failed('Format specs may not contain numbers with five or more digits.'):
+        assert logfire_format(template, kwargs, NOOP_SCRUBBER) == template
+
+
+def test_four_digit_format_spec_width():
+    assert logfire_format('{value:9999}', {'value': 1}, NOOP_SCRUBBER) == ' ' * 62 + '...' + ' ' * 61 + '1'
+
+
 def test_recursion_error():
     with warns_failed('Max format spec recursion exceeded'):
         logfire_format('{a:{a:{a:{a:5}}}}', {'a': 1}, NOOP_SCRUBBER)
