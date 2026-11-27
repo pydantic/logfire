@@ -202,7 +202,28 @@ Three details in the script matter:
 
 In your application, the agent writes the script and your code runs it. See [Use Agent Sandboxes with Pydantic
 AI](pydantic-ai.md) or [Add a code tool to any agent](any-framework.md). With Pydantic AI, pass `extract` in the
-agent's `tools` with your other tools. Code Mode makes it a function that scripts can call.
+agent's `tools` with your other tools. Code Mode makes it a function that scripts can call. Code Mode uses the pool
+that `monty_sandbox` returns, so set the longer timeout there:
+
+```python title="agent.py" skip-run="true" skip-reason="external-connection"
+from functools import partial
+
+from pydantic_ai import Agent
+from pydantic_ai_harness import CodeMode
+from tools import extract, get_contract_text, list_contracts
+
+import logfire
+
+logfire.configure()
+logfire.instrument_pydantic_ai()
+
+agent = Agent(
+    'openai:gpt-6.1-sol',
+    tools=[list_contracts, get_contract_text, extract],
+    instructions='Today is 2026-11-12.',
+    capabilities=[CodeMode(monty_sandbox=partial(logfire.agent_sandboxes, request_timeout=120))],
+)
+```
 
 ## When to use this, and when not
 
