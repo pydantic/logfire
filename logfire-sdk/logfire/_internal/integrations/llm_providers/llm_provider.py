@@ -41,6 +41,8 @@ def instrument_llm_provider(
     get_endpoint_config_fn: Callable[[Any], EndpointConfig],
     on_response_fn: OnResponseFn,
     is_async_client_fn: Callable[[type[Any]], bool],
+    *,
+    is_copy: bool = False,
 ) -> AbstractContextManager[None]:
     """Instruments the provided `client` (or clients) with `logfire`.
 
@@ -48,6 +50,9 @@ def instrument_llm_provider(
     - a single client instance, e.g. an instance of `openai.OpenAI`,
     - a class of a client, or
     - an iterable of clients/classes.
+
+    `is_copy` is set for a client returned by `copy()` or `with_options()` on an instrumented
+    instance, which gets its own instrumentation like that instance has.
 
     Returns:
         A context manager that will revert the instrumentation when exited.
@@ -79,7 +84,10 @@ def instrument_llm_provider(
 
         return uninstrument_context()
 
-    if getattr(client, '_is_instrumented_by_logfire', False):
+    # A new copy only inherits the flag from its class. Instrument it anyway: the class's
+    # instrumentation may be removed while the copy is in use, and the instance it was
+    # copied from keeps its own instrumentation in that case.
+    if not is_copy and getattr(client, '_is_instrumented_by_logfire', False):
         # Do nothing if already instrumented.
         return nullcontext()
 
@@ -92,6 +100,13 @@ def instrument_llm_provider(
     except AttributeError:  # pragma: no cover  # for older versions
         original_request_method = client._request
         attr_name = '_request'
+
+    client_class: Any = getattr(client, '__class__')
+    if is_copy and getattr(client_class, '_is_instrumented_by_logfire', False):
+        # While the class is instrumented, `client.request` is the class's wrapper.
+        # Wrap the class's original method instead, so each request is recorded once.
+        class_original: Any = getattr(client_class, '_original_request_method')
+        original_request_method = class_original.__get__(client)
 
     client._original_request_method = original_request_method
 
@@ -194,6 +209,32 @@ def instrument_llm_provider(
         new_request_method = instrumented_llm_request_sync
     setattr(client, attr_name, new_request_method)
 
+    # The patched `request` belongs to this instance only, so a client returned by
+    # `copy()` or its alias `with_options()` would make uninstrumented requests.
+    # Instrument each copy with the same settings. Instrumenting a class needs none of this,
+    # because copies are instances of the same class.
+    original_copy: Any = None if isinstance(client, type) else getattr(client, 'copy', None)
+    instruments_copies = callable(original_copy)
+    if instruments_copies:
+
+        @wraps(original_copy)
+        def instrumented_copy(*args: Any, **kwargs: Any) -> Any:
+            new_client = original_copy(*args, **kwargs)
+            instrument_llm_provider(
+                logfire,
+                new_client,
+                suppress_otel,
+                scope_suffix,
+                get_endpoint_config_fn,
+                on_response_fn,
+                is_async_client_fn,
+                is_copy=True,
+            )
+            return new_client
+
+        # The SDKs define `with_options = copy` on the class, so the alias must be patched too.
+        client.copy = client.with_options = instrumented_copy
+
     @contextmanager
     def uninstrument_context():
         """Context manager to remove instrumentation from the LLM client.
@@ -201,6 +242,9 @@ def instrument_llm_provider(
         The user isn't required (or even expected) to use this context manager,
         which is why the instrumenting has already happened before.
         It exists mostly for tests and just in case users want it.
+
+        Copies made while instrumented keep their own instrumentation.
+        Tracking them so they could be uninstrumented too would keep every copy alive.
         """
         try:
             yield
@@ -208,6 +252,10 @@ def instrument_llm_provider(
             setattr(client, attr_name, client._original_request_method)  # pyright: ignore[reportUnknownMemberType]
             del client._original_request_method
             client._is_instrumented_by_logfire = False
+            if instruments_copies:
+                # Removing the instance attributes restores the class's own `copy` and `with_options`.
+                del client.copy
+                del client.with_options
 
     return uninstrument_context()
 
