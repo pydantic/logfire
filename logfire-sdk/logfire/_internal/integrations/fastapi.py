@@ -198,10 +198,16 @@ class _FastAPIRegistry:
     )
 
     def get_instrumentation(self, request: Request | WebSocket) -> FastAPIInstrumentation | None:
-        """Get instrumentation for the routed app, the app that started the span, or the global setup."""
-        instrumentation = self.per_app.get(request.app)
-        if instrumentation is None and (app := request.scope.get(LOGFIRE_APP_SCOPE_KEY)) is not None:
+        """Get instrumentation for the app that started the request span, the routed app, or the global setup.
+
+        The instrumented app that started the request span takes precedence over the routed app
+        because a sub-app can be mounted in several instrumented apps with different settings.
+        """
+        instrumentation = None
+        if (app := request.scope.get(LOGFIRE_APP_SCOPE_KEY)) is not None:
             instrumentation = self.per_app.get(app)
+        if instrumentation is None:
+            instrumentation = self.per_app.get(request.app)
         return instrumentation or self.global_instrumentation
 
 
@@ -412,10 +418,13 @@ def _server_request_hook(user_hook: ServerRequestHook | None, app: FastAPI | Non
     # Add the span to the request scope so that we can access it in `solve_dependencies`.
     # Also call the user's hook if they passed one.
     def hook(span: Span, scope: dict[str, Any]):
-        scope[LOGFIRE_SPAN_SCOPE_KEY] = span
+        # An explicitly instrumented sub-app runs this hook again for its own span.
+        # Keep the outermost app's span and app together, so arguments are recorded
+        # with that app's settings on that app's span.
+        scope.setdefault(LOGFIRE_SPAN_SCOPE_KEY, span)
         if app is not None:
             # Mounted apps replace scope['app'] before FastAPI resolves dependencies.
-            scope[LOGFIRE_APP_SCOPE_KEY] = app
+            scope.setdefault(LOGFIRE_APP_SCOPE_KEY, app)
         # FastAPI's native telemetry detects legacy OTel on the root app, but not
         # mounted apps. Its scope marker keeps those apps from starting new traces.
         scope.setdefault('fastapi.telemetry', None)
