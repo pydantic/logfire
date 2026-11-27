@@ -115,6 +115,32 @@ Your terminal shows the message once, printed by the `StreamHandler`, and the lo
 WARNING:__main__:Hello, World!
 ```
 
+### Keep sensitive values out of log messages
+
+Logfire's [pattern matching](../how-to-guides/scrubbing.md) redacts sensitive values in the arguments of
+each log record, but not in the message that `logging` formats from those arguments. A configured
+`transform_string` callback still applies to the message. For example:
+
+```py skip="true" skip-reason="incomplete"
+logger.info('Login attempt: %s', {'username': 'alice', 'password': 'hunter2'})
+```
+
+Logfire records the argument with the password redacted, in the `logfire.logging_args` attribute. With
+default scrubbing settings, the message still reads `Login attempt: {'username': 'alice', 'password': 'hunter2'}`, both in Logfire and
+in Logfire's console output, exactly as `logging` formats it.
+
+To keep a value out of the message, pass it in `extra` instead. Logfire records each `extra` field as
+its own attribute, and pattern matching checks it like any other attribute:
+
+```py skip="true" skip-reason="incomplete"
+logger.info('Login attempt', extra={'form': {'username': 'alice', 'password': 'hunter2'}})
+```
+
+This records the message `Login attempt` and a `form` attribute with the password redacted.
+
+If this limitation affects you, describe your use case in
+[issue #2952](https://github.com/pydantic/logfire/issues/2952).
+
 ### Quiet a noisy logger
 
 Logging can be too verbose, especially from third-party libraries.

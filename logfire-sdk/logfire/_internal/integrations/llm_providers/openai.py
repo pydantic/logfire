@@ -99,7 +99,45 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
         span_data[REQUEST_PRESENCE_PENALTY] = presence_penalty
 
     if (tools := json_data.get('tools')) is not None:
-        span_data[TOOL_DEFINITIONS] = json.dumps(tools)
+        span_data[TOOL_DEFINITIONS] = json.dumps(_without_credentials(tools))
+
+
+def _without_credentials(
+    value: Any, *, keep_authorization: bool = False, in_mcp_tool: bool = False, in_hosted_tool: bool = False
+) -> Any:
+    """Copy request data for telemetry, omitting hosted tool credentials without changing the request."""
+    if isinstance(value, (list, tuple)):
+        value = cast('list[Any] | tuple[Any, ...]', value)
+        items = [
+            _without_credentials(
+                item, keep_authorization=keep_authorization, in_mcp_tool=in_mcp_tool, in_hosted_tool=in_hosted_tool
+            )
+            for item in value
+        ]
+        return items if any(new is not old for new, old in zip(items, value)) else value
+    if not isinstance(value, dict):
+        return value
+
+    value = cast('dict[str, Any]', value)
+    in_mcp_tool = in_mcp_tool or value.get('type') == 'mcp'
+    in_hosted_tool = in_hosted_tool or in_mcp_tool or value.get('type') in ('code_interpreter', 'shell')
+    removed = ('headers',) if keep_authorization else ('authorization', 'headers')
+    if not in_mcp_tool:
+        removed = ()
+    result = {
+        key: _without_credentials(
+            item, keep_authorization=keep_authorization, in_mcp_tool=in_mcp_tool, in_hosted_tool=in_hosted_tool
+        )
+        for key, item in value.items()
+        if key not in removed
+    }
+    network_policy = result.get('network_policy')
+    if in_hosted_tool and isinstance(network_policy, dict) and 'domain_secrets' in network_policy:
+        network_policy = cast('dict[str, Any]', network_policy)
+        result['network_policy'] = {key: item for key, item in network_policy.items() if key != 'domain_secrets'}
+    if len(result) == len(value) and all(result[key] is item for key, item in value.items()):
+        return value
+    return result
 
 
 def _versioned_stream_cls(
@@ -128,6 +166,16 @@ def get_endpoint_config(
         raw_json_data = {}
     json_data = cast('dict[str, Any]', raw_json_data)
     model = json_data.get('model')
+    # Legacy request fields and semantic input messages scrub nested authorization keys into markers.
+    # Neutral MCP header names can still escape, so remove those from the telemetry copy.
+    json_data = cast(
+        'dict[str, Any]',
+        _without_credentials(json_data, keep_authorization=True, in_hosted_tool=url.startswith('/containers')),
+    )
+    if 1 in versions and (tools := json_data.get('tools')) is not None:
+        safe_tools = _without_credentials(tools)
+        if safe_tools is not tools:
+            json_data = {**json_data, 'tools': safe_tools}
     request_data = json_data if 1 in versions else {'model': model}
 
     def common_attrs(operation: str = '') -> dict[str, Any]:

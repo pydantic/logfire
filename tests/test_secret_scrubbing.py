@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from io import StringIO
@@ -23,6 +24,7 @@ from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace import Status, StatusCode, get_tracer
 from opentelemetry.trace.propagation import get_current_span
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic_core import PydanticCustomError
 
 import logfire
 from logfire._internal import utils
@@ -37,7 +39,7 @@ from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
 from logfire._internal.utils import ReadableSpanDict
 from logfire.sampling import TailSamplingSpanInfo
 from logfire.testing import TestExporter, TestLogExporter
-from logfire.types import StringValue
+from logfire.types import ExceptionCallbackHelper, StringValue
 
 
 def test_span_processor_group_flushes_after_failure():
@@ -1098,6 +1100,14 @@ def test_gen_ai_definition_keeps_schema_keys_and_transforms_values():
     ]
     assert json.loads(result['gen_ai.input.messages']) == {'content': '[email] and /auth'}
     assert notes == []
+
+
+def test_semconv_input_messages_scrub_nested_authorization(exporter: TestExporter):
+    attributes: dict[str, Any] = {'gen_ai.input.messages': {'authorization': 'foo'}}
+    logfire.info('hi', **attributes)
+
+    span = exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]
+    assert span['attributes']['gen_ai.input.messages'] == {'authorization': "[Scrubbed due to 'auth']"}
 
 
 @pytest.mark.parametrize(
@@ -2808,6 +2818,215 @@ def test_validation_error_exception_data_scrubbed(exporter: TestExporter):
     )
 
 
+def test_validation_error_exception_text_scrubbed(exporter: TestExporter):
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+        age: int
+
+    password = 'hunter2'
+    with pytest.raises(ValidationError) as caught:
+        with logfire.span('login'):
+            Login.model_validate({'password': password, 'age': 'bad'})
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    event = span['events'][0]['attributes']
+    assert password not in json.dumps(span)
+    assert password in str(caught.value)
+    assert "[Scrubbed due to 'password']" in event['exception.message']
+    assert "input_value='bad'" in event['exception.message']
+    raw_span = next(span for span in exporter.exported_spans if span.events)
+    assert raw_span.events[0].attributes is not None
+    stacktrace = cast(str, raw_span.events[0].attributes['exception.stacktrace'])
+    assert "[Scrubbed due to 'password']" in stacktrace
+    assert password not in stacktrace
+    assert "[Scrubbed due to 'password']" in cast(str, raw_span.status.description)
+    assert event['exception.logfire.data'] == span['attributes']['exception.logfire.data']
+    assert event['exception.logfire.data'][0]['loc'] == ['password']
+    assert event['exception.logfire.data'][0]['input'] == "[Scrubbed due to 'password']"
+
+
+def test_dataclass_validation_input_scrubbed_from_exception_text(exporter: TestExporter):
+    @dataclass
+    class LoginInput:
+        password: str
+
+    class Login(BaseModel):
+        model_config = ConfigDict(from_attributes=True)
+        username: str
+
+    password = 'hunter2'
+    with pytest.raises(ValidationError):
+        with logfire.span('login'):
+            Login.model_validate(LoginInput(password))
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert password not in json.dumps(span)
+    assert "[Scrubbed due to 'password']" in span['events'][0]['attributes']['exception.message']
+
+
+def test_custom_validation_message_scrubbed_without_input_change(exporter: TestExporter):
+    password = 'hunter2'
+    error = ValidationError.from_exception_data(
+        'Login',
+        [
+            {
+                'type': PydanticCustomError('invalid_login', f'Invalid password: {password}'),
+                'loc': ('username',),
+                'input': 'alice',
+            }
+        ],
+    )
+    with pytest.raises(ValidationError):
+        with logfire.span('login'):
+            raise error
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert password not in json.dumps(span)
+    assert "[Scrubbed due to 'password']" in span['events'][0]['attributes']['exception.message']
+
+
+def test_disabled_scrubbing_preserves_validation_error_text(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    logfire.configure(**config_kwargs, scrubbing=False)
+
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    password = 'hunter2'
+    with pytest.raises(ValidationError):
+        with logfire.span('login'):
+            Login(password=password)
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert password in span['events'][0]['attributes']['exception.message']
+
+
+def test_exception_recording_without_pydantic(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr('logfire._internal.tracer.ValidationError', None)
+    with pytest.raises(ValueError):
+        with logfire.span('work'):
+            raise ValueError('failed')
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['events'][0]['attributes']['exception.message'] == 'failed'
+
+
+def test_exception_recording_with_pydantic_v1_like_error(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    class V1LikeValidationError(Exception):
+        pass
+
+    monkeypatch.setattr('logfire._internal.tracer.ValidationError', V1LikeValidationError)
+    with pytest.raises(ValueError):
+        with logfire.span('work'):
+            raise ValueError('failed')
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['events'][0]['attributes']['exception.message'] == 'failed'
+
+
+def test_exception_rebuilding_import_failure_preserves_recording(
+    exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
+):
+    import builtins
+
+    monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
+    original_import = builtins.__import__
+
+    def fail_validation_error_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'validation_errors':
+            raise ImportError('pydantic_core unavailable')
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', fail_validation_error_import)
+    with pytest.raises(ValueError):
+        with logfire.span('work'):
+            raise ValueError('failed')
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['events'][0]['attributes']['exception.message'] == 'failed'
+
+
+def test_exception_rebuilding_failure_preserves_recording(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(utils, 'log_internal_error', lambda: None)
+
+    def fail(*args: Any) -> BaseException:
+        raise ValueError('rebuilding failed')
+
+    monkeypatch.setattr('logfire._internal.validation_errors.replace_validation_errors', fail)
+
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    with pytest.raises(ValidationError):
+        with logfire.span('logfire'):
+            Login(password='hunter2')
+    with pytest.raises(ValidationError):
+        with get_tracer('test').start_as_current_span('otel'):
+            Login(password='hunter2')
+
+    spans = [span for span in exporter.exported_spans if span.name in ('logfire', 'otel') and span.events]
+    assert len(spans) == 2
+    for span in spans:
+        assert span.events and span.events[0].attributes
+        assert 'hunter2' in cast(str, span.events[0].attributes['exception.message'])
+        assert span.status.status_code is StatusCode.ERROR
+
+
+def test_chained_validation_error_text_scrubbed(exporter: TestExporter):
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    password = 'hunter2'
+    with pytest.raises(RuntimeError) as caught:
+        with logfire.span('login'):
+            try:
+                Login(password=password)
+            except ValidationError as error:
+                raise RuntimeError('login failed') from error
+
+    raw_span = next(span for span in exporter.exported_spans if span.events)
+    assert raw_span.events[0].attributes is not None
+    stacktrace = cast(str, raw_span.events[0].attributes['exception.stacktrace'])
+    assert password not in stacktrace
+    assert "[Scrubbed due to 'password']" in stacktrace
+    assert caught.value.__cause__ is not None
+    assert password in str(caught.value.__cause__)
+
+
+def test_otel_context_manager_status_scrubbed(exporter: TestExporter):
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    password = 'hunter2'
+    with pytest.raises(ValidationError):
+        with get_tracer('test').start_as_current_span('login'):
+            Login(password=password)
+
+    raw_span = next(span for span in reversed(exporter.exported_spans) if span.name == 'login')
+    assert password not in cast(str, raw_span.status.description)
+    assert "[Scrubbed due to 'password']" in cast(str, raw_span.status.description)
+
+
+def test_status_scrubbed_when_exception_event_disabled(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    def exception_callback(helper: ExceptionCallbackHelper) -> None:
+        helper.no_record_exception()
+
+    config_kwargs['advanced'].exception_callback = exception_callback
+    logfire.configure(**config_kwargs)
+
+    class Login(BaseModel):
+        password: str = Field(min_length=12)
+
+    password = 'hunter2'
+    with pytest.raises(ValidationError):
+        with logfire.span('login'):
+            Login(password=password)
+
+    raw_span = next(span for span in reversed(exporter.exported_spans) if span.name == 'login')
+    assert raw_span.events == ()
+    assert password not in cast(str, raw_span.status.description)
+    assert "[Scrubbed due to 'password']" in cast(str, raw_span.status.description)
+
+
 def test_validation_error_input_in_logged_data(exporter: TestExporter):
     class Login(BaseModel):
         password: str = Field(min_length=12)
@@ -2903,3 +3122,23 @@ def test_missing_validation_error_input_skips_absent_field(exporter: TestExporte
     [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
     assert attributes['errors'][0]['input'] == {'username': 'alice', 'api_key': "[Scrubbed due to 'api_key']"}
     assert attributes['errors'][1]['input'] == "[Scrubbed due to 'credit_card']"
+
+
+@pytest.mark.parametrize('token', ['pylf_v1_us_0123456789abcdef', 'legacy-write-token-0123456789abcdef'])
+def test_logfire_credentials_not_in_tracer_repr_or_telemetry(
+    exporter: TestExporter, config_kwargs: dict[str, Any], token: str
+):
+    api_key = 'pylf_v2_us_fedcba9876543210'
+    logfire.configure(**config_kwargs, token=token, api_key=api_key)
+    tracer = get_tracer('test')
+
+    assert token not in repr(tracer)
+    assert api_key not in repr(tracer)
+
+    with pytest.raises(ValueError):
+        with logfire.span('hi', tracer=tracer):
+            raise ValueError(f'Bad tracer: {tracer}')
+
+    exported = json.dumps(exporter.exported_spans_as_dict(parse_json_attributes=True))
+    assert token not in exported
+    assert api_key not in exported

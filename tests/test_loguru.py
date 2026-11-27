@@ -259,3 +259,11 @@ def test_loguru_console_output(
 
     assert capsys.readouterr().out.splitlines() == expected
     assert [span['name'] for span in exporter.exported_spans_as_dict()] == ['From Loguru', 'From Logfire']
+
+
+def test_loguru_source_filepath(exporter: TestExporter) -> None:
+    logfire.info('From Logfire')
+    logger.info('From Loguru')
+
+    direct, integrated = exporter.exported_spans_as_dict(strip_filepaths=False)
+    assert integrated['attributes']['code.filepath'] == direct['attributes']['code.filepath']
