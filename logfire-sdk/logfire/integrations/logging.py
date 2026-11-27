@@ -167,7 +167,14 @@ def _scrub_container(scrubber: BaseScrubber, path: tuple[str | int, ...], value:
     if not isinstance(value, (dict, list)):
         return value, False
     scrubbed, notes = scrubber.scrub_value(path, value)
-    return scrubbed, bool(notes)
+    if notes:
+        return scrubbed, True
+    # A callback can replace a value without recording a scrub note. Keep the original rendering
+    # for equal containers (including subclasses with custom __str__) and use the replacement otherwise.
+    try:
+        return scrubbed, not bool(scrubbed == value)
+    except Exception:
+        return scrubbed, True
 
 
 def _format_message(record: LogRecord, scrubber: BaseScrubber) -> tuple[str, Mapping[str, Any]]:
