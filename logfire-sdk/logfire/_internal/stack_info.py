@@ -49,6 +49,12 @@ def add_non_user_code_prefix(path: str | Path) -> None:
 
 
 def get_filepath_attribute(file: str) -> StackInfo:
+    # Callers may add fields to the result, so only cache the normalized string.
+    return {'code.filepath': _get_filepath(file)}
+
+
+@lru_cache(maxsize=2048)
+def _get_filepath(file: str) -> str:
     path = Path(file)
     if path.is_absolute():
         try:
@@ -56,7 +62,7 @@ def get_filepath_attribute(file: str) -> StackInfo:
         except ValueError:  # pragma: no cover
             # happens if filename path is not within CWD
             pass
-    return {'code.filepath': str(path)}
+    return str(path)
 
 
 def get_code_object_info(code: CodeType) -> StackInfo:

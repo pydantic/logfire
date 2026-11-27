@@ -17,6 +17,7 @@ from .._internal.constants import (
     ATTRIBUTES_TAGS_KEY,
     LOGGING_TO_OTEL_LEVEL_NUMBERS,
 )
+from .._internal.stack_info import get_filepath_attribute
 from .._internal.utils import is_instrumentation_suppressed
 
 # skip natural LogRecord attributes
@@ -138,7 +139,7 @@ class LogfireLoggingHandler(LoggingHandler):
             The attributes for the log record.
         """
         attributes = {k: v for k, v in record.__dict__.items() if k not in RESERVED_ATTRS}
-        attributes['code.filepath'] = record.pathname
+        attributes.update(get_filepath_attribute(record.pathname))
         attributes['code.lineno'] = record.lineno
         attributes['code.function'] = record.funcName
         attributes[ATTRIBUTES_LOGGING_NAME] = record.name
