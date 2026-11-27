@@ -418,10 +418,12 @@ def _server_request_hook(user_hook: ServerRequestHook | None, app: FastAPI | Non
     # Add the span to the request scope so that we can access it in `solve_dependencies`.
     # Also call the user's hook if they passed one.
     def hook(span: Span, scope: dict[str, Any]):
-        scope[LOGFIRE_SPAN_SCOPE_KEY] = span
+        # An explicitly instrumented sub-app runs this hook again for its own span.
+        # Keep the outermost app's span and app together, so arguments are recorded
+        # with that app's settings on that app's span.
+        scope.setdefault(LOGFIRE_SPAN_SCOPE_KEY, span)
         if app is not None:
             # Mounted apps replace scope['app'] before FastAPI resolves dependencies.
-            # An explicitly instrumented sub-app runs this hook again, so keep the outermost app.
             scope.setdefault(LOGFIRE_APP_SCOPE_KEY, app)
         # FastAPI's native telemetry detects legacy OTel on the root app, but not
         # mounted apps. Its scope marker keeps those apps from starting new traces.

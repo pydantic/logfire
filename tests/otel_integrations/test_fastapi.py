@@ -1831,13 +1831,8 @@ def test_instrumented_sub_app_mounted_in_instrumented_app(exporter: TestExporter
 
     assert through_parent == snapshot(
         [
-            {'name': 'GET /api', 'http.route': '/api'},
-            {
-                'name': 'GET /items/{item_id}',
-                'http.route': '/items/{item_id}',
-                'root': 'parent',
-                'fastapi.arguments.values': {'item_id': 1},
-            },
+            {'name': 'GET /api', 'http.route': '/api', 'root': 'parent', 'fastapi.arguments.values': {'item_id': 1}},
+            {'name': 'GET /items/{item_id}', 'http.route': '/items/{item_id}'},
         ]
     )
     assert direct == snapshot(
