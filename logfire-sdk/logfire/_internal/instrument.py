@@ -78,8 +78,7 @@ def instrument(
 
             def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # pyright: ignore[reportUnknownParameterType, reportRedeclaration]
                 with open_span(*func_args, **func_kwargs):
-                    generator = cast(Generator[Any, Any, Any], func(*func_args, **func_kwargs))
-                    return (yield from generator)
+                    return (yield from cast(Generator[Any, Any, Any], func(*func_args, **func_kwargs)))
         elif inspect.isasyncgenfunction(func):
             if not allow_generator:
                 warnings.warn(GENERATOR_WARNING_MESSAGE, stacklevel=2)
