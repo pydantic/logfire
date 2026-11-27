@@ -1,0 +1,23 @@
+docs/integrations/structlog.md
+  s_6b68abf9e42f1d::t_e1e0be3b8ccf82 103-104
+docs/how-to-guides/scrubbing.md
+  s_6b68abf9e42f1d::t_e1e0be3b8ccf82 197-199
+docs/integrations/logging.md
+  s_6b68abf9e42f1d::t_e1e0be3b8ccf82 120-122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c5245c57e6ed152937d2432862a91f02bda6d226",
+  "prompts": {},
+  "sessions": {
+    "s_6b68abf9e42f1d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4c89995b-2df9-42e5-ad61-0b44734d68cf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
