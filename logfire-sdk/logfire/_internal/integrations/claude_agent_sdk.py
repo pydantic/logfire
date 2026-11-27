@@ -57,23 +57,64 @@ if TYPE_CHECKING:
 #
 # The Claude Agent SDK uses anyio internally, and anyio tasks don't propagate
 # contextvars from the parent. This means OTel's context propagation breaks
-# for hook callbacks. We use threading.local() as a workaround — storing a
-# single _ConversationState object that hooks retrieve.
+# for hook callbacks. We use threading.local() as a workaround — storing the
+# _ConversationState objects that hooks retrieve. Several conversations can run
+# concurrently on one event loop, so hooks find theirs by tool call ID.
 # ---------------------------------------------------------------------------
 _thread_local = threading.local()
 
 
-def _get_state() -> _ConversationState | None:
-    return getattr(_thread_local, 'state', None)
+def _get_states() -> list[_ConversationState]:
+    return _thread_local.__dict__.setdefault('states', [])
 
 
 def _set_state(state: _ConversationState) -> None:
-    _thread_local.state = state
+    _get_states().append(state)
 
 
-def _clear_state() -> None:
-    if hasattr(_thread_local, 'state'):  # pragma: no branch
-        delattr(_thread_local, 'state')
+def _clear_state(state: _ConversationState) -> None:
+    states = _get_states()
+    if state in states:
+        states.remove(state)
+
+
+def _announcement_waiters() -> list[anyio.Event]:
+    """Events of hooks waiting for any conversation on this thread to announce tool calls."""
+    return _thread_local.__dict__.setdefault('announcement_waiters', [])
+
+
+async def _state_for_new_tool(tool_use_id: str) -> _ConversationState | None:
+    """The conversation whose assistant message announced `tool_use_id`, waiting until it has been handled.
+
+    The CLI sends the assistant message (containing the `tool_use` block) before it
+    invokes the PreToolUse hook, but hooks run in separate anyio tasks, so the hook
+    can be scheduled before the main task has applied that message to its state.
+    The timeout is a safety valve for tool calls that are never announced.
+    """
+    states = _get_states()
+    if not states:
+        return None
+    with anyio.move_on_after(states[-1].tool_announcement_timeout):
+        while True:
+            for state in states:
+                if tool_use_id in state.announced_tool_ids:
+                    return state
+            announced = anyio.Event()
+            waiters = _announcement_waiters()
+            waiters.append(announced)
+            try:
+                await announced.wait()
+            finally:
+                # An announcement clears the list; a timeout or cancellation leaves the Event behind.
+                if announced in waiters:
+                    waiters.remove(announced)
+    # Never announced: guess the newest conversation still running, not one that ended while we waited.
+    # This can misattribute the span when conversations overlap, but preserves the tool call span.
+    return states[-1] if states else None
+
+
+def _state_for_running_tool(tool_use_id: str) -> _ConversationState | None:
+    return next((state for state in _get_states() if tool_use_id in state.active_tool_spans), None)
 
 
 # ---------------------------------------------------------------------------
@@ -178,11 +219,9 @@ async def pre_tool_use_hook(
         return {}
 
     with handle_internal_errors:
-        state = _get_state()
+        state = await _state_for_new_tool(tool_use_id)
         if state is None:
             return {}
-
-        await state.wait_for_tool_announcement(tool_use_id)
 
         tool_name = str(input_data.get('tool_name', 'unknown_tool'))
         tool_input = input_data.get('tool_input', {})
@@ -232,14 +271,11 @@ async def post_tool_use_hook(
         return {}
 
     with handle_internal_errors:
-        state = _get_state()
+        state = _state_for_running_tool(tool_use_id)
         if state is None:
             return {}
 
-        span = state.active_tool_spans.pop(tool_use_id, None)
-        if not span:  # pragma: no cover
-            return {}
-
+        span = state.active_tool_spans.pop(tool_use_id)
         tool_response = input_data.get('tool_response')
         if tool_response is not None:
             span.set_attribute(TOOL_CALL_RESULT, tool_response)
@@ -262,14 +298,11 @@ async def post_tool_use_failure_hook(
         return {}
 
     with handle_internal_errors:
-        state = _get_state()
-        if state is None:  # pragma: no cover
+        state = _state_for_running_tool(tool_use_id)
+        if state is None:
             return {}
 
-        span = state.active_tool_spans.pop(tool_use_id, None)
-        if not span:  # pragma: no cover
-            return {}
-
+        span = state.active_tool_spans.pop(tool_use_id)
         error = str(input_data.get('error', 'Unknown error'))
         span.set_attribute(ERROR_TYPE, error)
         span.set_level('error')
@@ -386,7 +419,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
                     yield msg
             finally:
                 state.close()
-                _clear_state()
+                _clear_state(state)
 
     cls.receive_response = patched_receive_response
 
@@ -460,26 +493,12 @@ class _ConversationState:
         self.model: str | None = None
         # Tool call IDs from assistant messages that have been applied to this state.
         self.announced_tool_ids: set[str] = set()
-        self._tool_announced = anyio.Event()
         self.tool_announcement_timeout = 1.0
         # Code attributes for spans created in hook tasks, whose own stacks have no
         # meaningful user frame (the task is rooted in the event loop, so the first
         # non-library frame varies with how the process was started, if one exists
         # at all). Capture the user's frame here, where it's still on the stack.
         self.code_attrs = get_user_stack_info()
-
-    async def wait_for_tool_announcement(self, tool_use_id: str) -> None:
-        """Wait until the assistant message announcing `tool_use_id` has been handled.
-
-        The CLI sends the assistant message (containing the `tool_use` block) before it
-        invokes the PreToolUse hook, but hooks run in separate anyio tasks, so the hook
-        can be scheduled before the main task has applied that message to this state.
-        Closing the chat span at that point would lose its output and model attributes.
-        The timeout is a safety valve for tool calls that are never announced.
-        """
-        with anyio.move_on_after(self.tool_announcement_timeout):
-            while tool_use_id not in self.announced_tool_ids:
-                await self._tool_announced.wait()
 
     def add_tool_result(self, tool_use_id: str, tool_name: str, result: Any) -> None:
         """Record a tool result to include in the next chat span's input messages."""
@@ -534,11 +553,11 @@ class _ConversationState:
         new_tool_ids = {block.id for block in content if isinstance(block, ToolUseBlock)}
         if new_tool_ids:
             self.announced_tool_ids.update(new_tool_ids)
-            # Wake any PreToolUse hooks waiting for these tool calls, and replace the
-            # event so future waiters block until the next announcement.
-            event = self._tool_announced
-            self._tool_announced = anyio.Event()
-            event.set()
+            # Wake any PreToolUse hooks waiting for these tool calls.
+            waiters = _announcement_waiters()
+            for event in waiters:
+                event.set()
+            waiters.clear()
 
         if self._current_span is None:  # pragma: no cover
             return
