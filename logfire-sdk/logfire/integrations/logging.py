@@ -17,6 +17,7 @@ from .._internal.constants import (
     ATTRIBUTES_TAGS_KEY,
     LOGGING_TO_OTEL_LEVEL_NUMBERS,
 )
+from .._internal.scrubbing import BaseScrubber
 from .._internal.utils import is_instrumentation_suppressed
 
 # skip natural LogRecord attributes
@@ -143,7 +144,7 @@ class LogfireLoggingHandler(LoggingHandler):
         attributes['code.function'] = record.funcName
         attributes[ATTRIBUTES_LOGGING_NAME] = record.name
 
-        attributes[ATTRIBUTES_MESSAGE_KEY], args = _format_message(record)
+        attributes[ATTRIBUTES_MESSAGE_KEY], args = _format_message(record, self.logfire_instance.config.scrubber)
         attributes.update(args)
         attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] = record.msg
 
@@ -161,7 +162,15 @@ def _is_single_positional_argument(msg: Any, args: Mapping[str, Any]) -> bool:
     return True
 
 
-def _format_message(record: LogRecord) -> tuple[str, Mapping[str, Any]]:
+def _scrub_container(scrubber: BaseScrubber, path: tuple[str | int, ...], value: Any) -> tuple[Any, bool]:
+    """Scrub only containers; scalar strings and object string representations retain logging's behavior."""
+    if not isinstance(value, (dict, list)):
+        return value, False
+    scrubbed, notes = scrubber.scrub_value(path, value)
+    return scrubbed, bool(notes)
+
+
+def _format_message(record: LogRecord, scrubber: BaseScrubber) -> tuple[str, Mapping[str, Any]]:
     args = record.args
     msg = record.msg
 
@@ -169,7 +178,14 @@ def _format_message(record: LogRecord) -> tuple[str, Mapping[str, Any]]:
         return msg, {}
 
     if type(args) is tuple:
-        return msg % args, {ATTRIBUTES_LOGGING_ARGS_KEY: args}
+        formatted = msg % args
+        scrubbed_args = tuple(
+            _scrub_container(scrubber, ('attributes', ATTRIBUTES_LOGGING_ARGS_KEY, i), arg)
+            for i, arg in enumerate(args)
+        )
+        if any(changed for _, changed in scrubbed_args):
+            formatted = msg % tuple(value for value, _ in scrubbed_args)
+        return formatted, {ATTRIBUTES_LOGGING_ARGS_KEY: args}
 
     try:
         # args is a Mapping. Python extracted it from a tuple here:
@@ -184,10 +200,17 @@ def _format_message(record: LogRecord) -> tuple[str, Mapping[str, Any]]:
         # This means the user wrote something like:
         #   log('Hello %(name)s', {'name': 'Alice'})
         # so `name` should be treated as a keyword argument, i.e. its own attribute.
-        return msg % args, cast('Mapping[str, Any]', args)
+        formatted = msg % args
+        scrubbed_args, changed = _scrub_container(scrubber, ('attributes',), args)
+        if changed:
+            formatted = msg % scrubbed_args
+        return formatted, cast('Mapping[str, Any]', args)
     else:
         # We have to wrap the single positional argument in a tuple.
         # Otherwise this:
         #   log('Hello %s', x)
         # would result in the shape of the data depending on whether x is a Mapping or not.
+        scrubbed_arg, changed = _scrub_container(scrubber, ('attributes', ATTRIBUTES_LOGGING_ARGS_KEY, 0), args)
+        if changed:
+            formatted = msg % (scrubbed_arg,)
         return formatted, {ATTRIBUTES_LOGGING_ARGS_KEY: (args,)}
