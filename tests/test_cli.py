@@ -123,6 +123,107 @@ logging.error('application error')
     assert [line for line in wrapped.stderr.splitlines() if line.startswith('APP:')] == direct.stderr.splitlines()
 
 
+# The ways `logfire run` is launched. The `logfire` binary bootstraps the SDK with `python -c`.
+RUN_LAUNCHERS = {
+    'python -m': ['-m', 'logfire'],
+    'python -c': ['-c', "import runpy; runpy.run_module('logfire', run_name='__main__', alter_sys=True)"],
+    'python -P -m': ['-P', '-m', 'logfire'],
+}
+
+
+def write_sys_path_test_files(directory: Path) -> None:
+    """Write a script that reports whether it can import a sibling module and a working-directory module."""
+    (directory / 'helper.py').write_text("print('helper: imported from working directory')\n")
+    scripts_dir = directory / 'scripts'
+    scripts_dir.mkdir()
+    (scripts_dir / 'sibling.py').write_text("print('sibling: imported from script directory')\n")
+    (scripts_dir / 'task.py').write_text(
+        """
+for name in ['sibling', 'helper']:
+    try:
+        __import__(name)
+    except ModuleNotFoundError:
+        print(f'{name}: not found')
+"""
+    )
+
+
+def run_python(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run([sys.executable, *args], cwd=cwd, capture_output=True, text=True, timeout=30)
+
+
+def logfire_run_args(launcher: str, target: list[str]) -> list[str]:
+    exclude = ','.join(sorted(set(OTEL_INSTRUMENTATION_MAP.values())))
+    return [*RUN_LAUNCHERS[launcher], 'run', '--no-summary', '--exclude', exclude, *target]
+
+
+@pytest.mark.parametrize('launcher', list(RUN_LAUNCHERS))
+@pytest.mark.parametrize(
+    'module, expected',
+    [
+        (False, 'sibling: imported from script directory\nhelper: not found\n'),
+        (True, 'sibling: not found\nhelper: imported from working directory\n'),
+    ],
+)
+def test_run_sys_path_matches_python(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, launcher: str, module: bool, expected: str
+) -> None:
+    write_sys_path_test_files(tmp_path)
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    monkeypatch.delenv('PYTHONPATH', raising=False)
+    target = ['-m', 'scripts.task'] if module else [str(Path('scripts') / 'task.py')]
+
+    direct = run_python(target, tmp_path)
+    wrapped = run_python(logfire_run_args(launcher, target), tmp_path)
+
+    assert direct.returncode == 0, direct.stderr
+    assert wrapped.returncode == 0, wrapped.stderr
+    assert direct.stdout == expected
+    assert wrapped.stdout == expected
+
+
+@pytest.mark.parametrize('launcher', list(RUN_LAUNCHERS))
+def test_run_script_with_working_directory_on_pythonpath(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, launcher: str
+) -> None:
+    write_sys_path_test_files(tmp_path)
+    monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
+    monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
+    monkeypatch.setenv('PYTHONPATH', '.')
+    target = [str(Path('scripts') / 'task.py')]
+
+    direct = run_python(target, tmp_path)
+    wrapped = run_python(logfire_run_args(launcher, target), tmp_path)
+
+    expected = 'sibling: imported from script directory\nhelper: imported from working directory\n'
+    assert direct.returncode == 0, direct.stderr
+    assert wrapped.returncode == 0, wrapped.stderr
+    assert direct.stdout == expected
+    assert wrapped.stdout == expected
+
+
+@pytest.mark.parametrize('launcher_entry', ['', '.', 'cwd'])
+def test_parse_run_script_replaces_launcher_working_directory_entry(
+    tmp_dir_cwd: Path, monkeypatch: pytest.MonkeyPatch, launcher_entry: str
+) -> None:
+    scripts_dir = tmp_dir_cwd / 'scripts'
+    scripts_dir.mkdir()
+    (scripts_dir / 'task.py').write_text('')
+    other_dir = str(tmp_dir_cwd / 'other')
+    first_entry = str(tmp_dir_cwd) if launcher_entry == 'cwd' else launcher_entry
+    monkeypatch.setattr(sys, 'path', [first_entry, other_dir, str(scripts_dir), *sys.path])
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.instrument_package', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.OTEL_INSTRUMENTATION_MAP', {})
+
+    main(['run', '--no-summary', str(Path('scripts') / 'task.py')])
+
+    assert sys.path[:2] == [str(scripts_dir), other_dir]
+    assert sys.path.count(str(scripts_dir)) == 1
+    assert first_entry not in sys.path
+
+
 def test_inspect(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     os.environ['COLUMNS'] = '150'
     with pytest.raises(SystemExit):

@@ -181,19 +181,31 @@ def parse_run(args: argparse.Namespace) -> None:
             run_console_entry_point(console_entry_point, script_and_args)
             return
 
-        # Explicit scripts retain the existing working-directory import behavior.
-        sys.path.insert(0, os.getcwd())
-
-        # Make sure the script directory is in sys.path
-        script_dir = os.path.dirname(os.path.abspath(script_path))
-        if script_dir not in sys.path:  # pragma: no branch
-            sys.path.insert(0, script_dir)
+        put_script_directory_first_on_sys_path(os.path.dirname(os.path.abspath(script_path)))
 
         with alter_sys_argv(script_and_args, f'python {" ".join(script_and_args)}'):
             runpy.run_path(os.path.abspath(script_path), run_name='__main__')
     else:
         print('Usage: logfire run [-m MODULE] [args...] OR logfire run SCRIPT [args...]')
         sys.exit(1)
+
+
+def put_script_directory_first_on_sys_path(script_dir: str) -> None:
+    """Give `sys.path` the first entry that `python script.py` would give it: the script's directory.
+
+    Both ways of launching `logfire run` (`python -m logfire` and the `logfire` binary's `python -c` bootstrap)
+    put the working directory at `sys.path[0]`, where `python script.py` would put the script's directory.
+    Only `sys.path[0]` is replaced, so working-directory entries from `PYTHONPATH` are kept.
+    """
+    path = sys.path
+    if path and not sys.flags.safe_path and is_working_directory(path[0]):
+        path = path[1:]
+    sys.path[:] = [script_dir, *(entry for entry in path if entry != script_dir)]
+
+
+def is_working_directory(path: str) -> bool:
+    """Whether a `sys.path` entry refers to the working directory, as `''` does."""
+    return os.path.normcase(os.path.realpath(path or os.curdir)) == os.path.normcase(os.path.realpath(os.getcwd()))
 
 
 def load_console_entry_point(name: str) -> Callable[[], object] | None:
