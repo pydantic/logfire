@@ -88,7 +88,10 @@ You should see a session span with a `run code` span inside it, showing the code
 - **``AgentSandboxError: Agent Sandboxes require a Logfire API key``**: no API key was found. Set `LOGFIRE_API_KEY`,
   or pass `apiKey` to `agentSandboxes()`.
 - **`AgentSandboxRefusedError`**: the server rejected the API key. Use a project API key, not a personal key, with the
-  `project:execute_agent_sandboxes` scope. Check that Agent Sandboxes are enabled for the project.
+  `project:execute_agent_sandboxes` scope. Check that Agent Sandboxes are enabled for the project. If you set
+  `LOGFIRE_BASE_URL`, check that it is in the key's region.
+- **`AgentSandboxConnectionError`**: the pool could not reach the sandboxes server. The message names the URL that it
+  tried and the original error.
 - **`SyntaxError` at `await using`**: your runtime does not support the syntax. Use TypeScript 5.2 or later, or
   Node.js 24 or later for plain JavaScript, or call `close()` in a `finally` block.
 
@@ -96,5 +99,6 @@ You should see a session span with a `run code` span inside it, showing the code
 
 - [What sandbox code can do](limits.md): the parts of Python that scripts can use.
 - [Answer questions that need dozens of tool calls](many-tool-calls.md): the scripts in the guides are Python, and
-  run the same way from TypeScript.
+  run unchanged from TypeScript. Write the host functions that they call in TypeScript, and pass them in
+  `externalLookup`.
 - [Persist, resume, and fork sessions](sessions.md): how Logfire stores sessions, and for how long.

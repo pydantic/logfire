@@ -9,7 +9,7 @@ description: "Give agent scripts a function that asks a small, fast model, so on
     Agent Sandboxes is in beta on Logfire Cloud. If you do not see **Agent Sandboxes** in your project, see
     [Enable Agent Sandboxes](python.md#enable-agent-sandboxes).
 
-"Which of our 60 vendor contracts renew automatically in the next 90 days, with a fee increase above 5%?" No single
+"Which of our 60 vendor contracts renew automatically in the next 90 days, and allow a fee increase above 5%?" No single
 tool answers this. Each contract states its terms in different words, so a person or a model must read each one. Then
 the dates and percentages need exact comparison, which models do poorly by reading.
 
@@ -31,8 +31,9 @@ The main model reads a few rows. The contract text never enters its context wind
 - Set `OPENAI_API_KEY` to a key from the [OpenAI API keys page](https://platform.openai.com/api-keys).
 
 !!! warning "Documents and model answers leave your application"
-    The contract text and the extracted values pass through Logfire for execution. Hosted telemetry can record this
-    content in your project. See [tracing and storage](limits.md#understand-tracing-and-storage).
+    `extract()` sends each contract's full text to your model provider, OpenAI in this example. The contract text and
+    the extracted values also pass through Logfire for execution, and hosted telemetry can record this content in your
+    project. See [tracing and storage](limits.md#understand-tracing-and-storage).
 
 ## Give the script a function that asks a fast model
 
@@ -110,7 +111,7 @@ async def extract(text: str, fields: dict[str, str]) -> dict[str, str | None]:
     """
     async with limit:
         result = await fast_model.run(f'Fields: {fields}\n\nText:\n{text}')
-    return result.output
+    return {name: result.output.get(name) for name in fields}
 
 
 TOOLS = {'list_contracts': list_contracts, 'get_contract_text': get_contract_text, 'extract': extract}
@@ -119,10 +120,12 @@ TOOLS = {'list_contracts': list_contracts, 'get_contract_text': get_contract_tex
 Two details matter:
 
 - **The semaphore.** A script can start hundreds of `extract()` calls at once with `asyncio.gather`. The semaphore
-  lets ten of them reach the model provider at a time, so the script does not exceed your rate limit.
-- **The fast model returns strings.** The script asks for a format in each field description, such as `YYYY-MM-DD`,
-  and converts the values in Python. A conversion error names the bad value, and the main model can correct the
-  script.
+  lets ten of them reach the model provider at a time. It limits this process only, so set the number to fit your
+  provider's rate limit.
+- **The fast model returns strings.** `extract()` returns every field that the script asked for, with `None` when
+  the model leaves one out, so the script can index the result. The script asks for a format in each field
+  description, such as `YYYY-MM-DD`, and converts the values in Python. A conversion error names the bad value, and
+  the main model can correct the script.
 
 ## See the script your agent writes
 
@@ -174,7 +177,8 @@ async def main():
 asyncio.run(main())
 ```
 
-Run `python main.py`. For the sample contracts, the correct answer is these five rows:
+Run `python main.py`. For the sample contracts, the correct answer is these five rows. If your rows differ, the
+fast model misread a contract: the `extract` spans in the trace show what it returned for each one.
 
 ```
 {'id': 'C-018', 'vendor': 'Acme Hosting', 'renews_in_days': 3, 'increase_percent': 6.0}
