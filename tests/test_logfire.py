@@ -1903,17 +1903,32 @@ async def test_instrument_async_generator_throw():
 
 
 @pytest.mark.anyio
-async def test_instrument_async_generator_asend():
-    @logfire.instrument(allow_generator=True)
-    async def echo() -> AsyncGenerator[int, int]:
-        received = yield 0
-        while True:
-            received = yield received
+async def test_instrument_async_generator_protocol():
+    handled = ValueError('handled')
+    closed: list[str] = []
 
-    items = echo()
-    assert await items.__anext__() == 0
-    assert [await items.asend(x) for x in (1, 2, 3)] == [1, 2, 3]
-    await items.aclose()
+    async def echo() -> AsyncGenerator[int | None, int | None]:
+        received = yield 0
+        try:
+            while True:
+                try:
+                    received = yield received
+                except ValueError as exc:
+                    assert exc is handled
+                    received = yield 4
+        finally:
+            closed.append('closed')
+
+    instrumented = logfire.instrument(allow_generator=True)(echo)
+    for make_generator in (echo, instrumented):
+        items = make_generator()
+        assert await anext(items) == 0
+        assert await items.asend(1) == 1
+        assert await items.athrow(handled) == 4
+        assert await items.asend(2) == 2
+        await items.aclose()
+
+    assert closed == ['closed', 'closed']
     assert get_current_span() is INVALID_SPAN
 
 
