@@ -1,0 +1,19 @@
+docs/integrations/logging.md
+  s_6b68abf9e42f1d::t_2113fae7cb6ceb 118-142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "45e6a0294c4cbb6971f1ac8032abfddf19a33eb6",
+  "prompts": {},
+  "sessions": {
+    "s_6b68abf9e42f1d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4c89995b-2df9-42e5-ad61-0b44734d68cf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
