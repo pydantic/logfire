@@ -1,0 +1,21 @@
+logfire-sdk/logfire/_internal/integrations/fastapi.py
+  s_6b68abf9e42f1d::t_e05517de93a42b 424-425
+tests/otel_integrations/test_fastapi.py
+  s_6b68abf9e42f1d::t_4efe6b5fe0b8b6 1802-1854
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "14764d1b0d2240985b6e42d8988c08e98be12a48",
+  "prompts": {},
+  "sessions": {
+    "s_6b68abf9e42f1d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4c89995b-2df9-42e5-ad61-0b44734d68cf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
