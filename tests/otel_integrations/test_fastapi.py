@@ -1711,8 +1711,8 @@ def test_mounted_app_instrumentation_order(exporter: TestExporter, mount_first: 
     values = attributes.get('fastapi.arguments.values')
     assert isinstance(values, str)
     assert json.loads(values) == {'item_id': 42}
-    assert 'fastapi.endpoint_function.start_timestamp' in attributes
-    assert 'fastapi.endpoint_function.end_timestamp' in attributes
+    assert attributes['fastapi.endpoint_function.start_timestamp'] == '1970-01-01T00:00:04.000000Z'
+    assert attributes['fastapi.endpoint_function.end_timestamp'] == '1970-01-01T00:00:05.000000Z'
 
 
 def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter) -> None:
