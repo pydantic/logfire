@@ -33,7 +33,7 @@ from .constants import (
     RESOURCE_ATTRIBUTES_VERSION,
 )
 from .integrations.llm_providers import semconv as gen_ai_semconv
-from .json_encoder import logfire_json_dumps
+from .json_encoder import load_json_attribute, logfire_json_dumps, to_otlp_value
 from .stack_info import STACK_INFO_KEYS
 from .utils import ReadableSpanDict, handle_internal_errors, truncate_string
 
@@ -110,12 +110,12 @@ class ScrubbedNote(TypedDict):
     matched_substring: str
 
 
-def _limited_scrubbed_notes(attributes: Mapping[str, Any], notes: list[ScrubbedNote]) -> str | None:
+def _limited_scrubbed_notes(attributes: Mapping[str, Any], notes: list[ScrubbedNote]) -> Any:
     raw_notes = attributes.get(ATTRIBUTES_SCRUBBED_KEY)
     if raw_notes is None and not notes:
         return None
     try:
-        parsed: Any = json.loads(raw_notes) if isinstance(raw_notes, str) else []
+        parsed: Any = load_json_attribute(raw_notes) if raw_notes is not None else []
     except (TypeError, ValueError, RecursionError):
         parsed = []
     if isinstance(parsed, list):
@@ -124,7 +124,7 @@ def _limited_scrubbed_notes(attributes: Mapping[str, Any], notes: list[ScrubbedN
         existing = []
     if not notes and len(existing) <= _MAX_SCRUBBED_NOTES:
         return None
-    return json.dumps((existing + notes)[:_MAX_SCRUBBED_NOTES])
+    return to_otlp_value((existing + notes)[:_MAX_SCRUBBED_NOTES])
 
 
 def _is_unchanged_value(value: Any, result: Any) -> bool:
@@ -501,7 +501,7 @@ class SpanScrubber:
             return
 
         try:
-            schema: Any = json.loads(attributes[ATTRIBUTES_JSON_SCHEMA_KEY])
+            schema: Any = load_json_attribute(attributes[ATTRIBUTES_JSON_SCHEMA_KEY])
         except (TypeError, ValueError, RecursionError):
             return
         if not isinstance(schema, dict):
@@ -547,7 +547,7 @@ class SpanScrubber:
                         changed = True
 
         if changed:
-            attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = logfire_json_dumps(schema)
+            attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = to_otlp_value(schema)
 
     def scrub(self, path: JsonPath, value: Any, in_safe_key: bool = False, key_only: bool = False) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
@@ -768,5 +768,5 @@ class MessageValueCleaner:
 
     def extra_attrs(self) -> dict[str, Any]:
         if self.scrubbed:
-            return {ATTRIBUTES_SCRUBBED_KEY: json.dumps(self.scrubbed)}
+            return {ATTRIBUTES_SCRUBBED_KEY: to_otlp_value(self.scrubbed)}
         return {}

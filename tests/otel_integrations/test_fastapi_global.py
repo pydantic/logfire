@@ -55,7 +55,7 @@ def test_global_fastapi_enrichment(exporter: TestExporter, extra_spans: bool, ex
         attributes = roots[0]['attributes']
         assert attributes['fastapi.route.name'] == 'homepage'
         assert attributes['fastapi.arguments.values'] == {'item_id': 123, 'q': 'world'}
-        assert attributes['fastapi.arguments.errors'] == []
+        assert attributes['fastapi.arguments.errors'] == ()
         assert attributes['test.path'] == '/items/123'
         for phase in ('arguments', 'endpoint_function'):
             for boundary in ('start_timestamp', 'end_timestamp'):
@@ -104,7 +104,7 @@ def test_global_fastapi_websocket(exporter: TestExporter, record_send_receive: b
         assert len(roots) == 1
         assert roots[0]['attributes']['fastapi.route.name'] == 'echo'
         assert roots[0]['attributes']['fastapi.arguments.values'] == {'name': 'foo'}
-        assert roots[0]['attributes']['fastapi.arguments.errors'] == []
+        assert roots[0]['attributes']['fastapi.arguments.errors'] == ()
         io_spans = [span for span in spans if 'asgi.event.type' in span['attributes']]
         assert bool(io_spans) == record_send_receive
         assert all(span['attributes']['logfire.level_num'] == 5 for span in io_spans)

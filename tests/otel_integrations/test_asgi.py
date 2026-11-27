@@ -101,7 +101,7 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.metrics': {
                         'http.server.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.flavor': '1.1',
@@ -114,12 +114,12 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                                         'net.host.port': 80,
                                     },
                                     'total': IsInt(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsInt(),
                         },
                         'http.server.request.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.request.method': 'GET',
@@ -128,12 +128,12 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                                         'url.scheme': 'http',
                                     },
                                     'total': IsFloat(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsFloat(),
                         },
                         'http.server.response.size': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.flavor': '1.1',
@@ -146,12 +146,12 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                                         'net.host.port': 80,
                                     },
                                     'total': 15,
-                                }
-                            ],
+                                },
+                            ),
                             'total': 15,
                         },
                         'http.server.response.body.size': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.request.method': 'GET',
@@ -160,8 +160,8 @@ def test_asgi_middleware(exporter: TestExporter) -> None:
                                         'url.scheme': 'http',
                                     },
                                     'total': 15,
-                                }
-                            ],
+                                },
+                            ),
                             'total': 15,
                         },
                     },

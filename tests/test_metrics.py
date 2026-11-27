@@ -404,10 +404,10 @@ def test_metrics_in_spans(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'logfire.metrics': {
                         'tokens': {
-                            'details': [
+                            'details': (
                                 {'attributes': {'model': 'gpt4'}, 'total': 200},
                                 {'attributes': {'model': 'gemini-2.5'}, 'total': 500},
-                            ],
+                            ),
                             'total': 700,
                         }
                     },
@@ -428,11 +428,11 @@ def test_metrics_in_spans(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'logfire.metrics': {
                         'tokens': {
-                            'details': [
+                            'details': (
                                 {'attributes': {'model': 'gpt4'}, 'total': 300},
                                 {'attributes': {'model': 'gemini-2.5'}, 'total': 500},
                                 {'attributes': {}, 'total': 999},
-                            ],
+                            ),
                             'total': 1799,
                         }
                     },
@@ -471,8 +471,8 @@ def test_metrics_in_explicit_span_context(
         for span in exporter.exported_spans_as_dict(parse_json_attributes=True)
     } == snapshot(
         {
-            'current': {'measurement': {'details': [{'attributes': {}, 'total': 20}], 'total': 20}},
-            'target': {'measurement': {'details': [{'attributes': {}, 'total': 10}], 'total': 10}},
+            'current': {'measurement': {'details': ({'attributes': {}, 'total': 20},), 'total': 20}},
+            'target': {'measurement': {'details': ({'attributes': {}, 'total': 10},), 'total': 10}},
         }
     )
     [metric] = get_collected_metrics(metrics_reader)
@@ -507,13 +507,10 @@ def test_metrics_in_closed_span_context(
     } == snapshot(
         {
             'target': None,
-            'current': {'measurement': {'details': [{'attributes': {}, 'total': 20}], 'total': 20}},
+            'current': {'measurement': {'details': ({'attributes': {}, 'total': 20},), 'total': 20}},
             'parent': {
                 'measurement': {
-                    'details': [
-                        {'attributes': {'key': 'value'}, 'total': 10},
-                        {'attributes': {}, 'total': 20},
-                    ],
+                    'details': ({'attributes': {'key': 'value'}, 'total': 10}, {'attributes': {}, 'total': 20}),
                     'total': 30,
                 }
             },
@@ -556,7 +553,7 @@ def test_metrics_in_spans_disabled(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'logfire.metrics': {
                         'operation.cost': {
-                            'details': [{'attributes': {}, 'total': 200}],
+                            'details': ({'attributes': {}, 'total': 200},),
                             'total': 200,
                         }
                     },

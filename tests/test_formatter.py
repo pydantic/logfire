@@ -377,7 +377,10 @@ def test_private_names_in_fstring(exporter: TestExporter):
                     'self.__balance': 12.5,
                     'self.__currency': 'EUR',
                     'self.__class__.__name__': 'Account',
-                    'logfire.json_schema': '{"type":"object","properties":{"self.__balance":{},"self.__currency":{},"self.__class__.__name__":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'self.__balance': {}, 'self.__currency': {}, 'self.__class__.__name__': {}},
+                    },
                 },
             }
         ]

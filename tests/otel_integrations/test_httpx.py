@@ -939,7 +939,7 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter, httpx_fa
                     'http.request.body.form': {'form': 'values'},
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'http.request.body.form': {'type': 'object'}},
+                        'properties': {'http.request.body.form': {}},
                     },
                     'http.status_code': 200,
                     'http.response.status_code': 200,

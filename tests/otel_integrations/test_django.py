@@ -217,7 +217,7 @@ def test_error_route(client: Client, exporter: TestExporter):
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                     'logfire.metrics': {
                         'http.server.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.flavor': '1.1',
@@ -229,12 +229,12 @@ def test_error_route(client: Client, exporter: TestExporter):
                                         'net.host.port': 80,
                                     },
                                     'total': IsNumeric(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsNumeric(),
                         },
                         'http.server.request.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.request.method': 'GET',
@@ -244,8 +244,8 @@ def test_error_route(client: Client, exporter: TestExporter):
                                         'url.scheme': 'http',
                                     },
                                     'total': IsNumeric(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsNumeric(),
                         },
                     },
@@ -301,7 +301,7 @@ def test_no_matching_route(client: Client, exporter: TestExporter):
                     'http.response.status_code': 404,
                     'logfire.metrics': {
                         'http.server.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.flavor': '1.1',
@@ -312,12 +312,12 @@ def test_no_matching_route(client: Client, exporter: TestExporter):
                                         'net.host.port': 80,
                                     },
                                     'total': IsNumeric(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsNumeric(),
                         },
                         'http.server.request.duration': {
-                            'details': [
+                            'details': (
                                 {
                                     'attributes': {
                                         'http.request.method': 'GET',
@@ -326,8 +326,8 @@ def test_no_matching_route(client: Client, exporter: TestExporter):
                                         'url.scheme': 'http',
                                     },
                                     'total': IsNumeric(),
-                                }
-                            ],
+                                },
+                            ),
                             'total': IsNumeric(),
                         },
                     },

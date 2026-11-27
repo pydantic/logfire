@@ -12,7 +12,7 @@ from typing import Any, cast
 from uuid import UUID
 
 import pytest
-from dirty_equals import IsJson, IsPartialDict
+from dirty_equals import IsPartialDict
 from inline_snapshot import snapshot
 from opentelemetry._logs import LogRecord, get_logger
 from opentelemetry.sdk._logs import ReadWriteLogRecord
@@ -35,6 +35,7 @@ from logfire._internal.exporters.processor_wrapper import (
     ScrubbingSpanProcessor,
     SpanProcessorGroup,
 )
+from logfire._internal.json_encoder import load_json_attribute
 from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
 from logfire._internal.utils import ReadableSpanDict
 from logfire.sampling import TailSamplingSpanInfo
@@ -623,22 +624,31 @@ def test_scrub_attribute(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_scrub_attribute',
                     'code.lineno': 123,
-                    'user_password': "[Scrubbed due to 'password']",
+                    'user_password': ("[Scrubbed due to 'password']",),
                     'mode': 'password',
                     'modes': "[Scrubbed due to 'password']",
                     'Author': 'Alice1',
                     'authors': 'Alice2',
                     'authr': "[Scrubbed due to 'auth']",
                     'authorization': "[Scrubbed due to 'auth']",
-                    'logfire.json_schema': '{"type":"object","properties":{"user_password":{"type":"array"},"mode":{},"modes":{},"Author":{},"authors":{},"authr":{},"authorization":{}}}',
-                    'logfire.scrubbed': IsJson(
-                        [
-                            {'path': ['attributes', 'user_password'], 'matched_substring': 'password'},
-                            {'path': ['attributes', 'modes'], 'matched_substring': 'password'},
-                            {'path': ['attributes', 'authr'], 'matched_substring': 'auth'},
-                            {'path': ['attributes', 'authorization'], 'matched_substring': 'auth'},
-                        ]
-                    ),
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'user_password': {},
+                            'mode': {},
+                            'modes': {},
+                            'Author': {},
+                            'authors': {},
+                            'authr': {},
+                            'authorization': {},
+                        },
+                    },
+                    'logfire.scrubbed': [
+                        {'path': ['attributes', 'user_password'], 'matched_substring': 'password'},
+                        {'path': ['attributes', 'modes'], 'matched_substring': 'password'},
+                        {'path': ['attributes', 'authr'], 'matched_substring': 'auth'},
+                        {'path': ['attributes', 'authorization'], 'matched_substring': 'auth'},
+                    ],
                 },
             }
         ]
@@ -782,15 +792,11 @@ def test_scrub_log_event_attribute(logs_exporter: TestLogExporter):
                     'authr': "[Scrubbed due to 'auth']",
                     'authorization': "[Scrubbed due to 'auth']",
                     'event.name': 'Password: {user_password}',
-                    'logfire.scrubbed': IsJson(
-                        snapshot(
-                            [
-                                {'path': ['attributes', 'user_password'], 'matched_substring': 'password'},
-                                {'path': ['attributes', 'modes'], 'matched_substring': 'password'},
-                                {'path': ['attributes', 'authr'], 'matched_substring': 'auth'},
-                                {'path': ['attributes', 'authorization'], 'matched_substring': 'auth'},
-                            ]
-                        )
+                    'logfire.scrubbed': (
+                        {'path': ('attributes', 'user_password'), 'matched_substring': 'password'},
+                        {'path': ('attributes', 'modes'), 'matched_substring': 'password'},
+                        {'path': ('attributes', 'authr'), 'matched_substring': 'auth'},
+                        {'path': ('attributes', 'authorization'), 'matched_substring': 'auth'},
                     ),
                 },
                 'timestamp': 1000000000,
@@ -824,12 +830,12 @@ def test_scrub_message(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_scrub_message',
                     'code.lineno': 123,
-                    'user': [{'name': 'John', 'password': "[Scrubbed due to 'password']"}],
+                    'user': ({'name': 'John', 'password': "[Scrubbed due to 'password']"},),
                     'logfire.scrubbed': [
                         {'path': ['message', 'user'], 'matched_substring': 'password'},
                         {'path': ['attributes', 'user', 0, 'password'], 'matched_substring': 'password'},
                     ],
-                    'logfire.json_schema': {'type': 'object', 'properties': {'user': {'type': 'array'}}},
+                    'logfire.json_schema': {'type': 'object', 'properties': {'user': {}}},
                 },
             }
         ]
@@ -846,7 +852,7 @@ def test_scrubbed_notes_are_limited_across_message_and_attributes(exporter: Test
     assert len(attributes['logfire.scrubbed']) == 50
     message_notes = [{'path': ['message', key], 'matched_substring': 'password'} for key in fields]
     attribute_notes = [{'path': ['attributes', key], 'matched_substring': 'password'} for key in fields]
-    assert attributes['logfire.scrubbed'] == (message_notes + attribute_notes)[:50]
+    assert load_json_attribute(attributes['logfire.scrubbed']) == (message_notes + attribute_notes)[:50]
     assert all(attributes[key] == "[Scrubbed due to 'password']" for key in fields)
 
 
@@ -856,7 +862,7 @@ def test_scrubbed_notes_are_limited_on_log_records(logs_exporter: TestLogExporte
 
     (log,) = logs_exporter.exported_logs_as_dicts(parse_json_attributes=True)
     assert len(log['attributes']['logfire.scrubbed']) == 50
-    assert log['attributes']['logfire.scrubbed'] == [
+    assert load_json_attribute(log['attributes']['logfire.scrubbed']) == [
         {'path': ['log_body', key], 'matched_substring': 'password'} for key in list(body)[:50]
     ]
     assert all(log['body'][key] == "[Scrubbed due to 'password']" for key in body)
@@ -872,10 +878,12 @@ def test_invalid_existing_scrubbed_notes_do_not_disable_scrubbing(
     (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
     attributes = span['attributes']
     assert attributes['password'] == "[Scrubbed due to 'password']"
-    assert attributes['logfire.scrubbed'] == [{'path': ['attributes', 'password'], 'matched_substring': 'password'}]
+    assert load_json_attribute(attributes['logfire.scrubbed']) == [
+        {'path': ['attributes', 'password'], 'matched_substring': 'password'}
+    ]
     (log,) = logs_exporter.exported_logs_as_dicts(parse_json_attributes=True)
     assert log['attributes']['password'] == "[Scrubbed due to 'password']"
-    assert log['attributes']['logfire.scrubbed'] == [
+    assert load_json_attribute(log['attributes']['logfire.scrubbed']) == [
         {'path': ['attributes', 'password'], 'matched_substring': 'password'}
     ]
 
@@ -898,10 +906,12 @@ def test_existing_scrubbed_notes_parse_errors_do_not_disable_scrubbing(
     (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
     attributes = span['attributes']
     assert attributes['password'] == "[Scrubbed due to 'password']"
-    assert attributes['logfire.scrubbed'] == [{'path': ['attributes', 'password'], 'matched_substring': 'password'}]
+    assert load_json_attribute(attributes['logfire.scrubbed']) == [
+        {'path': ['attributes', 'password'], 'matched_substring': 'password'}
+    ]
     (log,) = logs_exporter.exported_logs_as_dicts(parse_json_attributes=True)
     assert log['attributes']['password'] == "[Scrubbed due to 'password']"
-    assert log['attributes']['logfire.scrubbed'] == [
+    assert load_json_attribute(log['attributes']['logfire.scrubbed']) == [
         {'path': ['attributes', 'password'], 'matched_substring': 'password'}
     ]
 
@@ -917,8 +927,8 @@ def test_existing_scrubbed_notes_are_limited_without_new_matches(
 
     (span,) = exporter.exported_spans_as_dict(parse_json_attributes=True)
     (log,) = logs_exporter.exported_logs_as_dicts(parse_json_attributes=True)
-    assert span['attributes']['logfire.scrubbed'] == notes[:50]
-    assert log['attributes']['logfire.scrubbed'] == notes[:50]
+    assert load_json_attribute(span['attributes']['logfire.scrubbed']) == notes[:50]
+    assert load_json_attribute(log['attributes']['logfire.scrubbed']) == notes[:50]
 
 
 @pytest.mark.parametrize(
@@ -1896,7 +1906,7 @@ def test_callback_reduced_mapping_schema_does_not_keep_removed_keys(
 ):
     def callback(match: logfire.ScrubMatch):
         if match.path == ('attributes', 'sessions'):
-            return json.dumps({'count': len(json.loads(match.value))})
+            return {'count': len(match.value)}
 
     logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
     logfire.info(
@@ -2036,9 +2046,8 @@ def test_non_string_child_key_does_not_prevent_parent_redaction():
 def test_callback_receives_scrubbed_json_attribute(exporter: TestExporter, config_kwargs: dict[str, Any]):
     def callback(match: logfire.ScrubMatch):
         if match.path == ('attributes', 'password_hint'):
-            value = json.loads(match.value)
-            assert value == {'password': "[Scrubbed due to 'password']", 'keep': 'yes'}
-            return json.dumps({'password': value['password']})
+            assert match.value == {'password': "[Scrubbed due to 'password']", 'keep': 'yes'}
+            return {'password': match.value['password']}
 
     logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
     logfire.info('Example', password_hint={'password': 'hunter2', 'keep': 'yes'})
@@ -2133,14 +2142,9 @@ def test_scrub_events(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
-                    'logfire.scrubbed': IsJson(
-                        [
-                            {
-                                'path': ['otel_events', 0, 'attributes', 'password'],
-                                'matched_substring': 'password',
-                            },
-                        ]
-                    ),
+                    'logfire.scrubbed': [
+                        {'path': ['otel_events', 0, 'attributes', 'password'], 'matched_substring': 'password'}
+                    ],
                 },
                 'events': [
                     {
@@ -2227,8 +2231,11 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
                         ')'
                     ),
                     'other': "[Scrubbed due to 'my_pattern']",
-                    'logfire.json_schema': '{"type":"object","properties":{"my_password":{},"other":{},"bad_value":{}}}',
-                    'logfire.scrubbed': '[{"path": ["attributes", "other"], "matched_substring": "my_pattern"}]',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'my_password': {}, 'other': {}, 'bad_value': {}},
+                    },
+                    'logfire.scrubbed': [{'path': ['attributes', 'other'], 'matched_substring': 'my_pattern'}],
                 },
             }
         ]
@@ -2321,7 +2328,7 @@ def test_disable_scrubbing(exporter: TestExporter, logs_exporter: TestLogExporte
                     'code.function': 'test_disable_scrubbing',
                     'code.lineno': 123,
                     'user_password': 'my secret password',
-                    'logfire.json_schema': '{"type":"object","properties":{"user_password":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'user_password': {}}},
                 },
             }
         ]
@@ -2372,12 +2379,12 @@ def test_do_not_scrub(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_do_not_scrub',
                     'code.lineno': 123,
-                    'x': [
+                    'x': (
                         {'do_not_scrub': 'not_secret'},
                         {'not_secret': "[Scrubbed due to 'secret']"},
                         {'not_secret': "[Scrubbed due to 'secret']"},
-                    ],
-                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
+                    ),
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {}}},
                     'logfire.scrubbed': [
                         {'path': ['attributes', 'x', 1, 'not_secret'], 'matched_substring': 'secret'},
                         {'path': ['attributes', 'x', 2, 'not_secret'], 'matched_substring': 'secret'},
@@ -2412,14 +2419,12 @@ def test_fstring_magic_scrubbing(exporter: TestExporter):
                     'foo': 1234,
                     'name': 'John',
                     'password': "[Scrubbed due to 'password']",
-                    'logfire.json_schema': '{"type":"object","properties":{"foo":{},"name":{},"password":{}}}',
-                    'logfire.scrubbed': IsJson(
-                        [
-                            {'path': ['message', 'password'], 'matched_substring': 'secret'},
-                            {'path': ['attributes', 'password'], 'matched_substring': 'secret'},
-                            {'path': ['attributes', 'password'], 'matched_substring': 'password'},
-                        ]
-                    ),
+                    'logfire.json_schema': {'type': 'object', 'properties': {'foo': {}, 'name': {}, 'password': {}}},
+                    'logfire.scrubbed': [
+                        {'path': ['message', 'password'], 'matched_substring': 'secret'},
+                        {'path': ['attributes', 'password'], 'matched_substring': 'secret'},
+                        {'path': ['attributes', 'password'], 'matched_substring': 'password'},
+                    ],
                 },
             }
         ]
@@ -2455,7 +2460,7 @@ def test_word_boundaries(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_word_boundaries',
                     'code.lineno': 123,
-                    'x': [
+                    'x': (
                         'abcjwt',
                         "[Scrubbed due to '_jwt']",
                         "[Scrubbed due to 'jwt']",
@@ -2463,8 +2468,8 @@ def test_word_boundaries(exporter: TestExporter):
                         "[Scrubbed due to 'csrf_']",
                         "[Scrubbed due to 'csrf']",
                         "[Scrubbed due to 'csrf']",
-                    ],
-                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
+                    ),
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {}}},
                     'logfire.scrubbed': [
                         {'path': ['attributes', 'x', 1], 'matched_substring': '_jwt'},
                         {'path': ['attributes', 'x', 2], 'matched_substring': 'jwt'},
@@ -2537,14 +2542,14 @@ def test_logfire_token_prefix_scrubbing(exporter: TestExporter):
                     'code.filepath': 'test_secret_scrubbing.py',
                     'code.function': 'test_logfire_token_prefix_scrubbing',
                     'code.lineno': 123,
-                    'x': [
+                    'x': (
                         "[Scrubbed due to 'pylf_v1_']",
                         "[Scrubbed due to 'pylf_v2_']",
                         "[Scrubbed due to 'pylf_v10_']",
                         "[Scrubbed due to 'pylf_v1_']",
                         'pylf_v1_',
-                    ],
-                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
+                    ),
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {}}},
                     'logfire.scrubbed': [
                         {'path': ['attributes', 'x', 0], 'matched_substring': 'pylf_v1_'},
                         {'path': ['attributes', 'x', 1], 'matched_substring': 'pylf_v2_'},
@@ -2679,40 +2684,40 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
 
     attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
     assert attributes['errors'] == snapshot(
-        [
-            {'type': 'string_too_short', 'loc': ['body', 'username'], 'msg': 'short', 'input': 'al'},
+        (
+            {'type': 'string_too_short', 'loc': ('body', 'username'), 'msg': 'short', 'input': 'al'},
             {
                 'type': 'string_too_short',
-                'loc': ['body', 'password'],
+                'loc': ('body', 'password'),
                 'msg': 'short',
                 'input': "[Scrubbed due to 'password']",
             },
             {
                 'type': 'string_too_short',
-                'loc': ['body', 'credentials', 'password'],
+                'loc': ('body', 'credentials', 'password'),
                 'msg': 'short',
                 'input': "[Scrubbed due to 'password']",
             },
             {
                 'type': 'string_too_short',
-                'loc': ['body', 'credentials', 'code'],
+                'loc': ('body', 'credentials', 'code'),
                 'msg': 'short',
                 'input': "[Scrubbed due to 'credential']",
             },
             {
                 'type': 'string_too_short',
-                'loc': ['body', 'cards', 0, 'pin'],
+                'loc': ('body', 'cards', 0, 'pin'),
                 'msg': 'short',
                 'input': "[Scrubbed due to 'pin']",
             },
-            {'type': 'bool_parsing', 'loc': ['body', 'pinned'], 'msg': 'invalid', 'input': 'maybe'},
+            {'type': 'bool_parsing', 'loc': ('body', 'pinned'), 'msg': 'invalid', 'input': 'maybe'},
             {
                 'type': 'too_short',
-                'loc': ['body', 'passwords'],
+                'loc': ('body', 'passwords'),
                 'msg': 'short',
-                'input': ["[Scrubbed due to 'password']"],
+                'input': ("[Scrubbed due to 'password']",),
             },
-        ]
+        )
     )
     assert attributes['keys'] == snapshot(
         {
@@ -2721,11 +2726,11 @@ def test_validation_error_input_scrubbed(exporter: TestExporter, config_kwargs: 
             'credentials': "[Scrubbed due to 'credential']",
             'pin': "[Scrubbed due to 'pin']",
             'pinned': 'maybe',
-            'passwords': ["[Scrubbed due to 'password']"],
+            'passwords': ("[Scrubbed due to 'password']",),
         }
     )
     assert attributes['tool_call'] == {'name': 'search', 'input': 'hunter2'}
-    assert attributes['missing_msg'] == {'loc': ['body', 'password'], 'input': 'hunter2'}
+    assert attributes['missing_msg'] == {'loc': ('body', 'password'), 'input': 'hunter2'}
     assert [
         note
         for note in attributes['logfire.scrubbed']
@@ -2753,11 +2758,11 @@ def test_validation_error_loc_keeps_field_names(exporter: TestExporter):
     )
 
     [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
-    assert attributes['errors'][0]['loc'] == ['body', 'new_password', 'x_api_key']
+    assert attributes['errors'][0]['loc'] == ('body', 'new_password', 'x_api_key')
     assert attributes['errors'][0]['input'] == "[Scrubbed due to 'api_key']"
-    assert attributes['ordinary_list'] == ["[Scrubbed due to 'password']"]
+    assert attributes['ordinary_list'] == ("[Scrubbed due to 'password']",)
     assert attributes['incomplete_error'] == {
-        'loc': ["[Scrubbed due to 'password']"],
+        'loc': ("[Scrubbed due to 'password']",),
         'input': 'ok',
     }
     assert attributes['invalid_loc']['loc'] == ["[Scrubbed due to 'password']", None]
@@ -2784,7 +2789,7 @@ def test_validation_error_loc_transforms_strings(exporter: TestExporter, config_
     )
 
     [attributes] = [span['attributes'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
-    assert attributes['errors'][0]['loc'] == ['body', 'new_password', '[email]', 0]
+    assert attributes['errors'][0]['loc'] == ('body', 'new_password', '[email]', 0)
     assert StringValue(('attributes', 'errors', 0, 'loc', 2), 'alice@example.com') in seen
 
 
@@ -3061,14 +3066,14 @@ def test_validation_error_input_callback_checks_later_loc_parts(exporter: TestEx
 
     attributes = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']
     assert attributes['errors'] == snapshot(
-        [
+        (
             {
                 'type': 'string_too_short',
-                'loc': ['body', 'session', 'password'],
+                'loc': ('body', 'session', 'password'),
                 'msg': 'short',
                 'input': "[Scrubbed due to 'password']",
-            }
-        ]
+            },
+        )
     )
     assert matches == snapshot([(('attributes', 'errors', 0, 'body', 'session', 'password'), 'password', 'password')])
 
