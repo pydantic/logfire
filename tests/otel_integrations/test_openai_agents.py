@@ -1288,6 +1288,7 @@ async def test_chat_completions(exporter: TestExporter):
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4o',
+                    'gen_ai.operation.name': 'chat',
                     'gen_ai.response.model': 'gpt-4o',
                     'gen_ai.usage.input_tokens': 11,
                     'gen_ai.usage.output_tokens': 8,
@@ -2911,3 +2912,43 @@ def test_response_span_gateway_cost() -> None:
     )
     attributes = openai_agents.attributes_from_span_data(ResponseSpanData(response=response), 'Responses API')
     assert attributes['operation.cost'] == 0.5
+
+
+def test_generation_span_operation_name_and_cache_read_tokens() -> None:
+    attributes = openai_agents.attributes_from_span_data(
+        GenerationSpanData(
+            model='gpt-4o',
+            usage={'input_tokens': 20, 'output_tokens': 3, 'input_tokens_details': {'cached_tokens': 5}},
+        ),
+        'Chat completion',
+    )
+    assert attributes['gen_ai.operation.name'] == 'chat'
+    assert attributes['gen_ai.usage.input_tokens'] == 20
+    assert attributes['gen_ai.usage.output_tokens'] == 3
+    assert attributes['gen_ai.usage.cache_read.input_tokens'] == 5
+
+
+def test_generation_span_zero_cached_tokens_omitted() -> None:
+    attributes = openai_agents.attributes_from_span_data(
+        GenerationSpanData(
+            usage={'input_tokens': 20, 'output_tokens': 3, 'input_tokens_details': {'cached_tokens': 0}},
+        ),
+        'Chat completion',
+    )
+    assert attributes['gen_ai.operation.name'] == 'chat'
+    assert 'gen_ai.usage.cache_read.input_tokens' not in attributes
+
+
+def test_generation_span_missing_input_tokens_details() -> None:
+    attributes = openai_agents.attributes_from_span_data(
+        GenerationSpanData(usage={'input_tokens': 20, 'output_tokens': 3}), 'Chat completion'
+    )
+    assert attributes['gen_ai.usage.input_tokens'] == 20
+    assert attributes['gen_ai.usage.output_tokens'] == 3
+    assert 'gen_ai.usage.cache_read.input_tokens' not in attributes
+
+
+def test_generation_span_operation_name_without_usage() -> None:
+    attributes = openai_agents.attributes_from_span_data(GenerationSpanData(), 'Chat completion')
+    assert attributes['gen_ai.operation.name'] == 'chat'
+    assert 'gen_ai.usage.input_tokens' not in attributes

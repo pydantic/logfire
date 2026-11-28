@@ -40,7 +40,12 @@ from logfire._internal.integrations.llm_providers.openai import (
     responses_finish_reasons,
     responses_output_events,
 )
-from logfire._internal.integrations.llm_providers.semconv import RESPONSE_FINISH_REASONS, RESPONSE_ID, provider_attrs
+from logfire._internal.integrations.llm_providers.semconv import (
+    CACHE_READ_INPUT_TOKENS,
+    RESPONSE_FINISH_REASONS,
+    RESPONSE_ID,
+    provider_attrs,
+)
 from logfire._internal.scrubbing import NOOP_SCRUBBER
 from logfire._internal.utils import handle_internal_errors, log_internal_error, truncate_string
 
@@ -389,12 +394,19 @@ def attributes_from_span_data(
             if (usage := getattr(span_data.response, 'usage', None)) and getattr(usage, 'total_tokens', None):
                 attributes.update(get_openai_usage_attributes(span_data.response, openai_cost_provider_url))
         elif isinstance(span_data, GenerationSpanData):
+            attributes['gen_ai.operation.name'] = 'chat'
             attributes['request_data'] = dict(
                 messages=list(span_data.input or []) + list(span_data.output or []), model=span_data.model
             )
             if usage := span_data.usage:
                 attributes['gen_ai.usage.input_tokens'] = usage['input_tokens']
                 attributes['gen_ai.usage.output_tokens'] = usage['output_tokens']
+                details = usage.get('input_tokens_details')
+                cached_tokens = (
+                    cast('dict[str, Any]', details).get('cached_tokens') if isinstance(details, dict) else None
+                )
+                if isinstance(cached_tokens, int) and cached_tokens:
+                    attributes[CACHE_READ_INPUT_TOKENS] = cached_tokens
         elif isinstance(span_data, TranscriptionSpanData):
             if 'input' in attributes:  # pragma: no branch
                 attributes['input'] = {k: v for k, v in attributes['input'].items() if k != 'data'}
