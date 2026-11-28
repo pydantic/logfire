@@ -36,6 +36,7 @@ from .constants import (
     ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_VALIDATION_ERROR_KEY,
+    DISABLE_PENDING_SPAN_KEY,
     log_level_attributes,
 )
 from .utils import (
@@ -430,6 +431,8 @@ class PendingSpanProcessor(SpanProcessor):
 
         attributes = span.attributes
         if not attributes or attributes.get(ATTRIBUTES_SPAN_TYPE_KEY) not in (None, 'span'):
+            return
+        if attributes.get(DISABLE_PENDING_SPAN_KEY):
             return
 
         real_span_context = span.get_span_context()

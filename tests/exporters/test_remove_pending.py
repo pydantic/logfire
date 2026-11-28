@@ -43,3 +43,14 @@ def test_remove_pending_spans(exporter: TestExporter):
     assert [
         (span.name, (span.attributes or {}).get('logfire.span_type')) for span in inner_exporter.exported_spans
     ] == snapshot([('log3', 'log'), ('log4', 'log'), ('span2', 'span'), ('span3', 'span')])
+
+
+def test_disable_pending_span_attribute(exporter: TestExporter):
+    """A span marked with logfire.disable_pending_span emits no pending record."""
+    with logfire.span('span1', **{'logfire.disable_pending_span': True}):
+        logfire.info('log1')
+
+    assert [(span.name, (span.attributes or {}).get('logfire.span_type')) for span in exporter.exported_spans] == [
+        ('log1', 'log'),
+        ('span1', 'span'),
+    ]
