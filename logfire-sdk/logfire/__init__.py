@@ -29,6 +29,7 @@ from ._internal.stack_info import add_non_user_code_prefix
 from ._internal.utils import suppress_instrumentation
 from .integrations.logging import LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
+from .sampling._subtree import sample_rate
 from .version import VERSION
 
 DEFAULT_LOGFIRE_INSTANCE: Logfire = Logfire()
@@ -204,6 +205,7 @@ __all__ = (
     'VERSION',
     'add_non_user_code_prefix',
     'suppress_instrumentation',
+    'sample_rate',
     'StructlogProcessor',
     'LogfireLoggingHandler',
     'loguru_handler',

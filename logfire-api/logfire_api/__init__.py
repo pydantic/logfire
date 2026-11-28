@@ -310,6 +310,10 @@ except ImportError:
         def suppress_instrumentation():
             yield
 
+        @contextmanager
+        def sample_rate(*args, **kwargs):
+            yield
+
         class ConsoleOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 
