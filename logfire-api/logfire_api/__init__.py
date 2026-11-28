@@ -91,6 +91,13 @@ except ImportError:
 
             def set_attribute(self, key: str, value: Any) -> None: ...  # pragma: no cover
 
+        class _NoopInstrument:
+            def add(self, *args, **kwargs) -> None: ...
+
+            def record(self, *args, **kwargs) -> None: ...
+
+            def set(self, *args, **kwargs) -> None: ...
+
         class Logfire:
             def __getattr__(self, attr):
                 return MagicMock()  # pragma: no cover
@@ -238,6 +245,15 @@ except ImportError:
             def shutdown(self, *args, **kwargs) -> bool:
                 return True
 
+            def metric_counter(self, *args, **kwargs) -> _NoopInstrument:
+                return _NoopInstrument()
+
+            metric_histogram = metric_up_down_counter = metric_gauge = metric_counter
+
+            def metric_counter_callback(self, *args, **kwargs) -> None: ...
+
+            metric_gauge_callback = metric_up_down_counter_callback = metric_counter_callback
+
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span
         log = DEFAULT_LOGFIRE_INSTANCE.log
@@ -297,6 +313,13 @@ except ImportError:
         url_from_eval = DEFAULT_LOGFIRE_INSTANCE.url_from_eval
         forward_export_request = DEFAULT_LOGFIRE_INSTANCE.forward_export_request
         forward_export_request_starlette = DEFAULT_LOGFIRE_INSTANCE.forward_export_request_starlette
+        metric_counter = DEFAULT_LOGFIRE_INSTANCE.metric_counter
+        metric_histogram = DEFAULT_LOGFIRE_INSTANCE.metric_histogram
+        metric_up_down_counter = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter
+        metric_gauge = DEFAULT_LOGFIRE_INSTANCE.metric_gauge
+        metric_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_counter_callback
+        metric_gauge_callback = DEFAULT_LOGFIRE_INSTANCE.metric_gauge_callback
+        metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter_callback
 
         def loguru_handler(*, console_log: bool = True) -> dict[str, Any]:
             return {'sink': lambda message: None, 'format': '{message}'}

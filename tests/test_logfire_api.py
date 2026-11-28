@@ -167,6 +167,23 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         getattr(logfire_api, log_method)('test log')
         logfire__all__.remove(log_method)
 
+    assert logfire_api.metric_counter('test_logfire_api.counter', unit='1').add(1) is None
+    assert logfire_api.metric_histogram('test_logfire_api.histogram', unit='ms').record(1) is None
+    assert logfire_api.metric_up_down_counter('test_logfire_api.up_down_counter').add(-1) is None
+    assert logfire_api.metric_gauge('test_logfire_api.gauge').set(1) is None
+    for metric_method in ['metric_counter_callback', 'metric_gauge_callback', 'metric_up_down_counter_callback']:
+        assert getattr(logfire_api, metric_method)(f'test_logfire_api.{metric_method}', callbacks=[]) is None
+    for metric_method in [
+        'metric_counter',
+        'metric_histogram',
+        'metric_up_down_counter',
+        'metric_gauge',
+        'metric_counter_callback',
+        'metric_gauge_callback',
+        'metric_up_down_counter_callback',
+    ]:
+        logfire__all__.remove(metric_method)
+
     assert hasattr(logfire_api, 'with_settings')
     assert isinstance(logfire_api.with_settings(), logfire_api.Logfire)
     logfire__all__.remove('with_settings')
