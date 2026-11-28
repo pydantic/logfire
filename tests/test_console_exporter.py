@@ -1,6 +1,7 @@
 # pyright: reportPrivateUsage=false
 from __future__ import annotations
 
+import asyncio
 import decimal
 import enum
 import io
@@ -599,6 +600,56 @@ def test_show_parents_console_exporter_interleaved() -> None:
     )
 
 
+@pytest.mark.anyio
+async def test_show_parents_console_exporter_interleaved_hidden_records(
+    capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+) -> None:
+    config_kwargs.update(console=ConsoleOptions(colors='never', include_timestamps=False))
+    logfire.configure(**config_kwargs)
+
+    # Each `sleep(0)` lets the other task run, so the two spans interleave.
+    async def request_a() -> None:
+        with logfire.span('request A'):
+            await asyncio.sleep(0)
+            logfire.debug('hidden debug log')
+            logfire.info('after debug log')
+            await asyncio.sleep(0)
+            logfire.with_settings(console_log=False).info('hidden log')
+            logfire.info('after hidden log')
+            await asyncio.sleep(0)
+            with logfire.span('hidden debug span', _level='debug'):
+                logfire.info('in debug span')
+            logfire.info('after debug span')
+
+    async def request_b() -> None:
+        with logfire.span('request B'):
+            for _ in range(3):
+                await asyncio.sleep(0)
+                logfire.info('in B')
+
+    await asyncio.gather(request_a(), request_b())
+
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'request A',
+            'request B',
+            'request A',
+            '  after debug log',
+            'request B',
+            '  in B',
+            'request A',
+            '  after hidden log',
+            'request B',
+            '  in B',
+            'request A',
+            '  in debug span',
+            '  after debug span',
+            'request B',
+            '  in B',
+        ]
+    )
+
+
 def test_verbose_attributes(exporter: TestExporter) -> None:
     d = {'a': 1, 'b': 2}
     logfire.info('Hello {name}!', name='world', d=d)
@@ -1063,7 +1114,6 @@ def test_console_exporter_hidden_debug_span(capsys: pytest.CaptureFixture[str], 
     logfire.configure(**config_kwargs)
 
     with logfire.span('1'):
-        # TODO this span doesn't show, but it still adds to the indentation level
         with logfire.span('2', _level='debug'):
             logfire.info('3')
         logfire.info('4')
@@ -1071,7 +1121,7 @@ def test_console_exporter_hidden_debug_span(capsys: pytest.CaptureFixture[str], 
     assert capsys.readouterr().out.splitlines() == snapshot(
         [
             '00:00:01.000 1',
-            '00:00:03.000     3',
+            '00:00:03.000   3',
             '00:00:05.000   4',
         ]
     )

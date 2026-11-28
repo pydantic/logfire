@@ -168,13 +168,9 @@ class SimpleConsoleSpanExporter(SpanExporter):
 
     def _print_span(self, span: Record, indent: int = 0):
         """Build up a summary of the span, including formatting for rich, then print it."""
+        if self._is_hidden(span):
+            return
         _msg, parts = self._span_text_parts(span, indent)
-
-        # only print for "pending_span" (received at the start of a span) and "log" (spans with no duration)
-        if span.kind == 'span' or span.attributes.get(DISABLE_CONSOLE_KEY):
-            return
-        if span.level < self._min_log_level_num:
-            return
 
         indent_str = (self._timestamp_indent + indent * 2) * ' '
         details_parts = self._details_parts(span, indent_str)
@@ -192,6 +188,14 @@ class SimpleConsoleSpanExporter(SpanExporter):
 
         exc_event = next((event for event in span.events or [] if event.name == 'exception'), None)
         self._print_exc_info(exc_event, indent_str)
+
+    def _is_hidden(self, span: Record) -> bool:
+        # only print for "pending_span" (received at the start of a span) and "log" (spans with no duration)
+        return (
+            span.kind == 'span'
+            or bool(span.attributes.get(DISABLE_CONSOLE_KEY))
+            or span.level < self._min_log_level_num
+        )
 
     def _span_text_parts(self, span: Record, indent: int) -> tuple[str, TextParts]:
         """Return the formatted message or span name and parts containing basic span information.
@@ -418,6 +422,8 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         self._span_history: dict[int, tuple[int, str, int]] = {}
         # current open span ids
         self._span_stack: list[int] = []
+        # lookup from the span_id of an open span that isn't displayed to its parent id
+        self._hidden_parents: dict[int, int] = {}
 
     def export_record(self, span: Record) -> None:
         """Print any parent spans which aren't in the current stack of displayed spans, then print this span."""
@@ -425,8 +431,15 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
             # this is the end of a span, remove it from `self._span_history` and `self._span_stack`, don't print
             if span.span_id is not None:  # pragma: no branch
                 self._span_history.pop(span.span_id, None)
+                self._hidden_parents.pop(span.span_id, None)
                 if self._span_stack and self._span_stack[-1] == span.span_id:
                     self._span_stack.pop()
+            return
+
+        if span.kind == 'pending_span' and self._is_hidden(span):
+            # children of a hidden span are displayed as if they were children of its parent
+            if span.parent_span_id is not None:  # pragma: no branch
+                self._hidden_parents[span.parent_span_id] = _pending_span_parent(span.attributes) or 0
             return
 
         self._print_span(span)
@@ -463,6 +476,9 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         clear_stack = True
         # find a stack of parent spans until we reach a span in self._span_stack
         while parent_id:
+            if parent_id in self._hidden_parents:
+                parent_id = self._hidden_parents[parent_id]
+                continue
             try:
                 indent, line, grand_parent_id = self._span_history[parent_id]
             except KeyError:  # pragma: no cover
