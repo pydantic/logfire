@@ -7,8 +7,9 @@ integration: otel
 
 See every background task your [Celery][celery] workers run: the task name, how long it took, and
 whether it failed, as a **span** (one unit of work with a name, a start, and a duration) in Logfire.
-Spans link together into a **trace** (the full journey of one request), so a task shows up right next
-to the request that enqueued it. Tasks scheduled with [Celery beat][celery-beat] are covered too.
+Spans link together into a **trace** (the full journey of one request, made of nested spans).
+[Enable tracing in the sender and the worker](#distributed-tracing) to see the task in the trace
+that started it. You can also trace tasks that [Celery beat][celery-beat] starts on a schedule.
 
 ## What you'll capture
 
@@ -28,7 +29,15 @@ Install `logfire` with the `celery` extra:
 
 {{ install_logfire(extras=['celery']) }}
 
+The example uses Celery with Redis support. Install it in the same environment as Logfire.
+
+```bash
+pip install 'celery[redis]'
+```
+
 ## Usage
+
+### Start the worker
 
 Call `logfire.configure()`, then [`logfire.instrument_celery()`][logfire.Logfire.instrument_celery] to
 record every task. Call both inside Celery's `worker_process_init` signal so they run once in each
@@ -44,7 +53,7 @@ The example below uses [Redis](https://redis.io/) as the broker. You can start o
 docker run --rm -d -p 127.0.0.1:6379:6379 redis
 ```
 
-Then run the worker with `celery -A tasks worker --loglevel=info`:
+Save the task and the worker setup in `tasks.py`.
 
 ```py title="tasks.py" hl_lines="9-10" skip-run="true" skip-reason="external-connection"
 from celery import Celery
@@ -55,35 +64,74 @@ import logfire
 
 @worker_process_init.connect(weak=False)  # (1)!
 def init_worker(*args, **kwargs):
-    logfire.configure(service_name='worker')  # (2)!
+    logfire.configure(service_name='worker', distributed_tracing=True)  # (2)!
     logfire.instrument_celery()
 
 
-app = Celery('tasks', broker='redis://localhost:6379/0')  # (3)!
+app = Celery('tasks', broker='redis://localhost:6379/0')
 
 
 @app.task
 def add(x: int, y: int):
     return x + y
-
-
-add.delay(42, 50)  # (4)!
 ```
 
 1. Celery emits [signals](https://docs.celeryq.dev/en/latest/userguide/signals.html) at points in the
    application lifecycle. `worker_process_init` fires once inside each worker process, after Celery
    forks it from the parent. Initializing in `worker_init` (which runs in the parent, before the fork)
    would build the exporter's background thread in the wrong process, so spans wouldn't export.
-2. Set a `service_name` so you can tell this service's spans apart from the rest in Logfire.
-3. Install `redis` with `pip install redis`.
-4. Trigger the task. In your own app you'll more likely use `app.send_task("tasks.add", args=[42, 50])`,
-   which hands the task to the broker and returns immediately.
+2. Set a service name so you can find the worker in Logfire. With `distributed_tracing=True`, the
+   worker reads incoming trace context without a warning. Trace context is the information that
+   connects the task to the trace that started it. Use this setting when you expect that information
+   from senders you trust. See [incoming trace context](../../how-to-guides/distributed-tracing.md#unintentional-distributed-tracing).
+
+Keep the worker running in its own terminal. Start it from the directory that contains `tasks.py`.
+
+```bash
+celery -A tasks worker --loglevel=info
+```
+
+### Distributed tracing
+
+Enable Celery tracking in the sender process too. Here the sender is a script. In a web app, the
+sender is the server that adds the task to the queue, such as FastAPI or Django. The integration in
+the sender puts the trace context in the task message. The integration in the worker reads it.
+
+Save `submit_task.py` beside `tasks.py`. The `Submit addition` span starts a trace before the script
+sends the task. If your web app already records requests in Logfire, the task can join the request's
+trace.
+
+```py title="submit_task.py" hl_lines="5-6" skip-run="true" skip-reason="external-connection"
+from tasks import add
+
+import logfire
+
+logfire.configure(service_name='sender')
+logfire.instrument_celery()
+
+with logfire.span('Submit addition'):
+    add.delay(42, 50)
+```
+
+Open a second terminal in the same directory. Run the sender there.
+
+```bash
+python submit_task.py
+```
 
 ## Verify it worked
 
-Trigger a task, then open the [Live view](../../guides/web-ui/live.md). Within a few seconds you'll
-see a span named after the task, with its duration and status: click it to see the arguments it ran
-with.
+The worker terminal shows that `tasks.add` succeeded with the result `92`. Open the
+[Live view](../../guides/web-ui/live.md) and expand `Submit addition`. You should see these three
+spans in one trace.
+
+```text
+Submit addition [sender]
+└── apply_async/tasks.add [sender]
+    └── run/tasks.add [worker]
+```
+
+Select `run/tasks.add` to see the task duration, status, and arguments.
 
 ## Troubleshooting
 
@@ -94,19 +142,11 @@ if needed, then run `uvx logfire-cli auth` if needed, then
 environment variable in production; see [Getting Started](../../index.md)), and that you called
 `instrument_celery()` exactly once per worker process.
 
+If `run/tasks.add` appears in a separate trace, check that the sender calls
+`logfire.instrument_celery()` before it sends the task. Check the worker configuration too.
+`distributed_tracing=False` makes the worker start a new trace for the task.
+
 ## Advanced
-
-### Distributed tracing
-
-To follow a task from the code that enqueued it all the way to the worker that ran it, call
-`logfire.instrument_celery()` in **both** places:
-
-1. The **worker processes** that execute tasks.
-2. The **application that enqueues tasks** (for example, your Django or FastAPI web server).
-
-This propagates the trace context (the small piece of tracking information passed alongside each
-task) from the enqueuing app to the worker, so both ends appear in one trace. See the
-[distributed tracing guide](../../how-to-guides/distributed-tracing.md#integrations) for details.
 
 ### Celery beat
 
