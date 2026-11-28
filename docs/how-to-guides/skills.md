@@ -23,8 +23,9 @@ uvx logfire-cli wizard
 ```
 
 The command-line interface (CLI) signs you in or uses your saved login, connects the directory to a
-Logfire project, and detects an installed Codex or Claude Code agent. It then starts the agent with
-setup instructions bundled into the CLI. The agent keeps its normal permission and approval controls.
+Logfire project, and detects Codex, Claude Code, GitHub Copilot CLI, Cursor CLI, or Google Antigravity
+CLI. It then starts an installed agent with setup instructions bundled into the CLI. The agent keeps
+its normal permission and approval controls.
 
 !!! note "This verifies setup by sending data"
     The setup agent may update and run your application to confirm that telemetry reaches the

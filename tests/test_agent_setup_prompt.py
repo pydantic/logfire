@@ -5,6 +5,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).parent.parent
 BASH_FENCE = re.compile(r'```(?:bash|sh)\n(.*?)```', re.DOTALL)
+SUPPORTED_AGENT_COPY = 'Codex, Claude Code, GitHub Copilot CLI, Cursor CLI, or Google Antigravity CLI'
 
 
 def extract_agent_setup_command(path: Path, component: str) -> str:
@@ -56,6 +57,19 @@ def test_agent_setup_command_uses_the_published_cli() -> None:
     assert '--print-prompt' not in command
     for path in (REPO_ROOT / 'docs' / 'index.md', REPO_ROOT / 'docs' / 'first-trace.md'):
         assert '<AgentSetup command="uvx logfire-cli wizard">' in path.read_text()
+
+
+def test_agent_setup_pages_name_every_supported_agent() -> None:
+    """Keep the public wizard copy aligned across all three setup entry points."""
+    paths = (
+        REPO_ROOT / 'docs' / 'index.md',
+        REPO_ROOT / 'docs' / 'first-trace.md',
+        REPO_ROOT / 'docs' / 'how-to-guides' / 'skills.md',
+    )
+
+    for path in paths:
+        prose = ' '.join(path.read_text().split())
+        assert SUPPORTED_AGENT_COPY in prose
 
 
 def test_setup_skills_prioritize_one_service_reaching_first_data() -> None:
