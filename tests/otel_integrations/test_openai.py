@@ -2262,6 +2262,9 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                     'async': False,
                     'gen_ai.operation.name': 'text_completion',
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
@@ -2296,6 +2299,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                             'async': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.system': {},
+                            'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
@@ -3181,6 +3185,9 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.operation.name': 'text_completion',
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
                     'async': False,
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
@@ -3192,6 +3199,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
                             'async': {},
                         },
                     },
@@ -3224,6 +3232,9 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'text_completion',
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'gen_ai.output.messages': [
@@ -3239,6 +3250,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
                             'duration': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
@@ -3465,6 +3477,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'async': False,
                     'gen_ai.operation.name': 'text_completion',
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'xxx'}]}],
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
@@ -3499,6 +3512,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                             'async': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.system': {},
+                            'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
@@ -3586,6 +3600,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                     'async': False,
                     'gen_ai.operation.name': 'text_completion',
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'xxx'}]}],
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
@@ -3620,6 +3635,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                             'async': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.system': {},
+                            'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
@@ -4702,6 +4718,54 @@ def test_get_endpoint_config_responses_v2_no_inputs() -> None:
     assert 'gen_ai.system_instructions' not in config.span_data
 
 
+def _completions_config(prompt: Any, version: Any = 2) -> Any:
+    from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+
+    class MockOptions:
+        url = '/completions'
+        json_data: dict[str, Any] = {'model': 'gpt-3.5-turbo-instruct', 'prompt': prompt}
+
+    return get_endpoint_config(MockOptions(), version=version)  # type: ignore
+
+
+def test_get_endpoint_config_completions_v2_string_prompt() -> None:
+    config = _completions_config('Hello')
+    assert config.span_data['request_data'] == snapshot({'model': 'gpt-3.5-turbo-instruct'})
+    assert config.span_data['gen_ai.input.messages'] == snapshot(
+        [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}]
+    )
+
+
+def test_get_endpoint_config_completions_v2_list_of_strings() -> None:
+    config = _completions_config(['first', 'second'])
+    assert config.span_data['gen_ai.input.messages'] == snapshot(
+        [
+            {'role': 'user', 'parts': [{'type': 'text', 'content': 'first'}]},
+            {'role': 'user', 'parts': [{'type': 'text', 'content': 'second'}]},
+        ]
+    )
+
+
+def test_get_endpoint_config_completions_v2_token_ids_skipped() -> None:
+    for prompt in ([1, 2, 3], [[1, 2], [3, 4]], None, [], 5):
+        config = _completions_config(prompt)
+        assert 'gen_ai.input.messages' not in config.span_data
+
+
+def test_get_endpoint_config_completions_v1_only_unchanged() -> None:
+    config = _completions_config('Hello', version=1)
+    assert config.span_data['request_data'] == snapshot({'model': 'gpt-3.5-turbo-instruct', 'prompt': 'Hello'})
+    assert 'gen_ai.input.messages' not in config.span_data
+
+
+def test_get_endpoint_config_completions_v1_and_v2() -> None:
+    config = _completions_config('Hello', version=frozenset({1, 2}))
+    assert config.span_data['request_data'] == snapshot({'model': 'gpt-3.5-turbo-instruct', 'prompt': 'Hello'})
+    assert config.span_data['gen_ai.input.messages'] == snapshot(
+        [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}]
+    )
+
+
 def test_convert_responses_inputs_no_instructions() -> None:
     """Test convert_responses_inputs_to_semconv with no instructions."""
     from logfire._internal.integrations.llm_providers.openai import convert_responses_inputs_to_semconv
@@ -5310,6 +5374,9 @@ def test_completions_version_latest_only(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.request.max_tokens': 10,
                     'async': False,
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.tags': ('LLM',),
@@ -5334,6 +5401,7 @@ def test_completions_version_latest_only(exporter: TestExporter) -> None:
                             'gen_ai.request.model': {},
                             'gen_ai.request.max_tokens': {},
                             'async': {},
+                            'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'operation.cost': {},

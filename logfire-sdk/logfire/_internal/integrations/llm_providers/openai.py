@@ -233,9 +233,14 @@ def get_endpoint_config(
             stream_state_cls=_versioned_stream_cls(OpenaiResponsesStreamState, versions),
         )
     elif url == '/completions':
+        span_data = common_attrs('text_completion')
+        if 2 in versions:
+            prompt_messages = convert_completions_prompt_to_semconv(json_data.get('prompt'))
+            if prompt_messages:
+                span_data[INPUT_MESSAGES] = prompt_messages
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
-            span_data=common_attrs('text_completion'),
+            span_data=span_data,
             stream_state_cls=_versioned_stream_cls(OpenaiCompletionStreamState, versions),
         )
     elif url == '/embeddings':
@@ -404,6 +409,16 @@ def _media_part_uri(part: dict[str, Any], url_key: str) -> str:
 def _media_part_file_id(part: dict[str, Any]) -> str:
     file_id = part.get('file_id')
     return file_id if isinstance(file_id, str) else ''
+
+
+def convert_completions_prompt_to_semconv(prompt: str | list[Any] | None) -> InputMessages:
+    """Convert a legacy Completions API prompt to OTel Gen AI Semantic Convention input messages."""
+    prompts: list[Any] = [prompt] if isinstance(prompt, str) else prompt if isinstance(prompt, list) else []
+    return [
+        ChatMessage(role='user', parts=[TextPart(type='text', content=text)])
+        for text in prompts
+        if isinstance(text, str)
+    ]
 
 
 def convert_responses_inputs_to_semconv(
