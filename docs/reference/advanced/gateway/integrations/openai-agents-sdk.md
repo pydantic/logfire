@@ -21,7 +21,7 @@ The [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) builds s
 
 Set `apiKey` to your gateway key and `baseURL` to the OpenAI-compatible gateway route. Copy the route and a supported model name from the Gateway **Connect** tab.
 
-```typescript title="openai-agents-sdk-gateway.mts" hl_lines="11-12" skip-run="true" skip-reason="external-connection"
+```typescript title="openai-agents-sdk-gateway.mts" hl_lines="11-12 21-24" skip-run="true" skip-reason="external-connection"
 import { Agent, OpenAIProvider, Runner } from '@openai/agents';
 import { z } from 'zod';
 
@@ -42,12 +42,18 @@ const agent = new Agent({
   name: 'Weather Agent',
   instructions: 'You are a concise weather assistant.',
   model: 'gpt-5.4-mini',
+  modelSettings: {
+    store: false,
+    providerData: { include: ['reasoning.encrypted_content'] },
+  },
 });
 
 const result = await runner.run(agent, 'What is the weather in London?');
 
 console.log(result.finalOutput);
 ```
+
+The TypeScript SDK uses the OpenAI Responses API by default. When an agent calls a tool, the SDK sends the model's reasoning items back on the next turn. A [built-in OpenAI provider](../data-retention.md#built-in-openai-providers-never-store-a-response) stores nothing, so it refuses reasoning items that have no `encrypted_content`. The `modelSettings` above ask OpenAI for the encrypted reasoning, so the SDK can send it back. Don't pass `previousResponseId` or `conversationId` to `run` on a built-in provider.
 
 ## Python
 
@@ -92,4 +98,5 @@ Run either example from your terminal. It prints the agent's final response. Tha
 ## Troubleshooting
 
 - **The example cannot read `LOGFIRE_GATEWAY_API_KEY`:** set the environment variable in the same terminal where you run the example.
+- **A later turn returns `400` with `not available with Logfire-managed OpenAI credentials`:** set the `modelSettings` shown in the TypeScript example, and don't pass `previousResponseId` or `conversationId`.
 - **The request returns an authentication or model error:** copy the URL and model name again from the Gateway **Connect** tab, and confirm that the selected route supports the OpenAI request format.

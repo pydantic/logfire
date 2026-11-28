@@ -21,7 +21,7 @@ The [Vercel AI SDK](https://ai-sdk.dev/) is a TypeScript toolkit for AI web appl
 
 Set `apiKey` to your gateway key and `baseURL` to the OpenAI-compatible gateway route. Copy the route and a supported model name from the Gateway **Connect** tab.
 
-```typescript title="vercel-ai-sdk-gateway.mts" hl_lines="12-13" skip-run="true" skip-reason="external-connection"
+```typescript title="vercel-ai-sdk-gateway.mts" hl_lines="12-13 28" skip-run="true" skip-reason="external-connection"
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText, stepCountIs, tool } from 'ai';
 import { z } from 'zod';
@@ -49,10 +49,13 @@ const { text } = await generateText({
   prompt: 'What is the weather in London?',
   tools: { weatherTool },
   stopWhen: stepCountIs(5),
+  providerOptions: { openai: { store: false } },
 });
 
 console.log(text);
 ```
+
+`store: false` makes the SDK send earlier steps in full. Without it, every step after the first refers to items stored in the provider account, and a [built-in OpenAI provider](../data-retention.md#built-in-openai-providers-never-store-a-response) refuses that. For reasoning models, the SDK also requests the encrypted reasoning and sends it back. With `store: false`, the SDK does not send the results of OpenAI-hosted tools, such as web search or code interpreter, to later steps, and it logs a warning.
 
 ## Verify it worked
 
@@ -61,4 +64,5 @@ Run the example from your terminal. It prints the model response. That confirms 
 ## Troubleshooting
 
 - **The example cannot read `LOGFIRE_GATEWAY_API_KEY`:** set the environment variable in the same terminal where you run the example.
+- **The second step returns `400`: "`item_reference` inputs are not available with Logfire-managed OpenAI credentials":** add `providerOptions: { openai: { store: false } }` to the call, as in the example.
 - **The request returns an authentication or model error:** copy the URL and model name again from the Gateway **Connect** tab, and confirm that the selected route supports the OpenAI request format.

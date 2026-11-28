@@ -21,7 +21,7 @@ Send requests from your Mastra agents through the Logfire AI Gateway.
 
 Set `apiKey` to your gateway key and `baseURL` to the OpenAI-compatible gateway route. Copy the route and a supported model name from the Gateway **Connect** tab.
 
-```typescript title="mastra-gateway.mts" hl_lines="14-15" skip-run="true" skip-reason="external-connection"
+```typescript title="mastra-gateway.mts" hl_lines="14-15 40" skip-run="true" skip-reason="external-connection"
 import { createOpenAI } from '@ai-sdk/openai';
 import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
@@ -60,10 +60,14 @@ const mastra = new Mastra({
   agents: { weatherAgent },
 });
 
-const result = await mastra.getAgent('weatherAgent').generate('What is the weather in London?');
+const result = await mastra.getAgent('weatherAgent').generate('What is the weather in London?', {
+  providerOptions: { openai: { store: false } },
+});
 
 console.log(result.text);
 ```
+
+`store: false` makes the AI SDK that Mastra uses send earlier steps in full. Without it, every step after the first refers to items stored in the provider account, and a [built-in OpenAI provider](../data-retention.md#built-in-openai-providers-never-store-a-response) refuses that. With `store: false`, the results of OpenAI-hosted tools, such as web search or code interpreter, are not sent to later steps.
 
 ## Verify it worked
 
@@ -72,4 +76,5 @@ Run the example from your terminal. It prints the agent's response. That confirm
 ## Troubleshooting
 
 - **The example cannot read `LOGFIRE_GATEWAY_API_KEY`:** set the environment variable in the same terminal where you run the example.
+- **The second step returns `400`: "`item_reference` inputs are not available with Logfire-managed OpenAI credentials":** pass `providerOptions: { openai: { store: false } }` to `generate`, as in the example.
 - **The request returns an authentication or model error:** copy the URL and model name again from the Gateway **Connect** tab, and confirm that the selected route supports the OpenAI request format.
