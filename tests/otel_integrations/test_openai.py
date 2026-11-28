@@ -1,7 +1,9 @@
 from __future__ import annotations as _annotations
 
 import json
-from collections.abc import AsyncIterator, Callable, Iterator
+import threading
+from collections.abc import AsyncIterator, Callable, Generator, Iterator
+from contextlib import contextmanager, suppress
 from inspect import signature
 from io import BytesIO
 from typing import Any
@@ -6460,5 +6462,665 @@ def test_embeddings_gateway_cost(exporter: TestExporter) -> None:
                     },
                 },
             }
+        ]
+    )
+
+
+def _ws_response_events(
+    response_id: str, model: str, text: str, stream_id: str | None = None
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The `response.created` and `response.completed` server events for one Responses WebSocket response."""
+    response: dict[str, Any] = {
+        'id': response_id,
+        'object': 'response',
+        'created_at': 0,
+        'status': 'in_progress',
+        'model': model,
+        'output': [],
+        'parallel_tool_calls': True,
+        'tool_choice': 'auto',
+        'tools': [],
+    }
+    completed_response: dict[str, Any] = {
+        **response,
+        'status': 'completed',
+        'output': [
+            {
+                'type': 'message',
+                'id': f'msg_{response_id}',
+                'status': 'completed',
+                'role': 'assistant',
+                'content': [{'type': 'output_text', 'text': text, 'annotations': []}],
+            }
+        ],
+        'usage': {
+            'input_tokens': 13,
+            'input_tokens_details': {'cached_tokens': 0},
+            'output_tokens': 16,
+            'output_tokens_details': {'reasoning_tokens': 0},
+            'total_tokens': 29,
+        },
+    }
+    lane = {'stream_id': stream_id} if stream_id else {}
+    return (
+        {'type': 'response.created', 'sequence_number': 0, 'response': response, **lane},
+        {'type': 'response.completed', 'sequence_number': 1, 'response': completed_response, **lane},
+    )
+
+
+def _reply_to_each_request(ws: Any) -> None:
+    """Server handler that answers each `response.create` with a completed response."""
+    from websockets.exceptions import ConnectionClosed
+
+    # The client may close the connection without waiting for every reply.
+    with suppress(ConnectionClosed):
+        for i, raw in enumerate(ws):
+            request = json.loads(raw)
+            for event in _ws_response_events(f'resp_{i}', request['model'], f'reply {i}'):
+                ws.send(json.dumps(event))
+
+
+@contextmanager
+def _ws_client(handler: Callable[[Any], None]) -> Generator[openai.OpenAI]:
+    """An `OpenAI` client whose Responses WebSocket connects to a local server running `handler`."""
+    from websockets.sync.server import serve
+
+    with serve(handler, '127.0.0.1', 0) as server:
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        port = server.socket.getsockname()[1]
+        client = openai.OpenAI(api_key='fake_api_key', websocket_base_url=f'ws://127.0.0.1:{port}')
+        try:
+            yield client
+        finally:
+            client.close()
+            server.shutdown()
+            thread.join()
+
+
+# Sending this fails because a set can't be serialized to JSON.
+_UNSENDABLE_RESPONSE_CREATE: dict[str, Any] = {
+    'type': 'response.create',
+    'model': 'gpt-4.1',
+    'input': 'never sent',
+    'metadata': {'key': {1}},
+}
+
+
+def _ws_logs(exporter: TestExporter) -> list[dict[str, Any]]:
+    return [
+        {
+            'level': span['attributes']['logfire.level_num'],
+            'message': span['attributes']['logfire.msg'],
+            'input': span['attributes']['gen_ai.input.messages'],
+            'output': span['attributes'].get('gen_ai.output.messages'),
+            'response_id': span['attributes'].get('gen_ai.response.id'),
+            'error_type': span['attributes'].get('error.type'),
+        }
+        for span in exporter.exported_spans_as_dict(parse_json_attributes=True)
+    ]
+
+
+def _event_types_until_completed(conn: Any) -> list[str]:
+    """Read events until `response.completed`, since the server keeps the connection open."""
+    types: list[str] = []
+    for event in conn:
+        types.append(event.type)
+        if event.type == 'response.completed':
+            break
+    return types
+
+
+def test_responses_websocket(exporter: TestExporter) -> None:
+    with _ws_client(_reply_to_each_request) as client:
+        with logfire.instrument_openai(client):
+            with client.responses.connect() as conn:
+                conn.response.create(model='gpt-4.1', input='What is four plus five?', instructions='Be terse.')
+                events = _event_types_until_completed(conn)
+
+        assert events == ['response.created', 'response.completed']
+        assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+            [
+                {
+                    'name': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'parent': None,
+                    'start_time': 3000000000,
+                    'end_time': 3000000000,
+                    'attributes': {
+                        'logfire.span_type': 'log',
+                        'logfire.level_num': 9,
+                        'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                        'logfire.msg': "streaming response from 'gpt-4.1' took 1.00s",
+                        'code.filepath': 'test_openai.py',
+                        'code.function': '_event_types_until_completed',
+                        'code.lineno': 123,
+                        'duration': 1.0,
+                        'request_data': {'model': 'gpt-4.1', 'stream': True},
+                        'gen_ai.system': 'openai',
+                        'gen_ai.provider.name': 'openai',
+                        'gen_ai.operation.name': 'chat',
+                        'gen_ai.request.model': 'gpt-4.1',
+                        'gen_ai.input.messages': [
+                            {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                        ],
+                        'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be terse.'}],
+                        'async': False,
+                        'gen_ai.output.messages': [
+                            {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply 0'}]}
+                        ],
+                        'gen_ai.response.id': 'resp_0',
+                        'gen_ai.response.model': 'gpt-4.1',
+                        'gen_ai.response.finish_reasons': ['stop'],
+                        'gen_ai.usage.input_tokens': 13,
+                        'gen_ai.usage.output_tokens': 16,
+                        'gen_ai.usage.raw': {
+                            'input_tokens': 13,
+                            'input_tokens_details': {'cached_tokens': 0},
+                            'output_tokens': 16,
+                            'output_tokens_details': {'reasoning_tokens': 0},
+                            'total_tokens': 29,
+                        },
+                        'operation.cost': 0.000154,
+                        'logfire.json_schema': {
+                            'type': 'object',
+                            'properties': {
+                                'duration': {},
+                                'request_data': {'type': 'object'},
+                                'gen_ai.system': {},
+                                'gen_ai.provider.name': {},
+                                'gen_ai.operation.name': {},
+                                'gen_ai.request.model': {},
+                                'gen_ai.input.messages': {'type': 'array'},
+                                'gen_ai.system_instructions': {'type': 'array'},
+                                'async': {},
+                                'gen_ai.output.messages': {'type': 'array'},
+                                'gen_ai.response.id': {},
+                                'gen_ai.response.model': {},
+                                'gen_ai.response.finish_reasons': {'type': 'array'},
+                                'gen_ai.usage.input_tokens': {},
+                                'gen_ai.usage.output_tokens': {},
+                                'gen_ai.usage.raw': {'type': 'object'},
+                                'operation.cost': {},
+                            },
+                        },
+                        'logfire.tags': ('LLM',),
+                    },
+                }
+            ]
+        )
+
+        # Exiting the context manager restores `connect`.
+        exporter.clear()
+        with client.responses.connect() as conn:
+            conn.response.create(model='gpt-4.1', input='After uninstrumenting')
+            _event_types_until_completed(conn)
+        assert exporter.exported_spans == []
+
+
+def test_responses_websocket_nested_mcp_headers_are_not_exported(exporter: TestExporter) -> None:
+    sent: list[dict[str, Any]] = []
+
+    def handler(ws: Any) -> None:
+        from websockets.exceptions import ConnectionClosed
+
+        with suppress(ConnectionClosed):
+            for i, raw in enumerate(ws):
+                request = json.loads(raw)
+                sent.append(request)
+                for event in _ws_response_events(f'resp_{i}', request['model'], f'reply {i}'):
+                    ws.send(json.dumps(event))
+
+    tool = {
+        'type': 'mcp',
+        'server_label': 'crm',
+        'authorization': 'oauth-token',
+        'headers': {'X-Key': 'header-secret'},
+        'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp', 'headers': {'X-Key': 'transport-secret'}},
+    }
+    input_items = [{'type': 'additional_tools', 'tools': [tool]}]
+
+    with _ws_client(handler) as client:
+        with logfire.instrument_openai(client, version=[1, 2]):
+            with client.responses.connect() as conn:
+                conn.response.create(model='gpt-4.1', input=input_items)  # pyright: ignore[reportArgumentType]
+                _event_types_until_completed(conn)
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert span['attributes']['events'][0]['data']['tools'][0] == {
+        'type': 'mcp',
+        'server_label': 'crm',
+        'authorization': "[Scrubbed due to 'auth']",
+        'transport': {'type': 'http', 'url': 'https://crm.example.com/mcp'},
+    }
+    assert 'secret' not in json.dumps(span['attributes'])
+    assert [request['input'][0]['tools'][0] for request in sent] == [tool]
+
+
+def test_responses_websocket_multiple_turns(exporter: TestExporter) -> None:
+    with _ws_client(_reply_to_each_request) as client:
+        logfire.instrument_openai(client)
+        with client.responses.connect() as conn:
+            # A request whose `send` fails must not take the response of the next request.
+            with pytest.raises(TypeError):
+                conn.send(_UNSENDABLE_RESPONSE_CREATE)  # type: ignore[arg-type]
+            # Other events aren't tracked, whether or not they're sent.
+            with pytest.raises(TypeError):
+                conn.send({**_UNSENDABLE_RESPONSE_CREATE, 'type': 'response.cancel'})  # type: ignore[arg-type]
+            for turn in range(2):
+                conn.response.create(model='gpt-4.1', input=f'turn {turn}')
+                for event in conn:
+                    if event.type == 'response.completed':
+                        break
+
+    assert _ws_logs(exporter) == snapshot(
+        [
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'turn 0'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply 0'}]}],
+                'response_id': 'resp_0',
+                'error_type': None,
+            },
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'turn 1'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply 1'}]}],
+                'response_id': 'resp_1',
+                'error_type': None,
+            },
+        ]
+    )
+
+
+def test_responses_websocket_concurrent_lanes(exporter: TestExporter) -> None:
+    """Responses on different `stream_id` lanes run concurrently and their events interleave."""
+    from openai.types.responses.responses_client_event import ResponseCreate
+
+    def handler(ws: Any) -> None:
+        a_created, a_completed = _ws_response_events('resp_a', 'gpt-4.1', 'reply a', stream_id='a')
+        b_created, b_completed = _ws_response_events('resp_b', 'gpt-4.1', 'reply b', stream_id='b')
+        ws.recv()
+        ws.recv()
+        for event in (a_created, b_created, b_completed, a_completed):
+            ws.send(json.dumps(event))
+
+    with _ws_client(handler) as client:
+        logfire.instrument_openai(client)
+        with client.responses.connect() as conn:
+            conn.response.create(model='gpt-4.1', input='lane a', stream_id='a')
+            # `send` also accepts a model instead of a dict.
+            conn.send(ResponseCreate(type='response.create', model='gpt-4.1', input='lane b', stream_id='b'))
+            for _ in conn:
+                pass
+
+    assert _ws_logs(exporter) == snapshot(
+        [
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'lane b'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply b'}]}],
+                'response_id': 'resp_b',
+                'error_type': None,
+            },
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 4.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'lane a'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply a'}]}],
+                'response_id': 'resp_a',
+                'error_type': None,
+            },
+        ]
+    )
+
+
+def test_responses_websocket_error_and_queued_send(exporter: TestExporter) -> None:
+    def handler(ws: Any) -> None:
+        ws.recv()
+        error = {'type': 'invalid_request_error', 'message': 'bad request', 'code': 'bad'}
+        ws.send(json.dumps({'type': 'error', 'status': 400, 'error': error}))
+
+    with _ws_client(handler) as client:
+        logfire.instrument_openai(client)
+        manager = client.responses.connect()
+        with pytest.raises(TypeError):
+            manager.send(_UNSENDABLE_RESPONSE_CREATE)  # type: ignore[arg-type]
+        # `send` on the manager queues the event until the connection opens.
+        manager.send({'type': 'response.create', 'input': 'Queued before enter, without a model'})
+        with manager as conn:
+            events = [event.type for event in conn]
+
+    assert events == ['error']
+    assert _ws_logs(exporter) == snapshot(
+        [
+            {
+                'level': 17,
+                'message': 'streaming response from None took 1.00s',
+                'input': [
+                    {'role': 'user', 'parts': [{'type': 'text', 'content': 'Queued before enter, without a model'}]}
+                ],
+                'output': None,
+                'response_id': None,
+                'error_type': 'invalid_request_error',
+            }
+        ]
+    )
+
+
+def test_responses_websocket_exception_and_close(exporter: TestExporter) -> None:
+    def handler(ws: Any) -> None:
+        from websockets.exceptions import ConnectionClosed
+
+        # The last request closes the connection without waiting for the reply.
+        with suppress(ConnectionClosed):
+            for raw in ws:
+                request = json.loads(raw)
+                if request['type'] == 'response.create':
+                    created, _ = _ws_response_events('resp_0', request['model'], 'unused')
+                    ws.send(json.dumps(created))
+                else:
+                    # An event that doesn't belong to any pending response.
+                    ws.send(json.dumps({'type': 'error', 'stream_id': 'other', 'error': {'message': 'unknown'}}))
+
+    with _ws_client(handler) as client:
+        logfire.instrument_openai(client)
+
+        # The response is interrupted by an exception after it started.
+        with pytest.raises(ValueError):
+            with client.responses.connect() as conn:
+                conn.response.create(model='gpt-4.1', input='interrupted')
+                assert conn.recv().type == 'response.created'
+                conn.send({'type': 'session.ping'})  # type: ignore[arg-type]
+                assert conn.recv().type == 'error'
+                raise ValueError('stop')
+
+        # The connection is closed after the response started but before it ended.
+        conn = client.responses.connect().enter()
+        conn.response.create(model='gpt-4.1', input='closed early')
+        assert conn.recv().type == 'response.created'
+        conn.close()
+
+        # Nothing was received before closing, so nothing is logged.
+        with client.responses.connect() as conn:
+            conn.response.create(model='gpt-4.1', input='never answered')
+
+    assert _ws_logs(exporter) == snapshot(
+        [
+            {
+                'level': 17,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'interrupted'}]}],
+                'output': None,
+                'response_id': None,
+                'error_type': 'ValueError',
+            },
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'closed early'}]}],
+                'output': None,
+                'response_id': None,
+                'error_type': None,
+            },
+        ]
+    )
+
+
+def test_responses_websocket_skipped_requests(exporter: TestExporter) -> None:
+    """Requests that aren't recorded still take their own responses, rather than a later request taking them."""
+    from unittest.mock import patch
+
+    with _ws_client(_reply_to_each_request) as client:
+        logfire.instrument_openai(client)
+        with client.responses.connect() as conn:
+            with suppress_instrumentation():
+                conn.response.create(model='gpt-4.1', input='suppressed')
+            conn.response.create(model='gpt-4.1', input='recorded')
+            with patch('logfire._internal.integrations.llm_providers.openai.is_current_agent_span', return_value=True):
+                conn.response.create(model='gpt-4.1', input='inside an agent span')
+            for _ in range(6):
+                conn.recv()
+            # Still pending when the connection closes.
+            with suppress_instrumentation():
+                conn.response.create(model='gpt-4.1', input='suppressed and unanswered')
+
+    assert _ws_logs(exporter) == snapshot(
+        [
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'recorded'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply 1'}]}],
+                'response_id': 'resp_1',
+                'error_type': None,
+            }
+        ]
+    )
+
+
+def test_responses_websocket_connection_outlives_instrumentation(exporter: TestExporter) -> None:
+    """A connection opened while instrumented stops recording new requests once instrumentation is reverted."""
+    with _ws_client(_reply_to_each_request) as client:
+        with logfire.instrument_openai(client):
+            conn = client.responses.connect().enter()
+            conn.response.create(model='gpt-4.1', input='while instrumented')
+            _event_types_until_completed(conn)
+            # Still in progress when instrumentation is reverted, so it's recorded once it ends.
+            conn.response.create(model='gpt-4.1', input='in progress when uninstrumented')
+        _event_types_until_completed(conn)
+        conn.response.create(model='gpt-4.1', input='after uninstrumenting')
+        _event_types_until_completed(conn)
+        conn.close()
+
+    assert _ws_logs(exporter) == snapshot(
+        [
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'while instrumented'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply 0'}]}],
+                'response_id': 'resp_0',
+                'error_type': None,
+            },
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'in progress when uninstrumented'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply 1'}]}],
+                'response_id': 'resp_1',
+                'error_type': None,
+            },
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_responses_websocket_connection_outlives_instrumentation_async(exporter: TestExporter) -> None:
+    from websockets.asyncio.server import serve
+
+    async def handler(ws: Any) -> None:
+        i = 0
+        async for raw in ws:
+            request = json.loads(raw)
+            for event in _ws_response_events(f'resp_{i}', request['model'], f'reply {i}'):
+                await ws.send(json.dumps(event))
+            i += 1
+
+    async def read_until_completed(conn: Any) -> None:
+        async for event in conn:
+            if event.type == 'response.completed':
+                break
+
+    async with serve(handler, '127.0.0.1', 0) as server:
+        port = server.sockets[0].getsockname()[1]
+        client = openai.AsyncOpenAI(api_key='fake_api_key', websocket_base_url=f'ws://127.0.0.1:{port}')
+        with logfire.instrument_openai(client):
+            conn = await client.responses.connect().enter()
+            await conn.response.create(model='gpt-4.1', input='while instrumented')
+            await read_until_completed(conn)
+        await conn.response.create(model='gpt-4.1', input='after uninstrumenting')
+        await read_until_completed(conn)
+        await conn.close()
+        await client.close()
+
+    assert _ws_logs(exporter) == snapshot(
+        [
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'while instrumented'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply 0'}]}],
+                'response_id': 'resp_0',
+                'error_type': None,
+            }
+        ]
+    )
+
+
+def test_responses_websocket_failed_response(exporter: TestExporter) -> None:
+    def handler(ws: Any) -> None:
+        request = json.loads(ws.recv())
+        created, _ = _ws_response_events('resp_0', request['model'], 'unused')
+        error = {'code': 'server_error', 'message': 'The server had an error.'}
+        failed_response = {**created['response'], 'status': 'failed', 'error': error}
+        ws.send(json.dumps(created))
+        ws.send(json.dumps({'type': 'response.failed', 'sequence_number': 1, 'response': failed_response}))
+
+    with _ws_client(handler) as client:
+        logfire.instrument_openai(client)
+        with client.responses.connect() as conn:
+            conn.response.create(model='gpt-4.1', input='fails')
+            events = [event.type for event in conn]
+
+    assert events == ['response.created', 'response.failed']
+    assert _ws_logs(exporter) == snapshot(
+        [
+            {
+                'level': 17,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'fails'}]}],
+                'output': [],
+                'response_id': 'resp_0',
+                'error_type': 'server_error',
+            }
+        ]
+    )
+
+
+def test_responses_websocket_client_subclass(exporter: TestExporter) -> None:
+    """Instrumenting a client class doesn't affect other client classes that share the `Responses` resource."""
+
+    class InstrumentedOpenAI(openai.OpenAI):
+        pass
+
+    class OtherOpenAI(openai.OpenAI):
+        pass
+
+    with _ws_client(_reply_to_each_request) as base_client:
+        websocket_base_url = base_client.websocket_base_url
+        instrumented_client = InstrumentedOpenAI(api_key='fake_api_key', websocket_base_url=websocket_base_url)
+        other_client = OtherOpenAI(api_key='fake_api_key', websocket_base_url=websocket_base_url)
+        with logfire.instrument_openai(InstrumentedOpenAI):
+            for client, name in [
+                (other_client, 'other subclass'),
+                (instrumented_client, 'instrumented subclass'),
+                (base_client, 'base class'),
+            ]:
+                with client.responses.connect() as conn:
+                    conn.response.create(model='gpt-4.1', input=name)
+                    _event_types_until_completed(conn)
+        instrumented_client.close()
+        other_client.close()
+
+    assert _ws_logs(exporter) == snapshot(
+        [
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'instrumented subclass'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply 0'}]}],
+                'response_id': 'resp_0',
+                'error_type': None,
+            }
+        ]
+    )
+
+
+def test_responses_websocket_class_instrumentation(exporter: TestExporter) -> None:
+    with _ws_client(_reply_to_each_request) as client:
+        with logfire.instrument_openai():
+            # Already instrumented through the class, so this is a no-op.
+            logfire.instrument_openai(client)
+            with client.responses.connect() as conn:
+                conn.response.create(model='gpt-4.1', input='class instrumented')
+                _event_types_until_completed(conn)
+
+    assert _ws_logs(exporter) == snapshot(
+        [
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'class instrumented'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'reply 0'}]}],
+                'response_id': 'resp_0',
+                'error_type': None,
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_responses_websocket_async(exporter: TestExporter) -> None:
+    from websockets.asyncio.server import serve
+
+    async def handler(ws: Any) -> None:
+        async for raw in ws:
+            request = json.loads(raw)
+            for event in _ws_response_events('resp_0', request['model'], 'async reply'):
+                await ws.send(json.dumps(event))
+
+    async with serve(handler, '127.0.0.1', 0) as server:
+        port = server.sockets[0].getsockname()[1]
+        client = openai.AsyncOpenAI(api_key='fake_api_key', websocket_base_url=f'ws://127.0.0.1:{port}')
+        with logfire.instrument_openai(client):
+            async with client.responses.connect() as conn:
+                with pytest.raises(TypeError):
+                    await conn.send(_UNSENDABLE_RESPONSE_CREATE)  # type: ignore[arg-type]
+                await conn.response.create(model='gpt-4.1', input='Hello async')
+                events: list[str] = []
+                async for event in conn:
+                    events.append(event.type)
+                    if event.type == 'response.completed':
+                        break
+
+            conn = await client.responses.connect().enter()
+            await conn.response.create(model='gpt-4.1', input='closed early')
+            assert (await conn.recv()).type == 'response.created'
+            await conn.close()
+        await client.close()
+
+    assert events == ['response.created', 'response.completed']
+    assert _ws_logs(exporter) == snapshot(
+        [
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello async'}]}],
+                'output': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'async reply'}]}],
+                'response_id': 'resp_0',
+                'error_type': None,
+            },
+            {
+                'level': 9,
+                'message': "streaming response from 'gpt-4.1' took 1.00s",
+                'input': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'closed early'}]}],
+                'output': None,
+                'response_id': None,
+                'error_type': None,
+            },
         ]
     )

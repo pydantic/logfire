@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import contextlib
 import json
+from collections import deque
+from collections.abc import Iterable
+from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
+from dataclasses import dataclass
+from functools import wraps
 from typing import TYPE_CHECKING, Any, cast
 
 import openai
 from openai._legacy_response import LegacyAPIResponse
+from openai._utils import is_given
 from openai.lib.streaming.responses import ResponseStreamState
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
@@ -17,9 +23,10 @@ from openai.types.images_response import ImagesResponse
 from openai.types.responses import Response
 from opentelemetry.trace import get_current_span
 
-from logfire import LogfireSpan
+from logfire import LogfireSpan, attach_context, get_context
 
-from ...utils import handle_internal_errors, log_internal_error
+from ...constants import ONE_SECOND_IN_NANOSECONDS
+from ...utils import handle_internal_errors, is_instrumentation_suppressed, log_internal_error
 from .semconv import (
     INPUT_MESSAGES,
     OPERATION_NAME,
@@ -59,10 +66,13 @@ from .usage import get_usage_attributes
 if TYPE_CHECKING:
     from openai._models import FinalRequestOptions
 
-    from ...main import LogfireSpan
+    from logfire.propagate import ContextCarrier
+
+    from ...main import Logfire, LogfireSpan
 
 __all__ = (
     'get_endpoint_config',
+    'instrument_openai_responses_ws',
     'on_response',
     'is_async_client',
 )
@@ -151,6 +161,35 @@ def _versioned_stream_cls(
     return VersionedStreamState
 
 
+def _build_responses_span_data(
+    json_data: dict[str, Any],
+    versions: frozenset[NormalizedSemconvVersion],
+    *,
+    stream: bool,
+) -> dict[str, Any]:
+    """Build span_data for an OpenAI Responses API request (HTTP or WebSocket)."""
+    model = json_data.get('model')
+    span_data: dict[str, Any] = {
+        'request_data': {'model': model, 'stream': stream},
+        **provider_attrs('openai'),
+        OPERATION_NAME: 'chat',
+    }
+    if model:
+        span_data[REQUEST_MODEL] = model
+    _extract_request_parameters(json_data, span_data)
+    if 1 in versions:
+        span_data['events'] = inputs_to_events(json_data.get('input'), json_data.get('instructions'))
+    if 2 in versions:
+        input_messages_resp, system_instructions = convert_responses_inputs_to_semconv(
+            json_data.get('input'), json_data.get('instructions')
+        )
+        if input_messages_resp:
+            span_data[INPUT_MESSAGES] = input_messages_resp
+        if system_instructions:
+            span_data[SYSTEM_INSTRUCTIONS] = system_instructions
+    return span_data
+
+
 def get_endpoint_config(
     options: FinalRequestOptions,
     *,
@@ -213,19 +252,7 @@ def get_endpoint_config(
             return EndpointConfig(message_template='', span_data={})
 
         stream = json_data.get('stream', False)
-        span_data = {**common_attrs('chat'), 'request_data': {'model': model, 'stream': stream}}
-        if 1 in versions:
-            span_data['events'] = inputs_to_events(json_data.get('input'), json_data.get('instructions'))
-
-        if 2 in versions:
-            # Convert inputs to semantic convention format
-            input_messages_resp, system_instructions = convert_responses_inputs_to_semconv(
-                json_data.get('input'), json_data.get('instructions')
-            )
-            if input_messages_resp:
-                span_data[INPUT_MESSAGES] = input_messages_resp
-            if system_instructions:
-                span_data[SYSTEM_INSTRUCTIONS] = system_instructions
+        span_data = _build_responses_span_data(json_data, versions, stream=stream)
 
         return EndpointConfig(
             message_template='Responses API with {gen_ai.request.model!r}',
@@ -1010,3 +1037,351 @@ def _content_part_to_event(content_item: Any, event_name: str, role: str) -> dic
             return {'event.name': event_name, 'content': '[file_data]', 'role': role}
         return {'event.name': event_name, 'content': '[file]', 'role': role}
     return None
+
+
+@dataclass(eq=False)
+class _PendingWsResponse:
+    span_data: dict[str, Any]
+    stream_state: OpenaiResponsesStreamState
+    start_time: int
+    original_context: ContextCarrier
+    received_any_event: bool = False
+
+
+class _SkippedWsResponse:
+    """Placeholder for a `response.create` that isn't recorded, e.g. because instrumentation is suppressed or off.
+
+    It keeps its place in the lane so that the events of its response aren't assigned to a later request.
+    """
+
+
+_WsLaneEntry = _PendingWsResponse | _SkippedWsResponse
+
+_WS_TERMINAL_EVENT_TYPES = ('response.completed', 'response.incomplete', 'response.failed', 'error')
+
+
+class _WsSessionTracker:
+    """Tracks Responses API request/response lifecycles over a WebSocket connection.
+
+    A connection can run several responses at once, one per `stream_id` lane. Requests on the same lane run
+    in FIFO order and don't overlap, and server events carry the `stream_id` of their lane (absent for the
+    default lane), so each event belongs to the oldest pending request on its lane.
+    """
+
+    def __init__(self, client: Any, settings: _WsInstrumentationSettings, *, is_async: bool) -> None:
+        self.client = client
+        self.settings = settings
+        self.logfire_llm = settings.logfire_llm
+        self.versions = settings.versions
+        self.is_async = is_async
+        # Use the HTTP base URL like the HTTP instrumentation does, for cost and gateway detection.
+        self.base_url = str(client.base_url)
+        self.lanes: dict[str | None, deque[_WsLaneEntry]] = {}
+
+    def is_instrumented(self) -> bool:
+        """Whether the instrumentation this connection was opened with is still active.
+
+        A connection can outlive `instrument_openai`'s context manager, and shouldn't record requests after it.
+        """
+        return getattr(self.client, _WS_SETTINGS_ATTR, None) is self.settings
+
+    def on_send(self, event: Any) -> tuple[str | None, _WsLaneEntry] | None:
+        """Register a `response.create` event before it's sent, and return a handle to `discard` it if sending fails."""
+        try:
+            # `send` accepts either a pydantic model or a dict, see `ResponsesConnection.send`.
+            # `connection.response.create()` passes a dict that still contains `omit` defaults.
+            if isinstance(event, openai.BaseModel):
+                event_dict: dict[str, Any] = event.model_dump(mode='json', exclude_unset=True)
+            else:
+                event_dict = {k: v for k, v in cast('dict[str, Any]', event).items() if is_given(v)}
+            if event_dict.get('type') != 'response.create':
+                return None
+
+            entry: _WsLaneEntry
+            if (
+                not self.is_instrumented()
+                or is_instrumentation_suppressed()
+                or is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}')
+            ):
+                entry = _SkippedWsResponse()
+            else:
+                # Like `get_endpoint_config`, record a copy without MCP headers and leave the sent event unchanged.
+                span_data = _build_responses_span_data(
+                    cast('dict[str, Any]', _without_credentials(event_dict, keep_authorization=True)),
+                    self.versions,
+                    stream=True,
+                )
+                span_data['async'] = self.is_async
+                stream_state = cast(
+                    'OpenaiResponsesStreamState',
+                    _versioned_stream_cls(OpenaiResponsesStreamState, self.versions)(),
+                )
+                stream_state.base_url = self.base_url
+                timer = self.logfire_llm._config.advanced.ns_timestamp_generator  # pyright: ignore[reportPrivateUsage]
+                entry = _PendingWsResponse(
+                    span_data=span_data,
+                    stream_state=stream_state,
+                    start_time=timer(),
+                    original_context=get_context(),
+                )
+            lane_key = event_dict.get('stream_id')
+            self.lanes.setdefault(lane_key, deque()).append(entry)
+            return lane_key, entry
+        except Exception:  # pragma: no cover
+            log_internal_error()
+            return None
+
+    def discard(self, handle: tuple[str | None, _WsLaneEntry] | None) -> None:
+        """Forget a request whose `send` failed, so that it doesn't take the next response on its lane."""
+        if handle is not None:
+            lane_key, entry = handle
+            # The lane may already be gone if the connection was closed in the meantime.
+            with contextlib.suppress(KeyError, ValueError):
+                self.lanes[lane_key].remove(entry)
+
+    def on_recv(self, event: Any) -> None:
+        try:
+            lane = self.lanes.get(getattr(event, 'stream_id', None))
+            if not lane:
+                return
+            pending = lane[0]
+            is_terminal = event.type in _WS_TERMINAL_EVENT_TYPES
+            if is_terminal:
+                lane.popleft()
+            if isinstance(pending, _SkippedWsResponse):
+                return
+            if event.type == 'error':
+                # Not a streaming event: it can arrive before `response.created`, which the stream state rejects.
+                self._emit(pending, error_type=getattr(event.error, 'type', None) or 'error')
+                return
+            pending.received_any_event = True
+            pending.stream_state.record_chunk(event)
+            if event.type == 'response.failed':
+                self._emit(pending, error_type=getattr(event.response.error, 'code', None) or 'response_failed')
+            elif is_terminal:
+                self._emit(pending)
+        except Exception:  # pragma: no cover
+            log_internal_error()
+
+    def on_close(self, exc: BaseException | None = None) -> None:
+        lanes, self.lanes = self.lanes, {}
+        for lane in lanes.values():
+            for pending in lane:
+                if isinstance(pending, _PendingWsResponse) and (exc is not None or pending.received_any_event):
+                    self._emit(pending, exc=exc)
+
+    def _emit(
+        self,
+        pending: _PendingWsResponse,
+        *,
+        exc: BaseException | None = None,
+        error_type: str | None = None,
+    ) -> None:
+        timer = self.logfire_llm._config.advanced.ns_timestamp_generator  # pyright: ignore[reportPrivateUsage]
+        duration = (timer() - pending.start_time) / ONE_SECOND_IN_NANOSECONDS
+        with attach_context(pending.original_context):
+            attributes = pending.stream_state.get_attributes(pending.span_data)
+            exc_info = None
+            if exc is not None:
+                error_type = type(exc).__name__
+                exc_info = (type(exc), exc, exc.__traceback__)
+            if error_type is not None:
+                attributes['error.type'] = error_type
+            self.logfire_llm.log(
+                'info' if error_type is None else 'error',
+                'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                {'duration': duration, **attributes},
+                exc_info=exc_info,
+            )
+
+
+def _wrap_ws_connection(conn: Any, tracker: _WsSessionTracker, *, is_async: bool) -> Any:
+    orig_send = conn.send
+    orig_recv = conn.recv
+    orig_close = conn.close
+
+    if is_async:
+
+        @wraps(orig_send)
+        async def wrapped_async_send(event: Any, *args: Any, **kwargs: Any) -> Any:
+            # Register before sending: the response could otherwise arrive before the request is known.
+            handle = tracker.on_send(event)
+            try:
+                return await orig_send(event, *args, **kwargs)
+            except BaseException:
+                tracker.discard(handle)
+                raise
+
+        @wraps(orig_recv)
+        async def wrapped_async_recv(*args: Any, **kwargs: Any) -> Any:
+            event = await orig_recv(*args, **kwargs)
+            tracker.on_recv(event)
+            return event
+
+        @wraps(orig_close)
+        async def wrapped_async_close(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return await orig_close(*args, **kwargs)
+            finally:
+                tracker.on_close()
+
+        conn.send = wrapped_async_send
+        conn.recv = wrapped_async_recv
+        conn.close = wrapped_async_close
+    else:
+
+        @wraps(orig_send)
+        def wrapped_sync_send(event: Any, *args: Any, **kwargs: Any) -> Any:
+            # Register before sending: the response could otherwise arrive before the request is known.
+            handle = tracker.on_send(event)
+            try:
+                return orig_send(event, *args, **kwargs)
+            except BaseException:
+                tracker.discard(handle)
+                raise
+
+        @wraps(orig_recv)
+        def wrapped_sync_recv(*args: Any, **kwargs: Any) -> Any:
+            event = orig_recv(*args, **kwargs)
+            tracker.on_recv(event)
+            return event
+
+        @wraps(orig_close)
+        def wrapped_sync_close(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return orig_close(*args, **kwargs)
+            finally:
+                tracker.on_close()
+
+        conn.send = wrapped_sync_send
+        conn.recv = wrapped_sync_recv
+        conn.close = wrapped_sync_close
+
+    return conn
+
+
+def _wrap_ws_manager(manager: Any, tracker: _WsSessionTracker, *, is_async: bool) -> Any:
+    orig_send = manager.send
+
+    @wraps(orig_send)
+    def wrapped_manager_send(event: Any, *args: Any, **kwargs: Any) -> Any:
+        handle = tracker.on_send(event)
+        try:
+            return orig_send(event, *args, **kwargs)
+        except BaseException:
+            tracker.discard(handle)
+            raise
+
+    manager.send = wrapped_manager_send
+
+    manager_cls: Any = manager.__class__
+    if is_async:
+
+        class _InstrumentedAsyncWsManager(manager_cls):
+            async def __aenter__(self) -> Any:
+                conn = await manager_cls.__aenter__(self)
+                return _wrap_ws_connection(conn, tracker, is_async=True)
+
+            enter = __aenter__
+
+            async def __aexit__(self, exc_type: Any, exc: Any, exc_tb: Any) -> Any:
+                # Flush pending responses with `exc` before `super().__aexit__` calls `conn.close()`.
+                tracker.on_close(exc)
+                return await manager_cls.__aexit__(self, exc_type, exc, exc_tb)
+
+        manager.__class__ = _InstrumentedAsyncWsManager
+    else:
+
+        class _InstrumentedSyncWsManager(manager_cls):
+            def __enter__(self) -> Any:
+                conn = manager_cls.__enter__(self)
+                return _wrap_ws_connection(conn, tracker, is_async=False)
+
+            enter = __enter__
+
+            def __exit__(self, exc_type: Any, exc: Any, exc_tb: Any) -> Any:
+                # Flush pending responses with `exc` before `super().__exit__` calls `conn.close()`.
+                tracker.on_close(exc)
+                return manager_cls.__exit__(self, exc_type, exc, exc_tb)
+
+        manager.__class__ = _InstrumentedSyncWsManager
+
+    return manager
+
+
+@dataclass(frozen=True)
+class _WsInstrumentationSettings:
+    logfire_llm: Logfire
+    versions: frozenset[NormalizedSemconvVersion]
+
+
+# Set on the instrumented client instance or class, like `_is_instrumented_by_logfire` for HTTP requests,
+# so that instrumenting a client class only affects that class and its subclasses.
+_WS_SETTINGS_ATTR = '_logfire_responses_ws_settings'
+
+# Clients and classes whose Responses WebSocket mode is currently instrumented.
+_ws_instrumented_clients: list[Any] = []
+
+# The original `connect` methods of the `Responses` resources, while they're patched.
+_ws_original_connects: dict[type[Any], Any] = {}
+
+
+def _instrumented_ws_connect(original_connect: Any, *, is_async: bool) -> Any:
+    @wraps(original_connect)
+    def connect(self: Any, *args: Any, **kwargs: Any) -> Any:
+        manager = original_connect(self, *args, **kwargs)
+        client = self._client
+        settings: _WsInstrumentationSettings | None = getattr(client, _WS_SETTINGS_ATTR, None)
+        if settings is None:
+            return manager
+        tracker = _WsSessionTracker(client, settings, is_async=is_async)
+        return _wrap_ws_manager(manager, tracker, is_async=is_async)
+
+    return connect
+
+
+def instrument_openai_responses_ws(
+    logfire: Logfire,
+    client: Any,
+    versions: frozenset[NormalizedSemconvVersion],
+) -> AbstractContextManager[None]:
+    """Instrument `responses.connect()` for OpenAI Responses WebSocket mode."""
+    if isinstance(client, Iterable):
+        context_managers = [instrument_openai_responses_ws(logfire, c, versions) for c in cast('Iterable[Any]', client)]
+
+        @contextmanager
+        def uninstrument_all():
+            with ExitStack() as stack:
+                for cm in context_managers:
+                    stack.enter_context(cm)
+                yield
+
+        return uninstrument_all()
+
+    from openai.resources.responses import AsyncResponses, Responses
+
+    # `responses.connect()` only exists in newer `openai` versions.
+    if not hasattr(Responses, 'connect') or getattr(client, _WS_SETTINGS_ATTR, None) is not None:
+        return nullcontext()
+
+    if not _ws_instrumented_clients:
+        for resource_cls, is_async in ((Responses, False), (AsyncResponses, True)):
+            _ws_original_connects[resource_cls] = resource_cls.connect
+            setattr(resource_cls, 'connect', _instrumented_ws_connect(resource_cls.connect, is_async=is_async))
+    _ws_instrumented_clients.append(client)
+    settings = _WsInstrumentationSettings(logfire.with_settings(custom_scope_suffix='openai', tags=['LLM']), versions)
+    setattr(client, _WS_SETTINGS_ATTR, settings)
+
+    @contextmanager
+    def uninstrument_ws():
+        try:
+            yield
+        finally:
+            delattr(client, _WS_SETTINGS_ATTR)
+            _ws_instrumented_clients.remove(client)
+            if not _ws_instrumented_clients:
+                for resource_cls, original_connect in _ws_original_connects.items():
+                    setattr(resource_cls, 'connect', original_connect)
+                _ws_original_connects.clear()
+
+    return uninstrument_ws()
